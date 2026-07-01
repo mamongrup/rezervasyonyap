@@ -19,7 +19,10 @@ import TextBlockModule from './modules/TextBlockModule'
 import FAQModule from './modules/FAQModule'
 import TopProvidersModule from './modules/TopProvidersModule'
 import BecomeProviderModule from './modules/BecomeProviderModule'
-import ListingsModule from './modules/ListingsModule'
+import ListingsModule, {
+  countListingsForFilterMode,
+  hasAnyTabListings,
+} from './modules/ListingsModule'
 import type { ListingsModuleConfig } from './modules/ListingsModule'
 import VideoGalleryModule from './modules/VideoGalleryModule'
 import ImageTextModule from './modules/ImageTextModule'
@@ -319,7 +322,14 @@ export default async function PageBuilderRenderer({
           case 'listings_slider': {
             const cfg = module.config
             // listingCardsById + allListings — kartlar sunucuda üretildi (client’a fonksiyon yok)
-            if (listingCardsById && allListings?.length) {
+            if (listingCardsById && allListings) {
+              const filterMode = cfg.filterMode ?? 'all'
+              const showTabs = cfg.showTabs ?? false
+              const hasListings = showTabs
+                ? hasAnyTabListings(allListings)
+                : countListingsForFilterMode(allListings, filterMode) > 0
+              if (!hasListings) return null
+
               const listingsCfg: ListingsModuleConfig = {
                 title: cfg.title,
                 subheading: cfg.subheading,

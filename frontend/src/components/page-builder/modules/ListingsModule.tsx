@@ -29,7 +29,7 @@ interface Tab {
 
 const tabIconClass = 'size-4 shrink-0'
 
-const TABS: Tab[] = [
+export const LISTING_FILTER_TABS: Tab[] = [
   {
     id: 'all',
     label: 'Tümü',
@@ -63,6 +63,20 @@ const TABS: Tab[] = [
   },
 ]
 
+const TABS = LISTING_FILTER_TABS
+
+export function countListingsForFilterMode(
+  allListings: TListingBase[],
+  mode: ListingFilterMode,
+): number {
+  const tab = TABS.find((t) => t.id === mode) ?? TABS[0]
+  return allListings.filter(tab.filter).length
+}
+
+export function hasAnyTabListings(allListings: TListingBase[]): boolean {
+  return TABS.some((tab) => allListings.filter(tab.filter).length > 0)
+}
+
 export interface ListingsModuleConfig {
   title?: string
   subheading?: string
@@ -81,34 +95,19 @@ interface ListingsModuleProps {
   cardsByListingId: Record<string, ReactNode>
 }
 
-function EmptyState({ label }: { label: string }) {
-  return (
-    <div className="col-span-full flex flex-col items-center gap-3 rounded-2xl border border-dashed border-neutral-200 py-16 dark:border-neutral-700">
-      <span className="text-4xl">🔍</span>
-      <p className="text-sm text-neutral-500 dark:text-neutral-400">
-        Şu anda <strong>{label}</strong> kategorisinde ilan bulunmuyor.
-      </p>
-    </div>
-  )
-}
-
 function ListingsSliderRow({
   filtered,
   cardsByListingId,
-  emptyLabel,
 }: {
   filtered: TListingBase[]
   cardsByListingId: Record<string, ReactNode>
-  emptyLabel: string
 }) {
   const sliderRef = useRef<HTMLDivElement>(null)
   const { scrollToNextSlide, scrollToPrevSlide, isAtEnd, isAtStart } = useSnapSlider({ sliderRef })
   const locale = useLocaleSegment()
   const pag = getMessages(locale).common.pagination
 
-  if (filtered.length === 0) {
-    return <EmptyState label={emptyLabel} />
-  }
+  if (filtered.length === 0) return null
 
   return (
     <div className="relative">
@@ -154,15 +153,29 @@ export default function ListingsModule({ config, allListings, cardsByListingId }
     viewAllLabel = 'Tümünü Gör',
   } = config
 
+  const availableTabs = useMemo(
+    () => (showTabs ? TABS.filter((tab) => allListings.filter(tab.filter).length > 0) : []),
+    [allListings, showTabs],
+  )
+
   // If showTabs is true → user picks tab; otherwise locked to filterMode
   const [activeTab, setActiveTab] = useState<ListingFilterMode>(filterMode)
 
-  const currentTab = TABS.find((t) => t.id === (showTabs ? activeTab : filterMode)) ?? TABS[0]
+  const currentTab =
+    showTabs
+      ? (availableTabs.find((t) => t.id === activeTab) ?? availableTabs[0])
+      : (TABS.find((t) => t.id === filterMode) ?? TABS[0])
 
   const filtered = useMemo(
     () => allListings.filter(currentTab.filter).slice(0, count),
     [allListings, currentTab, count],
   )
+
+  const shouldHideSection = showTabs
+    ? availableTabs.length === 0
+    : countListingsForFilterMode(allListings, filterMode) === 0
+
+  if (shouldHideSection) return null
 
   // Build badge label for active filter mode
   const badgeLabel =
@@ -195,9 +208,9 @@ export default function ListingsModule({ config, allListings, cardsByListingId }
       {/* Tabs (only shown when showTabs === true) */}
       {showTabs && (
         <div className="mb-6 flex flex-wrap gap-2">
-          {TABS.map((tab) => {
-            const count = allListings.filter(tab.filter).length
-            const isActive = activeTab === tab.id
+          {availableTabs.map((tab) => {
+            const tabCount = allListings.filter(tab.filter).length
+            const isActive = currentTab.id === tab.id
             return (
               <button
                 key={tab.id}
@@ -217,7 +230,7 @@ export default function ListingsModule({ config, allListings, cardsByListingId }
                       : 'bg-neutral-100 text-neutral-500 dark:bg-neutral-800 dark:text-neutral-400'
                   }`}
                 >
-                  {count}
+                  {tabCount}
                 </span>
               </button>
             )
@@ -226,22 +239,14 @@ export default function ListingsModule({ config, allListings, cardsByListingId }
       )}
 
       {/* Grid / Slider */}
-      {layout === 'grid' ? (
+      {filtered.length === 0 ? null : layout === 'grid' ? (
         <div className="grid grid-cols-1 gap-x-6 gap-y-8 sm:grid-cols-2 md:gap-x-8 md:gap-y-10 lg:grid-cols-3 xl:grid-cols-4">
-          {filtered.length > 0 ? (
-            filtered.map((listing) => (
-              <div key={listing.id}>{cardsByListingId[listing.id] ?? null}</div>
-            ))
-          ) : (
-            <EmptyState label={currentTab.label} />
-          )}
+          {filtered.map((listing) => (
+            <div key={listing.id}>{cardsByListingId[listing.id] ?? null}</div>
+          ))}
         </div>
       ) : (
-        <ListingsSliderRow
-          filtered={filtered}
-          cardsByListingId={cardsByListingId}
-          emptyLabel={currentTab.label}
-        />
+        <ListingsSliderRow filtered={filtered} cardsByListingId={cardsByListingId} />
       )}
     </section>
   )
