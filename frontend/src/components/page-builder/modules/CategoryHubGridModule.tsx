@@ -1,8 +1,5 @@
 import { getTourHubCategories, type TourHubCategory } from '@/data/tour-hub-categories'
-import {
-  getCruiseBrandHubCards,
-  getCruiseRouteHubCards,
-} from '@/data/cruise-hub-categories'
+import { resolveKruvaziyerHubCards } from '@/data/cruise-hub-categories'
 import { heroBelowContentClassName } from '@/components/hero-sections/hero-below-header-classes'
 import { vitrinHref } from '@/lib/vitrin-href'
 import Link from 'next/link'
@@ -106,12 +103,12 @@ export default async function CategoryHubGridModule({
   categorySlug?: string
 }) {
   const rawCards =
-    config.cards && config.cards.length > 0
-      ? config.cards
-      : categorySlug === 'turlar'
-        ? getTourHubCategories(locale).map(tourCategoryToHubCard)
-        : categorySlug === 'kruvaziyer'
-          ? [...getCruiseBrandHubCards(locale), ...getCruiseRouteHubCards(locale)]
+    categorySlug === 'kruvaziyer'
+      ? resolveKruvaziyerHubCards(config, locale)
+      : config.cards && config.cards.length > 0
+        ? config.cards
+        : categorySlug === 'turlar'
+          ? getTourHubCategories(locale).map(tourCategoryToHubCard)
           : []
 
   if (rawCards.length === 0) return null
@@ -143,7 +140,11 @@ export default async function CategoryHubGridModule({
             key={cat.id}
             className="group relative min-h-[280px] overflow-hidden rounded-2xl bg-neutral-900 shadow-md transition-shadow hover:shadow-xl sm:min-h-[300px]"
           >
-            <Link href={cat.href} className="absolute inset-0 z-[1]" aria-label={cardTitle(cat, locale)}>
+            <Link
+              href={cat.href}
+              className="absolute inset-0 z-[3] rounded-2xl focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+              aria-label={cardTitle(cat, locale)}
+            >
               <span className="sr-only">{cardTitle(cat, locale)}</span>
             </Link>
 
@@ -155,7 +156,7 @@ export default async function CategoryHubGridModule({
             />
             <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/45 to-black/20" aria-hidden />
 
-            <div className="relative z-[2] flex h-full min-h-[280px] flex-col p-5 sm:min-h-[300px] sm:p-6">
+            <div className="pointer-events-none relative z-[2] flex h-full min-h-[280px] flex-col p-5 sm:min-h-[300px] sm:p-6">
               <div className="flex items-start justify-between gap-3">
                 <h3 className="text-lg font-bold uppercase tracking-wide text-white sm:text-xl">
                   {cardTitle(cat, locale)}
@@ -173,7 +174,7 @@ export default async function CategoryHubGridModule({
                   <li key={`${cat.id}-${link.label}`}>
                     <Link
                       href={link.href}
-                      className="relative z-[3] inline-block text-sm text-white/90 transition-colors hover:text-white hover:underline"
+                      className="pointer-events-auto relative z-[4] inline-block text-sm font-medium text-white/90 transition-colors hover:text-white hover:underline"
                     >
                       {link.label}
                     </Link>
