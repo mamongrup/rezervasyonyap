@@ -4,17 +4,18 @@
 # Önkoşul: PC'den export edilen .json.gz sunucuya yüklü.
 #
 #   chmod +x deploy/scripts/apply-excalibur-holiday-bundle.sh
-#   ./deploy/scripts/apply-excalibur-holiday-bundle.sh tmp/excalibur-holiday-1.7.26.json.gz
+#   ./deploy/scripts/apply-excalibur-holiday-bundle.sh
+#   ./deploy/scripts/apply-excalibur-holiday-bundle.sh backups/excalibur-holiday-1.7.26.json.gz
 set -euo pipefail
 
 APP_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 BACKEND_ENV="${TRAVEL_DB_ENV:-/etc/rezervasyonyap/backend.env}"
-BUNDLE="${1:-}"
+DEFAULT_BUNDLE="${EXCALIBUR_BUNDLE:-$APP_ROOT/backups/excalibur-holiday-1.7.26.json.gz}"
+BUNDLE="${1:-$DEFAULT_BUNDLE}"
 
 fail() { echo "[FAIL] $*" >&2; exit 1; }
 
-[[ -n "$BUNDLE" ]] || fail "Kullanım: $0 <excalibur-holiday-*.json.gz>"
-[[ -f "$BUNDLE" ]] || fail "Dosya yok: $BUNDLE (Plesk/WinSCP ile tmp/ altına yükleyin)"
+[[ -f "$BUNDLE" ]] || fail "Dosya yok: $BUNDLE (Plesk → httpdocs/backups/ altına yükleyin)"
 
 if [[ -f "$BACKEND_ENV" ]]; then
   set -a

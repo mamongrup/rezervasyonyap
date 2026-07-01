@@ -31,13 +31,13 @@ try {
 
     $full = Join-Path $travelRoot $OutFile
     Write-Host ""
-    Write-Host "Sunucuya yukleyin:" -ForegroundColor Green
+    Write-Host "Plesk → httpdocs/backups/ altina yukleyin:" -ForegroundColor Green
     Write-Host "  $full"
     Write-Host ""
-    Write-Host "Sunucuda:" -ForegroundColor Green
+    Write-Host "Sunucuda (tam deploy icin deploy/EXCALIBUR_BUNDLE_DEPLOY.md):" -ForegroundColor Green
     Write-Host "  cd /var/www/vhosts/rezervasyonyap.tr/httpdocs"
-    Write-Host "  git pull origin main"
-    Write-Host "  node scripts/import-excalibur-holiday-bundle.mjs tmp/$(Split-Path $OutFile -Leaf)"
+    Write-Host "  DEPLOY_REF=main ./deploy/deploy.sh"
+    Write-Host "  ./deploy/scripts/apply-excalibur-holiday-bundle.sh"
 } finally {
     Pop-Location
 }

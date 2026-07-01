@@ -19,14 +19,14 @@ cd C:\laragon\www\travel
 # Çıktı: backups\excalibur-holiday-1.7.26.json.gz (~2–3 MB)
 ```
 
-Dosyayı Plesk/WinSCP ile sunucuya yükleyin: `httpdocs/tmp/excalibur-holiday-1.7.26.json.gz`
+Dosyayı Plesk ile sunucuya yükleyin: `httpdocs/backups/excalibur-holiday-1.7.26.json.gz`
 
-**Sunucu (bash):**
+**Sunucu (bash):** Tam akış için [`EXCALIBUR_BUNDLE_DEPLOY.md`](./EXCALIBUR_BUNDLE_DEPLOY.md)
+
 ```bash
 cd /var/www/vhosts/rezervasyonyap.tr/httpdocs
-git pull origin main
 chmod +x deploy/scripts/apply-excalibur-holiday-bundle.sh
-./deploy/scripts/apply-excalibur-holiday-bundle.sh tmp/excalibur-holiday-1.7.26.json.gz
+./deploy/scripts/apply-excalibur-holiday-bundle.sh
 ```
 
 Bundle içeriği: ilan alanları, takvim (`listing_availability_calendar`), fiyat dönemleri (`listing_price_rules`), meta. Eşleşme `external_listing_ref` / slug ile yapılır; MariaDB gerekmez.
