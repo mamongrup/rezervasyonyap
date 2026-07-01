@@ -2,6 +2,12 @@
 
 import { useState, useMemo, useRef, type ReactNode } from 'react'
 import type { TListingBase } from '@/types/listing-types'
+import {
+  countListingsForFilterMode,
+  hasAnyTabListings,
+  listingMatchesFilter,
+  type ListingFilterMode,
+} from '@/lib/listing-filter-utils'
 import { ViewAllPillLink } from '@/shared/ViewAllPillLink'
 import { useLocaleSegment } from '@/contexts/locale-context'
 import useSnapSlider from '@/hooks/useSnapSlider'
@@ -17,7 +23,7 @@ import {
 } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
 
-export type ListingFilterMode = 'all' | 'new' | 'discounted' | 'campaign'
+export type { ListingFilterMode } from '@/lib/listing-filter-utils'
 export type ListingLayoutMode = 'grid' | 'slider'
 
 interface Tab {
@@ -34,48 +40,29 @@ export const LISTING_FILTER_TABS: Tab[] = [
     id: 'all',
     label: 'Tümü',
     icon: <HugeiconsIcon icon={GridIcon} className={tabIconClass} strokeWidth={1.75} />,
-    filter: () => true,
+    filter: (l) => listingMatchesFilter(l, 'all'),
   },
   {
     id: 'new',
     label: 'Yeni İlanlar',
     icon: <HugeiconsIcon icon={SparklesIcon} className={tabIconClass} strokeWidth={1.75} />,
-    filter: (l) => {
-      if (l.isNew) return true
-      if (l.createdAt) {
-        const days = (Date.now() - new Date(l.createdAt).getTime()) / (1000 * 60 * 60 * 24)
-        return days <= 30
-      }
-      return false
-    },
+    filter: (l) => listingMatchesFilter(l, 'new'),
   },
   {
     id: 'discounted',
     label: 'İndirimli',
     icon: <HugeiconsIcon icon={Tag01Icon} className={tabIconClass} strokeWidth={1.75} />,
-    filter: (l) => Boolean(l.saleOff) || (l.discountPercent ?? 0) > 0,
+    filter: (l) => listingMatchesFilter(l, 'discounted'),
   },
   {
     id: 'campaign',
     label: 'Kampanyalı',
     icon: <HugeiconsIcon icon={Megaphone01Icon} className={tabIconClass} strokeWidth={1.75} />,
-    filter: (l) => Boolean(l.isCampaign) || Boolean(l.instantBook),
+    filter: (l) => listingMatchesFilter(l, 'campaign'),
   },
 ]
 
 const TABS = LISTING_FILTER_TABS
-
-export function countListingsForFilterMode(
-  allListings: TListingBase[],
-  mode: ListingFilterMode,
-): number {
-  const tab = TABS.find((t) => t.id === mode) ?? TABS[0]
-  return allListings.filter(tab.filter).length
-}
-
-export function hasAnyTabListings(allListings: TListingBase[]): boolean {
-  return TABS.some((tab) => allListings.filter(tab.filter).length > 0)
-}
 
 export interface ListingsModuleConfig {
   title?: string

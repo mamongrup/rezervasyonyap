@@ -19,11 +19,12 @@ import TextBlockModule from './modules/TextBlockModule'
 import FAQModule from './modules/FAQModule'
 import TopProvidersModule from './modules/TopProvidersModule'
 import BecomeProviderModule from './modules/BecomeProviderModule'
-import ListingsModule, {
+import ListingsModule from './modules/ListingsModule'
+import type { ListingsModuleConfig } from './modules/ListingsModule'
+import {
   countListingsForFilterMode,
   hasAnyTabListings,
-} from './modules/ListingsModule'
-import type { ListingsModuleConfig } from './modules/ListingsModule'
+} from '@/lib/listing-filter-utils'
 import VideoGalleryModule from './modules/VideoGalleryModule'
 import ImageTextModule from './modules/ImageTextModule'
 import DestinationCardsModule from './modules/DestinationCardsModule'
