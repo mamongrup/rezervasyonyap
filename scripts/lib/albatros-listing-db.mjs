@@ -4,6 +4,7 @@ import { formatYachtTitleTr } from './yacht-title-tr.mjs'
 import { buildAlbatrosDescription } from './albatros-api.mjs'
 import { findMatchingYachtListing } from './yacht-listing-match.mjs'
 import { applyYachtLocationToMeta } from './yacht-location-resolve.mjs'
+import { applyListingMapCoordsIfEmpty } from './stay-location-coords.mjs'
 
 const PROVIDER = 'albatros'
 
@@ -234,6 +235,12 @@ export async function upsertAlbatrosYachtListing(
       [listingId, JSON.stringify(mergedMeta)],
     )
 
+    await applyListingMapCoordsIfEmpty(pgClient, listingId, {
+      location_name: locationPin,
+      meta_json: mergedMeta,
+      slug: matchedExisting.slug,
+    })
+
     if (cabinCount != null || record?.lengthM != null) {
       await pgClient.query(
         `INSERT INTO listing_yacht_details (listing_id, length_meters, cabin_count, theme_codes, rule_codes, ical_managed)
@@ -347,6 +354,12 @@ export async function upsertAlbatrosYachtListing(
      ON CONFLICT (listing_id, group_code, key) DO UPDATE SET value_json = excluded.value_json`,
     [listingId, JSON.stringify(incomingMeta)],
   )
+
+  await applyListingMapCoordsIfEmpty(pgClient, listingId, {
+    location_name: locationPin,
+    meta_json: incomingMeta,
+    slug,
+  })
 
   await pgClient.query(`DELETE FROM listing_attributes WHERE listing_id = $1::uuid AND group_code = 'ilan_tipi'`, [
     listingId,
