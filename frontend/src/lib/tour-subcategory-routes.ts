@@ -37,8 +37,9 @@ type TourSubcategoryRouteDef = {
  */
 const TOUR_SUBCATEGORY_ROUTES: Record<TourSubcategorySlug, TourSubcategoryRouteDef> = {
   'yurtici-turlar': {
-    listPath: '/turlar/all?location=türkiye',
-    query: { location: 'türkiye' },
+    // Katalogda çoğu tur yurt dışı; başlıkta "turkiye" (ASCII) daha iyi eşleşir.
+    listPath: '/turlar/all?q=turkiye',
+    query: { q: 'turkiye' },
   },
   'yurtdisi-turlar': {
     listPath: '/turlar/all?location=avrupa',

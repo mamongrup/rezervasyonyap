@@ -74,8 +74,8 @@ export function getTourHubCategories(locale: string): TourHubCategory[] {
       image: IMG.balkans,
       path: all('?location=balkan'),
       links: [
-        { label: 'Belgrad', path: all('?location=belgrad') },
-        { label: 'Saraybosna', path: all('?location=saraybosna') },
+        { label: 'Belgrad', path: all('?q=belgrad') },
+        { label: 'Saraybosna', path: all('?q=saraybosna') },
         { label: 'Budva', path: all('?location=budva') },
         { label: 'Mostar', path: all('?location=mostar') },
       ],
@@ -123,10 +123,10 @@ export function getTourHubCategories(locale: string): TourHubCategory[] {
       image: IMG.greek,
       path: all('?location=yunan'),
       links: [
-        { label: 'Rodos', path: all('?location=rodos') },
-        { label: 'Samos', path: all('?location=samos') },
-        { label: 'Kos', path: all('?location=kos') },
-        { label: 'Midilli', path: all('?location=midilli') },
+        { label: 'Rodos', path: all('?q=rodos') },
+        { label: 'Samos', path: all('?q=samos') },
+        { label: 'Kos', path: all('?q=kos') },
+        { label: 'Midilli', path: all('?q=midilli') },
       ],
     },
     {

@@ -6,7 +6,13 @@ import {
 } from '@/lib/cruise-hub-enrich'
 import { getPublicCruiseHubStats } from '@/lib/travel-api'
 import { heroBelowContentClassName } from '@/components/hero-sections/hero-below-header-classes'
-import { vitrinHref } from '@/lib/vitrin-href'
+import { fetchLocalizedRoutes } from '@/lib/i18n-server'
+import {
+  buildLocalizedRouteIndexes,
+  localizeAppPathWithHash,
+  type LocalizedRouteIndexes,
+} from '@/lib/localized-path-shared'
+import { prefixLocale } from '@/lib/i18n-config'
 import Link from 'next/link'
 import { ArrowRight01Icon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
@@ -55,18 +61,33 @@ function cardTitle(card: CategoryHubGridCard, locale: string) {
   return isEnLocale(locale) && card.titleEn?.trim() ? card.titleEn : card.title
 }
 
+let routeIdxPromise: Promise<LocalizedRouteIndexes> | null = null
+
+function getRouteIndexes(): Promise<LocalizedRouteIndexes> {
+  if (!routeIdxPromise) {
+    routeIdxPromise = fetchLocalizedRoutes().then((rows) => buildLocalizedRouteIndexes(rows))
+  }
+  return routeIdxPromise
+}
+
+function localizeVitrinPath(locale: string, internalPath: string, idx: LocalizedRouteIndexes): string {
+  const p = internalPath.startsWith('/') ? internalPath : `/${internalPath}`
+  return prefixLocale(locale, localizeAppPathWithHash(p, locale, idx))
+}
+
 async function resolveCards(locale: string, cards: CategoryHubGridCard[]): Promise<ResolvedCategoryHubGridCard[]> {
-  return Promise.all(
-    cards.map(async (cat): Promise<ResolvedCategoryHubGridCard> => ({
+  const idx = await getRouteIndexes()
+  return cards.map(
+    (cat): ResolvedCategoryHubGridCard => ({
       ...cat,
-      href: await vitrinHref(locale, cat.path),
-      links: await Promise.all(
-        cat.links.map(async (link): Promise<ResolvedCategoryHubGridLink> => ({
+      href: localizeVitrinPath(locale, cat.path, idx),
+      links: cat.links.map(
+        (link): ResolvedCategoryHubGridLink => ({
           ...link,
-          href: await vitrinHref(locale, link.path),
-        })),
+          href: localizeVitrinPath(locale, link.path, idx),
+        }),
       ),
-    })),
+    }),
   )
 }
 

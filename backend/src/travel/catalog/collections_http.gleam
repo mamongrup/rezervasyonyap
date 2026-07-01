@@ -75,9 +75,12 @@ fn tour_listing_vitrin_price_numeric_lateral_sql() -> String {
   <> " as v) px) tour_price_row on pc.code = 'tour' "
 }
 
-/// Vitrinde fiyatsız turlar listelenmesin — Wtatil fiyat senkronu sonrası otomatik görünür.
+/// Vitrinde fiyatsız turlar listelenmesin — ancak vitrin_price önbelleği wtatil fiyat
+/// senkronu öncesi boş kalabilir; yayında tur programı varsa göster (hub/liste boş kalmasın).
 fn tour_public_must_have_price_sql() -> String {
-  "and (pc.code != 'tour' or coalesce(l.vitrin_price, 0) > 0) "
+  "and (pc.code != 'tour' or coalesce(l.vitrin_price, l.first_charge_amount, 0) > 0 "
+  <> "or exists (select 1 from listing_tour_details td where td.listing_id = l.id "
+  <> "and td.program_days_json is not null and td.program_days_json::text not in ('{}', 'null'))) "
 }
 
 /// Vitrinde fiyatsız oteller listelenmesin (KPlus/Travelrobot import'ta fiyatı
@@ -635,6 +638,10 @@ fn normalize_location_search_q(raw: String) -> String {
 const listing_search_match_sql: String =
   "translate(lower(coalesce((select lt2.title from listing_translations lt2 join locales lo2 on lo2.id = lt2.locale_id where lt2.listing_id = l.id order by case when lower(lo2.code) = 'tr' then 0 else 1 end limit 1), l.slug) || ' ' || replace(l.slug, '-', ' ')), 'üğışöç', 'ugisoc')"
 
+/// `location` vitrin parametresi — konum meta + tur başlığı + wtatil ülke adları.
+const location_search_match_sql: String =
+  "translate(lower(coalesce(l.location_name, '') || ' ' || coalesce(lm.meta->>'address', '') || ' ' || coalesce(lm.meta->>'province_city', '') || ' ' || coalesce(lm.meta->>'city', '') || ' ' || coalesce(lm.meta->>'district_label', '') || ' ' || coalesce(lm.meta->>'region_display', '') || ' ' || coalesce((select lt2.title from listing_translations lt2 join locales lo2 on lo2.id = lt2.locale_id where lt2.listing_id = l.id order by case when lower(lo2.code) = 'tr' then 0 else 1 end limit 1), '') || ' ' || coalesce((select string_agg(coalesce(c.elem->>'name', ''), ' ') from listing_attributes wa cross join lateral jsonb_array_elements(case jsonb_typeof(wa.value_json->'countries') when 'array' then wa.value_json->'countries' else '[]'::jsonb end) c(elem) where wa.listing_id = l.id and wa.group_code = 'wtatil' and wa.key = 'snapshot'), '')), 'üğışöç', 'ugisoc')"
+
 fn min_count_filter_param(raw: String) -> pog.Value {
   case string.trim(raw) {
     "" -> pog.null()
@@ -936,8 +943,7 @@ fn search_listings_impl(
   // Sıralama/fiyat filtresi önbellek sütununu kullanır (canlı lateral değil) — fast ve
   // deferred yollar aynı kaynağı kullansın diye. Ekrandaki price_from hâlâ canlı hesaplanır.
   let vitrin_price_sql = "coalesce(l.vitrin_price, l.first_charge_amount) "
-  let location_search_sql =
-    "translate(lower(coalesce(l.location_name, '') || ' ' || coalesce(lm.meta->>'address', '') || ' ' || coalesce(lm.meta->>'province_city', '') || ' ' || coalesce(lm.meta->>'city', '') || ' ' || coalesce(lm.meta->>'district_label', '') || ' ' || coalesce(lm.meta->>'region_display', '')), 'üğışöç', 'ugisoc')"
+  let location_search_sql = location_search_match_sql
   let tour_duration_days_sql =
     safe_int_sql("coalesce(tour_attr.value_json->'data'->>'duration_days', tour_attr.value_json->>'duration_days', '')")
   let meta_bed_count_sql = safe_int_sql("coalesce(lm.meta->>'bed_count', '')")
