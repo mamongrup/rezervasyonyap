@@ -6,6 +6,10 @@ import type {
   CategoryHubGridModuleConfig,
 } from '@/components/page-builder/modules/CategoryHubGridModule'
 import { buildTurlarCategoryHubGridConfig } from '@/data/tour-hub-categories'
+import {
+  buildCruiseBrandHubGridConfig,
+  buildCruiseRouteHubGridConfig,
+} from '@/data/cruise-hub-categories'
 import ImageUpload from '@/components/editor/ImageUpload'
 import { slugifyMediaSegment } from '@/lib/upload-media-paths'
 import { Plus, Trash2, Wand2 } from 'lucide-react'
@@ -78,6 +82,16 @@ export function CategoryHubGridConfigEditor({
     onChange(buildTurlarCategoryHubGridConfig('tr'))
   }
 
+  function loadKruvaziyerBrandPreset() {
+    if (!confirm('Gemi hatları varsayılan kartları yüklenecek. Mevcut kartların üzerine yazılır. Devam?')) return
+    onChange(buildCruiseBrandHubGridConfig('tr'))
+  }
+
+  function loadKruvaziyerRoutePreset() {
+    if (!confirm('Rota hub varsayılan kartları yüklenecek. Mevcut kartların üzerine yazılır. Devam?')) return
+    onChange(buildCruiseRouteHubGridConfig('tr'))
+  }
+
   return (
     <div className="space-y-4">
       <div className="space-y-3">
@@ -121,6 +135,24 @@ export function CategoryHubGridConfigEditor({
                 <Wand2 className="h-3.5 w-3.5" /> Turlar varsayılanlarını yükle
               </button>
             ) : null}
+            {categorySlug === 'kruvaziyer' ? (
+              <>
+                <button
+                  type="button"
+                  onClick={loadKruvaziyerBrandPreset}
+                  className="flex items-center gap-1 rounded-lg border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-medium text-amber-800 hover:bg-amber-100 dark:border-amber-800 dark:bg-amber-900/30 dark:text-amber-200"
+                >
+                  <Wand2 className="h-3.5 w-3.5" /> Gemi hatları
+                </button>
+                <button
+                  type="button"
+                  onClick={loadKruvaziyerRoutePreset}
+                  className="flex items-center gap-1 rounded-lg border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-medium text-amber-800 hover:bg-amber-100 dark:border-amber-800 dark:bg-amber-900/30 dark:text-amber-200"
+                >
+                  <Wand2 className="h-3.5 w-3.5" /> Rotalar
+                </button>
+              </>
+            ) : null}
             <button
               type="button"
               onClick={addCard}
@@ -136,9 +168,17 @@ export function CategoryHubGridConfigEditor({
             Kart eklenmedi.
             {categorySlug === 'turlar'
               ? ' Ön yüzde turlar için kod varsayılanları gösterilir; diğer kategorilerde bölüm gizlenir.'
-              : ' Ön yüzde bölüm gösterilmez — en az bir kart ekleyin.'}
+              : categorySlug === 'kruvaziyer'
+                ? ' Kruvaziyer hub kartları kod varsayılanlarıyla gösterilir; yüklediğiniz görseller ön yüzde kullanılır.'
+                : ' Ön yüzde bölüm gösterilmez — en az bir kart ekleyin.'}
           </p>
         )}
+
+        {categorySlug === 'kruvaziyer' ? (
+          <p className="text-xs text-neutral-500 dark:text-neutral-400">
+            Tur sayısı ve rota linkleri otomatik güncellenir. Yalnızca arka plan görseli (ve isteğe bağlı başlık) buradan özelleştirilir.
+          </p>
+        ) : null}
 
         <p className="text-xs text-neutral-500 dark:text-neutral-400">
           Modülü gizlerseniz veya kaldırırsanız tur vitrininde hub yerine tam ilan listesi (filtre + grid) gösterilir.

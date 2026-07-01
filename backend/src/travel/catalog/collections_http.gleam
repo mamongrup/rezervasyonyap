@@ -2650,5 +2650,69 @@ pub fn delete_collection(req: Request, ctx: Context, col_id: String) -> Response
   }
 }
 
+// ─── Public Cruise Hub Stats ───────────────────────────────────────────────────
+
+fn cruise_hub_agg_row() -> decode.Decoder(#(String, String, String, Int)) {
+  use line <- decode.field(0, decode.string)
+  use route <- decode.field(1, decode.string)
+  use cat_link <- decode.field(2, decode.string)
+  use cnt <- decode.field(3, decode.int)
+  decode.success(#(line, route, cat_link, cnt))
+}
+
+fn public_cruise_hub_stats_sql() -> String {
+  "select "
+  <> "  coalesce(c.cruise_line, '') as cruise_line, "
+  <> "  coalesce(c.route_summary, '') as route_summary, "
+  <> "  coalesce(c.meta_json->>'category_link', '') as category_link, "
+  <> "  count(*)::int as cnt "
+  <> "from listings l "
+  <> "join product_categories pc on pc.id = l.category_id and pc.code = 'cruise' "
+  <> "join listing_cruise_details c on c.listing_id = l.id "
+  <> "where l.status = 'published' "
+  <> public_listing_must_have_image_sql()
+  <> "group by 1, 2, 3 "
+  <> "order by cnt desc"
+}
+
+/// GET /api/v1/catalog/public/cruise-hub-stats
+/// Kruvaziyer hub kartları için gemi hattı + rota kırılımında ilan sayıları.
+pub fn public_cruise_hub_stats(req: Request, ctx: Context) -> Response {
+  use <- wisp.require_method(req, http.Get)
+  case
+    pog.query(public_cruise_hub_stats_sql())
+    |> pog.returning(cruise_hub_agg_row())
+    |> db_exec.execute(ctx.db)
+  {
+    Error(e) -> {
+      let _ =
+        io.println(
+          "[catalog.public.cruise-hub-stats] "
+            <> pog_errors.query_error_to_string(e),
+        )
+      let body =
+        json.object([#("rows", json.array(from: [], of: fn(x) { x }))])
+        |> json.to_string
+      wisp.json_response(body, 200)
+    }
+    Ok(ret) -> {
+      let rows =
+        list.map(ret.rows, fn(row) {
+          let #(line, route, cat_link, cnt) = row
+          json.object([
+            #("cruise_line", json.string(line)),
+            #("route_summary", json.string(route)),
+            #("category_link", json.string(cat_link)),
+            #("count", json.int(cnt)),
+          ])
+        })
+      let body =
+        json.object([#("rows", json.array(from: rows, of: fn(x) { x }))])
+        |> json.to_string
+      wisp.json_response(body, 200)
+    }
+  }
+}
+
 
 

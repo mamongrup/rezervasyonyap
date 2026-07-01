@@ -1,5 +1,10 @@
 import { getTourHubCategories, type TourHubCategory } from '@/data/tour-hub-categories'
-import { resolveKruvaziyerHubCards } from '@/data/cruise-hub-categories'
+import { mergeKruvaziyerHubCards } from '@/data/cruise-hub-categories'
+import {
+  enrichCruiseBrandHubCards,
+  enrichCruiseRouteHubCards,
+} from '@/lib/cruise-hub-enrich'
+import { getPublicCruiseHubStats } from '@/lib/travel-api'
 import { heroBelowContentClassName } from '@/components/hero-sections/hero-below-header-classes'
 import { vitrinHref } from '@/lib/vitrin-href'
 import Link from 'next/link'
@@ -14,10 +19,14 @@ export interface CategoryHubGridLink {
 
 export interface CategoryHubGridCard {
   id: string
+  /** API filtre kodu (ör. msc, akdeniz-gemi-turlari) — hub istatistik eşleşmesi */
+  hubCode?: string
   title: string
   titleEn?: string
   image: string
   path: string
+  /** Örn. "38 tur" — kruvaziyer hub kartlarında dinamik */
+  metaLine?: string
   links: CategoryHubGridLink[]
 }
 
@@ -104,7 +113,7 @@ export default async function CategoryHubGridModule({
 }) {
   const rawCards =
     categorySlug === 'kruvaziyer'
-      ? resolveKruvaziyerHubCards(config, locale)
+      ? mergeKruvaziyerHubCards(config, locale)
       : config.cards && config.cards.length > 0
         ? config.cards
         : categorySlug === 'turlar'
@@ -113,7 +122,17 @@ export default async function CategoryHubGridModule({
 
   if (rawCards.length === 0) return null
 
-  const resolved = await resolveCards(locale, rawCards)
+  let cardsToResolve = rawCards
+  if (categorySlug === 'kruvaziyer') {
+    const heading = `${config.heading || ''} ${config.headingEn || ''}`.toLowerCase()
+    const isRoute = heading.includes('rota') || heading.includes('route')
+    const stats = await getPublicCruiseHubStats({ next: { revalidate: 300 } })
+    cardsToResolve = isRoute
+      ? enrichCruiseRouteHubCards(rawCards, stats, locale)
+      : enrichCruiseBrandHubCards(rawCards, stats, locale)
+  }
+
+  const resolved = await resolveCards(locale, cardsToResolve)
   const heading = resolveHeading(config, locale)
   const subheading = resolveSubheading(config, locale)
 
@@ -149,18 +168,31 @@ export default async function CategoryHubGridModule({
             </Link>
 
             <div
-              className="absolute inset-0 bg-cover bg-center transition-transform duration-500 group-hover:scale-105"
-              style={{ backgroundImage: `url(${cat.image})` }}
-              role="img"
+              className="absolute inset-0 bg-neutral-900 transition-transform duration-500 group-hover:scale-105"
               aria-hidden
-            />
+            >
+              {cat.image ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={cat.image}
+                  alt=""
+                  className="h-full w-full object-cover"
+                  referrerPolicy="no-referrer"
+                />
+              ) : null}
+            </div>
             <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/45 to-black/20" aria-hidden />
 
             <div className="pointer-events-none relative z-[2] flex h-full min-h-[280px] flex-col p-5 sm:min-h-[300px] sm:p-6">
               <div className="flex items-start justify-between gap-3">
-                <h3 className="text-lg font-bold uppercase tracking-wide text-white sm:text-xl">
-                  {cardTitle(cat, locale)}
-                </h3>
+                <div>
+                  <h3 className="text-lg font-bold uppercase tracking-wide text-white sm:text-xl">
+                    {cardTitle(cat, locale)}
+                  </h3>
+                  {cat.metaLine ? (
+                    <p className="mt-1 text-sm font-medium text-white/80">{cat.metaLine}</p>
+                  ) : null}
+                </div>
                 <HugeiconsIcon
                   icon={ArrowRight01Icon}
                   className="h-5 w-5 shrink-0 text-white/80 transition-transform group-hover:translate-x-0.5"

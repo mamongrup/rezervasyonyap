@@ -6892,6 +6892,42 @@ export async function getPublicCategoryStats(init?: RequestInit): Promise<Record
   }
 }
 
+export type CruiseHubStatsRow = {
+  cruise_line: string
+  route_summary: string
+  category_link: string
+  count: number
+}
+
+/** GET /api/v1/catalog/public/cruise-hub-stats — kruvaziyer hub kart istatistikleri */
+export async function getPublicCruiseHubStats(init?: RequestInit): Promise<CruiseHubStatsRow[]> {
+  const b = base()
+  if (!b) return []
+  try {
+    const res = await fetch(`${b}/api/v1/catalog/public/cruise-hub-stats`, init)
+    if (!res.ok) return []
+    const data = (await json(res)) as {
+      rows?: Array<{
+        cruise_line?: string
+        route_summary?: string
+        category_link?: string
+        count?: number
+      }>
+    }
+    if (!Array.isArray(data.rows)) return []
+    return data.rows
+      .map((row) => ({
+        cruise_line: String(row.cruise_line ?? ''),
+        route_summary: String(row.route_summary ?? ''),
+        category_link: String(row.category_link ?? ''),
+        count: typeof row.count === 'number' ? row.count : 0,
+      }))
+      .filter((row) => row.count > 0)
+  } catch {
+    return []
+  }
+}
+
 /** Bölge slider'ı (SectionSliderRegions) — backend henüz yoksa veya hata varsa [] */
 export type PublicRegionStatItem = {
   name: string

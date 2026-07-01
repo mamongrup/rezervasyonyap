@@ -101,6 +101,7 @@ function hubDefsToCards(locale: string, defs: HubDef[]): CategoryHubGridCard[] {
     const path = facetPath(locale, d.queryKey, d.code)
     return {
       id: d.id,
+      hubCode: d.code,
       title: en ? d.titleEn : d.titleTr,
       titleEn: d.titleEn,
       image: hubImage(d.gezinomiLink),
@@ -118,16 +119,36 @@ export function getCruiseRouteHubCards(locale: string): CategoryHubGridCard[] {
   return hubDefsToCards(locale, CRUISE_ROUTE_HUBS)
 }
 
-/** Page builder kayıtlı config yerine güncel kart listesi (görsel + path) */
-export function resolveKruvaziyerHubCards(
-  config: { heading?: string; headingEn?: string },
+/** Page builder görsellerini koruyarak güncel path/link/stats ile birleştir */
+export function mergeKruvaziyerHubCards(
+  config: { heading?: string; headingEn?: string; cards?: CategoryHubGridCard[] },
   locale: string,
 ): CategoryHubGridCard[] {
   const heading = `${config.heading || ''} ${config.headingEn || ''}`.toLowerCase()
-  if (heading.includes('rota') || heading.includes('route')) {
-    return getCruiseRouteHubCards(locale)
-  }
-  return getCruiseBrandHubCards(locale)
+  const isRoute = heading.includes('rota') || heading.includes('route')
+  const defaults = isRoute ? getCruiseRouteHubCards(locale) : getCruiseBrandHubCards(locale)
+  const saved = Array.isArray(config.cards) ? config.cards : []
+  if (saved.length === 0) return defaults
+
+  const savedById = new Map(saved.map((c) => [c.id, c]))
+  return defaults.map((def) => {
+    const custom = savedById.get(def.id)
+    if (!custom) return def
+    return {
+      ...def,
+      title: custom.title?.trim() ? custom.title : def.title,
+      titleEn: custom.titleEn?.trim() ? custom.titleEn : def.titleEn,
+      image: custom.image?.trim() ? custom.image : def.image,
+    }
+  })
+}
+
+/** @deprecated mergeKruvaziyerHubCards kullanın */
+export function resolveKruvaziyerHubCards(
+  config: { heading?: string; headingEn?: string; cards?: CategoryHubGridCard[] },
+  locale: string,
+): CategoryHubGridCard[] {
+  return mergeKruvaziyerHubCards(config, locale)
 }
 
 export function buildCruiseBrandHubGridConfig(locale = 'tr') {

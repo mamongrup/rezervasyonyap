@@ -1185,6 +1185,9 @@ fn dispatch(req: Request, ctx: Context) -> Response {
     http.Get, ["api", "v1", "catalog", "public", "region-stats"] ->
       collections_http.public_region_stats(req, ctx)
 
+    http.Get, ["api", "v1", "catalog", "public", "cruise-hub-stats"] ->
+      collections_http.public_cruise_hub_stats(req, ctx)
+
     http.Get, ["api", "v1", "collections"] ->
       collections_http.list_collections(req, ctx)
 

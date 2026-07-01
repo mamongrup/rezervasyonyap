@@ -3,6 +3,7 @@
 import type { PageBuilderModule, PageBuilderModuleType } from '@/types/listing-types'
 import type { PageBuilderModuleConfigByType } from '@/types/page-builder-module'
 import { buildTurlarCategoryHubGridConfig } from '@/data/tour-hub-categories'
+import { buildCruiseBrandHubGridConfig } from '@/data/cruise-hub-categories'
 import { patchModuleConfigById } from '@/lib/page-builder/module-state'
 import { Eye, Loader2, Plus, RotateCcw, Save } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useState } from 'react'
@@ -208,7 +209,9 @@ export default function CategoryPageBuilderClient({ presetSlug }: { presetSlug?:
         category_hub_grid:
           selectedSlug === 'turlar'
             ? buildTurlarCategoryHubGridConfig('tr')
-            : { heading: '', headingEn: '', subheading: '', subheadingEn: '', cards: [] },
+            : selectedSlug === 'kruvaziyer'
+              ? buildCruiseBrandHubGridConfig('tr')
+              : { heading: '', headingEn: '', subheading: '', subheadingEn: '', cards: [] },
         section_videos: { heading: '', subheading: '', videos: [] },
         client_say: { heading: '', subHeading: '' },
         search_results: { perPage: 24 },
