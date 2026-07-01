@@ -85,7 +85,7 @@ chmod +x deploy/scripts/import-excalibur-mysql.sh deploy/scripts/sync-excalibur-
 ./deploy/scripts/import-excalibur-mysql.sh /tmp/excalibur-dump.sql
 ```
 
-Beklenen: `bravo_spaces publish: 823`
+Beklenen: `bravo_spaces publish: 825`
 
 Kontrol:
 

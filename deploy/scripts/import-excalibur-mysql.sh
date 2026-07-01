@@ -41,8 +41,9 @@ if [[ -n "$MYSQL_PASSWORD" ]]; then
 fi
 
 echo "→ Veritabanı: $MYSQL_DATABASE @ $MYSQL_HOST"
+echo "→ Eski tablolar temizleniyor (DROP + CREATE)…"
 "${MYSQL_ARGS[@]}" -e \
-  "CREATE DATABASE IF NOT EXISTS \`${MYSQL_DATABASE}\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
+  "DROP DATABASE IF EXISTS \`${MYSQL_DATABASE}\`; CREATE DATABASE \`${MYSQL_DATABASE}\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
 
 echo "→ İçe aktarılıyor (büyük dosya, birkaç dakika)…"
 "${MYSQL_ARGS[@]}" "$MYSQL_DATABASE" <"$SQL_FILE"
