@@ -185,12 +185,12 @@ async function _getAuthorsDemoData() {
 
 export async function getAuthorByHandle(handle: string) {
   const authors = await getAuthors()
-  let author = authors.find((a) => a.handle === handle)
-  if (!author) author = authors[0]
+  const author = authors.find((a) => a.handle === handle)
+  if (!author) return null
 
   return {
     ...author,
-    description: author.description,
+    description: author.description ?? '',
     address: 'Türkiye',
     phone: '+90 555 123 4567',
     languages: 'Türkçe, İngilizce',
