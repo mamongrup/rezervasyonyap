@@ -1,4 +1,5 @@
 import { diffStayNights } from '@/hooks/use-stay-listing-quote'
+import { listingDayOpenForStayNight } from '@/lib/listing-availability-day'
 import {
   parseListingPriceRuleAmount,
   parseListingPriceRuleJson,
@@ -91,15 +92,18 @@ export function computeStayRentalLodgingQuote(input: {
   let maxNightly: number | null = null
   const nightlySamples: number[] = []
 
-  const cursor = new Date(input.rangeStart)
-  cursor.setHours(0, 0, 0, 0)
+  const rangeStart = new Date(input.rangeStart)
+  rangeStart.setHours(0, 0, 0, 0)
+  const cursor = new Date(rangeStart)
   const end = new Date(input.rangeEnd)
   end.setHours(0, 0, 0, 0)
 
+  let nightIndex = 0
   while (cursor < end) {
     const ymd = formatLocalYmd(cursor)
     const hit = byDay.get(ymd)
-    if (hit && hit.is_available === false) available = false
+    if (!listingDayOpenForStayNight(hit, nightIndex)) available = false
+    nightIndex++
 
     const nightly =
       parseStayNightlyPrice(hit?.price_override) ??

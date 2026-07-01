@@ -181,6 +181,79 @@ fn purge_imported_blocks(ctx: Context, feed_id: String) -> Result(Nil, String) {
   }
 }
 
+fn block_checkin_pm(
+  ctx: Context,
+  listing_id: String,
+  starts_on: String,
+) -> Result(Nil, String) {
+  let q =
+    "insert into listing_availability_calendar "
+    <> "  (listing_id, day, is_available, am_available, pm_available) "
+    <> "values ($1::uuid, $2::date, true, true, false) "
+    <> "on conflict (listing_id, day) do update set "
+    <> "  pm_available = false, "
+    <> "  is_available = coalesce(listing_availability_calendar.am_available, true)"
+  case
+    pog.query(q)
+    |> pog.parameter(pog.text(listing_id))
+    |> pog.parameter(pog.text(starts_on))
+    |> db_exec.execute(ctx.db)
+  {
+    Ok(_) -> Ok(Nil)
+    Error(_) -> Error("block_checkin_pm_failed")
+  }
+}
+
+fn block_middle_nights(
+  ctx: Context,
+  listing_id: String,
+  starts_on: String,
+  ends_on: String,
+) -> Result(Nil, String) {
+  let q =
+    "insert into listing_availability_calendar "
+    <> "  (listing_id, day, is_available, am_available, pm_available) "
+    <> "select $1::uuid, gs::date, false, false, false "
+    <> "from generate_series(($2::date + interval '1 day')::date, ($3::date - interval '1 day')::date, interval '1 day') as gs "
+    <> "on conflict (listing_id, day) do update set "
+    <> "  is_available = false, "
+    <> "  am_available = false, "
+    <> "  pm_available = false"
+  case
+    pog.query(q)
+    |> pog.parameter(pog.text(listing_id))
+    |> pog.parameter(pog.text(starts_on))
+    |> pog.parameter(pog.text(ends_on))
+    |> db_exec.execute(ctx.db)
+  {
+    Ok(_) -> Ok(Nil)
+    Error(_) -> Error("block_middle_nights_failed")
+  }
+}
+
+fn block_checkout_am(
+  ctx: Context,
+  listing_id: String,
+  ends_on: String,
+) -> Result(Nil, String) {
+  let q =
+    "insert into listing_availability_calendar "
+    <> "  (listing_id, day, is_available, am_available, pm_available) "
+    <> "values ($1::uuid, $2::date, true, false, true) "
+    <> "on conflict (listing_id, day) do update set "
+    <> "  am_available = false, "
+    <> "  is_available = coalesce(listing_availability_calendar.pm_available, true)"
+  case
+    pog.query(q)
+    |> pog.parameter(pog.text(listing_id))
+    |> pog.parameter(pog.text(ends_on))
+    |> db_exec.execute(ctx.db)
+  {
+    Ok(_) -> Ok(Nil)
+    Error(_) -> Error("block_checkout_am_failed")
+  }
+}
+
 /// Tüm event'leri tek tek ekle + her event'in günlerini calendar'a yaz.
 /// Toplam bloklanan gün sayısını döner.
 fn insert_events(
@@ -211,26 +284,21 @@ fn insert_events(
         |> pog.parameter(pog.text(ev.summary))
         |> db_exec.execute(ctx.db)
 
-      // 2) availability calendar — ends_on **dışlayıcı**, gün gün UPSERT
-      //    SQL `generate_series(start, end - interval '1 day', '1 day')` ile.
-      let cal_q =
-        "insert into listing_availability_calendar "
-        <> "  (listing_id, day, is_available, am_available, pm_available) "
-        <> "select $1::uuid, gs::date, false, false, false "
-        <> "from generate_series($2::date, ($3::date - interval '1 day')::date, interval '1 day') as gs "
-        <> "on conflict (listing_id, day) do update set "
-        <> "  is_available = false, "
-        <> "  am_available = false, "
-        <> "  pm_available = false"
+      // 2) availability calendar — yarım gün: giriş PM, ara geceler tam, çıkış AM
       let day_count = day_diff(ev.starts_on, ev.ends_on)
-      let _ =
-        pog.query(cal_q)
-        |> pog.parameter(pog.text(listing_id))
-        |> pog.parameter(pog.text(ev.starts_on))
-        |> pog.parameter(pog.text(ev.ends_on))
-        |> db_exec.execute(ctx.db)
-
-      insert_events(ctx, feed_id, listing_id, rest, acc_days + day_count)
+      case block_checkin_pm(ctx, listing_id, ev.starts_on) {
+        Error(e) -> Error(e)
+        Ok(_) ->
+          case block_middle_nights(ctx, listing_id, ev.starts_on, ev.ends_on) {
+            Error(e) -> Error(e)
+            Ok(_) ->
+              case block_checkout_am(ctx, listing_id, ev.ends_on) {
+                Error(e) -> Error(e)
+                Ok(_) ->
+                  insert_events(ctx, feed_id, listing_id, rest, acc_days + day_count)
+              }
+          }
+      }
     }
   }
 }

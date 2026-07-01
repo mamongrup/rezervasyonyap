@@ -1,4 +1,9 @@
-import { isListingDayFullyBlocked } from '@/lib/listing-availability-day'
+import {
+  isListingDayFullyBlocked,
+  listingDayCheckoutSelectable,
+  listingDayOpenForStayNight,
+  listingDayPmOpen,
+} from '@/lib/listing-availability-day'
 import type { ListingAvailabilityDay } from '@/lib/travel-api'
 import type { StayBookingRules } from '@/types/listing-types'
 
@@ -90,9 +95,30 @@ export function addDays(d: Date, days: number): Date {
   return x
 }
 
+/** Giriş–çıkış aralığındaki konaklama geceleri yarım gün kurallarına uyuyor mu */
+export function stayRangeOvernightsAvailable(
+  checkIn: Date,
+  checkOut: Date,
+  byYmd: Map<string, ListingAvailabilityDay>,
+  formatLocalYmd: (x: Date) => string,
+): boolean {
+  const start = startOfLocalDay(checkIn)
+  const end = startOfLocalDay(checkOut)
+  const nights = Math.round((end.getTime() - start.getTime()) / (24 * 60 * 60 * 1000))
+  if (nights < 1) return false
+
+  for (let i = 0; i < nights; i++) {
+    const day = addDays(start, i)
+    const ymd = formatLocalYmd(day)
+    const row = byYmd.get(ymd)
+    if (!listingDayOpenForStayNight(row, i)) return false
+  }
+  return true
+}
+
 /**
- * Giriş gününden itibaren ardışık kaç gece konaklanabilir (her gece günü müsait olmalı).
- * `byYmd` boşken satır yok = gün açık kabul edilir.
+ * Giriş gününden itibaren en uzun konaklama (gece sayısı).
+ * Çıkış günü sabah boşaltma olduğu için tam dolu (turnover) gün bile çıkış tarihi olabilir.
  */
 export function maxConsecutiveNightsFromStart(
   start: Date,
@@ -100,12 +126,12 @@ export function maxConsecutiveNightsFromStart(
   formatLocalYmd: (x: Date) => string,
 ): number {
   const s = startOfLocalDay(start)
+  if (!listingDayPmOpen(byYmd.get(formatLocalYmd(s)))) return 0
+
   let n = 0
   for (let i = 0; i < 400; i++) {
-    const check = addDays(s, i)
-    const ymd = formatLocalYmd(check)
-    const row = byYmd.get(ymd)
-    if (isListingDayFullyBlocked(row)) break
+    const row = byYmd.get(formatLocalYmd(addDays(s, i)))
+    if (!listingDayOpenForStayNight(row, i)) break
     n++
   }
   return n
@@ -127,14 +153,15 @@ export function stayListingCalendarDaySelectable(
 ): boolean {
   const day = startOfLocalDay(d)
   if (day < startOfLocalDay(opts.effectiveMinDate)) return false
-  const ymd = opts.formatLocalYmd(day)
-  const row = opts.byYmd.get(ymd)
-  if (isListingDayFullyBlocked(row)) return false
+
   if (opts.startDate != null && opts.endDate == null) {
     const start = startOfLocalDay(opts.startDate)
     if (day <= start) return false
     const nights = Math.round((day.getTime() - start.getTime()) / (24 * 60 * 60 * 1000))
     if (nights < 1) return false
+
+    if (!stayRangeOvernightsAvailable(start, day, opts.byYmd, opts.formatLocalYmd)) return false
+    if (!listingDayCheckoutSelectable(opts.byYmd.get(opts.formatLocalYmd(day)))) return false
 
     const maxN = maxConsecutiveNightsFromStart(start, opts.byYmd, opts.formatLocalYmd)
     if (nights > maxN) return false
@@ -150,7 +177,11 @@ export function stayListingCalendarDaySelectable(
     }
     return nights >= minN && nights <= maxN
   }
-  return true
+
+  const ymd = opts.formatLocalYmd(day)
+  const row = opts.byYmd.get(ymd)
+  if (isListingDayFullyBlocked(row)) return false
+  return listingDayPmOpen(row)
 }
 
 /** Rezervasyon kartı / popover için varsayılan [giriş, çıkış] (müsaitlik kontrolsüz) */
