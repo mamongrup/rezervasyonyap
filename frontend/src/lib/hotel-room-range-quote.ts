@@ -1,5 +1,6 @@
-import { formatLocalYmd } from '@/lib/date-format-local'
 import { diffStayNights } from '@/hooks/use-stay-listing-quote'
+import { listingDayOpenForStayNight } from '@/lib/listing-availability-day'
+import { formatLocalYmd } from '@/lib/date-format-local'
 import type { ListingAvailabilityDay } from '@/lib/travel-api'
 
 export function parseHotelRoomNightlyPrice(raw: string | null | undefined): number | null {
@@ -23,15 +24,18 @@ export function computeHotelRoomStayQuote(
   let total = 0
   let available = true
 
-  const cursor = new Date(rangeStart)
-  cursor.setHours(0, 0, 0, 0)
+  const start = new Date(rangeStart)
+  start.setHours(0, 0, 0, 0)
+  const cursor = new Date(start)
   const end = new Date(rangeEnd)
   end.setHours(0, 0, 0, 0)
 
+  let nightIndex = 0
   while (cursor < end) {
     const ymd = formatLocalYmd(cursor)
     const hit = byDay.get(ymd)
-    if (hit && hit.is_available === false) available = false
+    if (!listingDayOpenForStayNight(hit, nightIndex)) available = false
+    nightIndex++
     const nightly = parseHotelRoomNightlyPrice(hit?.price_override) ?? fallbackNightly
     total += nightly > 0 ? nightly : 0
     cursor.setDate(cursor.getDate() + 1)

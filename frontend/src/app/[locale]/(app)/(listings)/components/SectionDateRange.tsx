@@ -1,14 +1,13 @@
 'use client'
 
-import DatePickerCustomDay from '@/components/DatePickerCustomDay'
 import DatePickerCustomHeaderTwoMonth from '@/components/DatePickerCustomHeaderTwoMonth'
 import { formatLocalYmd } from '@/lib/date-format-local'
+import {
+  listingAvailabilityByYmd,
+  renderListingCalendarDayContents,
+} from '@/lib/listing-calendar-day-render'
 import { datePickerLocaleId, intlDateLocaleTag } from '@/lib/i18n-config'
 import '@/lib/register-datepicker-locales'
-import {
-  listingDayAmPm,
-  listingDayVisualStatus,
-} from '@/lib/listing-availability-day'
 import {
   earliestCheckInDate,
   resolvedMinStayNights,
@@ -29,11 +28,7 @@ function startOfToday(): Date {
 }
 
 function availabilityByDayYmd(days: ListingAvailabilityDay[]): Map<string, ListingAvailabilityDay> {
-  const m = new Map<string, ListingAvailabilityDay>()
-  for (const row of days) {
-    m.set(row.day.trim(), row)
-  }
-  return m
+  return listingAvailabilityByYmd(days)
 }
 
 function SectionDateRangeCalendar({
@@ -123,21 +118,9 @@ function SectionDateRangeCalendar({
           renderCustomHeader={(props) => (
             <DatePickerCustomHeaderTwoMonth {...props} monthLocale={monthLocale} monthsShown={monthsShown} />
           )}
-          renderDayContents={(day, date) => {
-            const ymd = date ? formatLocalYmd(date) : ''
-            const row = ymd ? byYmd.get(ymd) : undefined
-            const { am, pm } = listingDayAmPm(row)
-            const visualStatus = listingDayVisualStatus(row)
-            return (
-              <DatePickerCustomDay
-                dayOfMonth={day}
-                date={date}
-                am={am}
-                pm={pm}
-                visualStatus={visualStatus}
-              />
-            )
-          }}
+          renderDayContents={(day, date) =>
+            renderListingCalendarDayContents(day, date, byYmd, formatLocalYmd)
+          }
         />
         </div>
       </div>
@@ -239,6 +222,15 @@ export default function SectionDateRange({
             className="relative inline-block size-4 shrink-0 overflow-hidden rounded-full border-2 border-indigo-100 bg-white shadow-sm dark:border-neutral-600 dark:bg-neutral-900"
           >
             <span className="absolute top-[7px] left-[-2px] block h-0.5 w-[140%] rotate-45 bg-neutral-300 dark:bg-neutral-500" />
+          </span>
+          <span className="text-sm font-semibold text-neutral-600 dark:text-neutral-400">{copy.legendTurnover}</span>
+        </li>
+        <li className="flex items-center gap-2.5">
+          <span
+            aria-hidden
+            className="inline-flex size-4 shrink-0 items-center justify-center rounded-full border-2 border-neutral-200 bg-neutral-100 text-[10px] font-medium text-neutral-300 line-through decoration-neutral-400 dark:border-neutral-600 dark:bg-neutral-800 dark:text-neutral-500"
+          >
+            11
           </span>
           <span className="text-sm font-semibold text-neutral-600 dark:text-neutral-400">{copy.legendBlocked}</span>
         </li>

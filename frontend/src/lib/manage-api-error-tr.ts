@@ -80,6 +80,7 @@ const TR_BY_CODE: Record<string, string> = {
   hotel_room_insert_failed: 'Oda eklenemedi.',
   hotel_room_delete_failed: 'Oda silinemedi.',
   hotel_room_unavailable: 'Seçilen oda tipi bu tarihlerde müsait değil.',
+  dates_unavailable: 'Seçilen tarihlerde konaklama müsait değil.',
   hotel_details_query_failed: 'Otel detayları alınamadı.',
   hotel_details_upsert_failed: 'Otel detayları kaydedilemedi.',
   name_required: 'Ad alanı zorunlu.',

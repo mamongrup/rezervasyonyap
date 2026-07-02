@@ -1,14 +1,13 @@
 'use client'
 
-import DatePickerCustomDay from '@/components/DatePickerCustomDay'
 import DatePickerCustomHeaderTwoMonth from '@/components/DatePickerCustomHeaderTwoMonth'
 import { formatLocalYmd } from '@/lib/date-format-local'
+import {
+  listingAvailabilityByYmd,
+  renderListingCalendarDayContents,
+} from '@/lib/listing-calendar-day-render'
 import { datePickerLocaleId, intlDateLocaleTag } from '@/lib/i18n-config'
 import '@/lib/register-datepicker-locales'
-import {
-  listingDayAmPm,
-  listingDayVisualStatus,
-} from '@/lib/listing-availability-day'
 import {
   earliestCheckInDate,
   resolvedMinStayNights,
@@ -109,13 +108,7 @@ const DatesRangeInputPopover: FC<Props> = ({
     return t
   }, [effectiveMinDate])
   const minNights = useMemo(() => resolvedMinStayNights(bookingRules), [bookingRules])
-  const byYmd = useMemo(() => {
-    const m = new Map<string, ListingAvailabilityDay>()
-    for (const row of availabilityDays ?? []) {
-      m.set(row.day.trim(), row)
-    }
-    return m
-  }, [availabilityDays])
+  const byYmd = useMemo(() => listingAvailabilityByYmd(availabilityDays ?? []), [availabilityDays])
 
   const filterDate = useMemo(
     () => (d: Date) =>
@@ -215,21 +208,9 @@ const DatesRangeInputPopover: FC<Props> = ({
                     renderCustomHeader={(p) => (
                       <DatePickerCustomHeaderTwoMonth {...p} monthLocale={intlLocale} monthsShown={monthsShown} />
                     )}
-                    renderDayContents={(day, date) => {
-                      const ymd = date ? formatLocalYmd(date) : ''
-                      const row = ymd ? byYmd.get(ymd) : undefined
-                      const { am, pm } = listingDayAmPm(row)
-                      const visualStatus = listingDayVisualStatus(row)
-                      return (
-                        <DatePickerCustomDay
-                          dayOfMonth={day}
-                          date={date}
-                          am={am}
-                          pm={pm}
-                          visualStatus={visualStatus}
-                        />
-                      )
-                    }}
+                    renderDayContents={(day, date) =>
+                      renderListingCalendarDayContents(day, date, byYmd, formatLocalYmd)
+                    }
                   />
                 </div>
               </div>

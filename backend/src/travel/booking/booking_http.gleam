@@ -427,7 +427,6 @@ fn cart_listing_currency_allowed(
   }
 }
 
-/// Konaklama geceleri (çıkış günü hariç) oda envanterini karşılamıyorsa true.
 fn hotel_room_stay_unavailable(
   db: pog.Connection,
   listing_id: String,
@@ -467,6 +466,57 @@ fn hotel_room_stay_unavailable(
     |> pog.parameter(pog.calendar_date(start_date))
     |> pog.parameter(pog.calendar_date(end_date))
     |> pog.parameter(pog.int(quantity))
+    |> pog.returning(row_dec.col0_string())
+    |> db_exec.execute(db)
+  {
+    Error(_) -> True
+    Ok(ret) ->
+      case ret.rows {
+        ["t"] -> True
+        _ -> False
+      }
+  }
+}
+
+/// Tatil evi / yat / araç — konaklama geceleri yarım gün takvimine uymuyorsa true.
+fn listing_stay_unavailable(
+  db: pog.Connection,
+  listing_id: String,
+  start_date: calendar.Date,
+  end_date: calendar.Date,
+) -> Bool {
+  case
+    pog.query(
+      "select ( "
+        <> "exists ( "
+        <> "  select 1 from listings l "
+        <> "  join product_categories pc on pc.id = l.category_id "
+        <> "  where l.id = $1::uuid "
+        <> "    and pc.code in ('holiday_home', 'yacht_charter', 'car_rental') "
+        <> ") "
+        <> "and exists ( "
+        <> "  with bounds as (select $2::date as s, $3::date as e), "
+        <> "  night_series as ( "
+        <> "    select generate_series(b.s, b.e - interval '1 day', interval '1 day')::date as day "
+        <> "    from bounds b where b.e > b.s "
+        <> "  ) "
+        <> "  select 1 from night_series ns "
+        <> "  cross join bounds b "
+        <> "  left join listing_availability_calendar c "
+        <> "    on c.listing_id = $1::uuid and c.day = ns.day "
+        <> "  where "
+        <> "    (ns.day = b.s and coalesce(c.pm_available, c.is_available, true) = false) "
+        <> "    or (ns.day > b.s and ( "
+        <> "      coalesce(c.am_available, c.is_available, true) = false "
+        <> "      or coalesce(c.pm_available, c.is_available, true) = false "
+        <> "    )) "
+        <> "  limit 1 "
+        <> ") "
+        <> ")::text",
+    )
+    |> pog.parameter(pog.text(listing_id))
+    |> pog.parameter(pog.calendar_date(start_date))
+    |> pog.parameter(pog.calendar_date(end_date))
     |> pog.returning(row_dec.col0_string())
     |> db_exec.execute(db)
   {
@@ -754,16 +804,28 @@ pub fn add_cart_line(req: Request, ctx: Context, cart_id: String) -> Response {
                                                               }
                                                           }
                                                         None ->
-                                                          insert_cart_line_row(
-                                                            conn,
-                                                            cart_id,
-                                                            listing_id,
-                                                            quantity,
-                                                            start_date,
-                                                            end_date,
-                                                            price_trim,
-                                                            meta_sql,
-                                                          )
+                                                          case
+                                                            listing_stay_unavailable(
+                                                              conn,
+                                                              listing_id,
+                                                              start_date,
+                                                              end_date,
+                                                            )
+                                                          {
+                                                            True ->
+                                                              Error("dates_unavailable")
+                                                            False ->
+                                                              insert_cart_line_row(
+                                                                conn,
+                                                                cart_id,
+                                                                listing_id,
+                                                                quantity,
+                                                                start_date,
+                                                                end_date,
+                                                                price_trim,
+                                                                meta_sql,
+                                                              )
+                                                          }
                                                       }
                                                   }
                                               }

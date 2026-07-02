@@ -19,12 +19,13 @@ export function roomAvailabilityToListingDays(
     const day = formatLocalYmd(d)
     const hit = byDay.get(day)
     const units = hit?.available_units ?? defaultUnits
-    const available = units > 0
+    const open = units > 0
+    const singleUnit = defaultUnits === 1
     rows.push({
       day,
-      is_available: available,
-      am_available: available,
-      pm_available: available,
+      is_available: open || (singleUnit && !open),
+      am_available: open,
+      pm_available: open,
       price_override: hit?.price_override ?? null,
       day_status: null,
     })
