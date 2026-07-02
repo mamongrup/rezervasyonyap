@@ -56,6 +56,9 @@ import { DEFAULT_REGION_HERO_FREEFORM } from '@/lib/region-hero-freeform-default
 import { MapsLocation01Icon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { getSubcategoriesByParent } from '@/data/subcategory-registry'
+import CategoryHubGridModule from '@/components/page-builder/modules/CategoryHubGridModule'
+import { buildKulturTourHubGridConfig } from '@/data/tour-kultur-hub-categories'
+import { isKulturTourHubSlug } from '@/lib/tour-subcategory-routes'
 import type { ReactNode } from 'react'
 import Link from 'next/link'
 import { Suspense } from 'react'
@@ -687,6 +690,14 @@ export default async function CategoryPageTemplate({
           heroMosaicBleed
         />
       </div>
+
+      {category.slug === 'turlar' && isKulturTourHubSlug(currentHandle) && !hasActiveSearch ? (
+        <CategoryHubGridModule
+          config={buildKulturTourHubGridConfig(locale)}
+          locale={locale}
+          categorySlug="kultur-turlari"
+        />
+      ) : null}
 
       {searchResultsSection}
 

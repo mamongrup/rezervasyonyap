@@ -7,7 +7,7 @@ import { categoryFacetRouteFromHandle } from '@/lib/category-facet-routes'
 import { facetLabelFromRoute, redirectCategoryFacetFromQuery } from '@/lib/category-facet-redirect'
 import { loadCategoryPageListingsBundle } from '@/lib/category-page-data'
 import { parseSearchParamsFromUrl } from '@/lib/listings-fetcher'
-import { isTourSubcategorySlug } from '@/lib/tour-subcategory-routes'
+import { isTourSubcategorySlug, isKulturTourHubSlug } from '@/lib/tour-subcategory-routes'
 import { getSubcategoryBySlug } from '@/data/subcategory-registry'
 import { categoryMetadata } from '@/lib/category-page-metadata'
 import { Metadata } from 'next'
@@ -68,6 +68,7 @@ export default async function Page({
   const propertyTypeLabel = isTourSubHandle
     ? (getSubcategoryBySlug(currentHandle!)?.name ?? currentHandle)
     : facetLabel
+  const isKulturHub = isKulturTourHubSlug(currentHandle)
   const regionLabel =
     !isTourSubHandle && !pathFacetRoute && currentHandle && currentHandle !== 'all'
       ? currentHandle.replace(/-/g, ' ')
@@ -86,7 +87,16 @@ export default async function Page({
       filterOptions={filterOptions}
       currentHandle={currentHandle}
       locale={locale}
-      heroOverride={heroOverride}
+      heroOverride={
+        isKulturHub
+          ? {
+              ...(heroOverride ?? {}),
+              heading: locale.startsWith('en')
+                ? 'Cultural tours across Turkey'
+                : 'Kültür Turları',
+            }
+          : heroOverride
+      }
       isSearchResults={!!currentHandle && currentHandle !== 'all'}
       allListings={listings}
       listingLinkBase={category.detailRoute}

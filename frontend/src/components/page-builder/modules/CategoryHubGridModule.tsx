@@ -1,10 +1,11 @@
 import { getTourHubCategories, type TourHubCategory } from '@/data/tour-hub-categories'
+import { getKulturTourHubCategories } from '@/data/tour-kultur-hub-categories'
 import { mergeKruvaziyerHubCards } from '@/data/cruise-hub-categories'
 import {
   enrichCruiseBrandHubCards,
   enrichCruiseRouteHubCards,
 } from '@/lib/cruise-hub-enrich'
-import { getPublicCruiseHubStats } from '@/lib/travel-api'
+import { getPublicCruiseHubStats, getPublicTourKulturHubStats } from '@/lib/travel-api'
 import { heroBelowContentClassName } from '@/components/hero-sections/hero-below-header-classes'
 import { fetchLocalizedRoutes } from '@/lib/i18n-server'
 import {
@@ -112,6 +113,23 @@ function defaultSubheading(locale: string) {
     : 'Bölge, kalkış noktası, süre ve ulaşım tipine göre tur seçeneklerini keşfedin; kategoriye tıklayarak ilgili programları listeleyin.'
 }
 
+function enrichKulturHubCards(
+  cards: CategoryHubGridCard[],
+  stats: Awaited<ReturnType<typeof getPublicTourKulturHubStats>>,
+  locale: string,
+): CategoryHubGridCard[] {
+  const byRegion = new Map(stats.map((r) => [r.tour_region, r.count]))
+  const tourLabel = isEnLocale(locale) ? 'tours' : 'tur'
+  return cards.map((card) => {
+    const code = card.hubCode ?? card.id
+    const cnt = byRegion.get(code) ?? 0
+    return {
+      ...card,
+      metaLine: cnt > 0 ? `${cnt} ${tourLabel}` : card.metaLine,
+    }
+  })
+}
+
 function resolveHeading(config: CategoryHubGridModuleConfig, locale: string) {
   if (isEnLocale(locale) && config.headingEn?.trim()) return config.headingEn
   if (config.heading?.trim()) return config.heading
@@ -137,11 +155,15 @@ export default async function CategoryHubGridModule({
   const rawCards =
     categorySlug === 'kruvaziyer'
       ? mergeKruvaziyerHubCards(config, locale)
-      : config.cards && config.cards.length > 0
-        ? config.cards
-        : categorySlug === 'turlar'
-          ? getTourHubCategories(locale).map(tourCategoryToHubCard)
-          : []
+      : categorySlug === 'kultur-turlari'
+        ? config.cards && config.cards.length > 0
+          ? config.cards
+          : getKulturTourHubCategories(locale)
+        : config.cards && config.cards.length > 0
+          ? config.cards
+          : categorySlug === 'turlar'
+            ? getTourHubCategories(locale).map(tourCategoryToHubCard)
+            : []
 
   if (rawCards.length === 0) return null
 
@@ -153,6 +175,9 @@ export default async function CategoryHubGridModule({
     cardsToResolve = isRoute
       ? enrichCruiseRouteHubCards(rawCards, stats, locale)
       : enrichCruiseBrandHubCards(rawCards, stats, locale)
+  } else if (categorySlug === 'kultur-turlari') {
+    const stats = await getPublicTourKulturHubStats({ next: { revalidate: 300 } })
+    cardsToResolve = enrichKulturHubCards(rawCards, stats, locale)
   }
 
   const resolved = await resolveCards(locale, cardsToResolve)

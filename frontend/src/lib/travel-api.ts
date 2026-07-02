@@ -6931,6 +6931,33 @@ export async function getPublicCruiseHubStats(init?: RequestInit): Promise<Cruis
   }
 }
 
+export type TourKulturHubStatsRow = {
+  tour_region: string
+  count: number
+}
+
+/** GET /api/v1/catalog/public/tour-kultur-hub-stats — kültür tur hub kart istatistikleri */
+export async function getPublicTourKulturHubStats(init?: RequestInit): Promise<TourKulturHubStatsRow[]> {
+  const b = base()
+  if (!b) return []
+  try {
+    const res = await fetch(`${b}/api/v1/catalog/public/tour-kultur-hub-stats`, init)
+    if (!res.ok) return []
+    const data = (await json(res)) as {
+      rows?: Array<{ tour_region?: string; count?: number }>
+    }
+    if (!Array.isArray(data.rows)) return []
+    return data.rows
+      .map((row) => ({
+        tour_region: String(row.tour_region ?? ''),
+        count: typeof row.count === 'number' ? row.count : 0,
+      }))
+      .filter((row) => row.count > 0 && row.tour_region)
+  } catch {
+    return []
+  }
+}
+
 /** Bölge slider'ı (SectionSliderRegions) — backend henüz yoksa veya hata varsa [] */
 export type PublicRegionStatItem = {
   name: string
@@ -9749,6 +9776,8 @@ export interface PublicListingSearchParams {
   tourDuration?: string
   /** Tur — kalkış şehri / havalimanı (virgülle çoklu) */
   tourDeparture?: string
+  /** Tur — kültür bölgesi (kapadokya, karadeniz, … virgülle çoklu) */
+  tourRegion?: string
   /** Kruvaziyer — gemi hattı / rota facet */
   cruiseLine?: string
   cruiseRoute?: string
@@ -9911,6 +9940,7 @@ export async function searchPublicListings(
   if (params.tourAccommodation?.trim()) u.set('tour_accommodation', params.tourAccommodation.trim())
   if (params.tourDuration?.trim()) u.set('tour_duration', params.tourDuration.trim())
   if (params.tourDeparture?.trim()) u.set('tour_departure', params.tourDeparture.trim())
+  if (params.tourRegion?.trim()) u.set('tour_region', params.tourRegion.trim())
   if (params.cruiseLine?.trim()) u.set('cruise_line', params.cruiseLine.trim())
   if (params.cruiseRoute?.trim()) u.set('cruise_route', params.cruiseRoute.trim())
   if (params.propertyType?.trim()) u.set('property_type', params.propertyType.trim())

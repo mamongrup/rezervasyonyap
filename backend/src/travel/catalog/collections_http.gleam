@@ -91,6 +91,21 @@ fn hotel_public_must_have_price_sql() -> String {
   "and (pc.code != 'hotel' or coalesce(l.vitrin_price, l.first_charge_amount, 0) > 0) "
 }
 
+/// Tatil evi / yat / araç — arama tarihlerinde konaklama geceleri (çıkış hariç) yarım gün müsaitliği.
+fn listing_half_day_stay_calendar_filter_sql() -> String {
+  "and ($8::text is null or $9::text is null or pc.code not in ('holiday_home', 'yacht_charter', 'car_rental') or not exists ( "
+  <> "  select 1 from generate_series($8::date, ($9::date - interval '1 day')::date, interval '1 day') as ns(day) "
+  <> "  left join listing_availability_calendar c on c.listing_id = l.id and c.day = ns.day::date "
+  <> "  where ( "
+  <> "    (ns.day = $8::date and coalesce(c.pm_available, c.is_available, true) = false) "
+  <> "    or (ns.day > $8::date and ( "
+  <> "      coalesce(c.am_available, c.is_available, true) = false "
+  <> "      or coalesce(c.pm_available, c.is_available, true) = false "
+  <> "    )) "
+  <> "  ) "
+  <> ")) "
+}
+
 /// `vitrin_price` sütunu / önbellek migration'ı uygulanmamış DB'lerde arama 500 vermesin.
 fn strip_vitrin_price_cache_sql(sql: String) -> String {
   sql
@@ -908,6 +923,15 @@ fn search_listings_impl(
     True -> pog.null()
     False -> pog.text(cruise_route_raw)
   }
+  let tour_region_raw =
+    list.key_find(qs, "tour_region")
+    |> result.unwrap("")
+    |> string.trim
+    |> string.lowercase
+  let tour_region_param = case tour_region_raw == "" {
+    True -> pog.null()
+    False -> pog.text(tour_region_raw)
+  }
 
   // $23: tatil evi ilan tipi (villa | apart | daire | bungalov)
   let property_type_raw =
@@ -1115,17 +1139,7 @@ fn search_listings_impl(
     <> "    and r.starts_on <= ($9::date + ($10 || ' days')::interval)::date "
     <> "    and r.ends_on >= ($8::date - ($10 || ' days')::interval)::date "
     <> ")) "
-    // Takvim: tatil evi / yat — aralıkta tam gün kapalı olanları ele
-    <> "and ($8::text is null or $9::text is null or pc.code not in ('holiday_home', 'yacht_charter') or not exists ( "
-    <> "  select 1 from generate_series( "
-    <> "    ($8::date - ($10 || ' days')::interval)::date, "
-    <> "    ($9::date + ($10 || ' days')::interval - interval '1 day')::date, "
-    <> "    interval '1 day' "
-    <> "  ) as d(day) "
-    <> "  left join listing_availability_calendar c on c.listing_id = l.id and c.day = d.day::date "
-    <> "  where coalesce(c.am_available, c.is_available, true) = false "
-    <> "    and coalesce(c.pm_available, c.is_available, true) = false "
-    <> ")) "
+    <> listing_half_day_stay_calendar_filter_sql()
     // Otel — her gece en az bir aktif odada müsait birim (takvim yoksa müsait say)
     <> "and ($8::text is null or $9::text is null or pc.code != 'hotel' or not exists ( "
     <> "  select 1 from generate_series( "
@@ -1196,6 +1210,10 @@ fn search_listings_impl(
     <> "  or "
     <> listing_search_match_sql
     <> " ilike '%' || replace(split_part(trim($29), '-', 1), '-', '') || '%') "
+    <> "and ($30::text is null or pc.code != 'tour' or exists ( "
+    <> "  select 1 from unnest(string_to_array(trim($30), ',')::text[]) as reg(v) "
+    <> "  where lower(trim(coalesce(tour_attr.value_json->'data'->>'tour_region', tour_attr.value_json->>'tour_region', ''))) = trim(reg.v) "
+    <> ")) "
     <> "and ($25::text is null or pc.code not in ('holiday_home', 'yacht_charter') or ( "
     <> "  "
     <> meta_bed_count_sql
@@ -1285,16 +1303,7 @@ fn search_listings_impl(
     <> "    and r.starts_on <= ($9::date + ($10 || ' days')::interval)::date "
     <> "    and r.ends_on >= ($8::date - ($10 || ' days')::interval)::date "
     <> ")) "
-    <> "and ($8::text is null or $9::text is null or pc.code not in ('holiday_home', 'yacht_charter') or not exists ( "
-    <> "  select 1 from generate_series( "
-    <> "    ($8::date - ($10 || ' days')::interval)::date, "
-    <> "    ($9::date + ($10 || ' days')::interval - interval '1 day')::date, "
-    <> "    interval '1 day' "
-    <> "  ) as d(day) "
-    <> "  left join listing_availability_calendar c on c.listing_id = l.id and c.day = d.day::date "
-    <> "  where coalesce(c.am_available, c.is_available, true) = false "
-    <> "    and coalesce(c.pm_available, c.is_available, true) = false "
-    <> ")) "
+    <> listing_half_day_stay_calendar_filter_sql()
     <> "and ($23::text is null or pc.code not in ('holiday_home', 'yacht_charter') or lower(trim(coalesce(lm.meta->>'property_type', ''))) = $23) "
     <> "and ($25::text is null or pc.code not in ('holiday_home', 'yacht_charter') or ("
     <> meta_bed_count_sql
@@ -1319,6 +1328,10 @@ fn search_listings_impl(
     <> "  or "
     <> listing_search_match_sql
     <> " ilike '%' || replace(split_part(trim($29), '-', 1), '-', '') || '%') "
+    <> "and ($30::text is null or pc.code != 'tour' or exists ( "
+    <> "  select 1 from unnest(string_to_array(trim($30), ',')::text[]) as reg(v) "
+    <> "  where lower(trim(coalesce(tour_attr.value_json->'data'->>'tour_region', tour_attr.value_json->>'tour_region', ''))) = trim(reg.v) "
+    <> ")) "
     // Fiyat filtresi ve tur "fiyatı olmalı" koşulu önbellek sütununu (vitrin_price) kullanır;
     // satır-başı fiyat lateral'ı gerekmez → fast path fiyat/sıralamayı index ile karşılar.
     <> "and ($12::text is null or coalesce(l.vitrin_price, l.first_charge_amount) >= nullif($12::text, '')::numeric) "
@@ -1338,7 +1351,7 @@ fn search_listings_impl(
   let fast_count_sql =
     "select count(*)::int from (select l.id "
     <> fast_filter_body
-    <> ") _cnt cross join (select $1::text as a1, $4::text as a4, $5::int as a5, $6::text as a6, $7::text as a7, $11::text as a11, $12::text as a12, $13::text as a13, $14::text as a14, $15::text as a15, $16::text as a16, $17::text as a17, $18::text as a18, $19::text as a19, $20::text as a20, $21::int as a21, $22::uuid as a22, $24::text as a24, $28::text as a28, $29::text as a29) __allp"
+    <> ") _cnt cross join (select $1::text as a1, $4::text as a4, $5::int as a5, $6::text as a6, $7::text as a7, $11::text as a11, $12::text as a12, $13::text as a13, $14::text as a14, $15::text as a15, $16::text as a16, $17::text as a17, $18::text as a18, $19::text as a19, $20::text as a20, $21::int as a21, $22::uuid as a22, $24::text as a24, $28::text as a28, $29::text as a29, $30::text as a30) __allp"
   // Filtreli (fast olmayan) aramalar da deferred-projeksiyon kullanır: page_ids tüm filtreleri
   // + sıralamayı yalnız l.id üzerinde uygular; pahalı projeksiyon (galeri, çeviri, pansiyon)
   // yalnızca sayfadaki ~24 satır için çalışır. WHERE/ORDER lateral'ları (fiyat, attr) zaten gerekli.
@@ -1387,6 +1400,7 @@ fn search_listings_impl(
     |> pog.parameter(bathrooms_param)
     |> pog.parameter(cruise_line_param)
     |> pog.parameter(cruise_route_param)
+    |> pog.parameter(tour_region_param)
   }
 
   let is_agent_search = case agency_org_opt {
@@ -1411,6 +1425,7 @@ fn search_listings_impl(
     && tour_departure_raw == ""
     && cruise_line_raw == ""
     && cruise_route_raw == ""
+    && tour_region_raw == ""
   let exact_count_needed =
     is_agent_search
     || q_normalized != ""
@@ -1430,6 +1445,7 @@ fn search_listings_impl(
     || tour_departure_raw != ""
     || cruise_line_raw != ""
     || cruise_route_raw != ""
+    || tour_region_raw != ""
     || property_type_raw != ""
     || string.trim(beds_raw) != ""
     || string.trim(bedrooms_raw) != ""
@@ -2728,5 +2744,65 @@ pub fn public_cruise_hub_stats(req: Request, ctx: Context) -> Response {
   }
 }
 
+// ─── Public Kültür Tur Hub Stats ───────────────────────────────────────────────
+
+fn tour_kultur_hub_agg_row() -> decode.Decoder(#(String, Int)) {
+  use region <- decode.field(0, decode.string)
+  use cnt <- decode.field(1, decode.int)
+  decode.success(#(region, cnt))
+}
+
+fn public_tour_kultur_hub_stats_sql() -> String {
+  "select "
+  <> "  lower(trim(coalesce(tour_attr.value_json->'data'->>'tour_region', tour_attr.value_json->>'tour_region', ''))) as tour_region, "
+  <> "  count(*)::int as cnt "
+  <> "from listings l "
+  <> "join product_categories pc on pc.id = l.category_id and pc.code = 'tour' "
+  <> "join listing_attributes tour_attr on tour_attr.listing_id = l.id "
+  <> "  and tour_attr.group_code = 'vertical_tour' and tour_attr.key = 'v1' "
+  <> "where l.status = 'published' "
+  <> public_listing_must_have_image_sql()
+  <> "and coalesce(l.vitrin_price, l.first_charge_amount, 0) > 0 "
+  <> "and trim(coalesce(tour_attr.value_json->'data'->>'tour_region', tour_attr.value_json->>'tour_region', '')) <> '' "
+  <> "group by 1 "
+  <> "order by cnt desc"
+}
+
+/// GET /api/v1/catalog/public/tour-kultur-hub-stats
+/// Kültür tur hub kartları için bölge kırılımında ilan sayıları.
+pub fn public_tour_kultur_hub_stats(req: Request, ctx: Context) -> Response {
+  use <- wisp.require_method(req, http.Get)
+  case
+    pog.query(public_tour_kultur_hub_stats_sql())
+    |> pog.returning(tour_kultur_hub_agg_row())
+    |> db_exec.execute(ctx.db)
+  {
+    Error(e) -> {
+      let _ =
+        io.println(
+          "[catalog.public.tour-kultur-hub-stats] "
+            <> pog_errors.query_error_to_string(e),
+        )
+      let body =
+        json.object([#("rows", json.array(from: [], of: fn(x) { x }))])
+        |> json.to_string
+      wisp.json_response(body, 200)
+    }
+    Ok(ret) -> {
+      let rows =
+        list.map(ret.rows, fn(row) {
+          let #(region, cnt) = row
+          json.object([
+            #("tour_region", json.string(region)),
+            #("count", json.int(cnt)),
+          ])
+        })
+      let body =
+        json.object([#("rows", json.array(from: rows, of: fn(x) { x }))])
+        |> json.to_string
+      wisp.json_response(body, 200)
+    }
+  }
+}
 
 

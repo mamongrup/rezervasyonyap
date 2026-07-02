@@ -571,6 +571,7 @@ export const en = {
       tourAccCamping: 'Camping',
       tourAccNone: 'No overnight stay',
       tourDepartureLabel: 'Departure city',
+      tourRegionLabel: 'Region / theme',
       cruiseLineLabel: 'Cruise line',
       cruiseRouteLabel: 'Route',
       tourDeparture_istanbul: 'Istanbul',
@@ -1494,6 +1495,7 @@ export const en = {
       rulesGap:
         'Gap fill: when enabled, stays shorter than the minimum night rule are allowed if they only fill an available gap between other bookings.',
       legendAvailable: 'Available',
+      legendTurnover: 'Changeover (check-out AM / check-in PM)',
       legendBlocked: 'Unavailable',
       legendOption: 'Option (hold)',
       legendPromo: 'Special offer',

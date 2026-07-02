@@ -351,6 +351,7 @@ export const tr = {
       tourAccCamping: 'Kamp',
       tourAccNone: 'Gece konaklama yok',
       tourDepartureLabel: 'Hareket noktası',
+      tourRegionLabel: 'Bölge / tema',
       cruiseLineLabel: 'Gemi hattı',
       cruiseRouteLabel: 'Rota',
       tourDeparture_istanbul: 'İstanbul',
@@ -1013,6 +1014,7 @@ export const tr = {
       rulesGap:
         'Boşluk doldurma: Açıkken, yalnızca iki dolu aralık arasındaki kısa müsait günleri dolduran konaklamalarda minimum gece kuralı uygulanmaz.',
       legendAvailable: 'Müsait',
+      legendTurnover: 'Değişim günü (sabah çıkış / öğleden sonra giriş)',
       legendBlocked: 'Dolu',
       legendOption: 'Opsiyon',
       legendPromo: 'Fırsat',

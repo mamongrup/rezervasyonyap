@@ -6,6 +6,7 @@ import {
   getTourDepartureCityOptions,
   getTourTravelTypeOptions,
 } from '@/lib/tour-filter-options'
+import { getTourRegionFilterOptions } from '@/lib/tour-kultur-regions'
 import {
   getCruiseLineFilterOptions,
   getCruiseRouteFilterOptions,
@@ -94,8 +95,10 @@ export async function getTourCategoryFilterOptions(locale: string): Promise<Filt
   ])
 
   const departureCities = getTourDepartureCityOptions(locale)
+  const tourRegions = getTourRegionFilterOptions(locale)
 
   return [
+    checkboxFilter(filters.tourRegionLabel ?? 'Bölge', 'tour_region', tourRegions),
     checkboxFilter(filters.tourDepartureLabel, 'tour_departure', departureCities),
     checkboxFilter(filters.travelTypeLabel, 'tour_travel_type', travelTypes),
     checkboxFilter(filters.accommodationTypeLabel, 'tour_accommodation', accommodationTypes),

@@ -124,6 +124,7 @@ export interface SearchQuery {
   tour_accommodation?: string
   tour_duration?: string
   tour_departure?: string
+  tour_region?: string
   /** Kruvaziyer — gemi hattı / rota facet */
   cruise_line?: string
   cruise_route?: string
@@ -179,6 +180,7 @@ export function parseSearchParamsFromUrl(
     tour_accommodation: g('tour_accommodation'),
     tour_duration: g('tour_duration'),
     tour_departure: g('tour_departure'),
+    tour_region: g('tour_region'),
     cruise_line: g('cruise_line'),
     cruise_route: g('cruise_route'),
     vitrin_tab: g('vitrin_tab'),
@@ -721,6 +723,7 @@ export async function fetchCategoryListings(
     tourAccommodation: effectiveQuery.tour_accommodation?.trim() || undefined,
     tourDuration: effectiveQuery.tour_duration?.trim() || undefined,
     tourDeparture: effectiveQuery.tour_departure?.trim() || undefined,
+    tourRegion: effectiveQuery.tour_region?.trim() || undefined,
     cruiseLine: effectiveQuery.cruise_line?.trim() || undefined,
     cruiseRoute: effectiveQuery.cruise_route?.trim() || undefined,
   }

@@ -3,6 +3,9 @@
  * Hub kartları ve `SectionSubcategories` aynı haritayı kullanır.
  */
 
+import { allKulturRegionCodesParam } from '@/data/tour-kultur-hub-categories'
+import { KULTUR_REGION_SLUGS, kulturRegionFromSlug } from '@/lib/tour-kultur-regions'
+
 export const TOUR_SUBCATEGORY_SLUGS = [
   'yurtici-turlar',
   'yurtdisi-turlar',
@@ -11,6 +14,7 @@ export const TOUR_SUBCATEGORY_SLUGS = [
   'dini-turlar',
   'macera-turlari',
   'avrupa-turlari',
+  ...KULTUR_REGION_SLUGS,
 ] as const
 
 export type TourSubcategorySlug = (typeof TOUR_SUBCATEGORY_SLUGS)[number]
@@ -24,6 +28,7 @@ export type TourSubcategoryQueryPatch = {
   tour_travel_type?: string
   tour_accommodation?: string
   tour_duration?: string
+  tour_region?: string
 }
 
 type TourSubcategoryRouteDef = {
@@ -31,13 +36,14 @@ type TourSubcategoryRouteDef = {
   query: TourSubcategoryQueryPatch
 }
 
+const KULTUR_ALL_REGIONS = allKulturRegionCodesParam()
+
 /**
  * Slug → `/turlar/all?…` ve katalog API sorgusu.
  * `location` / `q` backend’de ilan başlığı ve lokasyon alanlarında aranır.
  */
-const TOUR_SUBCATEGORY_ROUTES: Record<TourSubcategorySlug, TourSubcategoryRouteDef> = {
+const TOUR_SUBCATEGORY_ROUTES: Record<string, TourSubcategoryRouteDef> = {
   'yurtici-turlar': {
-    // Katalogda çoğu tur yurt dışı; başlıkta "turkiye" (ASCII) daha iyi eşleşir.
     listPath: '/turlar/all?q=turkiye',
     query: { q: 'turkiye' },
   },
@@ -46,8 +52,8 @@ const TOUR_SUBCATEGORY_ROUTES: Record<TourSubcategorySlug, TourSubcategoryRouteD
     query: { location: 'avrupa' },
   },
   'kultur-turlari': {
-    listPath: '/turlar/all?q=kültür',
-    query: { q: 'kültür' },
+    listPath: '/turlar/kultur-turlari',
+    query: { tour_region: KULTUR_ALL_REGIONS },
   },
   'doga-turlari': {
     listPath: '/turlar/all?q=doğa',
@@ -67,8 +73,21 @@ const TOUR_SUBCATEGORY_ROUTES: Record<TourSubcategorySlug, TourSubcategoryRouteD
   },
 }
 
+for (const slug of KULTUR_REGION_SLUGS) {
+  const region = kulturRegionFromSlug(slug)
+  if (!region) continue
+  TOUR_SUBCATEGORY_ROUTES[slug] = {
+    listPath: `/turlar/all?tour_region=${encodeURIComponent(region)}`,
+    query: { tour_region: region },
+  }
+}
+
 export function isTourSubcategorySlug(slug: string | undefined | null): slug is TourSubcategorySlug {
   return !!slug && TOUR_SUBCATEGORY_SET.has(slug)
+}
+
+export function isKulturTourHubSlug(slug: string | undefined | null): boolean {
+  return slug === 'kultur-turlari'
 }
 
 export function tourSubcategoryRoute(slug: string): TourSubcategoryRouteDef | undefined {
