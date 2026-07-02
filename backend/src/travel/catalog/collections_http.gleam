@@ -1284,6 +1284,7 @@ fn search_listings_impl(
     <> "left join listing_holiday_home_details h on h.listing_id = l.id "
     <> "left join listing_yacht_details y on y.listing_id = l.id "
     <> "left join lateral (select la.value_json as meta from listing_attributes la where la.listing_id = l.id and la.group_code = 'listing_meta' and la.key = 'v1' limit 1) lm on true "
+    <> "left join lateral (select la.value_json from listing_attributes la where la.listing_id = l.id and la.group_code = 'vertical_tour' and la.key = 'v1' limit 1) tour_attr on true "
     <> "left join listing_cruise_details cruise_det on cruise_det.listing_id = l.id "
     <> "where l.status = 'published' "
     <> public_listing_must_have_image_sql()
