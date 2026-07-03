@@ -71,17 +71,35 @@ function stemFromOriginalFilename(name: string): string {
   return sanitizePathSegment(base) || 'gorsel'
 }
 
-function faviconUploadProfile(folder: string, fixedStem: string): FolderProfile | null {
-  if (folder !== 'site' || !/favicon/i.test(fixedStem)) return null
-  return {
-    width: 512,
-    height: 512,
-    fit: 'inside',
-    vivid: false,
-    quality: 90,
-    effort: 6,
-    thumb: 0,
+/**
+ * `site` klasöründeki sabit adlı marka varlıkları (logo, favicon) genel `site`
+ * vitrin profilinden (cover, q60, vivid) ayrı işlenir — kalite ve oran korunur.
+ */
+function siteBrandingUploadProfile(folder: string, fixedStem: string): FolderProfile | null {
+  if (folder !== 'site') return null
+  if (/favicon/i.test(fixedStem)) {
+    return {
+      width: 512,
+      height: 512,
+      fit: 'inside',
+      vivid: false,
+      quality: 90,
+      effort: 6,
+      thumb: 0,
+    }
   }
+  if (/^brand-logo/i.test(fixedStem)) {
+    return {
+      width: 1200,
+      height: 400,
+      fit: 'inside',
+      vivid: false,
+      quality: 95,
+      effort: 6,
+      thumb: 0,
+    }
+  }
+  return null
 }
 
 const UPLOADS_ROOT = path.join(process.cwd(), 'public', 'uploads')
@@ -401,7 +419,7 @@ export async function POST(req: NextRequest) {
       outputBuffer = rawBuffer
       ext = 'pdf'
     } else {
-      const profile = faviconUploadProfile(folder, fixedStem) ?? await getProfile(folder)
+      const profile = siteBrandingUploadProfile(folder, fixedStem) ?? await getProfile(folder)
       try {
         const result = await processImage(rawBuffer, profile, originalExt)
         outputBuffer = result.output
