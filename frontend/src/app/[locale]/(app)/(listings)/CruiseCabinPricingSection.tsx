@@ -101,7 +101,7 @@ function CabinCard({
       ) : null}
 
       {cabin.description ? (
-        <p className="mt-3 line-clamp-4 text-sm leading-relaxed text-neutral-600 dark:text-neutral-400">
+        <p className="mt-3 text-sm leading-relaxed text-neutral-600 dark:text-neutral-400">
           {cabin.description}
         </p>
       ) : null}

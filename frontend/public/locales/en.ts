@@ -1706,6 +1706,13 @@ export const en = {
       visa: 'Visa',
       tourCode: 'Tour code',
       cabinFootnote: 'Note',
+      shipDetailsTitle: 'Ship and cabin information',
+      shipDetailsSubtitle: 'Ship features, onboard activities and port stops.',
+      shipSpecsTitle: 'Ship specifications',
+      shipActivitiesTitle: 'Onboard activities',
+      visitsTitle: 'Ports of call',
+      deckPlanTitle: 'Deck plan',
+      cabinsUnavailable: 'Cabin types and prices are not loaded yet. Select a period and submit a request to book.',
     },
     activityDetail: {
       aboutTitle: 'About this activity',

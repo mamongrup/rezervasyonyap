@@ -51,6 +51,28 @@ const CITY_COORDS: { keys: string[]; name: string; lat: number; lng: number }[] 
   { keys: ['silivri'], name: 'Silivri', lat: 41.0738, lng: 28.2468 },
   { keys: ['sakarya', 'adapazari'], name: 'Sakarya', lat: 40.7732, lng: 30.3945 },
   { keys: ['bolu', 'abant'], name: 'Bolu', lat: 40.7358, lng: 31.6072 },
+  { keys: ['eskisehir', 'e.skisehir', 'odunpazari'], name: 'Eskişehir', lat: 39.7767, lng: 30.5206 },
+  { keys: ['sivas'], name: 'Sivas', lat: 39.7477, lng: 37.0179 },
+  { keys: ['erzincan'], name: 'Erzincan', lat: 39.7500, lng: 39.5000 },
+  { keys: ['elazig', 'elazığ', 'harput'], name: 'Elazığ', lat: 38.6810, lng: 39.2264 },
+  { keys: ['tunceli'], name: 'Tunceli', lat: 39.1079, lng: 39.5401 },
+  { keys: ['kemaliye', 'karakocan'], name: 'Kemaliye', lat: 39.2622, lng: 38.4967 },
+  { keys: ['malatya'], name: 'Malatya', lat: 38.3552, lng: 38.3095 },
+  { keys: ['bitlis'], name: 'Bitlis', lat: 38.4006, lng: 42.1095 },
+  { keys: ['mus', 'muş'], name: 'Muş', lat: 38.9462, lng: 41.7539 },
+  { keys: ['bingol', 'bingöl'], name: 'Bingöl', lat: 38.8853, lng: 40.4983 },
+  { keys: ['batman'], name: 'Batman', lat: 37.8812, lng: 41.1351 },
+  { keys: ['hasankeyf'], name: 'Hasankeyf', lat: 37.7141, lng: 41.4130 },
+  { keys: ['kahramanmaras', 'maraş', 'maras'], name: 'Kahramanmaraş', lat: 37.5858, lng: 36.9371 },
+  { keys: ['amasya'], name: 'Amasya', lat: 40.6499, lng: 35.8353 },
+  { keys: ['tokat'], name: 'Tokat', lat: 40.3167, lng: 36.5500 },
+  { keys: ['ordu'], name: 'Ordu', lat: 40.9839, lng: 37.8764 },
+  { keys: ['giresun'], name: 'Giresun', lat: 40.9128, lng: 38.3895 },
+  { keys: ['corum', 'çorum'], name: 'Çorum', lat: 40.5506, lng: 34.9556 },
+  { keys: ['kastamonu'], name: 'Kastamonu', lat: 41.3887, lng: 33.7827 },
+  { keys: ['sinop'], name: 'Sinop', lat: 42.0231, lng: 35.1531 },
+  { keys: ['artvin'], name: 'Artvin', lat: 41.1828, lng: 41.8183 },
+  { keys: ['hopa'], name: 'Hopa', lat: 41.3953, lng: 41.4225 },
 
   // ── Balkanlar ─────────────────────────────────────────────────────────────
   { keys: ['budva'], name: 'Budva', lat: 42.2857, lng: 18.8399 },
@@ -291,4 +313,77 @@ export function parseTourDayPins(programHtml: string): TourDayPin[] {
   }
 
   return pins.sort((a, b) => a.day - b.day)
+}
+
+function cityKeyAppearsInText(norm: string, key: string): boolean {
+  if (!key || key.length < 2) return false
+  let idx = 0
+  while ((idx = norm.indexOf(key, idx)) !== -1) {
+    const before = idx === 0 ? ' ' : norm[idx - 1]!
+    const after = idx + key.length >= norm.length ? ' ' : norm[idx + key.length]!
+    if (!/[a-z0-9]/.test(before) && !/[a-z0-9]/.test(after)) return true
+    idx += Math.max(1, key.length)
+  }
+  return false
+}
+
+/** Metinde geçen tüm tanınan şehirler (sırayla, tekilleştirilmiş) */
+export function extractAllCitiesFromText(text: string): Array<{ name: string; lat: number; lng: number }> {
+  const norm = normalizeText(text)
+  if (!norm) return []
+
+  const found: Array<{ name: string; lat: number; lng: number }> = []
+  const seen = new Set<string>()
+
+  const keysByLength = [...CITY_LOOKUP.entries()].sort((a, b) => b[0].length - a[0].length)
+  for (const [key, coords] of keysByLength) {
+    if (!cityKeyAppearsInText(norm, key)) continue
+    const id = coords.name.toLocaleLowerCase('tr')
+    if (seen.has(id)) continue
+    seen.add(id)
+    found.push(coords)
+  }
+  return found
+}
+
+export type TourItineraryDayPinInput = {
+  day: number
+  title: string
+  description?: string
+}
+
+/**
+ * Yapılandırılmış gün listesinden harita pin'leri (Gezinomi / cruise program_days).
+ * Her günün metnindeki tüm bölgeler işaretlenir; aynı şehir tekrarlanmaz.
+ */
+export function parseTourItineraryPinsFromDays(days: TourItineraryDayPinInput[]): TourDayPin[] {
+  const pins: TourDayPin[] = []
+  const seenPlaces = new Set<string>()
+  let seq = 0
+
+  const sorted = [...days].filter((d) => d.day > 0).sort((a, b) => a.day - b.day)
+  for (const row of sorted) {
+    const blob = `${row.title} ${row.description ?? ''}`.trim()
+    if (!blob) continue
+    const cities = extractAllCitiesFromText(blob)
+    if (cities.length === 0) {
+      const fallback = extractCityFromTitle(blob)
+      if (fallback) cities.push(fallback)
+    }
+    for (const city of cities) {
+      const placeKey = city.name.toLocaleLowerCase('tr')
+      if (seenPlaces.has(placeKey)) continue
+      seenPlaces.add(placeKey)
+      seq += 1
+      pins.push({
+        day: seq,
+        title: row.title.trim() || `${row.day}. gün`,
+        place: city.name,
+        lat: city.lat,
+        lng: city.lng,
+      })
+    }
+  }
+
+  return pins
 }

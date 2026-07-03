@@ -1,6 +1,6 @@
 import type { CruiseVerticalMeta } from '@/lib/cruise-meta'
 import type { TourDayPin } from '@/lib/tour-itinerary-geocoder'
-import { geocodeFromText, geocodePlaceName } from '@/lib/tour-itinerary-geocoder'
+import { extractAllCitiesFromText, geocodeFromText, geocodePlaceName } from '@/lib/tour-itinerary-geocoder'
 import { formatCruisePlaceName, parseCruiseRouteStops } from '@/lib/cruise-route-display'
 
 /** Kruvaziyer programı veya rota özetinden harita pin'leri */
@@ -13,16 +13,19 @@ export function parseCruiseItineraryPins(meta: CruiseVerticalMeta | null): TourD
     if (!day) continue
     const blob = `${d.title ?? ''} ${d.description ?? ''}`.trim()
     if (!blob) continue
-    const city = geocodeFromText(blob)
-    if (!city) continue
-    if (pins.some((p) => p.day === day)) continue
-    pins.push({
-      day,
-      title: d.title?.trim() || `Gün ${day}`,
-      place: city.name,
-      lat: city.lat,
-      lng: city.lng,
-    })
+    const cities = extractAllCitiesFromText(blob)
+    const resolved = cities.length > 0 ? cities : [geocodeFromText(blob)].filter(Boolean) as Array<{ name: string; lat: number; lng: number }>
+    for (const city of resolved) {
+      if (!city) continue
+      if (pins.some((p) => p.place === city.name)) continue
+      pins.push({
+        day: pins.length + 1,
+        title: d.title?.trim() || `Gün ${day}`,
+        place: city.name,
+        lat: city.lat,
+        lng: city.lng,
+      })
+    }
   }
 
   if (pins.length > 0) {

@@ -2,6 +2,8 @@
 
 import WhatsAppListingCTA from '@/components/WhatsAppListingCTA'
 import ButtonPrimary from '@/shared/ButtonPrimary'
+import { getSitePublicConfig, mergeBrandingIntoEnvContact } from '@/lib/site-public-config'
+import { getSitePublicConfig as fetchSitePublicConfig } from '@/lib/travel-api'
 import { isTourPeriodBookable, isTourPeriodOnlineCheckout } from '@/lib/tour-periods'
 import { DEFAULT_GUESTS_EXPERIENCE, totalGuestCount } from '@/lib/guest-search-defaults'
 import type { GuestsObject } from '@/type'
@@ -10,7 +12,7 @@ import { useVitrinHref } from '@/hooks/use-vitrin-href'
 import { getMessages } from '@/utils/getT'
 import { interpolate } from '@/utils/interpolate'
 import { useRouter } from 'next/navigation'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import GuestsInputPopover from './components/GuestsInputPopover'
 import TourPeriodSelect from './components/TourPeriodSelect'
 import { useTourPeriodSelection } from './TourPeriodContext'
@@ -19,6 +21,17 @@ import {
   useCheckoutPaymentAmount,
   useFormatMoneyInPreferredCurrency,
 } from '@/contexts/preferred-currency-context'
+
+function formatPeriodLabel(start?: string, end?: string, locale = 'tr'): string {
+  if (!start) return ''
+  const fmt = (iso: string) => {
+    const d = new Date(`${iso}T12:00:00`)
+    if (Number.isNaN(d.getTime())) return iso
+    return d.toLocaleDateString(locale.startsWith('en') ? 'en-GB' : 'tr-TR')
+  }
+  if (end && end !== start) return `${fmt(start)} – ${fmt(end)}`
+  return fmt(start)
+}
 
 export default function TourBookingSidebar({
   listingId,
@@ -51,6 +64,19 @@ export default function TourBookingSidebar({
   const router = useRouter()
   const vitrinHref = useVitrinHref()
   const [guests, setGuests] = useState<GuestsObject>(DEFAULT_GUESTS_EXPERIENCE)
+  const [wa, setWa] = useState(() => getSitePublicConfig().whatsappE164)
+
+  useEffect(() => {
+    let c = false
+    void fetchSitePublicConfig(undefined)
+      .then((pub) => {
+        if (!c) setWa(mergeBrandingIntoEnvContact(getSitePublicConfig(), pub.branding).whatsappE164)
+      })
+      .catch(() => {})
+    return () => {
+      c = true
+    }
+  }, [])
 
   const bookable = isTourPeriodBookable(selected)
   const onlineCheckout = isTourPeriodOnlineCheckout(selected)
@@ -92,6 +118,13 @@ export default function TourBookingSidebar({
     selected?.endDate &&
     unitTotal > 0
 
+  const canQuoteRequest =
+    quoteOnly &&
+    anyBookable &&
+    Boolean(listingTitle?.trim()) &&
+    Boolean(selected?.startDate) &&
+    Boolean(wa)
+
   const prepaymentNum = prepaymentPercent != null ? Number(String(prepaymentPercent).replace(',', '.')) : NaN
   const prepaymentLine =
     Number.isFinite(prepaymentNum) && prepaymentNum > 0 && prepaymentNum < 100
@@ -115,6 +148,27 @@ export default function TourBookingSidebar({
       }),
     )
   }
+
+  function goQuoteRequest() {
+    if (!canQuoteRequest || !listingTitle || !wa) return
+    const periodLabel = formatPeriodLabel(selected?.startDate, selected?.endDate, locale)
+    const lines = [
+      `Merhaba, "${listingTitle}" için rezervasyon talebi oluşturmak istiyorum.`,
+      periodLabel ? `Dönem: ${periodLabel}` : '',
+      `Misafir: ${guestCount}`,
+    ].filter(Boolean)
+    if (listingUrl) lines.push(listingUrl)
+    const href = `https://wa.me/${wa}?text=${encodeURIComponent(lines.join('\n'))}`
+    window.open(href, '_blank', 'noopener,noreferrer')
+  }
+
+  function onReserve() {
+    if (onlineCheckout) goCheckout()
+    else if (quoteOnly) goQuoteRequest()
+  }
+
+  const reserveEnabled = canCheckout || canQuoteRequest
+  const showSecondaryWhatsApp = onlineCheckout && listingTitle
 
   return (
     <div className="listingSection__wrap sm:shadow-xl">
@@ -176,25 +230,24 @@ export default function TourBookingSidebar({
 
       <p className="mt-2 text-xs text-neutral-500 dark:text-neutral-400">{td.installmentHint}</p>
 
-      {onlineCheckout ? (
-        <ButtonPrimary type="button" className="mt-4 w-full" disabled={!canCheckout} onClick={goCheckout}>
+      {anyBookable ? (
+        <ButtonPrimary
+          type="button"
+          className="mt-4 w-full"
+          disabled={!reserveEnabled}
+          onClick={onReserve}
+        >
           {m.common.Reserve}
         </ButtonPrimary>
-      ) : anyBookable ? (
-        listingTitle ? (
-          <div className="mt-4">
-            <WhatsAppListingCTA listingTitle={listingTitle} listingUrl={listingUrl} />
-          </div>
-        ) : null
       ) : (
         <ButtonPrimary type="button" disabled className="mt-4 w-full cursor-not-allowed opacity-60">
           {td.salesClosed}
         </ButtonPrimary>
       )}
 
-      {onlineCheckout && listingTitle ? (
+      {showSecondaryWhatsApp ? (
         <div className="mt-3">
-          <WhatsAppListingCTA listingTitle={listingTitle} listingUrl={listingUrl} />
+          <WhatsAppListingCTA listingTitle={listingTitle!} listingUrl={listingUrl} />
         </div>
       ) : null}
     </div>

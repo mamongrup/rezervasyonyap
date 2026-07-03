@@ -1,6 +1,6 @@
 import ListingDescriptionExpandable from '@/components/listing/ListingDescriptionExpandable'
 import TourItineraryMapSection from '@/components/listing/TourItineraryMapSection'
-import { parseTourDayPins } from '@/lib/tour-itinerary-geocoder'
+import { parseTourDayPins, parseTourItineraryPinsFromDays } from '@/lib/tour-itinerary-geocoder'
 import { parseCruiseItineraryPins } from '@/lib/cruise-itinerary-pins'
 import { formatCruiseRouteSummary } from '@/lib/cruise-route-display'
 import { getExperienceListingByHandle, listingHostForSection } from '@/data/listings'
@@ -63,8 +63,6 @@ import {
   gezinomiTourOverviewItems,
   gezinomiTourPeriodSelectOptions,
   gezinomiTourPeriodTimeLabels,
-  gezinomiTourProgramHtmlForPins,
-  gezinomiTourSectionNavItems,
   hasGezinomiTourStructuredContent,
   parseGezinomiTourVerticalMeta,
 } from '@/lib/gezinomi-tour-meta'
@@ -104,7 +102,10 @@ import {
 import ExperienceBookingSidebar from './ExperienceBookingSidebar'
 import TourBookingSidebar from './TourBookingSidebar'
 import CruiseBookingSidebar from './CruiseBookingSidebar'
+import CruiseRouteSection from './CruiseRouteSection'
+import CruiseShipDetailsSection from './CruiseShipDetailsSection'
 import CruiseCabinPricingSection from './CruiseCabinPricingSection'
+import CruiseCabinsUnavailableSection from './CruiseCabinsUnavailableSection'
 import { CruiseCabinProvider } from './CruiseCabinContext'
 import TourFlightScheduleSection from './TourFlightScheduleSection'
 import { TourPeriodProvider } from './TourPeriodContext'
@@ -117,10 +118,8 @@ import {
   TourDeparturePointsSection,
   TourIncludedExcludedSection,
   TourInfoSections,
-  TourItinerarySection,
   TourOverviewSection,
   TourPeriodTimesSection,
-  TourSectionNav,
   type TourItineraryDay,
   type TourOverviewItem,
 } from './TourDetailSections'
@@ -573,9 +572,15 @@ export default async function ExperienceListingDetailPage({
       ? sanitizeRichCmsHtml(parsedTourDescription.programHtml)
       : ''
   const tourDayPins = isTour
-    ? useGezinomiTourLayout
-      ? parseTourDayPins(gezinomiTourProgramHtmlForPins(gezinomiTourMeta))
-      : parseTourDayPins(parsedTourDescription.programHtml)
+    ? (() => {
+        if (useGezinomiTourLayout && gezinomiItineraryDays.length > 0) {
+          return parseTourItineraryPinsFromDays(gezinomiItineraryDays)
+        }
+        if (tourMeta?.itinerary?.length) {
+          return parseTourItineraryPinsFromDays(tourMeta.itinerary)
+        }
+        return parseTourDayPins(parsedTourDescription.programHtml)
+      })()
     : []
   const tourOverviewItems: TourOverviewItem[] = isTour
     ? [
@@ -786,31 +791,6 @@ export default async function ExperienceListingDetailPage({
     (listing as TListingBase & { currencyCode?: string }).currencyCode?.trim() ||
     'TRY'
 
-  const tourHasIncludedSection =
-    gezinomiIncludedExcluded.included.length > 0 ||
-    gezinomiIncludedExcluded.excluded.length > 0 ||
-    Boolean(tourMeta?.includes?.length) ||
-    Boolean(tourMeta?.excludes?.length)
-  const tourSectionNavItems = useGezinomiTourLayout
-    ? gezinomiTourSectionNavItems(
-        gezinomiTourMeta,
-        {
-          about: td.sectionNav.about,
-          program: td.sectionNav.program,
-          included: td.sectionNav.included,
-          departures: td.sectionNav.departures,
-          info: td.sectionNav.info,
-          map: td.sectionNav.map,
-        },
-        {
-          hasProgram: gezinomiItineraryDays.length > 0 || Boolean(tourMeta?.itinerary?.length),
-          hasIncluded: tourHasIncludedSection,
-          hasInfo: tourInfoSections.length > 0 || tourFlightSchedules.length > 0,
-          hasDepartures: gezinomiDeparturePoints.length > 0,
-          hasMap: tourDayPins.length > 0,
-        },
-      )
-    : []
 
   const listingPrepaymentPercent = (listing as TListingBase & { prepaymentPercent?: string }).prepaymentPercent
   const siteConfigForUrl = getSitePublicConfig()
@@ -833,7 +813,7 @@ export default async function ExperienceListingDetailPage({
       listingMoney.priceCurrency || listingMoney.listingCurrencyCode || undefined
 
     if (isTour || isCruise) {
-      const Sidebar = isCruise && cruiseCabinsList.length > 0 ? CruiseBookingSidebar : TourBookingSidebar
+      const Sidebar = isCruise ? CruiseBookingSidebar : TourBookingSidebar
       return (
         <Sidebar
           listingId={catalogListingId}
@@ -865,18 +845,13 @@ export default async function ExperienceListingDetailPage({
     <>
       <div className={`flex min-w-0 w-full flex-col ${LISTING_DETAIL_SECTION_GAP_Y} lg:w-3/5 xl:w-[62%]`}>
         {renderSectionHeader()}
-        {tourSectionNavItems.length > 0 ? (
-          <div className="sticky top-0 z-20 -mx-1 bg-white/90 py-2 backdrop-blur-sm dark:bg-neutral-950/90">
-            <TourSectionNav items={tourSectionNavItems} locale={locale} />
-          </div>
-        ) : null}
         {tourOverviewItems.length > 0 || tourProgramHtml ? (
           <TourOverviewSection items={tourOverviewItems} programHtml={tourProgramHtml} locale={locale} />
         ) : null}
         {gezinomiItineraryDays.length > 0 ? (
-          <TourItinerarySection days={gezinomiItineraryDays} locale={locale} />
+          <TourItineraryAccordion days={gezinomiItineraryDays} locale={locale} />
         ) : tourMeta?.itinerary?.length ? (
-          <TourItinerarySection days={tourMeta.itinerary} locale={locale} />
+          <TourItineraryAccordion days={tourMeta.itinerary} locale={locale} />
         ) : null}
         {gezinomiIncludedExcluded.included.length > 0 || gezinomiIncludedExcluded.excluded.length > 0 ? (
           <TourIncludedExcludedSection
@@ -903,9 +878,6 @@ export default async function ExperienceListingDetailPage({
           insertNode={tourFlightSchedules.length > 0 ? <TourFlightScheduleSection locale={locale} /> : null}
           locale={locale}
         />
-        {tourDayPins.length > 0 && (
-          <TourItineraryMapSection pins={tourDayPins} locale={locale} />
-        )}
       </div>
       <div className="flex grow flex-col overflow-visible lg:min-w-[min(100%,320px)] lg:max-w-md lg:self-stretch">
         <div className="sticky top-5">{renderSidebarPriceAndForm()}</div>
@@ -922,9 +894,17 @@ export default async function ExperienceListingDetailPage({
             {cruiseOverview.length > 0 ? (
               <TourOverviewSection items={cruiseOverview} locale={locale} />
             ) : null}
-            {cruiseCabinsList.length > 0 ? <CruiseCabinPricingSection locale={locale} /> : null}
+            {cruiseMeta?.route_summary?.trim() ? (
+              <CruiseRouteSection routeSummary={cruiseMeta.route_summary} locale={locale} />
+            ) : null}
+            <CruiseShipDetailsSection meta={cruiseMeta} locale={locale} />
+            {cruiseCabinsList.length > 0 ? (
+              <CruiseCabinPricingSection locale={locale} />
+            ) : (
+              <CruiseCabinsUnavailableSection locale={locale} />
+            )}
             {cruiseDays.length > 0 ? (
-              <TourItinerarySection days={cruiseDays} locale={locale} />
+              <TourItineraryAccordion days={cruiseDays} locale={locale} />
             ) : null}
             {cruiseServices.included.length > 0 || cruiseServices.excluded.length > 0 ? (
               <TourIncludedExcludedSection
@@ -1036,6 +1016,11 @@ export default async function ExperienceListingDetailPage({
 
         {isTour ? (
           <>
+            {tourDayPins.length > 0 ? (
+              <div className="mt-8 w-full scroll-mt-28">
+                <TourItineraryMapSection pins={tourDayPins} locale={locale} />
+              </div>
+            ) : null}
             <TourCountryInfoSection countries={tourCountryCards} locale={locale} />
             <SimilarListings
               listings={similarTourListings}

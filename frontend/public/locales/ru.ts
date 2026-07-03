@@ -821,6 +821,13 @@ export const ru: AppMessages = {
       visa: 'Виза',
       tourCode: 'Код тура',
       cabinFootnote: 'Примечание',
+      shipDetailsTitle: 'Судно и каюты',
+      shipDetailsSubtitle: 'Характеристики судна, развлечения и порты.',
+      shipSpecsTitle: 'Характеристики судна',
+      shipActivitiesTitle: 'Развлечения на борту',
+      visitsTitle: 'Порты захода',
+      deckPlanTitle: 'План палуб',
+      cabinsUnavailable: 'Типы кают и цены ещё не загружены. Выберите период и отправьте запрос.',
     },
     activityDetail: {
       aboutTitle: 'Об этой активности',

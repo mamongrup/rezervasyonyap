@@ -809,6 +809,13 @@ export const zh: AppMessages = {
       visa: '签证',
       tourCode: '行程代码',
       cabinFootnote: '备注',
+      shipDetailsTitle: '邮轮与舱房信息',
+      shipDetailsSubtitle: '船舶规格、船上活动与停靠港口。',
+      shipSpecsTitle: '船舶规格',
+      shipActivitiesTitle: '船上活动',
+      visitsTitle: '停靠港口',
+      deckPlanTitle: '甲板平面图',
+      cabinsUnavailable: '舱房类型和价格尚未加载。请选择航期并提交预订请求。',
     },
     activityDetail: {
       aboutTitle: '关于此活动',

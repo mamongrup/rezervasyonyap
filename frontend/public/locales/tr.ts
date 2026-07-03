@@ -1158,6 +1158,13 @@ export const tr = {
       visa: 'Vize',
       tourCode: 'Tur kodu',
       cabinFootnote: 'Not',
+      shipDetailsTitle: 'Gemi ve Kabin Bilgileri',
+      shipDetailsSubtitle: 'Gemi özellikleri, aktiviteler ve güzergâh durakları.',
+      shipSpecsTitle: 'Gemi özellikleri',
+      shipActivitiesTitle: 'Gemi aktiviteleri',
+      visitsTitle: 'Ziyaret edilecek limanlar',
+      deckPlanTitle: 'Güverte planı',
+      cabinsUnavailable: 'Kabin tipleri ve fiyatlar henüz yüklenmedi. Rezervasyon için dönem seçip talep oluşturabilirsiniz.',
     },
     activityDetail: {
       aboutTitle: 'Aktivite Hakkında',

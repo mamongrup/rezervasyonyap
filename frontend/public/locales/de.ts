@@ -822,6 +822,13 @@ export const de: AppMessages = {
       visa: 'Visum',
       tourCode: 'Tourcode',
       cabinFootnote: 'Hinweis',
+      shipDetailsTitle: 'Schiff und Kabinen',
+      shipDetailsSubtitle: 'Schiffsdaten, Aktivitäten an Bord und Häfen.',
+      shipSpecsTitle: 'Schiffsspezifikationen',
+      shipActivitiesTitle: 'Aktivitäten an Bord',
+      visitsTitle: 'Anzulaufende Häfen',
+      deckPlanTitle: 'Deckplan',
+      cabinsUnavailable: 'Kabinentypen und Preise sind noch nicht geladen. Wählen Sie eine Reiseperiode und senden Sie eine Anfrage.',
     },
     activityDetail: {
       aboutTitle: 'Über diese Aktivität',

@@ -108,9 +108,7 @@ export function cruiseOverviewItems(
   if (meta.ship_name) {
     items.push({ label: labels.ship, value: meta.ship_name, icon: 'transport' })
   }
-  if (meta.route_summary) {
-    items.push({ label: labels.route, value: formatCruiseRouteSummary(meta.route_summary), icon: 'location' })
-  }
+  // Rota ayrı tam genişlik bileşende gösterilir (CruiseRouteSection)
   if (meta.cabin_category) {
     items.push({ label: labels.cabin, value: meta.cabin_category, icon: 'location' })
   }

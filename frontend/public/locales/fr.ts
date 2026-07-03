@@ -822,6 +822,13 @@ export const fr: AppMessages = {
       visa: 'Visa',
       tourCode: 'Code circuit',
       cabinFootnote: 'Note',
+      shipDetailsTitle: 'Navire et cabines',
+      shipDetailsSubtitle: 'Caractéristiques du navire, activités et escales.',
+      shipSpecsTitle: 'Caractéristiques du navire',
+      shipActivitiesTitle: 'Activités à bord',
+      visitsTitle: 'Ports d\'escale',
+      deckPlanTitle: 'Plan des ponts',
+      cabinsUnavailable: 'Les types de cabines et les tarifs ne sont pas encore chargés. Choisissez une période et envoyez une demande.',
     },
     activityDetail: {
       aboutTitle: 'À propos de cette activité',
