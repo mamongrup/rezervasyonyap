@@ -1,0 +1,299 @@
+#!/usr/bin/env node
+/**
+ * Travelrobot (KPlus) — Statik katalogdaki TÜM oteller (57k+) — kopmaya dayanıklı batch import.
+ *
+ * import-travelrobot-all.mjs tek geçişte (checkpoint'siz) çalışır; 57k otel için
+ * saatler sürdüğünden SSH/bağlantı kopması olursa kaldığı yerden devam edemez.
+ * Bu script aynı Tatilsepeti deseniyle (katalog önbelleği + index checkpoint +
+ * failedHotelIds) 57k+ oteli güvenle, parça parça içeri alır.
+ *
+ *   node scripts/import-travelrobot-hotels-batch.mjs --dry-run --limit 3
+ *   node scripts/import-travelrobot-hotels-batch.mjs --refresh-catalog
+ *   node scripts/import-travelrobot-hotels-batch.mjs --status
+ *   node scripts/import-travelrobot-hotels-batch.mjs --retry-missing
+ *   node scripts/import-travelrobot-hotels-batch.mjs --retry-failed
+ *   node scripts/import-travelrobot-hotels-batch.mjs --batch-size 2000
+ *
+ * Arka plan (sunucu):
+ *   ./deploy/scripts/run-travelrobot-hotels-background.sh
+ *
+ * Checkpoint: backups/travelrobot-hotel-import-state.json
+ * Katalog:    backups/travelrobot-hotel-catalog.json
+ */
+import fs from 'node:fs'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
+import { createTravelrobotToken, loadTravelrobotConfig } from './lib/travelrobot-api.mjs'
+import { fetchHotelCatalogFromStatic } from './lib/travelrobot-hotel-catalog.mjs'
+import { enrichTravelrobotHotelRows } from './lib/travelrobot-hotel-enrich.mjs'
+import {
+  resolveImportContext,
+  upsertTravelrobotHotelListing,
+  hotelRef,
+} from './lib/travelrobot-listing-db.mjs'
+import {
+  defaultPaths,
+  loadState,
+  saveState,
+  loadCatalog,
+  saveCatalog,
+  markBatchComplete,
+} from './lib/travelrobot-import-checkpoint.mjs'
+import { createPgClient } from './lib/pg-client.mjs'
+import { cliLog } from './lib/cli-log.mjs'
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url))
+const args = new Set(process.argv.slice(2))
+
+const DRY_RUN = args.has('--dry-run')
+const REFRESH_CATALOG = args.has('--refresh-catalog')
+const STATUS_ONLY = args.has('--status')
+const RETRY_FAILED = args.has('--retry-failed')
+const RETRY_MISSING = args.has('--retry-missing')
+const IS_RETRY_MODE = RETRY_FAILED || RETRY_MISSING
+const NO_ROOMS = args.has('--no-with-rooms')
+
+const limitIdx = process.argv.indexOf('--limit')
+const LIMIT = limitIdx >= 0 ? Number(process.argv[limitIdx + 1]) : 0
+const batchIdx = process.argv.indexOf('--batch-size')
+const BATCH_SIZE = batchIdx >= 0 ? Number(process.argv[batchIdx + 1]) : 2000
+const checkpointIdx = process.argv.indexOf('--checkpoint-every')
+const CHECKPOINT_EVERY = checkpointIdx >= 0 ? Number(process.argv[checkpointIdx + 1]) : 25
+const orgIdx = process.argv.indexOf('--org-id')
+const ORG_ID = orgIdx >= 0 ? process.argv[orgIdx + 1] : process.env.IMPORT_ORG_ID || ''
+
+const { statePath, catalogPath } = defaultPaths()
+const LOG_PATH =
+  process.env.TRAVELROBOT_IMPORT_LOG || path.join(__dirname, '..', 'backups', 'travelrobot-hotel-import.log')
+
+function sleep(ms) {
+  return new Promise((r) => setTimeout(r, ms))
+}
+
+function appendLog(line) {
+  fs.mkdirSync(path.dirname(LOG_PATH), { recursive: true })
+  fs.appendFileSync(LOG_PATH, `${new Date().toISOString()} ${line}\n`)
+  cliLog(line)
+}
+
+async function resolveOrgId(pg) {
+  if (ORG_ID) return ORG_ID
+  const r = await pg.query(`SELECT id::text FROM organizations ORDER BY created_at LIMIT 1`)
+  if (!r.rows[0]) throw new Error('organizations kaydı yok; --org-id <uuid>')
+  return r.rows[0].id
+}
+
+async function ensureCatalog(cfg) {
+  let catalog = loadCatalog(catalogPath)
+  if (catalog && !REFRESH_CATALOG) {
+    appendLog(`[katalog] önbellek: ${catalog.hotels.length} otel (${catalog.fetchedAt})`)
+    return catalog.hotels
+  }
+  appendLog('[katalog] Travelrobot Statik API kataloğu çekiliyor (getAllHotelCodes + getHotels)…')
+  const hotels = await fetchHotelCatalogFromStatic(cfg, { log: appendLog })
+  catalog = { fetchedAt: new Date().toISOString(), hotels }
+  saveCatalog(catalog, catalogPath)
+  appendLog(`[katalog] kaydedildi: ${hotels.length} otel → ${catalogPath}`)
+  return hotels
+}
+
+async function countTravelrobotInDb(pg) {
+  const r = await pg.query(
+    `SELECT count(*)::int AS n FROM listings WHERE external_provider_code = 'travelrobot'`,
+  )
+  return r.rows[0]?.n ?? 0
+}
+
+async function loadExistingTravelrobotRefs(pg) {
+  const r = await pg.query(
+    `SELECT external_listing_ref FROM listings
+     WHERE external_provider_code = 'travelrobot'
+       AND external_listing_ref IS NOT NULL`,
+  )
+  return new Set(r.rows.map((row) => String(row.external_listing_ref)))
+}
+
+async function printStatus(state, catalog) {
+  const total = catalog?.hotels?.length ?? 0
+  const done = state.nextIndex
+  const remaining = Math.max(0, total - done)
+  appendLog('── Travelrobot otel import durumu ──')
+  appendLog(`  İlerleme: ${done}/${total} (kalan ${remaining})`)
+  appendLog(`  Batch boyutu: ${state.batchSize} | tamamlanan batch: ${state.stats.batchesCompleted}`)
+  appendLog(`  created=${state.stats.created} updated=${state.stats.updated} failed=${state.stats.failed}`)
+  appendLog(`  failed kayıt: ${(state.failedHotelIds || []).length}`)
+  appendLog(`  son batch: ${state.lastBatchCompletedAt || '-'}`)
+  appendLog(`  state: ${statePath}`)
+  try {
+    const pg = createPgClient()
+    await pg.connect()
+    try {
+      const inDb = await countTravelrobotInDb(pg)
+      appendLog(`  DB'de travelrobot otel: ${inDb} / katalog ${total}`)
+      appendLog(`  eksik (yaklaşık): ${Math.max(0, total - inDb)}`)
+    } finally {
+      await pg.end()
+    }
+  } catch (e) {
+    appendLog(`  DB sayımı atlandı: ${e.message}`)
+  }
+}
+
+async function hotelsForRun(hotels, state, pg) {
+  if (RETRY_MISSING) {
+    if (!pg) throw new Error('--retry-missing için DB gerekli (dry-run ile kullanılamaz)')
+    const existing = await loadExistingTravelrobotRefs(pg)
+    const filtered = hotels.filter((h) => !existing.has(String(hotelRef(h))))
+    appendLog(`[retry-missing] DB'de yok: ${filtered.length} / katalog ${hotels.length}`)
+    return filtered
+  }
+  if (RETRY_FAILED) {
+    const ids = new Set((state.failedHotelIds || []).map((x) => String(x.hotelId)))
+    if (!ids.size) {
+      appendLog('[retry-failed] failedHotelIds boş — --retry-missing deneyin')
+      return []
+    }
+    const filtered = hotels.filter((h) => ids.has(String(hotelRef(h))))
+    appendLog(`[retry-failed] ${filtered.length} otel yeniden denenecek`)
+    return filtered
+  }
+  return hotels
+}
+
+async function main() {
+  let state = loadState(statePath)
+  if (!state.failedHotelIds) state.failedHotelIds = []
+  state.batchSize = BATCH_SIZE
+  if (!state.startedAt) state.startedAt = new Date().toISOString()
+
+  const catalog = loadCatalog(catalogPath)
+  if (STATUS_ONLY) {
+    await printStatus(state, catalog)
+    return
+  }
+
+  const cfg = await loadTravelrobotConfig()
+  const { tokenCode } = await createTravelrobotToken(cfg)
+  const withRooms = NO_ROOMS ? false : cfg.importHotelRooms !== false
+
+  const catalogHotels = await ensureCatalog(cfg)
+
+  const pg = DRY_RUN && !RETRY_MISSING ? null : createPgClient()
+  if (pg) await pg.connect()
+
+  let hotels
+  try {
+    hotels = await hotelsForRun(catalogHotels, state, pg)
+  } catch (e) {
+    if (pg) await pg.end()
+    throw e
+  }
+
+  if (!hotels.length) {
+    if (pg) await pg.end()
+    appendLog(IS_RETRY_MODE ? '[bitti] Yeniden denenecek otel yok.' : 'Katalog boş')
+    return
+  }
+
+  let startIndex = IS_RETRY_MODE ? 0 : state.nextIndex
+  let endIndex = hotels.length
+  if (LIMIT > 0) endIndex = Math.min(endIndex, startIndex + LIMIT)
+
+  const batchStart = Math.floor(startIndex / BATCH_SIZE) * BATCH_SIZE
+  const batchEnd = Math.min(batchStart + BATCH_SIZE, catalogHotels.length)
+  const effectiveEnd =
+    LIMIT > 0 ? endIndex : IS_RETRY_MODE ? hotels.length : Math.max(startIndex, batchEnd)
+
+  appendLog(
+    `[run] otel ${startIndex + 1}–${effectiveEnd} / ${hotels.length} (batch ${Math.floor(startIndex / BATCH_SIZE) + 1}, boyut ${BATCH_SIZE}) rooms=${withRooms} dry-run=${DRY_RUN}`,
+  )
+
+  const ctx = pg && !DRY_RUN ? await resolveImportContext(pg, await resolveOrgId(pg), 'hotel') : null
+  const status = process.env.TRAVELROBOT_LISTING_STATUS || cfg.listingStatus || 'draft'
+  const delayMs = Number(process.env.TRAVELROBOT_HOTEL_DELAY_MS || 600)
+
+  let processedInRun = 0
+  try {
+    for (let i = startIndex; i < effectiveEnd; i++) {
+      const row = hotels[i]
+      const code = hotelRef(row) || `#${i}`
+      const name = String(row?.HotelName ?? row?.Hotel?.HotelName ?? '').slice(0, 50)
+      const label = `[${i + 1}/${hotels.length}] ${code} ${name}`
+      try {
+        await sleep(delayMs)
+        const [enrichedRow] = await enrichTravelrobotHotelRows(cfg, tokenCode, [row], {
+          withRooms,
+          withGallery: true,
+          withVitrin: true,
+          skipStatic: true,
+          log: appendLog,
+        })
+        const result = await upsertTravelrobotHotelListing(pg, ctx, enrichedRow, {
+          status,
+          dryRun: DRY_RUN,
+        })
+        if (!DRY_RUN) {
+          if (result.action === 'created') state.stats.created++
+          else state.stats.updated++
+        }
+        state.lastHotelId = code
+        if (!IS_RETRY_MODE) state.nextIndex = i + 1
+        state.failedHotelIds = (state.failedHotelIds || []).filter(
+          (x) => String(x.hotelId) !== String(code),
+        )
+        processedInRun++
+        appendLog(
+          `${label} → ${result.action} görsel:${result.imageCount ?? 0} oda:${result.roomCount ?? 0}`,
+        )
+      } catch (e) {
+        state.stats.failed++
+        if (!IS_RETRY_MODE) state.nextIndex = i + 1
+        state.failedHotelIds = state.failedHotelIds || []
+        if (!state.failedHotelIds.some((x) => String(x.hotelId) === String(code))) {
+          state.failedHotelIds.push({
+            hotelId: code,
+            index: i,
+            error: String(e.message).slice(0, 200),
+            at: new Date().toISOString(),
+          })
+        }
+        processedInRun++
+        appendLog(`${label} → HATA: ${String(e.message).slice(0, 160)}`)
+      }
+
+      if (!DRY_RUN && processedInRun % CHECKPOINT_EVERY === 0) {
+        saveState(state, statePath)
+      }
+    }
+
+    if (!DRY_RUN) {
+      saveState(state, statePath)
+      if (!IS_RETRY_MODE) {
+        const batchNo = Math.floor((state.nextIndex - 1) / BATCH_SIZE) + 1
+        if (state.nextIndex >= batchEnd || state.nextIndex >= catalogHotels.length) {
+          markBatchComplete(state, state.nextIndex, batchNo)
+          saveState(state, statePath)
+          appendLog(`[batch] ${batchNo} tamamlandı — index=${state.nextIndex}`)
+        }
+      }
+    }
+
+    if (IS_RETRY_MODE) {
+      appendLog(`[retry] bitti — kalan hatalı: ${(state.failedHotelIds || []).length}`)
+    } else if (state.nextIndex < catalogHotels.length && !LIMIT) {
+      appendLog(`[devam] Sonraki batch için aynı komutu tekrar çalıştırın (index=${state.nextIndex})`)
+    } else if (state.nextIndex >= catalogHotels.length) {
+      appendLog('[bitti] Tüm katalog işlendi.')
+      if ((state.failedHotelIds || []).length) {
+        appendLog(`[bilgi] ${state.failedHotelIds.length} hatalı otel — --retry-failed veya --retry-missing`)
+      }
+    }
+  } finally {
+    if (pg) await pg.end()
+  }
+}
+
+main().catch((e) => {
+  appendLog(`[FATAL] ${e.stack || e.message}`)
+  process.exit(1)
+})
