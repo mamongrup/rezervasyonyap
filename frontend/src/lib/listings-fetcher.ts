@@ -119,6 +119,8 @@ export interface SearchQuery {
   hotel_theme?: string
   hotel_accommodation?: string
   hotel_stars?: string
+  /** Otel yurtiçi/yurtdışı: domestic | international */
+  hotel_scope?: string
   /** Tur filtreleri */
   tour_travel_type?: string
   tour_accommodation?: string
@@ -176,6 +178,7 @@ export function parseSearchParamsFromUrl(
     hotel_theme: g('hotel_theme'),
     hotel_accommodation: g('hotel_accommodation'),
     hotel_stars: g('hotel_stars'),
+    hotel_scope: g('hotel_scope'),
     tour_travel_type: g('tour_travel_type'),
     tour_accommodation: g('tour_accommodation'),
     tour_duration: g('tour_duration'),
@@ -719,6 +722,7 @@ export async function fetchCategoryListings(
     hotelTheme: effectiveQuery.hotel_theme?.trim() || undefined,
     hotelAccommodation: effectiveQuery.hotel_accommodation?.trim() || undefined,
     hotelStars: effectiveQuery.hotel_stars?.trim() || undefined,
+    hotelScope: effectiveQuery.hotel_scope?.trim() || undefined,
     tourTravelType: effectiveQuery.tour_travel_type?.trim() || undefined,
     tourAccommodation: effectiveQuery.tour_accommodation?.trim() || undefined,
     tourDuration: effectiveQuery.tour_duration?.trim() || undefined,

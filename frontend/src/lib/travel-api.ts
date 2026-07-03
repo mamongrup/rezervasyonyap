@@ -9770,6 +9770,8 @@ export interface PublicListingSearchParams {
   hotelTheme?: string
   hotelAccommodation?: string
   hotelStars?: string
+  /** Otel yurtiçi/yurtdışı: `domestic` | `international` */
+  hotelScope?: string
   /** Tur kategori filtreleri */
   tourTravelType?: string
   tourAccommodation?: string
@@ -9936,6 +9938,7 @@ export async function searchPublicListings(
   if (params.hotelTheme?.trim())   u.set('hotel_theme', params.hotelTheme.trim())
   if (params.hotelAccommodation?.trim()) u.set('hotel_accommodation', params.hotelAccommodation.trim())
   if (params.hotelStars?.trim())   u.set('hotel_stars', params.hotelStars.trim())
+  if (params.hotelScope?.trim())   u.set('hotel_scope', params.hotelScope.trim())
   if (params.tourTravelType?.trim()) u.set('tour_travel_type', params.tourTravelType.trim())
   if (params.tourAccommodation?.trim()) u.set('tour_accommodation', params.tourAccommodation.trim())
   if (params.tourDuration?.trim()) u.set('tour_duration', params.tourDuration.trim())

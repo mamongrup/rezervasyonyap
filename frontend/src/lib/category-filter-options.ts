@@ -76,6 +76,15 @@ export async function getHotelCategoryFilterOptions(locale: string): Promise<Fil
       })),
     },
     {
+      label: filters.hotelScopeLabel,
+      name: 'hotel_scope',
+      tabUIType: 'checkbox',
+      options: [
+        { name: filters.hotelScopeDomestic, value: 'domestic' },
+        { name: filters.hotelScopeInternational, value: 'international' },
+      ],
+    },
+    {
       label: filters.priceRangeLabel,
       name: 'price',
       tabUIType: 'price-range',

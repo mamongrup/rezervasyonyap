@@ -297,6 +297,16 @@ const FACET_ROUTE_REGISTRY: FacetRouteRegistryEntry[] = [
       { '5': 'hotels-5-etoiles', '4': 'hotels-4-etoiles', '3': 'hotels-3-etoiles', '2': 'hotels-2-etoiles', '1': 'hotels-1-etoile' },
     ),
   },
+  {
+    categorySlug: 'oteller',
+    queryKey: 'hotel_scope',
+    slugs: L(
+      { domestic: 'yurtici-oteller', international: 'yurtdisi-oteller' },
+      { domestic: 'domestic-hotels', international: 'international-hotels' },
+      { domestic: 'inlandshotels', international: 'auslandshotels' },
+      { domestic: 'hotels-nationaux', international: 'hotels-internationaux' },
+    ),
+  },
   // ── Tur facet'leri ────────────────────────────────────────────────────────
   {
     categorySlug: 'turlar',
@@ -450,7 +460,7 @@ export const PATH_ROUTABLE_FACET_KEYS = new Set(
 const FACET_PATH_PRIORITY: Record<string, string[]> = {
   'tatil-evleri': ['theme'],
   'yat-kiralama': ['theme'],
-  oteller: ['hotel_theme', 'hotel_type', 'hotel_accommodation', 'hotel_stars'],
+  oteller: ['hotel_theme', 'hotel_type', 'hotel_accommodation', 'hotel_stars', 'hotel_scope'],
   turlar: ['tour_departure', 'tour_travel_type', 'tour_accommodation', 'tour_duration'],
   kruvaziyer: ['cruise_line', 'cruise_route'],
 }

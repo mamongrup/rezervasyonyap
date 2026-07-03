@@ -5,6 +5,16 @@ import { scoreHotelPackage } from './tatilsepeti-hotel-api.mjs'
 
 const PROVIDER = 'tatilsepeti'
 
+// Tatilsepeti kataloğu yalnızca Türkiye otellerini kapsar; country_id açıkça TR'ye set
+// edilir (NULL da yurtiçi sayılır ama açık değer ileride yurtdışı katalog eklenirse hazır olur).
+let trCountryIdCache = null
+async function resolveTrCountryId(pgClient) {
+  if (trCountryIdCache !== null) return trCountryIdCache
+  const result = await pgClient.query(`SELECT id FROM countries WHERE iso2 = 'TR' LIMIT 1`)
+  trCountryIdCache = result.rows[0]?.id ?? null
+  return trCountryIdCache
+}
+
 function slugify(s) {
   return String(s || '')
     .toLowerCase()
@@ -279,12 +289,15 @@ export async function upsertTatilsepetiHotelListing(
     [listingId, ctx.localeTrId, title, description],
   )
 
+  const trCountryId = await resolveTrCountryId(pgClient)
+
   await pgClient.query(
-    `INSERT INTO listing_hotel_details (listing_id, star_rating)
-     VALUES ($1::uuid, $2)
+    `INSERT INTO listing_hotel_details (listing_id, star_rating, country_id)
+     VALUES ($1::uuid, $2, $3)
      ON CONFLICT (listing_id) DO UPDATE SET
-       star_rating = COALESCE(EXCLUDED.star_rating, listing_hotel_details.star_rating)`,
-    [listingId, star],
+       star_rating = COALESCE(EXCLUDED.star_rating, listing_hotel_details.star_rating),
+       country_id = COALESCE(listing_hotel_details.country_id, EXCLUDED.country_id)`,
+    [listingId, star, trCountryId],
   )
 
   const imageCount = await upsertGallery(pgClient, listingId, pkg.gallery)

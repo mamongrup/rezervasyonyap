@@ -18,6 +18,86 @@ const PROVIDER = 'travelrobot'
 /** Sandbox/API anomali fiyatlarını vitrine taşıma (ör. 3.5B TRY). */
 const MAX_SANE_NIGHTLY_TRY = 80_000
 
+// ── Ülke çözümleme (yurtiçi/yurtdışı otel filtresi) ─────────────────────────
+// country_id NULL => yurtiçi (TR) sayılır (bkz. collections_http.gleam hotel_scope).
+// Bilinmeyen/çözülemeyen ülke metni de NULL bırakılır (yurtiçi varsayımı zarar vermez;
+// Travelrobot kataloğu ağırlıklı TR odaklı, yabancı oteller azınlıktadır).
+const countryIdCache = new Map()
+
+// Travelrobot/KPlus ülke metni genelde İngilizce ("Germany", "United States") gelir;
+// countries.name kolonu ise yalnızca Türkçe isim tutar — bu yüzden yaygın İngilizce
+// isim/kısaltmaları ISO2'ye eşleyen ayrı bir eşleme tablosu kullanılır.
+const ENGLISH_NAME_TO_ISO2 = {
+  'turkey': 'TR', 'turkiye': 'TR', 'türkiye': 'TR',
+  'germany': 'DE', 'united states': 'US', 'usa': 'US', 'united states of america': 'US',
+  'united kingdom': 'GB', 'uk': 'GB', 'great britain': 'GB', 'england': 'GB',
+  'russia': 'RU', 'russian federation': 'RU',
+  'united arab emirates': 'AE', 'uae': 'AE',
+  'greece': 'GR', 'italy': 'IT', 'spain': 'ES', 'france': 'FR', 'netherlands': 'NL',
+  'holland': 'NL', 'belgium': 'BE', 'austria': 'AT', 'switzerland': 'CH', 'poland': 'PL',
+  'czech republic': 'CZ', 'czechia': 'CZ', 'slovakia': 'SK', 'hungary': 'HU',
+  'romania': 'RO', 'bulgaria': 'BG', 'serbia': 'RS', 'croatia': 'HR', 'slovenia': 'SI',
+  'bosnia and herzegovina': 'BA', 'montenegro': 'ME', 'north macedonia': 'MK',
+  'macedonia': 'MK', 'albania': 'AL', 'kosovo': 'XK',
+  'ukraine': 'UA', 'belarus': 'BY', 'moldova': 'MD', 'georgia': 'GE', 'armenia': 'AM',
+  'azerbaijan': 'AZ', 'kazakhstan': 'KZ', 'uzbekistan': 'UZ', 'turkmenistan': 'TM',
+  'kyrgyzstan': 'KG', 'tajikistan': 'TJ',
+  'portugal': 'PT', 'ireland': 'IE', 'iceland': 'IS', 'norway': 'NO', 'sweden': 'SE',
+  'finland': 'FI', 'denmark': 'DK', 'estonia': 'EE', 'latvia': 'LV', 'lithuania': 'LT',
+  'cyprus': 'CY', 'malta': 'MT', 'luxembourg': 'LU', 'monaco': 'MC', 'andorra': 'AD',
+  'san marino': 'SM', 'vatican': 'VA', 'vatican city': 'VA', 'liechtenstein': 'LI',
+  'egypt': 'EG', 'morocco': 'MA', 'tunisia': 'TN', 'algeria': 'DZ', 'libya': 'LY',
+  'israel': 'IL', 'jordan': 'JO', 'lebanon': 'LB', 'syria': 'SY', 'iraq': 'IQ',
+  'iran': 'IR', 'saudi arabia': 'SA', 'qatar': 'QA', 'kuwait': 'KW', 'bahrain': 'BH',
+  'oman': 'OM', 'yemen': 'YE', 'palestine': 'PS',
+  'china': 'CN', 'japan': 'JP', 'south korea': 'KR', 'korea': 'KR', 'north korea': 'KP',
+  'india': 'IN', 'pakistan': 'PK', 'bangladesh': 'BD', 'sri lanka': 'LK', 'nepal': 'NP',
+  'thailand': 'TH', 'vietnam': 'VN', 'cambodia': 'KH', 'laos': 'LA', 'myanmar': 'MM',
+  'malaysia': 'MY', 'singapore': 'SG', 'indonesia': 'ID', 'philippines': 'PH',
+  'taiwan': 'TW', 'hong kong': 'HK', 'macau': 'MO', 'mongolia': 'MN',
+  'australia': 'AU', 'new zealand': 'NZ',
+  'canada': 'CA', 'mexico': 'MX', 'brazil': 'BR', 'argentina': 'AR', 'chile': 'CL',
+  'colombia': 'CO', 'peru': 'PE', 'venezuela': 'VE', 'ecuador': 'EC', 'cuba': 'CU',
+  'south africa': 'ZA', 'nigeria': 'NG', 'kenya': 'KE', 'ethiopia': 'ET', 'tanzania': 'TZ',
+  'ghana': 'GH', 'senegal': 'SN', 'zanzibar': 'TZ', 'mauritius': 'MU', 'seychelles': 'SC',
+  'maldives': 'MV', 'madagascar': 'MG',
+}
+
+export function extractTravelrobotHotelCountryText(hotel) {
+  const nested = hotel?.Hotel ?? hotel?.hotel
+  return pickText(
+    nested ?? {},
+    'Country', 'country', 'CountryName', 'countryName', 'CountryCode', 'countryCode',
+  )
+}
+
+export async function resolveTravelrobotCountryId(pgClient, countryText) {
+  const raw = String(countryText || '').trim()
+  if (!raw) return null
+  const key = raw.toLowerCase()
+  if (countryIdCache.has(key)) return countryIdCache.get(key)
+  const isoFromEnglish = ENGLISH_NAME_TO_ISO2[key] ?? null
+  const isoCandidate = isoFromEnglish || (key.length === 2 ? key.toUpperCase() : null)
+  let id = null
+  try {
+    const result = await pgClient.query(
+      `SELECT id FROM countries
+       WHERE ($2::text is not null and iso2 = $2)
+          OR lower(name) = $1
+          OR lower(name) LIKE '%' || $1 || '%'
+          OR $1 LIKE '%' || lower(name) || '%'
+       ORDER BY (iso2 = $2) DESC, (lower(name) = $1) DESC
+       LIMIT 1`,
+      [key, isoCandidate],
+    )
+    id = result.rows[0]?.id ?? null
+  } catch {
+    id = null
+  }
+  countryIdCache.set(key, id)
+  return id
+}
+
 // ── Slug yardımcıları ────────────────────────────────────────────────────────
 
 function slugify(text, fallback = 'ilan') {
@@ -603,7 +683,7 @@ export async function upsertTravelrobotHotelListing(
     ? { en: { title, description } }
     : {}
   const city = pickText(nested ?? {}, 'City', 'city', 'CityName', 'cityName', 'Location', 'location')
-  const country = pickText(nested ?? {}, 'Country', 'country', 'CountryName', 'countryName', 'CountryCode', 'countryCode')
+  const country = extractTravelrobotHotelCountryText(hotel)
   const locName =
     pickText(nested ?? {}, 'FullLocation', 'fullLocation', 'Location', 'location') ||
     [city, country].filter(Boolean).join(', ') ||
@@ -638,14 +718,16 @@ export async function upsertTravelrobotHotelListing(
 
   const star = nested?.Star ?? hotel?.Star ?? hotel?.StarRating ?? hotel?.starRating ?? hotel?.Stars ?? hotel?.stars ?? null
   const starNum = star != null ? Number(star) : null
+  const countryId = await resolveTravelrobotCountryId(pgClient, country)
 
   await pgClient.query(
-    `INSERT INTO listing_hotel_details (listing_id, star_rating, travelrobot_hotel_code)
-     VALUES ($1::uuid, $2, $3)
+    `INSERT INTO listing_hotel_details (listing_id, star_rating, travelrobot_hotel_code, country_id)
+     VALUES ($1::uuid, $2, $3, $4)
      ON CONFLICT (listing_id) DO UPDATE SET
        star_rating = COALESCE(EXCLUDED.star_rating, listing_hotel_details.star_rating),
-       travelrobot_hotel_code = EXCLUDED.travelrobot_hotel_code`,
-    [core.listingId, Number.isFinite(starNum) ? starNum : null, ref],
+       travelrobot_hotel_code = EXCLUDED.travelrobot_hotel_code,
+       country_id = COALESCE(EXCLUDED.country_id, listing_hotel_details.country_id)`,
+    [core.listingId, Number.isFinite(starNum) ? starNum : null, ref, countryId],
   )
 
   await pgClient.query(

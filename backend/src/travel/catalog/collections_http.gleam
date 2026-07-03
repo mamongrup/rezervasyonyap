@@ -869,6 +869,15 @@ fn search_listings_impl(
     True -> pog.null()
     False -> pog.text(hotel_stars_raw)
   }
+  let hotel_scope_raw =
+    list.key_find(qs, "hotel_scope")
+    |> result.unwrap("")
+    |> string.trim
+    |> string.lowercase
+  let hotel_scope_param = case hotel_scope_raw == "" {
+    True -> pog.null()
+    False -> pog.text(hotel_scope_raw)
+  }
   let tour_travel_type_raw =
     list.key_find(qs, "tour_travel_type")
     |> result.unwrap("")
@@ -1100,6 +1109,7 @@ fn search_listings_impl(
     <> "left join listing_holiday_home_details h on h.listing_id = l.id "
     <> "left join listing_yacht_details y on y.listing_id = l.id "
     <> "left join listing_hotel_details hotel on hotel.listing_id = l.id "
+    <> "left join countries hotel_country on hotel_country.id = hotel.country_id "
     <> "left join listing_tour_details tour_det on tour_det.listing_id = l.id "
     <> "left join lateral (select min(u.v) as min_price, max(u.v) as max_price from listing_price_rules r cross join lateral "
     <> listing_price_rule_nightly_lateral_values_sql()
@@ -1171,6 +1181,10 @@ fn search_listings_impl(
     <> "and ($15::text is null or pc.code != 'hotel' or lower(trim(coalesce(hotel_theme_attr.value_json->>'theme_code', ''))) = any(string_to_array(trim($15), ',')::text[])) "
     <> "and ($16::text is null or pc.code != 'hotel' or lower(trim(coalesce(hotel_acc_attr.value_json->>'accommodation_code', ''))) = any(string_to_array(trim($16), ',')::text[])) "
     <> "and ($17::text is null or pc.code != 'hotel' or floor(coalesce(hotel.star_rating, 0))::int::text = any(string_to_array(trim($17), ',')::text[])) "
+    <> "and ($31::text is null or pc.code != 'hotel' or ( "
+    <> "  ('domestic' = any(string_to_array(trim($31), ',')) and coalesce(hotel_country.iso2, 'TR') = 'TR') "
+    <> "  or ('international' = any(string_to_array(trim($31), ',')) and hotel_country.iso2 is not null and hotel_country.iso2 != 'TR') "
+    <> ")) "
     <> "and ($18::text is null or pc.code != 'tour' or lower(trim(coalesce(tour_attr.value_json->'data'->>'travel_type', tour_attr.value_json->>'travel_type', ''))) = any(string_to_array(trim($18), ',')::text[])) "
     <> "and ($19::text is null or pc.code != 'tour' or lower(trim(coalesce(tour_attr.value_json->'data'->>'accommodation_type', tour_attr.value_json->>'accommodation_type', ''))) = any(string_to_array(trim($19), ',')::text[])) "
     <> "and ($20::text is null or pc.code != 'tour' or exists ( "
@@ -1352,7 +1366,7 @@ fn search_listings_impl(
   let fast_count_sql =
     "select count(*)::int from (select l.id "
     <> fast_filter_body
-    <> ") _cnt cross join (select $1::text as a1, $4::text as a4, $5::int as a5, $6::text as a6, $7::text as a7, $11::text as a11, $12::text as a12, $13::text as a13, $14::text as a14, $15::text as a15, $16::text as a16, $17::text as a17, $18::text as a18, $19::text as a19, $20::text as a20, $21::int as a21, $22::uuid as a22, $24::text as a24, $28::text as a28, $29::text as a29, $30::text as a30) __allp"
+    <> ") _cnt cross join (select $1::text as a1, $4::text as a4, $5::int as a5, $6::text as a6, $7::text as a7, $11::text as a11, $12::text as a12, $13::text as a13, $14::text as a14, $15::text as a15, $16::text as a16, $17::text as a17, $18::text as a18, $19::text as a19, $20::text as a20, $21::int as a21, $22::uuid as a22, $24::text as a24, $28::text as a28, $29::text as a29, $30::text as a30, $31::text as a31) __allp"
   // Filtreli (fast olmayan) aramalar da deferred-projeksiyon kullanır: page_ids tüm filtreleri
   // + sıralamayı yalnız l.id üzerinde uygular; pahalı projeksiyon (galeri, çeviri, pansiyon)
   // yalnızca sayfadaki ~24 satır için çalışır. WHERE/ORDER lateral'ları (fiyat, attr) zaten gerekli.
@@ -1402,6 +1416,7 @@ fn search_listings_impl(
     |> pog.parameter(cruise_line_param)
     |> pog.parameter(cruise_route_param)
     |> pog.parameter(tour_region_param)
+    |> pog.parameter(hotel_scope_param)
   }
 
   let is_agent_search = case agency_org_opt {
@@ -1427,6 +1442,7 @@ fn search_listings_impl(
     && cruise_line_raw == ""
     && cruise_route_raw == ""
     && tour_region_raw == ""
+    && hotel_scope_raw == ""
   let exact_count_needed =
     is_agent_search
     || q_normalized != ""
@@ -1447,6 +1463,7 @@ fn search_listings_impl(
     || cruise_line_raw != ""
     || cruise_route_raw != ""
     || tour_region_raw != ""
+    || hotel_scope_raw != ""
     || property_type_raw != ""
     || string.trim(beds_raw) != ""
     || string.trim(bedrooms_raw) != ""

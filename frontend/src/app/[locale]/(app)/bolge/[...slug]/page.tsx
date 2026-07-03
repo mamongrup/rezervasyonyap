@@ -362,6 +362,7 @@ export default async function RegionDetailPage({ params, searchParams }: Props) 
       hotelTheme: filterQuery.hotel_theme?.trim() || undefined,
       hotelAccommodation: filterQuery.hotel_accommodation?.trim() || undefined,
       hotelStars: filterQuery.hotel_stars?.trim() || undefined,
+      hotelScope: filterQuery.hotel_scope?.trim() || undefined,
       tourTravelType: filterQuery.tour_travel_type?.trim() || undefined,
       tourAccommodation: filterQuery.tour_accommodation?.trim() || undefined,
       tourDuration: filterQuery.tour_duration?.trim() || undefined,
