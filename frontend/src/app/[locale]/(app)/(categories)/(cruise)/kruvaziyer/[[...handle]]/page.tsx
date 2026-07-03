@@ -8,6 +8,7 @@ import { facetLabelFromRoute, redirectCategoryFacetFromQuery } from '@/lib/categ
 import { loadCategoryPageListingsBundle } from '@/lib/category-page-data'
 import { parseSearchParamsFromUrl } from '@/lib/listings-fetcher'
 import { categoryMetadata } from '@/lib/category-page-metadata'
+import { redirectIfExperienceListingHandle } from '@/lib/category-browse-listing-redirect'
 import { Metadata } from 'next'
 import { redirect } from 'next/navigation'
 
@@ -34,6 +35,14 @@ export default async function Page({
   if (!category) return redirect('/')
 
   await redirectCategoryFacetFromQuery(locale, 'kruvaziyer', sp, currentHandle)
+
+  if (
+    currentHandle &&
+    currentHandle !== 'all' &&
+    !categoryFacetRouteFromHandle('kruvaziyer', locale, currentHandle)
+  ) {
+    await redirectIfExperienceListingHandle(locale, currentHandle, 'cruise')
+  }
 
   const query = parseSearchParamsFromUrl(sp)
   const {

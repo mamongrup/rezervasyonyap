@@ -10,6 +10,7 @@ import { parseSearchParamsFromUrl } from '@/lib/listings-fetcher'
 import { isTourSubcategorySlug, isKulturTourHubSlug } from '@/lib/tour-subcategory-routes'
 import { getSubcategoryBySlug } from '@/data/subcategory-registry'
 import { categoryMetadata } from '@/lib/category-page-metadata'
+import { redirectIfExperienceListingHandle } from '@/lib/category-browse-listing-redirect'
 import { Metadata } from 'next'
 import { redirect } from 'next/navigation'
 
@@ -36,6 +37,20 @@ export default async function Page({
   if (!category) return redirect('/')
 
   await redirectCategoryFacetFromQuery(locale, 'turlar', sp, currentHandle)
+
+  const pathFacetProbe =
+    currentHandle && currentHandle !== 'all' && !isTourSubcategorySlug(currentHandle)
+      ? categoryFacetRouteFromHandle('turlar', locale, currentHandle)
+      : undefined
+  if (
+    currentHandle &&
+    currentHandle !== 'all' &&
+    !isTourSubcategorySlug(currentHandle) &&
+    !isKulturTourHubSlug(currentHandle) &&
+    !pathFacetProbe
+  ) {
+    await redirectIfExperienceListingHandle(locale, currentHandle, 'tour')
+  }
 
   const query = parseSearchParamsFromUrl(sp)
   const {
