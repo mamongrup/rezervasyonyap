@@ -51,6 +51,17 @@ import {
   cruisePeriodSelectOptions,
   parseCruiseVerticalMeta,
 } from '@/lib/cruise-meta'
+import {
+  gezinomiIncludedExcludedLists,
+  gezinomiTourInfoSections,
+  gezinomiTourIntroHtml,
+  gezinomiTourItineraryDays,
+  gezinomiTourOverviewItems,
+  gezinomiTourPeriodSelectOptions,
+  gezinomiTourProgramHtmlForPins,
+  hasGezinomiTourStructuredContent,
+  parseGezinomiTourVerticalMeta,
+} from '@/lib/gezinomi-tour-meta'
 import { guessCalendarMonthsShownFromRequest } from '@/lib/calendar-months-shown-server'
 import { resolveRegionPlacesForListingPage } from '@/lib/region-places-from-location-page'
 import {
@@ -404,7 +415,21 @@ export default async function ExperienceListingDetailPage({
   const td = m.listing.tourDetail
   const ad = m.listing.activityDetail
   const tourMeta = isTour ? parseTourMeta(rawTourMeta) : null
-  const tourPeriodOptions = isTour && rawTourPeriods ? mergeTourPeriodOptions(rawTourPeriods) : []
+  const gezinomiTourMeta = isTour ? parseGezinomiTourVerticalMeta(rawTourMeta) : null
+  const useGezinomiTourLayout = isTour && hasGezinomiTourStructuredContent(gezinomiTourMeta)
+  const wtatilTourPeriodOptions = isTour && rawTourPeriods ? mergeTourPeriodOptions(rawTourPeriods) : []
+  const gezinomiTourPeriodOptions =
+    useGezinomiTourLayout && gezinomiTourMeta
+      ? gezinomiTourPeriodSelectOptions(gezinomiTourMeta, {
+          fallbackPrice: (listing as TListingBase & { priceAmount?: number }).priceAmount,
+          currencyCode:
+            rawTourPeriods?.currency_code?.trim() ||
+            (listing as TListingBase & { listingCurrencyCode?: string }).listingCurrencyCode?.trim() ||
+            'TRY',
+        })
+      : []
+  const tourPeriodOptions =
+    wtatilTourPeriodOptions.length > 0 ? wtatilTourPeriodOptions : gezinomiTourPeriodOptions
   const tourFlightSchedules =
     isTour && description ? parseTourFlightSchedulesFromDescription(description) : []
   const listingTour = listing as TListingBase & { durationNights?: number }
@@ -477,21 +502,61 @@ export default async function ExperienceListingDetailPage({
       ? interpolate(td.maxPeople, { count: String(maxGuests) })
       : td.capacityNotSpecified
   const tourDescriptionStripped =
-    isTour && description?.trim() ? stripFlightScheduleBlockFromDescription(description) : description
+    isTour && description?.trim() && !useGezinomiTourLayout
+      ? stripFlightScheduleBlockFromDescription(description)
+      : description
   const parsedTourDescription =
-    isTour && tourDescriptionStripped?.trim()
+    isTour && tourDescriptionStripped?.trim() && !useGezinomiTourLayout
       ? parseTourDescription(tourDescriptionStripped)
       : { programHtml: '', infoSections: [] }
-  const tourProgramHtml = parsedTourDescription.programHtml.trim()
-    ? sanitizeRichCmsHtml(parsedTourDescription.programHtml)
-    : ''
-  const tourDayPins = isTour ? parseTourDayPins(parsedTourDescription.programHtml) : []
-  const tourInfoSections = parsedTourDescription.infoSections.map((section) => ({
-    ...section,
-    html: sanitizeRichCmsHtml(section.html),
-  }))
+  const gezinomiItineraryDays = useGezinomiTourLayout
+    ? gezinomiTourItineraryDays(gezinomiTourMeta)
+    : []
+  const gezinomiInfoSections = useGezinomiTourLayout
+    ? gezinomiTourInfoSections(gezinomiTourMeta)
+    : []
+  const gezinomiIncludedExcluded = useGezinomiTourLayout
+    ? gezinomiIncludedExcludedLists(gezinomiTourMeta)
+    : { included: [], excluded: [] }
+  const tourInfoSections = useGezinomiTourLayout
+    ? gezinomiInfoSections.filter((section) => {
+        if (
+          gezinomiIncludedExcluded.included.length > 0 &&
+          section.id === 'cruise-section-included'
+        ) {
+          return false
+        }
+        if (
+          gezinomiIncludedExcluded.excluded.length > 0 &&
+          section.id === 'cruise-section-excluded'
+        ) {
+          return false
+        }
+        return true
+      })
+    : parsedTourDescription.infoSections.map((section) => ({
+        ...section,
+        html: sanitizeRichCmsHtml(section.html),
+      }))
+  const tourProgramHtml = useGezinomiTourLayout
+    ? gezinomiTourIntroHtml(gezinomiTourMeta)
+    : parsedTourDescription.programHtml.trim()
+      ? sanitizeRichCmsHtml(parsedTourDescription.programHtml)
+      : ''
+  const tourDayPins = isTour
+    ? useGezinomiTourLayout
+      ? parseTourDayPins(gezinomiTourProgramHtmlForPins(gezinomiTourMeta))
+      : parseTourDayPins(parsedTourDescription.programHtml)
+    : []
   const tourOverviewItems: TourOverviewItem[] = isTour
     ? [
+        ...(useGezinomiTourLayout
+          ? gezinomiTourOverviewItems(gezinomiTourMeta, {
+              departure: locale.startsWith('en') ? 'Departure' : 'Kalkış',
+              concept: locale.startsWith('en') ? 'Meal concept' : 'Yeme içme',
+              region: locale.startsWith('en') ? 'Region' : 'Bölge',
+            })
+          : []),
         tourMeta?.travel_type && travelTypeLabel(locale, tourMeta.travel_type)
           ? {
               label: td.overview.transport,
@@ -740,10 +805,18 @@ export default async function ExperienceListingDetailPage({
         {tourDayPins.length > 0 && (
           <TourItineraryMapSection pins={tourDayPins} locale={locale} />
         )}
-        {tourMeta?.itinerary?.length ? (
+        {gezinomiItineraryDays.length > 0 ? (
+          <TourItinerarySection days={gezinomiItineraryDays} locale={locale} />
+        ) : tourMeta?.itinerary?.length ? (
           <TourItinerarySection days={tourMeta.itinerary} locale={locale} />
         ) : null}
-        {tourMeta?.includes?.length || tourMeta?.excludes?.length ? (
+        {gezinomiIncludedExcluded.included.length > 0 || gezinomiIncludedExcluded.excluded.length > 0 ? (
+          <TourIncludedExcludedSection
+            included={gezinomiIncludedExcluded.included}
+            excluded={gezinomiIncludedExcluded.excluded}
+            locale={locale}
+          />
+        ) : tourMeta?.includes?.length || tourMeta?.excludes?.length ? (
           <TourIncludedExcludedSection
             included={tourMeta?.includes ?? []}
             excluded={tourMeta?.excludes ?? []}

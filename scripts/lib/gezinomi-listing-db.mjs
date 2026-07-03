@@ -251,8 +251,9 @@ export async function upsertGezinomiTourListing(
   const slug = slugForGezinomiTour(row)
   const title = String(row.productName || `Tur ${productId}`).trim()
   const content = detail?.model ? buildGezinomiTourContentPackage(detail.model) : null
+  // Yapılandırılmış içerik vertical_tour'da; açıklama yalnızca kısa özet.
   const description =
-    content?.descriptionHtml?.trim() ||
+    content?.detailText?.trim() ||
     String(row.tourDetailText || '').trim() ||
     null
   const currency = pickTourCurrency(row)
