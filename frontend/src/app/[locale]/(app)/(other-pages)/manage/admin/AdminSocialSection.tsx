@@ -19,7 +19,50 @@ import {
 import { getStoredAuthToken } from '@/lib/auth-storage'
 import type { DragEvent } from 'react'
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { CheckCircle, ChevronDown, ExternalLink, Facebook, GripVertical, ImageIcon, Layers, Loader2, Plus, RefreshCw, Search, Send, Sparkles, X, XCircle } from 'lucide-react'
+import { CheckCircle, ChevronDown, Clock, ExternalLink, Facebook, GripVertical, ImageIcon, Layers, Loader2, Plus, RefreshCw, Search, Send, Sparkles, StopCircle, X, XCircle } from 'lucide-react'
+
+// Sunucudaki deploy/scripts/social-process-pending.sh ile aynı varsayılan bekleme süreleri —
+// Meta/Pinterest'in "too many actions" limitine takılmamak için gruplar arasında kasıtlı bekleme.
+const BULK_BATCH_SLEEP_MS = 90_000
+const BULK_RATE_LIMIT_SLEEP_MS = 300_000
+
+type BulkPhase = 'idle' | 'running' | 'waiting' | 'rate_limited' | 'done' | 'stopped' | 'error'
+
+interface BulkProcessState {
+  phase: BulkPhase
+  batch: number
+  totalProcessed: number
+  totalPosted: number
+  totalFailed: number
+  message: string | null
+  countdown: number
+}
+
+const BULK_IDLE_STATE: BulkProcessState = {
+  phase: 'idle',
+  batch: 0,
+  totalProcessed: 0,
+  totalPosted: 0,
+  totalFailed: 0,
+  message: null,
+  countdown: 0,
+}
+
+async function sleepWithCountdown(
+  ms: number,
+  cancelRef: { current: boolean },
+  onTick: (remainingSeconds: number) => void,
+): Promise<void> {
+  const stepMs = 1000
+  let remaining = ms
+  while (remaining > 0 && !cancelRef.current) {
+    onTick(Math.ceil(remaining / 1000))
+    const step = Math.min(stepMs, remaining)
+    await new Promise((resolve) => setTimeout(resolve, step))
+    remaining -= step
+  }
+  onTick(0)
+}
 
 const SOCIAL_CATEGORIES = [
   { code: 'hotel', label: 'Otel' },
@@ -1066,9 +1109,10 @@ export default function AdminSocialSection() {
   const [jobs, setJobs] = useState<SocialShareJob[]>([])
   const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'posted' | 'failed'>('all')
   const [loadErr, setLoadErr] = useState<string | null>(null)
-  const [processMsg, setProcessMsg] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
-  const [processing, setProcessing] = useState(false)
+  const [bulk, setBulk] = useState<BulkProcessState>(BULK_IDLE_STATE)
+  const bulkCancelRef = useRef(false)
+  const bulkRunningRef = useRef(false)
 
   const refresh = useCallback(async () => {
     const token = getStoredAuthToken()
@@ -1089,25 +1133,89 @@ export default function AdminSocialSection() {
 
   useEffect(() => { void refresh() }, [refresh])
 
-  const processPending = useCallback(async () => {
+  // Sekme kapanırsa/bileşen kaldırılırsa döngüyü durdur.
+  useEffect(() => () => { bulkCancelRef.current = true }, [])
+
+  const runBulkProcess = useCallback(async () => {
     const token = getStoredAuthToken()
-    if (!token) return
+    if (!token || bulkRunningRef.current) return
+    bulkRunningRef.current = true
+    bulkCancelRef.current = false
     setLoadErr(null)
-    setProcessMsg(null)
-    setProcessing(true)
+    setBulk({ ...BULK_IDLE_STATE, phase: 'running', message: 'Başlatılıyor…' })
+
+    let batch = 0
+    let totalProcessed = 0
+    let totalPosted = 0
+    let totalFailed = 0
     try {
-      // Tek istek / tek iş — Instagram carousel + AI uzun sürer; döngü nginx 504 verir.
-      const out = await processSocialPendingJobs(token, { limit: 1, rotate: false })
-      setProcessMsg(
-        `İşlenen: ${out.processed}, paylaşılan: ${out.posted}, başarısız: ${out.failed}. Toplu gönderim için sunucuda ./deploy/scripts/social-process-pending.sh kullanın.`,
-      )
-      await refresh()
+      while (!bulkCancelRef.current) {
+        batch += 1
+        setBulk((s) => ({ ...s, phase: 'running', batch, message: `${batch}. grup işleniyor…`, countdown: 0 }))
+        // Tek istek / tek iş — Instagram carousel + AI uzun sürer; büyük limit nginx 504 verir.
+        const out = await processSocialPendingJobs(token, { limit: 1, rotate: false })
+        totalProcessed += out.processed
+        totalPosted += out.posted
+        totalFailed += out.failed
+        await refresh()
+
+        if (out.processed === 0) {
+          setBulk({ phase: 'done', batch, totalProcessed, totalPosted, totalFailed, message: 'Bekleyen iş kalmadı.', countdown: 0 })
+          break
+        }
+        if (bulkCancelRef.current) break
+
+        const failedResult = (out.results ?? []).find((r) => !r.ok)
+        const rateLimited = out.posted === 0 && out.failed === 0 && Boolean(failedResult)
+        if (rateLimited) {
+          setBulk({
+            phase: 'rate_limited',
+            batch,
+            totalProcessed,
+            totalPosted,
+            totalFailed,
+            message: `Platform limiti tespit edildi (${failedResult?.error ?? 'rate limit'}). Bekleniyor…`,
+            countdown: Math.ceil(BULK_RATE_LIMIT_SLEEP_MS / 1000),
+          })
+          await sleepWithCountdown(BULK_RATE_LIMIT_SLEEP_MS, bulkCancelRef, (countdown) =>
+            setBulk((s) => (s.phase === 'rate_limited' ? { ...s, countdown } : s)))
+        } else {
+          setBulk({
+            phase: 'waiting',
+            batch,
+            totalProcessed,
+            totalPosted,
+            totalFailed,
+            message: out.failed > 0 ? 'Bir iş başarısız oldu, sonraki gruba geçmeden bekleniyor…' : 'Sonraki gruba geçmeden bekleniyor…',
+            countdown: Math.ceil(BULK_BATCH_SLEEP_MS / 1000),
+          })
+          await sleepWithCountdown(BULK_BATCH_SLEEP_MS, bulkCancelRef, (countdown) =>
+            setBulk((s) => (s.phase === 'waiting' ? { ...s, countdown } : s)))
+        }
+      }
+      if (bulkCancelRef.current) {
+        setBulk({ phase: 'stopped', batch, totalProcessed, totalPosted, totalFailed, message: 'Durduruldu.', countdown: 0 })
+      }
     } catch (e) {
-      setLoadErr(formatManageApiCatch(e, 'social_worker_process_failed'))
+      setBulk({
+        phase: 'error',
+        batch,
+        totalProcessed,
+        totalPosted,
+        totalFailed,
+        message: formatManageApiCatch(e, 'social_worker_process_failed'),
+        countdown: 0,
+      })
     } finally {
-      setProcessing(false)
+      bulkRunningRef.current = false
     }
   }, [refresh])
+
+  const stopBulkProcess = useCallback(() => {
+    bulkCancelRef.current = true
+  }, [])
+
+  const bulkActive = bulk.phase === 'running' || bulk.phase === 'waiting' || bulk.phase === 'rate_limited'
 
   const counts = {
     all: jobs.length,
@@ -1128,18 +1236,29 @@ export default function AdminSocialSection() {
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <div>
             <h3 className="text-base font-semibold text-[color:var(--manage-text)]">Paylaşım Geçmişi</h3>
-            <p className="mt-0.5 text-xs text-[color:var(--manage-text-muted)]">Facebook / Instagram paylaşım kuyruğu ve kayıtları</p>
+            <p className="mt-0.5 text-xs text-[color:var(--manage-text-muted)]">Facebook / Instagram / Pinterest paylaşım kuyruğu ve kayıtları</p>
           </div>
           <div className="flex flex-wrap gap-2">
-            <button
-              type="button"
-              onClick={() => void processPending()}
-              disabled={processing || loading || counts.pending === 0}
-              className="flex items-center gap-1.5 rounded-xl bg-primary-600 px-3 py-2 text-sm font-medium text-white hover:bg-primary-700 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              {processing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
-              Bekleyenleri işle
-            </button>
+            {bulkActive ? (
+              <button
+                type="button"
+                onClick={stopBulkProcess}
+                className="flex items-center gap-1.5 rounded-xl bg-red-600 px-3 py-2 text-sm font-medium text-white hover:bg-red-700"
+              >
+                <StopCircle className="h-3.5 w-3.5" />
+                Durdur
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => void runBulkProcess()}
+                disabled={loading || counts.pending === 0}
+                className="flex items-center gap-1.5 rounded-xl bg-primary-600 px-3 py-2 text-sm font-medium text-white hover:bg-primary-700 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <Send className="h-3.5 w-3.5" />
+                Tüm bekleyenleri işle
+              </button>
+            )}
             <button
               type="button"
               onClick={() => void refresh()}
@@ -1151,6 +1270,41 @@ export default function AdminSocialSection() {
             </button>
           </div>
         </div>
+
+        {bulk.phase !== 'idle' && (
+          <div
+            className={[
+              'mb-3 rounded-xl border px-4 py-3 text-sm',
+              bulk.phase === 'error'
+                ? 'border-red-200 bg-red-50 text-red-700 dark:border-red-900/40 dark:bg-red-950/20 dark:text-red-300'
+                : bulk.phase === 'rate_limited'
+                ? 'border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-900/40 dark:bg-amber-950/20 dark:text-amber-300'
+                : bulk.phase === 'done'
+                ? 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900/40 dark:bg-emerald-950/20 dark:text-emerald-300'
+                : 'border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-900/40 dark:bg-blue-950/20 dark:text-blue-300',
+            ].join(' ')}
+            aria-live="polite"
+          >
+            <div className="flex flex-wrap items-center gap-2">
+              {bulkActive ? <Loader2 className="h-4 w-4 shrink-0 animate-spin" /> : bulk.phase === 'done' ? <CheckCircle className="h-4 w-4 shrink-0" /> : bulk.phase === 'error' ? <XCircle className="h-4 w-4 shrink-0" /> : null}
+              <span className="font-medium">{bulk.message}</span>
+              {bulk.countdown > 0 && (
+                <span className="flex items-center gap-1 rounded-full bg-white/60 px-2 py-0.5 text-xs font-semibold dark:bg-black/20">
+                  <Clock className="h-3 w-3" />
+                  {bulk.countdown}sn
+                </span>
+              )}
+            </div>
+            <p className="mt-1 text-xs opacity-80">
+              Grup: {bulk.batch} · İşlenen: {bulk.totalProcessed} · Paylaşılan: {bulk.totalPosted} · Başarısız: {bulk.totalFailed}
+            </p>
+            {bulk.phase === 'rate_limited' && (
+              <p className="mt-1 text-xs opacity-80">
+                Facebook/Instagram/Pinterest kısa süreli işlem limitine takıldı — otomatik olarak bekleyip tekrar denenecek, bir şey yapmanıza gerek yok.
+              </p>
+            )}
+          </div>
+        )}
 
         {/* Durum filtreleri */}
         <div className="mb-4 flex flex-wrap gap-2">
@@ -1176,11 +1330,6 @@ export default function AdminSocialSection() {
         {loadErr && (
           <p className="mb-3 rounded-xl border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700 dark:border-red-900/40 dark:bg-red-950/20 dark:text-red-300">
             {loadErr}
-          </p>
-        )}
-        {processMsg && (
-          <p className="mb-3 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm text-emerald-700 dark:border-emerald-900/40 dark:bg-emerald-950/20 dark:text-emerald-300">
-            {processMsg}
           </p>
         )}
 
