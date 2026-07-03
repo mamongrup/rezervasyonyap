@@ -143,6 +143,29 @@ export function summarizeGezinomiPeriods(model) {
   }))
 }
 
+/** Gezinomi tourDepartures → kalkış noktaları */
+export function summarizeGezinomiDepartures(model) {
+  const rows = Array.isArray(model?.tourDepartures) ? model.tourDepartures : []
+  return rows
+    .map((d) => ({
+      id: d.tourDepartureId ?? d.id ?? null,
+      city: String(d.cityName || '').trim(),
+      name: String(d.name || '').trim(),
+    }))
+    .filter((d) => d.city || d.name)
+}
+
+/** Gezinomi tourPeriodTimes → ay/dönem grupları (fiyat tablosu başlıkları) */
+export function summarizeGezinomiPeriodTimes(model) {
+  const rows = Array.isArray(model?.tourPeriodTimes) ? model.tourPeriodTimes : []
+  return rows
+    .map((p) => ({
+      id: p.tourPeriodTimeId ?? p.id ?? null,
+      label: String(p.tourPeriodTimeName || '').trim(),
+    }))
+    .filter((p) => p.label)
+}
+
 export async function fetchGezinomiGalleryViaApi(match) {
   const detail = await fetchGezinomiTourDetail(match)
   const m = detail.match
@@ -195,6 +218,7 @@ const GEIZINOMI_INFO_SECTIONS = [
   ['Fiyatlarımıza Dahil Olmayan Servislerimiz', 'cruise-section-excluded', 'Fiyata dahil olmayanlar'],
   ['Önemli Bilgiler', 'cruise-section-important', 'Önemli bilgiler'],
   ['Ulaşım Detayı', 'cruise-section-transport', 'Ulaşım'],
+  ['Konaklama Detayı', 'tour-section-accommodation', 'Konaklama'],
   ['Yeme – İçme Konsepti ', 'cruise-section-meals', 'Yeme içme'],
   ['Yeme - İçme Konsepti ', 'cruise-section-meals', 'Yeme içme'],
   ['Kabin Bilgileri', 'cruise-section-cabin', 'Kabin bilgileri'],

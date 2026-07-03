@@ -52,27 +52,89 @@ export function buildTatilsepetiVerticalCruise(detail) {
   const tourId = String(detail.tourId)
   const shipName = detail.shipName || null
   const cruiseLine = detail.cruiseLine || shipName
+  const infoSections = buildTatilsepetiInfoSections(detail)
   return {
     cruise_line: cruiseLine,
     ship_name: shipName,
     route_summary: detail.routeSummary,
     night_count: detail.nightCount,
     tour_departure: detail.visits?.[0] || null,
+    visits: detail.visits || [],
     transport: detail.transport,
     visa_info: detail.visaInfo,
+    tour_code: tourId,
+    departure_points: detail.departurePoints || [],
+    ship_specs: detail.shipSpecs || [],
+    ship_activities: detail.shipActivities || [],
+    ship_image_url: detail.shipImageUrl || null,
+    deck_plan_image_url: detail.deckPlanImageUrl || null,
+    detail_text: detail.detailTextHtml || null,
     program_days: (detail.programDays || []).map((d, i) => ({
       day: Number(String(d.day_label || '').replace(/\D/g, '')) || i + 1,
+      day_label: d.day_label,
       title: d.title,
       description: d.body_html || d.description || '',
+      body_html: d.body_html || d.description || '',
     })),
     cabins: detail.cabins || [],
     included_services: detail.included || [],
     excluded_services: detail.excluded || [],
+    info_sections: infoSections,
     periods: detail.periods,
     tatilsepeti_url: detail.url,
     tatilsepeti_tour_id: tourId,
     agency_id: detail.agencyId,
   }
+}
+
+function buildTatilsepetiInfoSections(detail) {
+  const sections = []
+  if (detail.visits?.length) {
+    sections.push({
+      id: 'cruise-visits',
+      title: 'Ziyaret Edilecek Yerler',
+      html: `<ul>${detail.visits.map((v) => `<li>${escapeHtml(v)}</li>`).join('')}</ul>`,
+    })
+  }
+  if (detail.shipSpecs?.length || detail.shipActivities?.length || detail.shipImageUrl) {
+    let html = ''
+    if (detail.shipImageUrl) {
+      html += `<p><img src="${detail.shipImageUrl}" alt="${escapeHtml(detail.shipName || 'Gemi')}" style="max-width:100%;border-radius:12px" loading="lazy" /></p>`
+    }
+    if (detail.shipSpecs?.length) {
+      html += `<ul>${detail.shipSpecs.map((s) => `<li>${escapeHtml(s)}</li>`).join('')}</ul>`
+    }
+    if (detail.shipActivities?.length) {
+      html += `<p><strong>Gemi aktiviteleri</strong></p><ul>${detail.shipActivities.map((a) => `<li>${escapeHtml(a)}</li>`).join('')}</ul>`
+    }
+    sections.push({ id: 'cruise-ship-info', title: 'Gemi Bilgileri', html })
+  }
+  if (detail.departurePoints?.length) {
+    sections.push({
+      id: 'cruise-departure',
+      title: 'Tur Kalkış Noktaları',
+      html: `<ul>${detail.departurePoints.map((p) => `<li>${escapeHtml(p)}</li>`).join('')}</ul>`,
+    })
+  }
+  if (detail.detailTextHtml?.trim()) {
+    sections.push({ id: 'cruise-notes', title: 'Açıklamalar', html: detail.detailTextHtml })
+  }
+  if (detail.deckPlanImageUrl) {
+    sections.push({
+      id: 'cruise-deck-plan',
+      title: 'Gemi Kat Planları',
+      html: `<p><img src="${detail.deckPlanImageUrl}" alt="${escapeHtml(detail.shipName || 'Gemi kat planı')}" style="max-width:100%;border-radius:12px" loading="lazy" /></p>`,
+    })
+  }
+  return sections
+}
+
+function escapeHtml(s) {
+  return String(s || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
 }
 
 /** Mevcut ilan — kabin/program/dahil-hariç güncelle (backfill) */
@@ -101,11 +163,12 @@ export async function patchTatilsepetiCruiseListingContent(pgClient, listingId, 
     [listingId, currency, effectivePrice],
   )
 
-  if (detail.description) {
+  if (detail.description || detail.detailTextHtml) {
+    const rich = detail.detailTextHtml?.trim() || detail.description
     await pgClient.query(
       `UPDATE listing_translations SET description = COALESCE($2, description)
        WHERE listing_id = $1::uuid`,
-      [listingId, detail.description],
+      [listingId, rich],
     )
   }
 
@@ -139,7 +202,7 @@ export async function upsertTatilsepetiCruiseListing(
   const tourId = String(detail.tourId)
   const slug = slugForTatilsepetiCruise(detail)
   const title = String(detail.title || `Cruise ${tourId}`).trim()
-  const description = detail.description || null
+  const description = detail.detailTextHtml?.trim() || detail.description || null
   const currency = detail.price?.currency || 'EUR'
   const price = detail.price?.amount > 0 ? detail.price.amount : null
   const locName = detail.routeSummary || detail.visits?.[0] || null

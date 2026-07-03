@@ -12,6 +12,8 @@ export type TourPeriodOption = {
   currencyCode: string
   /** false = planlanmış kalkış, henüz online satışa kapalı */
   bookable?: boolean
+  /** Gezinomi ay grubu — örn. "Temmuz 2026" */
+  monthLabel?: string
 }
 
 function asRecord(value: unknown): Record<string, unknown> | null {

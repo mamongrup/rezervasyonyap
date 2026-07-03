@@ -167,7 +167,7 @@ export function TourInfoSections({
     nodes.push(<Fragment key="tour-insert-fallback">{insertNode}</Fragment>)
   }
 
-  return <>{nodes}</>
+  return <div id="tour-section-extra-info">{nodes}</div>
 }
 
 export function TourItinerarySection({
@@ -336,5 +336,72 @@ function TourBulletCard({
         <p className="mt-3 text-sm text-neutral-400 dark:text-neutral-500">{empty}</p>
       )}
     </div>
+  )
+}
+
+export function TourDeparturePointsSection({
+  points,
+  locale = 'tr',
+}: {
+  points: Array<{ id: string; city: string; address: string }>
+  locale?: string
+}) {
+  if (points.length === 0) return null
+  const td = getMessages(locale).listing.tourDetail
+
+  return (
+    <section id="tour-section-departures" className={LISTING_SECTION_STACKED}>
+      <div>
+        <SectionHeading>{td.departurePointsTitle}</SectionHeading>
+        <SectionSubheading>{td.departurePointsSubtitle}</SectionSubheading>
+      </div>
+      <Divider className="w-14!" />
+      <ul className="space-y-3">
+        {points.map((p) => (
+          <li
+            key={p.id}
+            className="rounded-2xl border border-neutral-200 bg-white p-4 dark:border-neutral-700 dark:bg-neutral-900/40"
+          >
+            {p.city ? (
+              <p className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">{p.city}</p>
+            ) : null}
+            {p.address ? (
+              <p className="mt-1 text-sm leading-relaxed text-neutral-600 dark:text-neutral-300">{p.address}</p>
+            ) : null}
+          </li>
+        ))}
+      </ul>
+    </section>
+  )
+}
+
+export function TourPeriodTimesSection({
+  labels,
+  locale = 'tr',
+}: {
+  labels: string[]
+  locale?: string
+}) {
+  if (labels.length === 0) return null
+  const td = getMessages(locale).listing.tourDetail
+
+  return (
+    <section id="tour-section-period-times" className={LISTING_SECTION_STACKED}>
+      <div>
+        <SectionHeading>{td.periodTimesTitle}</SectionHeading>
+        <SectionSubheading>{td.periodTimesSubtitle}</SectionSubheading>
+      </div>
+      <Divider className="w-14!" />
+      <div className="flex flex-wrap gap-2">
+        {labels.map((label) => (
+          <span
+            key={label}
+            className="rounded-full border border-neutral-200 bg-neutral-50 px-3 py-1.5 text-sm font-medium text-neutral-700 dark:border-neutral-700 dark:bg-neutral-900/50 dark:text-neutral-200"
+          >
+            {label}
+          </span>
+        ))}
+      </div>
+    </section>
   )
 }

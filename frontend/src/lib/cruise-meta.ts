@@ -28,6 +28,17 @@ export type CruiseVerticalMeta = {
   gezinomi_link?: string | null
   gezinomi_page_url?: string | null
   detail_text?: string | null
+  transport?: string | null
+  visa_info?: string | null
+  tour_code?: string | null
+  visits?: string[]
+  departure_points?: string[]
+  ship_specs?: string[]
+  ship_activities?: string[]
+  ship_image_url?: string | null
+  deck_plan_image_url?: string | null
+  tatilsepeti_url?: string | null
+  tatilsepeti_tour_id?: string | null
   info_sections?: Array<{ id: string; title: string; html: string }>
   program_days?: Array<{
     day?: number
@@ -55,6 +66,7 @@ export type CruiseCabinOption = {
   name: string
   campaign?: string | null
   description?: string
+  footnote?: string | null
   image_urls?: string[]
   prices?: {
     double_per_person?: CruiseMoney | null
@@ -81,6 +93,9 @@ export function cruiseOverviewItems(
     nights: string
     departure: string
     concept: string
+    transport?: string
+    visa?: string
+    tourCode?: string
   },
   nightFallback?: number | null,
 ): TourOverviewItem[] {
@@ -108,37 +123,63 @@ export function cruiseOverviewItems(
   if (meta.concept_name) {
     items.push({ label: labels.concept, value: meta.concept_name, icon: 'location' })
   }
+  if (meta.transport?.trim() && labels.transport) {
+    items.push({ label: labels.transport, value: meta.transport.trim(), icon: 'transport' })
+  }
+  if (meta.visa_info?.trim() && labels.visa) {
+    items.push({ label: labels.visa, value: meta.visa_info.trim(), icon: 'visa' })
+  }
+  if (meta.tour_code?.trim() && labels.tourCode) {
+    items.push({ label: labels.tourCode, value: meta.tour_code.trim(), icon: 'guide' })
+  }
   return items
 }
 
 export function cruiseInfoSections(meta: CruiseVerticalMeta | null, locale = 'tr'): TourInfoSection[] {
   const rows = meta?.info_sections ?? []
-  return rows
+  const fromMeta = rows
     .filter((s) => s?.html?.trim())
     .map((s) => ({
       id: s.id || `cruise-info-${s.title}`,
       title: s.title,
       html: sanitizeRichCmsHtml(s.html),
     }))
+  if (fromMeta.length > 0) return fromMeta
+  if (meta?.detail_text?.trim()) {
+    return [
+      {
+        id: 'cruise-detail-text',
+        title: locale.startsWith('en') ? 'Notes' : 'Açıklamalar',
+        html: sanitizeRichCmsHtml(meta.detail_text),
+      },
+    ]
+  }
+  return []
 }
 
 export function cruiseItineraryDays(meta: CruiseVerticalMeta | null): TourItineraryDay[] {
   const rows = meta?.program_days ?? []
-  return rows
-    .map((d, i) => {
-      const day =
-        Number(d.day) ||
-        Number(String(d.day_label || '').replace(/\D/g, '')) ||
-        i + 1
-      const description = String(d.description || d.body_html || '').trim()
-      if (!description) return null
-      return {
-        day,
-        title: d.title?.trim() ? formatCruiseRouteSummary(d.title) : `Gün ${day}`,
-        description,
-      }
-    })
-    .filter((d): d is TourItineraryDay => Boolean(d && d.day > 0))
+  const days: TourItineraryDay[] = []
+  for (let i = 0; i < rows.length; i++) {
+    const d = rows[i]!
+    const day =
+      Number(d.day) ||
+      Number(String(d.day_label || '').replace(/\D/g, '')) ||
+      i + 1
+    const plain = String(d.description || '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
+    const rawHtml = String(d.body_html || d.description || '').trim()
+    if (!plain && !rawHtml) continue
+    const row: TourItineraryDay = {
+      day,
+      title: d.title?.trim() ? formatCruiseRouteSummary(d.title) : `Gün ${day}`,
+      description: plain || rawHtml.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim(),
+    }
+    if (rawHtml.includes('<')) {
+      row.descriptionHtml = sanitizeRichCmsHtml(rawHtml)
+    }
+    days.push(row)
+  }
+  return days
 }
 
 export function cruiseCabins(meta: CruiseVerticalMeta | null): CruiseCabinOption[] {
@@ -150,6 +191,7 @@ export function cruiseCabins(meta: CruiseVerticalMeta | null): CruiseCabinOption
       name: String(c.name).trim(),
       campaign: c.campaign ?? null,
       description: c.description?.trim() || undefined,
+      footnote: c.footnote?.trim() || null,
       image_urls: c.image_urls?.filter(Boolean),
       prices: c.prices,
       from_price: c.from_price ?? c.prices?.double_per_person ?? c.prices?.single ?? null,

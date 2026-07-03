@@ -9,14 +9,6 @@ import { useCruiseCabinSelection } from './CruiseCabinContext'
 import { SectionHeading, SectionSubheading } from './components/SectionHeading'
 import { LISTING_SECTION_STACKED } from './listing-section-classes'
 
-function formatMoney(
-  price: CruiseMoney | null | undefined,
-  format: (amount: number, currency: string) => string,
-) {
-  if (!price?.amount || price.amount <= 0) return '—'
-  return format(price.amount, price.currency)
-}
-
 function CabinPriceRow({
   label,
   price,
@@ -24,14 +16,12 @@ function CabinPriceRow({
   label: string
   price: CruiseMoney | null | undefined
 }) {
-  const format = useFormatMoneyInPreferredCurrency()
+  const formatted = useFormatMoneyInPreferredCurrency(price?.amount, price?.currency)
   if (!price?.amount) return null
   return (
     <div className="flex items-center justify-between gap-3 text-sm">
       <span className="text-neutral-600 dark:text-neutral-400">{label}</span>
-      <span className="font-medium text-neutral-900 dark:text-neutral-100">
-        {formatMoney(price, format)}
-      </span>
+      <span className="font-medium text-neutral-900 dark:text-neutral-100">{formatted}</span>
     </div>
   )
 }
@@ -130,6 +120,12 @@ function CabinCard({
             price={child}
           />
         ))}
+        {cabin.footnote ? (
+          <p className="pt-2 text-xs text-neutral-500 dark:text-neutral-400">
+            <span className="font-medium">{cd.cabinFootnote}: </span>
+            {cabin.footnote}
+          </p>
+        ) : null}
       </div>
     </button>
   )

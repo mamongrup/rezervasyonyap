@@ -50,7 +50,12 @@ async function main() {
     sql += ` AND l.slug = $${params.length}`
   }
   if (ONLY_EMPTY) {
-    sql += ` AND COALESCE(jsonb_array_length(la.value_json->'cabins'), 0) = 0`
+    sql += ` AND (
+      COALESCE(jsonb_array_length(la.value_json->'cabins'), 0) = 0
+      OR COALESCE(jsonb_array_length(la.value_json->'program_days'), 0) = 0
+      OR COALESCE(jsonb_array_length(la.value_json->'excluded_services'), 0) = 0
+      OR COALESCE(length(la.value_json->>'detail_text'), 0) < 200
+    )`
   }
   sql += ' ORDER BY l.slug'
   if (LIMIT > 0) sql += ` LIMIT ${LIMIT}`

@@ -118,13 +118,13 @@ function parseVisits(html) {
 }
 
 function parseProgramDays(html) {
-  const body = html.match(/<h2>Tur Programı<\/h2>[\s\S]*?<div class="panel-body[^"]*">([\s\S]*?)<\/div>\s*<\/div>\s*<\/div>/i)
-  if (!body) return []
+  const section = html.match(
+    /<h2>\s*Tur Programı\s*<\/h2>([\s\S]*?)(?:<h2>\s*Fiyata Dahil|<h3>\s*Fiyata Dahil)/i,
+  )
+  if (!section) return []
+  const chunks = section[1].split(/<div class="media">/i).slice(1)
   const days = []
-  const mediaRe = /<div class="media">([\s\S]*?)<\/div>\s*<\/div>/gi
-  let m
-  while ((m = mediaRe.exec(body[1]))) {
-    const block = m[1]
+  for (const block of chunks) {
     const dayM = block.match(/media-object">\s*([\s\S]*?)<\/div>/)
     const titleM = block.match(/<h3 class="media-heading">([\s\S]*?)<\/h3>/)
     const contentM = block.match(/<div class="media-content">([\s\S]*?)<\/div>/)
@@ -132,19 +132,86 @@ function parseProgramDays(html) {
     days.push({
       day_label: decodeHtml(dayM ? dayM[1].replace(/<[^>]+>/g, '') : ''),
       title: decodeHtml(titleM[1].replace(/<[^>]+>/g, '')),
-      body_html: decodeHtml(contentM ? contentM[1] : ''),
+      body_html: contentM ? contentM[1].trim() : '',
     })
   }
   return days
 }
 
 function parseServiceList(html, heading) {
-  const re = new RegExp(`<h2>${heading}<\\/h2>[\\s\\S]*?<ol class="list-group">([\\s\\S]*?)<\\/ol>`, 'i')
+  const re = new RegExp(
+    `<h[23]>\\s*${heading}\\s*<\\/h[23]>[\\s\\S]*?<ol class="list-group">([\\s\\S]*?)<\\/ol>`,
+    'i',
+  )
   const m = html.match(re)
   if (!m) return []
-  return [...m[1].matchAll(/list-group-item[^>]*>([\s\S]*?)<\/li>/gi)]
+  return [...m[1].matchAll(/<li class="list-group-item"[^>]*>([\s\S]*?)<\/li>/gi)]
+    .map((x) => parseServiceListItem(x[1]))
+    .filter(Boolean)
+}
+
+function parseServiceListItem(block) {
+  const tipM = block.match(/data-original-title="([^"]*)"/i)
+  const tip = tipM ? decodeHtml(tipM[1].replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()) : ''
+  const name = decodeHtml(
+    block
+      .replace(/<i class="fa fa-info-circle"[\s\S]*?<\/i>/gi, '')
+      .replace(/<[^>]+>/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim(),
+  )
+  if (!name) return ''
+  return tip ? `${name} (${tip})` : name
+}
+
+function parsePanelListItems(html, heading) {
+  const re = new RegExp(
+    `<h[23]>\\s*${heading}\\s*<\\/h[23]>[\\s\\S]*?<ul class="list-group">([\\s\\S]*?)<\\/ul>`,
+    'i',
+  )
+  const m = html.match(re)
+  if (!m) return []
+  return [...m[1].matchAll(/<li[^>]*>([\s\S]*?)<\/li>/gi)]
     .map((x) => decodeHtml(x[1].replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()))
     .filter(Boolean)
+}
+
+function parseSimpleListItems(html, heading) {
+  const re = new RegExp(`<h[23]>\\s*${heading}\\s*<\\/h[23]>[\\s\\S]*?<ul>([\\s\\S]*?)<\\/ul>`, 'i')
+  const m = html.match(re)
+  if (!m) return []
+  return [...m[1].matchAll(/<li[^>]*>([\s\S]*?)<\/li>/gi)]
+    .map((x) => decodeHtml(x[1].replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()))
+    .filter(Boolean)
+}
+
+function parseDetailTextHtml(html) {
+  const m = html.match(/id="descriptionTour"[^>]*>([\s\S]*?)<\/div>\s*<\/div>\s*<\/div>\s*<div class="row"/i)
+  return m ? m[1].trim() : ''
+}
+
+function parseShipSpecs(html) {
+  const m = html.match(/tour-detail__cruise__info[\s\S]*?<ul>([\s\S]*?)<\/ul>/i)
+  if (!m) return []
+  return [...m[1].matchAll(/<li[^>]*>([\s\S]*?)<\/li>/gi)]
+    .map((x) => decodeHtml(x[1].replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()))
+    .filter(Boolean)
+}
+
+function parseShipImageUrl(html) {
+  const m = html.match(
+    /tour-detail__cruise__img[\s\S]*?(?:src|data-src)="(https:\/\/cdn\.tatilsepeti\.com\/[^"]+)"/i,
+  )
+  return m ? m[1] : null
+}
+
+function parseDeckPlanImageUrl(html) {
+  const m = html.match(
+    /id="cruiseMap"[\s\S]*?(?:data-src|src)="(https:\/\/cdn\.tatilsepeti\.com\/(?!wwwroot)[^"]+)"/i,
+  )
+  const url = m?.[1]
+  if (!url || url.includes('ts-loading')) return null
+  return url
 }
 
 function parseGalleryUrls(html) {
@@ -237,12 +304,18 @@ function parseCabinTables(html) {
       children.push({ label: decodeHtml(childHeaders[i][1]), ...price })
     }
 
+    const footnoteM = block.match(/price-table__footer[\s\S]*?aciklamaDiv[^>]*>([\s\S]*?)<\/div>/i)
+    const footnote = footnoteM
+      ? decodeHtml(footnoteM[1].replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim())
+      : null
+
     const id = `cabin-${slugify(name)}`
     cabins.push({
       id,
       name,
       campaign,
       description,
+      footnote,
       image_urls: [...new Set(imageUrls)],
       prices: {
         double_per_person: doublePerPerson,
@@ -289,20 +362,33 @@ export function parseTourDetail(html, catalogRow = {}) {
   const periods = parsePeriods(html)
   const transportM = html.match(/<strong>Ulaşım:<\/strong>\s*([^<]+)/i)
   const visaM = html.match(/<strong>Vize:<\/strong>\s*([\s\S]*?)<br/i)
+  const departurePoints = parsePanelListItems(html, 'Tur Kalkış Noktaları')
+  const shipSpecs = parseShipSpecs(html)
+  const shipActivities = parseSimpleListItems(html, 'Gemi Aktiviteleri')
+  const shipImageUrl = parseShipImageUrl(html)
+  const deckPlanImageUrl = parseDeckPlanImageUrl(html)
+  const detailTextHtml = parseDetailTextHtml(html)
+  const metaDescription = ld?.description ? decodeHtml(ld.description) : null
 
   return {
     tourId: String(tourId),
     title,
     slug,
     url: catalogRow.url || `https://www.tatilsepeti.com/${slug}`,
-    description: ld?.description ? decodeHtml(ld.description) : null,
+    description: metaDescription,
+    detailTextHtml,
     shipName,
     cruiseLine: shipName,
     routeSummary: visits.length ? visits.join(' → ') : catalogRow.routeHint || null,
     visits,
     nightCount,
     transport: transportM ? decodeHtml(transportM[1]) : null,
-    visaInfo: visaM ? decodeHtml(visaM[1].replace(/<[^>]+>/g, ' ')) : null,
+    visaInfo: visaM ? decodeHtml(visaM[1].replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()) : null,
+    departurePoints,
+    shipSpecs,
+    shipActivities,
+    shipImageUrl,
+    deckPlanImageUrl,
     price,
     periods,
     programDays,

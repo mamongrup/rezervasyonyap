@@ -18,7 +18,11 @@ import {
   pickTourPrice,
 } from './gezinomi-kultur-catalog.mjs'
 import { listingStorageKey, listingUploadDir } from './listing-upload-path.mjs'
-import { buildGezinomiTourContentPackage } from './gezinomi-api.mjs'
+import {
+  buildGezinomiTourContentPackage,
+  summarizeGezinomiDepartures,
+  summarizeGezinomiPeriodTimes,
+} from './gezinomi-api.mjs'
 
 const PROVIDER = 'gezinomi'
 
@@ -359,6 +363,9 @@ export async function upsertGezinomiTourListing(
     info_sections: content?.infoSections ?? [],
     program_days: programDays,
     periods: detail?.periods ?? null,
+    tour_departures: detail?.model ? summarizeGezinomiDepartures(detail.model) : [],
+    period_times: detail?.model ? summarizeGezinomiPeriodTimes(detail.model) : [],
+    price_basis: 'double_per_person',
     detail_text: content?.detailText || row.tourDetailText || null,
     category_link: row.categoryLink ?? null,
   }

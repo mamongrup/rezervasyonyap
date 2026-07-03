@@ -420,6 +420,7 @@ export default async function ExperienceListingDetailPage({
   const dp = m.listing.detailPage
   const td = m.listing.tourDetail
   const ad = m.listing.activityDetail
+  const cd = m.listing.cruiseDetail
   const tourMeta = isTour ? parseTourMeta(rawTourMeta) : null
   const gezinomiTourMeta = isTour ? parseGezinomiTourVerticalMeta(rawTourMeta) : null
   const useGezinomiTourLayout = isTour && hasGezinomiTourStructuredContent(gezinomiTourMeta)
@@ -471,18 +472,24 @@ export default async function ExperienceListingDetailPage({
     ? buildCruiseOverviewItems(
         cruiseMeta,
         {
-          cruiseLine: 'Gemi hattı',
-          ship: 'Gemi',
-          route: 'Rota',
-          cabin: 'Kabin',
-          nights: 'Gece',
-          departure: 'Kalkış limanı',
-          concept: 'Konsept',
+          cruiseLine: cd.cruiseLine ?? 'Gemi hattı',
+          ship: cd.ship ?? 'Gemi',
+          route: cd.route ?? 'Rota',
+          cabin: cd.cabinCategory ?? 'Kabin',
+          nights: cd.nights ?? 'Gece',
+          departure: cd.departurePort ?? 'Kalkış limanı',
+          concept: cd.concept ?? 'Konsept',
+          transport: cd.transport ?? 'Ulaşım',
+          visa: cd.visa ?? 'Vize',
+          tourCode: cd.tourCode ?? 'Tur kodu',
         },
         tourNights,
       )
     : []
-  const cruiseInfo = isCruise ? buildCruiseInfoSections(cruiseMeta, locale) : []
+  const cruiseInfoRaw = isCruise ? buildCruiseInfoSections(cruiseMeta, locale) : []
+  const cruiseInfo = cruiseInfoRaw.filter(
+    (section) => !(section.id === 'cruise-visits' && Boolean(cruiseMeta?.route_summary?.trim())),
+  )
   const cruiseDays = isCruise ? cruiseItineraryDays(cruiseMeta) : []
   const cruiseCabinsList = isCruise ? cruiseCabins(cruiseMeta) : []
   const cruiseServices = isCruise ? cruiseIncludedExcluded(cruiseMeta) : { included: [], excluded: [] }
@@ -853,7 +860,6 @@ export default async function ExperienceListingDetailPage({
             {cruiseDays.length > 0 ? (
               <TourItinerarySection days={cruiseDays} locale={locale} />
             ) : null}
-            <TourInfoSections sections={cruiseInfo} locale={locale} />
             {cruiseServices.included.length > 0 || cruiseServices.excluded.length > 0 ? (
               <TourIncludedExcludedSection
                 included={cruiseServices.included}
@@ -861,6 +867,7 @@ export default async function ExperienceListingDetailPage({
                 locale={locale}
               />
             ) : null}
+            <TourInfoSections sections={cruiseInfo} locale={locale} />
             {description?.trim() && cruiseInfo.length === 0 && cruiseDays.length === 0 ? (
               <ActivityDescriptionSection locale={locale}>
                 <ListingDescriptionExpandable locale={locale} html={description} />

@@ -29,6 +29,9 @@ export type GezinomiTourVerticalMeta = {
     label?: string
     isAvailable?: boolean
   }>
+  tour_departures?: Array<{ id?: number | string | null; city?: string; name?: string }>
+  period_times?: Array<{ id?: number | string | null; label?: string }>
+  price_basis?: string | null
 }
 
 /** `vertical_tour` kök alanları — `unwrapVerticalMetaPayload` yalnızca `data` içini döndürür. */
@@ -53,6 +56,9 @@ export function parseGezinomiTourVerticalMeta(raw: unknown): GezinomiTourVertica
     info_sections: pickInfoSections(root.info_sections) ?? pickInfoSections(inner.info_sections) ?? undefined,
     program_days: pickProgramDays(root.program_days) ?? pickProgramDays(inner.program_days) ?? undefined,
     periods: pickPeriods(root.periods) ?? pickPeriods(inner.periods) ?? undefined,
+    tour_departures: pickDepartures(root.tour_departures) ?? pickDepartures(inner.tour_departures) ?? undefined,
+    period_times: pickPeriodTimes(root.period_times) ?? pickPeriodTimes(inner.period_times) ?? undefined,
+    price_basis: pickStr(root.price_basis) || pickStr(inner.price_basis),
   }
   return merged
 }
@@ -133,9 +139,72 @@ export function gezinomiTourItineraryDays(meta: GezinomiTourVerticalMeta | null)
 
 export function gezinomiTourPeriodSelectOptions(
   meta: GezinomiTourVerticalMeta | null,
-  opts: { fallbackPrice?: number | null; currencyCode?: string },
+  opts: { fallbackPrice?: number | null; currencyCode?: string; locale?: string },
 ): TourPeriodOption[] {
-  return cruisePeriodSelectOptions(meta as CruiseVerticalMeta, opts)
+  const locale = opts.locale ?? 'tr'
+  const base = cruisePeriodSelectOptions(meta as CruiseVerticalMeta, opts)
+  return base.map((p) => ({
+    ...p,
+    monthLabel: monthLabelFromIso(p.startDate, locale),
+  }))
+}
+
+export type GezinomiTourDeparturePoint = {
+  id: string
+  city: string
+  address: string
+}
+
+export function gezinomiTourDeparturePoints(meta: GezinomiTourVerticalMeta | null): GezinomiTourDeparturePoint[] {
+  const rows = meta?.tour_departures ?? []
+  return rows
+    .map((d, i) => ({
+      id: String(d.id ?? `dep-${i}`),
+      city: String(d.city ?? '').trim(),
+      address: String(d.name ?? '').trim(),
+    }))
+    .filter((d) => d.city || d.address)
+}
+
+export function gezinomiTourPeriodTimeLabels(meta: GezinomiTourVerticalMeta | null): string[] {
+  return (meta?.period_times ?? []).map((p) => String(p.label ?? '').trim()).filter(Boolean)
+}
+
+export function gezinomiTourHasBookablePeriod(meta: GezinomiTourVerticalMeta | null): boolean {
+  return (meta?.periods ?? []).some((p) => p.isAvailable !== false)
+}
+
+export type TourSectionNavItem = {
+  id: string
+  label: string
+}
+
+/** Detay sayfası anchor menüsü */
+export function gezinomiTourSectionNavItems(
+  meta: GezinomiTourVerticalMeta | null,
+  labels: {
+    about: string
+    program: string
+    included: string
+    departures: string
+    info: string
+    map: string
+  },
+  opts: {
+    hasProgram: boolean
+    hasIncluded: boolean
+    hasInfo: boolean
+    hasDepartures: boolean
+    hasMap: boolean
+  },
+): TourSectionNavItem[] {
+  const items: TourSectionNavItem[] = [{ id: 'tour-section-about', label: labels.about }]
+  if (opts.hasProgram) items.push({ id: 'tour-section-program', label: labels.program })
+  if (opts.hasIncluded) items.push({ id: 'tour-section-services', label: labels.included })
+  if (opts.hasDepartures) items.push({ id: 'tour-section-departures', label: labels.departures })
+  if (opts.hasInfo) items.push({ id: 'tour-section-extra-info', label: labels.info })
+  if (opts.hasMap) items.push({ id: 'tour-section-map', label: labels.map })
+  return items.length > 1 ? items : []
 }
 
 /** Kısa tanıtım — program ve bilgi bölümleri hariç. */
@@ -214,6 +283,51 @@ function pickProgramDays(value: unknown): GezinomiTourVerticalMeta['program_days
 function pickPeriods(value: unknown): GezinomiTourVerticalMeta['periods'] | null {
   if (!Array.isArray(value)) return null
   return value as GezinomiTourVerticalMeta['periods']
+}
+
+function pickDepartures(value: unknown): GezinomiTourVerticalMeta['tour_departures'] | null {
+  if (!Array.isArray(value)) return null
+  const rows = value
+    .filter((x) => x && typeof x === 'object')
+    .map((x) => {
+      const row = x as Record<string, unknown>
+      return {
+        id: row.id ?? row.tourDepartureId ?? null,
+        city: String(row.city ?? row.cityName ?? '').trim(),
+        name: String(row.name ?? row.address ?? '').trim(),
+      }
+    })
+    .filter((d) => d.city || d.name)
+  return rows.length ? rows : null
+}
+
+function pickPeriodTimes(value: unknown): GezinomiTourVerticalMeta['period_times'] | null {
+  if (!Array.isArray(value)) return null
+  const rows = value
+    .filter((x) => x && typeof x === 'object')
+    .map((x) => {
+      const row = x as Record<string, unknown>
+      return {
+        id: row.id ?? row.tourPeriodTimeId ?? null,
+        label: String(row.label ?? row.tourPeriodTimeName ?? '').trim(),
+      }
+    })
+    .filter((p) => p.label)
+  return rows.length ? rows : null
+}
+
+function monthLabelFromIso(iso: string, locale: string): string {
+  if (!iso || !/^\d{4}-\d{2}-\d{2}/.test(iso)) return ''
+  const [y, m, d] = iso.split('-').map(Number)
+  if (!y || !m || !d) return ''
+  try {
+    return new Intl.DateTimeFormat(locale.startsWith('en') ? 'en-GB' : 'tr-TR', {
+      month: 'long',
+      year: 'numeric',
+    }).format(new Date(y, m - 1, d))
+  } catch {
+    return ''
+  }
 }
 
 function normalizeGezinomiHtml(raw: string): string {
