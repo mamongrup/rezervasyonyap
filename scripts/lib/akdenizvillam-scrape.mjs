@@ -68,18 +68,42 @@ function parseJsonLd(html) {
   return { rental, product, graph }
 }
 
+function imageDedupeKey(url) {
+  const file = decodeURIComponent(url.split('/').pop() || '').toLowerCase()
+  return file
+    .replace(/\.(jpe?g|png)\.webp$/i, '')
+    .replace(/\.(webp|avif|jpe?g|png)$/i, '')
+}
+
+function imageQualityScore(url) {
+  const u = String(url).toLowerCase()
+  if (/\.jpe?g$/i.test(u) && !/\.jpe?g\.webp$/i.test(u)) return 3
+  if (/\.png$/i.test(u)) return 2
+  if (/\.webp$/i.test(u)) return 1
+  return 0
+}
+
 function uniqueImages(rental) {
-  const seen = new Set()
-  const out = []
+  const byKey = new Map()
+  const order = []
   for (const img of rental?.image || []) {
     const url = typeof img === 'string' ? img : img?.url
-    if (!url || /\.webp$/i.test(url)) continue
-    const key = url.replace(/\s+/g, ' ').trim().toLowerCase()
-    if (seen.has(key)) continue
-    seen.add(key)
-    out.push(url.trim())
+    if (!url || /\/poster\//i.test(url)) continue
+    if (!/\/slider\//i.test(url)) continue
+
+    const trimmed = url.replace(/\s+/g, ' ').trim()
+    const key = imageDedupeKey(trimmed)
+    const existing = byKey.get(key)
+    if (!existing) {
+      byKey.set(key, trimmed)
+      order.push(key)
+      continue
+    }
+    if (imageQualityScore(trimmed) > imageQualityScore(existing)) {
+      byKey.set(key, trimmed)
+    }
   }
-  return out
+  return order.map((k) => byKey.get(k))
 }
 
 function parseSeasonalPrices(html) {
