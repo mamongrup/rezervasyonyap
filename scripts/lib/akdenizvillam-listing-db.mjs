@@ -7,6 +7,7 @@ import { applyListingPropertyType } from './bravo-property-type.mjs'
 import { buildSeasonalRuleJson } from './bravo-seasonal-prices.mjs'
 import { downloadGalleryImages } from './wtatil-image-download.mjs'
 import { HOLIDAY_HOME_RULE_CODE_TO_ACCOMMODATION_ID } from './bravo-holiday-home-map.mjs'
+import { upsertAvailabilityCalendar } from './akdenizvillam-calendar.mjs'
 
 const PROVIDER = 'akdenizvillam'
 const DEFAULT_ORG = 'a0000000-0000-4000-8000-000000000001'
@@ -308,6 +309,7 @@ export async function upsertAkdenizvillamVillaListing(
     )
 
     const imageCount = await upsertImages(pgClient, listingId, slug, pkg.galleryUrls, { skipImages })
+    const calendar = await upsertAvailabilityCalendar(pgClient, listingId, pkg.calendarDays || [])
 
     await pgClient.query('COMMIT')
     return {
@@ -317,6 +319,9 @@ export async function upsertAkdenizvillamVillaListing(
       externalRef,
       imageCount,
       priceBands: pkg.seasonalPrices?.length || 0,
+      calendarDays: calendar.days,
+      calendarBlocked: calendar.blocked,
+      calendarBookings: pkg.calendarBookings?.length || 0,
     }
   } catch (e) {
     await pgClient.query('ROLLBACK')

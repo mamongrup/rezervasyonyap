@@ -3,6 +3,7 @@
  */
 
 import { formatHolidayHomeTitleTr, slugifyHolidayHomeName } from './villa-title-tr.mjs'
+import { buildCalendarDays, parseAvailabilityBookings } from './akdenizvillam-calendar.mjs'
 
 const MONTHS = {
   oca: 1,
@@ -210,6 +211,8 @@ export function parseAkdenizvillamVillaPage(html, sourceUrl) {
   const fees = parseFees(html)
   const poolDims = parsePoolDimensions(html, description)
   const seasonal = parseSeasonalPrices(html)
+  const calendarBookings = parseAvailabilityBookings(html)
+  const calendarDays = buildCalendarDays(seasonal, calendarBookings)
   const amenities = (acc.amenityFeature || [])
     .filter((a) => a?.name && a.value !== false)
     .map((a) => String(a.name).trim())
@@ -250,6 +253,8 @@ export function parseAkdenizvillamVillaPage(html, sourceUrl) {
     tourismCertNo: parseLicense(html),
     phone: (html.match(/0\d{3}[\s.-]?\d{3}[\s.-]?\d{2}[\s.-]?\d{2}/) || [])[0] || '',
     seasonalPrices: seasonal,
+    calendarBookings,
+    calendarDays,
     vitrinPrice,
     amenities,
     poolDims,
