@@ -16,9 +16,10 @@ interface Props {
   periods: TourPeriodOption[]
   selectedId?: string
   onChange?: (period: TourPeriodOption | null) => void
+  locale?: string
 }
 
-const TourPeriodSelect: FC<Props> = ({ className = 'flex-1', periods, selectedId, onChange }) => {
+const TourPeriodSelect: FC<Props> = ({ className = 'flex-1', periods, selectedId, onChange, locale = 'tr' }) => {
   const selected = useMemo(
     () => periods.find((p) => p.id === selectedId) ?? periods.find((p) => p.bookable !== false) ?? periods[0] ?? null,
     [selectedId, periods],
@@ -62,7 +63,9 @@ const TourPeriodSelect: FC<Props> = ({ className = 'flex-1', periods, selectedId
     : 'Tarih seçin'
 
   const triggerSub =
-    selected && !isTourPeriodBookable(selected) ? 'Planlanmış — satışa kapalı' : 'Tarih seçimi'
+    selected && !isTourPeriodBookable(selected)
+      ? 'Planlanmış — satışa kapalı'
+      : selected?.monthLabel ?? 'Tarih seçimi'
 
   return (
     <>
@@ -113,6 +116,9 @@ const TourPeriodSelect: FC<Props> = ({ className = 'flex-1', periods, selectedId
                   >
                     <span className={`font-medium ${!canBook ? 'opacity-75' : ''}`}>
                       {formatTourPeriodDateRange(period.startDate, period.endDate)}
+                      {period.monthLabel && canBook ? (
+                        <span className="ms-2 text-xs font-normal text-neutral-400">{period.monthLabel}</span>
+                      ) : null}
                       {!canBook ? (
                         <span className="ms-2 text-xs font-normal text-neutral-400">Pasif</span>
                       ) : null}

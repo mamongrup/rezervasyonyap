@@ -1,14 +1,14 @@
 'use client'
 
+import WhatsAppListingCTA from '@/components/WhatsAppListingCTA'
 import ButtonPrimary from '@/shared/ButtonPrimary'
-import {
-  isTourPeriodBookable,
-} from '@/lib/tour-periods'
+import { isTourPeriodBookable } from '@/lib/tour-periods'
 import { DEFAULT_GUESTS_EXPERIENCE, totalGuestCount } from '@/lib/guest-search-defaults'
 import type { GuestsObject } from '@/type'
 import { buildListingCheckoutUrl } from '@/lib/stay-checkout-url'
 import { useVitrinHref } from '@/hooks/use-vitrin-href'
 import { getMessages } from '@/utils/getT'
+import { interpolate } from '@/utils/interpolate'
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 import GuestsInputPopover from './components/GuestsInputPopover'
@@ -22,15 +22,24 @@ import {
 
 export default function TourBookingSidebar({
   listingId,
+  listingTitle,
+  listingUrl,
   fallbackPrice,
   fallbackPriceAmount,
   fallbackPriceCurrency,
+  prepaymentPercent,
+  showReferencePrice = false,
   locale = 'tr',
 }: {
   listingId: string
+  listingTitle?: string
+  listingUrl?: string
   fallbackPrice?: string
   fallbackPriceAmount?: number
   fallbackPriceCurrency?: string
+  prepaymentPercent?: string | number | null
+  /** Gezinomi gibi online satış kapalı turlarda vitrin fiyatını göster */
+  showReferencePrice?: boolean
   locale?: string
 }) {
   const { options, selected, setSelected } = useTourPeriodSelection()
@@ -41,6 +50,7 @@ export default function TourBookingSidebar({
   const [guests, setGuests] = useState<GuestsObject>(DEFAULT_GUESTS_EXPERIENCE)
 
   const bookable = isTourPeriodBookable(selected)
+  const anyBookable = options.some((p) => p.bookable !== false)
   const guestCount = Math.max(1, totalGuestCount(guests))
   const fallbackAmount =
     fallbackPriceAmount != null && Number.isFinite(fallbackPriceAmount) && fallbackPriceAmount > 0
@@ -63,10 +73,11 @@ export default function TourBookingSidebar({
     unitTotal,
   )
 
+  const showRef = showReferencePrice && !anyBookable && fallbackAmount != null
   const displayPrice =
-    personPrice != null
+    bookable && personPrice != null
       ? convertedPeriodPrice
-      : bookable
+      : showRef || fallbackAmount != null
         ? convertedFallback
         : '—'
 
@@ -76,6 +87,12 @@ export default function TourBookingSidebar({
     selected?.startDate &&
     selected?.endDate &&
     unitTotal > 0
+
+  const prepaymentNum = prepaymentPercent != null ? Number(String(prepaymentPercent).replace(',', '.')) : NaN
+  const prepaymentLine =
+    Number.isFinite(prepaymentNum) && prepaymentNum > 0 && prepaymentNum < 100
+      ? interpolate(td.prepaymentHint, { percent: String(Math.round(prepaymentNum)) })
+      : null
 
   function goCheckout() {
     if (!canCheckout || !selected?.startDate || !selected?.endDate) return
@@ -98,12 +115,22 @@ export default function TourBookingSidebar({
   return (
     <div className="listingSection__wrap sm:shadow-xl">
       <div>
+        {showRef ? (
+          <p className="text-xs font-medium uppercase tracking-wide text-neutral-400">
+            {td.referencePriceLabel}
+          </p>
+        ) : null}
         <span className="text-3xl font-semibold">
-          {bookable ? displayPrice : '—'}
+          {displayPrice !== '—' ? displayPrice : '—'}
           <span className="ml-1 text-base font-normal text-neutral-500 dark:text-neutral-400">
-            {bookable ? td.pricePerPerson : ''}
+            {bookable || showRef ? td.pricePerPerson : ''}
           </span>
         </span>
+        {showRef ? (
+          <p className="mt-2 text-xs leading-relaxed text-neutral-500 dark:text-neutral-400">
+            {td.referencePriceHint}
+          </p>
+        ) : null}
       </div>
 
       <div className="mt-4 flex flex-col rounded-3xl border border-neutral-200 dark:border-neutral-700">
@@ -112,6 +139,7 @@ export default function TourBookingSidebar({
           periods={options}
           selectedId={selected?.id}
           onChange={setSelected}
+          locale={locale}
         />
         <div className="w-full border-b border-neutral-200 dark:border-neutral-700" />
         <GuestsInputPopover
@@ -128,6 +156,18 @@ export default function TourBookingSidebar({
         </p>
       ) : null}
 
+      {!anyBookable ? (
+        <p className="mt-4 text-sm leading-relaxed text-neutral-600 dark:text-neutral-400">
+          {td.salesClosedNote}
+        </p>
+      ) : null}
+
+      {prepaymentLine ? (
+        <p className="mt-3 text-xs text-neutral-500 dark:text-neutral-400">{prepaymentLine}</p>
+      ) : null}
+
+      <p className="mt-2 text-xs text-neutral-500 dark:text-neutral-400">{td.installmentHint}</p>
+
       {bookable ? (
         <ButtonPrimary type="button" className="mt-4 w-full" disabled={!canCheckout} onClick={goCheckout}>
           {m.common.Reserve}
@@ -137,6 +177,12 @@ export default function TourBookingSidebar({
           {td.salesClosed}
         </ButtonPrimary>
       )}
+
+      {listingTitle ? (
+        <div className="mt-3">
+          <WhatsAppListingCTA listingTitle={listingTitle} listingUrl={listingUrl} />
+        </div>
+      ) : null}
     </div>
   )
 }

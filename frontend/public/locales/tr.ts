@@ -1095,7 +1095,7 @@ export const tr = {
       referencePriceLabel: 'Başlangıç fiyatı',
       referencePriceHint: 'Çift kişilik odada kişi başı; tek kişi ve çocuk fiyatları talep üzerine paylaşılır.',
       installmentHint: 'Seçili kartlarla yurt içi turlarda 9 taksit imkânı (banka kampanyalarına göre değişebilir).',
-      prepaymentHint: 'Ön ödeme ile rezervasyon: %{percent}',
+      prepaymentHint: 'Ön ödeme ile rezervasyon: {percent}%',
       departurePointsTitle: 'Tur Kalkış Noktaları',
       departurePointsSubtitle: 'Buluşma adresi ve şehir bilgisi.',
       periodTimesTitle: 'Dönemler',

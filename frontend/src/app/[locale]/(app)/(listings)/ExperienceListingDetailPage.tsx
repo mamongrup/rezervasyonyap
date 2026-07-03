@@ -56,12 +56,15 @@ import {
 } from '@/lib/cruise-meta'
 import {
   gezinomiIncludedExcludedLists,
+  gezinomiTourDeparturePoints,
   gezinomiTourInfoSections,
   gezinomiTourIntroHtml,
   gezinomiTourItineraryDays,
   gezinomiTourOverviewItems,
   gezinomiTourPeriodSelectOptions,
+  gezinomiTourPeriodTimeLabels,
   gezinomiTourProgramHtmlForPins,
+  gezinomiTourSectionNavItems,
   hasGezinomiTourStructuredContent,
   parseGezinomiTourVerticalMeta,
 } from '@/lib/gezinomi-tour-meta'
@@ -111,10 +114,13 @@ import ActivityOverviewSection, {
   type ActivityOverviewItem,
 } from './ActivityDetailSections'
 import {
+  TourDeparturePointsSection,
   TourIncludedExcludedSection,
   TourInfoSections,
   TourItinerarySection,
   TourOverviewSection,
+  TourPeriodTimesSection,
+  TourSectionNav,
   type TourItineraryDay,
   type TourOverviewItem,
 } from './TourDetailSections'
@@ -433,8 +439,15 @@ export default async function ExperienceListingDetailPage({
             rawTourPeriods?.currency_code?.trim() ||
             (listing as TListingBase & { listingCurrencyCode?: string }).listingCurrencyCode?.trim() ||
             'TRY',
+          locale,
         })
       : []
+  const gezinomiDeparturePoints = useGezinomiTourLayout
+    ? gezinomiTourDeparturePoints(gezinomiTourMeta)
+    : []
+  const gezinomiPeriodTimeLabels = useGezinomiTourLayout
+    ? gezinomiTourPeriodTimeLabels(gezinomiTourMeta)
+    : []
   const tourPeriodOptions =
     wtatilTourPeriodOptions.length > 0 ? wtatilTourPeriodOptions : gezinomiTourPeriodOptions
   const tourFlightSchedules =
@@ -697,39 +710,6 @@ export default async function ExperienceListingDetailPage({
 
   const siteLanguagesLine = SITE_LOCALE_CATALOG.map((l) => l.name).join(', ')
 
-  const renderSidebarPriceAndForm = () => {
-    const listingMoney = listing as TListingBase & {
-      priceAmount?: number
-      priceCurrency?: string
-      listingCurrencyCode?: string
-    }
-    const priceCur =
-      listingMoney.priceCurrency || listingMoney.listingCurrencyCode || undefined
-
-    if (isTour || isCruise) {
-      const Sidebar = isCruise && cruiseCabinsList.length > 0 ? CruiseBookingSidebar : TourBookingSidebar
-      return (
-        <Sidebar
-          listingId={catalogListingId}
-          fallbackPrice={price}
-          fallbackPriceAmount={listingMoney.priceAmount}
-          fallbackPriceCurrency={priceCur}
-          locale={locale}
-        />
-      )
-    }
-
-    return (
-      <ExperienceBookingSidebar
-        listingId={catalogListingId}
-        price={price}
-        priceAmount={listingMoney.priceAmount}
-        priceCurrency={priceCur}
-        locale={locale}
-      />
-    )
-  }
-
   const siteConfig = getSitePublicConfig()
   const organizationName = siteConfig.orgName?.trim() || siteConfig.orgLegalName?.trim() || 'Travel'
 
@@ -806,22 +786,90 @@ export default async function ExperienceListingDetailPage({
     (listing as TListingBase & { currencyCode?: string }).currencyCode?.trim() ||
     'TRY'
 
+  const tourHasIncludedSection =
+    gezinomiIncludedExcluded.included.length > 0 ||
+    gezinomiIncludedExcluded.excluded.length > 0 ||
+    Boolean(tourMeta?.includes?.length) ||
+    Boolean(tourMeta?.excludes?.length)
+  const tourSectionNavItems = useGezinomiTourLayout
+    ? gezinomiTourSectionNavItems(
+        gezinomiTourMeta,
+        {
+          about: td.sectionNav.about,
+          program: td.sectionNav.program,
+          included: td.sectionNav.included,
+          departures: td.sectionNav.departures,
+          info: td.sectionNav.info,
+          map: td.sectionNav.map,
+        },
+        {
+          hasProgram: gezinomiItineraryDays.length > 0 || Boolean(tourMeta?.itinerary?.length),
+          hasIncluded: tourHasIncludedSection,
+          hasInfo: tourInfoSections.length > 0 || tourFlightSchedules.length > 0,
+          hasDepartures: gezinomiDeparturePoints.length > 0,
+          hasMap: tourDayPins.length > 0,
+        },
+      )
+    : []
+
+  const listingPrepaymentPercent = (listing as TListingBase & { prepaymentPercent?: string }).prepaymentPercent
+  const siteConfigForUrl = getSitePublicConfig()
+  const tourListingPublicUrl = siteConfigForUrl.siteUrl
+    ? `${siteConfigForUrl.siteUrl}${await vitrinHref(locale, `${canonicalPath}/${handle}`)}`
+    : undefined
+  const gezinomiSalesClosed =
+    useGezinomiTourLayout && tourPeriodOptions.length > 0 && !tourPeriodOptions.some((p) => p.bookable !== false)
+
+  const renderSidebarPriceAndForm = () => {
+    const listingMoney = listing as TListingBase & {
+      priceAmount?: number
+      priceCurrency?: string
+      listingCurrencyCode?: string
+      prepaymentPercent?: string
+    }
+    const priceCur =
+      listingMoney.priceCurrency || listingMoney.listingCurrencyCode || undefined
+
+    if (isTour || isCruise) {
+      const Sidebar = isCruise && cruiseCabinsList.length > 0 ? CruiseBookingSidebar : TourBookingSidebar
+      return (
+        <Sidebar
+          listingId={catalogListingId}
+          listingTitle={isTour ? title : undefined}
+          listingUrl={isTour ? tourListingPublicUrl : undefined}
+          fallbackPrice={price}
+          fallbackPriceAmount={listingMoney.priceAmount}
+          fallbackPriceCurrency={priceCur}
+          prepaymentPercent={listingMoney.prepaymentPercent ?? listingPrepaymentPercent}
+          showReferencePrice={isTour && gezinomiSalesClosed}
+          locale={locale}
+        />
+      )
+    }
+
+    return (
+      <ExperienceBookingSidebar
+        listingId={catalogListingId}
+        price={price}
+        priceAmount={listingMoney.priceAmount}
+        priceCurrency={priceCur}
+        locale={locale}
+      />
+    )
+  }
+
   const renderTourMainContent = () => (
     <>
       <div className={`flex w-full flex-col ${LISTING_DETAIL_SECTION_GAP_Y} lg:w-3/5 xl:w-[64%]`}>
         {renderSectionHeader()}
+        {tourSectionNavItems.length > 0 ? (
+          <div className="sticky top-0 z-20 -mx-1 bg-white/90 py-2 backdrop-blur-sm dark:bg-neutral-950/90">
+            <TourSectionNav items={tourSectionNavItems} locale={locale} />
+          </div>
+        ) : null}
         {tourOverviewItems.length > 0 || tourProgramHtml ? (
           <TourOverviewSection items={tourOverviewItems} programHtml={tourProgramHtml} locale={locale} />
         ) : null}
-        <TourInfoSections
-          sections={tourInfoSections}
-          insertAfterSectionId={tourFlightScheduleInsertAfterSectionId(tourInfoSections)}
-          insertNode={tourFlightSchedules.length > 0 ? <TourFlightScheduleSection locale={locale} /> : null}
-          locale={locale}
-        />
-        {tourDayPins.length > 0 && (
-          <TourItineraryMapSection pins={tourDayPins} locale={locale} />
-        )}
         {gezinomiItineraryDays.length > 0 ? (
           <TourItinerarySection days={gezinomiItineraryDays} locale={locale} />
         ) : tourMeta?.itinerary?.length ? (
@@ -840,6 +888,21 @@ export default async function ExperienceListingDetailPage({
             locale={locale}
           />
         ) : null}
+        {gezinomiDeparturePoints.length > 0 ? (
+          <TourDeparturePointsSection points={gezinomiDeparturePoints} locale={locale} />
+        ) : null}
+        {gezinomiPeriodTimeLabels.length > 0 ? (
+          <TourPeriodTimesSection labels={gezinomiPeriodTimeLabels} locale={locale} />
+        ) : null}
+        <TourInfoSections
+          sections={tourInfoSections}
+          insertAfterSectionId={tourFlightScheduleInsertAfterSectionId(tourInfoSections)}
+          insertNode={tourFlightSchedules.length > 0 ? <TourFlightScheduleSection locale={locale} /> : null}
+          locale={locale}
+        />
+        {tourDayPins.length > 0 && (
+          <TourItineraryMapSection pins={tourDayPins} locale={locale} />
+        )}
       </div>
       <div className="grow">
         <div className="sticky top-5">{renderSidebarPriceAndForm()}</div>

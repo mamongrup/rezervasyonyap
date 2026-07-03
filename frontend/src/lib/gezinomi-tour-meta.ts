@@ -285,6 +285,12 @@ function pickPeriods(value: unknown): GezinomiTourVerticalMeta['periods'] | null
   return value as GezinomiTourVerticalMeta['periods']
 }
 
+function pickDepartureId(value: unknown): string | number | null {
+  if (value == null) return null
+  if (typeof value === 'string' || typeof value === 'number') return value
+  return null
+}
+
 function pickDepartures(value: unknown): GezinomiTourVerticalMeta['tour_departures'] | null {
   if (!Array.isArray(value)) return null
   const rows = value
@@ -292,7 +298,7 @@ function pickDepartures(value: unknown): GezinomiTourVerticalMeta['tour_departur
     .map((x) => {
       const row = x as Record<string, unknown>
       return {
-        id: row.id ?? row.tourDepartureId ?? null,
+        id: pickDepartureId(row.id ?? row.tourDepartureId),
         city: String(row.city ?? row.cityName ?? '').trim(),
         name: String(row.name ?? row.address ?? '').trim(),
       }
@@ -308,7 +314,7 @@ function pickPeriodTimes(value: unknown): GezinomiTourVerticalMeta['period_times
     .map((x) => {
       const row = x as Record<string, unknown>
       return {
-        id: row.id ?? row.tourPeriodTimeId ?? null,
+        id: pickDepartureId(row.id ?? row.tourPeriodTimeId),
         label: String(row.label ?? row.tourPeriodTimeName ?? '').trim(),
       }
     })
