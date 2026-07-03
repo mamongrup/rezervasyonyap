@@ -1,5 +1,9 @@
+import {
+  hasConfiguredGoogleAnalytics,
+  type GoogleAnalyticsPublicConfig,
+} from '@/lib/google-analytics-config'
 import { getCachedSiteConfig } from '@/lib/site-config-cache'
-import GoogleScriptsClient, { type GoogleAnalyticsPublicConfig } from './GoogleScriptsClient'
+import GoogleScriptsClient from './GoogleScriptsClient'
 
 function pickAnalytics(pub: Awaited<ReturnType<typeof getCachedSiteConfig>>): GoogleAnalyticsPublicConfig {
   if (!pub?.analytics || typeof pub.analytics !== 'object') return {}
@@ -14,8 +18,8 @@ function pickAnalytics(pub: Awaited<ReturnType<typeof getCachedSiteConfig>>): Go
 }
 
 /**
- * Google Tag Manager, GA4, Google Ads (gtag), AdSense — vitrin çerez şeridi açıksa
- * yalnızca kullanıcı «Tümünü kabul et» dedikten sonra yüklenir (`GoogleScriptsClient`).
+ * Google Tag Manager, GA4, Google Ads (gtag), AdSense — Consent Mode v2 ile vitrinde yüklenir.
+ * GTM yapılandırılmışsa GA4/Ads doğrudan gtag ile tekrar yüklenmez (çift sayım önlenir).
  */
 export default async function GoogleScripts() {
   const pub = await getCachedSiteConfig()
@@ -25,11 +29,7 @@ export default async function GoogleScripts() {
   const cc = ui?.cookie_consent as Record<string, unknown> | undefined
   const consentGate = cc?.banner_enabled !== false
 
-  const { ga4_id, gtm_id, adsense_id, google_ads_id } = analytics
-  const hasSomething = Boolean(
-    gtm_id || (ga4_id || google_ads_id) || adsense_id,
-  )
-  if (!hasSomething) return null
+  if (!hasConfiguredGoogleAnalytics(analytics)) return null
 
   return <GoogleScriptsClient analytics={analytics} consentGate={consentGate} />
 }

@@ -1,4 +1,5 @@
 'use client'
+import { normalizeGoogleAnalyticsIds } from '@/lib/google-analytics-config'
 import { formatManageApiCatch } from '@/lib/manage-api-error-tr'
 import ButtonPrimary from '@/shared/ButtonPrimary'
 import { Field, Label } from '@/shared/fieldset'
@@ -630,43 +631,46 @@ export default function GeneralSettingsClient({ embedded = false }: GeneralSetti
     setGoogleServicesSaving(true)
     setStatus({ kind: 'idle' })
     try {
-      // Yanlış alana girilen ID'leri doğru yere taşı (ör. GTM alanına AW-/G- yazılması).
-      let ga4 = ga4Id.trim()
-      let gtm = gtmId.trim()
-      let ads = googleAdsId.trim()
       const moved: string[] = []
-      if (/^AW-/i.test(gtm)) {
-        if (!ads) ads = gtm
-        gtm = ''
+      const before = {
+        ga4_id: ga4Id,
+        gtm_id: gtmId,
+        adsense_id: adsenseId,
+        google_ads_id: googleAdsId,
+      }
+      const {
+        ga4_id: ga4,
+        gtm_id: gtm,
+        adsense_id: adsense,
+        google_ads_id: ads,
+      } = normalizeGoogleAnalyticsIds(before)
+      if (before.gtm_id.trim() && /^AW-/i.test(before.gtm_id.trim()) && !before.google_ads_id.trim()) {
         moved.push('GTM alanındaki AW- değeri Google Ads alanına taşındı')
-      } else if (/^G-/i.test(gtm)) {
-        if (!ga4) ga4 = gtm
-        gtm = ''
+      } else if (before.gtm_id.trim() && /^G-/i.test(before.gtm_id.trim()) && !before.ga4_id.trim()) {
         moved.push('GTM alanındaki G- değeri Analytics alanına taşındı')
       }
-      if (gtm && !/^GTM-/i.test(gtm)) {
+      if (before.gtm_id.trim() && gtm === '' && /^GTM-/i.test(before.gtm_id.trim()) === false && !/^AW-/i.test(before.gtm_id.trim()) && !/^G-/i.test(before.gtm_id.trim())) {
         moved.push('GTM ID «GTM-» ile başlamadığı için yok sayıldı')
-        gtm = ''
       }
-      if (ga4 && !/^G-/i.test(ga4)) {
-        if (/^AW-/i.test(ga4) && !ads) ads = ga4
+      if (before.ga4_id.trim() && ga4 === '' && !/^G-/i.test(before.ga4_id.trim())) {
         moved.push('Analytics ID «G-» ile başlamadığı için düzeltildi')
-        ga4 = ''
       }
-      if (ads && !/^AW-/i.test(ads)) {
+      if (before.google_ads_id.trim() && ads === '' && !/^AW-/i.test(before.google_ads_id.trim())) {
         moved.push('Google Ads ID «AW-» ile başlamadığı için yok sayıldı')
-        ads = ''
       }
-      // Düzeltilmiş değerleri forma yansıt.
+      if (before.adsense_id.trim() && adsense === '' && !/^ca-pub-/i.test(before.adsense_id.trim())) {
+        moved.push('AdSense ID «ca-pub-» ile başlamadığı için yok sayıldı')
+      }
       setGa4Id(ga4)
       setGtmId(gtm)
       setGoogleAdsId(ads)
+      setAdsenseId(adsense)
 
       const next = {
         ...analyticsRest,
         ...(ga4 ? { ga4_id: ga4 } : {}),
         ...(gtm ? { gtm_id: gtm } : {}),
-        ...(adsenseId.trim() ? { adsense_id: adsenseId.trim() } : {}),
+        ...(adsense ? { adsense_id: adsense } : {}),
         adsense_auto_ads: adsenseAutoAds,
         ...(ads ? { google_ads_id: ads } : {}),
         ...(searchConsoleCode.trim() ? { search_console_verification: searchConsoleCode.trim() } : {}),
@@ -675,7 +679,7 @@ export default function GeneralSettingsClient({ embedded = false }: GeneralSetti
       const note = moved.length > 0 ? ` (${moved.join('; ')})` : ''
       setStatus({
         kind: 'ok',
-        text: `Google hizmet ayarları kaydedildi.${note} Değişiklikler bir sonraki deploy'da yansır.`,
+        text: `Google hizmet ayarları kaydedildi.${note} Vitrinde ~15 sn içinde yansır.`,
       })
       await load()
     } catch (e) {
@@ -1854,6 +1858,7 @@ export default function GeneralSettingsClient({ embedded = false }: GeneralSetti
               </p>
               <p className="mt-1 text-xs text-amber-600 dark:text-amber-500">
                 ⚠️ <code className="font-mono">AW-…</code> (Google Ads) veya <code className="font-mono">G-…</code> (Analytics) buraya yazmayın — aşağıdaki kendi alanlarını kullanın. Yanlışlıkla girilirse kayıtta otomatik taşınır.
+                GTM kullanıyorsanız GA4/Ads etiketlerini GTM içinde tanımlayın; ayrıca Analytics/Ads alanlarına ID yazmanız gerekmez.
               </p>
             </Field>
           </section>
