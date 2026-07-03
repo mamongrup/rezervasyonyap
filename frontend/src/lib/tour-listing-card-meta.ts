@@ -1,4 +1,5 @@
 import type { TListingTour } from '@/types/listing-types'
+import { SITE_LOCALE_CATALOG } from '@/lib/i18n-catalog-locales'
 import { getMessages } from '@/utils/getT'
 import { interpolate } from '@/utils/interpolate'
 
@@ -188,4 +189,39 @@ export function buildTourListingCardMetaLines(tour: TListingTour, locale = 'tr')
   if (rowTwo) lines.push(rowTwo)
 
   return lines
+}
+
+const TOUR_LANGUAGE_ALIASES: Record<string, string> = {
+  turkish: 'Türkçe',
+  turkce: 'Türkçe',
+  english: 'English',
+  german: 'Deutsch',
+  deutsch: 'Deutsch',
+  russian: 'Русский',
+  french: 'Français',
+  chinese: '中文',
+}
+
+/** Tur meta dil kodlarını (tr, en) veya kısaltmaları okunur ada çevirir. */
+export function formatTourLanguageLabels(codes: string[]): string {
+  const seen = new Set<string>()
+  const out: string[] = []
+
+  for (const raw of codes) {
+    const trimmed = raw.trim()
+    if (!trimmed) continue
+    const key = normKey(trimmed)
+    const fromCatalog = SITE_LOCALE_CATALOG.find((c) => c.code === key)?.name
+    const label =
+      fromCatalog ||
+      TOUR_LANGUAGE_ALIASES[key] ||
+      (trimmed.length > 3 && !/^[a-z]{2}$/i.test(trimmed) ? trimmed : null)
+    if (!label) continue
+    const dedupe = label.toLocaleLowerCase('tr')
+    if (seen.has(dedupe)) continue
+    seen.add(dedupe)
+    out.push(label)
+  }
+
+  return out.join(', ')
 }

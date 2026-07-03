@@ -2,6 +2,7 @@ import { unwrapVerticalMetaPayload } from '@/lib/listing-pools'
 import { sanitizeRichCmsHtml } from '@/lib/sanitize-cms-html'
 import { stripHtml } from '@/lib/social-share/strip-html'
 import { formatCruisePlaceName } from '@/lib/cruise-route-display'
+import { kulturRegionLabel } from '@/lib/tour-kultur-regions'
 import { cruisePeriodSelectOptions, type CruiseVerticalMeta } from '@/lib/cruise-meta'
 import type { TourPeriodOption } from '@/lib/tour-periods'
 import type { TourInfoSection, TourItineraryDay, TourOverviewItem } from '@/app/[locale]/(app)/(listings)/TourDetailSections'
@@ -73,6 +74,7 @@ export function gezinomiTourOverviewItems(
     concept: string
     region: string
   },
+  locale = 'tr',
 ): TourOverviewItem[] {
   if (!meta) return []
   const items: TourOverviewItem[] = []
@@ -93,7 +95,11 @@ export function gezinomiTourOverviewItems(
     items.push({ label: labels.concept, value: meta.concept_name.trim(), icon: 'location' })
   }
   if (meta.tour_region?.trim()) {
-    items.push({ label: labels.region, value: meta.tour_region.trim(), icon: 'location' })
+    items.push({
+      label: labels.region,
+      value: kulturRegionLabel(meta.tour_region.trim(), locale),
+      icon: 'location',
+    })
   }
   return items
 }

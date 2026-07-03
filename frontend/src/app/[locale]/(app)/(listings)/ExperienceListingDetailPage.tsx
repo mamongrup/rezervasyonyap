@@ -32,6 +32,7 @@ import {
   listPublicActivitySessions,
   type ActivitySessionRow,
 } from '@/lib/travel-api'
+import { formatTourLanguageLabels } from '@/lib/tour-listing-card-meta'
 import { mergeTourPeriodOptions } from '@/lib/tour-periods'
 import {
   parseTourFlightSchedulesFromDescription,
@@ -503,6 +504,7 @@ export default async function ExperienceListingDetailPage({
     ? activitySessionsForDate(allActivitySessions, activityInitialDate)
     : []
   const tourLanguages = splitMetaList(tourMeta?.languages)
+  const tourLanguageLine = formatTourLanguageLabels(tourLanguages)
   const tourGroupLine = tourMeta?.max_people
     ? interpolate(td.maxPeople, { count: tourMeta.max_people })
     : maxGuests
@@ -562,7 +564,7 @@ export default async function ExperienceListingDetailPage({
               departure: locale.startsWith('en') ? 'Departure' : 'Kalkış',
               concept: locale.startsWith('en') ? 'Meal concept' : 'Yeme içme',
               region: locale.startsWith('en') ? 'Region' : 'Bölge',
-            })
+            }, locale)
           : []),
         tourMeta?.travel_type && travelTypeLabel(locale, tourMeta.travel_type)
           ? {
@@ -584,8 +586,8 @@ export default async function ExperienceListingDetailPage({
         tourMeta?.visa_required
           ? { label: td.overview.visa, value: td.overview.visaRequired, icon: 'visa' }
           : null,
-        tourLanguages.length > 0
-          ? { label: td.overview.language, value: tourLanguages.join(', '), icon: 'language' }
+        tourLanguageLine
+          ? { label: td.overview.language, value: tourLanguageLine, icon: 'language' }
           : null,
       ].filter((item): item is TourOverviewItem => item !== null)
     : []
@@ -780,7 +782,7 @@ export default async function ExperienceListingDetailPage({
           <HugeiconsIcon icon={Globe02Icon} className="h-6 w-6" strokeWidth={1.75} />
           <span>
             {isTour
-              ? tourLanguages.length > 0 ? tourLanguages.join(', ') : td.languagesNotSpecified
+              ? tourLanguageLine || td.languagesNotSpecified
               : isActivity
                 ? siteLanguagesLine
                 : (languages ?? []).length > 0
