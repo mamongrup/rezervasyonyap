@@ -113,31 +113,12 @@ async function upsertPriceRules(pgClient, listingId, seasonal = [], minStayNight
 }
 
 function buildPools(pkg) {
+  if (pkg.pools) return pkg.pools
+
   const pools = {
-    open_pool: {
-      enabled: false,
-      width: '',
-      length: '',
-      depth: '',
-      description: '',
-      heating_fee_per_day: '',
-    },
-    heated_pool: {
-      enabled: false,
-      width: '',
-      length: '',
-      depth: '',
-      description: '',
-      heating_fee_per_day: '',
-    },
-    children_pool: {
-      enabled: false,
-      width: '',
-      length: '',
-      depth: '',
-      description: '',
-      heating_fee_per_day: '',
-    },
+    open_pool: emptyPoolRow(),
+    heated_pool: emptyPoolRow(),
+    children_pool: emptyPoolRow(),
   }
   if (pkg.poolDims) {
     pools.open_pool = {
@@ -159,6 +140,17 @@ function buildPools(pkg) {
     }
   }
   return pools
+}
+
+function emptyPoolRow() {
+  return {
+    enabled: false,
+    width: '',
+    length: '',
+    depth: '',
+    description: '',
+    heating_fee_per_day: '',
+  }
 }
 
 export async function upsertAkdenizvillamVillaListing(
@@ -252,9 +244,13 @@ export async function upsertAkdenizvillamVillaListing(
     )
 
     const pools = buildPools(pkg)
-    const poolSizeLabel = pkg.poolDims
-      ? [pkg.poolDims.length, pkg.poolDims.width, pkg.poolDims.depth].filter(Boolean).join('×')
-      : 'Özel havuz'
+    const poolSizeLabel =
+      pkg.poolSizeLabel ||
+      (pkg.poolDims
+        ? [pkg.poolDims.length, pkg.poolDims.width, pkg.poolDims.depth].filter(Boolean).join('×')
+        : pools.open_pool.enabled
+          ? [pools.open_pool.length, pools.open_pool.width, pools.open_pool.depth].filter(Boolean).join('×')
+          : 'Özel havuz')
 
     await applyBravoHolidayHomeVitrinFields(pgClient, listingId, {
       meta: pkg.meta,

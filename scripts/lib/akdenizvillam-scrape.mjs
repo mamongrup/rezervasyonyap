@@ -144,22 +144,153 @@ function parseDescription(html) {
   return block.replace(/^Öne Çıkanlar\s*/u, '').trim()
 }
 
+function parsePoolMetric(raw) {
+  const s = String(raw ?? '')
+    .trim()
+    .replace(',', '.')
+  const m = s.match(/(\d+(?:\.\d+)?)\s*(m|cm|mt|metre)?/i)
+  if (!m) return ''
+  let n = Number(m[1])
+  if (!Number.isFinite(n)) return ''
+  const unit = (m[2] || '').toLowerCase()
+  if (unit === 'cm') {
+    // Kaynak sitede derinlik bazen "1.60 cm" yazılıyor (metre kastediliyor)
+    if (n <= 3) return String(n)
+    return String(n / 100)
+  }
+  return String(n)
+}
+
+function emptyPoolRow() {
+  return {
+    enabled: false,
+    width: '',
+    length: '',
+    depth: '',
+    description: '',
+    heating_fee_per_day: '',
+  }
+}
+
+function mapPoolType(name) {
+  const n = String(name || '').toLowerCase()
+  if (/çocuk|sığ/.test(n)) return 'children_pool'
+  if (/ısıtmalı|isitmali|kapalı|iç/.test(n)) return 'heated_pool'
+  return 'open_pool'
+}
+
+function poolRowFromEntry({ name, depthRaw, dimA, dimB }) {
+  const a = Number(parsePoolMetric(dimA))
+  const b = Number(parsePoolMetric(dimB))
+  if (!a || !b) return null
+  const depth = parsePoolMetric(depthRaw)
+  return {
+    enabled: true,
+    length: String(Math.max(a, b)),
+    width: String(Math.min(a, b)),
+    depth,
+    description: String(name || '').trim() || 'Özel havuz',
+    heating_fee_per_day: '',
+  }
+}
+
+function parsePoolSidebar(html) {
+  const start = html.indexOf('Havuzlar')
+  if (start < 0) return []
+  let end = html.length
+  for (const marker of ['Henüz Yorum Yok', 'Yorum Yap', 'Rezervasyon Talebi']) {
+    const i = html.indexOf(marker, start)
+    if (i >= 0 && i < end) end = i
+  }
+  const text = html
+    .slice(start, end)
+    .replace(/<!-- -->/g, ' ')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+
+  const pools = []
+  for (const m of text.matchAll(
+    /\d+\s*\.\s*Havuz\s+(Açık|Isıtmalı|Kapalı|Çocuk|Özel(?:\s+Havuzlu?)?|Sığ|İç)\s+([\d.,]+\s*(?:cm|m)?)\s+([\d.,]+\s*m)\s+([\d.,]+\s*m)/gi,
+  )) {
+    pools.push({ name: m[1], depthRaw: m[2], dimA: m[3], dimB: m[4] })
+  }
+  return pools
+}
+
+function parsePoolroomJson(html) {
+  const start = html.indexOf('Havuzlar')
+  const end = html.indexOf('Henüz Yorum Yok', start > 0 ? start : 0)
+  const chunk =
+    start >= 0 && end > start ? html.slice(start, end) : html.slice(0, 250000)
+
+  const pools = []
+  const seen = new Set()
+  for (const m of chunk.matchAll(
+    /\\"name\\":\\"([^\\"]+)\\"[^}]*?\\"size\\":\\"([^\\"]*)\\"[^}]*?\\"width\\":\\"([^\\"]*)\\"[^}]*?\\"height\\":\\"([^\\"]*)\\"/g,
+  )) {
+    const key = `${m[1]}|${m[2]}|${m[3]}|${m[4]}`
+    if (seen.has(key)) continue
+    seen.add(key)
+    pools.push({ name: m[1], depthRaw: m[2], dimA: m[3], dimB: m[4] })
+  }
+  return pools
+}
+
+function parsePoolInfo(html, description = '') {
+  const pools = {
+    open_pool: emptyPoolRow(),
+    heated_pool: emptyPoolRow(),
+    children_pool: emptyPoolRow(),
+  }
+
+  const entries = parsePoolSidebar(html)
+  const source = entries.length ? entries : parsePoolroomJson(html)
+
+  for (const entry of source) {
+    const row = poolRowFromEntry(entry)
+    if (!row) continue
+    const key = mapPoolType(entry.name)
+    pools[key] = { ...pools[key], ...row, enabled: true }
+  }
+
+  // Açıklama metnindeki ek havuz satırları (çocuk/sığ/iç)
+  const hay = description.replace(/\s+/g, ' ')
+  for (const m of hay.matchAll(
+    /(Çocuk havuzu|Sığ havuz|İç havuz)[^;|]{0,40}?\s*(\d+(?:[.,]\d+)?)\s*m\s*[x×]\s*(\d+(?:[.,]\d+)?)\s*m[^|]{0,60}?derinlik\s+([\d.,]+\s*(?:cm|m)?)/gi,
+  )) {
+    const row = poolRowFromEntry({
+      name: m[1],
+      dimA: `${m[2]} m`,
+      dimB: `${m[3]} m`,
+      depthRaw: m[4],
+    })
+    if (!row) continue
+    const key = mapPoolType(m[1])
+    if (!pools[key].enabled) pools[key] = { ...pools[key], ...row, enabled: true }
+  }
+
+  const primary = pools.open_pool.enabled
+    ? pools.open_pool
+    : pools.heated_pool.enabled
+      ? pools.heated_pool
+      : pools.children_pool.enabled
+        ? pools.children_pool
+        : null
+
+  const poolDims = primary
+    ? { length: primary.length, width: primary.width, depth: primary.depth }
+    : null
+
+  const poolSizeLabel = primary
+    ? [primary.length, primary.width, primary.depth].filter(Boolean).join('×')
+    : ''
+
+  return { pools, poolDims, poolSizeLabel }
+}
+
 function parsePoolDimensions(html, description = '') {
-  const poolSection = html.slice(html.indexOf('Havuz ve Bahçe'), html.indexOf('Havuz ve Bahçe') + 2500)
-  const hiddenIdx = html.indexOf('id="S:1"')
-  const hiddenChunk = hiddenIdx >= 0 ? html.slice(hiddenIdx, hiddenIdx + 120000) : ''
-  const hay = `${description} ${poolSection} ${hiddenChunk}`
-  const dims = [...hay.matchAll(/(\d+(?:[.,]\d+)?)\s*m\s*[x×]\s*(\d+(?:[.,]\d+)?)\s*m/gi)].map((m) => ({
-    a: Number(String(m[1]).replace(',', '.')),
-    b: Number(String(m[2]).replace(',', '.')),
-  }))
-  const main = dims
-    .filter((d) => d.a * d.b >= 8)
-    .sort((x, y) => y.a * y.b - x.a * x.b)[0]
-  if (!main) return null
-  const length = Math.max(main.a, main.b)
-  const width = Math.min(main.a, main.b)
-  return { length: String(length), width: String(width), depth: '' }
+  return parsePoolInfo(html, description).poolDims
 }
 
 function parseFees(html) {
@@ -233,7 +364,8 @@ export function parseAkdenizvillamVillaPage(html, sourceUrl) {
   const acc = rental.containsPlace || {}
   const description = parseDescription(html)
   const fees = parseFees(html)
-  const poolDims = parsePoolDimensions(html, description)
+  const poolInfo = parsePoolInfo(html, description)
+  const { pools, poolDims, poolSizeLabel } = poolInfo
   const seasonal = parseSeasonalPrices(html)
   const calendarBookings = parseAvailabilityBookings(html)
   const calendarDays = buildCalendarDays(seasonal, calendarBookings)
@@ -281,7 +413,9 @@ export function parseAkdenizvillamVillaPage(html, sourceUrl) {
     calendarDays,
     vitrinPrice,
     amenities,
+    pools,
     poolDims,
+    poolSizeLabel,
     themeCodes: buildThemes(rental, description),
     ruleCodes: buildRuleCodes(rental, description),
     meta: {
@@ -301,7 +435,9 @@ export function parseAkdenizvillamVillaPage(html, sourceUrl) {
       city: 'Kaş',
       province_city: 'Antalya',
       tourism_cert_no: parseLicense(html),
-      pool_type: poolDims ? `${poolDims.length}x${poolDims.width}m özel havuz` : 'Özel havuz',
+      pool_type: poolDims
+        ? `${poolDims.length}x${poolDims.width}m özel havuz${poolDims.depth ? ` (${poolDims.depth}m derinlik)` : ''}`
+        : 'Özel havuz',
       pool_length: poolDims?.length || '',
       pool_width: poolDims?.width || '',
       pool_depth: poolDims?.depth || '',
