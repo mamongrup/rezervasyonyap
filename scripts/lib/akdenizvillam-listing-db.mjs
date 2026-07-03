@@ -11,7 +11,7 @@ import { HOLIDAY_HOME_RULE_CODE_TO_ACCOMMODATION_ID } from './bravo-holiday-home
 const PROVIDER = 'akdenizvillam'
 const DEFAULT_ORG = 'a0000000-0000-4000-8000-000000000001'
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
-const UPLOADS_ROOT = path.join(__dirname, '..', '..', 'frontend', 'public')
+const UPLOADS_ROOT = path.join(__dirname, '..', '..', 'frontend', 'public', 'uploads', 'listings')
 
 function mapRuleCodesToAccommodationIds(ruleCodes = []) {
   const ids = []
