@@ -1117,6 +1117,15 @@ export const tr = {
         mealFullBoard: 'Tam Pansiyon',
       },
     },
+    cruiseDetail: {
+      cabinTypesTitle: 'Kabin Tipleri ve Fiyatlar',
+      cabinTypesSubtitle: 'Kabin seçiminize göre kişi başı fiyatlar güncellenir. Çocuk fiyatları yaş aralığına göredir.',
+      selectedCabin: 'Seçili kabin',
+      priceDouble: 'Çift kişilik (kişi başı)',
+      priceSingle: 'Tek kişilik',
+      priceExtraBed: 'İlave yatak',
+      priceChild: 'Çocuk',
+    },
     activityDetail: {
       aboutTitle: 'Aktivite Hakkında',
       aboutSubtitle: 'Süre, buluşma noktası ve katılım bilgileri.',

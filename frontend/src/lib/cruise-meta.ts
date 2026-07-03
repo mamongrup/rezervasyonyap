@@ -29,7 +29,16 @@ export type CruiseVerticalMeta = {
   gezinomi_page_url?: string | null
   detail_text?: string | null
   info_sections?: Array<{ id: string; title: string; html: string }>
-  program_days?: Array<{ day: number; title: string; description: string }>
+  program_days?: Array<{
+    day?: number
+    day_label?: string
+    title: string
+    description?: string
+    body_html?: string
+  }>
+  cabins?: CruiseCabinOption[]
+  included_services?: string[]
+  excluded_services?: string[]
   periods?: Array<{
     id?: number | string | null
     start?: string
@@ -37,6 +46,23 @@ export type CruiseVerticalMeta = {
     label?: string
     isAvailable?: boolean
   }>
+}
+
+export type CruiseMoney = { amount: number; currency: string }
+
+export type CruiseCabinOption = {
+  id: string
+  name: string
+  campaign?: string | null
+  description?: string
+  image_urls?: string[]
+  prices?: {
+    double_per_person?: CruiseMoney | null
+    extra_bed?: CruiseMoney | null
+    single?: CruiseMoney | null
+    children?: Array<CruiseMoney & { label: string }>
+  }
+  from_price?: CruiseMoney | null
 }
 
 export function parseCruiseVerticalMeta(raw: unknown): CruiseVerticalMeta | null {
@@ -99,13 +125,44 @@ export function cruiseInfoSections(meta: CruiseVerticalMeta | null, locale = 'tr
 export function cruiseItineraryDays(meta: CruiseVerticalMeta | null): TourItineraryDay[] {
   const rows = meta?.program_days ?? []
   return rows
-    .filter((d) => d?.description?.trim())
-    .map((d) => ({
-      day: Number(d.day) || 0,
-      title: d.title?.trim() ? formatCruiseRouteSummary(d.title) : `Gün ${d.day}`,
-      description: d.description,
+    .map((d, i) => {
+      const day =
+        Number(d.day) ||
+        Number(String(d.day_label || '').replace(/\D/g, '')) ||
+        i + 1
+      const description = String(d.description || d.body_html || '').trim()
+      if (!description) return null
+      return {
+        day,
+        title: d.title?.trim() ? formatCruiseRouteSummary(d.title) : `Gün ${day}`,
+        description,
+      }
+    })
+    .filter((d): d is TourItineraryDay => Boolean(d && d.day > 0))
+}
+
+export function cruiseCabins(meta: CruiseVerticalMeta | null): CruiseCabinOption[] {
+  const rows = meta?.cabins ?? []
+  return rows
+    .filter((c) => c?.name?.trim())
+    .map((c, i) => ({
+      id: c.id || `cabin-${i}`,
+      name: String(c.name).trim(),
+      campaign: c.campaign ?? null,
+      description: c.description?.trim() || undefined,
+      image_urls: c.image_urls?.filter(Boolean),
+      prices: c.prices,
+      from_price: c.from_price ?? c.prices?.double_per_person ?? c.prices?.single ?? null,
     }))
-    .filter((d) => d.day > 0)
+}
+
+export function cruiseIncludedExcluded(meta: CruiseVerticalMeta | null): {
+  included: string[]
+  excluded: string[]
+} {
+  const included = (meta?.included_services ?? []).filter(Boolean)
+  const excluded = (meta?.excluded_services ?? []).filter(Boolean)
+  return { included, excluded }
 }
 
 export function cruisePeriodLabels(meta: CruiseVerticalMeta | null): string[] {

@@ -194,6 +194,77 @@ function parsePeriods(html) {
   }))
 }
 
+function parsePriceCell(html) {
+  const m = html.match(
+    /<strong class="discount-price(?!\s+is-tl)">(\d+),<small class='price-currency'>\s*(\w+)/i,
+  )
+  if (!m) return null
+  const cur = m[2].toUpperCase() === 'TL' ? 'TRY' : m[2].toUpperCase()
+  return { amount: Number(m[1]), currency: cur }
+}
+
+function parseCabinTables(html) {
+  const cabins = []
+  const blocks = html.split(/<div class="col-xs-12 price-table">/i).slice(1)
+  for (const block of blocks) {
+    const nameM = block.match(/price-table__title__name[\s\S]*?<div class="middle">\s*([\s\S]*?)<\/div>/i)
+    const name = decodeHtml(nameM ? nameM[1].replace(/<[^>]+>/g, '') : '').trim()
+    if (!name) continue
+
+    const campaignM = block.match(/price-table__title__campaign[\s\S]*?<span>([\s\S]*?)<\/span>/i)
+    const campaign = campaignM ? decodeHtml(campaignM[1].replace(/<[^>]+>/g, '')) : null
+
+    const featuresM = block.match(/class="tab-pane"[^>]*id="kabin-ozellikleri[^"]*"[\s\S]*?<div class="cabin-info">\s*([\s\S]*?)<\/div>/i)
+    const description = featuresM ? decodeHtml(featuresM[1].replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ')) : ''
+
+    const imageUrls = [
+      ...block.matchAll(/id="kabin-gorselleri[^"]*"[\s\S]*?(?:src|data-src)="(https:\/\/cdn\.tatilsepeti\.com\/[^"]+)"/gi),
+    ].map((m) => m[1])
+
+    const bodyItem = block.match(/price-table__body__item([\s\S]*?)<\/div>\s*<\/div>\s*<\/div>/i)
+    const body = bodyItem ? bodyItem[1] : block
+    const cells = [...body.matchAll(/price-table__body__cell">([\s\S]*?)<\/div>\s*<\/div>\s*<\/div>/gi)]
+    const doublePerPerson = cells[0] ? parsePriceCell(cells[0][1]) : null
+    const extraBed = cells[1] ? parsePriceCell(cells[1][1]) : null
+    const single = cells[2] ? parsePriceCell(cells[2][1]) : null
+
+    const children = []
+    const childHeaders = [...block.matchAll(/price-table__header__name--small">\s*([^<]+)/gi)]
+    const childCells = [...block.matchAll(/child-div[\s\S]*?price-table__body__cell">([\s\S]*?)<\/div>\s*<\/div>\s*<\/div>/gi)]
+    for (let i = 0; i < childHeaders.length; i++) {
+      const price = childCells[i] ? parsePriceCell(childCells[i][1]) : null
+      if (!price) continue
+      children.push({ label: decodeHtml(childHeaders[i][1]), ...price })
+    }
+
+    const id = `cabin-${slugify(name)}`
+    cabins.push({
+      id,
+      name,
+      campaign,
+      description,
+      image_urls: [...new Set(imageUrls)],
+      prices: {
+        double_per_person: doublePerPerson,
+        extra_bed: extraBed,
+        single,
+        children,
+      },
+      from_price: doublePerPerson || single || extraBed || children[0] || null,
+    })
+  }
+  return cabins
+}
+
+function slugify(s) {
+  return String(s || '')
+    .toLowerCase()
+    .replace(/ı/g, 'i')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '')
+    .slice(0, 40)
+}
+
 export function parseTourDetail(html, catalogRow = {}) {
   const ld = parseJsonLd(html)
   const tourId =
@@ -208,6 +279,7 @@ export function parseTourDetail(html, catalogRow = {}) {
     slugFromHref(html.match(/id="hidPageUrl"[^>]*value="([^"]+)"/i)?.[1] || '') || catalogRow.slug
   const visits = parseVisits(html)
   const programDays = parseProgramDays(html)
+  const cabins = parseCabinTables(html)
   const included = parseServiceList(html, 'Fiyata Dahil Hizmetler')
   const excluded = parseServiceList(html, 'Fiyata Dahil Olmayan Hizmetler')
   const galleryUrls = parseGalleryUrls(html)
@@ -234,6 +306,7 @@ export function parseTourDetail(html, catalogRow = {}) {
     price,
     periods,
     programDays,
+    cabins,
     included,
     excluded,
     galleryUrls,

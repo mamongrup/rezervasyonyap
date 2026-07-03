@@ -784,6 +784,15 @@ export const ru: AppMessages = {
         mealFullBoard: 'Полный пансион',
       },
     },
+    cruiseDetail: {
+      cabinTypesTitle: 'Типы кают и цены',
+      cabinTypesSubtitle: 'Цена за человека обновляется при выборе каюты. Детские цены зависят от возраста.',
+      selectedCabin: 'Выбранная каюта',
+      priceDouble: 'Двухместная (на человека)',
+      priceSingle: 'Одноместная',
+      priceExtraBed: 'Дополнительное место',
+      priceChild: 'Ребёнок',
+    },
     activityDetail: {
       aboutTitle: 'Об этой активности',
       aboutSubtitle: 'Длительность, место встречи и условия участия.',

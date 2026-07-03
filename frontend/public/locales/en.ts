@@ -1665,6 +1665,15 @@ export const en = {
         mealFullBoard: 'Full board',
       },
     },
+    cruiseDetail: {
+      cabinTypesTitle: 'Cabin types and prices',
+      cabinTypesSubtitle: 'Per-person prices update when you select a cabin. Child prices depend on age range.',
+      selectedCabin: 'Selected cabin',
+      priceDouble: 'Double (per person)',
+      priceSingle: 'Single',
+      priceExtraBed: 'Extra bed',
+      priceChild: 'Child',
+    },
     activityDetail: {
       aboutTitle: 'About this activity',
       aboutSubtitle: 'Duration, meeting point and participation info.',

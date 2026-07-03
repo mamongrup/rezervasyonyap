@@ -46,6 +46,8 @@ import {
 import { unwrapVerticalMetaPayload } from '@/lib/listing-pools'
 import {
   cruiseInfoSections as buildCruiseInfoSections,
+  cruiseCabins,
+  cruiseIncludedExcluded,
   cruiseItineraryDays,
   cruiseOverviewItems as buildCruiseOverviewItems,
   cruisePeriodSelectOptions,
@@ -97,6 +99,9 @@ import {
 } from './listing-section-classes'
 import ExperienceBookingSidebar from './ExperienceBookingSidebar'
 import TourBookingSidebar from './TourBookingSidebar'
+import CruiseBookingSidebar from './CruiseBookingSidebar'
+import CruiseCabinPricingSection from './CruiseCabinPricingSection'
+import { CruiseCabinProvider } from './CruiseCabinContext'
 import TourFlightScheduleSection from './TourFlightScheduleSection'
 import { TourPeriodProvider } from './TourPeriodContext'
 import ActivityOverviewSection, {
@@ -478,6 +483,8 @@ export default async function ExperienceListingDetailPage({
     : []
   const cruiseInfo = isCruise ? buildCruiseInfoSections(cruiseMeta, locale) : []
   const cruiseDays = isCruise ? cruiseItineraryDays(cruiseMeta) : []
+  const cruiseCabinsList = isCruise ? cruiseCabins(cruiseMeta) : []
+  const cruiseServices = isCruise ? cruiseIncludedExcluded(cruiseMeta) : { included: [], excluded: [] }
   const cruiseDayPins = isCruise ? parseCruiseItineraryPins(cruiseMeta) : []
   const cruiseRouteLabel =
     isCruise && cruiseMeta?.route_summary?.trim()
@@ -691,8 +698,9 @@ export default async function ExperienceListingDetailPage({
       listingMoney.priceCurrency || listingMoney.listingCurrencyCode || undefined
 
     if (isTour || isCruise) {
+      const Sidebar = isCruise && cruiseCabinsList.length > 0 ? CruiseBookingSidebar : TourBookingSidebar
       return (
-        <TourBookingSidebar
+        <Sidebar
           listingId={catalogListingId}
           fallbackPrice={price}
           fallbackPriceAmount={listingMoney.priceAmount}
@@ -839,10 +847,18 @@ export default async function ExperienceListingDetailPage({
             {cruiseOverview.length > 0 ? (
               <TourOverviewSection items={cruiseOverview} locale={locale} />
             ) : null}
+            {cruiseCabinsList.length > 0 ? <CruiseCabinPricingSection locale={locale} /> : null}
             {cruiseDays.length > 0 ? (
               <TourItinerarySection days={cruiseDays} locale={locale} />
             ) : null}
             <TourInfoSections sections={cruiseInfo} locale={locale} />
+            {cruiseServices.included.length > 0 || cruiseServices.excluded.length > 0 ? (
+              <TourIncludedExcludedSection
+                included={cruiseServices.included}
+                excluded={cruiseServices.excluded}
+                locale={locale}
+              />
+            ) : null}
             {description?.trim() && cruiseInfo.length === 0 && cruiseDays.length === 0 ? (
               <ActivityDescriptionSection locale={locale}>
                 <ListingDescriptionExpandable locale={locale} html={description} />
@@ -928,13 +944,15 @@ export default async function ExperienceListingDetailPage({
             <main className="flex flex-col gap-8 lg:flex-row xl:gap-10">{renderTourMainContent()}</main>
           </TourPeriodProvider>
         ) : isCruise ? (
-          <TourPeriodProvider
-            bookablePeriods={cruisePeriodOptions}
-            flightSchedules={[]}
-            currencyCode={cruisePeriodCurrency}
-          >
-            <main className="flex flex-col gap-8 lg:flex-row xl:gap-10">{renderNonTourMainContent()}</main>
-          </TourPeriodProvider>
+          <CruiseCabinProvider cabins={cruiseCabinsList}>
+            <TourPeriodProvider
+              bookablePeriods={cruisePeriodOptions}
+              flightSchedules={[]}
+              currencyCode={cruisePeriodCurrency}
+            >
+              <main className="flex flex-col gap-8 lg:flex-row xl:gap-10">{renderNonTourMainContent()}</main>
+            </TourPeriodProvider>
+          </CruiseCabinProvider>
         ) : (
           <main className="flex flex-col gap-8 lg:flex-row xl:gap-10">{renderNonTourMainContent()}</main>
         )}

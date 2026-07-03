@@ -785,6 +785,15 @@ export const fr: AppMessages = {
         mealFullBoard: 'Pension complète',
       },
     },
+    cruiseDetail: {
+      cabinTypesTitle: 'Types de cabines et tarifs',
+      cabinTypesSubtitle: 'Les prix par personne se mettent à jour selon la cabine choisie. Les tarifs enfants dépendent de l’âge.',
+      selectedCabin: 'Cabine sélectionnée',
+      priceDouble: 'Double (par personne)',
+      priceSingle: 'Simple',
+      priceExtraBed: 'Lit supplémentaire',
+      priceChild: 'Enfant',
+    },
     activityDetail: {
       aboutTitle: 'À propos de cette activité',
       aboutSubtitle: 'Durée, point de rendez-vous et informations de participation.',

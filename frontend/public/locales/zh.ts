@@ -773,6 +773,15 @@ export const zh: AppMessages = {
         mealFullBoard: '全膳',
       },
     },
+    cruiseDetail: {
+      cabinTypesTitle: '舱房类型与价格',
+      cabinTypesSubtitle: '选择舱房后每人价格会更新。儿童价格按年龄段计算。',
+      selectedCabin: '已选舱房',
+      priceDouble: '双人（每人）',
+      priceSingle: '单人',
+      priceExtraBed: '加床',
+      priceChild: '儿童',
+    },
     activityDetail: {
       aboutTitle: '关于此活动',
       aboutSubtitle: '时长、集合点与参与信息。',

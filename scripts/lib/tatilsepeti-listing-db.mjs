@@ -40,6 +40,96 @@ export async function findListingByTatilsepetiRef(pgClient, orgId, tourId) {
   return r.rows[0] || null
 }
 
+function minCabinPrice(detail) {
+  const cabinAmounts = (detail.cabins || [])
+    .map((c) => c.from_price?.amount)
+    .filter((n) => n > 0)
+  const listPrice = detail.price?.amount > 0 ? detail.price.amount : null
+  return cabinAmounts.length > 0 ? Math.min(...cabinAmounts) : listPrice
+}
+
+export function buildTatilsepetiVerticalCruise(detail) {
+  const tourId = String(detail.tourId)
+  const shipName = detail.shipName || null
+  const cruiseLine = detail.cruiseLine || shipName
+  return {
+    cruise_line: cruiseLine,
+    ship_name: shipName,
+    route_summary: detail.routeSummary,
+    night_count: detail.nightCount,
+    tour_departure: detail.visits?.[0] || null,
+    transport: detail.transport,
+    visa_info: detail.visaInfo,
+    program_days: (detail.programDays || []).map((d, i) => ({
+      day: Number(String(d.day_label || '').replace(/\D/g, '')) || i + 1,
+      title: d.title,
+      description: d.body_html || d.description || '',
+    })),
+    cabins: detail.cabins || [],
+    included_services: detail.included || [],
+    excluded_services: detail.excluded || [],
+    periods: detail.periods,
+    tatilsepeti_url: detail.url,
+    tatilsepeti_tour_id: tourId,
+    agency_id: detail.agencyId,
+  }
+}
+
+/** Mevcut ilan — kabin/program/dahil-hariç güncelle (backfill) */
+export async function patchTatilsepetiCruiseListingContent(pgClient, listingId, detail) {
+  const tourId = String(detail.tourId)
+  const effectivePrice = minCabinPrice(detail)
+  const currency = detail.price?.currency || 'EUR'
+  const verticalCruise = buildTatilsepetiVerticalCruise(detail)
+
+  const existing = await pgClient.query(
+    `SELECT value_json FROM listing_attributes
+     WHERE listing_id = $1::uuid AND group_code = 'vertical_cruise' AND key = 'v1'`,
+    [listingId],
+  )
+  const prev = existing.rows[0]?.value_json || {}
+  const merged = { ...prev, ...verticalCruise }
+
+  await pgClient.query(
+    `UPDATE listings SET
+       currency_code = COALESCE($2, currency_code),
+       first_charge_amount = COALESCE($3, first_charge_amount),
+       vitrin_price = COALESCE($3, vitrin_price),
+       last_synced_at = now(),
+       updated_at = now()
+     WHERE id = $1::uuid`,
+    [listingId, currency, effectivePrice],
+  )
+
+  if (detail.description) {
+    await pgClient.query(
+      `UPDATE listing_translations SET description = COALESCE($2, description)
+       WHERE listing_id = $1::uuid`,
+      [listingId, detail.description],
+    )
+  }
+
+  await pgClient.query(
+    `INSERT INTO listing_attributes (listing_id, group_code, key, value_json)
+     VALUES ($1::uuid, 'vertical_cruise', 'v1', $2::jsonb)
+     ON CONFLICT (listing_id, group_code, key) DO UPDATE SET value_json = EXCLUDED.value_json`,
+    [listingId, JSON.stringify(merged)],
+  )
+
+  await pgClient.query(
+    `INSERT INTO listing_attributes (listing_id, group_code, key, value_json)
+     VALUES ($1::uuid, 'tatilsepeti', 'snapshot', $2::jsonb)
+     ON CONFLICT (listing_id, group_code, key) DO UPDATE SET
+       value_json = listing_attributes.value_json || EXCLUDED.value_json`,
+    [
+      listingId,
+      JSON.stringify({ catalog: detail, cabins_backfilled_at: new Date().toISOString() }),
+    ],
+  )
+
+  return { listingId, tourId, cabinCount: detail.cabins?.length ?? 0, effectivePrice }
+}
+
 export async function upsertTatilsepetiCruiseListing(
   pgClient,
   ctx,
@@ -55,6 +145,7 @@ export async function upsertTatilsepetiCruiseListing(
   const locName = detail.routeSummary || detail.visits?.[0] || null
   const shipName = detail.shipName || null
   const cruiseLine = detail.cruiseLine || shipName
+  const effectivePrice = minCabinPrice(detail)
 
   if (dryRun) {
     return { action: 'dry-run', tourId, slug, title: title.slice(0, 70) }
@@ -78,7 +169,7 @@ export async function upsertTatilsepetiCruiseListing(
          last_synced_at = now(),
          updated_at = now()
        WHERE id = $1::uuid`,
-      [listingId, slug, status, currency, locName, price, PROVIDER, tourId],
+      [listingId, slug, status, currency, locName, effectivePrice, PROVIDER, tourId],
     )
   } else {
     const ins = await pgClient.query(
@@ -87,7 +178,7 @@ export async function upsertTatilsepetiCruiseListing(
          first_charge_amount, vitrin_price, listing_source, external_provider_code, external_listing_ref, last_synced_at
        ) VALUES ($1::uuid, $2, $3, $4, $5, $6, $7, $7, 'api', $8, $9, now())
        RETURNING id::text`,
-      [ctx.orgId, ctx.categoryId, slug, status, currency, locName, price, PROVIDER, tourId],
+      [ctx.orgId, ctx.categoryId, slug, status, currency, locName, effectivePrice, PROVIDER, tourId],
     )
     listingId = ins.rows[0].id
   }
@@ -101,22 +192,7 @@ export async function upsertTatilsepetiCruiseListing(
     [listingId, ctx.localeTrId, title, description],
   )
 
-  const verticalCruise = {
-    cruise_line: cruiseLine,
-    ship_name: shipName,
-    route_summary: detail.routeSummary,
-    night_count: detail.nightCount,
-    tour_departure: detail.visits?.[0] || null,
-    transport: detail.transport,
-    visa_info: detail.visaInfo,
-    program_days: detail.programDays,
-    included_services: detail.included,
-    excluded_services: detail.excluded,
-    periods: detail.periods,
-    tatilsepeti_url: detail.url,
-    tatilsepeti_tour_id: tourId,
-    agency_id: detail.agencyId,
-  }
+  const verticalCruise = buildTatilsepetiVerticalCruise(detail)
 
   await pgClient.query(
     `INSERT INTO listing_attributes (listing_id, group_code, key, value_json)
