@@ -4,6 +4,7 @@
 
 import { formatHolidayHomeTitleTr, slugifyHolidayHomeName } from './villa-title-tr.mjs'
 import { buildCalendarDays, parseAvailabilityBookings } from './akdenizvillam-calendar.mjs'
+import { plainTextToHtmlParagraphs } from './text-to-html.mjs'
 
 const MONTHS = {
   oca: 1,
@@ -112,15 +113,57 @@ function parseSeasonalPrices(html) {
   return bands
 }
 
+/** İçindeki <div>'leri bracket-eşleştirerek verilen konumdan başlayan div'in kapanışını bulur. */
+function findMatchingDivEnd(html, wrapStart) {
+  let depth = 0
+  let i = wrapStart
+  while (i < html.length) {
+    const openIdx = html.indexOf('<div', i)
+    const closeIdx = html.indexOf('</div>', i)
+    if (closeIdx === -1) return -1
+    if (openIdx !== -1 && openIdx < closeIdx) {
+      depth++
+      i = openIdx + 4
+    } else {
+      depth--
+      i = closeIdx + 6
+      if (depth === 0) return i
+    }
+  }
+  return -1
+}
+
+/**
+ * Kaynak sayfadaki `<div class="rich-text-content ...">…</div>` bloğu zaten
+ * <p>/<strong> etiketleriyle biçimlendirilmiştir; paragraf yapısını korumak
+ * için doğrudan bu iç HTML'i alırız (düz metne çevirip boşlukları ezmeyiz).
+ */
+function extractRichTextContentHtml(html) {
+  const marker = 'rich-text-content'
+  const markerIdx = html.indexOf(marker)
+  if (markerIdx < 0) return ''
+  const wrapStart = html.lastIndexOf('<div', markerIdx)
+  if (wrapStart < 0) return ''
+  const wrapEnd = findMatchingDivEnd(html, wrapStart)
+  if (wrapEnd < 0) return ''
+  const openTagEnd = html.indexOf('>', markerIdx)
+  if (openTagEnd < 0 || openTagEnd >= wrapEnd) return ''
+  const inner = html.slice(openTagEnd + 1, wrapEnd - '</div>'.length)
+  return inner.trim()
+}
+
 function parseDescription(html) {
+  const rich = extractRichTextContentHtml(html)
+  if (rich) return rich
+
   const start = html.indexOf('Öne Çıkanlar')
   const end = html.indexOf('Yakındaki Villalar', start)
   if (start < 0) {
     const og = html.match(/meta name="description" content="([^"]+)"/)
-    return og?.[1]?.trim() || ''
+    return plainTextToHtmlParagraphs(og?.[1]?.trim() || '')
   }
   const block = stripTags(html.slice(start, end > 0 ? end : start + 15000))
-  return block.replace(/^Öne Çıkanlar\s*/u, '').trim()
+  return plainTextToHtmlParagraphs(block.replace(/^Öne Çıkanlar\s*/u, '').trim())
 }
 
 function parsePoolMetric(raw) {
@@ -370,7 +413,7 @@ export function parseAkdenizvillamVillaPage(html, sourceUrl) {
     title,
     subtitle: stripTags(html.match(/<h3[^>]*>([^<]*Havuzlu[^<]*)<\/h3>/i)?.[1] || ''),
     description,
-    shortDescription: rental.description || '',
+    shortDescription: plainTextToHtmlParagraphs(rental.description || ''),
     galleryUrls: uniqueImages(rental),
     locationName: 'Kalkan, Kışla, Antalya',
     mapLat: lat != null ? String(lat) : '',
