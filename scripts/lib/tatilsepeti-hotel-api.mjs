@@ -8,7 +8,8 @@ const UA =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 TravelImport/1.0'
 
 const DEFAULT_LIST_PATHS = ['yurtici-oteller']
-const RETRYABLE_HTTP = new Set([400, 408, 429, 500, 502, 503, 504])
+/** Geçici hatalar — 400 (Bad Request) genelde kalıcıdır (özellikle GetRoomAllPrice). */
+const RETRYABLE_HTTP = new Set([408, 429, 500, 502, 503, 504])
 
 function jitterMs(base) {
   return base + Math.floor(Math.random() * Math.min(500, base * 0.35))
@@ -89,10 +90,14 @@ export class TatilsepetiSession {
     return r
   }
 
-  /** 429/400/WAF — üstel bekleme ile yeniden dene */
+  /**
+   * Geçici hatalarda üstel bekleme ile yeniden dene.
+   * opts.retryableStatuses — varsayılan: 408/429/5xx (400 dahil değil).
+   */
   async fetchWithRetry(url, opts = {}) {
     const maxRetries = Number(process.env.TATILSEPETI_FETCH_RETRIES || 6)
     const baseMs = Number(process.env.TATILSEPETI_RETRY_BASE_MS || 4000)
+    const retryable = opts.retryableStatuses || RETRYABLE_HTTP
     const onRetry = opts.onRetry || (() => {})
     let last = null
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
@@ -103,7 +108,7 @@ export class TatilsepetiSession {
       }
       last = await this.fetch(url, opts)
       if (last.ok) return last
-      if (!RETRYABLE_HTTP.has(last.status)) return last
+      if (!retryable.has(last.status)) return last
       if (last.status === 429) {
         const extra = Number(process.env.TATILSEPETI_COOLDOWN_ON_429_MS || 45000)
         onRetry({ attempt: attempt + 1, wait: extra, status: 429, cooldown: true })
