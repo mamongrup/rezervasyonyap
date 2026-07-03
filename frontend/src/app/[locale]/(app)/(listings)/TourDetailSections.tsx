@@ -22,6 +22,8 @@ export type TourItineraryDay = {
   day: number
   title: string
   description: string
+  /** Gezinomi / zengin program metni — sanitize edilmiş HTML */
+  descriptionHtml?: string
 }
 
 export type TourOverviewItem = {
@@ -198,7 +200,12 @@ export function TourItinerarySection({
                   {day.title.trim() ||
                     interpolate(td.itineraryDayFallback, { day: String(day.day) })}
                 </h3>
-                {day.description.trim() ? (
+                {day.descriptionHtml?.trim() ? (
+                  <div
+                    className="prose prose-sm mt-2 max-w-none leading-relaxed text-neutral-600 dark:prose-invert dark:text-neutral-300 [&_p]:my-2 [&_p:first-child]:mt-0"
+                    dangerouslySetInnerHTML={{ __html: day.descriptionHtml.trim() }}
+                  />
+                ) : day.description.trim() ? (
                   <p className="mt-2 whitespace-pre-line text-sm leading-7 text-neutral-600 dark:text-neutral-300">
                     {day.description.trim()}
                   </p>

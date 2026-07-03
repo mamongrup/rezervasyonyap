@@ -113,11 +113,15 @@ export function gezinomiTourItineraryDays(meta: GezinomiTourVerticalMeta | null)
   const rows = meta?.program_days ?? []
   return rows
     .filter((d) => d?.description?.trim())
-    .map((d) => ({
-      day: Number(d.day) || 0,
-      title: d.title?.trim() ? formatCruisePlaceName(d.title) : '',
-      description: plainDayDescription(d.description),
-    }))
+    .map((d) => {
+      const descriptionHtml = sanitizeGezinomiDayHtml(d.description)
+      return {
+        day: Number(d.day) || 0,
+        title: d.title?.trim() ? formatCruisePlaceName(d.title) : '',
+        description: plainDayDescription(d.description),
+        descriptionHtml,
+      }
+    })
     .filter((d) => d.day > 0)
 }
 
@@ -206,9 +210,20 @@ function pickPeriods(value: unknown): GezinomiTourVerticalMeta['periods'] | null
   return value as GezinomiTourVerticalMeta['periods']
 }
 
+function normalizeGezinomiHtml(raw: string): string {
+  return String(raw ?? '')
+    .replace(/\r/g, '')
+    .replace(/<p\s+Align=/gi, '<p align=')
+    .replace(/&nbsp;/gi, ' ')
+}
+
+function sanitizeGezinomiDayHtml(raw: string): string {
+  const normalized = normalizeGezinomiHtml(raw)
+  return sanitizeRichCmsHtml(normalized)
+}
+
 function plainDayDescription(raw: string): string {
-  const sanitized = sanitizeRichCmsHtml(raw)
-  return stripHtml(sanitized).replace(/\s+/g, ' ').trim()
+  return stripHtml(sanitizeGezinomiDayHtml(raw)).replace(/\s+/g, ' ').trim()
 }
 
 function parseListItemsFromHtml(html: string): string[] {
