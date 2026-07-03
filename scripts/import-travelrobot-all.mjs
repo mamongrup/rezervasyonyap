@@ -11,6 +11,7 @@
  *   node scripts/import-travelrobot-all.mjs --ping
  *   node scripts/import-travelrobot-all.mjs --dry-run --limit 5
  *   node scripts/import-travelrobot-all.mjs --only hotels
+ *   node scripts/import-travelrobot-all.mjs --only hotels --from-static --limit 10
  *   node scripts/import-travelrobot-all.mjs --org-id <uuid>
  *
  * Env: DATABASE_URL / PG* (backend.env), INTERNAL_API_ORIGIN (progress raporu),
@@ -29,6 +30,10 @@ import {
 } from './lib/travelrobot-api.mjs'
 import { DEFAULT_HOTEL_DESTINATION_ID } from './lib/travelrobot-sandbox-ids.mjs'
 import {
+  fetchHotelCatalogFromStatic,
+  isTravelrobotSandboxBaseUrl,
+} from './lib/travelrobot-hotel-catalog.mjs'
+import {
   resolveImportContext,
   upsertTravelrobotTourListing,
   upsertTravelrobotHotelListing,
@@ -42,6 +47,8 @@ const args = new Set(process.argv.slice(2))
 const PING = args.has('--ping')
 const DRY_RUN = args.has('--dry-run')
 const SKIP_STATIC = args.has('--skip-static')
+const FROM_STATIC = args.has('--from-static')
+const SKIP_SEARCH = args.has('--skip-search')
 const WITH_ROOMS = args.has('--with-rooms') || args.has('--no-with-rooms')
   ? args.has('--with-rooms')
   : null
@@ -82,12 +89,7 @@ function plannedModules(cfg) {
       label: 'Otel',
       enabled: cfg.importHotels,
       category: 'hotel',
-      search: (token) =>
-        searchHotels(cfg, token, {
-          destinationId:
-            process.env.TRAVELROBOT_HOTEL_DESTINATION_ID || DEFAULT_HOTEL_DESTINATION_ID,
-        }),
-      pick: pickHotelRows,
+      resolveRows: (token) => resolveHotelRows(cfg, token),
       upsert: upsertTravelrobotHotelListing,
     },
     {
@@ -114,11 +116,42 @@ function resolveWithRooms(cfg) {
   return cfg.importHotelRooms !== false
 }
 
-/** Static API görselleri + isteğe bağlı otel bazlı SearchHotel (oda/fiyat). */
-async function enrichHotelRows(cfg, tokenCode, rows) {
+/** Canlıda SearchHotel boşsa Statik API kataloğu (getAllHotelCodes + getHotels). */
+async function resolveHotelRows(cfg, tokenCode) {
+  let rows = []
+  if (!FROM_STATIC && !SKIP_SEARCH) {
+    const payload = await searchHotels(cfg, tokenCode, {
+      destinationId:
+        process.env.TRAVELROBOT_HOTEL_DESTINATION_ID || DEFAULT_HOTEL_DESTINATION_ID,
+    })
+    rows = pickHotelRows(payload)
+  }
+
+  const useStaticCatalog =
+    FROM_STATIC
+    || SKIP_SEARCH
+    || (rows.length === 0 && !isTravelrobotSandboxBaseUrl(cfg.baseUrl))
+
+  if (useStaticCatalog) {
+    if (rows.length === 0 && !FROM_STATIC && !SKIP_SEARCH) {
+      await reporter.log(
+        'Otel: SearchHotel boş — Statik API kataloğuna geçiliyor (getAllHotelCodes + getHotels)…',
+      )
+    }
+    try {
+      rows = await fetchHotelCatalogFromStatic(cfg, {
+        limit: LIMIT > 0 ? LIMIT : 0,
+        log: (msg) => reporter.log(msg),
+      })
+    } catch (e) {
+      await reporter.log(`Otel: statik katalog hatası — ${String(e.message).slice(0, 120)}`)
+      if (!rows.length) throw e
+    }
+  }
+
   return enrichTravelrobotHotelRows(cfg, tokenCode, rows, {
     withRooms: resolveWithRooms(cfg),
-    skipStatic: SKIP_STATIC,
+    skipStatic: SKIP_STATIC || useStaticCatalog,
     log: (msg) => reporter.log(msg),
   })
 }
@@ -155,9 +188,9 @@ async function main() {
   for (const m of active) {
     try {
       await reporter.log(`${m.label}: arama yapılıyor…`)
-      const payload = await m.search(tokenCode)
-      let rows = m.pick(payload)
-      if (m.key === 'hotel') rows = await enrichHotelRows(cfg, tokenCode, rows)
+      let rows = m.resolveRows
+        ? await m.resolveRows(tokenCode)
+        : m.pick(await m.search(tokenCode))
       if (LIMIT > 0) rows = rows.slice(0, LIMIT)
       await reporter.log(`${m.label}: ${rows.length} aday`)
       collected.push({ module: m, rows })
