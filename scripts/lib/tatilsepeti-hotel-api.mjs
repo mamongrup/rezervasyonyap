@@ -8,6 +8,11 @@ const UA =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 TravelImport/1.0'
 
 const DEFAULT_LIST_PATHS = ['yurtici-oteller']
+const RETRYABLE_HTTP = new Set([400, 408, 429, 500, 502, 503, 504])
+
+function jitterMs(base) {
+  return base + Math.floor(Math.random() * Math.min(500, base * 0.35))
+}
 
 export function decodeHtml(s) {
   return String(s || '')
@@ -59,22 +64,53 @@ function collectCookies(headers) {
 export class TatilsepetiSession {
   constructor() {
     this.cookies = ''
+    this.lastFetchAt = 0
   }
 
   async fetch(url, opts = {}) {
+    const minGap = Number(process.env.TATILSEPETI_MIN_GAP_MS || 200)
+    const since = Date.now() - this.lastFetchAt
+    if (since < minGap) await sleep(minGap - since)
+
     const headers = {
       'User-Agent': UA,
       Accept: opts.accept || 'text/html,application/xhtml+xml,application/json;q=0.9,*/*;q=0.8',
+      'Accept-Language': 'tr-TR,tr;q=0.9,en-US;q=0.8,en;q=0.7',
       Cookie: this.cookies,
       ...(opts.headers || {}),
     }
     const r = await fetch(url, { ...opts, headers })
+    this.lastFetchAt = Date.now()
     const next = collectCookies(r.headers)
     if (next) {
       const merged = new Set([...this.cookies.split('; ').filter(Boolean), ...next.split('; ')])
       this.cookies = [...merged].join('; ')
     }
     return r
+  }
+
+  /** 429/400/WAF — üstel bekleme ile yeniden dene */
+  async fetchWithRetry(url, opts = {}) {
+    const maxRetries = Number(process.env.TATILSEPETI_FETCH_RETRIES || 6)
+    const baseMs = Number(process.env.TATILSEPETI_RETRY_BASE_MS || 4000)
+    const onRetry = opts.onRetry || (() => {})
+    let last = null
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      if (attempt > 0) {
+        const wait = jitterMs(baseMs * 2 ** (attempt - 1))
+        onRetry({ attempt, wait, status: last?.status })
+        await sleep(wait)
+      }
+      last = await this.fetch(url, opts)
+      if (last.ok) return last
+      if (!RETRYABLE_HTTP.has(last.status)) return last
+      if (last.status === 429) {
+        const extra = Number(process.env.TATILSEPETI_COOLDOWN_ON_429_MS || 45000)
+        onRetry({ attempt: attempt + 1, wait: extra, status: 429, cooldown: true })
+        await sleep(extra)
+      }
+    }
+    return last
   }
 }
 
@@ -339,14 +375,18 @@ export function parseRoomAllPriceHtml(htmlJson) {
   return rows
 }
 
-export async function fetchRoomAllPrices(session, hotelId, roomTypeId) {
+export async function fetchRoomAllPrices(session, hotelId, roomTypeId, log = () => {}) {
   const url = `${ORIGIN}/Hotel/GetRoomAllPrice/?hotelId=${hotelId}&roomTypeId=${roomTypeId}`
-  const r = await session.fetch(url, {
+  const r = await session.fetchWithRetry(url, {
     accept: 'application/json, text/javascript, */*; q=0.01',
     headers: {
       'X-Requested-With': 'XMLHttpRequest',
       Referer: `${ORIGIN}/`,
     },
+    onRetry: ({ attempt, wait, status, cooldown }) =>
+      log(
+        `[retry] GetRoomAllPrice ${hotelId}/${roomTypeId} HTTP ${status}${cooldown ? ' (cooldown)' : ''} — ${wait}ms (#${attempt})`,
+      ),
   })
   if (!r.ok) return { ok: false, status: r.status, rows: [], error: `HTTP ${r.status}` }
   const text = await r.text()
@@ -360,10 +400,29 @@ export async function fetchRoomAllPrices(session, hotelId, roomTypeId) {
 
 export async function fetchHotelDetailPackage(session, listRow, opts = {}) {
   const { fetchRoomPrices = true, log = () => {} } = opts
-  const url = listRow.url || `${ORIGIN}/${listRow.slug}`
-  const r = await session.fetch(url)
-  if (!r.ok) throw new Error(`Detay HTTP ${r.status} ${url}`)
-  const html = await r.text()
+  const candidates = [
+    listRow.url,
+    listRow.slug ? `${ORIGIN}/${listRow.slug}` : null,
+    listRow.hotelId ? `${ORIGIN}/otel/detay?hotelId=${listRow.hotelId}` : null,
+  ].filter(Boolean)
+
+  let html = ''
+  let url = candidates[0]
+  let lastStatus = 0
+  for (const tryUrl of candidates) {
+    const r = await session.fetchWithRetry(tryUrl, {
+      headers: { Referer: `${ORIGIN}/yurtici-oteller` },
+      onRetry: ({ attempt, wait, status, cooldown }) =>
+        log(`[retry] detay ${listRow.hotelId} HTTP ${status}${cooldown ? ' (cooldown)' : ''} — ${wait}ms (#${attempt})`),
+    })
+    lastStatus = r.status
+    if (r.ok) {
+      url = tryUrl
+      html = await r.text()
+      break
+    }
+  }
+  if (!html) throw new Error(`Detay HTTP ${lastStatus} ${url}`)
   const hidden = parseHiddenFields(html)
   const hotelId = String(hidden.hotelId || listRow.hotelId)
   const jsonLd = parseJsonLd(html)
@@ -378,7 +437,7 @@ export async function fetchHotelDetailPackage(session, listRow, opts = {}) {
   if (fetchRoomPrices && rooms.length) {
     for (const room of rooms) {
       await sleep(Number(process.env.TATILSEPETI_ROOM_PRICE_DELAY_MS || 250))
-      const priceResult = await fetchRoomAllPrices(session, hotelId, room.roomTypeId)
+      const priceResult = await fetchRoomAllPrices(session, hotelId, room.roomTypeId, log)
       room.seasonalPrices = priceResult.rows
       room.priceFetchOk = priceResult.ok
       if (!priceResult.ok) room.priceFetchError = priceResult.error

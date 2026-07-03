@@ -43,7 +43,7 @@ const args = new Set(process.argv.slice(2))
 const DRY_RUN = args.has('--dry-run')
 const REFRESH_CATALOG = args.has('--refresh-catalog')
 const STATUS_ONLY = args.has('--status')
-const SKIP_ROOM_PRICES = args.has('--skip-room-prices')
+const RETRY_FAILED = args.has('--retry-failed')
 
 const limitIdx = process.argv.indexOf('--limit')
 const LIMIT = limitIdx >= 0 ? Number(process.argv[limitIdx + 1]) : 0
@@ -100,12 +100,26 @@ function printStatus(state, catalog) {
   appendLog(`  İlerleme: ${done}/${total} (kalan ${remaining})`)
   appendLog(`  Batch boyutu: ${state.batchSize} | tamamlanan batch: ${state.stats.batchesCompleted}`)
   appendLog(`  created=${state.stats.created} updated=${state.stats.updated} failed=${state.stats.failed}`)
+  appendLog(`  failed kayıt: ${(state.failedHotelIds || []).length}`)
   appendLog(`  son batch: ${state.lastBatchCompletedAt || '-'}`)
   appendLog(`  state: ${statePath}`)
 }
 
+function hotelsForRun(hotels, state) {
+  if (!RETRY_FAILED) return hotels
+  const ids = new Set((state.failedHotelIds || []).map((x) => String(x.hotelId)))
+  if (!ids.size) {
+    appendLog('[retry-failed] failedHotelIds boş — normal koşu')
+    return hotels
+  }
+  const filtered = hotels.filter((h) => ids.has(String(h.hotelId)))
+  appendLog(`[retry-failed] ${filtered.length} otel yeniden denenecek`)
+  return filtered
+}
+
 async function main() {
   let state = loadState(statePath)
+  if (!state.failedHotelIds) state.failedHotelIds = []
   state.batchSize = BATCH_SIZE
   if (!state.startedAt) state.startedAt = new Date().toISOString()
 
@@ -116,16 +130,18 @@ async function main() {
   }
 
   const session = new TatilsepetiSession()
-  const hotels = await ensureCatalog(session)
+  const catalogHotels = await ensureCatalog(session)
+  const hotels = hotelsForRun(catalogHotels, state)
   if (!hotels.length) throw new Error('Katalog boş')
 
-  let startIndex = state.nextIndex
+  let startIndex = RETRY_FAILED ? 0 : state.nextIndex
   let endIndex = hotels.length
   if (LIMIT > 0) endIndex = Math.min(endIndex, startIndex + LIMIT)
 
   const batchStart = Math.floor(startIndex / BATCH_SIZE) * BATCH_SIZE
-  const batchEnd = Math.min(batchStart + BATCH_SIZE, hotels.length)
-  const effectiveEnd = LIMIT > 0 ? endIndex : batchEnd
+  const batchEnd = Math.min(batchStart + BATCH_SIZE, catalogHotels.length)
+  const effectiveEnd =
+    LIMIT > 0 ? endIndex : RETRY_FAILED ? hotels.length : Math.max(startIndex, batchEnd)
 
   appendLog(
     `[run] otel ${startIndex + 1}–${effectiveEnd} / ${hotels.length} (batch ${Math.floor(startIndex / BATCH_SIZE) + 1}, boyut ${BATCH_SIZE}) dry-run=${DRY_RUN}`,
@@ -142,7 +158,7 @@ async function main() {
       const row = hotels[i]
       const label = `[${i + 1}/${hotels.length}] ${row.hotelId} ${row.name.slice(0, 50)}`
       try {
-        await sleep(Number(process.env.TATILSEPETI_DETAIL_DELAY_MS || 350))
+        await sleep(Number(process.env.TATILSEPETI_DETAIL_DELAY_MS || 1200))
         const pkg = await fetchHotelDetailPackage(session, row, {
           fetchRoomPrices: !SKIP_ROOM_PRICES,
           log: appendLog,
@@ -156,14 +172,26 @@ async function main() {
           else state.stats.updated++
         }
         state.lastHotelId = row.hotelId
-        state.nextIndex = i + 1
+        if (!RETRY_FAILED) state.nextIndex = i + 1
+        state.failedHotelIds = (state.failedHotelIds || []).filter(
+          (x) => String(x.hotelId) !== String(row.hotelId),
+        )
         processedInRun++
         appendLog(
           `${label} → ${result.action} görsel:${result.imageCount} oda:${result.roomCount} tamlık:${result.completeness?.score ?? '?'}%`,
         )
       } catch (e) {
         state.stats.failed++
-        state.nextIndex = i + 1
+        if (!RETRY_FAILED) state.nextIndex = i + 1
+        state.failedHotelIds = state.failedHotelIds || []
+        if (!state.failedHotelIds.some((x) => String(x.hotelId) === String(row.hotelId))) {
+          state.failedHotelIds.push({
+            hotelId: row.hotelId,
+            index: i,
+            error: String(e.message).slice(0, 200),
+            at: new Date().toISOString(),
+          })
+        }
         processedInRun++
         appendLog(`${label} → HATA: ${String(e.message).slice(0, 160)}`)
       }
@@ -175,18 +203,25 @@ async function main() {
 
     if (!DRY_RUN) {
       saveState(state, statePath)
-      const batchNo = Math.floor((state.nextIndex - 1) / BATCH_SIZE) + 1
-      if (state.nextIndex >= batchEnd || state.nextIndex >= hotels.length) {
-        markBatchComplete(state, state.nextIndex, batchNo)
-        saveState(state, statePath)
-        appendLog(`[batch] ${batchNo} tamamlandı — index=${state.nextIndex}`)
+      if (!RETRY_FAILED) {
+        const batchNo = Math.floor((state.nextIndex - 1) / BATCH_SIZE) + 1
+        if (state.nextIndex >= batchEnd || state.nextIndex >= catalogHotels.length) {
+          markBatchComplete(state, state.nextIndex, batchNo)
+          saveState(state, statePath)
+          appendLog(`[batch] ${batchNo} tamamlandı — index=${state.nextIndex}`)
+        }
       }
     }
 
-    if (state.nextIndex < hotels.length && !LIMIT) {
+    if (RETRY_FAILED) {
+      appendLog(`[retry-failed] bitti — kalan hatalı: ${(state.failedHotelIds || []).length}`)
+    } else if (state.nextIndex < catalogHotels.length && !LIMIT) {
       appendLog(`[devam] Sonraki batch için aynı komutu tekrar çalıştırın (index=${state.nextIndex})`)
-    } else if (state.nextIndex >= hotels.length) {
+    } else if (state.nextIndex >= catalogHotels.length) {
       appendLog('[bitti] Tüm katalog işlendi.')
+      if ((state.failedHotelIds || []).length) {
+        appendLog(`[bilgi] ${state.failedHotelIds.length} hatalı otel —: --retry-failed ile tekrar deneyin`)
+      }
     }
   } finally {
     if (pg) await pg.end()
