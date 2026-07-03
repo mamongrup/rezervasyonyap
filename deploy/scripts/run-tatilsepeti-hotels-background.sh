@@ -14,6 +14,8 @@ PID_FILE="${TATILSEPETI_IMPORT_PID:-$APP_ROOT/backups/tatilsepeti-hotel-import.p
 
 cd "$APP_ROOT"
 mkdir -p "$(dirname "$LOG_FILE")" "$(dirname "$PID_FILE")"
+chmod +x "$APP_ROOT/deploy/scripts/import-tatilsepeti-hotels.sh" \
+  "$APP_ROOT/deploy/scripts/run-tatilsepeti-hotels-background.sh" 2>/dev/null || true
 
 if [[ -f "$PID_FILE" ]] && kill -0 "$(cat "$PID_FILE")" 2>/dev/null; then
   echo "[FAIL] Import zaten çalışıyor (PID $(cat "$PID_FILE"))" >&2

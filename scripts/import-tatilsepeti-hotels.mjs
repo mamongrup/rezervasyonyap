@@ -5,6 +5,8 @@
  *   node scripts/import-tatilsepeti-hotels.mjs --dry-run --limit 3
  *   node scripts/import-tatilsepeti-hotels.mjs --refresh-catalog
  *   node scripts/import-tatilsepeti-hotels.mjs --status
+ *   node scripts/import-tatilsepeti-hotels.mjs --retry-missing
+ *   node scripts/import-tatilsepeti-hotels.mjs --retry-failed
  *   node scripts/import-tatilsepeti-hotels.mjs --batch-size 10000
  *
  * Arka plan (sunucu):
@@ -44,6 +46,9 @@ const DRY_RUN = args.has('--dry-run')
 const REFRESH_CATALOG = args.has('--refresh-catalog')
 const STATUS_ONLY = args.has('--status')
 const RETRY_FAILED = args.has('--retry-failed')
+const RETRY_MISSING = args.has('--retry-missing')
+const IS_RETRY_MODE = RETRY_FAILED || RETRY_MISSING
+const SKIP_ROOM_PRICES = args.has('--skip-room-prices')
 
 const limitIdx = process.argv.indexOf('--limit')
 const LIMIT = limitIdx >= 0 ? Number(process.argv[limitIdx + 1]) : 0
@@ -92,7 +97,23 @@ async function ensureCatalog(session) {
   return hotels
 }
 
-function printStatus(state, catalog) {
+async function countTatilsepetiInDb(pg) {
+  const r = await pg.query(
+    `SELECT count(*)::int AS n FROM listings WHERE external_provider_code = 'tatilsepeti'`,
+  )
+  return r.rows[0]?.n ?? 0
+}
+
+async function loadExistingTatilsepetiRefs(pg) {
+  const r = await pg.query(
+    `SELECT external_listing_ref FROM listings
+     WHERE external_provider_code = 'tatilsepeti'
+       AND external_listing_ref IS NOT NULL`,
+  )
+  return new Set(r.rows.map((row) => String(row.external_listing_ref)))
+}
+
+async function printStatus(state, catalog) {
   const total = catalog?.hotels?.length ?? 0
   const done = state.nextIndex
   const remaining = Math.max(0, total - done)
@@ -103,18 +124,40 @@ function printStatus(state, catalog) {
   appendLog(`  failed kayıt: ${(state.failedHotelIds || []).length}`)
   appendLog(`  son batch: ${state.lastBatchCompletedAt || '-'}`)
   appendLog(`  state: ${statePath}`)
+  try {
+    const pg = createPgClient()
+    await pg.connect()
+    try {
+      const inDb = await countTatilsepetiInDb(pg)
+      appendLog(`  DB'de tatilsepeti otel: ${inDb} / katalog ${total}`)
+      appendLog(`  eksik (yaklaşık): ${Math.max(0, total - inDb)}`)
+    } finally {
+      await pg.end()
+    }
+  } catch (e) {
+    appendLog(`  DB sayımı atlandı: ${e.message}`)
+  }
 }
 
-function hotelsForRun(hotels, state) {
-  if (!RETRY_FAILED) return hotels
-  const ids = new Set((state.failedHotelIds || []).map((x) => String(x.hotelId)))
-  if (!ids.size) {
-    appendLog('[retry-failed] failedHotelIds boş — normal koşu')
-    return hotels
+async function hotelsForRun(hotels, state, pg) {
+  if (RETRY_MISSING) {
+    if (!pg) throw new Error('--retry-missing için DB gerekli (dry-run ile kullanılamaz)')
+    const existing = await loadExistingTatilsepetiRefs(pg)
+    const filtered = hotels.filter((h) => !existing.has(String(h.hotelId)))
+    appendLog(`[retry-missing] DB'de yok: ${filtered.length} / katalog ${hotels.length}`)
+    return filtered
   }
-  const filtered = hotels.filter((h) => ids.has(String(h.hotelId)))
-  appendLog(`[retry-failed] ${filtered.length} otel yeniden denenecek`)
-  return filtered
+  if (RETRY_FAILED) {
+    const ids = new Set((state.failedHotelIds || []).map((x) => String(x.hotelId)))
+    if (!ids.size) {
+      appendLog('[retry-failed] failedHotelIds boş — --retry-missing deneyin')
+      return []
+    }
+    const filtered = hotels.filter((h) => ids.has(String(h.hotelId)))
+    appendLog(`[retry-failed] ${filtered.length} otel yeniden denenecek`)
+    return filtered
+  }
+  return hotels
 }
 
 async function main() {
@@ -125,31 +168,45 @@ async function main() {
 
   const catalog = loadCatalog(catalogPath)
   if (STATUS_ONLY) {
-    printStatus(state, catalog)
+    await printStatus(state, catalog)
     return
   }
 
   const session = new TatilsepetiSession()
   const catalogHotels = await ensureCatalog(session)
-  const hotels = hotelsForRun(catalogHotels, state)
-  if (!hotels.length) throw new Error('Katalog boş')
 
-  let startIndex = RETRY_FAILED ? 0 : state.nextIndex
+  const pg = DRY_RUN && !RETRY_MISSING ? null : createPgClient()
+  if (pg) await pg.connect()
+
+  let hotels
+  try {
+    hotels = await hotelsForRun(catalogHotels, state, pg)
+  } catch (e) {
+    if (pg) await pg.end()
+    throw e
+  }
+
+  if (!hotels.length) {
+    if (pg) await pg.end()
+    appendLog(IS_RETRY_MODE ? '[bitti] Yeniden denenecek otel yok.' : 'Katalog boş')
+    return
+  }
+
+  let startIndex = IS_RETRY_MODE ? 0 : state.nextIndex
   let endIndex = hotels.length
   if (LIMIT > 0) endIndex = Math.min(endIndex, startIndex + LIMIT)
 
   const batchStart = Math.floor(startIndex / BATCH_SIZE) * BATCH_SIZE
   const batchEnd = Math.min(batchStart + BATCH_SIZE, catalogHotels.length)
   const effectiveEnd =
-    LIMIT > 0 ? endIndex : RETRY_FAILED ? hotels.length : Math.max(startIndex, batchEnd)
+    LIMIT > 0 ? endIndex : IS_RETRY_MODE ? hotels.length : Math.max(startIndex, batchEnd)
 
   appendLog(
     `[run] otel ${startIndex + 1}–${effectiveEnd} / ${hotels.length} (batch ${Math.floor(startIndex / BATCH_SIZE) + 1}, boyut ${BATCH_SIZE}) dry-run=${DRY_RUN}`,
   )
 
-  const pg = DRY_RUN ? null : createPgClient()
-  if (pg) await pg.connect()
-  const ctx = pg ? await resolveTatilsepetiImportContext(pg, await resolveOrgId(pg)) : null
+  const ctx =
+    pg && !DRY_RUN ? await resolveTatilsepetiImportContext(pg, await resolveOrgId(pg)) : null
   const status = process.env.TATILSEPETI_LISTING_STATUS || 'draft'
 
   let processedInRun = 0
@@ -172,7 +229,7 @@ async function main() {
           else state.stats.updated++
         }
         state.lastHotelId = row.hotelId
-        if (!RETRY_FAILED) state.nextIndex = i + 1
+        if (!IS_RETRY_MODE) state.nextIndex = i + 1
         state.failedHotelIds = (state.failedHotelIds || []).filter(
           (x) => String(x.hotelId) !== String(row.hotelId),
         )
@@ -182,7 +239,7 @@ async function main() {
         )
       } catch (e) {
         state.stats.failed++
-        if (!RETRY_FAILED) state.nextIndex = i + 1
+        if (!IS_RETRY_MODE) state.nextIndex = i + 1
         state.failedHotelIds = state.failedHotelIds || []
         if (!state.failedHotelIds.some((x) => String(x.hotelId) === String(row.hotelId))) {
           state.failedHotelIds.push({
@@ -203,7 +260,7 @@ async function main() {
 
     if (!DRY_RUN) {
       saveState(state, statePath)
-      if (!RETRY_FAILED) {
+      if (!IS_RETRY_MODE) {
         const batchNo = Math.floor((state.nextIndex - 1) / BATCH_SIZE) + 1
         if (state.nextIndex >= batchEnd || state.nextIndex >= catalogHotels.length) {
           markBatchComplete(state, state.nextIndex, batchNo)
@@ -213,14 +270,18 @@ async function main() {
       }
     }
 
-    if (RETRY_FAILED) {
-      appendLog(`[retry-failed] bitti — kalan hatalı: ${(state.failedHotelIds || []).length}`)
+    if (IS_RETRY_MODE) {
+      appendLog(
+        `[retry] bitti — kalan hatalı: ${(state.failedHotelIds || []).length}`,
+      )
     } else if (state.nextIndex < catalogHotels.length && !LIMIT) {
       appendLog(`[devam] Sonraki batch için aynı komutu tekrar çalıştırın (index=${state.nextIndex})`)
     } else if (state.nextIndex >= catalogHotels.length) {
       appendLog('[bitti] Tüm katalog işlendi.')
       if ((state.failedHotelIds || []).length) {
-        appendLog(`[bilgi] ${state.failedHotelIds.length} hatalı otel —: --retry-failed ile tekrar deneyin`)
+        appendLog(
+          `[bilgi] ${state.failedHotelIds.length} hatalı otel — --retry-failed veya --retry-missing`,
+        )
       }
     }
   } finally {
