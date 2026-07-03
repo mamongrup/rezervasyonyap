@@ -1092,6 +1092,10 @@ export const tr = {
       salesClosed: 'Satışa kapalı',
       salesClosedNote:
         'Bu tur için online rezervasyon şu an kapalıdır. Planlanan kalkış tarihlerini inceleyip talep için bizimle iletişime geçebilirsiniz.',
+      quoteRequestNote:
+        'Tarih ve kişi sayısını seçin; çift kişilik odada kişi başı başlangıç fiyatı gösterilir. Kesin fiyat ve müsaitlik için talep oluşturun.',
+      periodRequestLabel: 'Talep ile rezervasyon',
+      periodSelectHint: 'Kalkış tarihi seçin',
       referencePriceLabel: 'Başlangıç fiyatı',
       referencePriceHint: 'Çift kişilik odada kişi başı; tek kişi ve çocuk fiyatları talep üzerine paylaşılır.',
       installmentHint: 'Seçili kartlarla yurt içi turlarda 9 taksit imkânı (banka kampanyalarına göre değişebilir).',

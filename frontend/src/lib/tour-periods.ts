@@ -12,6 +12,8 @@ export type TourPeriodOption = {
   currencyCode: string
   /** false = planlanmış kalkış, henüz online satışa kapalı */
   bookable?: boolean
+  /** false = tarih seçilebilir / fiyat görünür ama ödeme ile checkout yok (Gezinomi katalog) */
+  onlineCheckout?: boolean
   /** Gezinomi ay grubu — örn. "Temmuz 2026" */
   monthLabel?: string
 }
@@ -224,6 +226,11 @@ export function buildTourPeriodSelectOptions(
 
 export function isTourPeriodBookable(period: TourPeriodOption | null | undefined): boolean {
   return period != null && period.bookable !== false
+}
+
+export function isTourPeriodOnlineCheckout(period: TourPeriodOption | null | undefined): boolean {
+  if (!isTourPeriodBookable(period)) return false
+  return period?.onlineCheckout !== false
 }
 
 export function formatTourPeriodDateRange(start: string, end: string): string {

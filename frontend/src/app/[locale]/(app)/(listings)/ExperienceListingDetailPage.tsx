@@ -817,8 +817,10 @@ export default async function ExperienceListingDetailPage({
   const tourListingPublicUrl = siteConfigForUrl.siteUrl
     ? `${siteConfigForUrl.siteUrl}${await vitrinHref(locale, `${canonicalPath}/${handle}`)}`
     : undefined
-  const gezinomiSalesClosed =
-    useGezinomiTourLayout && tourPeriodOptions.length > 0 && !tourPeriodOptions.some((p) => p.bookable !== false)
+  const gezinomiQuoteOnly =
+    useGezinomiTourLayout &&
+    tourPeriodOptions.length > 0 &&
+    tourPeriodOptions.every((p) => p.onlineCheckout === false)
 
   const renderSidebarPriceAndForm = () => {
     const listingMoney = listing as TListingBase & {
@@ -841,7 +843,8 @@ export default async function ExperienceListingDetailPage({
           fallbackPriceAmount={listingMoney.priceAmount}
           fallbackPriceCurrency={priceCur}
           prepaymentPercent={listingMoney.prepaymentPercent ?? listingPrepaymentPercent}
-          showReferencePrice={isTour && gezinomiSalesClosed}
+          showReferencePrice={isTour && gezinomiQuoteOnly}
+          quoteOnly={isTour && gezinomiQuoteOnly}
           locale={locale}
         />
       )
@@ -860,7 +863,7 @@ export default async function ExperienceListingDetailPage({
 
   const renderTourMainContent = () => (
     <>
-      <div className={`flex w-full flex-col ${LISTING_DETAIL_SECTION_GAP_Y} lg:w-3/5 xl:w-[64%]`}>
+      <div className={`flex min-w-0 w-full flex-col ${LISTING_DETAIL_SECTION_GAP_Y} lg:w-3/5 xl:w-[62%]`}>
         {renderSectionHeader()}
         {tourSectionNavItems.length > 0 ? (
           <div className="sticky top-0 z-20 -mx-1 bg-white/90 py-2 backdrop-blur-sm dark:bg-neutral-950/90">
@@ -904,7 +907,7 @@ export default async function ExperienceListingDetailPage({
           <TourItineraryMapSection pins={tourDayPins} locale={locale} />
         )}
       </div>
-      <div className="grow">
+      <div className="flex grow flex-col overflow-visible lg:min-w-[min(100%,320px)] lg:max-w-md lg:self-stretch">
         <div className="sticky top-5">{renderSidebarPriceAndForm()}</div>
       </div>
     </>
@@ -1013,7 +1016,7 @@ export default async function ExperienceListingDetailPage({
             flightSchedules={tourFlightSchedules}
             currencyCode={tourPeriodCurrency}
           >
-            <main className="flex flex-col gap-8 lg:flex-row xl:gap-10">{renderTourMainContent()}</main>
+            <main className="flex flex-col gap-6 lg:flex-row lg:items-start xl:gap-8">{renderTourMainContent()}</main>
           </TourPeriodProvider>
         ) : isCruise ? (
           <CruiseCabinProvider cabins={cruiseCabinsList}>

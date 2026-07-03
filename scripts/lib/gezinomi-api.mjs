@@ -133,14 +133,22 @@ function isoDateOnly(raw) {
 /** Gezinomi tourPeriods → normalize edilmiş dönem listesi */
 export function summarizeGezinomiPeriods(model) {
   const rows = Array.isArray(model?.tourPeriods) ? model.tourPeriods : []
-  return rows.map((p) => ({
-    id: p.tourPeriodId ?? p.id ?? null,
-    start: isoDateOnly(p.startDate),
-    end: isoDateOnly(p.endDate),
-    label: p.periodDate || `${isoDateOnly(p.startDate)} - ${isoDateOnly(p.endDate)}`,
-    isAvailable: p.isAvailable !== false,
-    source: 'gezinomi',
-  }))
+  const today = new Date().toISOString().slice(0, 10)
+  return rows.map((p) => {
+    const end = isoDateOnly(p.endDate)
+    const future = end ? end >= today : true
+    return {
+      id: p.tourPeriodId ?? p.id ?? null,
+      start: isoDateOnly(p.startDate),
+      end,
+      label: p.periodDate || `${isoDateOnly(p.startDate)} - ${end}`,
+      // B2B TourDetail API çoğu kültür turda isAvailable=false döner; vitrin fiyatı ayrı endpoint.
+      // Gelecek dönem = planlı kalkış (Gezinomi/Tatilsepeti vitrininde görünür).
+      isAvailable: future,
+      gezinomiApiAvailable: p.isAvailable === true,
+      source: 'gezinomi',
+    }
+  })
 }
 
 /** Gezinomi tourDepartures → kalkış noktaları */
@@ -232,6 +240,15 @@ function gezinomiText(raw) {
   return s
 }
 
+function stripGezinomiPlainText(html) {
+  return String(html ?? '')
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
 /** Gezinomi TourDetail → vitrin açıklama + program + bilgi bölümleri */
 export function buildGezinomiTourContentPackage(model) {
   if (!model || typeof model !== 'object') return null
@@ -257,7 +274,8 @@ export function buildGezinomiTourContentPackage(model) {
       const day = Number(p.day ?? p.daySorting ?? 0)
       const text = gezinomiText(p.text)
       if (!day || !text) return null
-      const titleMatch = text.match(/^([^.:]{4,80})/)
+      const plain = stripGezinomiPlainText(text)
+      const titleMatch = plain.match(/^([^.:]{4,120})/)
       return {
         day,
         title: titleMatch ? titleMatch[1].trim() : `Gün ${day}`,

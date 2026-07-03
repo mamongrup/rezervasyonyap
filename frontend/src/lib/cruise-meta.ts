@@ -217,7 +217,7 @@ export function cruisePeriodLabels(meta: CruiseVerticalMeta | null): string[] {
 /** Gezinomi dönemleri → tur rezervasyon formu (TourPeriodSelect) seçenekleri */
 export function cruisePeriodSelectOptions(
   meta: CruiseVerticalMeta | null,
-  opts: { fallbackPrice?: number | null; currencyCode?: string },
+  opts: { fallbackPrice?: number | null; currencyCode?: string; /** Gezinomi: API isAvailable yanıltıcı — gelecek dönemleri listele */ listedOnly?: boolean },
 ): TourPeriodOption[] {
   const periods = meta?.periods ?? []
   if (periods.length === 0) return []
@@ -244,7 +244,8 @@ export function cruisePeriodSelectOptions(
       endDate: end,
       price: fallbackPrice,
       currencyCode: currency,
-      bookable: p.isAvailable !== false,
+      bookable: opts.listedOnly ? true : p.isAvailable !== false,
+      onlineCheckout: opts.listedOnly ? false : true,
     })
   }
 

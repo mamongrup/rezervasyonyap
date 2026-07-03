@@ -3,9 +3,11 @@
 import {
   formatTourPeriodDateRange,
   isTourPeriodBookable,
+  isTourPeriodOnlineCheckout,
   type TourPeriodOption,
 } from '@/lib/tour-periods'
 import { useFormatMoneyInPreferredCurrency } from '@/contexts/preferred-currency-context'
+import { getMessages } from '@/utils/getT'
 import { Popover, PopoverButton, PopoverPanel } from '@headlessui/react'
 import { ArrowDown01Icon, Calendar04Icon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
@@ -20,6 +22,7 @@ interface Props {
 }
 
 const TourPeriodSelect: FC<Props> = ({ className = 'flex-1', periods, selectedId, onChange, locale = 'tr' }) => {
+  const td = getMessages(locale).listing.tourDetail
   const selected = useMemo(
     () => periods.find((p) => p.id === selectedId) ?? periods.find((p) => p.bookable !== false) ?? periods[0] ?? null,
     [selectedId, periods],
@@ -64,8 +67,10 @@ const TourPeriodSelect: FC<Props> = ({ className = 'flex-1', periods, selectedId
 
   const triggerSub =
     selected && !isTourPeriodBookable(selected)
-      ? 'Planlanmış — satışa kapalı'
-      : selected?.monthLabel ?? 'Tarih seçimi'
+      ? td.salesClosed
+      : selected && !isTourPeriodOnlineCheckout(selected)
+        ? td.periodRequestLabel
+        : selected?.monthLabel ?? td.periodSelectHint
 
   return (
     <>
@@ -130,11 +135,7 @@ const TourPeriodSelect: FC<Props> = ({ className = 'flex-1', periods, selectedId
                           : 'text-neutral-400 dark:text-neutral-500'
                       }`}
                     >
-                      {canBook ? (
-                        <PeriodPriceLabel period={period} />
-                      ) : (
-                        'Satışa kapalı'
-                      )}
+                      {canBook ? <PeriodPriceLabel period={period} /> : td.salesClosed}
                     </span>
                   </button>
                 )

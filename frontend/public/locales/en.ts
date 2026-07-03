@@ -1640,6 +1640,10 @@ export const en = {
       salesClosed: 'Not available for booking',
       salesClosedNote:
         'Online booking is not open for this tour yet. Review planned departures and contact us to request a quote.',
+      quoteRequestNote:
+        'Select a date and guests; the price shown is per person in a double room. Contact us to confirm availability.',
+      periodRequestLabel: 'Book on request',
+      periodSelectHint: 'Select departure date',
       referencePriceLabel: 'From',
       referencePriceHint: 'Per person in a double room; single and child rates on request.',
       installmentHint: 'Up to 9 installments on domestic tours with eligible cards (bank campaigns may vary).',

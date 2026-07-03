@@ -127,9 +127,10 @@ export function gezinomiTourItineraryDays(meta: GezinomiTourVerticalMeta | null)
     .filter((d) => d?.description?.trim())
     .map((d) => {
       const descriptionHtml = sanitizeGezinomiDayHtml(d.description)
+      const titlePlain = plainGezinomiLine(d.title)
       return {
         day: Number(d.day) || 0,
-        title: d.title?.trim() ? formatCruisePlaceName(d.title) : '',
+        title: titlePlain ? formatCruisePlaceName(titlePlain) : '',
         description: plainDayDescription(d.description),
         descriptionHtml,
       }
@@ -142,7 +143,7 @@ export function gezinomiTourPeriodSelectOptions(
   opts: { fallbackPrice?: number | null; currencyCode?: string; locale?: string },
 ): TourPeriodOption[] {
   const locale = opts.locale ?? 'tr'
-  const base = cruisePeriodSelectOptions(meta as CruiseVerticalMeta, opts)
+  const base = cruisePeriodSelectOptions(meta as CruiseVerticalMeta, { ...opts, listedOnly: true })
   return base.map((p) => ({
     ...p,
     monthLabel: monthLabelFromIso(p.startDate, locale),
@@ -171,7 +172,11 @@ export function gezinomiTourPeriodTimeLabels(meta: GezinomiTourVerticalMeta | nu
 }
 
 export function gezinomiTourHasBookablePeriod(meta: GezinomiTourVerticalMeta | null): boolean {
-  return (meta?.periods ?? []).some((p) => p.isAvailable !== false)
+  const today = new Date().toISOString().slice(0, 10)
+  return (meta?.periods ?? []).some((p) => {
+    const end = String(p.end ?? p.start ?? '').slice(0, 10)
+    return end >= today
+  })
 }
 
 export type TourSectionNavItem = {
@@ -350,6 +355,13 @@ function sanitizeGezinomiDayHtml(raw: string): string {
 
 function plainDayDescription(raw: string): string {
   return stripHtml(sanitizeGezinomiDayHtml(raw)).replace(/\s+/g, ' ').trim()
+}
+
+function plainGezinomiLine(raw: string | null | undefined): string {
+  const text = String(raw ?? '').trim()
+  if (!text) return ''
+  if (!/[<>]/.test(text)) return text
+  return stripHtml(sanitizeGezinomiDayHtml(text)).replace(/\s+/g, ' ').trim()
 }
 
 function parseListItemsFromHtml(html: string): string[] {

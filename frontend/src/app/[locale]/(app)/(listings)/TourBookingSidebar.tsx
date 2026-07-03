@@ -2,7 +2,7 @@
 
 import WhatsAppListingCTA from '@/components/WhatsAppListingCTA'
 import ButtonPrimary from '@/shared/ButtonPrimary'
-import { isTourPeriodBookable } from '@/lib/tour-periods'
+import { isTourPeriodBookable, isTourPeriodOnlineCheckout } from '@/lib/tour-periods'
 import { DEFAULT_GUESTS_EXPERIENCE, totalGuestCount } from '@/lib/guest-search-defaults'
 import type { GuestsObject } from '@/type'
 import { buildListingCheckoutUrl } from '@/lib/stay-checkout-url'
@@ -29,6 +29,7 @@ export default function TourBookingSidebar({
   fallbackPriceCurrency,
   prepaymentPercent,
   showReferencePrice = false,
+  quoteOnly = false,
   locale = 'tr',
 }: {
   listingId: string
@@ -38,8 +39,10 @@ export default function TourBookingSidebar({
   fallbackPriceAmount?: number
   fallbackPriceCurrency?: string
   prepaymentPercent?: string | number | null
-  /** Gezinomi gibi online satış kapalı turlarda vitrin fiyatını göster */
+  /** Gezinomi katalog — çift kişilik başlangıç fiyatı etiketi */
   showReferencePrice?: boolean
+  /** Tarihler seçilebilir; online checkout yok (talep / WhatsApp) */
+  quoteOnly?: boolean
   locale?: string
 }) {
   const { options, selected, setSelected } = useTourPeriodSelection()
@@ -50,6 +53,7 @@ export default function TourBookingSidebar({
   const [guests, setGuests] = useState<GuestsObject>(DEFAULT_GUESTS_EXPERIENCE)
 
   const bookable = isTourPeriodBookable(selected)
+  const onlineCheckout = isTourPeriodOnlineCheckout(selected)
   const anyBookable = options.some((p) => p.bookable !== false)
   const guestCount = Math.max(1, totalGuestCount(guests))
   const fallbackAmount =
@@ -83,7 +87,7 @@ export default function TourBookingSidebar({
 
   const canCheckout =
     Boolean(listingId.trim()) &&
-    bookable &&
+    onlineCheckout &&
     selected?.startDate &&
     selected?.endDate &&
     unitTotal > 0
@@ -160,6 +164,10 @@ export default function TourBookingSidebar({
         <p className="mt-4 text-sm leading-relaxed text-neutral-600 dark:text-neutral-400">
           {td.salesClosedNote}
         </p>
+      ) : quoteOnly ? (
+        <p className="mt-4 text-sm leading-relaxed text-neutral-600 dark:text-neutral-400">
+          {td.quoteRequestNote}
+        </p>
       ) : null}
 
       {prepaymentLine ? (
@@ -168,17 +176,23 @@ export default function TourBookingSidebar({
 
       <p className="mt-2 text-xs text-neutral-500 dark:text-neutral-400">{td.installmentHint}</p>
 
-      {bookable ? (
+      {onlineCheckout ? (
         <ButtonPrimary type="button" className="mt-4 w-full" disabled={!canCheckout} onClick={goCheckout}>
           {m.common.Reserve}
         </ButtonPrimary>
+      ) : anyBookable ? (
+        listingTitle ? (
+          <div className="mt-4">
+            <WhatsAppListingCTA listingTitle={listingTitle} listingUrl={listingUrl} />
+          </div>
+        ) : null
       ) : (
         <ButtonPrimary type="button" disabled className="mt-4 w-full cursor-not-allowed opacity-60">
           {td.salesClosed}
         </ButtonPrimary>
       )}
 
-      {listingTitle ? (
+      {onlineCheckout && listingTitle ? (
         <div className="mt-3">
           <WhatsAppListingCTA listingTitle={listingTitle} listingUrl={listingUrl} />
         </div>
