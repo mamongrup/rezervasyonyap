@@ -75,6 +75,41 @@ try {
     summary[label] = { scanned: rows.length, fixed }
   }
 
+  // listing_attributes.tema — alias key'leri sil, kanonik yoksa ekle
+  const aliasKeys = Object.keys(ALIASES)
+  const { rows: attrRows } = await pg.query(
+    `SELECT listing_id::text AS id, key
+     FROM listing_attributes
+     WHERE group_code = 'tema' AND key = ANY($1::text[])`,
+    [aliasKeys],
+  )
+  let attrFixed = 0
+  const byListing = new Map()
+  for (const row of attrRows) {
+    if (!byListing.has(row.id)) byListing.set(row.id, [])
+    byListing.get(row.id).push(row.key)
+  }
+  for (const [listingId, keys] of byListing) {
+    attrFixed += 1
+    if (DRY_RUN) continue
+    for (const alias of keys) {
+      const canon = ALIASES[alias]
+      if (!canon) continue
+      await pg.query(
+        `INSERT INTO listing_attributes (listing_id, group_code, key, value_json)
+         VALUES ($1::uuid, 'tema', $2, 'true'::jsonb)
+         ON CONFLICT (listing_id, group_code, key) DO UPDATE SET value_json = excluded.value_json`,
+        [listingId, canon],
+      )
+      await pg.query(
+        `DELETE FROM listing_attributes
+         WHERE listing_id = $1::uuid AND group_code = 'tema' AND key = $2`,
+        [listingId, alias],
+      )
+    }
+  }
+  summary.tema_attributes = { scanned: attrRows.length, listingsFixed: attrFixed }
+
   console.log(JSON.stringify({ dryRun: DRY_RUN, ...summary }, null, 2))
 } finally {
   await pg.end()
