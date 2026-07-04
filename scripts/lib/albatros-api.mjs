@@ -10,6 +10,7 @@ import {
   parseCabinCountFromText,
   sanitizeBathCount,
 } from './yacht-bathroom-parse.mjs'
+import { structuredPlainTextToHtml } from './text-to-html.mjs'
 
 const BASE = 'https://www.albatrosyachting.com'
 const API = `${BASE}/wp-json/wp/v2`
@@ -507,5 +508,6 @@ export function buildAlbatrosDescription(record) {
     }
   }
 
-  return lines.join('\n').trim() || record.title
+  const plain = lines.join('\n').trim()
+  return plain ? structuredPlainTextToHtml(plain) : record.title
 }

@@ -5,6 +5,7 @@
 
 import https from 'node:https'
 import http from 'node:http'
+import { structuredPlainTextToHtml } from './text-to-html.mjs'
 
 export const AKASIA_ENGINE = 'https://akasiayachting.com'
 export const AKASIA_THEME = 'active-71'
@@ -295,7 +296,7 @@ export function buildDescription(title, specs, rates, { pax, cabinCount, bathCou
     }
   }
   if (!lines.length) return title
-  return lines.join('\n')
+  return structuredPlainTextToHtml(lines.join('\n')) || title
 }
 
 /**

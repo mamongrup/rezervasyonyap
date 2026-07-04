@@ -4,6 +4,7 @@
 
 import { fetchText, parseBathroomCountFromSpecs } from './akasia-api.mjs'
 import { parseBathroomCount } from './yacht-bathroom-parse.mjs'
+import { structuredPlainTextToHtml } from './text-to-html.mjs'
 
 const BASE = 'https://www.baranselyachting.com'
 const LIST_PATH = '/tekne-kirala/'
@@ -334,7 +335,8 @@ export function buildBaransenDescription(detail, { displayTitle, pax, cabinCount
     }
   }
 
-  return lines.join('\n').trim() || displayTitle
+  const plain = lines.join('\n').trim()
+  return plain ? structuredPlainTextToHtml(plain) : displayTitle
 }
 
 export async function fetchBoatDetail(url) {
