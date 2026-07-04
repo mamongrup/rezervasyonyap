@@ -21,14 +21,15 @@ export interface PartnersModuleConfig {
 function PartnerLogo({ item, showName }: { item: PartnersModuleItem; showName?: boolean }) {
   const inner = (
     <div className="flex flex-col items-center gap-2">
-      <div className="relative h-12 w-full">
+      <div className="relative h-14 w-full">
         <Image
           src={item.logoUrl}
           alt={item.name}
           fill
-          className="object-contain filter grayscale opacity-60 transition duration-300 hover:grayscale-0 hover:opacity-100"
+          className="object-contain"
           sizes="(max-width: 640px) 50vw, 20vw"
           unoptimized
+          style={{ imageRendering: '-webkit-optimize-contrast' }}
         />
       </div>
       {showName && (

@@ -1156,7 +1156,7 @@ export default function GeneralSettingsClient({ embedded = false }: GeneralSetti
               <div className="mt-6 grid grid-cols-1 gap-8 sm:grid-cols-2">
                 <BrandingImageUploadRow
                   label="Logo (açık tema)"
-                  hint="JPEG, PNG, WebP, GIF, SVG veya ICO. Kayıt her zaman AVIF olur. En fazla 2 MB."
+                  hint="JPEG, PNG, WebP, GIF, SVG veya ICO. Logo kayıpsız AVIF olarak saklanır. En fazla 2 MB."
                   url={logoUrl}
                   onChange={setLogoUrl}
                   purpose="brand-logo-light"

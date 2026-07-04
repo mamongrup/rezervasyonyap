@@ -70,3 +70,33 @@ export function hasAnyLocalized(field: LocalizedText | undefined | null): boolea
   }
   return false
 }
+
+/**
+ * Nesnenin tamamı locale→string sözlüğü mü?
+ * Tüm anahtarlar locale kodu olmalı — aksi halde `{ id, title, videoUrl }` gibi
+ * kayıtlar yanlışlıkla tek stringe indirgenir (`id` iki harfli olduğu için).
+ */
+export function looksLikeLocalizedText(v: unknown): v is LocalizedText {
+  if (!v || typeof v !== 'object' || Array.isArray(v)) return false
+  const entries = Object.entries(v as Record<string, unknown>)
+  if (entries.length === 0) return false
+  for (const [k, val] of entries) {
+    if (typeof val !== 'string') return false
+    if (!LOCALE_RE.test(k.trim())) return false
+  }
+  return true
+}
+
+/** Config ağacında gömülü `{ tr, en, … }` alanlarını locale'e göre stringleştirir. */
+export function resolveLocalizedDeep(v: unknown, locale: string): unknown {
+  if (looksLikeLocalizedText(v)) return pickLocalized(v, locale, '')
+  if (Array.isArray(v)) return v.map((item) => resolveLocalizedDeep(item, locale))
+  if (v && typeof v === 'object') {
+    const out: Record<string, unknown> = {}
+    for (const [k, val] of Object.entries(v as Record<string, unknown>)) {
+      out[k] = resolveLocalizedDeep(val, locale)
+    }
+    return out
+  }
+  return v
+}

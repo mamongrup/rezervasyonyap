@@ -72,10 +72,29 @@ function stemFromOriginalFilename(name: string): string {
 }
 
 /**
- * `site` klasöründeki sabit adlı marka varlıkları (logo, favicon) genel `site`
- * vitrin profilinden (cover, q60, vivid) ayrı işlenir — kalite ve oran korunur.
+ * Logo / favicon — genel `site` vitrin profilinden (cover, q60, vivid) ayrı:
+ * oran korunur, renk bozulmaz, kayıpsız kalite.
  */
-function siteBrandingUploadProfile(folder: string, fixedStem: string): FolderProfile | null {
+const LOGO_PROFILE: FolderProfile = {
+  width: 1600,
+  height: 800,
+  fit: 'inside',
+  vivid: false,
+  quality: 100,
+  effort: 6,
+  thumb: 0,
+  sharpen: false,
+}
+
+/**
+ * `site` klasöründeki marka ve partner logoları.
+ * `fixedStem` (brand-logo-*), `prefix=logo` veya `page-builder/partners/…` yolu.
+ */
+function siteBrandingUploadProfile(
+  folder: string,
+  fixedStem: string,
+  opts?: { prefix?: string; subSegments?: string[] },
+): FolderProfile | null {
   if (folder !== 'site') return null
   if (/favicon/i.test(fixedStem)) {
     return {
@@ -83,22 +102,18 @@ function siteBrandingUploadProfile(folder: string, fixedStem: string): FolderPro
       height: 512,
       fit: 'inside',
       vivid: false,
-      quality: 90,
+      quality: 100,
       effort: 6,
       thumb: 0,
+      sharpen: false,
     }
   }
-  if (/^brand-logo/i.test(fixedStem)) {
-    return {
-      width: 1200,
-      height: 400,
-      fit: 'inside',
-      vivid: false,
-      quality: 95,
-      effort: 6,
-      thumb: 0,
-    }
-  }
+  if (/^brand-logo/i.test(fixedStem)) return { ...LOGO_PROFILE }
+  const prefix = (opts?.prefix ?? '').toLowerCase()
+  const segs = opts?.subSegments ?? []
+  const isPartnerLogo =
+    prefix === 'logo' || segs.some((s) => s.toLowerCase() === 'partners')
+  if (isPartnerLogo) return { ...LOGO_PROFILE }
   return null
 }
 
@@ -151,6 +166,8 @@ type FolderProfile = {
   effort: number
   /** >0 ise aynı stem + `-thumb.avif` 1:1 kare üretilir (kart/grid önizleme) */
   thumb: number
+  /** false: logo/grafik — unsharp mask uygulanmaz (düz renklerde artefakt önlenir) */
+  sharpen?: boolean
 }
 
 /**
@@ -273,19 +290,23 @@ async function processImage(
 
   /**
    * Resize sonrası unsharp mask: küçültme işlemi görüntüyü hafifçe yumuşatır.
-   * sigma=0.8 (yarıçap ~1px), düz=0 (yalnızca kenar), flat=1 (düz alanlarda baskıla)
-   * — ince detay ve kenarları keskinleştirir, parazit eklemez.
+   * Logo/grafik profillerinde kapalı — düz renklerde hale/artefakt üretmesin.
    */
-  pipeline = pipeline.sharpen({ sigma: 0.8, m1: 0, m2: 1.5 })
+  if (profile.sharpen !== false) {
+    pipeline = pipeline.sharpen({ sigma: 0.8, m1: 0, m2: 1.5 })
+  }
 
   /**
    * quality ≥ 85 iken chroma subsampling 4:4:4 → daha doğru renk üretimi.
    * quality < 85 ise 4:2:0 (daha küçük dosya) varsayılanı kalır.
+   * quality 100: lossless AVIF (logo).
    */
   const chromaSubsampling = profile.quality >= 85 ? '4:4:4' : '4:2:0'
-  const output = await pipeline
-    .avif({ quality: profile.quality, effort: profile.effort, chromaSubsampling })
-    .toBuffer()
+  const avifOpts =
+    profile.quality >= 100
+      ? { lossless: true as const, effort: profile.effort }
+      : { quality: profile.quality, effort: profile.effort, chromaSubsampling }
+  const output = await pipeline.avif(avifOpts).toBuffer()
 
   /**
    * Thumbnail: kart/grid sayfalarında (listings, tours, events, …) ana görselin
@@ -419,7 +440,9 @@ export async function POST(req: NextRequest) {
       outputBuffer = rawBuffer
       ext = 'pdf'
     } else {
-      const profile = siteBrandingUploadProfile(folder, fixedStem) ?? await getProfile(folder)
+      const profile =
+        siteBrandingUploadProfile(folder, fixedStem, { prefix, subSegments }) ??
+        (await getProfile(folder))
       try {
         const result = await processImage(rawBuffer, profile, originalExt)
         outputBuffer = result.output

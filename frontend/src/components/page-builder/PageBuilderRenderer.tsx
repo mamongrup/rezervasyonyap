@@ -7,7 +7,7 @@ import { buildDefaultFeaturedRegionConfig } from '@/lib/featured-region-defaults
 import { resolveListingPriceUnit } from '@/lib/listing-category-display'
 import { getMessages } from '@/utils/getT'
 import { interpolate } from '@/utils/interpolate'
-import { pickLocalized, type LocalizedText } from '@/lib/localized-text'
+import { resolveLocalizedDeep } from '@/lib/localized-text'
 
 import HeroModule from './modules/HeroModule'
 import PromoBannerModule from './modules/PromoBannerModule'
@@ -197,38 +197,13 @@ export default async function PageBuilderRenderer({
     listingsBrowseHref ?? `${category.categoryRoute}/all`
   const enabled = [...modules].filter((m) => m.enabled).sort((a, b) => a.order - b.order)
 
-  // Metin alanları artık `{ tr: "...", en: "...", ... }` olarak saklanabilir.
-  // Modüller çoğunlukla string beklediği için burada locale'e göre çözüyoruz.
-  function looksLikeLocalizedText(v: unknown): v is LocalizedText {
-    if (!v || typeof v !== 'object' || Array.isArray(v)) return false
-    const entries = Object.entries(v as Record<string, unknown>)
-    if (entries.length === 0) return false
-    let ok = 0
-    for (const [k, val] of entries) {
-      if (typeof val !== 'string') return false
-      const code = k.trim().toLowerCase()
-      if (/^[a-z]{2}(-[a-z0-9]{1,8})?$/i.test(code)) ok += 1
-    }
-    return ok >= 1
-  }
-
-  function resolveLocalizedDeep(v: unknown): unknown {
-    if (looksLikeLocalizedText(v)) return pickLocalized(v, locale, '')
-    if (Array.isArray(v)) return v.map(resolveLocalizedDeep)
-    if (v && typeof v === 'object') {
-      const out: Record<string, unknown> = {}
-      for (const [k, val] of Object.entries(v as Record<string, unknown>)) {
-        out[k] = resolveLocalizedDeep(val)
-      }
-      return out
-    }
-    return v
-  }
-
+  // Metin alanları `{ tr: "...", en: "...", ... }` olarak saklanabilir.
+  // Modüller çoğunlukla string beklediği için locale'e göre çözülür.
+  // Dikkat: yalnızca *tüm* anahtarları locale olan nesneler metin sayılır;
+  // aksi halde video `{ id, title, videoUrl }` gibi kayıtlar yok olur.
   const enabledResolved: PageBuilderModule[] = enabled.map((m) => ({
     ...m,
-    // `resolveLocalizedDeep` stringleştirir; tip daraltması için union yapıyı koruyoruz.
-    config: resolveLocalizedDeep(m.config) as PageBuilderModule['config'],
+    config: resolveLocalizedDeep(m.config, locale) as PageBuilderModule['config'],
   })) as PageBuilderModule[]
   const needsCategoryThumbnails = enabled.some(
     (m) =>
