@@ -3,9 +3,36 @@ import { HOLIDAY_THEME_FILTER_FALLBACK } from '@/lib/holiday-theme-filter-fallba
 /** `listing_holiday_home_details.theme_codes` — snake_case kodlar */
 export const HOLIDAY_THEME_CODE_RE = /^[a-z][a-z0-9_]*$/i
 
+/**
+ * İçe aktarım / eski Bravo kodları → paneldeki kanonik tema kodları.
+ * Aynı anlamdaki yinelenen ikonları (deniz manzaralı ×2, havuz ×2, jakuzi ×2) önler.
+ */
+export const HOLIDAY_THEME_CODE_ALIASES: Record<string, string> = {
+  deniz_manzarali: 'sea_view',
+  deniz_manzarasi: 'sea_view',
+  ozel_havuzlu: 'pool',
+  ozel_havuz: 'pool',
+  private_pool: 'pool',
+  jakuzili: 'jacuzzi',
+  jakuzi: 'jacuzzi',
+  spa: 'jacuzzi',
+  genis_aile_evi: 'family',
+  kalabalik_aile: 'family',
+  denize_sifir: 'beachfront',
+  balayi_evi: 'honeymoon',
+  muhafazakar: 'conservative',
+}
+
 const KNOWN_CODES = new Set(
   HOLIDAY_THEME_FILTER_FALLBACK.map((r) => r.code.trim().toLowerCase()),
 )
+
+/** Alias veya kanonik kodu tek kanonik koda indirger. */
+export function canonicalizeHolidayThemeCode(code: string): string {
+  const k = String(code ?? '').trim().toLowerCase()
+  if (!k) return ''
+  return HOLIDAY_THEME_CODE_ALIASES[k] ?? k
+}
 
 function isThemeCode(s: string): boolean {
   return HOLIDAY_THEME_CODE_RE.test(s.trim())
@@ -102,7 +129,7 @@ export function parseHolidayThemeCodes(
 
   for (const token of tokens) {
     for (const code of expandHolidayThemeCodeToken(String(token ?? ''))) {
-      const key = code.trim().toLowerCase()
+      const key = canonicalizeHolidayThemeCode(code)
       if (!key || !isThemeCode(key) || seen.has(key)) continue
       seen.add(key)
       out.push(key)

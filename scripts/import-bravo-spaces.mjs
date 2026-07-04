@@ -60,18 +60,18 @@ const THEME_SLUG_TO_EN = {
 }
 
 const THEME_SLUG_TO_TEMA = {
-  'korunakli-villalar': 'muhafazakar',
-  'deniz-manzarali-villalar': 'deniz_manzarali',
-  'denize-sifir': 'denize_sifir',
-  'denize-sifir-villalar': 'denize_sifir',
+  'korunakli-villalar': 'conservative',
+  'deniz-manzarali-villalar': 'sea_view',
+  'denize-sifir': 'beachfront',
+  'denize-sifir-villalar': 'beachfront',
   'doga-icinde-villalar': 'nature',
   'luks-villalar': 'luxury',
-  'kalabalik-ailelere-uygun': 'genis_aile_evi',
-  'jakuzili-villalar': 'jakuzili',
-  'balayi-evi': 'balayi_evi',
+  'kalabalik-ailelere-uygun': 'family',
+  'jakuzili-villalar': 'jacuzzi',
+  'balayi-evi': 'honeymoon',
   'cocuk-havuzlu-villalar': 'child_friendly',
   'evcil-hayvan-dostu': 'pet_friendly',
-  'isitmali-havuzlu-villalar': 'ozel_havuzlu',
+  'isitmali-havuzlu-villalar': 'pool',
   'kampanyali-villalar': 'kampanyali',
 }
 

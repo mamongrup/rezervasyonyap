@@ -87,21 +87,13 @@ function parseDeposit(priceDetails = []) {
 }
 
 function buildThemes(amenities = [], description = '') {
-  const themes = new Set(['ozel_havuzlu', 'pool'])
+  // Yalnızca kanonik kodlar — deniz_manzarali / ozel_havuzlu / jakuzili eklenmez
+  const themes = new Set(['pool'])
   const hay = `${amenities.join(' ')} ${description}`.toLowerCase()
-  if (/deniz|sea|su kenar|waterfront|sıfır|sifir/.test(hay)) {
-    themes.add('sea_view')
-    themes.add('deniz_manzarali')
-  }
-  if (/jakuzi|jacuzzi|hot tub/.test(hay)) {
-    themes.add('jacuzzi')
-    themes.add('jakuzili')
-  }
+  if (/deniz|sea|su kenar|waterfront|sıfır|sifir/.test(hay)) themes.add('sea_view')
+  if (/jakuzi|jacuzzi|hot tub/.test(hay)) themes.add('jacuzzi')
   if (/sonsuzluk|infinity/.test(hay)) themes.add('luxury')
-  if (/aile|çocuk|cocuk|family/.test(hay)) {
-    themes.add('family')
-    themes.add('genis_aile_evi')
-  }
+  if (/aile|çocuk|cocuk|family/.test(hay)) themes.add('family')
   return [...themes]
 }
 

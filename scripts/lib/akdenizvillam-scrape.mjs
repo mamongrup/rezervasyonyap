@@ -341,16 +341,11 @@ function parseMinStay(html) {
 }
 
 function buildThemes(rental, htmlText) {
-  const themes = new Set(['sea_view', 'deniz_manzarali', 'ozel_havuzlu', 'pool'])
+  // Yalnızca kanonik kodlar (sea_view / pool / jacuzzi / family) — alias yok
+  const themes = new Set(['sea_view', 'pool'])
   const hay = `${rental?.description || ''} ${htmlText}`.toLowerCase()
-  if (/jakuzi/.test(hay)) {
-    themes.add('jacuzzi')
-    themes.add('jakuzili')
-  }
-  if (/kalabalık aile|aileler/.test(hay)) {
-    themes.add('family')
-    themes.add('genis_aile_evi')
-  }
+  if (/jakuzi/.test(hay)) themes.add('jacuzzi')
+  if (/kalabalık aile|aileler/.test(hay)) themes.add('family')
   if (/sauna/.test(hay)) themes.add('luxury')
   return [...themes]
 }
