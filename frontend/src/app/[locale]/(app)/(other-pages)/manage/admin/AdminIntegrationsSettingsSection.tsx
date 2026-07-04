@@ -10,6 +10,10 @@ import { formatManageApiCatch } from '@/lib/manage-api-error-tr'
 
 import React from 'react'
 import { getStoredAuthToken } from '@/lib/auth-storage'
+import {
+  fetchSiteSettingsFromPanel,
+  upsertSiteSettingFromPanel,
+} from '@/lib/travel-api'
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? ''
 
@@ -137,28 +141,28 @@ export default function AdminIntegrationsSettingsSection() {
   const [testResult, setTestResult] = React.useState<string | null>(null)
   const [testLoading, setTestLoading] = React.useState(false)
 
-  const token = getStoredAuthToken()
-
-  // Mevcut ayarları yükle
+  // Mevcut ayarları yükle — HttpOnly oturum çerezi (`/api/manage/site-settings`)
   React.useEffect(() => {
-    if (!token) return
-    fetch(`${API_BASE}/api/v1/site/settings?key=integrations`, {
-      headers: { Authorization: `Bearer ${token}` },
-    })
-      .then(async (r) => {
-        if (!r.ok) return
-        const data = await r.json()
+    let cancelled = false
+    fetchSiteSettingsFromPanel({ key: 'integrations', scope: 'platform' })
+      .then((data) => {
+        if (cancelled) return
         const row = Array.isArray(data.settings)
-          ? data.settings.find((s: { key: string }) => s.key === 'integrations')
+          ? data.settings.find((s) => s.key === 'integrations')
           : null
         if (row?.value_json) {
           const v = typeof row.value_json === 'string' ? JSON.parse(row.value_json) : row.value_json
-          setSettings((prev) => ({ ...prev, ...v }))
+          setSettings((prev) => ({ ...prev, ...(v as Partial<IntegrationSettings>) }))
         }
       })
       .catch(() => {})
-      .finally(() => setLoading(false))
-  }, [token])
+      .finally(() => {
+        if (!cancelled) setLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   const change = (k: keyof IntegrationSettings, v: string) => {
     setSettings((prev) => ({ ...prev, [k]: v }))
@@ -166,21 +170,15 @@ export default function AdminIntegrationsSettingsSection() {
   }
 
   const save = async () => {
-    if (!token) return
     setSaving(true)
     setMsg(null)
     const { value: siteUrl, strippedApiPath } = normalizeIntegrationSiteUrl(settings.site_url)
     const payload = { ...settings, site_url: siteUrl }
     try {
-      const res = await fetch(`${API_BASE}/api/v1/site/settings`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ key: 'integrations', value_json: JSON.stringify(payload) }),
+      await upsertSiteSettingFromPanel({
+        key: 'integrations',
+        value_json: JSON.stringify(payload),
       })
-      if (!res.ok) throw new Error(`HTTP ${res.status}`)
       setSettings(payload)
       setMsg({
         type: 'ok',
@@ -196,7 +194,12 @@ export default function AdminIntegrationsSettingsSection() {
   }
 
   const sendTestSms = async () => {
-    if (!token || !testPhone.trim()) return
+    if (!testPhone.trim()) return
+    const token = getStoredAuthToken()
+    if (!token) {
+      setTestResult('❌ Oturum bulunamadı. Çıkış yapıp yeniden giriş yapın.')
+      return
+    }
     setTestLoading(true)
     setTestResult(null)
     try {
