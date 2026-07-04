@@ -12,15 +12,8 @@ const PLAIN_PREVIEW_MAX = 520
 /** Tur bilgi bölümleri (Ücretli / Rehberlik vb.) için daha geniş eşik */
 export const HTML_PREVIEW_MAX_TOUR = 420
 
-function truncatePlainAtWord(plain: string, max: number): string {
-  const t = plain.trim()
-  if (t.length <= max) return t
-  const slice = t.slice(0, max)
-  const lastSpace = slice.lastIndexOf(' ')
-  const minBreak = Math.floor(max * 0.65)
-  const cut = lastSpace >= minBreak ? slice.slice(0, lastSpace) : slice
-  return `${cut.trimEnd()}…`
-}
+/** Kapalı önizlemede yaklaşık 8–9 satır; HTML paragraf boşlukları korunur. */
+const COLLAPSED_MAX_HEIGHT_CLASS = 'max-h-[14rem]'
 
 export default function ListingDescriptionExpandable({
   html,
@@ -44,8 +37,13 @@ export default function ListingDescriptionExpandable({
 
   if (!safeHtml.trim()) return null
 
+  // prose-sm (14px) karınca bacağı gibi kalıyordu; base + paragraf aralığı zorunlu.
   const prose =
-    'prose prose-sm max-w-none leading-relaxed text-neutral-700 dark:text-neutral-300 dark:prose-invert'
+    'prose prose-base max-w-none text-neutral-700 dark:text-neutral-300 dark:prose-invert ' +
+    'prose-p:my-3 prose-p:leading-relaxed prose-p:first:mt-0 prose-p:last:mb-0 ' +
+    'prose-ul:my-3 prose-ol:my-3 prose-li:my-1 prose-li:leading-relaxed ' +
+    'prose-strong:font-semibold prose-headings:font-semibold prose-headings:text-neutral-900 ' +
+    'dark:prose-headings:text-neutral-100'
 
   if (!needsClamp) {
     return <div className={prose} dangerouslySetInnerHTML={{ __html: safeHtml }} />
@@ -53,13 +51,22 @@ export default function ListingDescriptionExpandable({
 
   return (
     <div className="flex flex-col gap-6 sm:gap-8">
-      {expanded ? (
-        <div className={prose} dangerouslySetInnerHTML={{ __html: safeHtml }} />
-      ) : (
-        <p className="text-sm leading-relaxed text-neutral-700 dark:text-neutral-300">
-          {truncatePlainAtWord(plain, limit)}
-        </p>
-      )}
+      <div className="relative">
+        <div
+          className={
+            expanded
+              ? prose
+              : `${prose} ${COLLAPSED_MAX_HEIGHT_CLASS} overflow-hidden`
+          }
+          dangerouslySetInnerHTML={{ __html: safeHtml }}
+        />
+        {!expanded ? (
+          <div
+            aria-hidden
+            className="pointer-events-none absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-white to-transparent dark:from-neutral-900"
+          />
+        ) : null}
+      </div>
       <div className="w-14 border-b border-neutral-200 dark:border-neutral-700" />
       <div className="flex justify-center sm:justify-start">
         <ButtonSecondary
