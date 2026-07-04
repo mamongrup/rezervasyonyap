@@ -37,13 +37,16 @@ export default function ListingDescriptionExpandable({
 
   if (!safeHtml.trim()) return null
 
-  // prose-sm (14px) karınca bacağı gibi kalıyordu; base + paragraf aralığı zorunlu.
+  // Site genelindeki eski gövde boyutu (prose-sm). SEO hiyerarşisi h2/h3 ile gelir.
   const prose =
-    'prose prose-base max-w-none text-neutral-700 dark:text-neutral-300 dark:prose-invert ' +
+    'prose prose-sm max-w-none text-neutral-700 dark:text-neutral-300 dark:prose-invert ' +
     'prose-p:my-3 prose-p:leading-relaxed prose-p:first:mt-0 prose-p:last:mb-0 ' +
     'prose-ul:my-3 prose-ol:my-3 prose-li:my-1 prose-li:leading-relaxed ' +
-    'prose-strong:font-semibold prose-headings:font-semibold prose-headings:text-neutral-900 ' +
-    'dark:prose-headings:text-neutral-100'
+    'prose-strong:font-semibold prose-strong:text-neutral-900 dark:prose-strong:text-neutral-100 ' +
+    'prose-headings:font-semibold prose-headings:text-neutral-900 dark:prose-headings:text-neutral-100 ' +
+    'prose-h2:mb-3 prose-h2:mt-0 prose-h2:text-xl prose-h2:leading-snug ' +
+    'prose-h3:mb-2 prose-h3:mt-5 prose-h3:text-base prose-h3:leading-snug ' +
+    'prose-h4:mb-2 prose-h4:mt-4 prose-h4:text-sm'
 
   if (!needsClamp) {
     return <div className={prose} dangerouslySetInnerHTML={{ __html: safeHtml }} />

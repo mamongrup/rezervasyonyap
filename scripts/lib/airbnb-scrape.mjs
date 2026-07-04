@@ -3,7 +3,7 @@
  */
 
 import { formatHolidayHomeTitleTr, slugifyHolidayHomeName } from './villa-title-tr.mjs'
-import { plainTextToHtmlParagraphs } from './text-to-html.mjs'
+import { plainTextToHtmlParagraphs, toSeoListingDescriptionHtml } from './text-to-html.mjs'
 
 const AIRBNB_API_KEY = process.env.AIRBNB_API_KEY || 'd306zoyjsyarp7ifhu67rjxn52tv0t20'
 
@@ -62,13 +62,13 @@ function parseCheckTime(raw, fallback = '16:00') {
  * paragraflar). Diğer alanları (`space`, `access`, `notes`…) ayrıca eklemek
  * aynı metni tekrar tekrar üretir; bu yüzden tek kaynak olarak kullanılır.
  */
-function buildDescription(sd = {}) {
+function buildDescription(sd = {}, title = '') {
   const raw = String(sd.description || sd.summary || '')
     .replace(/<br\s*\/?>/gi, '\n')
     .replace(/<[^>]+>/g, '')
     .replace(/\r/g, '')
     .trim()
-  return plainTextToHtmlParagraphs(raw)
+  return toSeoListingDescriptionHtml(plainTextToHtmlParagraphs(raw), { title })
 }
 
 function photoUrl(photo) {
@@ -181,10 +181,10 @@ export function parseAirbnbPdp(detail, sourceUrl) {
   const maxGuests =
     detail.guest_controls?.person_capacity || parseCountLabel(detail.guest_label) || 0
   const damageDeposit = parseDeposit(detail.price_details)
-  const description = buildDescription(sd)
   const cleanName = cleanAirbnbTitle(detail.p3_summary_title || sd.name || `Villa ${roomId}`)
   const propertyType = 'villa'
   const title = formatHolidayHomeTitleTr(cleanName, propertyType)
+  const description = buildDescription(sd, title)
   const slug = slugifyHolidayHomeName(title, propertyType)
   const checkInTime = parseCheckTime(detail.localized_check_in_time_window, '16:00')
   const checkOutTime = parseCheckTime(detail.localized_check_out_time, '10:00')

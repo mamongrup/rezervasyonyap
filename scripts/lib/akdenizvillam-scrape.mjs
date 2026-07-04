@@ -4,7 +4,7 @@
 
 import { formatHolidayHomeTitleTr, slugifyHolidayHomeName } from './villa-title-tr.mjs'
 import { buildCalendarDays, parseAvailabilityBookings } from './akdenizvillam-calendar.mjs'
-import { plainTextToHtmlParagraphs } from './text-to-html.mjs'
+import { plainTextToHtmlParagraphs, toSeoListingDescriptionHtml } from './text-to-html.mjs'
 
 const MONTHS = {
   oca: 1,
@@ -152,18 +152,22 @@ function extractRichTextContentHtml(html) {
   return inner.trim()
 }
 
-function parseDescription(html) {
+function parseDescription(html, title = '', subtitle = '') {
+  const opts = { title, subtitle }
   const rich = extractRichTextContentHtml(html)
-  if (rich) return rich
+  if (rich) return toSeoListingDescriptionHtml(rich, opts)
 
   const start = html.indexOf('Öne Çıkanlar')
   const end = html.indexOf('Yakındaki Villalar', start)
   if (start < 0) {
     const og = html.match(/meta name="description" content="([^"]+)"/)
-    return plainTextToHtmlParagraphs(og?.[1]?.trim() || '')
+    return toSeoListingDescriptionHtml(plainTextToHtmlParagraphs(og?.[1]?.trim() || ''), opts)
   }
   const block = stripTags(html.slice(start, end > 0 ? end : start + 15000))
-  return plainTextToHtmlParagraphs(block.replace(/^Öne Çıkanlar\s*/u, '').trim())
+  return toSeoListingDescriptionHtml(
+    plainTextToHtmlParagraphs(block.replace(/^Öne Çıkanlar\s*/u, '').trim()),
+    opts,
+  )
 }
 
 function parsePoolMetric(raw) {
@@ -384,7 +388,13 @@ export function parseAkdenizvillamVillaPage(html, sourceUrl) {
   if (!rental) throw new Error('JSON-LD VacationRental bulunamadı')
 
   const acc = rental.containsPlace || {}
-  const description = parseDescription(html)
+  const propertyType = 'villa'
+  const title = formatHolidayHomeTitleTr(
+    (rental.name || product?.name || 'Villa').replace(/\s*\|.*$/, '').trim(),
+    propertyType,
+  )
+  const subtitle = stripTags(html.match(/<h3[^>]*>([^<]*Havuzlu[^<]*)<\/h3>/i)?.[1] || '')
+  const description = parseDescription(html, title, subtitle)
   const fees = parseFees(html)
   const poolInfo = parsePoolInfo(html, description)
   const { pools, poolDims, poolSizeLabel } = poolInfo
@@ -403,15 +413,12 @@ export function parseAkdenizvillamVillaPage(html, sourceUrl) {
       ? Math.min(...seasonal.map((b) => b.baseNightly))
       : lowPrice
 
-  const propertyType = 'villa'
-  const title = formatHolidayHomeTitleTr(rental.name || 'Villa', propertyType)
-
   return {
     sourceUrl,
     externalRef: String(rental.identifier || product?.sku || slugFromUrl(sourceUrl)),
     slug: slugifyHolidayHomeName(title, propertyType),
     title,
-    subtitle: stripTags(html.match(/<h3[^>]*>([^<]*Havuzlu[^<]*)<\/h3>/i)?.[1] || ''),
+    subtitle,
     description,
     shortDescription: plainTextToHtmlParagraphs(rental.description || ''),
     galleryUrls: uniqueImages(rental),
