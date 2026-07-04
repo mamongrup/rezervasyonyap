@@ -4826,6 +4826,9 @@ export async function paratikaSessionToken(input: {
 
 export type SocialNetwork = 'instagram' | 'facebook' | 'twitter' | 'pinterest'
 
+/** Story/Reel şimdilik yalnız Instagram üzerinden desteklenir (bkz. social-video-generate). */
+export type SocialPostType = 'feed' | 'story' | 'reel'
+
 export type SocialTemplate = {
   id: string
   network: string
@@ -4914,6 +4917,7 @@ export type SocialShareJob = {
   entity_type: string
   entity_id: string
   network?: string
+  post_type?: SocialPostType
   template_id: string | null
   status: string
   caption_ai_generated: string | null
@@ -4931,6 +4935,7 @@ export type SocialWorkerProcessResult = {
   results?: Array<{
     ok: boolean
     network: string
+    post_type?: SocialPostType
     job_id: string
     post_id?: string
     error?: string
@@ -4981,6 +4986,7 @@ export async function createSocialJob(
     entity_type: string
     entity_id: string
     network?: SocialNetwork
+    post_type?: SocialPostType
     template_id?: string
     image_keys: string[]
     caption_ai_generated?: string

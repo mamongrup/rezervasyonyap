@@ -6,6 +6,7 @@
 import { getPublicSiteUrl } from '@/lib/site-branding-seo'
 import { preferListingGalleryFullAsset } from '@/lib/listing-gallery-display-url'
 import { buildListingOgImageUrl } from '@/lib/social-share/listing-og-image-url'
+import { generateAndStoreListingReelVideo } from '@/lib/social-video-generate'
 
 const FB_GRAPH = 'https://graph.facebook.com/v18.0'
 const PINTEREST_API = 'https://api.pinterest.com/v5/pins'
@@ -43,6 +44,8 @@ export interface SocialApiSettings {
   }
 }
 
+export type SocialPostType = 'feed' | 'story' | 'reel'
+
 export interface PendingSocialJob {
   id: string
   network: string
@@ -55,6 +58,7 @@ export interface PendingSocialJob {
   listing_slug: string
   category_code: string
   template_body?: string | null
+  post_type?: SocialPostType
 }
 
 export function listingPublicUrl(categoryCode: string, slug: string): string {
@@ -241,29 +245,26 @@ async function resolveFacebookPageAccessToken(pageId: string, token: string): Pr
   const raw = token.trim()
   if (!pageId || !raw) throw new Error('facebook_not_configured')
 
-  // Page Access Token validates on the page node directly (/me may fail or return a user id).
-  const pageRes = await fetch(
-    `${FB_GRAPH}/${encodeURIComponent(pageId)}?fields=id,name&access_token=${encodeURIComponent(raw)}`,
+  // 1) En güvenilir yol: sayfa node'undan `access_token` alanını iste. Bu, klasik
+  //    "Page Role" (kullanıcı sayfada admin/editör) olmadan Business Manager/asset
+  //    bazlı izinle verilmiş User Access Token'lar için de çalışır — `/me/accounts`
+  //    bu durumda boş dizi döndürebilir çünkü kullanıcı sayfada kişisel bir role sahip
+  //    olmayabilir (sayfa yalnızca app/business varlığı olarak bağlıdır).
+  //    NOT: `/{pageId}?fields=id,name` sorgusu HERHANGİ bir token ile (hatta salt genel
+  //    okuma izniyle) başarılı olur çünkü sayfa adı/id genel alanlardır — bu nedenle o
+  //    kontrol tek başına "bu zaten geçerli bir Page Token" anlamına gelmez ve artık
+  //    yalnızca son çare olarak kullanılıyor (aşağıda).
+  const exchangeRes = await fetch(
+    `${FB_GRAPH}/${encodeURIComponent(pageId)}?fields=access_token&access_token=${encodeURIComponent(raw)}`,
     { cache: 'no-store' },
   )
-  const pageData = (await pageRes.json().catch(() => ({}))) as {
-    id?: string
+  const exchangeData = (await exchangeRes.json().catch(() => ({}))) as {
+    access_token?: string
     error?: { message?: string }
   }
-  if (pageRes.ok && pageData.id === pageId) return raw
+  if (exchangeRes.ok && exchangeData.access_token) return exchangeData.access_token.trim()
 
-  const meRes = await fetch(`${FB_GRAPH}/me?fields=id,name&access_token=${encodeURIComponent(raw)}`, {
-    cache: 'no-store',
-  })
-  const me = (await meRes.json().catch(() => ({}))) as {
-    id?: string
-    error?: { message?: string }
-  }
-  if (!meRes.ok || me.error) {
-    throw new Error(pageData.error?.message ?? me.error?.message ?? 'facebook_page_token_required')
-  }
-  if (me.id === pageId) return raw
-
+  // 2) Klasik Page Role listesi (kullanıcı sayfada admin/editör ise burada görünür).
   const accountsRes = await fetch(
     `${FB_GRAPH}/me/accounts?fields=id,name,access_token&access_token=${encodeURIComponent(raw)}`,
     { cache: 'no-store' },
@@ -272,15 +273,25 @@ async function resolveFacebookPageAccessToken(pageId: string, token: string): Pr
     data?: Array<{ id?: string; access_token?: string }>
     error?: { message?: string }
   }
-  if (!accountsRes.ok || accounts.error) {
-    throw new Error(accounts.error?.message ?? 'facebook_page_token_required')
+  if (accountsRes.ok && !accounts.error) {
+    const pageToken = accounts.data?.find((p) => p.id === pageId)?.access_token?.trim()
+    if (pageToken) return pageToken
   }
 
-  const pageToken = accounts.data?.find((p) => p.id === pageId)?.access_token?.trim()
-  if (!pageToken) {
-    throw new Error('facebook_page_token_required')
-  }
-  return pageToken
+  // 3) Son çare: token zaten bir Page Access Token olabilir (eski kurulumlar).
+  const pageRes = await fetch(
+    `${FB_GRAPH}/${encodeURIComponent(pageId)}?fields=id&access_token=${encodeURIComponent(raw)}`,
+    { cache: 'no-store' },
+  )
+  const pageData = (await pageRes.json().catch(() => ({}))) as { id?: string; error?: { message?: string } }
+  if (pageRes.ok && pageData.id === pageId) return raw
+
+  throw new Error(
+    exchangeData.error?.message ??
+      accounts.error?.message ??
+      pageData.error?.message ??
+      'facebook_page_token_required',
+  )
 }
 
 export async function fetchPendingSocialJobs(
@@ -498,6 +509,104 @@ async function postInstagramSingle(
   return pubData.id ?? createData.id ?? ''
 }
 
+/** Container 'FINISHED' olana kadar bekler (video işleme değişken sürer). */
+async function pollMediaContainerReady(
+  containerId: string,
+  token: string,
+  maxWaitMs: number,
+  intervalMs: number,
+): Promise<void> {
+  const deadline = Date.now() + maxWaitMs
+  while (Date.now() < deadline) {
+    const res = await fetch(
+      `${FB_GRAPH}/${encodeURIComponent(containerId)}?fields=status_code&access_token=${encodeURIComponent(token)}`,
+      { cache: 'no-store' },
+    )
+    const data = (await res.json().catch(() => ({}))) as {
+      status_code?: string
+      error?: { message: string }
+    }
+    if (!res.ok || data.error) {
+      throw new Error(data.error?.message ?? `ig_container_status_${res.status}`)
+    }
+    if (data.status_code === 'FINISHED') return
+    if (data.status_code === 'ERROR') throw new Error('ig_media_processing_error')
+    if (data.status_code === 'EXPIRED') throw new Error('ig_media_expired')
+    await sleep(intervalMs)
+  }
+  throw new Error('ig_media_processing_timeout')
+}
+
+async function postInstagramStory(igId: string, token: string, imageUrl: string): Promise<string> {
+  const createRes = await fetch(`${FB_GRAPH}/${encodeURIComponent(igId)}/media`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      image_url: imageUrl,
+      media_type: 'STORIES',
+      access_token: token,
+    }),
+  })
+  const createData = (await createRes.json()) as { id?: string; error?: { message: string } }
+  if (!createRes.ok || createData.error || !createData.id) {
+    throw new Error(createData.error?.message ?? `ig_story_media_${createRes.status}`)
+  }
+
+  await pollMediaContainerReady(createData.id, token, 30000, 3000)
+
+  const pubRes = await fetch(`${FB_GRAPH}/${encodeURIComponent(igId)}/media_publish`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ creation_id: createData.id, access_token: token }),
+  })
+  const pubData = (await pubRes.json()) as { id?: string; error?: { message: string } }
+  if (!pubRes.ok || pubData.error) {
+    throw new Error(pubData.error?.message ?? `ig_story_publish_${pubRes.status}`)
+  }
+  return pubData.id ?? createData.id ?? ''
+}
+
+async function postInstagramReel(
+  igId: string,
+  token: string,
+  caption: string,
+  videoUrl: string,
+  coverUrl?: string,
+): Promise<string> {
+  const payload: Record<string, unknown> = {
+    media_type: 'REELS',
+    video_url: videoUrl,
+    caption,
+    share_to_feed: true,
+    access_token: token,
+  }
+  if (coverUrl) payload.cover_url = coverUrl
+
+  const createRes = await fetch(`${FB_GRAPH}/${encodeURIComponent(igId)}/media`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  })
+  const createData = (await createRes.json()) as { id?: string; error?: { message: string } }
+  if (!createRes.ok || createData.error || !createData.id) {
+    throw new Error(createData.error?.message ?? `ig_reel_media_${createRes.status}`)
+  }
+
+  // Video işleme feed görsellerinden çok daha uzun sürebilir.
+  await pollMediaContainerReady(createData.id, token, 150000, 5000)
+
+  const pubRes = await fetch(`${FB_GRAPH}/${encodeURIComponent(igId)}/media_publish`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ creation_id: createData.id, access_token: token }),
+  })
+  const pubData = (await pubRes.json()) as { id?: string; error?: { message: string } }
+  if (!pubRes.ok || pubData.error) {
+    throw new Error(pubData.error?.message ?? `ig_reel_publish_${pubRes.status}`)
+  }
+  return pubData.id ?? createData.id ?? ''
+}
+
 async function postInstagram(
   meta: NonNullable<SocialApiSettings['meta']>,
   caption: string,
@@ -620,7 +729,14 @@ export async function processOneSocialJob(
   job: PendingSocialJob,
   socialApi: SocialApiSettings,
   siteUrl: string,
-): Promise<{ ok: boolean; network: string; job_id: string; post_id?: string; error?: string }> {
+): Promise<{
+  ok: boolean
+  network: string
+  post_type?: SocialPostType
+  job_id: string
+  post_id?: string
+  error?: string
+}> {
   const pageUrl = listingPublicUrl(job.category_code, job.listing_slug)
 
   const cachedCaption = (job.caption_ai_generated ?? '').trim()
@@ -669,10 +785,33 @@ export async function processOneSocialJob(
       case 'facebook':
         postId = await postFacebook(socialApi.meta ?? {}, caption, pageUrl, metaPostImageUrls)
         break
-      case 'instagram':
-        if (metaPostImageUrls.length === 0) throw new Error('instagram_image_required')
-        postId = await postInstagram(socialApi.meta ?? {}, caption, metaPostImageUrls)
+      case 'instagram': {
+        const meta = socialApi.meta ?? {}
+        if (job.post_type === 'story') {
+          if (metaPostImageUrls.length === 0) throw new Error('instagram_image_required')
+          const igId = meta.instagram_account_id?.trim()
+          const pageId = meta.page_id?.trim()
+          const rawToken = meta.page_access_token?.trim()
+          if (!igId || !pageId || !rawToken) throw new Error('instagram_not_configured')
+          const pageToken = await resolveFacebookPageAccessToken(pageId, rawToken)
+          postId = await postInstagramStory(igId, pageToken, metaPostImageUrls[0])
+        } else if (job.post_type === 'reel') {
+          // Slayt videosu için gerçek galeri fotoğrafları (kare kırpılmamış) kullanılır.
+          const reelSourceUrls = imageUrls.length > 0 ? imageUrls : metaPostImageUrls
+          if (reelSourceUrls.length === 0) throw new Error('instagram_reel_images_required')
+          const igId = meta.instagram_account_id?.trim()
+          const pageId = meta.page_id?.trim()
+          const rawToken = meta.page_access_token?.trim()
+          if (!igId || !pageId || !rawToken) throw new Error('instagram_not_configured')
+          const pageToken = await resolveFacebookPageAccessToken(pageId, rawToken)
+          const videoUrl = await generateAndStoreListingReelVideo(siteUrl, job.listing_slug, reelSourceUrls)
+          postId = await postInstagramReel(igId, pageToken, caption, videoUrl, metaPostImageUrls[0])
+        } else {
+          if (metaPostImageUrls.length === 0) throw new Error('instagram_image_required')
+          postId = await postInstagram(meta, caption, metaPostImageUrls)
+        }
         break
+      }
       case 'pinterest':
         if (postImageUrls.length === 0) throw new Error('pinterest_image_required')
         postId = await postPinterest(
@@ -692,12 +831,12 @@ export async function processOneSocialJob(
       external_post_id: postId,
       caption_ai_generated: caption,
     })
-    return { ok: true, network: job.network, job_id: job.id, post_id: postId }
+    return { ok: true, network: job.network, post_type: job.post_type, job_id: job.id, post_id: postId }
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e)
     if (isMetaRateLimitError(msg)) {
       // Leave job pending — Meta throttled us; retry later instead of marking failed.
-      return { ok: false, network: job.network, job_id: job.id, error: msg }
+      return { ok: false, network: job.network, post_type: job.post_type, job_id: job.id, error: msg }
     }
     try {
       await patchSocialJob(apiOrigin, secret, job.id, {
@@ -708,7 +847,7 @@ export async function processOneSocialJob(
     } catch {
       /* patch failure logged upstream */
     }
-    return { ok: false, network: job.network, job_id: job.id, error: msg }
+    return { ok: false, network: job.network, post_type: job.post_type, job_id: job.id, error: msg }
   }
 }
 
@@ -753,7 +892,14 @@ export async function processPendingSocialJobs(options?: {
   processed: number
   posted: number
   failed: number
-  results: Array<{ ok: boolean; network: string; job_id: string; post_id?: string; error?: string }>
+  results: Array<{
+    ok: boolean
+    network: string
+    post_type?: SocialPostType
+    job_id: string
+    post_id?: string
+    error?: string
+  }>
 }> {
   const apiOrigin =
     options?.apiOrigin ??

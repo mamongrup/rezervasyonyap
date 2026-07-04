@@ -38,6 +38,21 @@ fn valid_network(n: String) -> Bool {
   list.contains(networks, x)
 }
 
+const post_types: List(String) = ["feed", "story", "reel"]
+
+fn valid_post_type(n: String) -> Bool {
+  let x = string.lowercase(string.trim(n))
+  list.contains(post_types, x)
+}
+
+/// Story/Reel şimdilik yalnız Instagram Graph API üzerinden destekleniyor.
+fn post_type_allowed_for_network(post_type: String, network: String) -> Bool {
+  case string.lowercase(string.trim(post_type)) {
+    "feed" -> True
+    _ -> string.lowercase(string.trim(network)) == "instagram"
+  }
+}
+
 fn template_row_full() -> decode.Decoder(#(String, String, String, String, String)) {
   use id <- decode.field(0, decode.string)
   use net <- decode.field(1, decode.string)
@@ -317,7 +332,9 @@ pub fn create_template(req: Request, ctx: Context) -> Response {
 }
 
 fn job_row() ->
-  decode.Decoder(#(String, String, String, String, String, String, String, String, String, String)) {
+  decode.Decoder(
+    #(String, String, String, String, String, String, String, String, String, String, String),
+  ) {
   use id <- decode.field(0, decode.string)
   use et <- decode.field(1, decode.string)
   use eid <- decode.field(2, decode.string)
@@ -328,13 +345,14 @@ fn job_row() ->
   use imgs <- decode.field(7, decode.string)
   use err <- decode.field(8, decode.string)
   use created <- decode.field(9, decode.string)
-  decode.success(#(id, et, eid, net, tid, status, cap, imgs, err, created))
+  use post_type <- decode.field(10, decode.string)
+  decode.success(#(id, et, eid, net, tid, status, cap, imgs, err, created, post_type))
 }
 
 fn job_to_json(
-  row: #(String, String, String, String, String, String, String, String, String, String),
+  row: #(String, String, String, String, String, String, String, String, String, String, String),
 ) -> json.Json {
-  let #(id, et, eid, net, tid, status, cap, imgs, err, created) = row
+  let #(id, et, eid, net, tid, status, cap, imgs, err, created, post_type) = row
   let template_field = case tid == "" {
     True -> json.null()
     False -> json.string(tid)
@@ -362,6 +380,7 @@ fn job_to_json(
     #("error_message", err_field),
     #("image_keys", json.array(from: img_list, of: json.string)),
     #("created_at", json.string(created)),
+    #("post_type", json.string(post_type)),
   ])
 }
 
@@ -402,7 +421,7 @@ fn list_jobs_inner(req: Request, ctx: Context) -> Response {
     Error(_) -> 50
   }
   let sel =
-    "select id::text, entity_type, entity_id::text, network::text, coalesce(template_id::text, ''), status::text, coalesce(caption_ai_generated, ''), coalesce(array_to_string(image_keys, chr(31)), ''), coalesce(error_message, ''), created_at::text from social_share_jobs "
+    "select id::text, entity_type, entity_id::text, network::text, coalesce(template_id::text, ''), status::text, coalesce(caption_ai_generated, ''), coalesce(array_to_string(image_keys, chr(31)), ''), coalesce(error_message, ''), created_at::text, post_type::text from social_share_jobs "
   case status_filter == "" {
     True ->
       case
@@ -435,7 +454,9 @@ fn list_jobs_inner(req: Request, ctx: Context) -> Response {
 }
 
 fn jobs_response(
-  rows: List(#(String, String, String, String, String, String, String, String, String, String)),
+  rows: List(
+    #(String, String, String, String, String, String, String, String, String, String, String),
+  ),
 ) -> Response {
   let arr = list.map(rows, job_to_json)
   let body =
@@ -445,7 +466,9 @@ fn jobs_response(
 }
 
 fn create_job_decoder() ->
-  decode.Decoder(#(String, String, String, Option(String), List(String), Option(String))) {
+  decode.Decoder(
+    #(String, String, String, Option(String), List(String), Option(String), String),
+  ) {
   decode.field("entity_type", decode.string, fn(entity_type) {
     decode.field("entity_id", decode.string, fn(entity_id) {
       decode.optional_field("network", "facebook", decode.string, fn(network) {
@@ -456,22 +479,30 @@ fn create_job_decoder() ->
               "",
               decode.string,
               fn(cap) {
-                let tid = case string.trim(tpl) == "" {
-                  True -> None
-                  False -> Some(string.trim(tpl))
-                }
-                let cap_opt = case string.trim(cap) == "" {
-                  True -> None
-                  False -> Some(string.trim(cap))
-                }
-                decode.success(#(
-                  entity_type,
-                  entity_id,
-                  network,
-                  tid,
-                  image_keys,
-                  cap_opt,
-                ))
+                decode.optional_field(
+                  "post_type",
+                  "feed",
+                  decode.string,
+                  fn(post_type) {
+                    let tid = case string.trim(tpl) == "" {
+                      True -> None
+                      False -> Some(string.trim(tpl))
+                    }
+                    let cap_opt = case string.trim(cap) == "" {
+                      True -> None
+                      False -> Some(string.trim(cap))
+                    }
+                    decode.success(#(
+                      entity_type,
+                      entity_id,
+                      network,
+                      tid,
+                      image_keys,
+                      cap_opt,
+                      post_type,
+                    ))
+                  },
+                )
               },
             )
           })
@@ -495,14 +526,29 @@ pub fn create_job(req: Request, ctx: Context) -> Response {
             Ok(body) ->
               case json.parse(body, create_job_decoder()) {
                 Error(_) -> json_err(400, "invalid_json")
-                Ok(#(entity_type, entity_id, network_raw, template_id, image_keys, caption_opt)) -> {
+                Ok(#(
+                  entity_type,
+                  entity_id,
+                  network_raw,
+                  template_id,
+                  image_keys,
+                  caption_opt,
+                  post_type_raw,
+                )) -> {
                   let network = string.lowercase(string.trim(network_raw))
+                  let post_type = string.lowercase(string.trim(post_type_raw))
                   case string.trim(entity_type) == "" || string.trim(entity_id) == "" {
                     True -> json_err(400, "entity_required")
                     False ->
                       case valid_network(network) {
                         False -> json_err(400, "invalid_network")
                         True ->
+                          case valid_post_type(post_type) {
+                            False -> json_err(400, "invalid_post_type")
+                            True ->
+                              case post_type_allowed_for_network(post_type, network) {
+                                False -> json_err(400, "post_type_unsupported_for_network")
+                                True ->
                           case list.is_empty(image_keys) {
                             True -> json_err(400, "image_keys_required")
                             False -> {
@@ -521,11 +567,11 @@ pub fn create_job(req: Request, ctx: Context) -> Response {
                                   <> "template_id = $4::uuid, image_keys = $5::text[], "
                                   <> "caption_ai_generated = $6, error_message = null "
                                   <> "where entity_type = trim($1::text) and entity_id = $2::uuid "
-                                  <> "and network = $3 and status = 'pending' "
+                                  <> "and network = $3 and post_type = $7 and status = 'pending' "
                                   <> "returning id::text "
                                   <> "), inserted as ( "
-                                  <> "insert into social_share_jobs (entity_type, entity_id, network, template_id, image_keys, caption_ai_generated) "
-                                  <> "select trim($1::text), $2::uuid, $3, $4::uuid, $5::text[], $6 "
+                                  <> "insert into social_share_jobs (entity_type, entity_id, network, template_id, image_keys, caption_ai_generated, post_type) "
+                                  <> "select trim($1::text), $2::uuid, $3, $4::uuid, $5::text[], $6, $7 "
                                   <> "where not exists (select 1 from existing) returning id::text "
                                   <> ") select id from existing union all select id from inserted limit 1",
                                 )
@@ -535,6 +581,7 @@ pub fn create_job(req: Request, ctx: Context) -> Response {
                                 |> pog.parameter(tpl_param)
                                 |> pog.parameter(pog.array(pog.text, image_keys))
                                 |> pog.parameter(cap_param)
+                                |> pog.parameter(pog.text(post_type))
                                 |> pog.returning(row_dec.col0_string())
                                 |> db_exec.execute(ctx.db)
                               {
@@ -553,6 +600,8 @@ pub fn create_job(req: Request, ctx: Context) -> Response {
                                     _ -> json_err(500, "unexpected_return")
                                   }
                               }
+                            }
+                          }
                             }
                           }
                       }

@@ -82,7 +82,9 @@ fn fetch_social_api_json(db: pog.Connection) -> String {
 }
 
 fn pending_job_row() ->
-  decode.Decoder(#(String, String, String, String, String, Bool, String, String, String, String)) {
+  decode.Decoder(
+    #(String, String, String, String, String, Bool, String, String, String, String, String),
+  ) {
   use id <- decode.field(0, decode.string)
   use net <- decode.field(1, decode.string)
   use eid <- decode.field(2, decode.string)
@@ -93,13 +95,14 @@ fn pending_job_row() ->
   use slug <- decode.field(7, decode.string)
   use cat <- decode.field(8, decode.string)
   use tpl <- decode.field(9, decode.string)
-  decode.success(#(id, net, eid, imgs, cap, allow_ai, title, slug, cat, tpl))
+  use post_type <- decode.field(10, decode.string)
+  decode.success(#(id, net, eid, imgs, cap, allow_ai, title, slug, cat, tpl, post_type))
 }
 
 fn pending_job_json(
-  row: #(String, String, String, String, String, Bool, String, String, String, String),
+  row: #(String, String, String, String, String, Bool, String, String, String, String, String),
 ) -> json.Json {
-  let #(id, net, eid, imgs, cap, allow_ai, title, slug, cat, tpl) = row
+  let #(id, net, eid, imgs, cap, allow_ai, title, slug, cat, tpl, post_type) = row
   let img_list =
     string.split(imgs, "\u{001F}")
     |> list.map(string.trim)
@@ -120,6 +123,7 @@ fn pending_job_json(
     #("listing_slug", json.string(slug)),
     #("category_code", json.string(cat)),
     #("template_body", json.string(tpl)),
+    #("post_type", json.string(post_type)),
   ])
 }
 
@@ -241,7 +245,8 @@ pub fn get_worker_pending(req: Request, ctx: Context) -> Response {
           <> "coalesce((select lt.title from listing_translations lt "
           <> "inner join locales loc on loc.id = lt.locale_id "
           <> "where lt.listing_id = l.id and lower(loc.code) = 'tr' limit 1), ''), "
-          <> "l.slug::text, coalesce(pc.code::text, ''), coalesce(t.template_body, '') "
+          <> "l.slug::text, coalesce(pc.code::text, ''), coalesce(t.template_body, ''), "
+          <> "j.post_type::text "
           <> "from social_share_jobs j "
           <> "inner join listings l on l.id = j.entity_id and j.entity_type = 'listing' "
           <> "inner join product_categories pc on pc.id = l.category_id "

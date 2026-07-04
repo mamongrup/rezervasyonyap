@@ -13,6 +13,7 @@ import {
   processSocialPendingJobs,
   type ManageListingRow,
   type SocialNetwork,
+  type SocialPostType,
   type SocialShareJob,
   type SocialTemplate,
 } from '@/lib/travel-api'
@@ -77,6 +78,13 @@ const SOCIAL_CATEGORIES = [
 const SOCIAL_NETWORKS: Array<{ code: SocialNetwork; label: string }> = [
   { code: 'facebook', label: 'Facebook' },
   { code: 'instagram', label: 'Instagram' },
+]
+
+// Story/Reel şimdilik yalnız Instagram Graph API üzerinden desteklenir (bkz. social-auto-post.ts).
+const SOCIAL_POST_TYPE_OPTIONS: Array<{ code: SocialPostType; label: string; hint: string }> = [
+  { code: 'feed', label: 'Gönderi', hint: 'Klasik akış paylaşımı (Facebook + Instagram)' },
+  { code: 'story', label: 'Story', hint: 'Sadece Instagram — kapak görseli 24 saatlik story olarak paylaşılır' },
+  { code: 'reel', label: 'Reels', hint: 'Sadece Instagram — ilan fotoğraflarından otomatik 9:16 slayt videosu üretilir' },
 ]
 
 const DEFAULT_TEMPLATE_BODY =
@@ -364,6 +372,7 @@ function SocialCampaignPlanner({ onQueued }: { onQueued: () => void }) {
   const [templateName, setTemplateName] = useState('Kategori kampanya şablonu')
   const [templateBody, setTemplateBody] = useState(DEFAULT_TEMPLATE_BODY)
   const [coverMode, setCoverMode] = useState<SocialCoverMode>('free')
+  const [postType, setPostType] = useState<SocialPostType>('feed')
   const [imageQuality, setImageQuality] = useState<SocialImageQuality>('medium')
   const [designTheme, setDesignTheme] = useState<SocialDesignTheme>('auto')
   const [selectedListing, setSelectedListing] = useState<ManageListingRow | null>(null)
@@ -420,6 +429,10 @@ function SocialCampaignPlanner({ onQueued }: { onQueued: () => void }) {
     setCoverPreviewRev(Date.now())
   }, [selectedListing?.id, imageQuality, resolvedDesignTheme, coverMode])
 
+  useEffect(() => {
+    if (!networkState.instagram && postType !== 'feed') setPostType('feed')
+  }, [networkState.instagram, postType])
+
   function insertTemplateToken(token: string) {
     const el = templateTextareaRef.current
     const start = el?.selectionStart ?? templateBody.length
@@ -473,7 +486,7 @@ function SocialCampaignPlanner({ onQueued }: { onQueued: () => void }) {
   async function queueListing(token: string, listing: ManageListingRow, tplId: string | undefined) {
     const keys = await listingImageKeys(listing.id)
     const imageKeys =
-      coverMode === 'premium' && generatedCover && listing.id === selectedListing?.id
+      postType !== 'reel' && coverMode === 'premium' && generatedCover && listing.id === selectedListing?.id
         ? [generatedCover.storage_key, ...keys.filter((k) => k !== generatedCover.storage_key)].slice(0, 10)
         : keys
     if (imageKeys.length === 0) throw new Error(`${listing.title}: image_keys_required`)
@@ -483,10 +496,13 @@ function SocialCampaignPlanner({ onQueued }: { onQueued: () => void }) {
       allow_ai_caption: true,
     }).catch(() => undefined)
     for (const network of activeNetworks) {
+      // Story/Reel yalnız Instagram'da desteklenir — diğer platformlar her zaman gönderi (feed) olarak kuyruğa girer.
+      const jobPostType: SocialPostType = network === 'instagram' ? postType : 'feed'
       await createSocialJob(token, {
         entity_type: 'listing',
         entity_id: listing.id,
         network,
+        post_type: jobPostType,
         template_id: tplId,
         image_keys: imageKeys,
       })
@@ -547,6 +563,10 @@ function SocialCampaignPlanner({ onQueued }: { onQueued: () => void }) {
       setError('En az bir platform seçin.')
       return
     }
+    if (postType !== 'feed' && !activeNetworks.includes('instagram')) {
+      setError('Story/Reels için Instagram platformunu seçin.')
+      return
+    }
     setBusy(true)
     setError(null)
     setMessage(null)
@@ -571,6 +591,10 @@ function SocialCampaignPlanner({ onQueued }: { onQueued: () => void }) {
     if (!token) return
     if (activeNetworks.length === 0) {
       setError('En az bir platform seçin.')
+      return
+    }
+    if (postType !== 'feed' && !activeNetworks.includes('instagram')) {
+      setError('Story/Reels için Instagram platformunu seçin.')
       return
     }
     setBusy(true)
@@ -691,6 +715,41 @@ function SocialCampaignPlanner({ onQueued }: { onQueued: () => void }) {
           </div>
 
           <div>
+            <label className="mb-1.5 block text-xs font-medium text-neutral-700 dark:text-neutral-300">İçerik türü</label>
+            <div className="grid gap-2 md:grid-cols-3">
+              {SOCIAL_POST_TYPE_OPTIONS.map((opt) => {
+                const active = postType === opt.code
+                const disabled = opt.code !== 'feed' && !activeNetworks.includes('instagram')
+                return (
+                  <button
+                    key={opt.code}
+                    type="button"
+                    disabled={disabled}
+                    onClick={() => setPostType(opt.code)}
+                    title={disabled ? 'Story/Reels için Instagram platformunu seçin.' : opt.hint}
+                    className={[
+                      'rounded-xl border px-3 py-2 text-left transition',
+                      disabled
+                        ? 'cursor-not-allowed border-neutral-100 bg-neutral-50 text-neutral-300 dark:border-neutral-800 dark:bg-neutral-900/40 dark:text-neutral-600'
+                        : active
+                          ? 'border-emerald-500 bg-white shadow-sm ring-2 ring-emerald-100 dark:bg-neutral-900 dark:ring-emerald-950/60'
+                          : 'border-neutral-200 bg-white hover:border-emerald-300 hover:bg-emerald-50/50 dark:border-neutral-700 dark:bg-neutral-900 dark:hover:bg-emerald-950/20',
+                    ].join(' ')}
+                  >
+                    <span className="block text-xs font-semibold text-neutral-900 dark:text-neutral-100">{opt.label}</span>
+                    <span className="mt-0.5 block text-[10px] leading-4 text-neutral-500 dark:text-neutral-400">{opt.hint}</span>
+                  </button>
+                )
+              })}
+            </div>
+            {postType === 'reel' && (
+              <p className="mt-1.5 text-[11px] text-amber-700 dark:text-amber-400">
+                Reels videosu, ilan galerisindeki fotoğraflardan sunucuda otomatik üretilir (sessiz, ~10-20 sn). Kapak üretim modu Reels için kullanılmaz.
+              </p>
+            )}
+          </div>
+
+          <div className={postType === 'reel' ? 'hidden' : undefined}>
             <label className="mb-1.5 block text-xs font-medium text-neutral-700 dark:text-neutral-300">Kapak üretim modu</label>
             <div className="grid gap-2 md:grid-cols-2">
               {COVER_MODE_OPTIONS.map((opt) => {
@@ -1081,6 +1140,11 @@ function JobRow({ j }: { j: SocialShareJob }) {
         {j.network && (
           <span className="rounded-full bg-blue-50 px-2.5 py-0.5 text-xs font-semibold text-blue-700 dark:bg-blue-950/40 dark:text-blue-300">
             {j.network}
+          </span>
+        )}
+        {j.post_type && j.post_type !== 'feed' && (
+          <span className="rounded-full bg-purple-50 px-2.5 py-0.5 text-xs font-semibold text-purple-700 dark:bg-purple-950/40 dark:text-purple-300">
+            {j.post_type === 'reel' ? 'Reels' : 'Story'}
           </span>
         )}
         <span className="font-mono text-xs text-neutral-700 dark:text-neutral-300">{j.entity_type}</span>
