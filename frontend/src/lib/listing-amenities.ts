@@ -14,6 +14,7 @@ import {
   CableCar,
   ChefHat,
   Cctv,
+  Coffee,
   Compass,
   Crown,
   DoorOpen,
@@ -23,6 +24,7 @@ import {
   Glasses,
   Heart,
   Landmark,
+  Microwave,
   Mountain,
   Palmtree,
   ParkingCircle,
@@ -209,23 +211,48 @@ export const YACHT_THEME_ICONS: Record<string, LucideIcon> = {
 
 export const IMPORTED_AMENITY_ICONS: Record<string, LucideIcon> = {
   'bebek-besigi': Baby,
-  bilardo: Sparkles,
-  'bulasik-makinesi': UtensilsCrossed,
+  'bebeklere-uygun': Baby,
+  bilardo: Dumbbell,
+  balkon: DoorOpen,
+  balcony: DoorOpen,
+  barbeku: Flame,
+  barbekü: Flame,
+  bbq: Flame,
+  'bulasik-makinesi': Bubbles,
+  // Eski TR slug (ı/ş NFD bozulması): Bulaşık → bulas-k-…
+  'bulas-k-makinesi': Bubbles,
   buzdolabi: Refrigerator,
+  buzdolab: Refrigerator,
   'camasir-makinesi': WashingMachine,
+  'camas-r-makinesi': WashingMachine,
+  'cocuklara-uygun': Users,
+  'dus-kabini': Bath,
+  garaj: ParkingCircle,
   'havlu-nevresim': BedDouble,
+  internet: Wifi,
   jakuzi: Bubbles,
+  'kahve-makinasi': Coffee,
+  'kahve-makinas': Coffee,
+  kettle: Coffee,
   klima: AirVent,
   'mama-sandalyesi': Baby,
   mangal: Flame,
-  'masa-tenisi': Sparkles,
+  'masa-tenisi': Dumbbell,
+  mikrodalga: Microwave,
   'mutfak-gerecleri': ChefHat,
+  'oda-ici-banyo': Bath,
+  otopark: ParkingCircle,
   'sac-kurutma': Wind,
+  sauna: Bath,
   'sauna-hamam': Bath,
   'spor-salonu': Dumbbell,
-  supurge: Sparkles,
+  supurge: SprayCan,
+  'tost-makinesi': Flame,
+  'tv-dvd': Tv,
   'tv-uydu': Tv,
+  utu: Shirt,
   'utu-utu-masasi': Shirt,
+  uydu: Tv,
   'wi-fi': Wifi,
   wifi: Wifi,
   generator: RefreshCw,
@@ -236,15 +263,56 @@ export const IMPORTED_AMENITY_ICONS: Record<string, LucideIcon> = {
   safe: Shield,
   minibar: Wine,
   room_service: Bell,
-  water_toys: Sparkles,
-  snorkeling: Sparkles,
-  tender_dinghy: Sparkles,
+  water_toys: Waves,
+  snorkeling: Waves,
+  tender_dinghy: Ship,
 }
 
+/** Anahtar/etiket içinde geçen kelimeye göre tema ikonu (Lucide). */
+const AMENITY_KEYWORD_ICONS: ReadonlyArray<readonly [RegExp, LucideIcon]> = [
+  [/wi-?fi|internet/, Wifi],
+  [/buzdolab|fridge|refrigerat/, Refrigerator],
+  [/bulas|dishwasher/, Bubbles],
+  [/camas|washer|laundry|washing/, WashingMachine],
+  [/klima|air.?cond|airvent/, AirVent],
+  [/kahve|coffee|kettle|cay/, Coffee],
+  [/mikrodalga|microwave/, Microwave],
+  [/tost|toaster|mangal|barbe|bbq|grill/, Flame],
+  [/utu|iron/, Shirt],
+  [/balkon|balcony|teras|terrace/, DoorOpen],
+  [/sauna|hamam/, Bath],
+  [/jakuzi|jacuzzi|spa/, Bubbles],
+  [/bebek|baby|mama/, Baby],
+  [/cocuk|child|kids|family|aile/, Users],
+  [/\btv\b|uydu|dvd|smart.?tv/, Tv],
+  [/otopark|garaj|parking|park/, ParkingCircle],
+  [/dus|shower|banyo|bath|toilet/, Bath],
+  [/sac.?kurut|hair.?dry/, Wind],
+  [/mutfak|kitchen|chef|ocak/, ChefHat],
+  [/havuz|pool/, Palmtree],
+  [/deniz|sea|beach|plaj/, Waves],
+]
+
 export function getImportedAmenityIcon(key: string): LucideIcon | null {
-  const k = String(key ?? '').trim().toLowerCase()
+  const k = String(key ?? '')
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/ı/g, 'i')
+    .replace(/ğ/g, 'g')
+    .replace(/ü/g, 'u')
+    .replace(/ş/g, 's')
+    .replace(/ö/g, 'o')
+    .replace(/ç/g, 'c')
   if (!k) return null
-  return IMPORTED_AMENITY_ICONS[k] ?? IMPORTED_AMENITY_ICONS[k.replace(/_/g, '-')] ?? null
+  const dashed = k.replace(/_/g, '-')
+  if (IMPORTED_AMENITY_ICONS[k]) return IMPORTED_AMENITY_ICONS[k]
+  if (IMPORTED_AMENITY_ICONS[dashed]) return IMPORTED_AMENITY_ICONS[dashed]
+  for (const [re, icon] of AMENITY_KEYWORD_ICONS) {
+    if (re.test(dashed) || re.test(k)) return icon
+  }
+  return null
 }
 
 export function getHolidayThemeIcon(key: string): LucideIcon | null {
@@ -269,12 +337,16 @@ export function getStayRentalThemeIcon(
   return getHolidayThemeIcon(key)
 }
 
-export function getAmenityIconForKey(key: string): LucideIcon {
+export function getAmenityIconForKey(key: string, label?: string): LucideIcon {
   const k = String(key ?? '').trim().toLowerCase()
   if (k in LISTING_AMENITY_ICONS) {
     return getListingAmenityIcon(k as ListingAmenityId)
   }
   const themeIcon = getHolidayThemeIcon(k)
   if (themeIcon) return themeIcon
-  return getImportedAmenityIcon(k) ?? Sparkles
+  return (
+    getImportedAmenityIcon(k) ??
+    (label ? getImportedAmenityIcon(label) : null) ??
+    Sparkles
+  )
 }

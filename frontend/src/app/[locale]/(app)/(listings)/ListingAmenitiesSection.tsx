@@ -118,7 +118,7 @@ export default function ListingAmenitiesSection({
       }
       return CustomAmenityIconSlot
     }
-    return getAmenityIconForKey(id)
+    return getAmenityIconForKey(id, customLabels?.[id] ?? labelOf(id))
   }
 
   return (

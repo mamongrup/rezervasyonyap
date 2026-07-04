@@ -61,16 +61,26 @@ async function upsertImages(pgClient, listingId, slug, galleryUrls, { skipImages
   return rows.length
 }
 
+function amenityKeyFromName(name) {
+  return String(name)
+    .trim()
+    .toLowerCase()
+    .replace(/ğ/g, 'g')
+    .replace(/ü/g, 'u')
+    .replace(/ş/g, 's')
+    .replace(/ı/g, 'i')
+    .replace(/ö/g, 'o')
+    .replace(/ç/g, 'c')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '')
+    .slice(0, 80)
+}
+
 async function upsertAmenities(pgClient, listingId, amenities = []) {
   for (const name of amenities) {
-    const key = String(name)
-      .trim()
-      .toLowerCase()
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '')
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-|-$/g, '')
-      .slice(0, 80)
+    const key = amenityKeyFromName(name)
     if (!key) continue
     await pgClient.query(
       `INSERT INTO listing_attributes (listing_id, group_code, key, value_json)
