@@ -30,9 +30,7 @@ export default function ListingDescriptionExpandable({
   const plain = stripHtml(safeHtml)
   const limit = previewMax ?? PLAIN_PREVIEW_MAX
   const needsClamp = plain.length > limit
-  // SEO başlıklı (h2/h3) metinlerde bölümler hemen görünsün
-  const hasSectionHeadings = /<h[2-4]\b/i.test(safeHtml)
-  const [expanded, setExpanded] = useState(hasSectionHeadings)
+  const [expanded, setExpanded] = useState(false)
 
   const showMore = messages.listing.detailPage.descriptionShowMore
   const showLess = messages.listing.detailPage.descriptionShowLess
