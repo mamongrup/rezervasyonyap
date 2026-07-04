@@ -41,7 +41,12 @@ export default function robots(): MetadataRoute.Robots {
     rules: [
       {
         userAgent: '*',
-        allow: '/',
+        // `/api` genel olarak kapalı, ancak Meta/Instagram Graph API paylaşım
+        // sırasında görselleri kendi crawler'ıyla `image_url` üzerinden çeker;
+        // robots.txt'te `/api` disallow olduğu için bu istek reddedilip
+        // "Only photo or video can be accepted as media type." hatası
+        // oluşuyordu. Daha spesifik allow kuralı (uzunluk önceliği) burayı açar.
+        allow: ['/', '/api/social/share-jpeg'],
         disallow: withLocalizedVariants(PRIVATE_SEGMENTS),
       },
     ],
