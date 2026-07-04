@@ -43,21 +43,17 @@ try {
       plainFixed += 1
     }
 
-    // Tatil evi: Mamon tarzı SEO (h2/h3 yoksa veya aşırı strong varsa)
+    // Tatil evi: Mamon tarzı SEO (h3 yok / tek paragraf duvarı / aşırı strong)
     if (row.category === 'holiday_home' && next) {
       const strongCount = (next.match(/<strong\b/gi) || []).length
-      const hasHeadings = /<h[1-4]\b/i.test(next)
-      if (!hasHeadings || strongCount >= 8) {
+      const h3Count = (next.match(/<h3\b/gi) || []).length
+      const pCount = (next.match(/<p\b/gi) || []).length
+      const needsSeo =
+        h3Count < 2 || pCount <= 2 || strongCount >= 8 || /Yatak Odaları\s+\d/i.test(next)
+      if (needsSeo) {
         const seo = toSeoListingDescriptionHtml(next, { title: row.title || '' })
         if (seo && seo !== next) {
           next = seo
-          changed = true
-          seoFixed += 1
-        }
-      } else if (hasHeadings) {
-        const cleaned = toSeoListingDescriptionHtml(next, { title: row.title || '' })
-        if (cleaned && cleaned !== next) {
-          next = cleaned
           changed = true
           seoFixed += 1
         }
