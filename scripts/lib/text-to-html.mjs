@@ -136,69 +136,249 @@ function cleanExistingSeoHtml(html) {
     .trim()
 }
 
-/** Bölüm başlığı (h3) — tek başına veya "Başlık :" ile başlayan segmentler. */
-const SECTION_HEADING_RE =
-  /^(Yatak Odaları|Salon|Mutfak|Havuz ve Bahçe|Temizlik ve Bakım|Depozito|Genel Özellikler|Konaklama Olanakları|Konaklama|Olanaklar|Kurallar|Not\s*\)?)\s*:?\s*$/iu
+/** Bilinen bölüm başlıkları (h3). Uzun ifadeler önce. */
+const SECTION_NAMES = [
+  'Yatak Odaları',
+  'Temizlik ve Bakım',
+  'Havuz ve Bahçe',
+  'Genel Özellikler',
+  'Konaklama Olanakları',
+  'Fiyatlandırma Bilgilendirme',
+  'Fiyata Dahil Olmayanlar',
+  'Fiyata Dahil Olanlar',
+  'Giriş ve Çıkış',
+  'Giriş & Çıkış',
+  'Villa Kuralları',
+  'Uzaklıklar',
+  'Ödeme Bilgisi',
+  'Ödemeler',
+  'Salon',
+  'Mutfak',
+  'Depozito',
+  'Konum',
+  'Tasarım',
+  'Kurallar',
+  'Fiyatlandırma',
+  'Olanaklar',
+  'Konaklama',
+]
 
-/** Etiketli satır: "1. Yatak Odası : …", "Salon : …", "Konum: …" */
-const LABELED_LINE_RE =
-  /^((?:\d+\.\s*)?(?:Yatak Odası|Salon|Mutfak|Havuz ve Bahçe|Temizlik ve Bakım|Depozito|Konum|Tasarım|Not\s*\)?))\s*:\s*(.+)$/isu
+const SECTION_HEADING_RE = new RegExp(
+  `^(${SECTION_NAMES.map((s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')}|Not\\s*\\)?)\\s*:?\\s*$`,
+  'iu',
+)
 
-/** Ana bölüm etiketleri → h3 + gövde paragrafı */
-const SECTION_LABEL_RE =
-  /^(Salon|Mutfak|Havuz ve Bahçe|Temizlik ve Bakım|Depozito)$/iu
+const LABELED_LINE_RE = new RegExp(
+  `^((?:\\d+\\.\\s*)?(?:${SECTION_NAMES.map((s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')}|Not\\s*\\)?))\\s*:\\s*(.+)$`,
+  'isu',
+)
+
+const SECTION_LABEL_RE = new RegExp(
+  `^(${SECTION_NAMES.map((s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')})$`,
+  'iu',
+)
+
+/** Split öncesi gürültü / kırık HTML temizliği */
+function scrubDescriptionNoise(text) {
+  return String(text || '')
+    .replace(/<[^>]*$/g, '') // kesik etiket: <span class="tex
+    .replace(/<\/?[a-z][^>]*>/gi, ' ')
+    .replace(/Daha Fazla Gör/gi, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+/** Etiketsiz paragrafları içeriğe göre bölüme ata */
+function inferSectionFromParagraph(text) {
+  const t = String(text || '').trim()
+  if (!t || t.length < 20) return null
+  if (/depozito\s*alın|depozito\s*sizlere|hasar sonucunda/i.test(t) && !/giriş saati|EFT|Sigara/i.test(t)) {
+    return 'Depozito'
+  }
+  if (/giriş saati|çıkış saati|villaya giriş|villadan ayrılma|16\.00|10\.00’|10\.00'/i.test(t)) {
+    return 'Giriş ve Çıkış'
+  }
+  if (/EFT|Havale|Swift|kredi kartı ödem|kurumsal banka/i.test(t)) {
+    return 'Ödeme Bilgisi'
+  }
+  if (/Sigara İçilmez|Parti Düzenlenmez|evcil hayvan/i.test(t)) {
+    return 'Kurallar'
+  }
+  if (/\b(Restoran|Restorant|Market|Plaj|Hava\s*Alan)\b/i.test(t) && /\d+\s*M\b/i.test(t)) {
+    return 'Uzaklıklar'
+  }
+  if (/erken rezervasyon|ön ödeme|Fiyatlandırma/i.test(t)) {
+    return 'Fiyatlandırma'
+  }
+  if (/Fiyata dahil olmayan|havalimanı transfer|günlük kiralık araç/i.test(t)) {
+    return 'Fiyata Dahil Olmayanlar'
+  }
+  if (/Fiyata dahil olan|elektrik.*su.*gaz|havuz temizliği/i.test(t)) {
+    return 'Fiyata Dahil Olanlar'
+  }
+  if (/Giriş\s*:\s*\d|Çıkış\s*:\s*\d/i.test(t)) {
+    return 'Giriş ve Çıkış'
+  }
+  return null
+}
 
 /**
  * Tek paragraf / düz metin duvarını bölüm başlıkları ve "Etiket :" satırlarına böler.
  */
 function splitWallOfText(plain) {
-  const text = String(plain || '').replace(/\s+/g, ' ').trim()
+  let text = scrubDescriptionNoise(plain)
   if (!text) return []
 
-  // Uzun ifadeler önce (Havuz ve Bahçe, Havuz/Bahçe ayrı kesilmesin)
-  const parts = text.split(
-    /(?=(?:Yatak Odaları|Temizlik ve Bakım|Havuz ve Bahçe|Genel Özellikler|Konaklama Olanakları|\d+\.\s*Yatak Odası\s*:|(?:Salon|Mutfak|Depozito|Konum|Tasarım)\s*:))/iu,
+  // "Giriş : 16:00 Çıkış : 10:00" → net bölüm
+  text = text.replace(
+    /Giriş\s*:\s*(\d{1,2}[:.]\d{2})\s*Çıkış\s*:\s*(\d{1,2}[:.]\d{2})/gi,
+    'Giriş ve Çıkış: Giriş $1, çıkış $2.',
   )
 
+  const splitRe = new RegExp(
+    `(?=(?:Yatak Odaları|Temizlik ve Bakım|Havuz ve Bahçe|Genel Özellikler|Konaklama Olanakları|Fiyatlandırma Bilgilendirme|Fiyata Dahil Olmayanlar|Fiyata Dahil Olanlar|Giriş ve Çıkış|Giriş\\s*&\\s*Çıkış|Villa Kuralları|Uzaklıklar|Ödeme Bilgisi|\\d+\\.\\s*Yatak Odası\\s*:|(?:Salon|Mutfak|Depozito|Konum|Tasarım|Kurallar|Fiyatlandırma|Ödemeler)\\s*:))`,
+    'iu',
+  )
+
+  const parts = text.split(splitRe)
   const blocks = []
+  let lastSection = null
+
   for (const part of parts) {
-    const chunk = part.trim()
+    let chunk = part.trim()
     if (!chunk) continue
 
-    if (SECTION_HEADING_RE.test(chunk)) {
-      const heading = chunk.replace(/[:：]\s*$/, '').trim()
+    // "Villa Kuralları Sigara İçilmez…" (iki nokta yok)
+    const bareHead = chunk.match(
+      /^(Yatak Odaları|Genel Özellikler|Konaklama Olanakları|Fiyatlandırma Bilgilendirme|Fiyata Dahil Olmayanlar|Fiyata Dahil Olanlar|Giriş ve Çıkış|Villa Kuralları|Uzaklıklar|Ödeme Bilgisi|Kurallar|Fiyatlandırma)\s+(.+)$/isu,
+    )
+    if (bareHead) {
+      const heading = bareHead[1].replace(/Giriş\s*&\s*Çıkış/i, 'Giriş ve Çıkış').trim()
       blocks.push({ type: 'h3', text: heading })
+      lastSection = heading
+      chunk = bareHead[2].trim()
+    }
+
+    if (SECTION_HEADING_RE.test(chunk)) {
+      const heading = chunk
+        .replace(/[:：]\s*$/, '')
+        .replace(/Giriş\s*&\s*Çıkış/i, 'Giriş ve Çıkış')
+        .trim()
+      blocks.push({ type: 'h3', text: heading })
+      lastSection = heading
       continue
     }
 
     const labeled = chunk.match(LABELED_LINE_RE)
     if (labeled) {
-      const label = labeled[1].replace(/[:：]\s*$/, '').trim()
+      let label = labeled[1]
+        .replace(/[:：]\s*$/, '')
+        .replace(/Giriş\s*&\s*Çıkış/i, 'Giriş ve Çıkış')
+        .trim()
       const body = labeled[2].trim()
-      // Salon / Mutfak gibi ana bölümler → h3 + paragraf
-      if (SECTION_LABEL_RE.test(label)) {
-        blocks.push({ type: 'h3', text: label })
-        if (body) blocks.push({ type: 'p', text: body })
+      if (SECTION_LABEL_RE.test(label) && !/^\d+\./.test(label)) {
+        // Uzun gövde karışık konular içeriyorsa cümle cümle böl
+        if (body.length > 160 && /giriş saati|EFT|Sigara|Fiyata|Uzaklık/i.test(body)) {
+          blocks.push({ type: 'h3', text: label })
+          lastSection = label
+          for (const sub of splitMixedParagraph(body, label)) {
+            if (sub.type === 'h3') lastSection = sub.text
+            blocks.push(sub)
+          }
+        } else {
+          blocks.push({ type: 'h3', text: label })
+          lastSection = label
+          if (body) blocks.push({ type: 'p', text: body })
+        }
       } else {
         blocks.push({ type: 'label', label, text: body })
       }
       continue
     }
 
-    // "Yatak Odaları" ardından hemen oda satırı gelmiş olabilir
-    const bareSection = chunk.match(
-      /^(Yatak Odaları|Genel Özellikler|Konaklama Olanakları)\s+(.+)$/isu,
-    )
-    if (bareSection) {
-      blocks.push({ type: 'h3', text: bareSection[1].trim() })
-      const rest = bareSection[2].trim()
-      for (const sub of splitWallOfText(rest)) blocks.push(sub)
+    for (const sub of splitMixedParagraph(chunk, lastSection)) {
+      if (sub.type === 'h3') lastSection = sub.text
+      blocks.push(sub)
+    }
+  }
+  return mergeAdjacentHeadings(blocks)
+}
+
+/** Karışık paragrafı cümle sınırında bölümlere ayırır. */
+function splitMixedParagraph(chunk, currentSection) {
+  const text = String(chunk || '').trim()
+  if (!text) return []
+
+  const sentences = text.split(/(?<=[.!?])\s+/u).filter((s) => s.trim())
+  if (sentences.length < 2 || text.length < 160) {
+    const inferred = inferSectionFromParagraph(text)
+    const out = []
+    if (inferred && inferred !== currentSection) out.push({ type: 'h3', text: inferred })
+    out.push({ type: 'p', text })
+    return out
+  }
+
+  const out = []
+  let buf = []
+  let bufSection = currentSection
+  let lastSection = currentSection
+
+  const flush = () => {
+    if (!buf.length) return
+    const para = buf.join(' ').trim()
+    if (!para) return
+    const sec = inferSectionFromParagraph(para) || bufSection
+    if (sec && sec !== lastSection) {
+      out.push({ type: 'h3', text: sec })
+      lastSection = sec
+    }
+    out.push({ type: 'p', text: para })
+    buf = []
+  }
+
+  for (const sent of sentences) {
+    const s = sent.trim()
+    if (!s) continue
+    const sec = inferSectionFromParagraph(s)
+    if (sec && buf.length && sec !== bufSection) {
+      flush()
+      bufSection = sec
+    } else if (sec) {
+      bufSection = sec
+    }
+    buf.push(s)
+  }
+  flush()
+  return out
+}
+
+/** Yinelenen / eşanlamlı h3'leri tekilleştir (Villa Kuralları = Kurallar). */
+function mergeAdjacentHeadings(blocks) {
+  const ALIASES = {
+    kurallar: 'Kurallar',
+    'villa kuralları': 'Kurallar',
+    fiyatlandırma: 'Fiyatlandırma',
+    'fiyatlandırma bilgilendirme': 'Fiyatlandırma',
+    ödemeler: 'Ödeme Bilgisi',
+    'ödeme bilgisi': 'Ödeme Bilgisi',
+    'giriş & çıkış': 'Giriş ve Çıkış',
+    'giriş ve çıkış': 'Giriş ve Çıkış',
+  }
+  const norm = (t) => ALIASES[String(t).toLocaleLowerCase('tr')] || t
+  const seen = new Set()
+  const out = []
+  for (const b of blocks) {
+    if (b.type === 'h3') {
+      const title = norm(b.text)
+      const key = title.toLocaleLowerCase('tr')
+      if (seen.has(key)) continue
+      seen.add(key)
+      out.push({ type: 'h3', text: title })
       continue
     }
-
-    blocks.push({ type: 'p', text: chunk })
+    out.push(b)
   }
-  return blocks
+  return out
 }
 
 function blocksToSeoHtml(blocks, { title = '', subtitle = '' } = {}) {
@@ -236,8 +416,14 @@ function processParagraphBlocks(blocks) {
     const plain = stripTags(block.inner)
     if (!plain) continue
 
-    // Uzun tek paragraf duvarı → bölüm ayır
-    if (plain.length > 280 && /Yatak Odaları|Salon\s*:|Mutfak\s*:|Depozito\s*:/i.test(plain)) {
+    // Uzun paragraf / karışık konular → bölüm ayır
+    const looksMixed =
+      plain.length > 160 &&
+      (/Yatak Odaları|Salon\s*:|Mutfak\s*:|Depozito|giriş saati|Fiyata Dahil|Uzaklıklar|EFT|Sigara İçilmez/i.test(
+        plain,
+      ) ||
+        inferSectionFromParagraph(plain))
+    if (looksMixed) {
       for (const b of splitWallOfText(plain)) {
         if (b.type === 'h3') out.push(`<h3>${escapeHtml(b.text)}</h3>`)
         else if (b.type === 'label') {
@@ -289,46 +475,60 @@ function processParagraphBlocks(blocks) {
   return out
 }
 
+function needsFullResplit(html) {
+  const plain = scrubDescriptionNoise(stripTags(html))
+  if (/class="tex|<span\b[^>]*$/i.test(html)) return true
+  if (/Daha Fazla Gör|Fiyatlandırma Bilgilendirme|Fiyata Dahil Olanlar|Uzaklıklar/i.test(plain)) {
+    return true
+  }
+  if (/Depozito/i.test(plain) && /giriş saati|EFT|Sigara|Uzaklık|Fiyata Dahil/i.test(plain)) {
+    return true
+  }
+  if (/Yatak Odaları\s+\d|Salon\s*:|Mutfak\s*:/i.test(plain)) return true
+  // Depozito sonrası uzun karışık gövde (ayrı h3 yok)
+  const h3s = (html.match(/<h3\b[^>]*>[\s\S]*?<\/h3>/gi) || []).map((h) => stripTags(h).toLowerCase())
+  const hasGiris = h3s.some((h) => /giriş/.test(h))
+  const hasOdeme = h3s.some((h) => /ödeme/.test(h))
+  const hasKurallar = h3s.some((h) => /kural/.test(h))
+  if (/giriş saati|16\.00/i.test(plain) && !hasGiris) return true
+  if (/EFT|Havale|Swift/i.test(plain) && !hasOdeme) return true
+  if (/Sigara İçilmez|Parti Düzenlenmez/i.test(plain) && !hasKurallar) return true
+  return false
+}
+
 /**
- * Mamon villa tarzı SEO yapısı: h2 başlık, h3 bölümler, normal paragraflar,
- * "Etiket: açıklama" satırlarında yalnızca etiket kalın.
- * Tek <p> duvarını da (üretimdeki Gülbay gibi) bölümlere ayırır.
+ * Mamon villa tarzı SEO yapısı: h2 başlık, h3 bölümler, normal paragraflar.
+ * Depozito sonrası giriş/çıkış, ödeme, kurallar, uzaklıklar vb. de ayrılır.
+ * Tüm tatil evi ilanlarında backfill ile uygulanır.
  */
 export function toSeoListingDescriptionHtml(html, { title = '', subtitle = '' } = {}) {
   let s = String(html || '').trim()
   if (!s) return ''
 
+  // Kırık HTML artıkları
+  s = s.replace(/<span\b[^>]*$/gi, '').replace(/class="tex[^"]*$/gi, '')
+
   const titlePlain = stripTags(title)
   const subtitlePlain = stripTags(subtitle)
-
-  // Mevcut h2'den başlık al
   const h2m = s.match(/<h2\b[^>]*>([\s\S]*?)<\/h2>/i)
   const effectiveTitle = titlePlain || (h2m ? stripTags(h2m[1]) : '')
 
-  // Zaten iyi yapılandırılmış (birden fazla h3 + birkaç blok)
-  const h3Count = (s.match(/<h3\b/gi) || []).length
-  const pCount = (s.match(/<p\b/gi) || []).length
-  if (h3Count >= 2 && pCount >= 3) {
+  const bodyHtml = s.replace(/<h2\b[^>]*>[\s\S]*?<\/h2>/gi, ' ')
+  const bodyPlain = scrubDescriptionNoise(stripTags(bodyHtml))
+
+  // Mamon gibi zaten temiz SEO + eksik bölüm yok → yalnızca stil temizliği
+  if (!needsFullResplit(s) && /<h3\b/i.test(s) && (s.match(/<p\b/gi) || []).length >= 3) {
     return cleanExistingSeoHtml(s)
   }
 
-  // Gövde metni (h2 hariç) — duvar tespiti
-  const bodyHtml = s.replace(/<h2\b[^>]*>[\s\S]*?<\/h2>/gi, ' ')
-  const bodyPlain = stripTags(bodyHtml)
-
-  // Tek/az paragraf veya h3 yok + bölüm anahtarları → duvarı böl
-  if (
-    bodyPlain.length > 200 &&
-    (h3Count === 0 || pCount <= 2) &&
-    /Yatak Odaları|Salon\s*:|Mutfak\s*:|Depozito\s*:/i.test(bodyPlain)
-  ) {
+  // Tam yeniden böl (duvar veya eksik ara başlıklar)
+  if (bodyPlain.length > 80) {
     return blocksToSeoHtml(splitWallOfText(bodyPlain), {
       title: effectiveTitle,
       subtitle: subtitlePlain,
     })
   }
 
-  // Düz metinse önce paragrafla
   if (!/<[a-z][\s\S]*>/i.test(s)) {
     return blocksToSeoHtml(splitWallOfText(s), { title: effectiveTitle, subtitle: subtitlePlain })
   }
@@ -342,7 +542,6 @@ export function toSeoListingDescriptionHtml(html, { title = '', subtitle = '' } 
   const re = /<(p|h[1-6]|ul|ol|blockquote)\b[^>]*>([\s\S]*?)<\/\1>/gi
   let m
   while ((m = re.exec(s)) !== null) {
-    // Mevcut h2'yi atla — başta yeniden ekleyeceğiz
     if (m[1].toLowerCase() === 'h2') continue
     blocks.push({ tag: m[1].toLowerCase(), inner: m[2] })
   }
@@ -355,18 +554,10 @@ export function toSeoListingDescriptionHtml(html, { title = '', subtitle = '' } 
 
   const out = processParagraphBlocks(blocks)
   let result = out.join('\n')
-  // Çıktıda h2 yoksa ekle
   if (effectiveTitle && !/<h2\b/i.test(result)) {
     const head = [`<h2>${escapeHtml(effectiveTitle)}</h2>`]
     if (subtitlePlain) head.push(`<h3>${escapeHtml(subtitlePlain)}</h3>`)
     result = `${head.join('\n')}\n${result}`
-  }
-  // Hâlâ h3 yok ve duvar kalıntısı varsa son bir deneme
-  if (!/<h3\b/i.test(result) && /Yatak Odaları|Salon\s*:/i.test(stripTags(result))) {
-    return blocksToSeoHtml(splitWallOfText(stripTags(result)), {
-      title: effectiveTitle,
-      subtitle: subtitlePlain,
-    })
   }
   return result.trim()
 }

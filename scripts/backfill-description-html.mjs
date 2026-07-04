@@ -1,17 +1,21 @@
 /**
- * İlan açıklamalarını okunabilir / SEO uyumlu HTML'e çevirir:
- * 1) Düz metin (satır sonlu, etiketsiz) → paragraf / liste HTML
- * 2) Tatil evi: aşırı <strong> duvarı → Mamon tarzı h2/h3 + etiketli paragraflar
+ * Tüm ilan açıklamalarını okunabilir / SEO uyumlu HTML'e çevirir:
+ * 1) Düz metin → paragraf / liste HTML
+ * 2) Tatil evi (ve benzeri): Mamon tarzı h2/h3 + Depozito sonrası
+ *    giriş/çıkış, ödeme, kurallar, uzaklıklar vb. ara başlıklar
  *
  *   node scripts/backfill-description-html.mjs --dry-run
  *   node scripts/backfill-description-html.mjs
+ *   node scripts/backfill-description-html.mjs --force   # tüm tatil evlerini yeniden işle
  */
 import { createPgClient } from './lib/pg-client.mjs'
 import { structuredPlainTextToHtml, toSeoListingDescriptionHtml } from './lib/text-to-html.mjs'
 
 const DRY_RUN = process.argv.includes('--dry-run')
+const FORCE = process.argv.includes('--force')
 
 const HTML_BLOCK_RE = /<p[\s>]|<br\s*\/?>|<div[\s>]|<ul[\s>]|<ol[\s>]|<h[1-4][\s>]/i
+const SEO_CATEGORIES = new Set(['holiday_home', 'yacht_charter'])
 
 const pg = createPgClient()
 await pg.connect()
@@ -43,20 +47,25 @@ try {
       plainFixed += 1
     }
 
-    // Tatil evi: Mamon tarzı SEO (h3 yok / tek paragraf duvarı / aşırı strong)
-    if (row.category === 'holiday_home' && next) {
-      const strongCount = (next.match(/<strong\b/gi) || []).length
-      const h3Count = (next.match(/<h3\b/gi) || []).length
-      const pCount = (next.match(/<p\b/gi) || []).length
-      const needsSeo =
-        h3Count < 2 || pCount <= 2 || strongCount >= 8 || /Yatak Odaları\s+\d/i.test(next)
-      if (needsSeo) {
-        const seo = toSeoListingDescriptionHtml(next, { title: row.title || '' })
-        if (seo && seo !== next) {
-          next = seo
-          changed = true
-          seoFixed += 1
-        }
+    // Tatil evi / yat: her zaman SEO normalizer (Depozito sonrası ara başlıklar dahil)
+    if (SEO_CATEGORIES.has(row.category) && next) {
+      const seo = toSeoListingDescriptionHtml(next, { title: row.title || '' })
+      if (seo && seo !== next) {
+        next = seo
+        changed = true
+        seoFixed += 1
+      } else if (FORCE && seo) {
+        next = seo
+        changed = seo !== row.description
+        if (changed) seoFixed += 1
+      }
+    } else if (next && (!hasHtmlBlock || /class="tex|<span\b[^>]*$/i.test(next))) {
+      // Diğer kategorilerde kırık HTML / düz metin
+      const seo = toSeoListingDescriptionHtml(next, { title: row.title || '' })
+      if (seo && seo !== next) {
+        next = seo
+        changed = true
+        seoFixed += 1
       }
     }
 
@@ -78,7 +87,7 @@ try {
 
   console.log(
     JSON.stringify(
-      { dryRun: DRY_RUN, totalScanned: rows.length, plainFixed, seoFixed, skipped, byCategory },
+      { dryRun: DRY_RUN, force: FORCE, totalScanned: rows.length, plainFixed, seoFixed, skipped, byCategory },
       null,
       2,
     ),
