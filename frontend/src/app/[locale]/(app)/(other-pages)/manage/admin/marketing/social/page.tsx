@@ -9,7 +9,9 @@ import { Settings, Share2 } from 'lucide-react'
 type Tab = 'api' | 'queue'
 
 export default function AdminSocialPage() {
-  const [tab, setTab] = useState<Tab>('api')
+  // 'queue' varsayılan: Story/Reels ve kategori bazlı paylaşım paneli burada — API
+  // ayarları daha seyrek değişir, ilk açılışta paylaşım kuyruğu görünmeli.
+  const [tab, setTab] = useState<Tab>('queue')
 
   return (
     <ManageAccessGuard
