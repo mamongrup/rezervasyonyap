@@ -21,8 +21,10 @@ Environment=API_ORIGIN=http://127.0.0.1:8080
 Environment=WORKER_LOOPS=1
 Environment=WORKER_CURL_MAX_TIME=1800
 TimeoutStartSec=1900
-# Repo kökündeki script — DEPLOY kökünüze göre düzenleyin:
-ExecStart=/var/www/vhosts/rezervasyonyap.tr/httpdocs/deploy/scripts/ai-worker-run-steps.sh
+# Repo kökündeki script — DEPLOY kökünüze göre düzenleyin. `/bin/bash` ile
+# çağrılıyor çünkü shebang üzerinden doğrudan exec, bu ortamda 203/EXEC ile
+# başarısız oluyor (bkz. travel-social-worker.service ile aynı düzeltme).
+ExecStart=/bin/bash /var/www/vhosts/rezervasyonyap.tr/httpdocs/deploy/scripts/ai-worker-run-steps.sh
 
 [Install]
 WantedBy=multi-user.target

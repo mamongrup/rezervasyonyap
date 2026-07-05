@@ -19,7 +19,7 @@ Wants=network-online.target
 Type=oneshot
 EnvironmentFile=-/etc/rezervasyonyap/frontend.env
 Environment=WEB_ORIGIN=http://127.0.0.1:3000
-Environment=SOCIAL_WORKER_LIMIT=5
+Environment=SOCIAL_WORKER_REQUEST_LIMIT=3
 ExecStart=/bin/bash /var/www/vhosts/rezervasyonyap.tr/httpdocs/deploy/scripts/social-process-pending.sh
 
 [Install]

@@ -919,15 +919,23 @@ export async function processPendingSocialJobs(options?: {
   let posted = 0
   let failed = 0
 
+  // Bir ağ (ör. instagram) rate limit'e takılırsa, kuyruğun başındaki o iş
+  // sonraki isteklerde de ilk sırada kalır ve `order by created_at asc` nedeniyle
+  // diğer ağların (ör. facebook) işlerini tamamen bloke eder. Bu yüzden burada
+  // tamamen durmak yerine yalnız o ağı bu istek için atlayıp diğer ağlara devam
+  // ediyoruz — aynı ağa tekrar tekrar boşuna istek atmayı da önlüyor.
+  const rateLimitedNetworks = new Set<string>()
+
   let processed = 0
   for (const job of jobs) {
+    if (rateLimitedNetworks.has(job.network)) continue
     const r = await processOneSocialJob(apiOrigin, secret, job, socialApi, siteUrl)
     results.push(r)
     processed += 1
     if (r.ok) {
       posted += 1
     } else if (r.error && isMetaRateLimitError(r.error)) {
-      break
+      rateLimitedNetworks.add(job.network)
     } else {
       failed += 1
     }
