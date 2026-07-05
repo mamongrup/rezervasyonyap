@@ -1308,6 +1308,7 @@ export const tr = {
         perDay: '/gün',
         perVehicle: '/araç',
         perTicket: '/bilet',
+        totalForNights: '{n} gece toplam',
       },
       stars: '{count} yıldız',
       hotelRooms: '{count} oda',

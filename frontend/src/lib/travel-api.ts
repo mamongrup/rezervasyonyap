@@ -9813,6 +9813,10 @@ export interface PublicListingItem {
   price_rules_nightly_min?: string | null
   /** Tatil evi — aynı kümeden max */
   price_rules_nightly_max?: string | null
+  /** Tatil evi — arama sorgusundaki check-in/check-out aralığının toplam tutarı (temizlik + kısa konaklama + gecelik/konaklama başına ek ücretler dahil); tarih verilmemişse null. */
+  range_total?: string | null
+  /** Tatil evi — `range_total` için gece sayısı */
+  range_nights?: string | null
   /** Bölge / şehir */
   location: string | null
   /** Harita — API’den (Gleam public search); yoksa mock koordinat veya pinsız */

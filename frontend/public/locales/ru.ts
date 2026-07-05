@@ -971,6 +971,7 @@ export const ru: AppMessages = {
         perDay: '/день',
         perVehicle: '/авто',
         perTicket: '/билет',
+        totalForNights: 'итого за {n} ночей',
       },
       stars: '{count} звёзд',
       hotelRooms: '{count} номеров',

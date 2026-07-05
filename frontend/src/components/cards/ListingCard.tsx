@@ -151,7 +151,7 @@ const ListingCard: FC<ListingCardProps> = ({
     config.categoryLabel ??
     ''
   const puKey = linkToPriceUnit[config.linkBase]
-  const priceUnit = puKey ? cardMeta.priceUnit[puKey] : (config.priceUnit ?? '')
+  const priceUnit = data.priceUnitOverride ?? (puKey ? cardMeta.priceUnit[puKey] : (config.priceUnit ?? ''))
   const isActivityCard =
     config.linkBase === '/aktivite' || isActivityListingCategory(undefined, data.listingVertical)
   const activityFromAffix =

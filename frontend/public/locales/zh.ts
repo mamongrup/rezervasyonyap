@@ -953,6 +953,7 @@ export const zh: AppMessages = {
         perDay: '/天',
         perVehicle: '/辆',
         perTicket: '/张',
+        totalForNights: '共{n}晚总价',
       },
       stars: '{count}星',
       hotelRooms: '{count}间客房',

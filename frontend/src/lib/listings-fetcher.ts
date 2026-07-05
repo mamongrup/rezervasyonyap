@@ -42,6 +42,8 @@ import {
   resolveCatalogPriceQueryKeys,
 } from '@/lib/stay-rental-price-filter'
 import { applyLastMinuteSearchQuery } from '@/lib/last-minute-availability'
+import { getMessages } from '@/utils/getT'
+import { interpolate } from '@/utils/interpolate'
 import {
   filterEconomicListings,
   filterLuxuryListings,
@@ -294,6 +296,7 @@ export function mapPublicListingItemToListingBase(
   let priceAmountMax: number | undefined
   let price =
     priceAmount != null ? formatMoneyIntl(priceAmount, cur) : undefined
+  let priceUnitOverride: string | undefined
 
   const mealPlanSummary = item.meal_plan_summary ?? undefined
 
@@ -329,6 +332,23 @@ export function mapPublicListingItemToListingBase(
       priceAmount = rMin
       priceAmountMax = rMax
       price = formatMoneyIntl(rMin, cur)
+    }
+  }
+
+  // Villa (tatil evi) / yat kiralama — arama sorgusunda tarih aralığı seçildiyse, gecelik
+  // min–max yerine seçili aralığın TOPLAM tutarını göster (temizlik + kısa konaklama + ek
+  // ücretler backend'de dahil edilmiş olarak gelir, bkz. `range_total`).
+  if (isStayRental) {
+    const rangeTotal = parsePubListingRuleNightly(item.range_total)
+    const rangeNights = parseMetaInt(item.range_nights ?? undefined)
+    if (rangeTotal != null && rangeNights != null && rangeNights > 0) {
+      priceAmount = rangeTotal
+      priceAmountMax = undefined
+      price = formatMoneyIntl(rangeTotal, cur)
+      priceUnitOverride = interpolate(
+        getMessages(loc).listing.cardMeta.priceUnit.totalForNights,
+        { n: rangeNights },
+      )
     }
   }
 
@@ -381,6 +401,7 @@ export function mapPublicListingItemToListingBase(
     price,
     priceAmount,
     ...(priceAmountMax != null ? { priceAmountMax } : {}),
+    ...(priceUnitOverride ? { priceUnitOverride } : {}),
     priceCurrency: cur,
     listingCurrencyCode,
     reviewStart,

@@ -1856,6 +1856,7 @@ export const en = {
         perDay: '/day',
         perVehicle: '/vehicle',
         perTicket: '/ticket',
+        totalForNights: 'total for {n} nights',
       },
       stars: '{count} stars',
       hotelRooms: '{count} rooms',

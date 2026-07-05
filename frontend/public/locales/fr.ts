@@ -972,6 +972,7 @@ export const fr: AppMessages = {
         perDay: '/jour',
         perVehicle: '/véhicule',
         perTicket: '/billet',
+        totalForNights: 'total pour {n} nuits',
       },
       stars: '{count} étoiles',
       hotelRooms: '{count} chambres',

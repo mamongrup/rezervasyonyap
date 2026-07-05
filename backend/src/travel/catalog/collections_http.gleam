@@ -231,10 +231,171 @@ fn listing_meal_plan_vitrin_lateral_sql() -> String {
   <> "from listing_meal_plans m where m.listing_id = l.id and m.is_active = true) meal_vitrin on true "
 }
 
+// ─── Tatil evi arama sonucu — tarih aralığı TOPLAM fiyatı ────────────────────
+// Vitrin kartında gecelik min–max yerine seçili check-in/check-out aralığının
+// toplam tutarını (temizlik + kısa konaklama + gecelik/konaklama başına ek
+// ücretler dahil) göstermek için. Detay sayfasındaki `useStayListingQuote` /
+// `computeStayRentalLodgingQuote` (frontend) mantığının SQL karşılığıdır.
+
+/// Metin alanını (virgüllü/nokta) güvenli `numeric`'e çevirir; sayısal değilse NULL.
+fn safe_numeric_sql(value_sql: String) -> String {
+  "(case when replace(trim(coalesce("
+  <> value_sql
+  <> ", '')), ',', '.') ~ '^[0-9]+(\\.[0-9]{1,2})?$' then replace(trim(coalesce("
+  <> value_sql
+  <> ", '')), ',', '.')::numeric end)"
+}
+
+/// `listing_price_rules.rule_json` içindeki tek bir gecelik alanı — güvenli numeric.
+fn holiday_home_rule_field_numeric_sql(field: String) -> String {
+  safe_numeric_sql("r.rule_json->>'" <> field <> "'")
+}
+
+/// Dönemsel kuralda temel gecelik (hafta içi/varsayılan) — aynı alan önceliği
+/// `listing_price_rule_nightly_lateral_values_sql` ile tutarlı.
+fn holiday_home_rule_base_nightly_sql() -> String {
+  "coalesce("
+  <> holiday_home_rule_field_numeric_sql("base_nightly")
+  <> ", "
+  <> holiday_home_rule_field_numeric_sql("base_price")
+  <> ", "
+  <> holiday_home_rule_field_numeric_sql("room_only_nightly")
+  <> ", "
+  <> holiday_home_rule_field_numeric_sql("yemeksiz_nightly")
+  <> ", "
+  <> holiday_home_rule_field_numeric_sql("meals_included_nightly")
+  <> ")"
+}
+
+/// Dönemsel kuralda hafta sonu gecelik (varsa).
+fn holiday_home_rule_weekend_nightly_sql() -> String {
+  "coalesce("
+  <> holiday_home_rule_field_numeric_sql("weekend_nightly")
+  <> ", "
+  <> holiday_home_rule_field_numeric_sql("weekend_price")
+  <> ")"
+}
+
+/// Belirli bir gece (`gs.day`) için dönemsel kuraldan gecelik — hafta sonuysa
+/// ve hafta sonu geceliği tanımlıysa onu, aksi halde temel geceliği kullanır.
+fn holiday_home_rule_nightly_for_day_sql() -> String {
+  "case when extract(dow from gs.day::date) in (0, 6) and "
+  <> holiday_home_rule_weekend_nightly_sql()
+  <> " is not null and "
+  <> holiday_home_rule_weekend_nightly_sql()
+  <> " > 0 then "
+  <> holiday_home_rule_weekend_nightly_sql()
+  <> " else "
+  <> holiday_home_rule_base_nightly_sql()
+  <> " end"
+}
+
+/// `gs.day` gecesini kapsayan, en güncel (`valid_from`) ve gecelik değeri
+/// geçerli olan dönemsel kural — frontend `resolveNightlyFromPriceRulesForDate` ile aynı öncelik.
+fn holiday_home_rule_pick_for_day_sql() -> String {
+  "(select rr.nightly from listing_price_rules r "
+  <> "cross join lateral (select "
+  <> holiday_home_rule_nightly_for_day_sql()
+  <> " as nightly) rr "
+  <> "where r.listing_id = l.id "
+  <> "and (r.valid_from is null or r.valid_from <= gs.day::date) "
+  <> "and (r.valid_to is null or r.valid_to >= gs.day::date) "
+  <> "and rr.nightly is not null and rr.nightly > 0 "
+  <> "order by r.valid_from desc nulls last limit 1)"
+}
+
+/// Takvim geçersizi/kural yokken listing seviyesinde son çare gecelik —
+/// vitrin `price_from` ile aynı kaynak sırası (price_rule min → depozito → yemek planı).
+fn holiday_home_fallback_nightly_sql() -> String {
+  "coalesce(nullif(price_rule.min_price, 0), nullif(l.first_charge_amount, 0), "
+  <> "nullif(meal_vitrin.room_only_price, '')::numeric, "
+  <> "nullif(meal_vitrin.min_other_price, '')::numeric, "
+  <> "nullif(meal_vitrin.min_fallback_price, '')::numeric)"
+}
+
+/// Seçili aralıktaki gecelerin toplamı — takvim override → dönemsel kural → fallback.
+fn holiday_home_nightly_sum_sql() -> String {
+  "(select coalesce(sum(coalesce(cal.price_override, "
+  <> holiday_home_rule_pick_for_day_sql()
+  <> ", "
+  <> holiday_home_fallback_nightly_sql()
+  <> ", 0)), 0) "
+  <> "from generate_series($8::date, ($9::date - interval '1 day')::date, interval '1 day') as gs(day) "
+  <> "left join listing_availability_calendar cal on cal.listing_id = l.id and cal.day = gs.day::date)"
+}
+
+/// Bu geceden kısa konaklamada bir kerelik ek ücret (`listing_meta`).
+fn holiday_home_short_stay_fee_applied_sql() -> String {
+  let min_nights = safe_int_sql("lm.meta->>'min_short_stay_nights'")
+  let fee = safe_numeric_sql("lm.meta->>'short_stay_fee'")
+  "case when "
+  <> min_nights
+  <> " is not null and "
+  <> min_nights
+  <> " > 0 and "
+  <> fee
+  <> " is not null and "
+  <> fee
+  <> " > 0 and ($9::date - $8::date) < "
+  <> min_nights
+  <> " then "
+  <> fee
+  <> " else 0 end"
+}
+
+/// Panelde tanımlı serbest ek ücretler — tatil evi için `vertical_holiday_home.extra_fees`,
+/// yat kiralama için `vertical_yacht_extra.extra_fees` (bkz. `verticals_http.gleam` group_code
+/// eşlemesi: `yacht_extra` API kategorisi `vertical_yacht_extra` grubuna yazar).
+/// Yalnızca gecelik (`per_night`) ve konaklama başına (`per_stay`) olanlar toplama dahil
+/// edilir; kişi başı birimliler arama API'sinde misafir sayısı bilinmediği için hariç tutulur
+/// (bkz. plan notu).
+fn holiday_home_extra_fees_sum_sql() -> String {
+  let amount = "coalesce(" <> safe_numeric_sql("ef->>'amount'") <> ", 0)"
+  "coalesce((select sum("
+  <> "case when lower(coalesce(ef->>'unit', 'per_stay')) = 'per_night' then "
+  <> amount
+  <> " * ($9::date - $8::date) "
+  <> "when lower(coalesce(ef->>'unit', 'per_stay')) = 'per_stay' then "
+  <> amount
+  <> " else 0 end"
+  <> ") from listing_attributes hh_la "
+  <> "cross join lateral jsonb_array_elements("
+  <> "case jsonb_typeof(hh_la.value_json->'extra_fees') when 'array' then hh_la.value_json->'extra_fees' else '[]'::jsonb end"
+  <> ") as ef "
+  <> "where hh_la.listing_id = l.id "
+  <> "and hh_la.group_code = (case pc.code when 'yacht_charter' then 'vertical_yacht_extra' else 'vertical_holiday_home' end) "
+  <> "and hh_la.key = 'v1'"
+  <> "), 0)"
+}
+
+/// `range_quote` lateral'ının devreye girme şartı — tatil evi + yat kiralama (aynı rezervasyon
+/// çekirdeğini paylaşan iki "stay rental" dikeyi, bkz. `stay-rental-categories.ts`) ve geçerli
+/// tarih aralığı. `count_sql` ve `deferred_page_sql`'in `page_ids` CTE'sinde bu tam metin
+/// `on (false)` ile değiştirilerek ağır hesaplama yalnızca sayfalanmış sonuçta çalışır
+/// (bkz. 51-...mdc §8).
+fn holiday_home_range_quote_join_condition_sql() -> String {
+  "pc.code in ('holiday_home', 'yacht_charter') and $8::text is not null and $9::text is not null and $9::date > $8::date"
+}
+
+/// Seçili check-in/check-out aralığının toplam tutarı + gece sayısı (tatil evi + yat).
+fn holiday_home_range_quote_lateral_sql() -> String {
+  "left join lateral (select ("
+  <> holiday_home_nightly_sum_sql()
+  <> ") + coalesce(nullif(l.cleaning_fee_amount, 0), 0) + "
+  <> holiday_home_short_stay_fee_applied_sql()
+  <> " + "
+  <> holiday_home_extra_fees_sum_sql()
+  <> " as total, ($9::date - $8::date) as nights) range_quote on ("
+  <> holiday_home_range_quote_join_condition_sql()
+  <> ") "
+}
+
 // ─── Public Listing Search ────────────────────────────────────────────────────
 
 fn pub_listing_row() -> decode.Decoder(
   #(
+    String,
+    String,
     String,
     String,
     String,
@@ -341,6 +502,8 @@ fn pub_listing_row() -> decode.Decoder(
   use flight_airline_name <- decode.field(49, decode.string)
   use flight_stop_count <- decode.field(50, decode.string)
   use flight_duration <- decode.field(51, decode.string)
+  use range_total <- decode.field(52, decode.string)
+  use range_nights <- decode.field(53, decode.string)
   decode.success(#(
     id,
     slug,
@@ -394,6 +557,8 @@ fn pub_listing_row() -> decode.Decoder(
     flight_airline_name,
     flight_stop_count,
     flight_duration,
+    range_total,
+    range_nights,
   ))
 }
 
@@ -433,6 +598,8 @@ fn gallery_urls_json(raw: String) -> json.Json {
 
 fn pub_listing_json(
   row: #(
+    String,
+    String,
     String,
     String,
     String,
@@ -540,6 +707,8 @@ fn pub_listing_json(
     flight_airline_name,
     flight_stop_count,
     flight_duration,
+    range_total_s,
+    range_nights_s,
   ) = row
   let fij = case fi == "" { True -> json.null()  False -> json.string(fi) }
   let pj = case price == "" { True -> json.null()  False -> json.string(price) }
@@ -613,6 +782,9 @@ fn pub_listing_json(
     #("flight_airline_name", json_opt_str(flight_airline_name)),
     #("flight_stop_count", json_opt_str(flight_stop_count)),
     #("flight_duration", json_opt_str(flight_duration)),
+    // Tatil evi — seçili check-in/check-out aralığının toplam tutarı + gece sayısı.
+    #("range_total", json_opt_str(range_total_s)),
+    #("range_nights", json_opt_str(range_nights_s)),
   ])
 }
 
@@ -1110,6 +1282,9 @@ fn search_listings_impl(
     <> ", coalesce(nullif(trim(lm.meta->>'flight_airline_name'), ''), '') "
     <> ", coalesce(nullif(trim(lm.meta->>'flight_stop_count'), ''), '') "
     <> ", coalesce(nullif(trim(lm.meta->>'flight_duration'), ''), '') "
+    // Tatil evi — seçili check-in/check-out aralığının toplam tutarı + gece sayısı.
+    <> ", coalesce(range_quote.total::text, '') "
+    <> ", coalesce(range_quote.nights::text, '') "
   let listing_search_from_where_sql =
     "from listings l "
     <> "join product_categories pc on pc.id = l.category_id "
@@ -1123,6 +1298,7 @@ fn search_listings_impl(
     <> " as u(v) where r.listing_id = l.id and u.v is not null) price_rule on true "
     <> listing_meal_plan_vitrin_lateral_sql()
     <> "left join lateral (select la.value_json as meta from listing_attributes la where la.listing_id = l.id and la.group_code = 'listing_meta' and la.key = 'v1' limit 1) lm on true "
+    <> holiday_home_range_quote_lateral_sql()
     <> "left join lateral (select la.value_json from listing_attributes la where la.listing_id = l.id and la.group_code = 'hotel' and la.key = 'hotel_type_code' limit 1) hotel_attr on true "
     <> "left join lateral (select la.value_json from listing_attributes la where la.listing_id = l.id and la.group_code = 'hotel' and la.key = 'theme_code' limit 1) hotel_theme_attr on true "
     <> "left join lateral (select la.value_json from listing_attributes la where la.listing_id = l.id and la.group_code = 'hotel' and la.key = 'accommodation_code' limit 1) hotel_acc_attr on true "
@@ -1275,6 +1451,11 @@ fn search_listings_impl(
       ") price_rule on true ",
       ") price_rule on ($12::text is not null or $13::text is not null) ",
     )
+    // Sayım için tarih aralığı toplamı gerekmiyor — ağır generate_series lateral'ı kapat.
+    |> string.replace(
+      ") range_quote on (" <> holiday_home_range_quote_join_condition_sql() <> ") ",
+      ") range_quote on (false) ",
+    )
   let count_sql =
     "select count(*)::int "
     <> count_from_conditional
@@ -1377,9 +1558,17 @@ fn search_listings_impl(
   // Filtreli (fast olmayan) aramalar da deferred-projeksiyon kullanır: page_ids tüm filtreleri
   // + sıralamayı yalnız l.id üzerinde uygular; pahalı projeksiyon (galeri, çeviri, pansiyon)
   // yalnızca sayfadaki ~24 satır için çalışır. WHERE/ORDER lateral'ları (fiyat, attr) zaten gerekli.
+  // range_quote (tarih aralığı toplamı) burada gerekmez — sıralama onu kullanmaz; ağır
+  // generate_series hesaplaması yalnızca aşağıdaki fast_main_sql'de (sayfalanmış satırlarda) çalışsın.
+  let deferred_page_from_where_sql =
+    string.replace(
+      listing_search_from_where_sql,
+      ") range_quote on (" <> holiday_home_range_quote_join_condition_sql() <> ") ",
+      ") range_quote on (false) ",
+    )
   let deferred_page_sql =
     "with page_ids as materialized (select l.id "
-    <> listing_search_from_where_sql
+    <> deferred_page_from_where_sql
     <> order_sql
     <> " offset $21 limit $5"
     <> ") "
