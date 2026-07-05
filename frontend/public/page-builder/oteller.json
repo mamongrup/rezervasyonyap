@@ -132,7 +132,7 @@
     {
       "id": "oteller-module-10",
       "type": "video_gallery",
-      "enabled": true,
+      "enabled": false,
       "order": 11,
       "config": {
         "title": "🎬 Oteller Videoları",

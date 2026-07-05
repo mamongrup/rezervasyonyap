@@ -177,8 +177,15 @@ fn run_listing_count_sql(
 
 /// Public vitrin/kategori listelerinde görselsiz ilan gösterilmez.
 /// Kart görseli üç kaynaktan gelebilir: featured_image_url, thumbnail_url veya listing_images.
+///
+/// İstisna: `flight` (uçak bileti) ilanları mülk/otel tarzı fotoğraf taşımaz —
+/// bu kapı tüm uçuşları (292 yayında ilan) vitrinden tamamen gizliyordu
+/// (category-stats'ta "flight" hiç görünmüyordu, /uçak-bileti listesi boştu).
+/// `pc` alias'ının her çağrı noktasında join edilmiş olması garanti olmadığından
+/// (ör. get_public_listing_id_by_slug) `l.category_id` üzerinden alt sorgu kullanılır.
 fn public_listing_must_have_image_sql() -> String {
-  "and (coalesce(trim(l.featured_image_url), '') <> '' "
+  "and (l.category_id in (select id from product_categories where code = 'flight') "
+  <> "or coalesce(trim(l.featured_image_url), '') <> '' "
   <> "or coalesce(trim(l.thumbnail_url), '') <> '' "
   <> "or exists (select 1 from listing_images li_img where li_img.listing_id = l.id and trim(coalesce(li_img.storage_key, '')) <> '' limit 1)) "
 }
