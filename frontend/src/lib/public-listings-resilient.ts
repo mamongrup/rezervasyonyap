@@ -17,7 +17,7 @@ export type ResilientPublicListingsResult = {
   source: ResilientPublicListingsSource
 }
 
-const DEFAULT_TIMEOUT_MS = 6500
+const DEFAULT_TIMEOUT_MS = 4500
 const DEFAULT_SNAPSHOT_MAX_AGE_MS = 1000 * 60 * 60 * 24 * 3
 
 async function importNodeModule<T>(specifier: string): Promise<T> {
@@ -138,14 +138,17 @@ export async function searchPublicListingsResilient(
     return { result: first, source: 'api' }
   }
 
+  // Hız önceliği: ilk deneme başarısızsa önce snapshot'a dön.
+  // Eski akışta ikinci API denemesi kullanıcıyı 4-7sn daha bekletiyordu.
+  const snapshot = await readSnapshot(params)
+  if (snapshot) return { result: snapshot, source: 'snapshot' }
+
+  // Snapshot da yoksa son bir deneme daha yap.
   const second = await searchWithTimeout(params, fetchInit)
   if (second) {
     await writeSnapshot(params, second)
     return { result: second, source: 'api' }
   }
-
-  const snapshot = await readSnapshot(params)
-  if (snapshot) return { result: snapshot, source: 'snapshot' }
 
   return { result: null, source: 'none' }
 }
