@@ -16,7 +16,7 @@ export default function CruiseRouteSection({
   const cd = getMessages(locale).listing.cruiseDetail
 
   return (
-    <div className={`${LISTING_SECTION_STACKED} -mt-2`}>
+    <div className={LISTING_SECTION_STACKED}>
       <div className="rounded-2xl border border-neutral-200 bg-neutral-50/70 p-5 dark:border-neutral-700 dark:bg-neutral-900/50">
         <div className="mb-4 flex items-center gap-2">
           <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary-50 text-primary-600 dark:bg-primary-900/30 dark:text-primary-300">

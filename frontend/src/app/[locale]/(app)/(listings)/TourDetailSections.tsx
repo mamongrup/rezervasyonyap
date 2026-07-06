@@ -1,5 +1,5 @@
 import ListingDescriptionExpandable, { HTML_PREVIEW_MAX_TOUR } from '@/components/listing/ListingDescriptionExpandable'
-import { LISTING_SECTION_STACKED } from '@/app/[locale]/(app)/(listings)/listing-section-classes'
+import { LISTING_DETAIL_SECTION_GAP_Y, LISTING_SECTION_STACKED } from '@/app/[locale]/(app)/(listings)/listing-section-classes'
 import { Divider } from '@/shared/divider'
 import { Fragment, type ReactNode } from 'react'
 import {
@@ -167,7 +167,7 @@ export function TourInfoSections({
     nodes.push(<Fragment key="tour-insert-fallback">{insertNode}</Fragment>)
   }
 
-  return <div id="tour-section-extra-info">{nodes}</div>
+  return <div id="tour-section-extra-info" className={`flex flex-col ${LISTING_DETAIL_SECTION_GAP_Y}`}>{nodes}</div>
 }
 
 export function TourItinerarySection({

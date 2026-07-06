@@ -326,12 +326,9 @@ function extractCabinImageUrls(block) {
 function enrichCabinsWithoutImages(cabins, { galleryUrls = [] } = {}) {
   const gallery = galleryUrls.filter(Boolean)
   if (gallery.length === 0) return cabins
-  let galleryIdx = 0
   return cabins.map((cabin) => {
     if (Array.isArray(cabin.image_urls) && cabin.image_urls.length > 0) return cabin
-    const image_urls = [gallery[galleryIdx % gallery.length]]
-    galleryIdx += 1
-    return { ...cabin, image_urls }
+    return { ...cabin, image_urls: [...gallery] }
   })
 }
 

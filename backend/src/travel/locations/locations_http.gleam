@@ -26,6 +26,11 @@ fn json_err(status: Int, msg: String) -> Response {
   wisp.json_response(body, status)
 }
 
+/// İsteğe bağlı lookup — kayıt yoksa 404 yerine 204 (access log gürültüsünü azaltır).
+fn optional_location_page_not_found() -> Response {
+  wisp.response(204)
+}
+
 fn require_admin(req: Request, ctx: Context, next: fn() -> Response) -> Response {
   case admin_gate.require_admin_users_read(req, ctx) {
     Error(r) -> r
@@ -816,7 +821,7 @@ pub fn get_location_page_by_slug(req: Request, ctx: Context) -> Response {
         Error(_) -> json_err(500, "location_page_query_failed")
         Ok(ret) ->
           case ret.rows {
-            [] -> json_err(404, "not_found")
+            [] -> optional_location_page_not_found()
             [row] -> json_response_location_pages_no_store(row, 200)
             _ -> json_err(500, "unexpected")
           }
@@ -933,7 +938,7 @@ pub fn get_location_page_by_name(req: Request, ctx: Context) -> Response {
         Error(_) -> json_err(500, "location_page_query_failed")
         Ok(ret) ->
           case ret.rows {
-            [] -> json_err(404, "not_found")
+            [] -> optional_location_page_not_found()
             [row] -> json_response_location_pages_no_store(row, 200)
             _ -> json_err(500, "unexpected")
           }

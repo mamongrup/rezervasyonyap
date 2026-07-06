@@ -514,6 +514,12 @@ export const zh: AppMessages = {
       subtitleHolidayHome: '此度假屋的突出主题与特色。',
       subtitleYachtCharter: '此游艇租赁的突出主题与特色。',
     },
+    detailCampaigns: {
+      title: '优惠活动',
+      installmentSubtitle: '所有信用卡均可享最多 {count} 期免息分期。',
+      discountBadge: '{percent}% 折扣',
+      validUntil: '有效期至 {date}。',
+    },
     yachtSpecs: {
       title: '技术参数',
       subtitle: '船型、载客量与租赁条款',

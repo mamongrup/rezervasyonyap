@@ -121,7 +121,7 @@ import {
 import HotelListingPromotionsSection from './HotelListingPromotionsSection'
 import HotelListingActivitiesSection from './HotelListingActivitiesSection'
 import HotelHighlightsSection from './HotelHighlightsSection'
-import ListingDetailCampaignsSection from './ListingDetailCampaignsSection'
+import ListingDetailCampaignsFromList from './ListingDetailCampaignsFromList'
 import HotelImportantNotesSection from './HotelImportantNotesSection'
 import HotelPropertyInfoGrid from './HotelPropertyInfoGrid'
 import HotelRoomShowcase, { type HotelRoomShowcaseItem } from './HotelRoomShowcase'
@@ -1178,28 +1178,9 @@ export default async function StayListingDetailPageContent({
     )
   }
 
-  const dc = messages.listing.detailCampaigns
-
-  const renderListingDetailCampaignsSection = () => {
-    if (listingDetailCampaigns.length === 0) return null
-    return (
-      <ListingDetailCampaignsSection
-        locale={locale}
-        campaigns={listingDetailCampaigns}
-        title={dc?.title ?? 'Kampanyalar'}
-        labels={{
-          installmentSubtitle: (count) =>
-            interpolate(dc?.installmentSubtitle ?? 'Tüm kredi kartlarına vade farksız {count} taksit imkânı.', {
-              count: String(count),
-            }),
-          discountBadge: (percent) =>
-            interpolate(dc?.discountBadge ?? '%{percent} indirim', { percent }),
-          validUntil: (date) =>
-            interpolate(dc?.validUntil ?? '{date} tarihine kadar geçerlidir.', { date }),
-        }}
-      />
-    )
-  }
+  const renderListingDetailCampaignsSection = () => (
+    <ListingDetailCampaignsFromList locale={locale} campaigns={listingDetailCampaigns} />
+  )
 
   const renderHotelActivitiesSection = () => {
     if (vertical !== 'hotel' || hotelActivities.length === 0) return null
@@ -1831,7 +1812,13 @@ export default async function StayListingDetailPageContent({
       )}
 
       <div className="mt-8">
-        <ListingDetailOurFeatures locale={locale} city={listing.city} />
+        <ListingDetailOurFeatures
+          locale={locale}
+          city={listing.city}
+          locationPage={
+            regionSlugForPlaces ? regionPlacesBundle.locationPage : undefined
+          }
+        />
       </div>
 
       <Divider className="my-12" />

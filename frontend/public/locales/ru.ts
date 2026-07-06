@@ -520,6 +520,12 @@ export const ru: AppMessages = {
       subtitleHolidayHome: 'Ключевые темы и концепция этого дома для отдыха.',
       subtitleYachtCharter: 'Ключевые темы и концепция этой аренды яхты.',
     },
+    detailCampaigns: {
+      title: 'Акции',
+      installmentSubtitle: 'До {count} беспроцентных рассрочек по всем кредитным картам.',
+      discountBadge: 'Скидка {percent}%',
+      validUntil: 'Действует до {date}.',
+    },
     yachtSpecs: {
       title: 'Технические характеристики',
       subtitle: 'Тип яхты, вместимость и условия чартера',

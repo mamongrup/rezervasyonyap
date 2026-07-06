@@ -28,6 +28,15 @@ function ModalImageGallery({ images, alt }: { images: string[]; alt: string }) {
     setIndex(0)
   }, [images])
   const src = images[index] ?? images[0]
+
+  useEffect(() => {
+    for (const url of images) {
+      if (!url || url === src) continue
+      const img = new Image()
+      img.src = url
+    }
+  }, [images, src])
+
   if (!src) {
     return (
       <div className="flex aspect-[4/3] w-full items-center justify-center bg-neutral-100 text-sm text-neutral-400 dark:bg-neutral-800">

@@ -520,6 +520,12 @@ export const fr: AppMessages = {
       subtitleHolidayHome: 'Thèmes et concept marquants de cette maison de vacances.',
       subtitleYachtCharter: 'Thèmes et concept marquants de cette location de yacht.',
     },
+    detailCampaigns: {
+      title: 'Offres',
+      installmentSubtitle: 'Jusqu’à {count} mensualités sans intérêts sur toutes les cartes.',
+      discountBadge: '{percent} % de réduction',
+      validUntil: 'Valable jusqu’au {date}.',
+    },
     yachtSpecs: {
       title: 'Caractéristiques techniques',
       subtitle: 'Type de yacht, capacité et conditions de location',

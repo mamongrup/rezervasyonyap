@@ -521,6 +521,12 @@ export const de: AppMessages = {
       subtitleHolidayHome: 'Hervorgehobene Themen und Konzept dieses Ferienhauses.',
       subtitleYachtCharter: 'Hervorgehobene Themen und Konzept dieses Yachtcharters.',
     },
+    detailCampaigns: {
+      title: 'Aktionen',
+      installmentSubtitle: 'Bis zu {count} zinslose Raten auf alle Kreditkarten.',
+      discountBadge: '{percent}% Rabatt',
+      validUntil: 'Gültig bis {date}.',
+    },
     yachtSpecs: {
       title: 'Technische Daten',
       subtitle: 'Yachttyp, Kapazität und Charterbedingungen',

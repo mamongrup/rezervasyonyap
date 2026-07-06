@@ -2,7 +2,9 @@ import { getFlightListingByHandle } from '@/data/listings'
 import { mapPublicListingItemToListingBase } from '@/lib/listings-fetcher'
 import { stripHtml } from '@/lib/social-share/strip-html'
 import { vitrinHref } from '@/lib/vitrin-href'
-import { searchPublicListings } from '@/lib/travel-api'
+import { searchPublicListings, fetchPublicListingDetailCampaigns } from '@/lib/travel-api'
+import { parseListingDetailCampaignsPayload } from '@/lib/listing-detail-campaigns'
+import ListingDetailCampaignsFromList from '../../ListingDetailCampaignsFromList'
 import { getMessages } from '@/utils/getT'
 import { Airplane02Icon, ArrowLeft02Icon, ArrowRight02Icon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
@@ -49,13 +51,19 @@ export default async function Page({ params }: Props) {
   const msgs = getMessages(locale)
   const m = msgs.flightDetail
 
-  const [listing, similarRes, backHref, searchHref] = await Promise.all([
-    getFlightListingByHandle(handle, locale),
+  const listing = await getFlightListingByHandle(handle, locale)
+  if (!listing) redirect(await vitrinHref(locale, '/ucak-bileti/all'))
+
+  const [similarRes, backHref, searchHref, listingDetailCampaignsRaw] = await Promise.all([
     searchPublicListings({ categoryCode: 'flight', locale, perPage: 6 }),
     vitrinHref(locale, '/ucak-bileti/all'),
     vitrinHref(locale, '/ucak-bileti/all'),
+    fetchPublicListingDetailCampaigns({
+      listingId: listing.id,
+      categoryCode: 'flight',
+    }).catch(() => ({ campaigns: [] })),
   ])
-  if (!listing) redirect(await vitrinHref(locale, '/ucak-bileti/all'))
+  const listingDetailCampaigns = parseListingDetailCampaignsPayload(listingDetailCampaignsRaw)
 
   // Parse from / to from location_name or title
   const [fromCode, toCode] = parseRoute(listing.address ?? listing.title)
@@ -117,6 +125,8 @@ export default async function Page({ params }: Props) {
               <p className="text-neutral-600 dark:text-neutral-400">{stripHtml(listing.description)}</p>
             )}
           </div>
+
+          <ListingDetailCampaignsFromList locale={locale} campaigns={listingDetailCampaigns} />
 
           {/* Route info card */}
           <div className="rounded-xl border border-neutral-200 bg-neutral-50 p-5 dark:border-neutral-700 dark:bg-neutral-800/50">

@@ -8,7 +8,7 @@
 #   ./deploy/scripts/warm-cache.sh
 # Opsiyonel:
 #   WEB_ORIGIN=http://127.0.0.1:3000 LOCALE=tr ./deploy/scripts/warm-cache.sh
-#   WARM_ROUNDS=2 ./deploy/scripts/warm-cache.sh   # her sayfayı 2 kez (ilk render + cache doğrula)
+#   WARM_ROUNDS=2 ./deploy/scripts/warm-cache.sh   # varsayılan: her sayfayı 2 kez (soğuk + ISR doğrula)
 #
 # Not: Başarısız (yavaş/timeout) sayfalar deploy'u BOZMAZ; script her zaman 0 döner.
 
@@ -16,18 +16,15 @@ set -uo pipefail
 
 WEB_ORIGIN="${WEB_ORIGIN:-http://127.0.0.1:3000}"
 LOCALE="${LOCALE:-tr}"
-WARM_ROUNDS="${WARM_ROUNDS:-1}"
+WARM_ROUNDS="${WARM_ROUNDS:-2}"
 MAX_TIME="${WARM_MAX_TIME:-30}"
 
 # TR varsayılan locale: vitrin segmentleri prefix'siz çalışır (api-origin/localized-routes).
 # Kritik landing + tam liste sayfaları (en sık girilen ve en pahalı render'lar).
 PATHS=(
   "/"
-  "/oteller"
   "/oteller/all"
-  "/tatil-evleri"
   "/tatil-evleri/all"
-  "/turlar"
   "/turlar/all"
   "/aktiviteler/all"
   "/yat-kiralama/all"

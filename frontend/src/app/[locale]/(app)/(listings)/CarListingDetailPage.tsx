@@ -16,7 +16,9 @@ import {
   transportBrowsePathForVertical,
 } from '@/lib/listing-detail-routes'
 import { vitrinHref } from '@/lib/vitrin-href'
-import { fetchPublicListingAvailabilityDaysSafe } from '@/lib/travel-api'
+import { fetchPublicListingAvailabilityDaysSafe, fetchPublicListingDetailCampaigns } from '@/lib/travel-api'
+import { parseListingDetailCampaignsPayload } from '@/lib/listing-detail-campaigns'
+import ListingDetailCampaignsFromList from './ListingDetailCampaignsFromList'
 import Yolcu360CarReserveButton from '@/components/listings/Yolcu360CarReserveButton'
 import {
   carRentalBrowseQueryFromContext,
@@ -114,7 +116,14 @@ export default async function CarListingDetailPage({
 
   // listing.id zaten yayınlanmış katalog id'si; tekrar çözmeye gerek yok.
   const catalogListingId = listing.id
-  const availabilityCalendarDays = await fetchPublicListingAvailabilityDaysSafe(catalogListingId)
+  const [availabilityCalendarDays, listingDetailCampaignsRaw] = await Promise.all([
+    fetchPublicListingAvailabilityDaysSafe(catalogListingId),
+    fetchPublicListingDetailCampaigns({
+      listingId: catalogListingId,
+      categoryCode: vertical,
+    }).catch(() => ({ campaigns: [] })),
+  ])
+  const listingDetailCampaigns = parseListingDetailCampaignsPayload(listingDetailCampaignsRaw)
 
   const {
     address,
@@ -219,6 +228,7 @@ export default async function CarListingDetailPage({
       <main className="relative z-[1] mt-10 flex flex-col gap-8 lg:flex-row xl:gap-10">
         <div className="flex w-full flex-col gap-y-8 lg:w-3/5 xl:w-[64%] xl:gap-y-10">
           {renderSectionHeader()}
+          <ListingDetailCampaignsFromList locale={locale} campaigns={listingDetailCampaigns} />
           <SectionDateRange
             locale={locale}
             initialDays={availabilityCalendarDays}

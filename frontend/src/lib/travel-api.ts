@@ -8189,6 +8189,7 @@ export async function getLocationPageBySlug(slugPath: string): Promise<LocationP
       /** Yönetimden gelen `map_lat`/`map_lng` vitrinla aynı kaynaktan okunmalı; kısa önbellek pin sapması yaratıyordu. */
       cache: 'no-store',
     })
+    if (res.status === 204) return null
     if (!res.ok) return null
     return json(res)
   } catch {
@@ -8203,6 +8204,7 @@ export async function getLocationPageByName(name: string): Promise<LocationPage 
   try {
     const q = new URLSearchParams({ name })
     const res = await fetch(`${b}/api/v1/locations/pages/by-name?${q}`)
+    if (res.status === 204) return null
     if (!res.ok) return null
     return json(res)
   } catch {

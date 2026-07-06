@@ -6,12 +6,11 @@ import { promises as fs } from 'node:fs'
 import path from 'node:path'
 import type { RegionPlaceData } from '@/app/api/region-places/route'
 import {
-  getLocationPageByName,
-  getLocationPageBySlug,
   type DistrictServicePoi,
   type LocationPage,
   type TravelIdea,
 } from '@/lib/travel-api'
+import { resolveLocationPageCached } from '@/lib/location-page-resolve-server'
 import { asTrimmedString, parseTravelIdeas, pickTravelIdeasMapCoords } from '@/lib/travel-ideas-parse'
 import { getMessages } from '@/utils/getT'
 import {
@@ -272,18 +271,10 @@ export async function resolveRegionPlacesForListingPage(
 
   const fileData = await readRegionPlacesFile(regionSlug)
 
-  const slugPath = regionSlug.replace(/-/g, '/')
-  const slugCandidates = [slugPath, `tr/${slugPath}`, regionSlug]
-
-  let page: LocationPage | null = null
-  for (const candidate of slugCandidates) {
-    page = await getLocationPageBySlug(candidate)
-    if (page) break
-  }
-
-  if (!page && regionLabel?.trim()) {
-    page = await getLocationPageByName(regionLabel.trim())
-  }
+  const page = await resolveLocationPageCached({
+    regionSlug,
+    regionLabel,
+  })
 
   const displayName = regionLabel?.trim() || page?.title || regionSlug
   return resolveRegionPlacesForBolgePage(fileData, page, regionSlug, displayName, locale)
@@ -322,6 +313,7 @@ export async function resolveRegionPlacesBundleForListingPage(
 ): Promise<{
   places: RegionPlaceData | null
   vitrinConfig: NearbyVitrinColumnsConfig
+  locationPage: LocationPage | null
 }> {
   if (!regionSlug?.trim()) {
     return {
@@ -329,23 +321,16 @@ export async function resolveRegionPlacesBundleForListingPage(
       vitrinConfig: options?.villaFourColumns
         ? buildVillaListingNearbyVitrinColumns(locale)
         : resolveNearbyVitrinConfig(locale, null),
+      locationPage: null,
     }
   }
 
   const fileData = await readRegionPlacesFile(regionSlug)
 
-  const slugPath = regionSlug.replace(/-/g, '/')
-  const slugCandidates = [slugPath, `tr/${slugPath}`, regionSlug]
-
-  let page: LocationPage | null = null
-  for (const candidate of slugCandidates) {
-    page = await getLocationPageBySlug(candidate)
-    if (page) break
-  }
-
-  if (!page && regionLabel?.trim()) {
-    page = await getLocationPageByName(regionLabel.trim())
-  }
+  const page = await resolveLocationPageCached({
+    regionSlug,
+    regionLabel,
+  })
 
   const displayName = regionLabel?.trim() || page?.title || regionSlug
   const places = resolveRegionPlacesForBolgePage(fileData, page, regionSlug, displayName, locale)
@@ -355,5 +340,5 @@ export async function resolveRegionPlacesBundleForListingPage(
       ? buildVillaListingNearbyVitrinColumns(locale)
       : parsed
 
-  return { places, vitrinConfig }
+  return { places, vitrinConfig, locationPage: page }
 }

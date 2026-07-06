@@ -27,11 +27,13 @@ import {
 import { vitrinHref } from '@/lib/vitrin-href'
 import {
   fetchPublicListingAvailabilityDaysSafe,
+  fetchPublicListingDetailCampaigns,
   getPublicTourPeriods,
   getVerticalMeta,
   listPublicActivitySessions,
   type ActivitySessionRow,
 } from '@/lib/travel-api'
+import { parseListingDetailCampaignsPayload } from '@/lib/listing-detail-campaigns'
 import { formatTourLanguageLabels } from '@/lib/tour-listing-card-meta'
 import { mergeTourPeriodOptions } from '@/lib/tour-periods'
 import {
@@ -90,6 +92,7 @@ import SectionHeader from './components/SectionHeader'
 import { SectionHeading } from './components/SectionHeading'
 import SectionHost from './components/SectionHost'
 import ListingDetailOurFeatures from './components/ListingDetailOurFeatures'
+import ListingDetailCampaignsFromList from './ListingDetailCampaignsFromList'
 import SimilarListings from './components/SimilarListings'
 import SectionListingReviews from './components/SectionListingReviews'
 import SectionMap from './components/SectionMap'
@@ -103,7 +106,6 @@ import {
 import ExperienceBookingSidebar from './ExperienceBookingSidebar'
 import TourBookingSidebar from './TourBookingSidebar'
 import CruiseBookingSidebar from './CruiseBookingSidebar'
-import CruiseRouteSection from './CruiseRouteSection'
 import CruiseShipDetailsSection from './CruiseShipDetailsSection'
 import TourItineraryAccordion from './TourItineraryAccordion'
 import CruiseCabinPricingSection from './CruiseCabinPricingSection'
@@ -369,6 +371,7 @@ export default async function ExperienceListingDetailPage({
     similarActivitiesRes,
     regionPlacesInitialData,
     rawCruiseMeta,
+    listingDetailCampaignsRaw,
   ] = await Promise.all([
     vertical === 'tour'
       ? Promise.resolve([])
@@ -404,7 +407,13 @@ export default async function ExperienceListingDetailPage({
     isCruise
       ? getVerticalMeta(catalogListingId, 'cruise').catch(() => null)
       : Promise.resolve(null),
+    fetchPublicListingDetailCampaigns({
+      listingId: catalogListingId,
+      categoryCode: vertical,
+    }).catch(() => ({ campaigns: [] })),
   ])
+
+  const listingDetailCampaigns = parseListingDetailCampaignsPayload(listingDetailCampaignsRaw)
 
   const {
     address,
@@ -855,6 +864,7 @@ export default async function ExperienceListingDetailPage({
     <>
       <div className={`flex min-w-0 w-full flex-col ${LISTING_DETAIL_SECTION_GAP_Y} lg:w-3/5 xl:w-[62%]`}>
         {renderSectionHeader()}
+        <ListingDetailCampaignsFromList locale={locale} campaigns={listingDetailCampaigns} />
         {tourOverviewItems.length > 0 || tourProgramHtml ? (
           <TourOverviewSection items={tourOverviewItems} programHtml={tourProgramHtml} locale={locale} />
         ) : null}
@@ -898,11 +908,10 @@ export default async function ExperienceListingDetailPage({
   const renderNonTourMainContent = () => (
     <>
       <div
-        className={`flex w-full flex-col ${
-          isCruise ? 'gap-y-5 xl:gap-y-7' : LISTING_DETAIL_SECTION_GAP_Y
-        } lg:w-3/5 ${isCruise ? 'xl:w-[62%]' : 'xl:w-[64%]'}`}
+        className={`flex w-full flex-col ${LISTING_DETAIL_SECTION_GAP_Y} lg:w-3/5 ${isCruise ? 'xl:w-[62%]' : 'xl:w-[64%]'}`}
       >
         {renderSectionHeader()}
+        <ListingDetailCampaignsFromList locale={locale} campaigns={listingDetailCampaigns} />
         {isCruise ? (
           <>
             {cruiseOverview.length > 0 ? (
@@ -914,9 +923,6 @@ export default async function ExperienceListingDetailPage({
                 <Divider className="w-14!" />
                 <ListingDescriptionExpandable locale={locale} html={description} />
               </div>
-            ) : null}
-            {cruiseMeta?.route_summary?.trim() ? (
-              <CruiseRouteSection routeSummary={cruiseMeta.route_summary} locale={locale} />
             ) : null}
             {cruiseCabinsList.length > 0 ? (
               <CruiseCabinPricingSection locale={locale} />

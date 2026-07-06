@@ -323,7 +323,7 @@ main() {
     warn "SKIP_WARM_CACHE=1 — deploy sonrası önbellek ısıtma atlandı (ilk ziyaretçi soğuk render görebilir)."
   elif [[ -f "$APP_ROOT/deploy/scripts/warm-cache.sh" ]]; then
     step "Vitrin önbellek ısıtma (deploy sonrası)"
-    bash "$APP_ROOT/deploy/scripts/warm-cache.sh" || warn "warm-cache tamamlanamadı (deploy etkilenmez); elle: ./deploy/scripts/warm-cache.sh"
+    WARM_ROUNDS="${WARM_ROUNDS:-2}" bash "$APP_ROOT/deploy/scripts/warm-cache.sh" || warn "warm-cache tamamlanamadı (deploy etkilenmez); elle: ./deploy/scripts/warm-cache.sh"
   fi
 }
 

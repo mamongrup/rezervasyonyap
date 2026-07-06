@@ -26,19 +26,18 @@ import type { CategoryRegistryEntry } from '@/data/category-registry'
 import type { HeroOverride } from '@/data/region-hero-config'
 import type { FilterOption, PageBuilderModule, TListingBase } from '@/types/listing-types'
 import type { TAuthor } from '@/data/authors'
-import { getPublicRegionStats, listPublicThemeItems } from '@/lib/travel-api'
+import { listPublicThemeItems } from '@/lib/travel-api'
+import { loadCategoryPageShellCached } from '@/lib/category-page-shell-cache'
 import { SLUG_TO_CODE } from '@/lib/listings-fetcher'
 import { resolveListingPriceUnit } from '@/lib/listing-category-display'
 import {
   isStayRentalCategory,
-  stayRentalPropertyTypeFromHandle,
   type StayRentalCategoryCode,
 } from '@/lib/stay-rental-categories'
 import {
   filterRegionsForHandle,
   regionsWithListings,
 } from '@/lib/region-stats-display'
-import { getCategoryPageBuilderConfig } from '@/data/page-builder-config'
 import { Button } from '@/shared/Button'
 import { Divider } from '@/shared/divider'
 import CategoryListingPagination from '@/components/CategoryListingPagination'
@@ -192,14 +191,11 @@ export default async function CategoryPageTemplate({
   const isStayRentalPage = isStayRentalCategory(categoryCode)
   const stayRentalCode = isStayRentalPage ? (categoryCode as StayRentalCategoryCode) : null
   const stayRentalSubs = isStayRentalPage ? getSubcategoriesByParent(category.slug) : []
-  const stayRentalPropertyTypeForRegions =
-    stayRentalCode && currentHandle && currentHandle !== 'all'
-      ? stayRentalPropertyTypeFromHandle(stayRentalCode, currentHandle)
-      : undefined
 
   // Birbirinden bağımsız async işleri tek Promise.all'da paralelleştir:
   // vitrinHref'ler (istek-içi cache'li), ItemList JSON-LD, page builder config,
   // tema öğeleri ve bölge istatistikleri ayrı ayrı sıralı beklenmez.
+  const shellPromise = loadCategoryPageShellCached(category.slug, locale ?? 'tr', currentHandle)
   const [
     categoryRouteVitrin,
     categoryPageHref,
@@ -222,11 +218,13 @@ export default async function CategoryPageTemplate({
     // modules geçirilmemişse kaydedilmiş config, yoksa kod varsayılanları
     modules
       ? Promise.resolve(modules)
-      : getCategoryPageBuilderConfig(category.slug, locale).catch(() =>
-          getLocalizedDefaultModules(category.slug, m).map((mod, i) => ({
-            ...mod,
-            id: `default-${category.slug}-${i}`,
-          })),
+      : shellPromise.then((shell) =>
+          shell.pageBuilderModules.length > 0
+            ? shell.pageBuilderModules
+            : getLocalizedDefaultModules(category.slug, m).map((mod, i) => ({
+                ...mod,
+                id: `default-${category.slug}-${i}`,
+              })),
         ),
     stayRentalCode
       ? preloadedStayRentalThemeOptions != null
@@ -236,14 +234,7 @@ export default async function CategoryPageTemplate({
     // Bölge istatistikleri — dışarıdan geçilmemişse çek
     regionStats
       ? Promise.resolve(regionStats)
-      : getPublicRegionStats(
-          categoryCode,
-          12,
-          { next: { revalidate: 300 } } as RequestInit,
-          stayRentalPropertyTypeForRegions
-            ? { propertyType: stayRentalPropertyTypeForRegions }
-            : undefined,
-        ).catch(() => []),
+      : shellPromise.then((shell) => shell.regionStats),
   ])
   let resolvedModules = resolvedModulesRaw as PageBuilderModule[]
   if (

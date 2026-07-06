@@ -109,7 +109,7 @@ export function cruiseOverviewItems(
   if (meta.ship_name) {
     items.push({ label: labels.ship, value: meta.ship_name, icon: 'transport' })
   }
-  // Rota ayrı tam genişlik bileşende gösterilir (CruiseRouteSection)
+  // Rota üst başlık / haritada gösterilir; ayrı rota bandı yok.
   if (meta.cabin_category) {
     items.push({ label: labels.cabin, value: meta.cabin_category, icon: 'location' })
   }
@@ -222,18 +222,28 @@ export function cheapestCabinId(cabins: CruiseCabinOption[]): string {
   return best.id
 }
 
+/** Kabin görselleri yoksa tur galerisinin tamamını kullan (tek görsel yerine). */
+export function resolveCabinImageUrls(
+  cabinUrls: string[] | undefined | null,
+  galleryUrls: string[] | undefined | null,
+): string[] {
+  const cabin = (cabinUrls ?? []).map((u) => u.trim()).filter(Boolean)
+  const gallery = (galleryUrls ?? []).map((u) => u.trim()).filter(Boolean)
+  if (cabin.length === 0) return gallery
+  // Eski backfill: kabine yalnızca galeriden tek görsel yazılmışsa tam galeriyi aç.
+  if (gallery.length > cabin.length && cabin.every((u) => gallery.includes(u))) {
+    return gallery
+  }
+  return cabin
+}
+
 export function cruiseCabins(meta: CruiseVerticalMeta | null): CruiseCabinOption[] {
   const rows = meta?.cabins ?? []
   const gallery = (meta?.gallery_urls ?? []).filter(Boolean)
-  let galleryIdx = 0
   return rows
     .filter((c) => c?.name?.trim())
     .map((c, i) => {
-      let image_urls = c.image_urls?.filter(Boolean)
-      if (!image_urls?.length && gallery.length > 0) {
-        image_urls = [gallery[galleryIdx % gallery.length]]
-        galleryIdx += 1
-      }
+      const image_urls = resolveCabinImageUrls(c.image_urls, gallery)
       return {
         id: c.id || `cabin-${i}`,
         name: String(c.name).trim(),

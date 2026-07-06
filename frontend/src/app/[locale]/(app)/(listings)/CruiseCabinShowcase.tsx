@@ -40,6 +40,15 @@ function CabinImageCarousel({
 }) {
   const [index, setIndex] = useState(0)
   const src = images[index] ?? images[0]
+
+  useEffect(() => {
+    for (const url of images) {
+      if (!url || url === src) continue
+      const img = new Image()
+      img.src = url
+    }
+  }, [images, src])
+
   if (!src) {
     return (
       <div className="flex h-full min-h-[168px] w-full items-center justify-center bg-neutral-100 text-xs text-neutral-400 dark:bg-neutral-800 md:min-h-[200px]">

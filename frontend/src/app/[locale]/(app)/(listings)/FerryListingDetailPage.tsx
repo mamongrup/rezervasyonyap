@@ -10,7 +10,9 @@ import { redirect } from 'next/navigation'
 import { normalizeCatalogVertical } from '@/lib/catalog-listing-vertical'
 import { detailPathForVertical, transportBrowsePathForVertical } from '@/lib/listing-detail-routes'
 import { vitrinHref } from '@/lib/vitrin-href'
-import { getPublicFerryDetails } from '@/lib/travel-api'
+import { getPublicFerryDetails, fetchPublicListingDetailCampaigns } from '@/lib/travel-api'
+import { parseListingDetailCampaignsPayload } from '@/lib/listing-detail-campaigns'
+import ListingDetailCampaignsFromList from './ListingDetailCampaignsFromList'
 import { getMessages } from '@/utils/getT'
 import { interpolate } from '@/utils/interpolate'
 import HeaderGallery from './components/HeaderGallery'
@@ -67,10 +69,15 @@ export default async function FerryListingDetailPage({
   }
 
   const catalogListingId = listing.id
-  const [ferryDetails, similarRes] = await Promise.all([
+  const [ferryDetails, similarRes, listingDetailCampaignsRaw] = await Promise.all([
     catalogListingId ? getPublicFerryDetails(catalogListingId) : Promise.resolve(null),
     similarListingsPromise,
+    fetchPublicListingDetailCampaigns({
+      listingId: catalogListingId,
+      categoryCode: 'ferry',
+    }).catch(() => ({ campaigns: [] })),
   ])
+  const listingDetailCampaigns = parseListingDetailCampaignsPayload(listingDetailCampaignsRaw)
 
   const m = getMessages(locale)
   const dp = m.listing.detailPage
@@ -162,6 +169,8 @@ export default async function FerryListingDetailPage({
               </div>
             ) : null}
           </SectionHeader>
+
+          <ListingDetailCampaignsFromList locale={locale} campaigns={listingDetailCampaigns} />
 
           {description?.trim() ? (
             <div className="listingSection__wrap">
