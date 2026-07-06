@@ -5,7 +5,7 @@ import { regionHandleFromParams } from '@/lib/region-handle-path'
 import { getHotelCategoryFilterOptions } from '@/lib/category-filter-options'
 import { categoryFacetRouteFromHandle } from '@/lib/category-facet-routes'
 import { facetLabelFromRoute, redirectCategoryFacetFromQuery } from '@/lib/category-facet-redirect'
-import { loadCategoryPageListingsBundle } from '@/lib/category-page-data'
+import { categoryPageShellProps, loadCategoryPageListingsBundle } from '@/lib/category-page-data'
 import { parseSearchParamsFromUrl } from '@/lib/listings-fetcher'
 import { categoryMetadata } from '@/lib/category-page-metadata'
 import { parseFeaturedVitrinTab } from '@/lib/featured-tab-view-all'
@@ -42,6 +42,7 @@ export default async function Page({
     result: { listings, total, page, perPage, fromApi },
     filterOptions,
     heroOverride,
+    shell,
   } = await loadCategoryPageListingsBundle(
     'oteller',
     query,
@@ -98,6 +99,7 @@ export default async function Page({
         vitrinTab: parseFeaturedVitrinTab(query.vitrin_tab),
       }}
       listingPagination={{ page, total, perPage }}
+      {...categoryPageShellProps(shell)}
     />
   )
 }

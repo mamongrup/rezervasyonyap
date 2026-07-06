@@ -5,7 +5,7 @@ import { regionHandleFromParams } from '@/lib/region-handle-path'
 import { getCruiseCategoryFilterOptions } from '@/lib/category-filter-options'
 import { categoryFacetRouteFromHandle } from '@/lib/category-facet-routes'
 import { facetLabelFromRoute, redirectCategoryFacetFromQuery } from '@/lib/category-facet-redirect'
-import { loadCategoryPageListingsBundle } from '@/lib/category-page-data'
+import { categoryPageShellProps, loadCategoryPageListingsBundle } from '@/lib/category-page-data'
 import { parseSearchParamsFromUrl } from '@/lib/listings-fetcher'
 import { categoryMetadata } from '@/lib/category-page-metadata'
 import { redirectIfExperienceListingHandle } from '@/lib/category-browse-listing-redirect'
@@ -49,6 +49,7 @@ export default async function Page({
     result: { listings, total, page, perPage, fromApi },
     filterOptions,
     heroOverride,
+    shell,
   } = await loadCategoryPageListingsBundle(
     'kruvaziyer',
     query,
@@ -101,6 +102,7 @@ export default async function Page({
         fromApi,
       }}
       listingPagination={{ page, total, perPage }}
+      {...categoryPageShellProps(shell)}
     />
   )
 }

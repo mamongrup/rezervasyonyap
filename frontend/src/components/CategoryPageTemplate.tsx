@@ -195,7 +195,11 @@ export default async function CategoryPageTemplate({
   // Birbirinden bağımsız async işleri tek Promise.all'da paralelleştir:
   // vitrinHref'ler (istek-içi cache'li), ItemList JSON-LD, page builder config,
   // tema öğeleri ve bölge istatistikleri ayrı ayrı sıralı beklenmez.
-  const shellPromise = loadCategoryPageShellCached(category.slug, locale ?? 'tr', currentHandle)
+  // Shell dışarıdan geçildiyse (categoryPageShellProps) region-stats tekrar çekilmez.
+  const shellPromise =
+    regionStats != null
+      ? null
+      : loadCategoryPageShellCached(category.slug, locale ?? 'tr', currentHandle)
   const [
     categoryRouteVitrin,
     categoryPageHref,
@@ -218,14 +222,21 @@ export default async function CategoryPageTemplate({
     // modules geçirilmemişse kaydedilmiş config, yoksa kod varsayılanları
     modules
       ? Promise.resolve(modules)
-      : shellPromise.then((shell) =>
-          shell.pageBuilderModules.length > 0
-            ? shell.pageBuilderModules
-            : getLocalizedDefaultModules(category.slug, m).map((mod, i) => ({
-                ...mod,
-                id: `default-${category.slug}-${i}`,
-              })),
-        ),
+      : shellPromise
+        ? shellPromise.then((shell) =>
+            shell.pageBuilderModules.length > 0
+              ? shell.pageBuilderModules
+              : getLocalizedDefaultModules(category.slug, m).map((mod, i) => ({
+                  ...mod,
+                  id: `default-${category.slug}-${i}`,
+                })),
+          )
+        : Promise.resolve(
+            getLocalizedDefaultModules(category.slug, m).map((mod, i) => ({
+              ...mod,
+              id: `default-${category.slug}-${i}`,
+            })),
+          ),
     stayRentalCode
       ? preloadedStayRentalThemeOptions != null
         ? Promise.resolve(preloadedStayRentalThemeOptions)
@@ -234,7 +245,9 @@ export default async function CategoryPageTemplate({
     // Bölge istatistikleri — dışarıdan geçilmemişse çek
     regionStats
       ? Promise.resolve(regionStats)
-      : shellPromise.then((shell) => shell.regionStats),
+      : shellPromise
+        ? shellPromise.then((shell) => shell.regionStats)
+        : Promise.resolve([] as RegionSliderItem[]),
   ])
   let resolvedModules = resolvedModulesRaw as PageBuilderModule[]
   if (

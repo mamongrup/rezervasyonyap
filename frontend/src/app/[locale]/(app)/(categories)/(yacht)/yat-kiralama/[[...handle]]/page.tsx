@@ -11,7 +11,7 @@ import {
   holidayThemeOptionsFromMap,
   resolveHolidayThemeLabelsFromMap,
 } from '@/lib/holiday-theme-labels'
-import { loadCategoryPageListingsBundle } from '@/lib/category-page-data'
+import { categoryPageShellProps, loadCategoryPageListingsBundle } from '@/lib/category-page-data'
 import { parseSearchParamsFromUrl } from '@/lib/listings-fetcher'
 import { stayRentalFlexibleSearchActive } from '@/lib/stay-rental-flexible-search'
 import { regionLabelFromHandle } from '@/lib/stay-location-display'
@@ -50,7 +50,7 @@ export default async function Page({
 
   const query = parseSearchParamsFromUrl(sp)
   const requestedPage = Math.max(1, parseInt(query.page ?? '1', 10) || 1)
-  const [{ result, filterOptions, heroOverride }, themeLabelMap] = await Promise.all([
+  const [{ result, filterOptions, heroOverride, shell }, themeLabelMap] = await Promise.all([
     loadCategoryPageListingsBundle(
       'yat-kiralama',
       query,
@@ -137,6 +137,7 @@ export default async function Page({
         ) : undefined
       }
       listingPagination={{ page, total, perPage }}
+      {...categoryPageShellProps(shell)}
     />
   )
 }

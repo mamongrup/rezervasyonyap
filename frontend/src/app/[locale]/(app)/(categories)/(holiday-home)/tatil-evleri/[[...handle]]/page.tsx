@@ -11,7 +11,7 @@ import {
   holidayThemeOptionsFromMap,
   resolveHolidayThemeLabelsFromMap,
 } from '@/lib/holiday-theme-labels'
-import { loadCategoryPageListingsBundle } from '@/lib/category-page-data'
+import { categoryPageShellProps, loadCategoryPageListingsBundle } from '@/lib/category-page-data'
 import {
   fetchFlexibleHolidayListings,
   parseSearchParamsFromUrl,
@@ -67,6 +67,7 @@ export default async function Page({
     result: { listings, total, page, perPage, fromApi },
     filterOptions,
     heroOverride,
+    shell,
   } = bundle
 
   const flexibleListings =
@@ -153,6 +154,7 @@ export default async function Page({
           : undefined
       }
       listingPagination={{ page, total, perPage }}
+      {...categoryPageShellProps(shell)}
     />
   )
 }
