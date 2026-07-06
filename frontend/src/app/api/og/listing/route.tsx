@@ -337,12 +337,18 @@ async function socialListingImage({
   rows,
   themes,
   pageBase,
+  branding,
 }: {
   bgUrl: string | null
   title: string
   rows: { label: string; value: string }[]
   themes: string[]
   pageBase: string
+  branding: {
+    logoUrl: string | null
+    phone: string
+    tursabNo: string
+  }
 }) {
   const text = {
     x: scaleSocialTemplate(SOCIAL_TEMPLATE_TEXT.x),
@@ -570,22 +576,47 @@ async function socialListingImage({
             width: scaleSocialTemplate(455),
             display: 'flex',
             flexDirection: 'column',
-            gap: 7,
+            gap: 8,
             color: '#13294b',
             lineHeight: 1.08,
           }}
         >
-          <div style={{ display: 'flex', fontSize: 28, fontWeight: 800 }}>
+          {branding.logoUrl ? (
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'flex-start',
+                width: scaleSocialTemplate(340),
+                padding: '6px 10px',
+                borderRadius: 12,
+                background: 'rgba(255,255,255,0.96)',
+                boxShadow: '0 8px 18px rgba(0,0,0,0.14)',
+              }}
+            >
+              <img
+                src={branding.logoUrl}
+                alt="Logo"
+                width={scaleSocialTemplate(300)}
+                height={scaleSocialTemplate(84)}
+                style={{
+                  objectFit: 'contain',
+                  opacity: 1,
+                }}
+              />
+            </div>
+          ) : null}
+          <div style={{ display: 'flex', fontSize: 28, fontWeight: 800, color: '#0f2b52' }}>
             Mamon Plus Travel Agency
           </div>
-          <div style={{ display: 'flex', fontSize: 24, fontWeight: 600 }}>
+          <div style={{ display: 'flex', fontSize: 24, fontWeight: 700, color: '#0f2b52' }}>
             www.rezervasyonyap.com.tr
           </div>
-          <div style={{ display: 'flex', fontSize: 23, fontWeight: 600 }}>
-            0532 397 7957 - 0850 466 0464
+          <div style={{ display: 'flex', fontSize: 23, fontWeight: 700, color: '#0f2b52' }}>
+            {branding.phone}
           </div>
-          <div style={{ display: 'flex', fontSize: 21, fontWeight: 700 }}>
-            TURSAB NO : 13127
+          <div style={{ display: 'flex', fontSize: 21, fontWeight: 800, color: '#0f2b52' }}>
+            TURSAB NO : {branding.tursabNo}
           </div>
         </div>
       </div>
@@ -646,6 +677,7 @@ export async function GET(req: NextRequest) {
       rows: fallbackRows,
       themes: fallbackThemes,
       pageBase: base,
+      branding,
     })
   }
 
@@ -703,6 +735,7 @@ export async function GET(req: NextRequest) {
         rows,
         themes: socialThemeLabels(listing.themeCodes, locale),
         pageBase: base,
+        branding,
       })
     }
 
@@ -851,6 +884,7 @@ export async function GET(req: NextRequest) {
       rows,
       themes: [],
       pageBase: base,
+      branding,
     })
   }
 
