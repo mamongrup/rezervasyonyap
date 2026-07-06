@@ -8,6 +8,7 @@ import { buildListingOgImageUrl } from '@/lib/social-share/listing-og-image-url'
 import { sanitizeRichCmsHtml } from '@/lib/sanitize-cms-html'
 import { stripHtml } from '@/lib/social-share/strip-html'
 import { normalizeCatalogVertical } from '@/lib/catalog-listing-vertical'
+import { listPublicCategoryThemeItems } from '@/lib/catalog-theme-items-api'
 import {
   buildSeasonalPricingTableRows,
   maxNightlyFromListingPriceRules,
@@ -70,7 +71,6 @@ import {
   getPublicListingAccommodationRules,
   getVerticalMeta,
   isAttributeValueTrue,
-  listPublicThemeItems,
   type ListingPriceRuleRow,
 } from '@/lib/travel-api'
 import type { TListingHolidayHome } from '@/types/listing-types'
@@ -351,6 +351,27 @@ export default async function StayListingDetailPageContent({
   if (linkBase !== canonicalPath) {
     redirect(await vitrinHref(locale, `${canonicalPath}/${handle}`))
   }
+  const isStayRentalVertical = isStayRentalCategory(vertical)
+  const categorySlugForRelated =
+    vertical === 'holiday_home'
+      ? 'tatil-evleri'
+      : vertical === 'yacht_charter'
+        ? 'yat-kiralama'
+        : 'oteller'
+  const relatedListingsPerPage = isStayRentalVertical ? 36 : 20
+  const reviewsPromise = getListingReviews(handle)
+  const similarResPromise = fetchCategoryListings(
+    categorySlugForRelated,
+    {},
+    { perPage: relatedListingsPerPage },
+    locale,
+  )
+  const stayThemeLabelMapPromise = isStayRentalVertical
+    ? getHolidayThemeLabelMap(
+        locale,
+        vertical === 'yacht_charter' ? 'yacht_charter' : 'holiday_home',
+      )
+    : Promise.resolve(null)
 
   // listing.id zaten getStayListingByHandle içinde resolvePublishedListingIdForStayPage
   // ile çözülen yayınlanmış katalog id'sidir; burada tekrar çözmek fazladan bir
@@ -769,20 +790,17 @@ export default async function StayListingDetailPageContent({
 
   const mergeHolidayMealsIntoPricing = mealPlans.length > 0 && holidayHomePricingVisible
 
-  const stayThemeCategory: 'holiday_home' | 'yacht_charter' = isYachtCharter
-    ? 'yacht_charter'
-    : 'holiday_home'
   const stayThemeCodesAll = isStayRental ? parseHolidayThemeCodes(listing.themeCodes ?? []) : []
   const stayThemeCodes = stayThemeCodesAll.filter(
     (code) => !HOLIDAY_THEME_CODES_EXCLUDED_FROM_LISTING_CARDS.has(code),
   )
   let stayThemeHighlightLabels: Record<string, string> = {}
   if (isStayRental && stayThemeCodes.length > 0) {
-    const themeLabelMap = await getHolidayThemeLabelMap(locale, stayThemeCategory)
+    const themeLabelMap = await stayThemeLabelMapPromise
     stayThemeHighlightLabels = Object.fromEntries(
       stayThemeCodes.map((code) => [
         code,
-        themeLabelMap.get(code) ?? code.replace(/_/g, ' '),
+        themeLabelMap?.get(code) ?? code.replace(/_/g, ' '),
       ]),
     )
   }
@@ -802,7 +820,7 @@ export default async function StayListingDetailPageContent({
   const hotelTypeCodeNorm = vertical === 'hotel' ? listing.hotelTypeCode?.trim() : ''
   const listingCategoryBadge =
     vertical === 'hotel' && hotelTypeCodeNorm
-      ? (await listPublicThemeItems({ categoryCode: 'hotel', locale }))?.items?.find(
+      ? (await listPublicCategoryThemeItems({ categoryCode: 'hotel', locale })).items?.find(
           (i) => i.code === hotelTypeCodeNorm,
         )?.label ?? hotelTypeCodeNorm
       : listingCategory
@@ -943,15 +961,9 @@ export default async function StayListingDetailPageContent({
 
   const galleryImages = galleryUrlsForStayDetailHeader(featuredImage, galleryImgs)
 
-  const categorySlug =
-    vertical === 'holiday_home'
-      ? 'tatil-evleri'
-      : vertical === 'yacht_charter'
-        ? 'yat-kiralama'
-        : 'oteller'
   const [reviewsRaw, similarRes] = await Promise.all([
-    getListingReviews(handle),
-    fetchCategoryListings(categorySlug, {}, { perPage: 100 }, locale),
+    reviewsPromise,
+    similarResPromise,
   ])
   const reviews = reviewsRaw.slice(0, 3)
   const otherStays = similarRes.listings.filter((l) => l.handle !== handle)

@@ -74,7 +74,7 @@ export async function listPublicCategoryThemeItems(params: {
   try {
     const res = await fetch(apiV1(`/catalog/public/theme-items?${q}`), {
       method: 'GET',
-      cache: 'no-store',
+      next: { revalidate: 300 },
       headers: { Accept: 'application/json' },
     })
     const data = await readJson<{ items?: { code: string; label: string }[] }>(res)
@@ -97,7 +97,7 @@ export async function listPublicThemeItems(params: {
   try {
     const res = await fetch(apiV1(`/catalog/public/theme-items?${q}`), {
       method: 'GET',
-      cache: 'no-store',
+      next: { revalidate: 300 },
       headers: { Accept: 'application/json' },
     })
     const data = await readJson<{ items?: { code: string; label: string }[] }>(res)

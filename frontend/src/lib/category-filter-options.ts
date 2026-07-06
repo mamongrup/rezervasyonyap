@@ -1,6 +1,6 @@
 import { HOTEL_ACCOMMODATION_FILTER_FALLBACK } from '@/lib/hotel-accommodation-fallback'
 import { HOTEL_THEME_OPTIONS, HOTEL_TYPE_OPTIONS } from '@/lib/hotel-manage-fields'
-import { listPublicThemeItems, type ThemeFacet } from '@/lib/catalog-theme-items-api'
+import { listPublicCategoryThemeItems } from '@/lib/catalog-theme-items-api'
 import {
   getTourAccommodationOptions,
   getTourDepartureCityOptions,
@@ -14,6 +14,7 @@ import {
 import type { FilterOption } from '@/types/listing-types'
 import { getMessages } from '@/utils/getT'
 import { STAY_RENTAL_PRICE_FILTER_MAX } from '@/lib/stay-rental-price-filter'
+import { cache } from 'react'
 
 type CodeLabel = { code: string; label: string }
 
@@ -22,14 +23,14 @@ function mergeFacetOptions(api: CodeLabel[] | null | undefined, fallback: CodeLa
   return fallback
 }
 
-async function getFacetOptions(
-  categoryCode: string,
-  facet: ThemeFacet,
-  locale: string,
+function getFacetOptions(
+  items: CodeLabel[] | null | undefined,
   fallback: CodeLabel[],
-): Promise<CodeLabel[]> {
-  const result = await listPublicThemeItems({ categoryCode, facet, locale })
-  return mergeFacetOptions(result?.items, fallback)
+): CodeLabel[] {
+  const source = items ?? []
+  const allowed = new Set(fallback.map((x) => x.code))
+  const filtered = source.filter((item) => allowed.has(item.code))
+  return mergeFacetOptions(filtered, fallback)
 }
 
 function checkboxFilter(
@@ -52,15 +53,14 @@ function checkboxFilter(
   }
 }
 
-export async function getHotelCategoryFilterOptions(locale: string): Promise<FilterOption[]> {
+export const getHotelCategoryFilterOptions = cache(async (locale: string): Promise<FilterOption[]> => {
   const m = getMessages(locale)
   const filters = m.categoryPage.listingFilters
+  const { items } = await listPublicCategoryThemeItems({ categoryCode: 'hotel', locale })
 
-  const [types, themes, accommodations] = await Promise.all([
-    getFacetOptions('hotel', 'hotel_type', locale, HOTEL_TYPE_OPTIONS),
-    getFacetOptions('hotel', 'theme', locale, HOTEL_THEME_OPTIONS),
-    getFacetOptions('hotel', 'accommodation', locale, HOTEL_ACCOMMODATION_FILTER_FALLBACK),
-  ])
+  const types = getFacetOptions(items, HOTEL_TYPE_OPTIONS)
+  const themes = getFacetOptions(items, HOTEL_THEME_OPTIONS)
+  const accommodations = getFacetOptions(items, HOTEL_ACCOMMODATION_FILTER_FALLBACK)
 
   return [
     checkboxFilter(filters.hotelTypeLabel, 'hotel_type', types),
@@ -92,16 +92,15 @@ export async function getHotelCategoryFilterOptions(locale: string): Promise<Fil
       max: STAY_RENTAL_PRICE_FILTER_MAX,
     },
   ].filter((option): option is FilterOption => option != null)
-}
+})
 
-export async function getTourCategoryFilterOptions(locale: string): Promise<FilterOption[]> {
+export const getTourCategoryFilterOptions = cache(async (locale: string): Promise<FilterOption[]> => {
   const m = getMessages(locale)
   const filters = m.categoryPage.listingFilters
+  const { items } = await listPublicCategoryThemeItems({ categoryCode: 'tour', locale })
 
-  const [travelTypes, accommodationTypes] = await Promise.all([
-    getFacetOptions('tour', 'travel_type', locale, getTourTravelTypeOptions(locale)),
-    getFacetOptions('tour', 'accommodation', locale, getTourAccommodationOptions(locale)),
-  ])
+  const travelTypes = getFacetOptions(items, getTourTravelTypeOptions(locale))
+  const accommodationTypes = getFacetOptions(items, getTourAccommodationOptions(locale))
 
   const departureCities = getTourDepartureCityOptions(locale)
   const tourRegions = getTourRegionFilterOptions(locale)
@@ -130,7 +129,7 @@ export async function getTourCategoryFilterOptions(locale: string): Promise<Filt
       max: STAY_RENTAL_PRICE_FILTER_MAX,
     },
   ].filter((option): option is FilterOption => option != null)
-}
+})
 
 export async function getCruiseCategoryFilterOptions(locale: string): Promise<FilterOption[]> {
   const m = getMessages(locale)

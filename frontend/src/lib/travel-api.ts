@@ -253,7 +253,7 @@ export async function getPublicHotelRooms(
   try {
     const res = await fetch(
       `${b}/api/v1/verticals/listings/${encodeURIComponent(listingId)}/hotel-rooms`,
-      { cache: 'no-store' },
+      { next: { revalidate: 60 } },
     )
     if (!res.ok) return { rooms: [] }
     const data = await json<{ rooms?: PublicHotelRoom[] }>(res)
@@ -299,7 +299,7 @@ export async function getPublicListingAttributes(
   if (!b) throw new Error('NEXT_PUBLIC_API_URL_missing')
   const res = await fetch(
     `${b}/api/v1/public/listings/${encodeURIComponent(listingId)}/attributes`,
-    { cache: 'no-store' },
+    { next: { revalidate: 120 } },
   )
   if (!res.ok) throw new Error(`public_attrs_${res.status}`)
   return json(res)

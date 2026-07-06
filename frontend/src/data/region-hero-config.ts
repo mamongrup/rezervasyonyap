@@ -1,5 +1,6 @@
 import { promises as fs } from 'node:fs'
 import path from 'node:path'
+import { cache } from 'react'
 
 const DATA_DIR = path.join(process.cwd(), 'public', 'region-hero')
 
@@ -22,10 +23,10 @@ export interface HeroOverride {
  * Loads region-specific hero config for a category+region combo.
  * Falls back to undefined if no config file exists.
  */
-export async function getRegionHeroConfig(
+export const getRegionHeroConfig = cache(async (
   categorySlug: string,
   regionHandle: string,
-): Promise<HeroOverride | undefined> {
+): Promise<HeroOverride | undefined> => {
   if (!categorySlug || !regionHandle || regionHandle === 'all') return undefined
 
   const filePath = path.join(DATA_DIR, `${categorySlug}--${regionHandle}.json`)
@@ -46,4 +47,4 @@ export async function getRegionHeroConfig(
   } catch {
     return undefined
   }
-}
+})
