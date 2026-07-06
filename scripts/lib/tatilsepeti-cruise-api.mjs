@@ -302,7 +302,40 @@ function extractCabinPriceCells(block) {
   )
 }
 
-function parseCabinTables(html) {
+function extractCabinImageUrls(block) {
+  const urls = new Set()
+  for (const panel of block.matchAll(
+    /<div role="tabpanel" class="tab-pane" id="kabin-gorselleri[^"]*"[^>]*>([\s\S]*?)<\/div>\s*<\/div>/gi,
+  )) {
+    for (const m of panel[1].matchAll(
+      /(?:src|data-src)="(https:\/\/cdn\.tatilsepeti\.com\/Files\/GemiGuverte\/[^"]+)"/gi,
+    )) {
+      urls.add(m[1])
+    }
+  }
+  if (urls.size === 0) {
+    for (const m of block.matchAll(
+      /id="kabin-gorselleri[^"]*"[\s\S]*?(?:src|data-src)="(https:\/\/cdn\.tatilsepeti\.com\/Files\/GemiGuverte\/[^"]+)"/gi,
+    )) {
+      urls.add(m[1])
+    }
+  }
+  return [...urls]
+}
+
+function enrichCabinsWithoutImages(cabins, { galleryUrls = [] } = {}) {
+  const gallery = galleryUrls.filter(Boolean)
+  if (gallery.length === 0) return cabins
+  let galleryIdx = 0
+  return cabins.map((cabin) => {
+    if (Array.isArray(cabin.image_urls) && cabin.image_urls.length > 0) return cabin
+    const image_urls = [gallery[galleryIdx % gallery.length]]
+    galleryIdx += 1
+    return { ...cabin, image_urls }
+  })
+}
+
+function parseCabinTables(html, galleryUrls = []) {
   const cabins = []
   const blocks = html.split(/<div class="col-xs-12 price-table">/i).slice(1)
   for (const block of blocks) {
@@ -316,9 +349,7 @@ function parseCabinTables(html) {
     const featuresM = block.match(/class="tab-pane"[^>]*id="kabin-ozellikleri[^"]*"[\s\S]*?<div class="cabin-info">\s*([\s\S]*?)<\/div>/i)
     const description = featuresM ? decodeHtml(featuresM[1].replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ')) : ''
 
-    const imageUrls = [
-      ...block.matchAll(/id="kabin-gorselleri[^"]*"[\s\S]*?(?:src|data-src)="(https:\/\/cdn\.tatilsepeti\.com\/[^"]+)"/gi),
-    ].map((m) => m[1])
+    const imageUrls = extractCabinImageUrls(block)
 
     const cells = extractCabinPriceCells(block)
     const doublePerPerson = cells[0] ? parsePriceCell(cells[0]) : null
@@ -356,7 +387,7 @@ function parseCabinTables(html) {
       from_price: doublePerPerson || single || extraBed || children[0] || null,
     })
   }
-  return cabins
+  return enrichCabinsWithoutImages(cabins, { galleryUrls })
 }
 
 function slugify(s) {
@@ -382,10 +413,10 @@ export function parseTourDetail(html, catalogRow = {}) {
     slugFromHref(html.match(/id="hidPageUrl"[^>]*value="([^"]+)"/i)?.[1] || '') || catalogRow.slug
   const visits = parseVisits(html)
   const programDays = parseProgramDays(html)
-  const cabins = parseCabinTables(html)
+  const galleryUrls = parseGalleryUrls(html)
+  const cabins = parseCabinTables(html, galleryUrls)
   const included = parseServiceList(html, 'Fiyata Dahil Hizmetler')
   const excluded = parseServiceList(html, 'Fiyata Dahil Olmayan Hizmetler')
-  const galleryUrls = parseGalleryUrls(html)
   const price = parseFirstEurPrice(html) || catalogRow.listPrice
   const shipName = parseShipName(html, title)
   const nightCount = parseNightCount(title, programDays)

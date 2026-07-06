@@ -81,6 +81,7 @@ export function buildTatilsepetiVerticalCruise(detail) {
     excluded_services: detail.excluded || [],
     info_sections: infoSections,
     periods: detail.periods,
+    gallery_urls: detail.galleryUrls || [],
     tatilsepeti_url: detail.url,
     tatilsepeti_tour_id: tourId,
     agency_id: detail.agencyId,
@@ -144,7 +145,20 @@ export function mergeTatilsepetiIntoVerticalCruise(prev, fromTs) {
     if (Array.isArray(prev[key]) && prev[key].length > 0) merged[key] = prev[key]
   }
   if (Array.isArray(fromTs.cabins) && fromTs.cabins.length > 0) {
-    merged.cabins = fromTs.cabins
+    const prevCabins = Array.isArray(prev.cabins) ? prev.cabins : []
+    merged.cabins = fromTs.cabins.map((cabin, index) => {
+      const prevCabin =
+        prevCabins.find((p) => p?.id && cabin?.id && p.id === cabin.id) ||
+        prevCabins.find((p) => p?.name && cabin?.name && p.name === cabin.name) ||
+        prevCabins[index]
+      const image_urls =
+        Array.isArray(cabin.image_urls) && cabin.image_urls.length > 0
+          ? cabin.image_urls
+          : Array.isArray(prevCabin?.image_urls) && prevCabin.image_urls.length > 0
+            ? prevCabin.image_urls
+            : cabin.image_urls
+      return image_urls?.length ? { ...cabin, image_urls } : cabin
+    })
   } else if (Array.isArray(prev.cabins) && prev.cabins.length > 0) {
     merged.cabins = prev.cabins
   }

@@ -505,7 +505,15 @@ export default async function ExperienceListingDetailPage({
     (section) => !(section.id === 'cruise-visits' && Boolean(cruiseMeta?.route_summary?.trim())),
   )
   const cruiseDays = isCruise ? cruiseItineraryDays(cruiseMeta) : []
-  const cruiseCabinsList = isCruise ? cruiseCabins(cruiseMeta) : []
+  const cruiseCabinsList = isCruise
+    ? cruiseCabins({
+        ...(cruiseMeta ?? {}),
+        gallery_urls:
+          cruiseMeta?.gallery_urls?.length
+            ? cruiseMeta.gallery_urls
+            : galleryImgs?.filter(Boolean) ?? [],
+      })
+    : []
   const cruiseServices = isCruise ? cruiseIncludedExcluded(cruiseMeta) : { included: [], excluded: [] }
   const cruiseDayPins = isCruise ? parseCruiseItineraryPins(cruiseMeta) : []
   const cruiseRouteLabel =

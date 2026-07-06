@@ -37,6 +37,7 @@ export type CruiseVerticalMeta = {
   ship_activities?: string[]
   ship_image_url?: string | null
   deck_plan_image_url?: string | null
+  gallery_urls?: string[]
   tatilsepeti_url?: string | null
   tatilsepeti_tour_id?: string | null
   info_sections?: Array<{ id: string; title: string; html: string }>
@@ -223,18 +224,27 @@ export function cheapestCabinId(cabins: CruiseCabinOption[]): string {
 
 export function cruiseCabins(meta: CruiseVerticalMeta | null): CruiseCabinOption[] {
   const rows = meta?.cabins ?? []
+  const gallery = (meta?.gallery_urls ?? []).filter(Boolean)
+  let galleryIdx = 0
   return rows
     .filter((c) => c?.name?.trim())
-    .map((c, i) => ({
-      id: c.id || `cabin-${i}`,
-      name: String(c.name).trim(),
-      campaign: c.campaign ?? null,
-      description: c.description?.trim() || undefined,
-      footnote: c.footnote?.trim() || null,
-      image_urls: c.image_urls?.filter(Boolean),
-      prices: c.prices,
-      from_price: c.from_price ?? c.prices?.double_per_person ?? c.prices?.single ?? null,
-    }))
+    .map((c, i) => {
+      let image_urls = c.image_urls?.filter(Boolean)
+      if (!image_urls?.length && gallery.length > 0) {
+        image_urls = [gallery[galleryIdx % gallery.length]]
+        galleryIdx += 1
+      }
+      return {
+        id: c.id || `cabin-${i}`,
+        name: String(c.name).trim(),
+        campaign: c.campaign ?? null,
+        description: c.description?.trim() || undefined,
+        footnote: c.footnote?.trim() || null,
+        image_urls,
+        prices: c.prices,
+        from_price: c.from_price ?? c.prices?.double_per_person ?? c.prices?.single ?? null,
+      }
+    })
 }
 
 export function cruiseIncludedExcluded(meta: CruiseVerticalMeta | null): {
