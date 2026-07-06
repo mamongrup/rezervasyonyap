@@ -1,5 +1,4 @@
 import type { CruiseVerticalMeta } from '@/lib/cruise-meta'
-import { LISTING_SECTION_STACKED } from './listing-section-classes'
 import { SectionHeading, SectionSubheading } from './components/SectionHeading'
 import { Divider } from '@/shared/divider'
 import { getMessages } from '@/utils/getT'
@@ -27,7 +26,7 @@ export default function CruiseShipDetailsSection({
   if (!hasContent) return null
 
   return (
-    <section id="cruise-ship-details" className={LISTING_SECTION_STACKED}>
+    <section id="cruise-ship-details" className="listingSection__wrap scroll-mt-28">
       <div>
         <SectionHeading>{cd.shipDetailsTitle}</SectionHeading>
         <SectionSubheading>{cd.shipDetailsSubtitle}</SectionSubheading>

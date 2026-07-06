@@ -87,6 +87,7 @@ import type { CatalogListingVerticalCode } from '@/lib/catalog-listing-vertical'
 import HeaderGallery from './components/HeaderGallery'
 import SectionDateRange from './components/SectionDateRange'
 import SectionHeader from './components/SectionHeader'
+import { SectionHeading } from './components/SectionHeading'
 import SectionHost from './components/SectionHost'
 import ListingDetailOurFeatures from './components/ListingDetailOurFeatures'
 import SimilarListings from './components/SimilarListings'
@@ -888,17 +889,27 @@ export default async function ExperienceListingDetailPage({
 
   const renderNonTourMainContent = () => (
     <>
-      <div className={`flex w-full flex-col ${LISTING_DETAIL_SECTION_GAP_Y} lg:w-3/5 xl:w-[64%]`}>
+      <div
+        className={`flex w-full flex-col ${
+          isCruise ? 'gap-y-5 xl:gap-y-7' : LISTING_DETAIL_SECTION_GAP_Y
+        } lg:w-3/5 ${isCruise ? 'xl:w-[62%]' : 'xl:w-[64%]'}`}
+      >
         {renderSectionHeader()}
         {isCruise ? (
           <>
             {cruiseOverview.length > 0 ? (
               <TourOverviewSection items={cruiseOverview} locale={locale} />
             ) : null}
+            {description?.trim() ? (
+              <div id="cruise-section-about" className="listingSection__wrap scroll-mt-28">
+                <SectionHeading>{cd.aboutTitle}</SectionHeading>
+                <Divider className="w-14!" />
+                <ListingDescriptionExpandable locale={locale} html={description} />
+              </div>
+            ) : null}
             {cruiseMeta?.route_summary?.trim() ? (
               <CruiseRouteSection routeSummary={cruiseMeta.route_summary} locale={locale} />
             ) : null}
-            <CruiseShipDetailsSection meta={cruiseMeta} locale={locale} />
             {cruiseCabinsList.length > 0 ? (
               <CruiseCabinPricingSection locale={locale} />
             ) : (
@@ -907,6 +918,7 @@ export default async function ExperienceListingDetailPage({
             {cruiseDays.length > 0 ? (
               <TourItineraryAccordion days={cruiseDays} locale={locale} />
             ) : null}
+            <CruiseShipDetailsSection meta={cruiseMeta} locale={locale} />
             {cruiseServices.included.length > 0 || cruiseServices.excluded.length > 0 ? (
               <TourIncludedExcludedSection
                 included={cruiseServices.included}
@@ -915,11 +927,6 @@ export default async function ExperienceListingDetailPage({
               />
             ) : null}
             <TourInfoSections sections={cruiseInfo} locale={locale} />
-            {description?.trim() && cruiseInfo.length === 0 && cruiseDays.length === 0 ? (
-              <ActivityDescriptionSection locale={locale}>
-                <ListingDescriptionExpandable locale={locale} html={description} />
-              </ActivityDescriptionSection>
-            ) : null}
           </>
         ) : null}
         {isActivity ? (
@@ -1006,7 +1013,7 @@ export default async function ExperienceListingDetailPage({
               flightSchedules={[]}
               currencyCode={cruisePeriodCurrency}
             >
-              <main className="flex flex-col gap-8 lg:flex-row xl:gap-10">{renderNonTourMainContent()}</main>
+              <main className="flex flex-col gap-6 lg:flex-row lg:items-start xl:gap-8">{renderNonTourMainContent()}</main>
             </TourPeriodProvider>
           </CruiseCabinProvider>
         ) : (

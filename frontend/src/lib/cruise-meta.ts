@@ -180,6 +180,47 @@ export function cruiseItineraryDays(meta: CruiseVerticalMeta | null): TourItiner
   return days
 }
 
+export function cabinDisplayPrice(cabin: CruiseCabinOption): CruiseMoney | null {
+  return (
+    cabin.from_price ??
+    cabin.prices?.double_per_person ??
+    cabin.prices?.single ??
+    cabin.prices?.extra_bed ??
+    cabin.prices?.children?.[0] ??
+    null
+  )
+}
+
+/** Kabin özellik metnini madde listesine ayırır (Tatilsepeti cabin-info). */
+export function parseCabinFeatureLines(description: string | undefined | null): string[] {
+  const raw = String(description || '').trim()
+  if (!raw) return []
+  const bulletSplit = raw.split(/\s*[•·▪]\s*/).map((s) => s.trim()).filter(Boolean)
+  if (bulletSplit.length > 1) return bulletSplit
+  const semicolonSplit = raw.split(/\s*;\s*/).map((s) => s.trim()).filter((s) => s.length > 2)
+  if (semicolonSplit.length >= 3) return semicolonSplit
+  const commaSplit = raw
+    .split(/\s*,\s*/)
+    .map((s) => s.trim())
+    .filter((s) => s.length > 2 && s.length < 90)
+  if (commaSplit.length >= 4) return commaSplit
+  return [raw]
+}
+
+export function cheapestCabinId(cabins: CruiseCabinOption[]): string {
+  if (cabins.length === 0) return ''
+  let best = cabins[0]!
+  let bestAmount = cabinDisplayPrice(best)?.amount ?? Number.POSITIVE_INFINITY
+  for (const cabin of cabins.slice(1)) {
+    const amount = cabinDisplayPrice(cabin)?.amount ?? Number.POSITIVE_INFINITY
+    if (amount < bestAmount) {
+      best = cabin
+      bestAmount = amount
+    }
+  }
+  return best.id
+}
+
 export function cruiseCabins(meta: CruiseVerticalMeta | null): CruiseCabinOption[] {
   const rows = meta?.cabins ?? []
   return rows

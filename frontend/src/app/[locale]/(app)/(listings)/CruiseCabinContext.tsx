@@ -1,12 +1,13 @@
 'use client'
 
-import type { CruiseCabinOption } from '@/lib/cruise-meta'
-import { createContext, useContext, useMemo, useState, type ReactNode } from 'react'
+import { cheapestCabinId, type CruiseCabinOption } from '@/lib/cruise-meta'
+import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react'
 
 type CruiseCabinContextValue = {
   cabins: CruiseCabinOption[]
   selectedCabin: CruiseCabinOption | null
   setSelectedCabinId: (id: string) => void
+  selectCabinAndScroll: (id: string) => void
 }
 
 const CruiseCabinContext = createContext<CruiseCabinContextValue | null>(null)
@@ -18,11 +19,16 @@ export function CruiseCabinProvider({
   cabins: CruiseCabinOption[]
   children: ReactNode
 }) {
-  const [selectedId, setSelectedId] = useState(() => cabins[0]?.id ?? '')
+  const [selectedId, setSelectedId] = useState(() => cheapestCabinId(cabins) || cabins[0]?.id || '')
   const selectedCabin = useMemo(
     () => cabins.find((c) => c.id === selectedId) ?? cabins[0] ?? null,
     [cabins, selectedId],
   )
+
+  const selectCabinAndScroll = useCallback((id: string) => {
+    setSelectedId(id)
+    document.getElementById('cruise-reservation-card')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }, [])
 
   return (
     <CruiseCabinContext.Provider
@@ -30,6 +36,7 @@ export function CruiseCabinProvider({
         cabins,
         selectedCabin,
         setSelectedCabinId: setSelectedId,
+        selectCabinAndScroll,
       }}
     >
       {children}

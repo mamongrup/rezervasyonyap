@@ -15,6 +15,7 @@ import GuestsInputPopover from './components/GuestsInputPopover'
 import TourPeriodSelect from './components/TourPeriodSelect'
 import { useTourPeriodSelection } from './TourPeriodContext'
 import { useCruiseCabinSelection } from './CruiseCabinContext'
+import { cabinDisplayPrice } from '@/lib/cruise-meta'
 import {
   useConvertedListingPrice,
   useCheckoutPaymentAmount,
@@ -49,8 +50,12 @@ export default function CruiseBookingSidebar({
     fallbackPriceAmount != null && Number.isFinite(fallbackPriceAmount) && fallbackPriceAmount > 0
       ? fallbackPriceAmount
       : null
-  const cabinAmount = cabinCtx?.selectedCabin?.from_price?.amount ?? null
-  const cabinCurrency = cabinCtx?.selectedCabin?.from_price?.currency
+  const cabinAmount = cabinCtx?.selectedCabin
+    ? (cabinDisplayPrice(cabinCtx.selectedCabin)?.amount ?? null)
+    : null
+  const cabinCurrency = cabinCtx?.selectedCabin
+    ? cabinDisplayPrice(cabinCtx.selectedCabin)?.currency
+    : undefined
   const personPrice = cabinAmount ?? selected?.price ?? fallbackAmount
   const periodCurrency = (
     cabinCurrency ||
@@ -111,8 +116,14 @@ export default function CruiseBookingSidebar({
   }
 
   return (
-    <div className="listingSection__wrap sm:shadow-xl">
-      {cabinCtx?.selectedCabin ? (
+    <div id="cruise-reservation-card" className="listingSection__wrap scroll-mt-28 sm:shadow-xl">
+      {cabinCtx?.cabins.length && !cabinCtx.selectedCabin ? (
+        <p className="mb-2 text-sm text-amber-700 dark:text-amber-300">
+          <a href="#cruise-cabins" className="font-medium underline underline-offset-2">
+            {cd.selectCabinPrompt}
+          </a>
+        </p>
+      ) : cabinCtx?.selectedCabin ? (
         <p className="mb-2 text-sm font-medium text-neutral-700 dark:text-neutral-300">
           {cd.selectedCabin}: {cabinCtx.selectedCabin.name}
         </p>
