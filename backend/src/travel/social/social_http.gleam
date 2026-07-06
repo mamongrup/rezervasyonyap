@@ -384,7 +384,7 @@ fn job_to_json(
   ])
 }
 
-/// GET /api/v1/social/jobs?status=pending&limit=100
+/// GET /api/v1/social/jobs?status=pending&post_type=feed&limit=100
 pub fn list_jobs(req: Request, ctx: Context) -> Response {
   use <- wisp.require_method(req, http.Get)
   case permissions.session_user_from_request(req, ctx.db) {
@@ -406,6 +406,11 @@ fn list_jobs_inner(req: Request, ctx: Context) -> Response {
     list.key_find(qs, "status")
     |> result.unwrap("")
     |> string.trim
+  let post_type_filter =
+    list.key_find(qs, "post_type")
+    |> result.unwrap("")
+    |> string.trim
+    |> string.lowercase
   let limit_str =
     list.key_find(qs, "limit")
     |> result.unwrap("50")
@@ -424,31 +429,197 @@ fn list_jobs_inner(req: Request, ctx: Context) -> Response {
     "select id::text, entity_type, entity_id::text, network::text, coalesce(template_id::text, ''), status::text, coalesce(caption_ai_generated, ''), coalesce(array_to_string(image_keys, chr(31)), ''), coalesce(error_message, ''), created_at::text, post_type::text from social_share_jobs "
   case status_filter == "" {
     True ->
-      case
-        pog.query(
-          sel
-          <> "order by created_at desc limit "
-          <> int.to_string(limit),
-        )
-        |> pog.returning(job_row())
-        |> db_exec.execute(ctx.db)
-      {
-        Error(_) -> json_err(500, "jobs_query_failed")
-        Ok(ret) -> jobs_response(ret.rows)
+      case post_type_filter == "" {
+        True ->
+          case
+            pog.query(
+              sel
+              <> "order by created_at desc limit "
+              <> int.to_string(limit),
+            )
+            |> pog.returning(job_row())
+            |> db_exec.execute(ctx.db)
+          {
+            Error(_) -> json_err(500, "jobs_query_failed")
+            Ok(ret) -> jobs_response(ret.rows)
+          }
+        False ->
+          case valid_post_type(post_type_filter) {
+            False -> json_err(400, "invalid_post_type")
+            True ->
+              case
+                pog.query(
+                  sel
+                  <> "where post_type = $1 order by created_at desc limit "
+                  <> int.to_string(limit),
+                )
+                |> pog.parameter(pog.text(post_type_filter))
+                |> pog.returning(job_row())
+                |> db_exec.execute(ctx.db)
+              {
+                Error(_) -> json_err(500, "jobs_query_failed")
+                Ok(ret) -> jobs_response(ret.rows)
+              }
+          }
       }
     False ->
-      case
-        pog.query(
-          sel
-          <> "where status = $1 order by created_at desc limit "
-          <> int.to_string(limit),
-        )
-        |> pog.parameter(pog.text(status_filter))
-        |> pog.returning(job_row())
-        |> db_exec.execute(ctx.db)
-      {
-        Error(_) -> json_err(500, "jobs_query_failed")
-        Ok(ret) -> jobs_response(ret.rows)
+      case post_type_filter == "" {
+        True ->
+          case
+            pog.query(
+              sel
+              <> "where status = $1 order by created_at desc limit "
+              <> int.to_string(limit),
+            )
+            |> pog.parameter(pog.text(status_filter))
+            |> pog.returning(job_row())
+            |> db_exec.execute(ctx.db)
+          {
+            Error(_) -> json_err(500, "jobs_query_failed")
+            Ok(ret) -> jobs_response(ret.rows)
+          }
+        False ->
+          case valid_post_type(post_type_filter) {
+            False -> json_err(400, "invalid_post_type")
+            True ->
+              case
+                pog.query(
+                  sel
+                  <> "where status = $1 and post_type = $2 order by created_at desc limit "
+                  <> int.to_string(limit),
+                )
+                |> pog.parameter(pog.text(status_filter))
+                |> pog.parameter(pog.text(post_type_filter))
+                |> pog.returning(job_row())
+                |> db_exec.execute(ctx.db)
+              {
+                Error(_) -> json_err(500, "jobs_query_failed")
+                Ok(ret) -> jobs_response(ret.rows)
+              }
+          }
+      }
+  }
+}
+
+/// DELETE /api/v1/social/jobs?status=pending&post_type=reel
+/// Varsayılan: status=pending (kuyruğu temizleme).
+pub fn clear_jobs(req: Request, ctx: Context) -> Response {
+  use <- wisp.require_method(req, http.Delete)
+  case permissions.session_user_from_request(req, ctx.db) {
+    Error(r) -> r
+    Ok(uid) ->
+      case permissions.user_has_permission(ctx.db, uid, "admin.social.write") {
+        False -> json_err(403, "forbidden")
+        True ->
+          case request.get_query(req) {
+            Error(_) -> json_err(400, "invalid_query")
+            Ok(qs) -> {
+              let status_filter =
+                list.key_find(qs, "status")
+                |> result.unwrap("pending")
+                |> string.trim
+              let post_type_filter =
+                list.key_find(qs, "post_type")
+                |> result.unwrap("")
+                |> string.trim
+                |> string.lowercase
+
+              case post_type_filter == "" || valid_post_type(post_type_filter) {
+                False -> json_err(400, "invalid_post_type")
+                True ->
+                  case status_filter == "all" {
+                    True ->
+                      case post_type_filter == "" {
+                        True ->
+                          case
+                            pog.query("delete from social_share_jobs returning id::text")
+                            |> pog.returning(row_dec.col0_string())
+                            |> db_exec.execute(ctx.db)
+                          {
+                            Error(_) -> json_err(500, "jobs_clear_failed")
+                            Ok(ret) -> {
+                              let body =
+                                json.object([
+                                  #("ok", json.bool(True)),
+                                  #("deleted", json.int(list.length(ret.rows))),
+                                  #("status", json.string("all")),
+                                  #("post_type", json.null()),
+                                ])
+                                |> json.to_string
+                              wisp.json_response(body, 200)
+                            }
+                          }
+                        False ->
+                          case
+                            pog.query("delete from social_share_jobs where post_type = $1 returning id::text")
+                            |> pog.parameter(pog.text(post_type_filter))
+                            |> pog.returning(row_dec.col0_string())
+                            |> db_exec.execute(ctx.db)
+                          {
+                            Error(_) -> json_err(500, "jobs_clear_failed")
+                            Ok(ret) -> {
+                              let body =
+                                json.object([
+                                  #("ok", json.bool(True)),
+                                  #("deleted", json.int(list.length(ret.rows))),
+                                  #("status", json.string("all")),
+                                  #("post_type", json.string(post_type_filter)),
+                                ])
+                                |> json.to_string
+                              wisp.json_response(body, 200)
+                            }
+                          }
+                      }
+                    False ->
+                      case post_type_filter == "" {
+                        True ->
+                          case
+                            pog.query("delete from social_share_jobs where status = $1 returning id::text")
+                            |> pog.parameter(pog.text(status_filter))
+                            |> pog.returning(row_dec.col0_string())
+                            |> db_exec.execute(ctx.db)
+                          {
+                            Error(_) -> json_err(500, "jobs_clear_failed")
+                            Ok(ret) -> {
+                              let body =
+                                json.object([
+                                  #("ok", json.bool(True)),
+                                  #("deleted", json.int(list.length(ret.rows))),
+                                  #("status", json.string(status_filter)),
+                                  #("post_type", json.null()),
+                                ])
+                                |> json.to_string
+                              wisp.json_response(body, 200)
+                            }
+                          }
+                        False ->
+                          case
+                            pog.query(
+                              "delete from social_share_jobs where status = $1 and post_type = $2 returning id::text",
+                            )
+                            |> pog.parameter(pog.text(status_filter))
+                            |> pog.parameter(pog.text(post_type_filter))
+                            |> pog.returning(row_dec.col0_string())
+                            |> db_exec.execute(ctx.db)
+                          {
+                            Error(_) -> json_err(500, "jobs_clear_failed")
+                            Ok(ret) -> {
+                              let body =
+                                json.object([
+                                  #("ok", json.bool(True)),
+                                  #("deleted", json.int(list.length(ret.rows))),
+                                  #("status", json.string(status_filter)),
+                                  #("post_type", json.string(post_type_filter)),
+                                ])
+                                |> json.to_string
+                              wisp.json_response(body, 200)
+                            }
+                          }
+                      }
+                  }
+              }
+            }
+          }
       }
   }
 }

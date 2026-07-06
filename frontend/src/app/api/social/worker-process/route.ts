@@ -47,6 +47,11 @@ export async function POST(req: NextRequest) {
   // small and let the caller loop, otherwise nginx/Next returns 504.
   const limit = limitRaw ? Math.min(3, Math.max(1, Number.parseInt(limitRaw, 10) || 3)) : 3
   const rotate = req.nextUrl.searchParams.get('rotate') === '1'
+  const postTypeRaw = (req.nextUrl.searchParams.get('post_type') ?? '').trim().toLowerCase()
+  const postType =
+    postTypeRaw === 'feed' || postTypeRaw === 'story' || postTypeRaw === 'reel'
+      ? postTypeRaw
+      : undefined
 
   try {
     let enqueued = 0
@@ -54,7 +59,7 @@ export async function POST(req: NextRequest) {
       const rot = await enqueueRotationSocialJobs({ limit: 0 })
       enqueued = rot.enqueued
     }
-    const out = await processPendingSocialJobs({ limit })
+    const out = await processPendingSocialJobs({ limit, postType })
     return NextResponse.json({ ok: true, enqueued, ...out })
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e)

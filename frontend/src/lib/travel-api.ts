@@ -4943,14 +4943,32 @@ export type SocialWorkerProcessResult = {
   error?: string
 }
 
+export type SocialWorkerLoopStatus = {
+  ok: boolean
+  started?: boolean
+  running: boolean
+  phase: 'idle' | 'running' | 'waiting' | 'rate_limited' | 'done' | 'error'
+  batch: number
+  totalProcessed: number
+  totalPosted: number
+  totalFailed: number
+  totalEnqueued: number
+  message: string | null
+  lastError: string | null
+  startedAt: string | null
+  finishedAt: string | null
+  countdown?: number
+}
+
 export async function listSocialJobs(
   token: string,
-  params?: { status?: string; limit?: number },
+  params?: { status?: string; postType?: SocialPostType; limit?: number },
 ): Promise<{ jobs: SocialShareJob[] }> {
   const b = base()
   if (!b) throw new Error('NEXT_PUBLIC_API_URL_missing')
   const q = new URLSearchParams()
   if (params?.status) q.set('status', params.status)
+  if (params?.postType) q.set('post_type', params.postType)
   if (params?.limit != null) q.set('limit', String(params.limit))
   const res = await fetch(`${b}/api/v1/social/jobs${q.toString() ? `?${q}` : ''}`, {
     headers: { Authorization: `Bearer ${token}` },
@@ -4962,13 +4980,34 @@ export async function listSocialJobs(
   return json(res)
 }
 
+export async function clearSocialJobs(
+  token: string,
+  params?: { status?: 'pending' | 'posted' | 'failed' | 'all'; postType?: SocialPostType },
+): Promise<{ ok: boolean; deleted: number; status: string; post_type: string | null }> {
+  const b = base()
+  if (!b) throw new Error('NEXT_PUBLIC_API_URL_missing')
+  const q = new URLSearchParams()
+  q.set('status', params?.status ?? 'pending')
+  if (params?.postType) q.set('post_type', params.postType)
+  const res = await fetch(`${b}/api/v1/social/jobs?${q.toString()}`, {
+    method: 'DELETE',
+    headers: { Authorization: `Bearer ${token}` },
+  })
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}))
+    throw new Error((err as { error?: string }).error ?? `social_jobs_clear_${res.status}`)
+  }
+  return json(res)
+}
+
 export async function processSocialPendingJobs(
   token: string,
-  params?: { limit?: number; rotate?: boolean },
+  params?: { limit?: number; rotate?: boolean; postType?: SocialPostType },
 ): Promise<SocialWorkerProcessResult> {
   const q = new URLSearchParams()
   if (params?.limit != null) q.set('limit', String(params.limit))
   if (params?.rotate === false) q.set('rotate', '0')
+  if (params?.postType) q.set('post_type', params.postType)
   const res = await fetch(`/api/social/worker-process${q.toString() ? `?${q}` : ''}`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${token}` },
@@ -4976,6 +5015,40 @@ export async function processSocialPendingJobs(
   const data = await res.json().catch(() => ({ ok: false, error: `social_worker_${res.status}` })) as SocialWorkerProcessResult
   if (!res.ok) {
     throw new Error(data.error ?? `social_worker_${res.status}`)
+  }
+  return data
+}
+
+export async function startSocialWorkerLoop(
+  token: string,
+  params?: { limit?: number; rotate?: boolean; postType?: SocialPostType },
+): Promise<SocialWorkerLoopStatus> {
+  const q = new URLSearchParams()
+  if (params?.limit != null) q.set('limit', String(params.limit))
+  if (params?.rotate === true) q.set('rotate', '1')
+  if (params?.rotate === false) q.set('rotate', '0')
+  if (params?.postType) q.set('post_type', params.postType)
+  const res = await fetch(`/api/social/worker-loop${q.toString() ? `?${q}` : ''}`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+  })
+  const data = (await res.json().catch(() => ({ ok: false, error: `social_worker_loop_${res.status}` }))) as
+    SocialWorkerLoopStatus & { error?: string }
+  if (!res.ok) {
+    throw new Error(data.error ?? `social_worker_loop_${res.status}`)
+  }
+  return data
+}
+
+export async function getSocialWorkerLoopStatus(token: string): Promise<SocialWorkerLoopStatus> {
+  const res = await fetch('/api/social/worker-loop', {
+    method: 'GET',
+    headers: { Authorization: `Bearer ${token}` },
+  })
+  const data = (await res.json().catch(() => ({ ok: false, error: `social_worker_loop_status_${res.status}` }))) as
+    SocialWorkerLoopStatus & { error?: string }
+  if (!res.ok) {
+    throw new Error(data.error ?? `social_worker_loop_status_${res.status}`)
   }
   return data
 }

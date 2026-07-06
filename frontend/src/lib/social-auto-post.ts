@@ -298,9 +298,11 @@ export async function fetchPendingSocialJobs(
   apiOrigin: string,
   secret: string,
   limit = 10,
+  postType?: SocialPostType,
 ): Promise<{ jobs: PendingSocialJob[]; socialApi: SocialApiSettings }> {
+  const postTypeQuery = postType ? `&post_type=${encodeURIComponent(postType)}` : ''
   const res = await fetch(
-    `${apiOrigin.replace(/\/$/, '')}/api/v1/social/worker/pending?limit=${limit}`,
+    `${apiOrigin.replace(/\/$/, '')}/api/v1/social/worker/pending?limit=${limit}${postTypeQuery}`,
     { headers: workerHeaders(secret), cache: 'no-store' },
   )
   if (!res.ok) {
@@ -888,6 +890,7 @@ export async function processPendingSocialJobs(options?: {
   secret?: string
   limit?: number
   siteUrl?: string
+  postType?: SocialPostType
 }): Promise<{
   processed: number
   posted: number
@@ -909,12 +912,13 @@ export async function processPendingSocialJobs(options?: {
   const secret = options?.secret ?? process.env.TRAVEL_SOCIAL_WORKER_SECRET ?? ''
   const limit = options?.limit ?? 5
   const siteUrl = options?.siteUrl ?? getPublicSiteUrl()
+  const postType = options?.postType
 
   if (!apiOrigin.trim()) throw new Error('api_origin_missing')
   if (!secret.trim()) throw new Error('worker_secret_missing')
   if (!siteUrl.trim()) throw new Error('site_url_missing')
 
-  const { jobs, socialApi } = await fetchPendingSocialJobs(apiOrigin, secret, limit)
+  const { jobs, socialApi } = await fetchPendingSocialJobs(apiOrigin, secret, limit, postType)
   const results = []
   let posted = 0
   let failed = 0

@@ -999,6 +999,8 @@ fn dispatch(req: Request, ctx: Context) -> Response {
 
     http.Post, ["api", "v1", "social", "jobs"] -> social_http.create_job(req, ctx)
 
+    http.Delete, ["api", "v1", "social", "jobs"] -> social_http.clear_jobs(req, ctx)
+
     http.Patch, ["api", "v1", "listings", lid, "social"] ->
       social_http.patch_listing_social(req, ctx, lid)
 

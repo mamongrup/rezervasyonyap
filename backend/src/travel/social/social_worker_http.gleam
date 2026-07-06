@@ -23,6 +23,12 @@ import wisp.{type Request, type Response}
 const worker_secret_header = "x-travel-social-worker-secret"
 const social_api_key = "social_api"
 const caption_profile = "social_caption"
+const post_types: List(String) = ["feed", "story", "reel"]
+
+fn valid_post_type(n: String) -> Bool {
+  let x = string.lowercase(string.trim(n))
+  list.contains(post_types, x)
+}
 
 fn read_body_string(req: Request) -> Result(String, Nil) {
   use bits <- result.try(wisp.read_body_bits(req))
@@ -236,40 +242,89 @@ pub fn get_worker_pending(req: Request, ctx: Context) -> Response {
             Error(_) -> 10
           }
       }
-      case
-        pog.query(
-          "select j.id::text, j.network, j.entity_id::text, "
-          <> "coalesce(array_to_string(j.image_keys, chr(31)), ''), "
-          <> "coalesce(j.caption_ai_generated, ''), "
-          <> "coalesce(l.allow_ai_caption, false), "
-          <> "coalesce((select lt.title from listing_translations lt "
-          <> "inner join locales loc on loc.id = lt.locale_id "
-          <> "where lt.listing_id = l.id and lower(loc.code) = 'tr' limit 1), ''), "
-          <> "l.slug::text, coalesce(pc.code::text, ''), coalesce(t.template_body, ''), "
-          <> "j.post_type::text "
-          <> "from social_share_jobs j "
-          <> "inner join listings l on l.id = j.entity_id and j.entity_type = 'listing' "
-          <> "inner join product_categories pc on pc.id = l.category_id "
-          <> "left join social_share_templates t on t.id = j.template_id "
-          <> "where j.status = 'pending' and l.status = 'published' "
-          <> "order by j.created_at asc limit "
-          <> int.to_string(limit),
-        )
-        |> pog.returning(pending_job_row())
-        |> db_exec.execute(ctx.db)
-      {
-        Error(_) -> json_err(500, "pending_jobs_query_failed")
-        Ok(ret) -> {
-          let jobs = list.map(ret.rows, pending_job_json)
-          let api_raw = fetch_social_api_json(ctx.db)
-          let body =
-            json.object([
-              #("jobs", json.array(from: jobs, of: fn(x) { x })),
-              #("social_api_json", json.string(api_raw)),
-            ])
-            |> json.to_string
-          wisp.json_response(body, 200)
-        }
+      let post_type_filter =
+        list.key_find(wisp.get_query(req), "post_type")
+        |> result.unwrap("")
+        |> string.trim
+        |> string.lowercase
+      case post_type_filter == "" || valid_post_type(post_type_filter) {
+        False -> json_err(400, "invalid_post_type")
+        True ->
+          case post_type_filter == "" {
+            True ->
+              case
+                pog.query(
+                  "select j.id::text, j.network, j.entity_id::text, "
+                  <> "coalesce(array_to_string(j.image_keys, chr(31)), ''), "
+                  <> "coalesce(j.caption_ai_generated, ''), "
+                  <> "coalesce(l.allow_ai_caption, false), "
+                  <> "coalesce((select lt.title from listing_translations lt "
+                  <> "inner join locales loc on loc.id = lt.locale_id "
+                  <> "where lt.listing_id = l.id and lower(loc.code) = 'tr' limit 1), ''), "
+                  <> "l.slug::text, coalesce(pc.code::text, ''), coalesce(t.template_body, ''), "
+                  <> "j.post_type::text "
+                  <> "from social_share_jobs j "
+                  <> "inner join listings l on l.id = j.entity_id and j.entity_type = 'listing' "
+                  <> "inner join product_categories pc on pc.id = l.category_id "
+                  <> "left join social_share_templates t on t.id = j.template_id "
+                  <> "where j.status = 'pending' and l.status = 'published' "
+                  <> "order by j.created_at asc limit "
+                  <> int.to_string(limit),
+                )
+                |> pog.returning(pending_job_row())
+                |> db_exec.execute(ctx.db)
+              {
+                Error(_) -> json_err(500, "pending_jobs_query_failed")
+                Ok(ret) -> {
+                  let jobs = list.map(ret.rows, pending_job_json)
+                  let api_raw = fetch_social_api_json(ctx.db)
+                  let body =
+                    json.object([
+                      #("jobs", json.array(from: jobs, of: fn(x) { x })),
+                      #("social_api_json", json.string(api_raw)),
+                    ])
+                    |> json.to_string
+                  wisp.json_response(body, 200)
+                }
+              }
+            False ->
+              case
+                pog.query(
+                  "select j.id::text, j.network, j.entity_id::text, "
+                  <> "coalesce(array_to_string(j.image_keys, chr(31)), ''), "
+                  <> "coalesce(j.caption_ai_generated, ''), "
+                  <> "coalesce(l.allow_ai_caption, false), "
+                  <> "coalesce((select lt.title from listing_translations lt "
+                  <> "inner join locales loc on loc.id = lt.locale_id "
+                  <> "where lt.listing_id = l.id and lower(loc.code) = 'tr' limit 1), ''), "
+                  <> "l.slug::text, coalesce(pc.code::text, ''), coalesce(t.template_body, ''), "
+                  <> "j.post_type::text "
+                  <> "from social_share_jobs j "
+                  <> "inner join listings l on l.id = j.entity_id and j.entity_type = 'listing' "
+                  <> "inner join product_categories pc on pc.id = l.category_id "
+                  <> "left join social_share_templates t on t.id = j.template_id "
+                  <> "where j.status = 'pending' and l.status = 'published' and j.post_type = $1 "
+                  <> "order by j.created_at asc limit "
+                  <> int.to_string(limit),
+                )
+                |> pog.parameter(pog.text(post_type_filter))
+                |> pog.returning(pending_job_row())
+                |> db_exec.execute(ctx.db)
+              {
+                Error(_) -> json_err(500, "pending_jobs_query_failed")
+                Ok(ret) -> {
+                  let jobs = list.map(ret.rows, pending_job_json)
+                  let api_raw = fetch_social_api_json(ctx.db)
+                  let body =
+                    json.object([
+                      #("jobs", json.array(from: jobs, of: fn(x) { x })),
+                      #("social_api_json", json.string(api_raw)),
+                    ])
+                    |> json.to_string
+                  wisp.json_response(body, 200)
+                }
+              }
+          }
       }
     }
   }
