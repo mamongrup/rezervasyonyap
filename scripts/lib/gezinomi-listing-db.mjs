@@ -172,21 +172,31 @@ export async function upsertGezinomiCruiseListing(
     [listingId, ctx.localeTrId, title, description],
   )
 
+  const prevVerticalRes = await pgClient.query(
+    `SELECT value_json FROM listing_attributes
+     WHERE listing_id = $1::uuid AND group_code = 'vertical_cruise' AND key = 'v1'`,
+    [listingId],
+  )
+  const prevVertical = prevVerticalRes.rows[0]?.value_json || {}
+  const programDays = content?.programDays?.length ? content.programDays : prevVertical.program_days ?? []
+  const infoSections = content?.infoSections?.length ? content.infoSections : prevVertical.info_sections ?? []
+
   const verticalCruise = {
-    cruise_line: cruiseLine,
-    ship_name: shipName,
-    route_summary: routeSummary,
-    cabin_category: cabinCategory,
-    night_count: row.nightCount ?? content?.numberOfNights ?? null,
-    concept_name: content?.conceptName || row.conceptName || null,
-    tour_departure: content?.tourDeparture || row.tourDeparture || null,
+    ...prevVertical,
+    cruise_line: cruiseLine || prevVertical.cruise_line || null,
+    ship_name: shipName || prevVertical.ship_name || null,
+    route_summary: routeSummary || prevVertical.route_summary || null,
+    cabin_category: cabinCategory || prevVertical.cabin_category || null,
+    night_count: row.nightCount ?? content?.numberOfNights ?? prevVertical.night_count ?? null,
+    concept_name: content?.conceptName || row.conceptName || prevVertical.concept_name || null,
+    tour_departure: content?.tourDeparture || row.tourDeparture || prevVertical.tour_departure || null,
     product_id: Number(row.productId),
     gezinomi_link: row.link,
-    gezinomi_page_url: detail?.pageUrl || null,
-    info_sections: content?.infoSections ?? [],
-    program_days: content?.programDays ?? [],
-    periods: detail?.periods ?? null,
-    detail_text: content?.detailText || row.tourDetailText || null,
+    gezinomi_page_url: detail?.pageUrl || prevVertical.gezinomi_page_url || null,
+    info_sections: infoSections,
+    program_days: programDays,
+    periods: detail?.periods ?? prevVertical.periods ?? null,
+    detail_text: content?.detailText || row.tourDetailText || prevVertical.detail_text || null,
   }
 
   await pgClient.query(

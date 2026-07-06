@@ -261,13 +261,45 @@ function parsePeriods(html) {
   }))
 }
 
+function parsePriceAmount(mainPart, centsPart, currencyRaw) {
+  const main = String(mainPart || '').trim()
+  if (!main || main === '-' || main === ' - ') return null
+  const cents = String(centsPart || '00').trim()
+  const whole = main.replace(/\./g, '')
+  const amount = Number(`${whole}.${cents.padStart(2, '0')}`)
+  if (!Number.isFinite(amount) || amount <= 0) return null
+  const cur = String(currencyRaw || 'EUR').trim().toUpperCase()
+  return { amount, currency: cur === 'TL' ? 'TRY' : cur }
+}
+
 function parsePriceCell(html) {
-  const m = html.match(
-    /<strong class="discount-price(?!\s+is-tl)">(\d+),<small class='price-currency'>\s*(\w+)/i,
+  const block = String(html)
+  const eurM = block.match(
+    /<strong class="discount-price(?!\s+is-tl)">\s*([\d.]+),<small class='price-currency'>\s*(\d+)\s*(\w+)/i,
   )
-  if (!m) return null
-  const cur = m[2].toUpperCase() === 'TL' ? 'TRY' : m[2].toUpperCase()
-  return { amount: Number(m[1]), currency: cur }
+  if (eurM) {
+    const parsed = parsePriceAmount(eurM[1], eurM[2], eurM[3])
+    if (parsed) return parsed
+  }
+  const tlM = block.match(
+    /<strong class="discount-price\s+is-tl">\s*([\d.]+),<small class='price-currency'>\s*(\d+)\s*(\w+)/i,
+  )
+  if (tlM) {
+    const parsed = parsePriceAmount(tlM[1], tlM[2], tlM[3])
+    if (parsed) return parsed
+  }
+  return null
+}
+
+function extractCabinPriceCells(block) {
+  const itemIdx = block.indexOf('price-table__body__item')
+  if (itemIdx < 0) return []
+  let slice = block.slice(itemIdx)
+  const childIdx = slice.indexOf('child-div')
+  if (childIdx > 0) slice = slice.slice(0, childIdx)
+  return [...slice.matchAll(/price-table__body__cell[^>]*>([\s\S]*?)<\/div>\s*<\/div>\s*<\/div>/gi)].map(
+    (m) => m[1],
+  )
 }
 
 function parseCabinTables(html) {
@@ -288,12 +320,10 @@ function parseCabinTables(html) {
       ...block.matchAll(/id="kabin-gorselleri[^"]*"[\s\S]*?(?:src|data-src)="(https:\/\/cdn\.tatilsepeti\.com\/[^"]+)"/gi),
     ].map((m) => m[1])
 
-    const bodyItem = block.match(/price-table__body__item([\s\S]*?)<\/div>\s*<\/div>\s*<\/div>/i)
-    const body = bodyItem ? bodyItem[1] : block
-    const cells = [...body.matchAll(/price-table__body__cell">([\s\S]*?)<\/div>\s*<\/div>\s*<\/div>/gi)]
-    const doublePerPerson = cells[0] ? parsePriceCell(cells[0][1]) : null
-    const extraBed = cells[1] ? parsePriceCell(cells[1][1]) : null
-    const single = cells[2] ? parsePriceCell(cells[2][1]) : null
+    const cells = extractCabinPriceCells(block)
+    const doublePerPerson = cells[0] ? parsePriceCell(cells[0]) : null
+    const extraBed = cells[1] ? parsePriceCell(cells[1]) : null
+    const single = cells[2] ? parsePriceCell(cells[2]) : null
 
     const children = []
     const childHeaders = [...block.matchAll(/price-table__header__name--small">\s*([^<]+)/gi)]

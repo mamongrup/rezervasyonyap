@@ -137,6 +137,111 @@ function escapeHtml(s) {
     .replace(/"/g, '&quot;')
 }
 
+/** Gezinomi vb. mevcut vertical_cruise — Tatilsepeti detayından eksik alanları doldur */
+export function mergeTatilsepetiIntoVerticalCruise(prev, fromTs) {
+  const merged = { ...prev, ...fromTs }
+  const keepPrevArray = (key) => {
+    if (Array.isArray(prev[key]) && prev[key].length > 0) merged[key] = prev[key]
+  }
+  if (Array.isArray(fromTs.cabins) && fromTs.cabins.length > 0) {
+    merged.cabins = fromTs.cabins
+  } else if (Array.isArray(prev.cabins) && prev.cabins.length > 0) {
+    merged.cabins = prev.cabins
+  }
+  for (const key of [
+    'program_days',
+    'included_services',
+    'excluded_services',
+    'info_sections',
+    'periods',
+    'departure_points',
+    'visits',
+    'ship_specs',
+    'ship_activities',
+  ]) {
+    keepPrevArray(key)
+  }
+  if (prev.gezinomi_link) merged.gezinomi_link = prev.gezinomi_link
+  if (prev.gezinomi_page_url) merged.gezinomi_page_url = prev.gezinomi_page_url
+  if (prev.product_id) merged.product_id = prev.product_id
+  if (prev.concept_name) merged.concept_name = prev.concept_name
+  if (!merged.ship_image_url && prev.ship_image_url) merged.ship_image_url = prev.ship_image_url
+  if (!merged.deck_plan_image_url && prev.deck_plan_image_url) {
+    merged.deck_plan_image_url = prev.deck_plan_image_url
+  }
+  if (!merged.detail_text && prev.detail_text) merged.detail_text = prev.detail_text
+  merged.tatilsepeti_url = fromTs.tatilsepeti_url || prev.tatilsepeti_url || null
+  merged.tatilsepeti_tour_id = fromTs.tatilsepeti_tour_id || prev.tatilsepeti_tour_id || null
+  return merged
+}
+
+/** Herhangi bir cruise ilanı — Tatilsepeti detayından kabin ve eksik içerik (Gezinomi uyumlu merge) */
+export async function patchCruiseListingFromTatilsepetiDetail(pgClient, listingId, detail) {
+  const verticalCruise = buildTatilsepetiVerticalCruise(detail)
+  const existing = await pgClient.query(
+    `SELECT value_json FROM listing_attributes
+     WHERE listing_id = $1::uuid AND group_code = 'vertical_cruise' AND key = 'v1'`,
+    [listingId],
+  )
+  const prev = existing.rows[0]?.value_json || {}
+  const merged = mergeTatilsepetiIntoVerticalCruise(prev, verticalCruise)
+  const effectivePrice = minCabinPrice(detail)
+  const currency = detail.price?.currency || 'EUR'
+
+  if (effectivePrice) {
+    await pgClient.query(
+      `UPDATE listings SET
+         currency_code = COALESCE($2, currency_code),
+         first_charge_amount = COALESCE($3, first_charge_amount),
+         vitrin_price = COALESCE($3, vitrin_price),
+         last_synced_at = now(),
+         updated_at = now()
+       WHERE id = $1::uuid`,
+      [listingId, currency, effectivePrice],
+    )
+  }
+
+  const prevDesc = await pgClient.query(
+    `SELECT length(trim(coalesce(description, ''))) AS n FROM listing_translations WHERE listing_id = $1::uuid LIMIT 1`,
+    [listingId],
+  )
+  const descLen = Number(prevDesc.rows[0]?.n || 0)
+  if (descLen < 200 && (detail.description || detail.detailTextHtml)) {
+    const rich = detail.detailTextHtml?.trim() || detail.description
+    await pgClient.query(
+      `UPDATE listing_translations SET description = COALESCE($2, description)
+       WHERE listing_id = $1::uuid`,
+      [listingId, rich],
+    )
+  }
+
+  await pgClient.query(
+    `INSERT INTO listing_attributes (listing_id, group_code, key, value_json)
+     VALUES ($1::uuid, 'vertical_cruise', 'v1', $2::jsonb)
+     ON CONFLICT (listing_id, group_code, key) DO UPDATE SET value_json = EXCLUDED.value_json`,
+    [listingId, JSON.stringify(merged)],
+  )
+
+  await pgClient.query(
+    `INSERT INTO listing_attributes (listing_id, group_code, key, value_json)
+     VALUES ($1::uuid, 'tatilsepeti', 'snapshot', $2::jsonb)
+     ON CONFLICT (listing_id, group_code, key) DO UPDATE SET
+       value_json = listing_attributes.value_json || EXCLUDED.value_json`,
+    [
+      listingId,
+      JSON.stringify({ catalog: detail, cabins_matched_at: new Date().toISOString() }),
+    ],
+  )
+
+  return {
+    listingId,
+    tourId: String(detail.tourId),
+    cabinCount: merged.cabins?.length ?? 0,
+    programCount: merged.program_days?.length ?? 0,
+    effectivePrice,
+  }
+}
+
 /** Mevcut ilan — kabin/program/dahil-hariç güncelle (backfill) */
 export async function patchTatilsepetiCruiseListingContent(pgClient, listingId, detail) {
   const tourId = String(detail.tourId)
