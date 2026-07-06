@@ -53,4 +53,6 @@ travelrobot-test-summary-*.txt
 travelrobot-air-log.json
 log-s3.json
 tmp-search.json
+# Yerel scrape çıktıları — üçüncü parti sitelerin gömülü token'ları olabilir (push protection)
+tmp-hc-main.js
 scripts/bin/rebar3.cmd

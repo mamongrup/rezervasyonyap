@@ -1,0 +1,4 @@
+echo "=== CPU ==="; nproc; lscpu | grep "Model name"
+echo "=== RAM ==="; free -h
+echo "=== DISK ==="; df -h /
+echo "=== LOAD ==="; uptime

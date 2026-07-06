@@ -1,0 +1,33 @@
+﻿Campaign,Campaign Daily Budget,Campaign Type,Ad Group,Keyword,Match Type,Status
+Aktiviteler,150,Search,Aktivite Rezervasyonu,yamaç paraşütü,Phrase,Enabled
+Aktiviteler,150,Search,Aktivite Rezervasyonu,dalış turu,Phrase,Enabled
+Aktiviteler,150,Search,Aktivite Rezervasyonu,rafting rezervasyonu,Phrase,Enabled
+Aktiviteler,150,Search,Aktivite Rezervasyonu,günübirlik aktiviteler,Phrase,Enabled
+Aktiviteler,150,Search,Fethiye Aktiviteleri,fethiye aktiviteleri,Exact,Enabled
+Aktiviteler,150,Search,Fethiye Aktiviteleri,fethiye yamaç paraşütü,Phrase,Enabled
+Aktiviteler,150,Search,Fethiye Aktiviteleri,fethiye tekne turu,Phrase,Enabled
+Gemi Turları,200,Search,Kruvaziyer Tatili,kruvaziyer turları,Phrase,Enabled
+Gemi Turları,200,Search,Kruvaziyer Tatili,gemi turları,Phrase,Enabled
+Gemi Turları,200,Search,Kruvaziyer Tatili,akdeniz gemi turları,Phrase,Enabled
+Gemi Turları,200,Search,Kruvaziyer Tatili,kruvaziyer tatili,Exact,Enabled
+Genel Kampanya,100,Search,Mamon Travel Brand,mamon travel,Phrase,Enabled
+Genel Kampanya,100,Search,Mamon Travel Brand,rezervasyon yap,Phrase,Enabled
+Genel Kampanya,100,Search,Mamon Travel Brand,rezervasyonyap.tr,Exact,Enabled
+Genel Kampanya,100,Search,Mamon Travel Brand,rezervasyonyap,Exact,Enabled
+Otel Rezervasyonu,250,Search,Otel Rezervasyonu,otel rezervasyonu,Phrase,Enabled
+Otel Rezervasyonu,250,Search,Otel Rezervasyonu,en uygun oteller,Exact,Enabled
+Otel Rezervasyonu,250,Search,Otel Rezervasyonu,online otel rezervasyonu,Phrase,Enabled
+Otel Rezervasyonu,250,Search,Antalya Otelleri,antalya otelleri,Phrase,Enabled
+Otel Rezervasyonu,250,Search,Antalya Otelleri,antalya otel rezervasyonu,Phrase,Enabled
+Otel Rezervasyonu,250,Search,Antalya Otelleri,antalya otel fiyatları,Exact,Enabled
+Otel Rezervasyonu,250,Search,Bodrum Otelleri,bodrum otelleri,Phrase,Enabled
+Otel Rezervasyonu,250,Search,Bodrum Otelleri,bodrum otel rezervasyonu,Phrase,Enabled
+Otel Rezervasyonu,250,Search,Bodrum Otelleri,bodrum otel fiyatları,Exact,Enabled
+Tatil Evi Kiralama,200,Search,Villa Kiralama,villa kiralama,Phrase,Enabled
+Tatil Evi Kiralama,200,Search,Villa Kiralama,kiralık villa,Phrase,Enabled
+Tatil Evi Kiralama,200,Search,Villa Kiralama,muhafazakar villa,Phrase,Enabled
+Tatil Evi Kiralama,200,Search,Villa Kiralama,tatil evi kiralama,Exact,Enabled
+Yat Kiralama,200,Search,Yat Kiralama,yat kiralama,Phrase,Enabled
+Yat Kiralama,200,Search,Yat Kiralama,kiralık yat fiyatları,Phrase,Enabled
+Yat Kiralama,200,Search,Yat Kiralama,mavi tur tekne kiralama,Phrase,Enabled
+Yat Kiralama,200,Search,Yat Kiralama,bodrum yat kiralama,Exact,Enabled
