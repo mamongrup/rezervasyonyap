@@ -40,6 +40,14 @@ describe('listingDayVisualStatus', () => {
   it('shows blocked when panel fully closed the day', () => {
     expect(listingDayVisualStatus(dayRow('2026-07-11', false, false, false))).toBe('blocked')
   })
+
+  it('shows checkout when morning is occupied', () => {
+    expect(listingDayVisualStatus(dayRow('2026-08-16', false, true, true))).toBe('checkout')
+  })
+
+  it('shows checkin when afternoon is occupied', () => {
+    expect(listingDayVisualStatus(dayRow('2026-08-07', true, false, true))).toBe('checkin')
+  })
 })
 
 describe('stay half-day booking', () => {

@@ -329,6 +329,14 @@ const TR_BY_CODE: Record<string, string> = {
   social_worker_504: 'Sosyal paylaşım worker zaman aşımına uğradı. Panelden tek seferde bir iş işlenir; toplu gönderim için sunucuda social-process-pending.sh kullanın.',
   social_worker_loop_500: 'Arka plan sosyal worker başlatılamadı (sunucu hatası).',
   social_worker_loop_status_500: 'Arka plan sosyal worker durumu alınamadı.',
+  social_worker_loop_status_404: 'Arka plan sosyal worker bulunamadı. Frontend güncel değilse deploy sonrası tekrar deneyin.',
+  social_worker_loop_stop_500: 'Arka plan sosyal worker durdurulamadı.',
+  meta_access_token_invalid:
+    'Meta (Facebook/Instagram) erişim anahtarı geçersiz veya süresi doldu. Yönetim → Sosyal Medya API ayarlarından yeni Page Access Token kaydedin.',
+  meta_token_invalid:
+    'Meta erişim anahtarı geçersiz. Facebook Developer / Business Manager üzerinden yeni Page Access Token üretin ve panele kaydedin.',
+  invalid_session:
+    'Oturum süresi doldu. Lütfen yeniden giriş yapın; arka plan paylaşımı sunucuda çalışmaya devam edebilir.',
   worker_secret_not_configured: 'Sosyal medya worker secret tanımlı değil. /etc/rezervasyonyap/frontend.env içinde TRAVEL_SOCIAL_WORKER_SECRET eklenmeli ve frontend yeniden başlatılmalı.',
   worker_secret_missing: 'Sosyal medya worker secret okunamadı. Frontend ortam değişkenlerini kontrol edin.',
   api_origin_missing: 'Worker API adresini bulamadı. INTERNAL_API_ORIGIN veya NEXT_PUBLIC_API_URL ayarını kontrol edin.',

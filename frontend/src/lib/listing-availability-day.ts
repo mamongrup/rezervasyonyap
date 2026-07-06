@@ -21,7 +21,14 @@ export function normalizeListingDayStatus(
 }
 
 /** Vitrin takvim hücresi görsel durumu */
-export type ListingDayVisualStatus = 'available' | 'blocked' | 'turnover' | 'option' | 'promo'
+export type ListingDayVisualStatus =
+  | 'available'
+  | 'blocked'
+  | 'turnover'
+  | 'checkout'
+  | 'checkin'
+  | 'option'
+  | 'promo'
 
 export function listingDayVisualStatus(row: ListingAvailabilityDay | undefined): ListingDayVisualStatus {
   const st = normalizeListingDayStatus(row?.day_status ?? null)
@@ -32,6 +39,8 @@ export function listingDayVisualStatus(row: ListingAvailabilityDay | undefined):
     if (row?.is_available === false) return 'blocked'
     return 'turnover'
   }
+  if (!am && pm) return 'checkout'
+  if (am && !pm) return 'checkin'
   return 'available'
 }
 

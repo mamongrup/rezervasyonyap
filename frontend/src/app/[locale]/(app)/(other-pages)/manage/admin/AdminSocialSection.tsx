@@ -11,8 +11,10 @@ import {
   listSocialTemplates,
   patchListingSocial,
   postListingToFacebook,
+  processSocialPendingJobs,
   startSocialWorkerLoop,
   getSocialWorkerLoopStatus,
+  stopSocialWorkerLoop,
   type ManageListingRow,
   type SocialNetwork,
   type SocialPostType,
@@ -44,6 +46,18 @@ const BULK_IDLE_STATE: BulkProcessState = {
   totalFailed: 0,
   message: null,
   countdown: 0,
+}
+
+const CLIENT_BATCH_SLEEP_SECONDS = 45
+const CLIENT_RATE_LIMIT_SLEEP_SECONDS = 300
+
+function isWorkerLoopUnavailableError(err: unknown): boolean {
+  const msg = err instanceof Error ? err.message : String(err)
+  return (
+    msg.includes('social_worker_loop_404') ||
+    msg.includes('social_worker_loop_status_404') ||
+    msg.includes('social_worker_loop_stop_404')
+  )
 }
 
 const SOCIAL_CATEGORIES = [
@@ -466,10 +480,20 @@ function SocialCampaignPlanner({ onQueued }: { onQueued: () => void }) {
 
   async function queueListing(token: string, listing: ManageListingRow, tplId: string | undefined) {
     const keys = await listingImageKeys(listing.id)
+    const premiumCoverKey =
+      coverMode === 'premium' && generatedCover && listing.id === selectedListing?.id
+        ? generatedCover.storage_key
+        : null
     const imageKeys =
-      postType !== 'reel' && coverMode === 'premium' && generatedCover && listing.id === selectedListing?.id
-        ? [generatedCover.storage_key, ...keys.filter((k) => k !== generatedCover.storage_key)].slice(0, 10)
-        : keys
+      postType === 'reel'
+        ? keys
+        : postType === 'story'
+          ? premiumCoverKey
+            ? [premiumCoverKey, ...keys.filter((k) => k !== premiumCoverKey)].slice(0, 5)
+            : keys.slice(0, 5)
+          : premiumCoverKey
+            ? [premiumCoverKey, ...keys.filter((k) => k !== premiumCoverKey)].slice(0, 10)
+            : keys
     if (imageKeys.length === 0) throw new Error(`${listing.title}: image_keys_required`)
     // Bayraklar otomatik rotasyon için yardımcıdır; manuel kuyruk kaydı için zorunlu değildir.
     await patchListingSocial(token, listing.id, {
@@ -1189,6 +1213,99 @@ export default function AdminSocialSection() {
   // Sekme kapanırsa/bileşen kaldırılırsa döngüyü durdur.
   useEffect(() => () => { bulkCancelRef.current = true }, [])
 
+  const runClientBulkLoop = useCallback(
+    async (token: string, postType?: SocialPostType) => {
+      let batch = 0
+      let totalProcessed = 0
+      let totalPosted = 0
+      let totalFailed = 0
+
+      const sleepWithCountdown = async (seconds: number) => {
+        for (let left = seconds; left > 0; left -= 1) {
+          if (bulkCancelRef.current) return
+          setBulk((prev) => ({ ...prev, countdown: left }))
+          await new Promise((resolve) => setTimeout(resolve, 1000))
+        }
+        setBulk((prev) => ({ ...prev, countdown: 0 }))
+      }
+
+      while (!bulkCancelRef.current) {
+        batch += 1
+        setBulk({
+          phase: 'running',
+          batch,
+          totalProcessed,
+          totalPosted,
+          totalFailed,
+          message: `${batch}. grup işleniyor…`,
+          countdown: 0,
+        })
+
+        const out = await processSocialPendingJobs(token, {
+          limit: 1,
+          rotate: false,
+          postType,
+        })
+        totalProcessed += out.processed
+        totalPosted += out.posted
+        totalFailed += out.failed
+
+        try {
+          await refresh()
+        } catch {
+          /* liste yenileme geçici hatası */
+        }
+
+        if (bulkCancelRef.current) break
+
+        if (out.processed === 0) {
+          setBulk({
+            phase: 'done',
+            batch,
+            totalProcessed,
+            totalPosted,
+            totalFailed,
+            message: 'Bekleyen iş kalmadı.',
+            countdown: 0,
+          })
+          break
+        }
+
+        const failedResult = out.results?.find((r) => !r.ok)
+        const rateLimited =
+          out.processed > 0 && out.posted === 0 && out.failed === 0 && Boolean(failedResult)
+
+        if (rateLimited) {
+          setBulk({
+            phase: 'rate_limited',
+            batch,
+            totalProcessed,
+            totalPosted,
+            totalFailed,
+            message: `Platform limiti tespit edildi (${failedResult?.error ?? 'rate limit'}). Bekleniyor…`,
+            countdown: CLIENT_RATE_LIMIT_SLEEP_SECONDS,
+          })
+          await sleepWithCountdown(CLIENT_RATE_LIMIT_SLEEP_SECONDS)
+        } else {
+          setBulk({
+            phase: 'waiting',
+            batch,
+            totalProcessed,
+            totalPosted,
+            totalFailed,
+            message:
+              out.failed > 0
+                ? 'Bir iş başarısız oldu, sonraki gruba geçmeden bekleniyor…'
+                : 'Sonraki gruba geçmeden bekleniyor…',
+            countdown: CLIENT_BATCH_SLEEP_SECONDS,
+          })
+          await sleepWithCountdown(CLIENT_BATCH_SLEEP_SECONDS)
+        }
+      }
+    },
+    [refresh],
+  )
+
   const runBulkProcess = useCallback(async () => {
     const token = getStoredAuthToken()
     if (!token || bulkRunningRef.current) return
@@ -1197,15 +1314,56 @@ export default function AdminSocialSection() {
     setLoadErr(null)
     setBulk({ ...BULK_IDLE_STATE, phase: 'running', message: 'Arka plan worker başlatılıyor…' })
 
+    const postType = postTypeFilter === 'all' ? undefined : postTypeFilter
+    let useClientLoop = false
+
     try {
-      await startSocialWorkerLoop(token, {
-        limit: 1,
-        rotate: false,
-        postType: postTypeFilter === 'all' ? undefined : postTypeFilter,
-      })
+      try {
+        await startSocialWorkerLoop(token, {
+          limit: 1,
+          rotate: false,
+          postType,
+        })
+      } catch (startErr) {
+        if (!isWorkerLoopUnavailableError(startErr)) throw startErr
+        useClientLoop = true
+        setBulk((prev) => ({
+          ...prev,
+          message: 'Sunucu worker henüz yok — panel içi döngü ile devam ediliyor…',
+        }))
+        await runClientBulkLoop(token, postType)
+        return
+      }
+
+      let consecutiveStatusErrors = 0
+      const MAX_STATUS_ERRORS = 8
 
       while (!bulkCancelRef.current) {
-        const status = await getSocialWorkerLoopStatus(token)
+        let status: Awaited<ReturnType<typeof getSocialWorkerLoopStatus>>
+        try {
+          status = await getSocialWorkerLoopStatus(token)
+          consecutiveStatusErrors = 0
+        } catch (statusErr) {
+          if (isWorkerLoopUnavailableError(statusErr)) {
+            useClientLoop = true
+            setBulk((prev) => ({
+              ...prev,
+              message: 'Worker durumu alınamadı — panel içi döngüye geçiliyor…',
+            }))
+            await runClientBulkLoop(token, postType)
+            return
+          }
+          consecutiveStatusErrors += 1
+          if (consecutiveStatusErrors >= MAX_STATUS_ERRORS) {
+            throw statusErr
+          }
+          setBulk((prev) => ({
+            ...prev,
+            message: 'Durum bilgisi geçici olarak alınamadı, tekrar deneniyor…',
+          }))
+          await new Promise((resolve) => setTimeout(resolve, 5000))
+          continue
+        }
 
         const phase: BulkPhase =
           status.phase === 'rate_limited'
@@ -1214,9 +1372,11 @@ export default function AdminSocialSection() {
               ? 'waiting'
               : status.phase === 'done'
                 ? 'done'
-                : status.phase === 'error'
-                  ? 'error'
-                  : 'running'
+                : status.phase === 'stopped'
+                  ? 'stopped'
+                  : status.phase === 'error'
+                    ? 'error'
+                    : 'running'
 
         setBulk({
           phase,
@@ -1228,7 +1388,11 @@ export default function AdminSocialSection() {
           countdown: status.countdown ?? 0,
         })
 
-        await refresh()
+        try {
+          await refresh()
+        } catch {
+          /* liste yenileme geçici hatası */
+        }
 
         if (!status.running) {
           if (status.phase === 'done') {
@@ -1239,6 +1403,16 @@ export default function AdminSocialSection() {
               totalPosted: status.totalPosted,
               totalFailed: status.totalFailed,
               message: status.message ?? 'Bekleyen iş kalmadı.',
+              countdown: 0,
+            })
+          } else if (status.phase === 'stopped') {
+            setBulk({
+              phase: 'stopped',
+              batch: status.batch,
+              totalProcessed: status.totalProcessed,
+              totalPosted: status.totalPosted,
+              totalFailed: status.totalFailed,
+              message: status.message ?? 'Worker durduruldu.',
               countdown: 0,
             })
           } else if (status.phase === 'error') {
@@ -1263,7 +1437,7 @@ export default function AdminSocialSection() {
           ...prev,
           phase: 'stopped',
           countdown: 0,
-          message: 'İzleme durduruldu. Arka plan worker çalışmaya devam edebilir.',
+          message: useClientLoop ? 'İşlem durduruldu.' : 'Worker durduruldu.',
         }))
       }
     } catch (e) {
@@ -1279,10 +1453,21 @@ export default function AdminSocialSection() {
     } finally {
       bulkRunningRef.current = false
     }
-  }, [postTypeFilter, refresh])
+  }, [postTypeFilter, refresh, runClientBulkLoop])
 
-  const stopBulkProcess = useCallback(() => {
+  const stopBulkProcess = useCallback(async () => {
     bulkCancelRef.current = true
+    setBulk((prev) => ({ ...prev, phase: 'stopped', message: 'Durduruluyor…', countdown: 0 }))
+    const token = getStoredAuthToken()
+    if (token) {
+      try {
+        await stopSocialWorkerLoop(token)
+      } catch (err) {
+        if (!isWorkerLoopUnavailableError(err)) {
+          /* sunucu worker yoksa client döngüsü zaten cancel ref ile durur */
+        }
+      }
+    }
   }, [])
 
   const clearPendingQueue = useCallback(async () => {
@@ -1364,7 +1549,7 @@ export default function AdminSocialSection() {
             {bulkActive ? (
               <button
                 type="button"
-                onClick={stopBulkProcess}
+                onClick={() => void stopBulkProcess()}
                 className="flex items-center gap-1.5 rounded-xl bg-red-600 px-3 py-2 text-sm font-medium text-white hover:bg-red-700"
               >
                 <StopCircle className="h-3.5 w-3.5" />
@@ -1418,6 +1603,8 @@ export default function AdminSocialSection() {
                 ? 'border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-900/40 dark:bg-amber-950/20 dark:text-amber-300'
                 : bulk.phase === 'done'
                 ? 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900/40 dark:bg-emerald-950/20 dark:text-emerald-300'
+                : bulk.phase === 'stopped'
+                ? 'border-neutral-200 bg-neutral-50 text-neutral-700 dark:border-neutral-800 dark:bg-neutral-900/40 dark:text-neutral-300'
                 : 'border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-900/40 dark:bg-blue-950/20 dark:text-blue-300',
             ].join(' ')}
             aria-live="polite"

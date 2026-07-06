@@ -228,6 +228,21 @@ function isMetaRateLimitError(message: string): boolean {
   )
 }
 
+/** Meta Page/User token süresi dolmuş veya iptal edilmiş — yeniden denemek işe yaramaz. */
+export function isMetaAuthError(message: string): boolean {
+  const m = message.toLowerCase()
+  return (
+    m.includes('error validating access token') ||
+    m.includes('session has expired') ||
+    m.includes('session has been invalidated') ||
+    m.includes('invalid oauth') ||
+    m.includes('oauth exception') ||
+    m.includes('(#190)') ||
+    (m.includes('access token') && m.includes('expired')) ||
+    m === 'invalid_session'
+  )
+}
+
 async function validateFacebookPageToken(pageId: string, token: string): Promise<void> {
   const res = await fetch(`${FB_GRAPH}/${encodeURIComponent(pageId)}?fields=id,name&access_token=${encodeURIComponent(token)}`, {
     cache: 'no-store',
@@ -517,9 +532,11 @@ async function pollMediaContainerReady(
   token: string,
   maxWaitMs: number,
   intervalMs: number,
+  shouldStop?: () => boolean | Promise<boolean>,
 ): Promise<void> {
   const deadline = Date.now() + maxWaitMs
   while (Date.now() < deadline) {
+    if (shouldStop && (await shouldStop())) throw new Error('social_worker_stopped')
     const res = await fetch(
       `${FB_GRAPH}/${encodeURIComponent(containerId)}?fields=status_code&access_token=${encodeURIComponent(token)}`,
       { cache: 'no-store' },
@@ -539,7 +556,12 @@ async function pollMediaContainerReady(
   throw new Error('ig_media_processing_timeout')
 }
 
-async function postInstagramStory(igId: string, token: string, imageUrl: string): Promise<string> {
+async function postInstagramStory(
+  igId: string,
+  token: string,
+  imageUrl: string,
+  shouldStop?: () => boolean | Promise<boolean>,
+): Promise<string> {
   const createRes = await fetch(`${FB_GRAPH}/${encodeURIComponent(igId)}/media`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -554,7 +576,9 @@ async function postInstagramStory(igId: string, token: string, imageUrl: string)
     throw new Error(createData.error?.message ?? `ig_story_media_${createRes.status}`)
   }
 
-  await pollMediaContainerReady(createData.id, token, 30000, 3000)
+  await pollMediaContainerReady(createData.id, token, 60000, 3000, shouldStop)
+
+  if (shouldStop && (await shouldStop())) throw new Error('social_worker_stopped')
 
   const pubRes = await fetch(`${FB_GRAPH}/${encodeURIComponent(igId)}/media_publish`, {
     method: 'POST',
@@ -574,6 +598,7 @@ async function postInstagramReel(
   caption: string,
   videoUrl: string,
   coverUrl?: string,
+  shouldStop?: () => boolean | Promise<boolean>,
 ): Promise<string> {
   const payload: Record<string, unknown> = {
     media_type: 'REELS',
@@ -595,7 +620,9 @@ async function postInstagramReel(
   }
 
   // Video işleme feed görsellerinden çok daha uzun sürebilir.
-  await pollMediaContainerReady(createData.id, token, 150000, 5000)
+  await pollMediaContainerReady(createData.id, token, 180000, 5000, shouldStop)
+
+  if (shouldStop && (await shouldStop())) throw new Error('social_worker_stopped')
 
   const pubRes = await fetch(`${FB_GRAPH}/${encodeURIComponent(igId)}/media_publish`, {
     method: 'POST',
@@ -731,6 +758,7 @@ export async function processOneSocialJob(
   job: PendingSocialJob,
   socialApi: SocialApiSettings,
   siteUrl: string,
+  options?: { shouldStop?: () => boolean | Promise<boolean> },
 ): Promise<{
   ok: boolean
   network: string
@@ -777,8 +805,12 @@ export async function processOneSocialJob(
     .filter((u, i, arr) => arr.indexOf(u) === i)
     .slice(0, 10)
   const metaPostImageUrls = await metaReadyImageUrls(siteUrl, postImageUrls)
+  const shouldStop = options?.shouldStop
 
   try {
+    if (shouldStop && (await shouldStop())) {
+      return { ok: false, network: job.network, post_type: job.post_type, job_id: job.id, error: 'social_worker_stopped' }
+    }
     if (metaPostImageUrls.length === 0 && postImageUrls.length > 0) {
       throw new Error('social_share_images_unreachable')
     }
@@ -796,7 +828,7 @@ export async function processOneSocialJob(
           const rawToken = meta.page_access_token?.trim()
           if (!igId || !pageId || !rawToken) throw new Error('instagram_not_configured')
           const pageToken = await resolveFacebookPageAccessToken(pageId, rawToken)
-          postId = await postInstagramStory(igId, pageToken, metaPostImageUrls[0])
+          postId = await postInstagramStory(igId, pageToken, metaPostImageUrls[0], shouldStop)
         } else if (job.post_type === 'reel') {
           // Slayt videosu için gerçek galeri fotoğrafları (kare kırpılmamış) kullanılır.
           const reelSourceUrls = imageUrls.length > 0 ? imageUrls : metaPostImageUrls
@@ -806,8 +838,14 @@ export async function processOneSocialJob(
           const rawToken = meta.page_access_token?.trim()
           if (!igId || !pageId || !rawToken) throw new Error('instagram_not_configured')
           const pageToken = await resolveFacebookPageAccessToken(pageId, rawToken)
+          if (shouldStop && (await shouldStop())) {
+            return { ok: false, network: job.network, post_type: job.post_type, job_id: job.id, error: 'social_worker_stopped' }
+          }
           const videoUrl = await generateAndStoreListingReelVideo(siteUrl, job.listing_slug, reelSourceUrls)
-          postId = await postInstagramReel(igId, pageToken, caption, videoUrl, metaPostImageUrls[0])
+          if (shouldStop && (await shouldStop())) {
+            return { ok: false, network: job.network, post_type: job.post_type, job_id: job.id, error: 'social_worker_stopped' }
+          }
+          postId = await postInstagramReel(igId, pageToken, caption, videoUrl, metaPostImageUrls[0], shouldStop)
         } else {
           if (metaPostImageUrls.length === 0) throw new Error('instagram_image_required')
           postId = await postInstagram(meta, caption, metaPostImageUrls)
@@ -836,8 +874,23 @@ export async function processOneSocialJob(
     return { ok: true, network: job.network, post_type: job.post_type, job_id: job.id, post_id: postId }
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e)
+    if (msg === 'social_worker_stopped') {
+      return { ok: false, network: job.network, post_type: job.post_type, job_id: job.id, error: msg }
+    }
     if (isMetaRateLimitError(msg)) {
       // Leave job pending — Meta throttled us; retry later instead of marking failed.
+      return { ok: false, network: job.network, post_type: job.post_type, job_id: job.id, error: msg }
+    }
+    if (isMetaAuthError(msg)) {
+      try {
+        await patchSocialJob(apiOrigin, secret, job.id, {
+          status: 'failed',
+          error_message: `meta_token_invalid: ${msg}`.slice(0, 2000),
+          caption_ai_generated: caption || undefined,
+        })
+      } catch {
+        /* patch failure logged upstream */
+      }
       return { ok: false, network: job.network, post_type: job.post_type, job_id: job.id, error: msg }
     }
     try {
@@ -891,6 +944,7 @@ export async function processPendingSocialJobs(options?: {
   limit?: number
   siteUrl?: string
   postType?: SocialPostType
+  shouldStop?: () => boolean | Promise<boolean>
 }): Promise<{
   processed: number
   posted: number
@@ -932,17 +986,26 @@ export async function processPendingSocialJobs(options?: {
 
   let processed = 0
   for (const job of jobs) {
+    if (options?.shouldStop && (await options.shouldStop())) break
     if (rateLimitedNetworks.has(job.network)) continue
-    const r = await processOneSocialJob(apiOrigin, secret, job, socialApi, siteUrl)
+    const r = await processOneSocialJob(apiOrigin, secret, job, socialApi, siteUrl, {
+      shouldStop: options?.shouldStop,
+    })
     results.push(r)
     processed += 1
     if (r.ok) {
       posted += 1
+    } else if (r.error === 'social_worker_stopped') {
+      break
     } else if (r.error && isMetaRateLimitError(r.error)) {
       rateLimitedNetworks.add(job.network)
+    } else if (r.error && isMetaAuthError(r.error)) {
+      failed += 1
+      break
     } else {
       failed += 1
     }
+    if (options?.shouldStop && (await options.shouldStop())) break
     await sleep(4000)
   }
 

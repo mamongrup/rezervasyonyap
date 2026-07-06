@@ -219,6 +219,20 @@ export default function SectionDateRange({
         <li className="flex items-center gap-2.5">
           <span
             aria-hidden
+            className="relative inline-block size-4 shrink-0 overflow-hidden rounded-full border-2 border-indigo-100 bg-[linear-gradient(225deg,rgba(148,163,184,0.55)_50%,transparent_50%)] shadow-sm dark:border-neutral-600"
+          />
+          <span className="text-sm font-semibold text-neutral-600 dark:text-neutral-400">{copy.legendCheckin}</span>
+        </li>
+        <li className="flex items-center gap-2.5">
+          <span
+            aria-hidden
+            className="relative inline-block size-4 shrink-0 overflow-hidden rounded-full border-2 border-indigo-100 bg-[linear-gradient(45deg,rgba(148,163,184,0.55)_50%,transparent_50%)] shadow-sm dark:border-neutral-600"
+          />
+          <span className="text-sm font-semibold text-neutral-600 dark:text-neutral-400">{copy.legendCheckout}</span>
+        </li>
+        <li className="flex items-center gap-2.5">
+          <span
+            aria-hidden
             className="relative inline-block size-4 shrink-0 overflow-hidden rounded-full border-2 border-indigo-100 bg-white shadow-sm dark:border-neutral-600 dark:bg-neutral-900"
           >
             <span className="absolute top-[7px] left-[-2px] block h-0.5 w-[140%] rotate-45 bg-neutral-300 dark:bg-neutral-500" />

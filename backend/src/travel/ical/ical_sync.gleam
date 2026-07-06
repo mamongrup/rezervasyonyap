@@ -192,7 +192,10 @@ fn block_checkin_pm(
     <> "values ($1::uuid, $2::date, true, true, false) "
     <> "on conflict (listing_id, day) do update set "
     <> "  pm_available = false, "
-    <> "  is_available = coalesce(listing_availability_calendar.am_available, true)"
+    <> "  is_available = ("
+    <> "    coalesce(listing_availability_calendar.am_available, true) "
+    <> "    or coalesce(listing_availability_calendar.pm_available, true)"
+    <> "  )"
   case
     pog.query(q)
     |> pog.parameter(pog.text(listing_id))
@@ -242,7 +245,10 @@ fn block_checkout_am(
     <> "values ($1::uuid, $2::date, true, false, true) "
     <> "on conflict (listing_id, day) do update set "
     <> "  am_available = false, "
-    <> "  is_available = coalesce(listing_availability_calendar.pm_available, true)"
+    <> "  is_available = ("
+    <> "    coalesce(listing_availability_calendar.am_available, true) "
+    <> "    or coalesce(listing_availability_calendar.pm_available, true)"
+    <> "  )"
   case
     pog.query(q)
     |> pog.parameter(pog.text(listing_id))

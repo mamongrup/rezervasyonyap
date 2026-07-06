@@ -27,7 +27,9 @@ export function mergeCalendarRows(
     const ex = map.get(key)
     const am = ex?.am_available ?? ex?.is_available ?? true
     const pm = ex?.pm_available ?? ex?.is_available ?? true
-    const ia = ex?.is_available ?? (am || pm)
+    const ia = ex
+      ? ex.is_available === true || am || pm
+      : true
     out.push({
       day: key,
       weekday: cur.getDay(),

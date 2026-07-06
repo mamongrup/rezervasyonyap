@@ -4946,8 +4946,9 @@ export type SocialWorkerProcessResult = {
 export type SocialWorkerLoopStatus = {
   ok: boolean
   started?: boolean
+  stopRequested?: boolean
   running: boolean
-  phase: 'idle' | 'running' | 'waiting' | 'rate_limited' | 'done' | 'error'
+  phase: 'idle' | 'running' | 'waiting' | 'rate_limited' | 'done' | 'stopped' | 'error'
   batch: number
   totalProcessed: number
   totalPosted: number
@@ -5031,6 +5032,7 @@ export async function startSocialWorkerLoop(
   const res = await fetch(`/api/social/worker-loop${q.toString() ? `?${q}` : ''}`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${token}` },
+    credentials: 'include',
   })
   const data = (await res.json().catch(() => ({ ok: false, error: `social_worker_loop_${res.status}` }))) as
     SocialWorkerLoopStatus & { error?: string }
@@ -5044,11 +5046,27 @@ export async function getSocialWorkerLoopStatus(token: string): Promise<SocialWo
   const res = await fetch('/api/social/worker-loop', {
     method: 'GET',
     headers: { Authorization: `Bearer ${token}` },
+    credentials: 'include',
   })
   const data = (await res.json().catch(() => ({ ok: false, error: `social_worker_loop_status_${res.status}` }))) as
     SocialWorkerLoopStatus & { error?: string }
   if (!res.ok) {
     throw new Error(data.error ?? `social_worker_loop_status_${res.status}`)
+  }
+  return data
+}
+
+/** Çalışan arka plan sosyal worker döngüsüne sunucu tarafında durdurma sinyali gönderir. */
+export async function stopSocialWorkerLoop(token: string): Promise<SocialWorkerLoopStatus> {
+  const res = await fetch('/api/social/worker-loop', {
+    method: 'DELETE',
+    headers: { Authorization: `Bearer ${token}` },
+    credentials: 'include',
+  })
+  const data = (await res.json().catch(() => ({ ok: false, error: `social_worker_loop_stop_${res.status}` }))) as
+    SocialWorkerLoopStatus & { error?: string }
+  if (!res.ok) {
+    throw new Error(data.error ?? `social_worker_loop_stop_${res.status}`)
   }
   return data
 }
