@@ -5,7 +5,10 @@ import { useStayListingQuote, type PoolHeatingOption } from '@/hooks/use-stay-li
 import { useVitrinHref } from '@/hooks/use-vitrin-href'
 import { hotelActivityLocalizedTitle } from '@/lib/hotel-activity-pricing'
 import type { HotelRoomBookingOption } from '@/lib/hotel-room-availability-public'
+import { hotelPerRoomCartUnitPrice } from '@/lib/hotel-stay-quote'
+import { hotelRoomCapacityOrDefault, requiredAccommodationUnits } from '@/lib/accommodation-units'
 import { buildBoardTypeLabelsFromMessages, resolveHotelBoardTypeLabel } from '@/lib/hotel-room-board-type'
+import { totalGuestCount } from '@/lib/guest-search-defaults'
 import { intlDateLocaleTag } from '@/lib/i18n-config'
 import type { HotelListingActivity, ListingPriceRuleRow, MealPlanItem } from '@/lib/travel-api'
 import type { StayBookingRules } from '@/types/listing-types'
@@ -128,6 +131,11 @@ export default function StayListingBookingQuoteModal(props: Props) {
   })
 
   const hotelRoom = isHotel ? props.hotelRoom : undefined
+  const hotelGuests = props.guests ?? bookingCtx?.guests
+  const hotelGuestCount = Math.max(1, totalGuestCount(hotelGuests ?? { guestAdults: 2, guestChildren: 0, guestInfants: 0 }))
+  const hotelBookingUnitCount = hotelRoom
+    ? requiredAccommodationUnits(hotelGuestCount, hotelRoomCapacityOrDefault(hotelRoom.capacity))
+    : 1
   const hotelQuote = useHotelRoomStayQuote({
     listingId,
     selectedRoom: hotelRoom,
@@ -140,6 +148,7 @@ export default function StayListingBookingQuoteModal(props: Props) {
       ? (props.activitySurchargesTotal ?? bookingCtx?.activitySurchargesTotal ?? 0)
       : 0,
     locale,
+    bookingUnitCount: hotelBookingUnitCount,
   })
 
   const boardLabels = buildBoardTypeLabelsFromMessages(
@@ -162,7 +171,16 @@ export default function StayListingBookingQuoteModal(props: Props) {
     ? hotelQuote.grandTotal > 0 && hotelQuote.available
     : villaQuote.grandTotal > 0
 
-  const checkoutPayment = useCheckoutPaymentAmount(currencyCode, grandTotal)
+  const checkoutPayment = useCheckoutPaymentAmount(
+    currencyCode,
+    isHotel
+      ? hotelPerRoomCartUnitPrice(
+          hotelQuote,
+          hotelBookingUnitCount,
+          props.activitySurchargesTotal ?? bookingCtx?.activitySurchargesTotal ?? 0,
+        )
+      : grandTotal,
+  )
   const villaHeatingPayment = useCheckoutPaymentAmount(currencyCode, villaQuote.heatingSubtotal)
 
   const goCheckout = () => {
@@ -175,12 +193,13 @@ export default function StayListingBookingQuoteModal(props: Props) {
           endDate: rangeEnd,
           currencyCode: checkoutPayment.currencyCode,
           unitPrice: checkoutPayment.unitPrice,
-          guests: props.guests ?? bookingCtx?.guests,
+          guests: hotelGuests,
           hotelRoomId: hotelRoom.id,
           hotelRoomName: hotelRoom.name,
           hotelBoardLabel: checkoutBoardLabel ?? undefined,
           mealPlanId: props.selectedMealPlanId ?? bookingCtx?.selectedMealPlanId,
           mealPlanLabel: checkoutBoardLabel ?? undefined,
+          hotelRoomQuantity: hotelBookingUnitCount,
         }),
       )
     } else {

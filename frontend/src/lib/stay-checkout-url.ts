@@ -100,6 +100,7 @@ export function buildStayCheckoutUrl(
     hotelBoardLabel?: string
     mealPlanId?: string
     mealPlanLabel?: string
+    hotelRoomQuantity?: number
     /** Tatil evi — havuz ısıtma seçiliyse checkout kırılımı için */
     poolHeatingSelected?: boolean
     /** Toplam havuz ısıtma ücreti (gece × günlük) */
@@ -112,6 +113,10 @@ export function buildStayCheckoutUrl(
     hotelBoardLabel: params.hotelBoardLabel,
     mealPlanId: params.mealPlanId,
     mealPlanLabel: params.mealPlanLabel,
+  }
+  const roomQty = params.hotelRoomQuantity
+  if (roomQty != null && roomQty > 1) {
+    extra.hotelRoomQuantity = String(roomQty)
   }
   if (params.poolHeatingSelected && params.poolHeatingFee != null && params.poolHeatingFee > 0) {
     extra.pool_heating = '1'
@@ -134,6 +139,7 @@ export type HotelCheckoutQueryParams = {
   hotelBoardLabel: string | null
   mealPlanId: string | null
   mealPlanLabel: string | null
+  hotelRoomQuantity: number
 }
 
 /** Aktivite checkout query parametreleri (seans + katılımcı). */
@@ -176,12 +182,17 @@ export function parseActivityCheckoutParams(
 }
 
 export function parseHotelCheckoutParams(searchParams: URLSearchParams): HotelCheckoutQueryParams {
+  const qtyRaw = searchParams.get('hotelRoomQuantity')?.trim()
+  const qtyParsed = qtyRaw ? parseInt(qtyRaw, 10) : 1
+  const hotelRoomQuantity =
+    Number.isFinite(qtyParsed) && qtyParsed > 0 ? qtyParsed : 1
   return {
     hotelRoomId: searchParams.get('hotelRoomId')?.trim() || null,
     hotelRoomName: searchParams.get('hotelRoomName')?.trim() || null,
     hotelBoardLabel: searchParams.get('hotelBoardLabel')?.trim() || null,
     mealPlanId: searchParams.get('mealPlanId')?.trim() || null,
     mealPlanLabel: searchParams.get('mealPlanLabel')?.trim() || null,
+    hotelRoomQuantity,
   }
 }
 

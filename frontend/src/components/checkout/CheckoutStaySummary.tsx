@@ -36,6 +36,7 @@ type Props = {
   hotelRoomName?: string | null
   hotelBoardLabel?: string | null
   mealPlanLabel?: string | null
+  hotelRoomQuantity?: number
   guests?: GuestsObject
   className?: string
 }
@@ -71,6 +72,7 @@ export default function CheckoutStaySummary({
   hotelRoomName,
   hotelBoardLabel,
   mealPlanLabel,
+  hotelRoomQuantity = 1,
   guests,
   className,
 }: Props) {
@@ -84,7 +86,11 @@ export default function CheckoutStaySummary({
 
   const metaParts: string[] = []
   if (isHotelCheckout && hotelRoomName?.trim()) {
-    metaParts.push(hotelRoomName.trim())
+    const roomLabel =
+      hotelRoomQuantity > 1
+        ? `${hotelRoomName.trim()} · ${fmtCheckout(C.listingMetaRooms, { count: hotelRoomQuantity })}`
+        : hotelRoomName.trim()
+    metaParts.push(roomLabel)
   }
   if (isHotelCheckout && (hotelBoardLabel?.trim() || mealPlanLabel?.trim())) {
     metaParts.push((mealPlanLabel ?? hotelBoardLabel)!.trim())

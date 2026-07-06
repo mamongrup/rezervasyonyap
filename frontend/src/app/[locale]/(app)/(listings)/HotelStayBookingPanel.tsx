@@ -10,8 +10,11 @@ import type { PoolHeatingOption } from '@/hooks/use-stay-listing-quote'
 import {
   hotelActivityLocalizedTitle,
 } from '@/lib/hotel-activity-pricing'
+import { hotelRoomCapacityOrDefault, requiredAccommodationUnits } from '@/lib/accommodation-units'
 import { buildBoardTypeLabelsFromMessages, resolveHotelBoardTypeLabel } from '@/lib/hotel-room-board-type'
+import { hotelPerRoomCartUnitPrice } from '@/lib/hotel-stay-quote'
 import { mealPlanDisplayLabel, pickActiveMealPlans } from '@/lib/hotel-stay-quote'
+import { totalGuestCount } from '@/lib/guest-search-defaults'
 import type { ListingAvailabilityDay, MealPlanItem } from '@/lib/travel-api'
 import { buildStayCheckoutUrl } from '@/lib/stay-checkout-url'
 import type { StayBookingRules } from '@/types/listing-types'
@@ -30,6 +33,7 @@ import { useCheckoutPaymentAmount } from '@/contexts/preferred-currency-context'
 import { useRouter } from 'next/navigation'
 import { useEffect, useMemo, useState } from 'react'
 import { useHotelStayBooking } from './hotel-stay-booking-context'
+import HotelSidebarRoomPicker from './HotelSidebarRoomPicker'
 
 type SharedProps = {
   locale: string
@@ -154,6 +158,7 @@ function buildHotelCheckoutUrl(
     endDate: Date
     currencyCode: string
     unitPrice: number
+    roomQuantity: number
     selectedRoom: HotelRoomBookingOption
     selectedPlanLabel: string | null
     selectedMealPlanId: string
@@ -172,10 +177,11 @@ function buildHotelCheckoutUrl(
     hotelBoardLabel: params.selectedPlanLabel ?? undefined,
     mealPlanId: params.selectedMealPlanId || undefined,
     mealPlanLabel: params.selectedPlanLabel ?? undefined,
+    hotelRoomQuantity: params.roomQuantity,
   })
 }
 
-/** Otel vitrin — oda tipi seçimi + oda müsaitlik takvimine göre rezervasyon. */
+/** Otel vitrin — tarih → oda → misafir adımlı rezervasyon. */
 export function HotelStayBookingSidebar(props: SharedProps) {
   const { locale, listingId, rooms, mealPlans, stayBookingRules } = props
 
@@ -191,11 +197,25 @@ export function HotelStayBookingSidebar(props: SharedProps) {
     booking.setRange(dates[0], dates[1])
   }
 
-  const selectedRoom = useMemo(
-    () => rooms.find((r) => r.id === booking.selectedRoomId) ?? rooms[0],
-    [rooms, booking.selectedRoomId],
+  const hasSelectedRange = rangeStart != null && rangeEnd != null
+  const roomChosen = Boolean(booking.selectedRoomId && booking.selectedRoom)
+  const showRoomStep = hasSelectedRange && rooms.length > 0
+  const showGuestStep = hasSelectedRange && roomChosen
+
+  useEffect(() => {
+    booking.setSelectedRoomId('')
+  }, [rangeStart?.getTime(), rangeEnd?.getTime(), booking.setSelectedRoomId])
+
+  const selectedRoom = booking.selectedRoom ?? undefined
+  const guestCount = Math.max(1, totalGuestCount(booking.guests))
+  const bookingUnitCount = selectedRoom
+    ? requiredAccommodationUnits(guestCount, hotelRoomCapacityOrDefault(selectedRoom.capacity))
+    : 1
+
+  const { days: availabilityDays, loading: availLoading } = useHotelRoomAvailability(
+    listingId,
+    showGuestStep ? selectedRoom : undefined,
   )
-  const { days: availabilityDays, loading: availLoading } = useHotelRoomAvailability(listingId, selectedRoom)
 
   const quote = useHotelRoomStayQuote({
     listingId,
@@ -207,6 +227,7 @@ export function HotelStayBookingSidebar(props: SharedProps) {
     selectedMealPlanId: booking.selectedMealPlanId,
     activitySurchargesTotal: booking.activitySurchargesTotal,
     locale,
+    bookingUnitCount: roomChosen ? bookingUnitCount : 1,
   })
 
   const boardLabels = buildBoardTypeLabelsFromMessages(
@@ -215,15 +236,20 @@ export function HotelStayBookingSidebar(props: SharedProps) {
   const roomBoardLabel = resolveHotelBoardTypeLabel(selectedRoom?.board_type, boardLabels)
   const checkoutBoardLabel = quote.selectedPlanLabel ?? roomBoardLabel
 
-  const hasSelectedRange = rangeStart != null && rangeEnd != null
+  const perRoomCartPrice = hotelPerRoomCartUnitPrice(
+    quote,
+    bookingUnitCount,
+    booking.activitySurchargesTotal,
+  )
+  const checkoutPayment = useCheckoutPaymentAmount(quote.currencyCode, perRoomCartPrice)
+
   const canCheckout =
     Boolean(listingId.trim()) &&
     hasSelectedRange &&
+    roomChosen &&
     quote.grandTotal > 0 &&
     quote.available &&
     selectedRoom?.id
-
-  const checkoutPayment = useCheckoutPaymentAmount(quote.currencyCode, quote.grandTotal)
 
   function goCheckout() {
     if (!canCheckout || !rangeStart || !rangeEnd || !selectedRoom) return
@@ -234,6 +260,7 @@ export function HotelStayBookingSidebar(props: SharedProps) {
         endDate: rangeEnd,
         currencyCode: checkoutPayment.currencyCode,
         unitPrice: checkoutPayment.unitPrice,
+        roomQuantity: bookingUnitCount,
         selectedRoom,
         selectedPlanLabel: checkoutBoardLabel,
         selectedMealPlanId: booking.selectedMealPlanId,
@@ -243,14 +270,27 @@ export function HotelStayBookingSidebar(props: SharedProps) {
   }
 
   return (
-    <div className="listingSection__wrap rounded-3xl border border-neutral-200/90 bg-white p-5 shadow-2xl ring-1 ring-black/5 dark:border-neutral-600 dark:bg-neutral-900 dark:ring-white/10 sm:p-6">
+    <div
+      id="stay-reservation-card"
+      className="listingSection__wrap scroll-mt-28 rounded-3xl border border-neutral-200/90 bg-white p-5 shadow-2xl ring-1 ring-black/5 dark:border-neutral-600 dark:bg-neutral-900 dark:ring-white/10 sm:p-6"
+    >
+      {selectedRoom ? (
+        <p className="mb-2 text-sm font-medium text-neutral-700 dark:text-neutral-300">
+          {hotelBooking.selectedRoomLabel}: {selectedRoom.name}
+          {bookingUnitCount > 1
+            ? ` · ${interpolate(hotelBooking.roomUnitCount, { count: String(bookingUnitCount) })}`
+            : ''}
+        </p>
+      ) : showRoomStep ? (
+        <p className="mb-2 text-sm text-neutral-600 dark:text-neutral-400">{hotelBooking.selectRoomPrompt}</p>
+      ) : null}
       <div className="flex flex-wrap items-start gap-x-3 gap-y-2">
         <div className="flex min-w-0 flex-1 flex-wrap items-baseline gap-x-3 gap-y-1">
           <span className="text-2xl font-semibold text-neutral-900 sm:text-3xl dark:text-neutral-100">
             {quote.displayMainPrice}
           </span>
           <span className="text-base text-neutral-500 dark:text-neutral-400">
-            {hasSelectedRange && quote.nights > 0
+            {hasSelectedRange && quote.nights > 0 && roomChosen
               ? messages.listing.sidebar.total
               : messages.listing.sidebar.perNight}
           </span>
@@ -259,19 +299,30 @@ export function HotelStayBookingSidebar(props: SharedProps) {
       </div>
 
       <div className="mt-4 space-y-4">
-        <MealPlanSelect
-          locale={locale}
-          plans={quote.activePlans}
-          value={booking.selectedMealPlanId}
-          onChange={booking.setSelectedMealPlanId}
-        />
+        {showGuestStep ? (
+          <MealPlanSelect
+            locale={locale}
+            plans={quote.activePlans}
+            value={booking.selectedMealPlanId}
+            onChange={booking.setSelectedMealPlanId}
+          />
+        ) : null}
 
         {availLoading || quote.availLoading ? (
           <p className="text-xs text-neutral-400">{hotelBooking.roomAvailabilityLoading}</p>
         ) : null}
 
-        {!quote.available && hasSelectedRange ? (
+        {!quote.available && hasSelectedRange && roomChosen ? (
           <p className="text-xs font-medium text-red-600 dark:text-red-400">{hotelBooking.unavailableRange}</p>
+        ) : null}
+
+        {bookingUnitCount > 1 && roomChosen ? (
+          <p className="text-xs text-neutral-600 dark:text-neutral-400">
+            {interpolate(hotelBooking.autoRoomCountNote, {
+              rooms: String(bookingUnitCount),
+              guests: String(guestCount),
+            })}
+          </p>
         ) : null}
 
         <div className="flex flex-col rounded-3xl border border-neutral-200 dark:border-neutral-700">
@@ -281,21 +332,30 @@ export function HotelStayBookingSidebar(props: SharedProps) {
             rangeEnd={rangeEnd}
             onRangeChange={onRangeChange}
             bookingRules={stayBookingRules}
-            availabilityDays={availabilityDays}
+            availabilityDays={showGuestStep ? availabilityDays : undefined}
           />
-          <div className="w-full border-b border-neutral-200 dark:border-neutral-700" />
-          <GuestsInputPopover
-            className="flex-1"
-            value={booking.guests}
-            onChange={booking.setGuests}
-          />
+          {showRoomStep ? <HotelSidebarRoomPicker locale={locale} /> : null}
+          {showGuestStep ? (
+            <>
+              <div className="w-full border-b border-neutral-200 dark:border-neutral-700" />
+              <GuestsInputPopover
+                className="flex-1"
+                value={booking.guests}
+                onChange={booking.setGuests}
+              />
+            </>
+          ) : null}
         </div>
 
-        {hasSelectedRange && quote.nights > 0 ? (
+        {showGuestStep && quote.nights > 0 ? (
           <div className="space-y-2 rounded-2xl bg-neutral-50 p-4 dark:bg-neutral-800/50">
             <DescriptionList>
               <DescriptionTerm className="text-sm text-neutral-600 dark:text-neutral-400">
-                {selectedRoom?.name} · {quote.nights} {messages.listing.sidebar.nightsWord}
+                {selectedRoom?.name}
+                {bookingUnitCount > 1
+                  ? ` · ${interpolate(hotelBooking.roomUnitCount, { count: String(bookingUnitCount) })}`
+                  : ''}{' '}
+                · {quote.nights} {messages.listing.sidebar.nightsWord}
               </DescriptionTerm>
               <DescriptionDetails className="text-sm sm:text-right">
                 {quote.lodgingSubtotal > 0 ? quote.formatConverted(quote.lodgingSubtotal, quote.currencyCode) : '—'}
@@ -333,9 +393,15 @@ export function HotelStayBookingSidebar(props: SharedProps) {
           </div>
         ) : null}
 
-        <ButtonPrimary type="button" disabled={!canCheckout} onClick={goCheckout}>
-          {messages.listing.sidebar.reserve}
-        </ButtonPrimary>
+        {showGuestStep ? (
+          <ButtonPrimary type="button" disabled={!canCheckout} onClick={goCheckout}>
+            {messages.listing.sidebar.reserve}
+          </ButtonPrimary>
+        ) : showRoomStep && !roomChosen ? (
+          <ButtonPrimary type="button" disabled className="cursor-not-allowed opacity-60">
+            {hotelBooking.selectRoomPrompt}
+          </ButtonPrimary>
+        ) : null}
       </div>
     </div>
   )
@@ -355,8 +421,11 @@ export function HotelStayBookingCalendar(props: SharedProps) {
   const booking = useHotelStayBooking()
 
   const selectedRoom = useMemo(
-    () => rooms.find((r) => r.id === booking.selectedRoomId) ?? rooms[0],
-    [rooms, booking.selectedRoomId],
+    () =>
+      booking.selectedRoomId
+        ? booking.rooms.find((r) => r.id === booking.selectedRoomId)
+        : undefined,
+    [booking.rooms, booking.selectedRoomId],
   )
   const { days: availabilityDays, loading: availLoading } = useHotelRoomAvailability(listingId, selectedRoom)
 

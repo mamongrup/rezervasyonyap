@@ -44,6 +44,7 @@ type HotelStayBookingContextValue = {
   setGuests: (guests: GuestsObject) => void
   selectedRoomId: string
   setSelectedRoomId: (id: string) => void
+  selectedRoom: HotelRoomBookingOption | null
   selectedMealPlanId: string
   setSelectedMealPlanId: (id: string) => void
   isActivityDateInStay: (activity: HotelListingActivity) => boolean
@@ -88,11 +89,12 @@ export function HotelStayBookingProvider({
     setGuests(parseStayListingGuestsFromSearchParams(searchParams))
     setUrlHydrated(true)
   }, [searchParams, urlHydrated])
-  const [selectedRoomId, setSelectedRoomId] = useState(rooms[0]?.id ?? '')
+  const [selectedRoomId, setSelectedRoomId] = useState('')
+  const setSelectedRoomIdStable = useCallback((id: string) => setSelectedRoomId(id), [])
   const [selectedMealPlanId, setSelectedMealPlanId] = useState('')
 
   const selectedRoom = useMemo(
-    () => rooms.find((r) => r.id === selectedRoomId) ?? rooms[0],
+    () => (selectedRoomId ? rooms.find((r) => r.id === selectedRoomId) ?? null : null),
     [rooms, selectedRoomId],
   )
 
@@ -185,7 +187,8 @@ export function HotelStayBookingProvider({
       guests,
       setGuests,
       selectedRoomId,
-      setSelectedRoomId,
+      setSelectedRoomId: setSelectedRoomIdStable,
+      selectedRoom,
       selectedMealPlanId,
       setSelectedMealPlanId,
       isActivityDateInStay,
@@ -206,7 +209,9 @@ export function HotelStayBookingProvider({
       setRange,
       guests,
       selectedRoomId,
+      selectedRoom,
       selectedMealPlanId,
+      setSelectedRoomIdStable,
       isActivityDateInStay,
       activitySurchargeLines,
       activitySurchargesTotal,

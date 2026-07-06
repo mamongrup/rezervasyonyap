@@ -10,12 +10,18 @@ import { buildListingCheckoutUrl } from '@/lib/stay-checkout-url'
 import { useVitrinHref } from '@/hooks/use-vitrin-href'
 import { getMessages } from '@/utils/getT'
 import { useRouter } from 'next/navigation'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import GuestsInputPopover from './components/GuestsInputPopover'
 import TourPeriodSelect from './components/TourPeriodSelect'
 import { useTourPeriodSelection } from './TourPeriodContext'
 import { useCruiseCabinSelection } from './CruiseCabinContext'
+import CruiseSidebarCabinPicker from './CruiseSidebarCabinPicker'
+import {
+  DEFAULT_CRUISE_CABIN_CAPACITY,
+  requiredAccommodationUnits,
+} from '@/lib/accommodation-units'
 import { cabinDisplayPrice } from '@/lib/cruise-meta'
+import { interpolate } from '@/utils/interpolate'
 import {
   useConvertedListingPrice,
   useCheckoutPaymentAmount,
@@ -44,8 +50,23 @@ export default function CruiseBookingSidebar({
   const vitrinHref = useVitrinHref()
   const [guests, setGuests] = useState<GuestsObject>(DEFAULT_GUESTS_EXPERIENCE)
 
+  const hasCabins = Boolean(cabinCtx?.cabins.length)
+  const cabinChosen = !hasCabins || Boolean(cabinCtx?.selectedCabin)
+  const showCabinStep = Boolean(selected && isTourPeriodBookable(selected) && hasCabins)
+  const showGuestStep = Boolean(selected && isTourPeriodBookable(selected) && cabinChosen)
+
+  const setSelectedCabinId = cabinCtx?.setSelectedCabinId
+
+  useEffect(() => {
+    setSelectedCabinId?.('')
+  }, [selected?.id, setSelectedCabinId])
+
   const bookable = isTourPeriodBookable(selected)
   const guestCount = Math.max(1, totalGuestCount(guests))
+  const cabinCount =
+    cabinChosen && hasCabins
+      ? requiredAccommodationUnits(guestCount, DEFAULT_CRUISE_CABIN_CAPACITY)
+      : 1
   const fallbackAmount =
     fallbackPriceAmount != null && Number.isFinite(fallbackPriceAmount) && fallbackPriceAmount > 0
       ? fallbackPriceAmount
@@ -66,7 +87,9 @@ export default function CruiseBookingSidebar({
     .trim()
     .toUpperCase()
   const unitTotal =
-    bookable && personPrice != null && Number.isFinite(personPrice) ? personPrice * guestCount : 0
+    bookable && cabinChosen && personPrice != null && Number.isFinite(personPrice)
+      ? personPrice * guestCount
+      : 0
 
   const convertedFallback = useConvertedListingPrice(
     fallbackPrice,
@@ -78,9 +101,9 @@ export default function CruiseBookingSidebar({
   const checkoutPayment = useCheckoutPaymentAmount(periodCurrency, unitTotal)
 
   const displayPrice =
-    personPrice != null
+    cabinChosen && personPrice != null
       ? convertedPeriodPrice
-      : bookable
+      : bookable && !hasCabins
         ? convertedFallback
         : '—'
 
@@ -90,7 +113,7 @@ export default function CruiseBookingSidebar({
     selected?.startDate &&
     selected?.endDate &&
     unitTotal > 0 &&
-    (!cabinCtx?.cabins.length || Boolean(cabinCtx.selectedCabin))
+    cabinChosen
 
   function goCheckout() {
     if (!canCheckout || !selected?.startDate || !selected?.endDate) return
@@ -108,7 +131,11 @@ export default function CruiseBookingSidebar({
         extra: {
           tour_period_id: selected.id,
           ...(cabinCtx?.selectedCabin
-            ? { cruise_cabin_id: cabinCtx.selectedCabin.id, cruise_cabin_name: cabinCtx.selectedCabin.name }
+            ? {
+                cruise_cabin_id: cabinCtx.selectedCabin.id,
+                cruise_cabin_name: cabinCtx.selectedCabin.name,
+                ...(cabinCount > 1 ? { cruise_cabin_count: String(cabinCount) } : {}),
+              }
             : {}),
         },
       }),
@@ -117,22 +144,21 @@ export default function CruiseBookingSidebar({
 
   return (
     <div id="cruise-reservation-card" className="listingSection__wrap scroll-mt-28 sm:shadow-xl">
-      {cabinCtx?.cabins.length && !cabinCtx.selectedCabin ? (
-        <p className="mb-2 text-sm text-amber-700 dark:text-amber-300">
-          <a href="#cruise-cabins" className="font-medium underline underline-offset-2">
-            {cd.selectCabinPrompt}
-          </a>
-        </p>
-      ) : cabinCtx?.selectedCabin ? (
+      {cabinCtx?.selectedCabin ? (
         <p className="mb-2 text-sm font-medium text-neutral-700 dark:text-neutral-300">
           {cd.selectedCabin}: {cabinCtx.selectedCabin.name}
+          {cabinCount > 1
+            ? ` · ${interpolate(cd.cabinUnitCount, { count: String(cabinCount) })}`
+            : ''}
         </p>
+      ) : showCabinStep ? (
+        <p className="mb-2 text-sm text-neutral-600 dark:text-neutral-400">{cd.selectCabinPrompt}</p>
       ) : null}
       <div>
         <span className="text-3xl font-semibold">
-          {bookable ? displayPrice : '—'}
+          {displayPrice}
           <span className="ml-1 text-base font-normal text-neutral-500 dark:text-neutral-400">
-            {bookable ? td.pricePerPerson : ''}
+            {cabinChosen && bookable ? td.pricePerPerson : ''}
           </span>
         </span>
       </div>
@@ -144,30 +170,52 @@ export default function CruiseBookingSidebar({
           selectedId={selected?.id}
           onChange={setSelected}
         />
-        <div className="w-full border-b border-neutral-200 dark:border-neutral-700" />
-        <GuestsInputPopover
-          className="flex-1"
-          guestDefaults={DEFAULT_GUESTS_EXPERIENCE}
-          value={guests}
-          onChange={setGuests}
-        />
+        {showCabinStep ? <CruiseSidebarCabinPicker locale={locale} /> : null}
+        {showGuestStep ? (
+          <>
+            <div className="w-full border-b border-neutral-200 dark:border-neutral-700" />
+            <GuestsInputPopover
+              className="flex-1"
+              guestDefaults={DEFAULT_GUESTS_EXPERIENCE}
+              value={guests}
+              onChange={setGuests}
+            />
+          </>
+        ) : null}
       </div>
 
-      {bookable && unitTotal > 0 ? (
+      {showGuestStep && cabinCount > 1 && hasCabins ? (
+        <p className="mt-3 text-xs text-neutral-600 dark:text-neutral-400">
+          {interpolate(cd.autoCabinCountNote, {
+            cabins: String(cabinCount),
+            guests: String(guestCount),
+          })}
+        </p>
+      ) : null}
+
+      {showGuestStep && unitTotal > 0 ? (
         <p className="mt-4 text-sm text-neutral-600 dark:text-neutral-400">
           {td.pricePerPerson}: {convertedUnitTotal} ({guestCount} {m.HeroSearchForm.Guests.toLowerCase()})
         </p>
       ) : null}
 
-      {bookable ? (
+      {showGuestStep ? (
         <ButtonPrimary type="button" className="mt-4 w-full" disabled={!canCheckout} onClick={goCheckout}>
           {m.common.Reserve}
         </ButtonPrimary>
-      ) : (
+      ) : bookable && showCabinStep && !cabinCtx?.selectedCabin ? (
+        <ButtonPrimary type="button" disabled className="mt-4 w-full cursor-not-allowed opacity-60">
+          {cd.selectCabinPrompt}
+        </ButtonPrimary>
+      ) : bookable && !showCabinStep && !hasCabins ? (
+        <ButtonPrimary type="button" className="mt-4 w-full" disabled={!canCheckout} onClick={goCheckout}>
+          {m.common.Reserve}
+        </ButtonPrimary>
+      ) : !bookable ? (
         <ButtonPrimary type="button" disabled className="mt-4 w-full cursor-not-allowed opacity-60">
           {td.salesClosed}
         </ButtonPrimary>
-      )}
+      ) : null}
     </div>
   )
 }

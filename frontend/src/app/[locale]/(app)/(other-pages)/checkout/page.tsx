@@ -151,10 +151,6 @@ function CheckoutPageContent() {
       ?? readPreferredCurrencyCode(),
     process.env.NEXT_PUBLIC_CHECKOUT_CURRENCY,
   )
-  const checkoutUnitPrice = resolveCheckoutUnitPrice(
-    searchParams.get('unitPrice'),
-    process.env.NEXT_PUBLIC_CHECKOUT_UNIT_PRICE,
-  )
   const stayDates = React.useMemo(
     () => resolveCheckoutStayDates(searchParams),
     [searchParams],
@@ -169,6 +165,14 @@ function CheckoutPageContent() {
   )
   const isHotelCheckout = Boolean(hotelCheckout.hotelRoomId)
   const isActivityCheckout = Boolean(activityCheckout.sessionId)
+  const checkoutUnitPricePerRoom = resolveCheckoutUnitPrice(
+    searchParams.get('unitPrice'),
+    process.env.NEXT_PUBLIC_CHECKOUT_UNIT_PRICE,
+  )
+  const hotelRoomQty = isHotelCheckout ? Math.max(1, hotelCheckout.hotelRoomQuantity) : 1
+  const checkoutUnitPrice = isHotelCheckout
+    ? checkoutUnitPricePerRoom * hotelRoomQty
+    : checkoutUnitPricePerRoom
   const nights = nightsBetween(stayDates.start, stayDates.end)
 
   const [pending, setPending] = React.useState(false)
@@ -386,6 +390,7 @@ function CheckoutPageContent() {
                     ...(hotelBoardLabel ? { hotel_board_label: hotelBoardLabel } : {}),
                     ...(mealPlanId ? { meal_plan_id: mealPlanId } : {}),
                     ...(mealPlanLabel ? { meal_plan_label: mealPlanLabel } : {}),
+                    ...(hotelRoomQty > 1 ? { hotel_room_quantity: String(hotelRoomQty) } : {}),
                     guest_adults: stayGuests.guestAdults,
                     guest_children: stayGuests.guestChildren,
                     guest_infants: stayGuests.guestInfants,
@@ -394,10 +399,12 @@ function CheckoutPageContent() {
         const cart = await createCart(currency)
         await addCartLine(cart.id, {
           listing_id: listingId,
-          quantity: 1,
+          quantity: isHotelCheckout ? hotelRoomQty : 1,
           starts_on: start,
           ends_on: end,
-          unit_price: unitPrice,
+          unit_price: isHotelCheckout
+            ? checkoutUnitPricePerRoom.toFixed(2)
+            : unitPrice,
           ...(lineMeta ? { meta_json: lineMeta } : {}),
         })
         setFxLockInfo(cart.fx_lock ?? null)
@@ -869,6 +876,7 @@ function CheckoutPageContent() {
               hotelRoomName={hotelCheckout.hotelRoomName}
               hotelBoardLabel={hotelCheckout.hotelBoardLabel}
               mealPlanLabel={hotelCheckout.mealPlanLabel}
+              hotelRoomQuantity={hotelRoomQty}
               guests={stayGuests}
             />
           </aside>

@@ -8,10 +8,14 @@ import {
   pickActiveMealPlans,
   type HotelStayQuoteTotals,
 } from '@/lib/hotel-stay-quote'
-import { fetchPublicHotelRoomAvailabilityDaysSafe } from '@/lib/hotel-room-availability-public'
+import {
+  fetchPublicHotelRoomAvailabilityDaysSafe,
+  getPublicHotelRoomAvailabilityCalendar,
+} from '@/lib/hotel-room-availability-public'
+import { formatLocalYmd } from '@/lib/date-format-local'
 import type { HotelRoomBookingOption } from '@/lib/hotel-room-availability-public'
 import { formatMoneyIntl } from '@/lib/parse-listing-price'
-import type { MealPlanItem } from '@/lib/travel-api'
+import type { HotelRoomAvailabilityDay, MealPlanItem } from '@/lib/travel-api'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 
 export function useHotelRoomStayQuote({
@@ -24,6 +28,7 @@ export function useHotelRoomStayQuote({
   selectedMealPlanId,
   activitySurchargesTotal = 0,
   locale = 'tr',
+  bookingUnitCount = 1,
 }: {
   listingId: string
   selectedRoom: HotelRoomBookingOption | undefined
@@ -34,24 +39,42 @@ export function useHotelRoomStayQuote({
   selectedMealPlanId?: string | null
   activitySurchargesTotal?: number
   locale?: string
+  bookingUnitCount?: number
 }) {
   const ctx = usePreferredCurrencyContext()
   const [days, setDays] = useState<Awaited<ReturnType<typeof fetchPublicHotelRoomAvailabilityDaysSafe>>>([])
+  const [rawDays, setRawDays] = useState<HotelRoomAvailabilityDay[]>([])
   const [loading, setLoading] = useState(false)
 
   useEffect(() => {
     if (!listingId.trim() || !selectedRoom?.id) {
       setDays([])
+      setRawDays([])
       return
     }
     let cancelled = false
     setLoading(true)
-    void fetchPublicHotelRoomAvailabilityDaysSafe(listingId, selectedRoom.id, selectedRoom.unit_count)
-      .then((rows) => {
-        if (!cancelled) setDays(rows)
+    const from = new Date()
+    from.setHours(0, 0, 0, 0)
+    const to = new Date(from)
+    to.setMonth(to.getMonth() + 18)
+    const fromStr = formatLocalYmd(from)
+    const toStr = formatLocalYmd(to)
+    void Promise.all([
+      fetchPublicHotelRoomAvailabilityDaysSafe(listingId, selectedRoom.id, selectedRoom.unit_count),
+      getPublicHotelRoomAvailabilityCalendar(listingId, selectedRoom.id, { from: fromStr, to: toStr }),
+    ])
+      .then(([rows, raw]) => {
+        if (!cancelled) {
+          setDays(rows)
+          setRawDays(raw.days ?? [])
+        }
       })
       .catch(() => {
-        if (!cancelled) setDays([])
+        if (!cancelled) {
+          setDays([])
+          setRawDays([])
+        }
       })
       .finally(() => {
         if (!cancelled) setLoading(false)
@@ -105,16 +128,22 @@ export function useHotelRoomStayQuote({
       selectedMealPlanId,
       roomBoardType: selectedRoom?.board_type,
       activitySurchargesTotal,
+      bookingUnitCount,
+      rawAvailabilityDays: rawDays,
+      inventoryDefault: selectedRoom?.unit_count,
     })
   }, [
     days,
+    rawDays,
     rangeStart,
     rangeEnd,
     fallbackNightly,
     mealPlans,
     selectedMealPlanId,
     selectedRoom?.board_type,
+    selectedRoom?.unit_count,
     activitySurchargesTotal,
+    bookingUnitCount,
   ])
 
   const displayMainPrice = useMemo(() => {

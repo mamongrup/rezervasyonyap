@@ -1,6 +1,6 @@
 import { diffStayNights } from '@/hooks/use-stay-listing-quote'
-import { computeHotelRoomStayQuote } from '@/lib/hotel-room-range-quote'
-import type { ListingAvailabilityDay, MealPlanItem } from '@/lib/travel-api'
+import { computeHotelRoomStayQuote, computeHotelRoomStayQuoteFromRaw } from '@/lib/hotel-room-range-quote'
+import type { HotelRoomAvailabilityDay, ListingAvailabilityDay, MealPlanItem } from '@/lib/travel-api'
 
 export function pickActiveMealPlans(mealPlans: MealPlanItem[]): MealPlanItem[] {
   return mealPlans.filter((p) => p.is_active).sort((a, b) => a.sort_order - b.sort_order)
@@ -79,6 +79,9 @@ export function computeHotelStayQuoteTotals(input: {
   selectedMealPlanId?: string | null
   roomBoardType?: string | null
   activitySurchargesTotal?: number
+  bookingUnitCount?: number
+  rawAvailabilityDays?: readonly HotelRoomAvailabilityDay[]
+  inventoryDefault?: number
 }): HotelStayQuoteTotals {
   const nights = diffStayNights(input.rangeStart, input.rangeEnd)
   const activePlans = pickActiveMealPlans(input.mealPlans)
@@ -89,28 +92,53 @@ export function computeHotelStayQuoteTotals(input: {
     input.roomBoardType,
   )
 
-  const roomQuote = computeHotelRoomStayQuote(
-    input.days,
-    input.rangeStart,
-    input.rangeEnd,
-    input.fallbackNightly,
-  )
+  const units = Math.max(1, input.bookingUnitCount ?? 1)
+  const roomQuote =
+    input.rawAvailabilityDays && input.inventoryDefault != null
+      ? computeHotelRoomStayQuoteFromRaw(
+          input.rawAvailabilityDays,
+          input.rangeStart,
+          input.rangeEnd,
+          input.fallbackNightly,
+          input.inventoryDefault,
+          units,
+        )
+      : computeHotelRoomStayQuote(
+          input.days,
+          input.rangeStart,
+          input.rangeEnd,
+          input.fallbackNightly,
+        )
 
   const mealPlanSupplement = computeMealPlanSupplement(selectedPlan, basePlan, roomQuote.nights)
-  const lodgingSubtotal = roomQuote.total
+  const lodgingSubtotal = roomQuote.total * units
   const activity = input.activitySurchargesTotal ?? 0
+  const perRoomLodgingMeal = roomQuote.total + mealPlanSupplement
   const grandTotal =
-    lodgingSubtotal > 0 && roomQuote.available
-      ? lodgingSubtotal + mealPlanSupplement + activity
+    perRoomLodgingMeal > 0 && roomQuote.available
+      ? perRoomLodgingMeal * units + activity
       : 0
 
   return {
     nights: roomQuote.nights,
     lodgingSubtotal,
-    mealPlanSupplement,
+    mealPlanSupplement: mealPlanSupplement * units,
     grandTotal,
     available: roomQuote.available,
     selectedPlan,
     basePlan,
   }
+}
+
+/** Sepet satırı — oda başına konaklama + pansiyon; etkinlik ücreti oda sayısına bölünür. */
+export function hotelPerRoomCartUnitPrice(
+  totals: HotelStayQuoteTotals,
+  bookingUnitCount: number,
+  activitySurchargesTotal = 0,
+): number {
+  const units = Math.max(1, bookingUnitCount)
+  if (totals.nights <= 0) return 0
+  const lodgingMeal = totals.lodgingSubtotal + totals.mealPlanSupplement
+  if (lodgingMeal <= 0) return 0
+  return lodgingMeal / units + Math.max(0, activitySurchargesTotal) / units
 }
