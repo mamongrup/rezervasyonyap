@@ -171,7 +171,7 @@ export default function TourBookingSidebar({
   const showSecondaryWhatsApp = onlineCheckout && listingTitle
 
   return (
-    <div className="listingSection__wrap sm:shadow-xl">
+    <div id="tour-reservation-card" className="listingSection__wrap scroll-mt-28 sm:shadow-xl">
       <div>
         {showRef ? (
           <p className="text-xs font-medium uppercase tracking-wide text-neutral-400">

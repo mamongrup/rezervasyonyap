@@ -106,6 +106,7 @@ import {
 import ExperienceBookingSidebar from './ExperienceBookingSidebar'
 import TourBookingSidebar from './TourBookingSidebar'
 import CruiseBookingSidebar from './CruiseBookingSidebar'
+import ExperienceBookingMobileStickyBar from './ExperienceBookingMobileStickyBar'
 import CruiseShipDetailsSection from './CruiseShipDetailsSection'
 import TourItineraryAccordion from './TourItineraryAccordion'
 import CruiseCabinPricingSection from './CruiseCabinPricingSection'
@@ -821,15 +822,17 @@ export default async function ExperienceListingDetailPage({
     tourPeriodOptions.length > 0 &&
     tourPeriodOptions.every((p) => p.onlineCheckout === false)
 
+  const listingMoney = listing as TListingBase & {
+    priceAmount?: number
+    priceCurrency?: string
+    listingCurrencyCode?: string
+    prepaymentPercent?: string
+  }
+  const listingPriceCur =
+    listingMoney.priceCurrency || listingMoney.listingCurrencyCode || undefined
+
   const renderSidebarPriceAndForm = () => {
-    const listingMoney = listing as TListingBase & {
-      priceAmount?: number
-      priceCurrency?: string
-      listingCurrencyCode?: string
-      prepaymentPercent?: string
-    }
-    const priceCur =
-      listingMoney.priceCurrency || listingMoney.listingCurrencyCode || undefined
+    const priceCur = listingPriceCur
 
     if (isTour || isCruise) {
       const Sidebar = isCruise ? CruiseBookingSidebar : TourBookingSidebar
@@ -1019,6 +1022,14 @@ export default async function ExperienceListingDetailPage({
             currencyCode={tourPeriodCurrency}
           >
             <main className="flex flex-col gap-6 lg:flex-row lg:items-start xl:gap-8">{renderTourMainContent()}</main>
+            <ExperienceBookingMobileStickyBar
+              locale={locale}
+              variant="tour"
+              reservationAnchorId="tour-reservation-card"
+              fallbackPrice={price}
+              fallbackPriceAmount={listingMoney.priceAmount}
+              fallbackPriceCurrency={listingPriceCur}
+            />
           </TourPeriodProvider>
         ) : isCruise ? (
           <CruiseCabinProvider cabins={cruiseCabinsList}>
@@ -1028,6 +1039,14 @@ export default async function ExperienceListingDetailPage({
               currencyCode={cruisePeriodCurrency}
             >
               <main className="flex flex-col gap-6 lg:flex-row lg:items-start xl:gap-8">{renderNonTourMainContent()}</main>
+              <ExperienceBookingMobileStickyBar
+                locale={locale}
+                variant="cruise"
+                reservationAnchorId="cruise-reservation-card"
+                fallbackPrice={price}
+                fallbackPriceAmount={listingMoney.priceAmount}
+                fallbackPriceCurrency={listingPriceCur}
+              />
             </TourPeriodProvider>
           </CruiseCabinProvider>
         ) : (

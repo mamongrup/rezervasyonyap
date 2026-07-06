@@ -270,10 +270,7 @@ export function HotelStayBookingSidebar(props: SharedProps) {
   }
 
   return (
-    <div
-      id="stay-reservation-card"
-      className="listingSection__wrap scroll-mt-28 rounded-3xl border border-neutral-200/90 bg-white p-5 shadow-2xl ring-1 ring-black/5 dark:border-neutral-600 dark:bg-neutral-900 dark:ring-white/10 sm:p-6"
-    >
+    <div className="listingSection__wrap scroll-mt-28 rounded-3xl border border-neutral-200/90 bg-white p-5 shadow-2xl ring-1 ring-black/5 dark:border-neutral-600 dark:bg-neutral-900 dark:ring-white/10 sm:p-6">
       {selectedRoom ? (
         <p className="mb-2 text-sm font-medium text-neutral-700 dark:text-neutral-300">
           {hotelBooking.selectedRoomLabel}: {selectedRoom.name}
