@@ -156,6 +156,14 @@ export function stayListingCalendarDaySelectable(
 
   if (opts.startDate != null && opts.endDate == null) {
     const start = startOfLocalDay(opts.startDate)
+    // Bekleyen seçim: başlangıçtan önceki geçerli giriş günlerini açık bırak.
+    // react-datepicker (v9) daha erken bir güne tıklanınca seçimi o güne sıfırlar;
+    // gün kapalıysa bu çalışmaz. Böylece yanlış giriş seçince geri alınabilir.
+    if (day < start) {
+      const prevRow = opts.byYmd.get(opts.formatLocalYmd(day))
+      if (isListingDayFullyBlocked(prevRow)) return false
+      return listingDayPmOpen(prevRow)
+    }
     if (day <= start) return false
     const nights = Math.round((day.getTime() - start.getTime()) / (24 * 60 * 60 * 1000))
     if (nights < 1) return false

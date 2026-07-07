@@ -163,6 +163,24 @@ describe('single-block boundaries (turnover half-days)', () => {
     ).toBe(true)
   })
 
+  it('allows reselecting an earlier check-in while a start is pending', () => {
+    const start = new Date(2026, 7, 18) // 18 Ağu seçili, çıkış bekleniyor
+    const opts = {
+      effectiveMinDate: minDate,
+      byYmd,
+      startDate: start,
+      endDate: null,
+      minNights: 1,
+      formatLocalYmd,
+    }
+    // daha erken serbest gün -> yeni giriş olarak seçilebilir (geri alma)
+    expect(stayListingCalendarDaySelectable(new Date(2026, 7, 5), opts)).toBe(true)
+    // 15 Ağu (çıkış sınırı, ÖS boş) erken de olsa giriş olabilir
+    expect(stayListingCalendarDaySelectable(new Date(2026, 7, 15), opts)).toBe(true)
+    // 10 Ağu (giriş sınırı, ÖS dolu) giriş olamaz
+    expect(stayListingCalendarDaySelectable(new Date(2026, 7, 10), opts)).toBe(false)
+  })
+
   it('does not allow starting a new stay on the checkin-boundary day (10)', () => {
     const day = new Date(2026, 7, 10)
     expect(
