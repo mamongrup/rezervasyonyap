@@ -2,7 +2,7 @@
 'use client'
 
 import { isFullAdminUser } from '@/lib/manage-nav-access'
-import { getStoredAuthToken } from '@/lib/auth-storage'
+import { getStoredAuthProfile, getStoredAuthToken } from '@/lib/auth-storage'
 import { useVitrinHref } from '@/hooks/use-vitrin-href'
 import { getAuthMe, type RoleAssignment } from '@/lib/travel-api'
 import Link from 'next/link'
@@ -56,8 +56,44 @@ function matchesRequired(
 }
 
 const AUTH_ME_TIMEOUT_MS = 25_000
+const AUTH_ME_RETRY_ATTEMPTS = 3
+const AUTH_ME_RETRY_DELAY_MS = 1500
+
+function accessFromPerms(
+  perms: string[],
+  roles: RoleAssignment[],
+  required?: ManageAccessOptions,
+): AccessState {
+  return matchesRequired(perms, roles, required)
+    ? { kind: 'ok', permissions: perms, roles }
+    : { kind: 'forbidden' }
+}
+
+/** 401/403 = gerçek yetki hatası (oturum kapat); diğerleri (timeout/5xx/ağ) geçici. */
+function isAuthRejection(err: unknown): boolean {
+  const status = (err as { status?: number } | null)?.status
+  if (status === 401 || status === 403) return true
+  const msg = err instanceof Error ? err.message : ''
+  return /(^|_)(401|403|unauthorized|forbidden)$/i.test(msg)
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+function accessFromStoredProfile(required?: ManageAccessOptions): AccessState | null {
+  const profile = getStoredAuthProfile()
+  if (!profile?.permissions && !profile?.roles) return null
+  return accessFromPerms(
+    Array.isArray(profile.permissions) ? profile.permissions : [],
+    Array.isArray(profile.roles) ? (profile.roles as RoleAssignment[]) : [],
+    required,
+  )
+}
 
 export function useManageAccess(required?: ManageAccessOptions): AccessState {
+  // SSR ile aynı ('loading') başla; hydration mismatch olmasın. İyimser durum
+  // useEffect içinde (yalnız istemci) hemen set edilir.
   const [state, setState] = useState<AccessState>({ kind: 'loading' })
 
   useEffect(() => {
@@ -66,30 +102,53 @@ export function useManageAccess(required?: ManageAccessOptions): AccessState {
       setState({ kind: 'no_token' })
       return
     }
+    // İyimser: son başarılı profil varsa hemen o rolü göster. Böylece yavaş/500
+    // dönen sunucuda sayfa geçişinde kullanıcı giriş ekranına atılmaz; getAuthMe
+    // arka planda doğrular, yalnızca GERÇEK 401/403'te oturum kapanır.
+    const optimistic = accessFromStoredProfile(required)
+    if (optimistic) setState(optimistic)
+
     let cancelled = false
-    let timeoutId: ReturnType<typeof setTimeout> | undefined
-    const timeoutReject = new Promise<never>((_, reject) => {
-      timeoutId = setTimeout(() => reject(new Error('auth_me_timeout')), AUTH_ME_TIMEOUT_MS)
-    })
-    void Promise.race([getAuthMe(token), timeoutReject])
-      .then((u) => {
-        if (timeoutId !== undefined) clearTimeout(timeoutId)
-        if (cancelled) return
-        const perms = Array.isArray(u.permissions) ? u.permissions : []
-        const roles = Array.isArray(u.roles) ? u.roles : []
-        if (!matchesRequired(perms, roles, required)) {
-          setState({ kind: 'forbidden' })
-        } else {
-          setState({ kind: 'ok', permissions: perms, roles })
+
+    async function verify() {
+      let lastErr: unknown
+      for (let attempt = 0; attempt < AUTH_ME_RETRY_ATTEMPTS; attempt++) {
+        let timeoutId: ReturnType<typeof setTimeout> | undefined
+        const timeoutReject = new Promise<never>((_, reject) => {
+          timeoutId = setTimeout(() => reject(new Error('auth_me_timeout')), AUTH_ME_TIMEOUT_MS)
+        })
+        try {
+          const u = await Promise.race([getAuthMe(token as string), timeoutReject])
+          if (timeoutId !== undefined) clearTimeout(timeoutId)
+          if (cancelled) return
+          const perms = Array.isArray(u.permissions) ? u.permissions : []
+          const roles = Array.isArray(u.roles) ? u.roles : []
+          setState(accessFromPerms(perms, roles, required))
+          return
+        } catch (err) {
+          if (timeoutId !== undefined) clearTimeout(timeoutId)
+          if (cancelled) return
+          lastErr = err
+          // Gerçek yetki hatası → hemen oturum kapat, tekrar deneme.
+          if (isAuthRejection(err)) {
+            setState({ kind: 'no_token' })
+            return
+          }
+          // Geçici hata: kısa bekleyip yeniden dene.
+          if (attempt < AUTH_ME_RETRY_ATTEMPTS - 1) await sleep(AUTH_ME_RETRY_DELAY_MS)
         }
-      })
-      .catch(() => {
-        if (timeoutId !== undefined) clearTimeout(timeoutId)
-        if (!cancelled) setState({ kind: 'no_token' })
-      })
+      }
+      if (cancelled) return
+      // Tüm denemeler geçici hatayla başarısız: kayıtlı profil varsa kullanıcıyı
+      // dışarı atma (iyimser oturum korunur); yoksa giriş iste.
+      void lastErr
+      const fallback = accessFromStoredProfile(required)
+      setState(fallback ?? { kind: 'no_token' })
+    }
+
+    void verify()
     return () => {
       cancelled = true
-      if (timeoutId !== undefined) clearTimeout(timeoutId)
     }
   }, [])
 

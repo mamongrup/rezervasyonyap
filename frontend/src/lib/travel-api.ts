@@ -2977,7 +2977,13 @@ export async function getAuthMe(
   })
   if (!res.ok) {
     const err = await res.json().catch(() => ({}))
-    throw new Error((err as { error?: string }).error ?? `auth_me_${res.status}`)
+    // Status'u hataya iliştir: çağıran (useManageAccess) gerçek 401/403 ile
+    // geçici 5xx/timeout'u ayırt edip yalnızca gerçekte oturumu kapatabilsin.
+    const e = new Error((err as { error?: string }).error ?? `auth_me_${res.status}`) as Error & {
+      status?: number
+    }
+    e.status = res.status
+    throw e
   }
   const me = await json<AuthUser & { preferred_locale: string; roles: RoleAssignment[]; permissions: string[] }>(res)
   setStoredAuthProfile({
