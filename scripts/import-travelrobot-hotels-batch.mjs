@@ -268,6 +268,21 @@ async function main() {
 
     if (!DRY_RUN) {
       saveState(state, statePath)
+      // Import UPDATE'leri listings'te istatistikleri eskitir → planner Seq Scan'a
+      // düşüp kategori/vitrin sorgularını saniyelerce (40s+) sürdürebilir.
+      // Her batch sonrası hafif ANALYZE ile plan sağlıklı kalır. ANALYZE ucuzdur
+      // (örneklem) — kaldırdığımız per-batch refresh_listing_vitrin_prices() gibi
+      // tam tablo taraması DEĞİLDİR, siteyi yormaz.
+      if (processedInRun > 0) {
+        for (const tbl of ['listings', 'listing_price_rules', 'listing_meal_plans']) {
+          try {
+            await pg.query(`analyze ${tbl}`)
+          } catch (e) {
+            appendLog(`[analyze] ${tbl} atlandı: ${String(e.message).slice(0, 120)}`)
+          }
+        }
+        appendLog('[analyze] istatistikler tazelendi (planner Seq Scan koruması)')
+      }
       if (!IS_RETRY_MODE) {
         const batchNo = Math.floor((state.nextIndex - 1) / BATCH_SIZE) + 1
         if (state.nextIndex >= batchEnd || state.nextIndex >= catalogHotels.length) {
