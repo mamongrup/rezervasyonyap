@@ -639,18 +639,11 @@ export default async function StayListingDetailPageContent({
     realHotelRooms = applyHotelRoomDemoContent(handle, realHotelRooms)
   }
 
-  // Oda API'si resim döndürmüyorsa (Travelrobot) → hotel galerisinden ilk görsel
-  const hotelFallbackImages: string[] =
-    vertical === 'hotel' && listing.galleryImgs?.length
-      ? listing.galleryImgs.filter((u: string) => u?.trim()).slice(0, 5)
-      : []
-  if (hotelFallbackImages.length > 0 && realHotelRooms.length > 0) {
-    realHotelRooms = realHotelRooms.map((room) =>
-      room.image || (room.images && room.images.length > 0)
-        ? room
-        : { ...room, image: hotelFallbackImages[0], images: hotelFallbackImages },
-    )
-  }
+  // NOT: Oda API'si (Travelrobot/KPlus) çoğu odaya görsel döndürmez. Eskiden
+  // otel galerisinin ilk 5 görseli TÜM odalara kopyalanıyordu → her oda kartında
+  // aynı kapak fotoğrafı görünüp "sahte ilan" hissi veriyordu. Bu fallback
+  // kaldırıldı; kendi görseli olmayan oda, kartta temiz bir placeholder (oda
+  // ikonu) gösterir (bkz. HotelRoomShowcase → RoomImageCarousel).
 
   const {
     address,

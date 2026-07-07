@@ -124,8 +124,8 @@ function ModalImageGallery({ images, alt }: { images: string[]; alt: string }) {
   const src = images[index] ?? images[0]
   if (!src) {
     return (
-      <div className="flex aspect-[4/3] w-full items-center justify-center bg-neutral-100 text-sm text-neutral-400 dark:bg-neutral-800">
-        —
+      <div className="flex aspect-[4/3] w-full items-center justify-center rounded-xl bg-neutral-100 text-neutral-400 dark:bg-neutral-800">
+        <BedDouble className="size-10" strokeWidth={1.25} aria-hidden />
       </div>
     )
   }

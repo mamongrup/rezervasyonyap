@@ -130,8 +130,8 @@ function RoomImageCarousel({
   const src = images[index] ?? images[0]
   if (!src) {
     return (
-      <div className="flex h-full min-h-[168px] w-full items-center justify-center bg-neutral-100 text-xs text-neutral-400 dark:bg-neutral-800 md:min-h-[200px]">
-        —
+      <div className="flex h-full min-h-[168px] w-full flex-col items-center justify-center gap-2 bg-neutral-100 text-neutral-400 dark:bg-neutral-800 md:min-h-[200px]">
+        <BedDouble className="size-8" strokeWidth={1.25} aria-hidden />
       </div>
     )
   }
