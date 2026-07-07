@@ -88,6 +88,96 @@ describe('stay half-day booking', () => {
   })
 })
 
+describe('single-block boundaries (turnover half-days)', () => {
+  // Blok: 10–15 Ağu rezervasyon (geceler 10,11,12,13,14 dolu).
+  //   10 Ağu: ÖÖ boş (önceki gece boş) + ÖS dolu (giriş)  -> checkin sınırı
+  //   11–14 : tam dolu
+  //   15 Ağu: ÖÖ dolu + ÖS boş (sonraki gece boş)          -> checkout sınırı
+  const days: ListingAvailabilityDay[] = [
+    dayRow('2026-08-05', true, true),
+    dayRow('2026-08-06', true, true),
+    dayRow('2026-08-07', true, true),
+    dayRow('2026-08-08', true, true),
+    dayRow('2026-08-09', true, true),
+    dayRow('2026-08-10', true, false), // checkin sınırı (ÖÖ boş)
+    dayRow('2026-08-11', false, false, false),
+    dayRow('2026-08-12', false, false, false),
+    dayRow('2026-08-13', false, false, false),
+    dayRow('2026-08-14', false, false, false),
+    dayRow('2026-08-15', false, true), // checkout sınırı (ÖS boş)
+    dayRow('2026-08-16', true, true),
+    dayRow('2026-08-17', true, true),
+    dayRow('2026-08-18', true, true),
+    dayRow('2026-08-19', true, true),
+    dayRow('2026-08-20', true, true),
+  ]
+  const byYmd = new Map(days.map((d) => [d.day, d]))
+  const minDate = new Date(2026, 7, 1)
+
+  it('renders boundary visuals correctly', () => {
+    expect(listingDayVisualStatus(byYmd.get('2026-08-10'))).toBe('checkin')
+    expect(listingDayVisualStatus(byYmd.get('2026-08-15'))).toBe('checkout')
+  })
+
+  it('allows checkout on the first blocked day (5→10)', () => {
+    const start = new Date(2026, 7, 5)
+    const checkout = new Date(2026, 7, 10)
+    expect(stayRangeOvernightsAvailable(start, checkout, byYmd, formatLocalYmd)).toBe(true)
+    expect(
+      stayListingCalendarDaySelectable(checkout, {
+        effectiveMinDate: minDate,
+        byYmd,
+        startDate: start,
+        endDate: null,
+        minNights: 1,
+        formatLocalYmd,
+      }),
+    ).toBe(true)
+  })
+
+  it('allows check-in on the checkout-boundary day (15→20)', () => {
+    const checkin = new Date(2026, 7, 15)
+    // Yeni giriş: 15 Ağu ÖS boş olduğundan başlangıç olarak seçilebilir
+    expect(
+      stayListingCalendarDaySelectable(checkin, {
+        effectiveMinDate: minDate,
+        byYmd,
+        startDate: null,
+        endDate: null,
+        minNights: 1,
+        formatLocalYmd,
+      }),
+    ).toBe(true)
+    // 15→20 aralığı geçerli
+    const checkout = new Date(2026, 7, 20)
+    expect(stayRangeOvernightsAvailable(checkin, checkout, byYmd, formatLocalYmd)).toBe(true)
+    expect(
+      stayListingCalendarDaySelectable(checkout, {
+        effectiveMinDate: minDate,
+        byYmd,
+        startDate: checkin,
+        endDate: null,
+        minNights: 1,
+        formatLocalYmd,
+      }),
+    ).toBe(true)
+  })
+
+  it('does not allow starting a new stay on the checkin-boundary day (10)', () => {
+    const day = new Date(2026, 7, 10)
+    expect(
+      stayListingCalendarDaySelectable(day, {
+        effectiveMinDate: minDate,
+        byYmd,
+        startDate: null,
+        endDate: null,
+        minNights: 1,
+        formatLocalYmd,
+      }),
+    ).toBe(false)
+  })
+})
+
 describe('computeStayRentalLodgingQuote availability', () => {
   it('marks turnover checkout range as available', async () => {
     const { computeStayRentalLodgingQuote } = await import('./stay-rental-range-quote')

@@ -194,6 +194,7 @@ modules/349_listing_hotel_details_country.sql
 modules/350_social_post_type.sql
 modules/351_perf_drop_invalid_cat_status_index.sql
 modules/352_repair_availability_turnover.sql
+modules/353_fix_turnover_boundary_half_days.sql
 
 # Kurulum doğrulama (install_order’a dahil değil — elle çalıştırın):
 #   psql -U postgres -d travel -f priv/sql/check_installation.sql

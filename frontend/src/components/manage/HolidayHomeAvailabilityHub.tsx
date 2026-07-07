@@ -14,6 +14,7 @@ import {
   type ManageListingRow,
 } from '@/lib/travel-api'
 import { mergeCalendarRows, type MergedCalendarRow } from '@/lib/listing-availability-calendar-merge'
+import { applyTurnoverBoundaries } from '@/lib/availability-turnover-boundaries'
 import { useCatalogListingUi } from '@/hooks/useCatalogListingUi'
 import { useManageT } from '@/lib/manage-i18n-context'
 import { useVitrinHref } from '@/hooks/use-vitrin-href'
@@ -123,6 +124,7 @@ export default function HolidayHomeAvailabilityHub({
   const [calErr, setCalErr] = useState<string | null>(null)
   const [calOk, setCalOk] = useState<string | null>(null)
   const [bulkPrice, setBulkPrice] = useState('')
+  const [autoTurnover, setAutoTurnover] = useState(true)
   const [resCheckIn, setResCheckIn] = useState('')
   const [resCheckOut, setResCheckOut] = useState('')
 
@@ -340,11 +342,12 @@ export default function HolidayHomeAvailabilityHub({
     setCalErr(null)
     setCalOk(null)
     try {
+      const rowsToSave = autoTurnover ? applyTurnoverBoundaries(monthRows) : monthRows
       await putListingAvailabilityCalendar(
         token,
         selectedId,
         {
-          days: monthRows.map((r) => ({
+          days: rowsToSave.map((r) => ({
             day: r.day,
             is_available: r.am_available || r.pm_available,
             am_available: r.am_available,
@@ -592,11 +595,23 @@ export default function HolidayHomeAvailabilityHub({
                 >
                   {ui.calendar.applyBulkToAll}
                 </button>
+                <label
+                  className="ml-auto flex items-center gap-1.5 text-[11px] font-medium text-neutral-600 dark:text-neutral-300"
+                  title="Rezervasyon aralıklarının ilk günü sabah çıkışa, son günü öğleden sonra girişe açılır. Bakım için kapatın."
+                >
+                  <input
+                    type="checkbox"
+                    checked={autoTurnover}
+                    onChange={(e) => setAutoTurnover(e.target.checked)}
+                    className="h-3.5 w-3.5 accent-primary-600"
+                  />
+                  Turnover sınırlarını aç
+                </label>
                 <ButtonPrimary
                   type="button"
                   disabled={calSaving || calLoading || monthRows.length === 0}
                   onClick={() => void saveMonthCalendar()}
-                  className="ml-auto text-xs"
+                  className="text-xs"
                 >
                   {calSaving ? ui.common.ellipsis : ui.calendar.calendarSave}
                 </ButtonPrimary>
