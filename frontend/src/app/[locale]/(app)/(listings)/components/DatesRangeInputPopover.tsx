@@ -19,7 +19,7 @@ import type { StayBookingRules } from '@/types/listing-types'
 import { useResponsiveCalendarMonthsShown } from '@/hooks/use-responsive-calendar-months-shown'
 import { getMessages } from '@/utils/getT'
 import { Popover, PopoverButton, PopoverPanel } from '@headlessui/react'
-import { Calendar04Icon, Cancel01Icon } from '@hugeicons/core-free-icons'
+import { Calendar04Icon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
 import React, { FC, useCallback, useMemo, useState } from 'react'
 import DatePicker from 'react-datepicker'
@@ -171,15 +171,6 @@ const DatesRangeInputPopover: FC<Props> = ({
               }
             >
               {renderTrigger ? renderTrigger({ open, startDate, endDate }) : renderInput()}
-              {!renderTrigger && startDate && open && (
-                <span
-                  className={
-                    'absolute end-1 top-1/2 z-10 flex h-5 w-5 -translate-y-1/2 transform items-center justify-center rounded-full bg-neutral-100 text-sm text-neutral-500 lg:end-3 lg:h-6 lg:w-6 dark:bg-neutral-800 dark:text-neutral-400'
-                  }
-                >
-                  <HugeiconsIcon icon={Cancel01Icon} className="size-4" strokeWidth={1.75} />
-                </span>
-              )}
             </PopoverButton>
 
             <PopoverPanel
