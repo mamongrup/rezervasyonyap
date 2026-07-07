@@ -72,6 +72,24 @@ function listingShortRef(id: string): string {
   return `${t.slice(0, 8)}…`
 }
 
+/** [from, to] dahil tüm günleri YYYY-MM-DD olarak üretir (aylar arası güvenli). */
+function eachDayStrInclusive(fromYmd: string, toYmd: string): string[] {
+  const out: string[] = []
+  const [fy, fm, fd] = fromYmd.split('-').map(Number)
+  const [ty, tm, td] = toYmd.split('-').map(Number)
+  if (!fy || !fm || !fd || !ty || !tm || !td) return out
+  const cur = new Date(fy, fm - 1, fd)
+  const end = new Date(ty, tm - 1, td)
+  const pad = (n: number) => String(n).padStart(2, '0')
+  let guard = 0
+  while (cur <= end && guard < 800) {
+    out.push(`${cur.getFullYear()}-${pad(cur.getMonth() + 1)}-${pad(cur.getDate())}`)
+    cur.setDate(cur.getDate() + 1)
+    guard++
+  }
+  return out
+}
+
 export default function HolidayHomeAvailabilityHub({
   categoryCode = 'holiday_home',
 }: {
@@ -105,6 +123,8 @@ export default function HolidayHomeAvailabilityHub({
   const [calErr, setCalErr] = useState<string | null>(null)
   const [calOk, setCalOk] = useState<string | null>(null)
   const [bulkPrice, setBulkPrice] = useState('')
+  const [resCheckIn, setResCheckIn] = useState('')
+  const [resCheckOut, setResCheckOut] = useState('')
 
   useEffect(() => {
     const token = getStoredAuthToken()
@@ -242,6 +262,73 @@ export default function HolidayHomeAvailabilityHub({
       prev.map((r) => ({ ...r, am_available: available, pm_available: available, is_available: available })),
     )
     setCalOk(null)
+  }
+
+  /**
+   * Rezervasyon aralığını turnover modeliyle uygula (block) veya boşalt (free).
+   * - Giriş günü: yalnız ÖS kapatılır/açılır (ÖÖ korunur → bitişik çıkışla turnover).
+   * - Ara geceler: tam kapalı/açık.
+   * - Çıkış günü: yalnız ÖÖ kapatılır/açılır (ÖS korunur → bitişik girişle turnover).
+   * Fiyat override ve sınır günlerin diğer yarımı korunur. Aylar arası çalışır.
+   */
+  async function applyReservationRange(block: boolean) {
+    const token = getStoredAuthToken()
+    if (!token || !selectedId) return
+    const ci = resCheckIn.trim()
+    const co = resCheckOut.trim()
+    if (!ci || !co) {
+      setCalErr('Giriş ve çıkış tarihi girin.')
+      return
+    }
+    if (ci >= co) {
+      setCalErr('Çıkış tarihi girişten sonra olmalı.')
+      return
+    }
+    if (needOrg && !orgId.trim()) return
+    const orgQ = needOrg && orgId.trim() ? { organizationId: orgId.trim() } : undefined
+    setCalSaving(true)
+    setCalErr(null)
+    setCalOk(null)
+    try {
+      // Sınır günlerinin diğer yarımını + gecelik fiyat override'ları korumak için
+      // mevcut değerleri oku (turnover'ın bozulmaması için şart).
+      const existing = await getListingAvailabilityCalendar(token, selectedId, { from: ci, to: co }, orgQ)
+      const byDay = new Map((existing.days ?? []).map((d) => [d.day.trim(), d]))
+      const days = eachDayStrInclusive(ci, co).map((d) => {
+        const ex = byDay.get(d)
+        const exAm = ex?.am_available ?? ex?.is_available ?? true
+        const exPm = ex?.pm_available ?? ex?.is_available ?? true
+        const price = ex?.price_override?.trim() ?? ''
+        let am: boolean
+        let pm: boolean
+        if (d === ci) {
+          am = exAm
+          pm = block ? false : true
+        } else if (d === co) {
+          am = block ? false : true
+          pm = exPm
+        } else {
+          am = !block
+          pm = !block
+        }
+        return {
+          day: d,
+          is_available: am || pm,
+          am_available: am,
+          pm_available: pm,
+          price_override: price,
+        }
+      })
+      await putListingAvailabilityCalendar(token, selectedId, { days }, orgQ)
+      await loadMonthCalendar()
+      setCalOk(block ? 'Rezervasyon aralığı bloklandı (turnover) ✓' : 'Aralık boşaltıldı ✓')
+    } catch (e) {
+      setCalErr(
+        e instanceof Error ? formatManageApiError(e.message) : formatManageApiError('cal_save_failed'),
+      )
+    } finally {
+      setCalSaving(false)
+    }
   }
 
   async function saveMonthCalendar() {
@@ -513,6 +600,51 @@ export default function HolidayHomeAvailabilityHub({
                 >
                   {calSaving ? ui.common.ellipsis : ui.calendar.calendarSave}
                 </ButtonPrimary>
+              </div>
+
+              <div className="mt-3 flex flex-wrap items-end gap-2 rounded-xl border border-indigo-200 bg-indigo-50/60 px-3 py-3 text-xs dark:border-indigo-900/50 dark:bg-indigo-950/20">
+                <span className="w-full font-semibold text-neutral-700 dark:text-neutral-200">
+                  Rezervasyon aralığı (otomatik turnover)
+                </span>
+                <span className="w-full text-[11px] leading-relaxed text-neutral-500 dark:text-neutral-400">
+                  Giriş–çıkış tarihi girin: giriş günü öğleden sonra dolu, aradaki geceler tam dolu, çıkış günü
+                  öğleden önce dolu işaretlenir. Böylece aynı gün başka rezervasyon için giriş günü sabahı çıkış,
+                  çıkış günü öğleden sonra yeni giriş açık kalır. Sınır günlerin diğer yarımı ve fiyatlar korunur.
+                </span>
+                <label className="flex flex-col gap-0.5">
+                  <span className="text-[10px] font-medium text-neutral-500">Giriş</span>
+                  <input
+                    type="date"
+                    value={resCheckIn}
+                    onChange={(e) => setResCheckIn(e.target.value)}
+                    className="rounded-lg border border-neutral-200 bg-white px-2 py-1 dark:border-neutral-600 dark:bg-neutral-900"
+                  />
+                </label>
+                <label className="flex flex-col gap-0.5">
+                  <span className="text-[10px] font-medium text-neutral-500">Çıkış</span>
+                  <input
+                    type="date"
+                    value={resCheckOut}
+                    onChange={(e) => setResCheckOut(e.target.value)}
+                    className="rounded-lg border border-neutral-200 bg-white px-2 py-1 dark:border-neutral-600 dark:bg-neutral-900"
+                  />
+                </label>
+                <button
+                  type="button"
+                  disabled={calSaving || !resCheckIn || !resCheckOut}
+                  onClick={() => void applyReservationRange(true)}
+                  className="rounded-lg bg-neutral-900 px-3 py-1.5 font-medium text-white hover:bg-neutral-800 disabled:opacity-50 dark:bg-white dark:text-neutral-900 dark:hover:bg-neutral-200"
+                >
+                  Rezervasyonu blokla
+                </button>
+                <button
+                  type="button"
+                  disabled={calSaving || !resCheckIn || !resCheckOut}
+                  onClick={() => void applyReservationRange(false)}
+                  className="rounded-lg border border-neutral-300 bg-white px-3 py-1.5 font-medium text-neutral-700 hover:bg-neutral-50 disabled:opacity-50 dark:border-neutral-600 dark:bg-neutral-900 dark:text-neutral-200 dark:hover:bg-neutral-800"
+                >
+                  Aralığı boşalt
+                </button>
               </div>
 
               <div className="mt-4 overflow-x-auto">
