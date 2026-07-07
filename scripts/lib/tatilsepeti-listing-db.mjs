@@ -171,10 +171,17 @@ export function mergeTatilsepetiIntoVerticalCruise(prev, fromTs) {
     'departure_points',
     'visits',
     'ship_specs',
-    'ship_activities',
   ]) {
     keepPrevArray(key)
   }
+  // Gemi aktiviteleri: Tatilsepeti otoritatif kaynak. Taze değer varsa onu kullan
+  // (eski çöp değerlerin — ör. ["Blog"] — üzerine yaz); yoksa öncekini koru.
+  merged.ship_activities =
+    Array.isArray(fromTs.ship_activities) && fromTs.ship_activities.length > 0
+      ? fromTs.ship_activities
+      : Array.isArray(prev.ship_activities)
+        ? prev.ship_activities
+        : []
   if (prev.gezinomi_link) merged.gezinomi_link = prev.gezinomi_link
   if (prev.gezinomi_page_url) merged.gezinomi_page_url = prev.gezinomi_page_url
   if (prev.product_id) merged.product_id = prev.product_id

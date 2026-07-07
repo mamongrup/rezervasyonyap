@@ -222,6 +222,19 @@ export function cheapestCabinId(cabins: CruiseCabinOption[]): string {
   return best.id
 }
 
+/** Kabinin kendi görselleri var mı? (Galeri yedeği kullanmadan.) */
+function cabinHasOwnImages(
+  cabinUrls: string[] | undefined | null,
+  gallery: string[],
+): boolean {
+  const cabin = (cabinUrls ?? []).map((u) => u.trim()).filter(Boolean)
+  if (cabin.length === 0) return false
+  if (gallery.length === 0) return true
+  // Gerçek kabin foto'ları tur galerisinde yer almaz; tüm görselleri galeriden
+  // geliyorsa (eski backfill tam galeriyi gömmüş olsa bile) kendi görseli sayılmaz.
+  return cabin.some((u) => !gallery.includes(u))
+}
+
 /** Kabin görselleri yoksa tur galerisinin tamamını kullan (tek görsel yerine). */
 export function resolveCabinImageUrls(
   cabinUrls: string[] | undefined | null,
@@ -229,32 +242,70 @@ export function resolveCabinImageUrls(
 ): string[] {
   const cabin = (cabinUrls ?? []).map((u) => u.trim()).filter(Boolean)
   const gallery = (galleryUrls ?? []).map((u) => u.trim()).filter(Boolean)
-  if (cabin.length === 0) return gallery
-  // Eski backfill: kabine yalnızca galeriden tek görsel yazılmışsa tam galeriyi aç.
-  if (gallery.length > cabin.length && cabin.every((u) => gallery.includes(u))) {
-    return gallery
-  }
+  if (!cabinHasOwnImages(cabin, gallery)) return gallery
   return cabin
 }
 
+/**
+ * Kendi fotoğrafı olmayan kabinlere galeriden BİRBİRİNDEN FARKLI dilimler dağıtır,
+ * böylece tüm kabinler aynı "standart" görselleri göstermez.
+ */
+function distributeGalleryToCabins(gallery: string[], count: number): string[][] {
+  if (count <= 0 || gallery.length === 0) return Array.from({ length: Math.max(0, count) }, () => gallery)
+  const slices: string[][] = []
+  if (gallery.length >= count) {
+    const per = Math.floor(gallery.length / count)
+    for (let i = 0; i < count; i++) {
+      const start = i * per
+      const end = i === count - 1 ? gallery.length : start + per
+      slices.push(gallery.slice(start, end))
+    }
+  } else {
+    // Görsel sayısı kabin sayısından az: her kabine farklı bir görseli baş sıraya koy.
+    for (let i = 0; i < count; i++) {
+      const primary = gallery[i % gallery.length]!
+      slices.push([primary, ...gallery.filter((u) => u !== primary)])
+    }
+  }
+  return slices
+}
+
+/** Tatilsepeti cüzdan / chip para promosyon metnini gösterme (kullanıcı isteği). */
+export function sanitizeCabinCampaign(campaign: string | null | undefined): string | null {
+  const t = String(campaign ?? '').trim()
+  if (!t) return null
+  if (/j[uü]zdan|c[uü]zdan|chip\s*para/i.test(t)) return null
+  return t
+}
+
 export function cruiseCabins(meta: CruiseVerticalMeta | null): CruiseCabinOption[] {
-  const rows = meta?.cabins ?? []
-  const gallery = (meta?.gallery_urls ?? []).filter(Boolean)
-  return rows
-    .filter((c) => c?.name?.trim())
-    .map((c, i) => {
-      const image_urls = resolveCabinImageUrls(c.image_urls, gallery)
-      return {
-        id: c.id || `cabin-${i}`,
-        name: String(c.name).trim(),
-        campaign: c.campaign ?? null,
-        description: c.description?.trim() || undefined,
-        footnote: c.footnote?.trim() || null,
-        image_urls,
-        prices: c.prices,
-        from_price: c.from_price ?? c.prices?.double_per_person ?? c.prices?.single ?? null,
-      }
-    })
+  const rows = (meta?.cabins ?? []).filter((c) => c?.name?.trim())
+  const gallery = (meta?.gallery_urls ?? []).map((u) => u.trim()).filter(Boolean)
+
+  // Kendi fotoğrafı olmayan kabinlere galeriden farklı dilimler ver.
+  const fallbackIdx = rows
+    .map((c, i) => (cabinHasOwnImages(c.image_urls, gallery) ? -1 : i))
+    .filter((i) => i >= 0)
+  const slices = distributeGalleryToCabins(gallery, fallbackIdx.length)
+  const fallbackSlice = new Map<number, string[]>()
+  fallbackIdx.forEach((rowIndex, k) => fallbackSlice.set(rowIndex, slices[k] ?? gallery))
+
+  return rows.map((c, i) => {
+    const own = cabinHasOwnImages(c.image_urls, gallery)
+    const image_urls = own
+      ? (c.image_urls ?? []).map((u) => u.trim()).filter(Boolean)
+      : (fallbackSlice.get(i) ?? gallery)
+    return {
+      id: c.id || `cabin-${i}`,
+      name: String(c.name).trim(),
+      campaign: sanitizeCabinCampaign(c.campaign),
+      description: c.description?.trim() || undefined,
+      footnote: c.footnote?.trim() || null,
+      image_urls,
+      prices: c.prices,
+      from_price: c.from_price ?? c.prices?.double_per_person ?? c.prices?.single ?? null,
+    }
+  })
 }
 
 export function cruiseIncludedExcluded(meta: CruiseVerticalMeta | null): {

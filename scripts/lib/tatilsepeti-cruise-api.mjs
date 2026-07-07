@@ -185,6 +185,45 @@ function parseSimpleListItems(html, heading) {
     .filter(Boolean)
 }
 
+/**
+ * Gemi aktiviteleri "cruiseActicty" panelinde <ul> değil,
+ * <strong>Başlık</strong>: metin<br> biçiminde serbest metin olarak gelir.
+ * Her <strong> bloğunu "Başlık: metin" maddesine çevirir; <ul> varsa onu kullanır.
+ */
+function parseShipActivities(html) {
+  const sec = html.match(/id="cruiseActicty"[\s\S]*?<div class="panel-body">([\s\S]*?)<\/div>/i)
+  if (!sec) return []
+  const body = sec[1]
+
+  const listItems = [...body.matchAll(/<li[^>]*>([\s\S]*?)<\/li>/gi)]
+    .map((x) => decodeHtml(x[1].replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()))
+    .filter(Boolean)
+  if (listItems.length > 0) return listItems
+
+  const items = []
+  for (const part of body.split(/<strong>/i).slice(1)) {
+    const m = part.match(/^([\s\S]*?)<\/strong>([\s\S]*)$/i)
+    if (!m) continue
+    const label = decodeHtml(m[1].replace(/<[^>]+>/g, ' ').replace(/[:\s]+$/, '').trim())
+    const text = decodeHtml(
+      m[2]
+        .replace(/<br\s*\/?>/gi, ' ')
+        .replace(/<[^>]+>/g, ' ')
+        .replace(/^\s*:\s*/, '')
+        .replace(/\s+/g, ' ')
+        .trim(),
+    )
+    if (!label && !text) continue
+    items.push(text ? `${label}: ${text}` : label)
+  }
+  if (items.length > 0) return items
+
+  const plain = decodeHtml(
+    body.replace(/<br\s*\/?>/gi, ' ').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim(),
+  )
+  return plain ? [plain] : []
+}
+
 function parseDetailTextHtml(html) {
   const m = html.match(/id="descriptionTour"[^>]*>([\s\S]*?)<\/div>\s*<\/div>\s*<\/div>\s*<div class="row"/i)
   return m ? m[1].trim() : ''
@@ -304,18 +343,20 @@ function extractCabinPriceCells(block) {
 
 function extractCabinImageUrls(block) {
   const urls = new Set()
+  // Kabin görselleri sekmesi (varsa) — CDN yolunu GemiGuverte ile sınırlama;
+  // bazı turlarda kabin foto'ları farklı klasörde (Files/GemiKabin, TurResim vb.).
   for (const panel of block.matchAll(
-    /<div role="tabpanel" class="tab-pane" id="kabin-gorselleri[^"]*"[^>]*>([\s\S]*?)<\/div>\s*<\/div>/gi,
+    /<div role="tabpanel" class="tab-pane"[^>]*id="kabin-gorselleri[^"]*"[^>]*>([\s\S]*?)<\/div>\s*<\/div>/gi,
   )) {
     for (const m of panel[1].matchAll(
-      /(?:src|data-src)="(https:\/\/cdn\.tatilsepeti\.com\/Files\/GemiGuverte\/[^"]+)"/gi,
+      /(?:src|data-src)="(https:\/\/cdn\.tatilsepeti\.com\/Files\/[^"]+\.(?:jpg|jpeg|png|webp))"/gi,
     )) {
       urls.add(m[1])
     }
   }
   if (urls.size === 0) {
     for (const m of block.matchAll(
-      /id="kabin-gorselleri[^"]*"[\s\S]*?(?:src|data-src)="(https:\/\/cdn\.tatilsepeti\.com\/Files\/GemiGuverte\/[^"]+)"/gi,
+      /id="kabin-gorselleri[^"]*"[\s\S]*?(?:src|data-src)="(https:\/\/cdn\.tatilsepeti\.com\/Files\/[^"]+\.(?:jpg|jpeg|png|webp))"/gi,
     )) {
       urls.add(m[1])
     }
@@ -323,16 +364,7 @@ function extractCabinImageUrls(block) {
   return [...urls]
 }
 
-function enrichCabinsWithoutImages(cabins, { galleryUrls = [] } = {}) {
-  const gallery = galleryUrls.filter(Boolean)
-  if (gallery.length === 0) return cabins
-  return cabins.map((cabin) => {
-    if (Array.isArray(cabin.image_urls) && cabin.image_urls.length > 0) return cabin
-    return { ...cabin, image_urls: [...gallery] }
-  })
-}
-
-function parseCabinTables(html, galleryUrls = []) {
+function parseCabinTables(html) {
   const cabins = []
   const blocks = html.split(/<div class="col-xs-12 price-table">/i).slice(1)
   for (const block of blocks) {
@@ -384,7 +416,10 @@ function parseCabinTables(html, galleryUrls = []) {
       from_price: doublePerPerson || single || extraBed || children[0] || null,
     })
   }
-  return enrichCabinsWithoutImages(cabins, { galleryUrls })
+  // Kabinlere tam galeriyi GÖMME; kendi görseli olmayan kabinlere vitrin
+  // (cruiseCabins) galeriden farklı dilimler dağıtır. Böylece meta şişmez ve
+  // tüm kabinler aynı "standart" görselleri göstermez.
+  return cabins
 }
 
 function slugify(s) {
@@ -411,7 +446,7 @@ export function parseTourDetail(html, catalogRow = {}) {
   const visits = parseVisits(html)
   const programDays = parseProgramDays(html)
   const galleryUrls = parseGalleryUrls(html)
-  const cabins = parseCabinTables(html, galleryUrls)
+  const cabins = parseCabinTables(html)
   const included = parseServiceList(html, 'Fiyata Dahil Hizmetler')
   const excluded = parseServiceList(html, 'Fiyata Dahil Olmayan Hizmetler')
   const price = parseFirstEurPrice(html) || catalogRow.listPrice
@@ -422,7 +457,11 @@ export function parseTourDetail(html, catalogRow = {}) {
   const visaM = html.match(/<strong>Vize:<\/strong>\s*([\s\S]*?)<br/i)
   const departurePoints = parsePanelListItems(html, 'Tur Kalkış Noktaları')
   const shipSpecs = parseShipSpecs(html)
-  const shipActivities = parseSimpleListItems(html, 'Gemi Aktiviteleri')
+  const shipActivities = (() => {
+    const rich = parseShipActivities(html)
+    if (rich.length > 0) return rich
+    return parseSimpleListItems(html, 'Gemi Aktiviteleri')
+  })()
   const shipImageUrl = parseShipImageUrl(html)
   const deckPlanImageUrl = parseDeckPlanImageUrl(html)
   const detailTextHtml = parseDetailTextHtml(html)

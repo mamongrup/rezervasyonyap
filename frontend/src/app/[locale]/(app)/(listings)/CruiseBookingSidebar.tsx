@@ -77,6 +77,14 @@ export default function CruiseBookingSidebar({
   const cabinCurrency = cabinCtx?.selectedCabin
     ? cabinDisplayPrice(cabinCtx.selectedCabin)?.currency
     : undefined
+  const cheapestCabinAmount = (() => {
+    let best: number | null = null
+    for (const c of cabinCtx?.cabins ?? []) {
+      const a = cabinDisplayPrice(c)?.amount
+      if (a != null && Number.isFinite(a) && a > 0 && (best == null || a < best)) best = a
+    }
+    return best
+  })()
   const personPrice = cabinAmount ?? selected?.price ?? fallbackAmount
   const periodCurrency = (
     cabinCurrency ||
@@ -91,18 +99,27 @@ export default function CruiseBookingSidebar({
       ? personPrice * guestCount
       : 0
 
+  // Kabin seçilmeden en düşük kabin fiyatını göster; kabin seçilince o kabinin fiyatı.
+  const headlineAmount =
+    cabinAmount ??
+    (hasCabins ? cheapestCabinAmount : null) ??
+    selected?.price ??
+    fallbackAmount
+  const showFromPrefix =
+    hasCabins && !cabinCtx?.selectedCabin && headlineAmount != null && Number.isFinite(headlineAmount)
+
   const convertedFallback = useConvertedListingPrice(
     fallbackPrice,
     fallbackPriceAmount,
     fallbackPriceCurrency,
   )
-  const convertedPeriodPrice = useFormatMoneyInPreferredCurrency(personPrice, periodCurrency)
+  const convertedHeadline = useFormatMoneyInPreferredCurrency(headlineAmount, periodCurrency)
   const convertedUnitTotal = useFormatMoneyInPreferredCurrency(unitTotal, periodCurrency)
   const checkoutPayment = useCheckoutPaymentAmount(periodCurrency, unitTotal)
 
   const displayPrice =
-    cabinChosen && personPrice != null
-      ? convertedPeriodPrice
+    headlineAmount != null && Number.isFinite(headlineAmount)
+      ? convertedHeadline
       : bookable && !hasCabins
         ? convertedFallback
         : '—'
@@ -155,10 +172,17 @@ export default function CruiseBookingSidebar({
         <p className="mb-2 text-sm text-neutral-600 dark:text-neutral-400">{cd.selectCabinPrompt}</p>
       ) : null}
       <div>
+        {showFromPrefix ? (
+          <span className="mr-1 text-sm font-normal text-neutral-500 dark:text-neutral-400">
+            {cd.priceFrom}
+          </span>
+        ) : null}
         <span className="text-3xl font-semibold">
           {displayPrice}
           <span className="ml-1 text-base font-normal text-neutral-500 dark:text-neutral-400">
-            {cabinChosen && bookable ? td.pricePerPerson : ''}
+            {bookable && headlineAmount != null && Number.isFinite(headlineAmount)
+              ? td.pricePerPerson
+              : ''}
           </span>
         </span>
       </div>
