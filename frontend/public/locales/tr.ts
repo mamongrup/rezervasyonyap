@@ -1015,6 +1015,7 @@ export const tr = {
       bookingModalTitle: 'Rezervasyon özeti',
       bookingModalContinue: 'Ödemeye geç',
       bookingModalClose: 'Kapat',
+      clearDates: 'Tarihleri temizle',
       rulesMinStay: 'Minimum konaklama: {n} gece',
       rulesAdvance: 'Girişten en az {n} gün önce rezervasyon gerekir',
       rulesShortStay: '{n} geceden kısa konaklamalarda ek ücret uygulanır',

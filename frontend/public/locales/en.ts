@@ -1496,6 +1496,7 @@ export const en = {
       bookingModalTitle: 'Your stay summary',
       bookingModalContinue: 'Continue to payment',
       bookingModalClose: 'Close',
+      clearDates: 'Clear dates',
       rulesMinStay: 'Minimum stay: {n} nights',
       rulesAdvance: 'Book at least {n} days before check-in',
       rulesShortStay: 'Short-stay fee applies for stays under {n} nights',

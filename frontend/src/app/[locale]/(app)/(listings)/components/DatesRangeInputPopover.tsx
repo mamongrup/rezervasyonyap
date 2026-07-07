@@ -213,6 +213,17 @@ const DatesRangeInputPopover: FC<Props> = ({
                     }
                   />
                 </div>
+                {startDate ? (
+                  <div className="mt-3 flex justify-end border-t border-neutral-100 px-2 pt-3 sm:px-0 dark:border-neutral-700">
+                    <button
+                      type="button"
+                      onClick={() => onChangeDate([null, null])}
+                      className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium text-neutral-500 underline-offset-2 transition hover:text-neutral-800 hover:underline dark:text-neutral-400 dark:hover:text-neutral-100"
+                    >
+                      {msgs.listing.availabilityCalendar.clearDates}
+                    </button>
+                  </div>
+                ) : null}
               </div>
             </PopoverPanel>
           </>

@@ -76,6 +76,13 @@ function SectionDateRangeCalendar({
   }, [startDate, endDate, onCompleteRange])
 
   const minNights = useMemo(() => resolvedMinStayNights(bookingRules), [bookingRules])
+  const copy = useMemo(() => getMessages(locale).listing.availabilityCalendar, [locale])
+
+  const clearSelection = () => {
+    lastEndTsRef.current = null
+    setStartDate(null)
+    setEndDate(null)
+  }
 
   const filterDate = useMemo(
     () => (d: Date) =>
@@ -124,6 +131,18 @@ function SectionDateRangeCalendar({
         />
         </div>
       </div>
+
+      {startDate ? (
+        <div className="mt-3 flex justify-end">
+          <button
+            type="button"
+            onClick={clearSelection}
+            className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium text-neutral-500 underline-offset-2 transition hover:text-neutral-800 hover:underline dark:text-neutral-400 dark:hover:text-neutral-100"
+          >
+            {copy.clearDates}
+          </button>
+        </div>
+      ) : null}
 
       <input type="hidden" name="startDate" value={startDate ? startDate.toISOString() : ''} />
       <input type="hidden" name="endDate" value={endDate ? endDate.toISOString() : ''} />
