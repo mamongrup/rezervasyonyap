@@ -34,5 +34,12 @@ node scripts/test-pg-env.mjs || exit 1
 echo "→ Travelrobot otel import başlıyor… ($(date -Iseconds))"
 node scripts/import-travelrobot-hotels-batch.mjs "$@"
 
-echo "→ Vitrin fiyat önbelleği…"
-"$APP_ROOT/deploy/scripts/refresh-vitrin-prices.sh" 2>/dev/null || echo "[WARN] vitrin_price atlandı"
+# NOT: vitrin_price önbelleği artık HER batch sonrası çalıştırılmaz.
+# refresh_listing_vitrin_prices() tam tablo taramasıdır; her batch'te (2000 otel)
+# çağrılması DB'yi doyurup siteyi kilitliyordu. Periyodik tazeleme zaten
+# travel-vitrin-price-refresh.timer (10 dk) ile yapılıyor. Tek seferlik istemek
+# için: REFRESH_VITRIN_AFTER_BATCH=1 ./deploy/scripts/import-travelrobot-hotels-batch.sh
+if [[ "${REFRESH_VITRIN_AFTER_BATCH:-0}" == "1" ]]; then
+  echo "→ Vitrin fiyat önbelleği (istek üzerine)…"
+  "$APP_ROOT/deploy/scripts/refresh-vitrin-prices.sh" 2>/dev/null || echo "[WARN] vitrin_price atlandı"
+fi
