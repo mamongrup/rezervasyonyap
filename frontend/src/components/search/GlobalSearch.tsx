@@ -1,29 +1,13 @@
 'use client'
 
 import { useVitrinHref } from '@/hooks/use-vitrin-href'
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Search, X, Loader2, Tag, Layers } from 'lucide-react'
+import { ArrowRight, Search, X, Loader2, Tag, Layers, MapPin } from 'lucide-react'
 import Link from 'next/link'
 import clsx from 'clsx'
 import type { SearchSuggestion } from '@/app/api/listing-search/route'
 import { useRegisterVitrinOverlay } from '@/components/aside/aside'
-
-const CATEGORY_LABELS: Record<string, string> = {
-  hotel: 'Otel',
-  villa: 'Villa',
-  tour: 'Tur',
-  activity: 'Aktivite',
-  yacht: 'Yat',
-  car: 'Araç',
-  flight: 'Uçuş',
-  transfer: 'Transfer',
-  cruise: 'Kruvaziyer',
-  hajj: 'Hac & Umre',
-  visa: 'Vize',
-  event: 'Etkinlik',
-  ferry: 'Feribot',
-}
 
 // ─── Overlay search modal ─────────────────────────────────────────────────────
 export function SearchModal({ onClose, locale }: { onClose: () => void; locale: string }) {
@@ -36,6 +20,9 @@ export function SearchModal({ onClose, locale }: { onClose: () => void; locale: 
   const router = useRouter()
   const vitrinPath = useVitrinHref()
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const abortRef = useRef<AbortController | null>(null)
+  const cacheRef = useRef(new Map<string, SearchSuggestion[]>())
+  const latestQueryRef = useRef('')
 
   useEffect(() => {
     inputRef.current?.focus()
@@ -50,28 +37,57 @@ export function SearchModal({ onClose, locale }: { onClose: () => void; locale: 
     return () => window.removeEventListener('keydown', handler)
   }, [onClose])
 
-  const search = (q: string) => {
+  useEffect(() => () => {
+    if (debounceRef.current) clearTimeout(debounceRef.current)
+    abortRef.current?.abort()
+  }, [])
+
+  const search = useCallback((rawQuery: string) => {
+    const q = rawQuery.trim()
+    latestQueryRef.current = q
+    if (debounceRef.current) clearTimeout(debounceRef.current)
+    abortRef.current?.abort()
+
     if (q.length < 3) {
       setSuggestions([])
+      setLoading(false)
       return
     }
-    if (debounceRef.current) clearTimeout(debounceRef.current)
+
+    const cacheKey = `${locale}:${q.toLocaleLowerCase(locale)}`
+    const cached = cacheRef.current.get(cacheKey)
+    if (cached) {
+      setSuggestions(cached)
+      setSelectedIdx(-1)
+      setLoading(false)
+      return
+    }
+
+    setLoading(true)
     debounceRef.current = setTimeout(async () => {
-      setLoading(true)
+      const controller = new AbortController()
+      abortRef.current = controller
       try {
         const res = await fetch(
           `/api/listing-search?q=${encodeURIComponent(q)}&locale=${locale}&limit=8`,
+          { signal: controller.signal },
         )
+        if (!res.ok) throw new Error(`listing_search_${res.status}`)
         const data = (await res.json()) as { suggestions: SearchSuggestion[] }
-        setSuggestions(data.suggestions)
+        const next = Array.isArray(data.suggestions) ? data.suggestions : []
+        cacheRef.current.set(cacheKey, next)
+        if (latestQueryRef.current !== q) return
+        setSuggestions(next)
         setSelectedIdx(-1)
-      } catch {
+      } catch (error) {
+        if (error instanceof DOMException && error.name === 'AbortError') return
+        if (latestQueryRef.current !== q) return
         setSuggestions([])
       } finally {
-        setLoading(false)
+        if (latestQueryRef.current === q) setLoading(false)
       }
-    }, 280)
-  }
+    }, 120)
+  }, [locale])
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'ArrowDown') {
@@ -93,18 +109,17 @@ export function SearchModal({ onClose, locale }: { onClose: () => void; locale: 
 
   return (
     <div
-      className="fixed inset-0 z-[999] flex flex-col"
-      style={{ backgroundColor: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)' }}
+      className="fixed inset-0 z-[999] flex flex-col bg-neutral-950/55 backdrop-blur-md"
       onClick={onClose}
     >
       <div
-        className="w-full bg-white dark:bg-neutral-900 shadow-2xl"
+        className="w-full border-b border-white/70 bg-white/95 shadow-2xl backdrop-blur-xl dark:border-neutral-800 dark:bg-neutral-950/95"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="max-w-3xl mx-auto px-4 py-3">
+        <div className="mx-auto max-w-4xl px-4 py-4 sm:py-5">
           <div className="flex items-center gap-3">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-neutral-400" />
+            <div className="relative flex-1 rounded-2xl border border-neutral-200 bg-neutral-50 shadow-inner transition focus-within:border-primary-500 focus-within:bg-white focus-within:ring-4 focus-within:ring-primary-500/10 dark:border-neutral-700 dark:bg-neutral-900 dark:focus-within:bg-neutral-900">
+              <Search className="absolute left-4 top-1/2 size-5 -translate-y-1/2 text-neutral-400" />
               <input
                 ref={inputRef}
                 type="text"
@@ -115,27 +130,32 @@ export function SearchModal({ onClose, locale }: { onClose: () => void; locale: 
                 }}
                 onKeyDown={handleKeyDown}
                 placeholder="İlan adı, yer, özellik ara… (ör: balayı villası, 5 kabinli yat)"
-                className="w-full pl-10 pr-4 py-3 text-base border-0 focus:outline-none bg-transparent text-neutral-900 dark:text-white placeholder-neutral-400"
+                className="w-full border-0 bg-transparent py-4 pl-12 pr-12 text-base font-medium text-neutral-900 outline-none placeholder:font-normal placeholder:text-neutral-400 dark:text-white sm:text-lg"
               />
               {loading && (
-                <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 animate-spin text-primary-500" />
+                <Loader2 className="absolute right-4 top-1/2 size-5 -translate-y-1/2 animate-spin text-primary-500" />
               )}
             </div>
             <button
               onClick={onClose}
-              className="flex-shrink-0 p-2 rounded-xl hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-500"
+              aria-label="Aramayı kapat"
+              className="flex-shrink-0 rounded-xl p-3 text-neutral-500 transition hover:bg-neutral-100 hover:text-neutral-900 dark:hover:bg-neutral-800 dark:hover:text-white"
             >
-              <X className="w-5 h-5" />
+              <X className="size-6" />
             </button>
+          </div>
+          <div className="mt-2 flex items-center justify-between px-1 text-xs text-neutral-400">
+            <span>Otel, villa, tur, bölge veya özellik arayın</span>
+            <span className="hidden sm:inline">↑↓ seç · Enter aç · Esc kapat</span>
           </div>
         </div>
       </div>
 
       {/* Results */}
-      {(suggestions.length > 0 || query.length >= 3) && (
-        <div className="max-w-3xl mx-auto w-full px-4 mt-2" onClick={(e) => e.stopPropagation()}>
-          <div className="bg-white dark:bg-neutral-900 rounded-2xl shadow-xl overflow-hidden border border-neutral-200 dark:border-neutral-700">
-            {suggestions.length === 0 && !loading && query.length >= 3 ? (
+      {(suggestions.length > 0 || query.trim().length >= 3) && (
+        <div className="mx-auto mt-3 w-full max-w-4xl px-4" onClick={(e) => e.stopPropagation()}>
+          <div className="overflow-hidden rounded-3xl border border-white/80 bg-white shadow-2xl dark:border-neutral-700 dark:bg-neutral-900">
+            {suggestions.length === 0 && !loading && query.trim().length >= 3 ? (
               <div className="px-5 py-8 text-center text-neutral-500">
                 <Search className="w-8 h-8 mx-auto mb-2 opacity-30" />
                 <p className="text-sm">
@@ -150,35 +170,46 @@ export function SearchModal({ onClose, locale }: { onClose: () => void; locale: 
                 </Link>
               </div>
             ) : (
-              <ul>
+              <ul className="max-h-[min(65vh,620px)] overflow-y-auto p-2">
+                {loading && suggestions.length === 0
+                  ? Array.from({ length: 3 }, (_, idx) => (
+                      <li key={`search-loading-${idx}`} className="flex animate-pulse items-center gap-4 rounded-2xl px-3 py-3">
+                        <div className="size-14 rounded-2xl bg-neutral-100 dark:bg-neutral-800" />
+                        <div className="flex-1 space-y-2">
+                          <div className="h-4 w-2/5 rounded bg-neutral-100 dark:bg-neutral-800" />
+                          <div className="h-3 w-3/5 rounded bg-neutral-100 dark:bg-neutral-800" />
+                        </div>
+                      </li>
+                    ))
+                  : null}
                 {suggestions.map((s, idx) => (
                   <li key={s.id}>
                     <Link
                       href={vitrinPath(s.href)}
                       onClick={onClose}
                       className={clsx(
-                        'flex items-center gap-3 px-4 py-3 hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors',
-                        selectedIdx === idx && 'bg-primary-50 dark:bg-primary-900/20',
+                        'group flex items-center gap-4 rounded-2xl px-3 py-3 transition-colors hover:bg-neutral-100/80 dark:hover:bg-neutral-800',
+                        selectedIdx === idx && 'bg-primary-50 ring-1 ring-primary-200 dark:bg-primary-900/20 dark:ring-primary-800',
                       )}
                     >
                       {s.image ? (
                         <img
                           src={s.image}
                           alt=""
-                          className="w-10 h-10 rounded-xl object-cover flex-shrink-0"
+                          className="size-14 flex-shrink-0 rounded-2xl object-cover shadow-sm ring-1 ring-black/5"
                         />
                       ) : (
-                        <div className="w-10 h-10 rounded-xl bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center flex-shrink-0">
+                        <div className="flex size-14 flex-shrink-0 items-center justify-center rounded-2xl bg-neutral-100 dark:bg-neutral-800">
                           {s.type === 'collection' ? (
-                            <Layers className="w-5 h-5 text-primary-500" />
+                            <Layers className="size-6 text-primary-500" />
                           ) : (
-                            <Tag className="w-5 h-5 text-neutral-400" />
+                            <Tag className="size-6 text-neutral-400" />
                           )}
                         </div>
                       )}
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
-                          <span className="font-medium text-neutral-900 dark:text-white text-sm truncate">
+                          <span className="truncate text-sm font-semibold text-neutral-900 dark:text-white sm:text-base">
                             {s.title}
                           </span>
                           {s.type === 'collection' && (
@@ -188,21 +219,25 @@ export function SearchModal({ onClose, locale }: { onClose: () => void; locale: 
                           )}
                         </div>
                         {s.subtitle && (
-                          <p className="text-xs text-neutral-400 truncate mt-0.5">{s.subtitle}</p>
+                          <p className="mt-1 flex items-center gap-1.5 truncate text-xs text-neutral-500 dark:text-neutral-400">
+                            <MapPin className="size-3.5 shrink-0" />
+                            <span className="truncate">{s.subtitle}</span>
+                          </p>
                         )}
                       </div>
                     </Link>
                   </li>
                 ))}
-                {query.length >= 3 && (
+                {!loading && query.trim().length >= 3 && (
                   <li className="border-t border-neutral-100 dark:border-neutral-800">
                     <Link
                       href={`${vitrinPath('/ara')}?q=${encodeURIComponent(query)}`}
                       onClick={onClose}
-                      className="flex items-center gap-2 px-4 py-3 text-sm text-link-muted hover:bg-neutral-50 dark:hover:bg-neutral-800"
+                      className="group m-1 flex items-center gap-2 rounded-2xl px-4 py-3.5 text-sm font-semibold text-primary-700 transition hover:bg-primary-50 dark:text-primary-300 dark:hover:bg-primary-950/30"
                     >
-                      <Search className="w-4 h-4" />
-                      &ldquo;{query}&rdquo; için tüm sonuçları gör
+                      <Search className="size-4" />
+                      <span className="flex-1">&ldquo;{query}&rdquo; için tüm sonuçları gör</span>
+                      <ArrowRight className="size-4 transition-transform group-hover:translate-x-0.5" />
                     </Link>
                   </li>
                 )}
@@ -225,9 +260,10 @@ export default function GlobalSearch({ locale = 'tr', iconOnly = false }: { loca
       <button
         onClick={() => setOpen(true)}
         aria-label="Ara"
-        className="relative -m-2.5 flex cursor-pointer items-center justify-center rounded-full p-2.5 hover:bg-neutral-100 focus-visible:outline-hidden dark:hover:bg-neutral-800 text-neutral-700 dark:text-neutral-300"
+        className="relative -m-2.5 flex cursor-pointer items-center justify-center gap-2 rounded-full p-2.5 text-neutral-700 transition hover:bg-neutral-100 focus-visible:outline-hidden dark:text-neutral-300 dark:hover:bg-neutral-800"
       >
-        <Search className="w-5 h-5" />
+        <Search className="size-5" />
+        {!iconOnly ? <span className="text-sm font-medium">Ara</span> : null}
       </button>
       {open && <SearchModal onClose={() => setOpen(false)} locale={locale} />}
     </>

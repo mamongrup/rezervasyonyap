@@ -139,6 +139,7 @@ import StayListingMobileStickyBar from './StayListingMobileStickyBar'
 import StayListingCalendarBookingBlock from './StayListingCalendarBookingBlock'
 import { HotelStayBookingCalendar, HotelStayBookingSidebar } from './HotelStayBookingPanel'
 import { normalizeHotelRoomOptions } from '@/lib/hotel-room-availability-public'
+import { buildDefaultHotelRoom } from '@/lib/hotel-default-room'
 import ListingPriceInclusionsSection from './ListingPriceInclusionsSection'
 import SectionHeader from './components/SectionHeader'
 import { SectionHeading, SectionSubheading } from './components/SectionHeading'
@@ -953,6 +954,20 @@ export default async function StayListingDetailPageContent({
     : undefined
 
   const galleryImages = galleryUrlsForStayDetailHeader(featuredImage, galleryImgs)
+
+  // Oda kaydı OLMAYAN oteller (ör. kanal/statik import) — tek bir "Standart Oda"
+  // üret; böylece oda listesi ve tam rezervasyon paneli (tarih → oda → yemek →
+  // kişi → toplam → Rezervasyon Yap) her otelde görünür. Fiyat ilanın vitrin/temel
+  // fiyatından (fallbackNightly) gelir; checkout ilan bazlı çalışır.
+  if (vertical === 'hotel' && hotelBookingRooms.length === 0) {
+    const def = buildDefaultHotelRoom({
+      name: messages.listing.hotelBooking.defaultRoomName,
+      capacity: typeof maxGuests === 'number' ? maxGuests : null,
+      images: galleryImages.slice(0, 5),
+    })
+    hotelBookingRooms = [def.bookingRoom]
+    realHotelRooms = [def.showcaseItem]
+  }
 
   const [reviewsRaw, similarRes] = await Promise.all([
     reviewsPromise,

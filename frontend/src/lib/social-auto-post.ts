@@ -526,6 +526,48 @@ async function postInstagramSingle(
   return pubData.id ?? createData.id ?? ''
 }
 
+/**
+ * Meta bazen `media_publish` isteğini işlerken aynı yanıta hız limiti hatası
+ * döndürebiliyor. Böyle bir iş kuyrukta `pending` kalırsa yeniden çalıştırmak
+ * mükerrer Instagram gönderisi üretir. Son yayınlarda ilan bağlantısını bulup
+ * mevcut medya kimliğini döndürerek kuyruğu güvenle uzlaştırır.
+ */
+async function findRecentlyPublishedInstagramMedia(
+  meta: NonNullable<SocialApiSettings['meta']>,
+  listingUrl: string,
+): Promise<string | null> {
+  const igId = meta.instagram_account_id?.trim()
+  const pageId = meta.page_id?.trim()
+  const rawToken = meta.page_access_token?.trim()
+  if (!igId || !pageId || !rawToken || !listingUrl.trim()) return null
+
+  const pageToken = await resolveFacebookPageAccessToken(pageId, rawToken)
+  const fields = 'id,caption,timestamp'
+  const res = await fetch(
+    `${FB_GRAPH}/${encodeURIComponent(igId)}/media?fields=${encodeURIComponent(fields)}&limit=25&access_token=${encodeURIComponent(pageToken)}`,
+    { cache: 'no-store' },
+  )
+  const data = (await res.json().catch(() => ({}))) as {
+    data?: Array<{ id?: string; caption?: string; timestamp?: string }>
+    error?: { message?: string }
+  }
+  if (!res.ok || data.error) {
+    throw new Error(data.error?.message ?? `ig_recent_media_${res.status}`)
+  }
+
+  // Yalnızca çok yeni gönderiler uzlaştırılır. Böylece planlı/rotasyon amaçlı
+  // eski tekrar paylaşımları yanlışlıkla mevcut gönderi sanılmaz.
+  const newestAllowedAgeMs = 6 * 60 * 60 * 1000
+  const now = Date.now()
+  for (const media of data.data ?? []) {
+    if (!media.id || !media.caption?.includes(listingUrl)) continue
+    const publishedAt = media.timestamp ? Date.parse(media.timestamp) : Number.NaN
+    if (!Number.isFinite(publishedAt) || now - publishedAt > newestAllowedAgeMs) continue
+    return media.id
+  }
+  return null
+}
+
 /** Container 'FINISHED' olana kadar bekler (video işleme değişken sürer). */
 async function pollMediaContainerReady(
   containerId: string,
@@ -810,6 +852,26 @@ export async function processOneSocialJob(
   try {
     if (shouldStop && (await shouldStop())) {
       return { ok: false, network: job.network, post_type: job.post_type, job_id: job.id, error: 'social_worker_stopped' }
+    }
+    if (job.network === 'instagram' && job.post_type !== 'story') {
+      const existingPostId = await findRecentlyPublishedInstagramMedia(
+        socialApi.meta ?? {},
+        pageUrl,
+      )
+      if (existingPostId) {
+        await patchSocialJob(apiOrigin, secret, job.id, {
+          status: 'posted',
+          external_post_id: existingPostId,
+          caption_ai_generated: caption,
+        })
+        return {
+          ok: true,
+          network: job.network,
+          post_type: job.post_type,
+          job_id: job.id,
+          post_id: existingPostId,
+        }
+      }
     }
     if (metaPostImageUrls.length === 0 && postImageUrls.length > 0) {
       throw new Error('social_share_images_unreachable')

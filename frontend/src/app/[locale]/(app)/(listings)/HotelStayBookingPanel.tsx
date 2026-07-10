@@ -27,6 +27,7 @@ import {
   fetchPublicHotelRoomAvailabilityDaysSafe,
   type HotelRoomBookingOption,
 } from '@/lib/hotel-room-availability-public'
+import { isSyntheticHotelRoomId } from '@/lib/hotel-default-room'
 import { interpolate } from '@/utils/interpolate'
 import { useVitrinHref } from '@/hooks/use-vitrin-href'
 import { useCheckoutPaymentAmount } from '@/contexts/preferred-currency-context'
@@ -95,27 +96,34 @@ function MealPlanSelect({
   plans,
   value,
   onChange,
+  fallbackLabel,
 }: {
   locale: string
   plans: MealPlanItem[]
   value: string
   onChange: (id: string) => void
+  fallbackLabel?: string | null
 }) {
   const hb = getMessages(locale).listing.hotelBooking
-  if (plans.length <= 1) return null
+  if (plans.length === 0 && !fallbackLabel) return null
   return (
     <Field className="block">
       <Label>{hb.mealPlanLabel}</Label>
       <select
         className="mt-1 w-full rounded-xl border border-neutral-300 bg-white px-3 py-2.5 text-sm dark:border-neutral-600 dark:bg-neutral-900"
-        value={value}
+        value={plans.length > 0 ? value : '__room_board__'}
         onChange={(e) => onChange(e.target.value)}
+        disabled={plans.length === 0}
       >
-        {plans.map((p) => (
-          <option key={p.id} value={p.id}>
-            {mealPlanDisplayLabel(p, locale)}
-          </option>
-        ))}
+        {plans.length > 0 ? (
+          plans.map((p) => (
+            <option key={p.id} value={p.id}>
+              {mealPlanDisplayLabel(p, locale)}
+            </option>
+          ))
+        ) : (
+          <option value="__room_board__">{fallbackLabel}</option>
+        )}
       </select>
     </Field>
   )
@@ -165,6 +173,9 @@ function buildHotelCheckoutUrl(
     guests: import('@/type').GuestsObject
   },
 ) {
+  // Sentetik "Standart Oda" (gerçek hotel_rooms kaydı yok) → checkout ILAN BAZLI:
+  // oda id/adı/adedi gönderilmez, yalnızca ilan + tarih + tutar taşınır.
+  const synthetic = isSyntheticHotelRoomId(params.selectedRoom.id)
   return buildStayCheckoutUrl(vitrinHref('/checkout'), {
     listingId: params.listingId,
     startDate: params.startDate,
@@ -172,12 +183,12 @@ function buildHotelCheckoutUrl(
     currencyCode: params.currencyCode,
     unitPrice: params.unitPrice,
     guests: params.guests,
-    hotelRoomId: params.selectedRoom.id,
-    hotelRoomName: params.selectedRoom.name,
+    hotelRoomId: synthetic ? undefined : params.selectedRoom.id,
+    hotelRoomName: synthetic ? undefined : params.selectedRoom.name,
     hotelBoardLabel: params.selectedPlanLabel ?? undefined,
     mealPlanId: params.selectedMealPlanId || undefined,
     mealPlanLabel: params.selectedPlanLabel ?? undefined,
-    hotelRoomQuantity: params.roomQuantity,
+    hotelRoomQuantity: synthetic ? undefined : params.roomQuantity,
   })
 }
 
@@ -199,12 +210,8 @@ export function HotelStayBookingSidebar(props: SharedProps) {
 
   const hasSelectedRange = rangeStart != null && rangeEnd != null
   const roomChosen = Boolean(booking.selectedRoomId && booking.selectedRoom)
-  const showRoomStep = hasSelectedRange && rooms.length > 0
-  const showGuestStep = hasSelectedRange && roomChosen
-
-  useEffect(() => {
-    booking.setSelectedRoomId('')
-  }, [rangeStart?.getTime(), rangeEnd?.getTime(), booking.setSelectedRoomId])
+  const showRoomStep = rooms.length > 0
+  const showGuestStep = roomChosen
 
   const selectedRoom = booking.selectedRoom ?? undefined
   const guestCount = Math.max(1, totalGuestCount(booking.guests))
@@ -214,7 +221,7 @@ export function HotelStayBookingSidebar(props: SharedProps) {
 
   const { days: availabilityDays, loading: availLoading } = useHotelRoomAvailability(
     listingId,
-    showGuestStep ? selectedRoom : undefined,
+    selectedRoom,
   )
 
   const quote = useHotelRoomStayQuote({
@@ -242,6 +249,7 @@ export function HotelStayBookingSidebar(props: SharedProps) {
     booking.activitySurchargesTotal,
   )
   const checkoutPayment = useCheckoutPaymentAmount(quote.currencyCode, perRoomCartPrice)
+  const startingNightlyPrice = quote.formatConverted(booking.fallbackNightly, quote.currencyCode)
 
   const canCheckout =
     Boolean(listingId.trim()) &&
@@ -271,40 +279,22 @@ export function HotelStayBookingSidebar(props: SharedProps) {
 
   return (
     <div className="listingSection__wrap scroll-mt-28 rounded-3xl border border-neutral-200/90 bg-white p-5 shadow-2xl ring-1 ring-black/5 dark:border-neutral-600 dark:bg-neutral-900 dark:ring-white/10 sm:p-6">
-      {selectedRoom ? (
-        <p className="mb-2 text-sm font-medium text-neutral-700 dark:text-neutral-300">
-          {hotelBooking.selectedRoomLabel}: {selectedRoom.name}
-          {bookingUnitCount > 1
-            ? ` · ${interpolate(hotelBooking.roomUnitCount, { count: String(bookingUnitCount) })}`
-            : ''}
-        </p>
-      ) : showRoomStep ? (
-        <p className="mb-2 text-sm text-neutral-600 dark:text-neutral-400">{hotelBooking.selectRoomPrompt}</p>
-      ) : null}
+      <p className="mb-1 text-sm text-neutral-500 dark:text-neutral-400">
+        {messages.listing.activityBooking.startingPrice}
+      </p>
       <div className="flex flex-wrap items-start gap-x-3 gap-y-2">
         <div className="flex min-w-0 flex-1 flex-wrap items-baseline gap-x-3 gap-y-1">
           <span className="text-2xl font-semibold text-neutral-900 sm:text-3xl dark:text-neutral-100">
-            {quote.displayMainPrice}
+            {booking.fallbackNightly > 0 ? startingNightlyPrice : quote.displayMainPrice}
           </span>
           <span className="text-base text-neutral-500 dark:text-neutral-400">
-            {hasSelectedRange && quote.nights > 0 && roomChosen
-              ? messages.listing.sidebar.total
-              : messages.listing.sidebar.perNight}
+            {messages.listing.sidebar.perNight}
           </span>
         </div>
         <ListingInstantApprovalTitleBadge listingId={listingId} />
       </div>
 
       <div className="mt-4 space-y-4">
-        {showGuestStep ? (
-          <MealPlanSelect
-            locale={locale}
-            plans={quote.activePlans}
-            value={booking.selectedMealPlanId}
-            onChange={booking.setSelectedMealPlanId}
-          />
-        ) : null}
-
         {availLoading || quote.availLoading ? (
           <p className="text-xs text-neutral-400">{hotelBooking.roomAvailabilityLoading}</p>
         ) : null}
@@ -329,11 +319,20 @@ export function HotelStayBookingSidebar(props: SharedProps) {
             rangeEnd={rangeEnd}
             onRangeChange={onRangeChange}
             bookingRules={stayBookingRules}
-            availabilityDays={showGuestStep ? availabilityDays : undefined}
+            availabilityDays={roomChosen ? availabilityDays : undefined}
           />
           {showRoomStep ? <HotelSidebarRoomPicker locale={locale} /> : null}
           {showGuestStep ? (
             <>
+              <div className="border-b border-neutral-200 px-3 py-3 dark:border-neutral-700">
+                <MealPlanSelect
+                  locale={locale}
+                  plans={quote.activePlans}
+                  value={booking.selectedMealPlanId}
+                  onChange={booking.setSelectedMealPlanId}
+                  fallbackLabel={roomBoardLabel}
+                />
+              </div>
               <div className="w-full border-b border-neutral-200 dark:border-neutral-700" />
               <GuestsInputPopover
                 className="flex-1"
@@ -344,20 +343,22 @@ export function HotelStayBookingSidebar(props: SharedProps) {
           ) : null}
         </div>
 
-        {showGuestStep && quote.nights > 0 ? (
+        {showGuestStep ? (
           <div className="space-y-2 rounded-2xl bg-neutral-50 p-4 dark:bg-neutral-800/50">
-            <DescriptionList>
-              <DescriptionTerm className="text-sm text-neutral-600 dark:text-neutral-400">
-                {selectedRoom?.name}
-                {bookingUnitCount > 1
-                  ? ` · ${interpolate(hotelBooking.roomUnitCount, { count: String(bookingUnitCount) })}`
-                  : ''}{' '}
-                · {quote.nights} {messages.listing.sidebar.nightsWord}
-              </DescriptionTerm>
-              <DescriptionDetails className="text-sm sm:text-right">
-                {quote.lodgingSubtotal > 0 ? quote.formatConverted(quote.lodgingSubtotal, quote.currencyCode) : '—'}
-              </DescriptionDetails>
-            </DescriptionList>
+            {quote.nights > 0 ? (
+              <DescriptionList>
+                <DescriptionTerm className="text-sm text-neutral-600 dark:text-neutral-400">
+                  {selectedRoom?.name}
+                  {bookingUnitCount > 1
+                    ? ` · ${interpolate(hotelBooking.roomUnitCount, { count: String(bookingUnitCount) })}`
+                    : ''}{' '}
+                  · {quote.nights} {messages.listing.sidebar.nightsWord}
+                </DescriptionTerm>
+                <DescriptionDetails className="text-sm sm:text-right">
+                  {quote.lodgingSubtotal > 0 ? quote.formatConverted(quote.lodgingSubtotal, quote.currencyCode) : '—'}
+                </DescriptionDetails>
+              </DescriptionList>
+            ) : null}
             {quote.mealPlanSupplement > 0 && quote.selectedPlanLabel ? (
               <DescriptionList>
                 <DescriptionTerm className="text-sm text-neutral-600 dark:text-neutral-400">
@@ -390,15 +391,9 @@ export function HotelStayBookingSidebar(props: SharedProps) {
           </div>
         ) : null}
 
-        {showGuestStep ? (
-          <ButtonPrimary type="button" disabled={!canCheckout} onClick={goCheckout}>
-            {messages.listing.sidebar.reserve}
-          </ButtonPrimary>
-        ) : showRoomStep && !roomChosen ? (
-          <ButtonPrimary type="button" disabled className="cursor-not-allowed opacity-60">
-            {hotelBooking.selectRoomPrompt}
-          </ButtonPrimary>
-        ) : null}
+        <ButtonPrimary type="button" disabled={!canCheckout} onClick={goCheckout}>
+          {roomChosen ? messages.listing.sidebar.reserve : hotelBooking.selectRoomPrompt}
+        </ButtonPrimary>
       </div>
     </div>
   )

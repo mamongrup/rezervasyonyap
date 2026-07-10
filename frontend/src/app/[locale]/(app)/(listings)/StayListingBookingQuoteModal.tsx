@@ -5,6 +5,7 @@ import { useStayListingQuote, type PoolHeatingOption } from '@/hooks/use-stay-li
 import { useVitrinHref } from '@/hooks/use-vitrin-href'
 import { hotelActivityLocalizedTitle } from '@/lib/hotel-activity-pricing'
 import type { HotelRoomBookingOption } from '@/lib/hotel-room-availability-public'
+import { isSyntheticHotelRoomId } from '@/lib/hotel-default-room'
 import { hotelPerRoomCartUnitPrice } from '@/lib/hotel-stay-quote'
 import { hotelRoomCapacityOrDefault, requiredAccommodationUnits } from '@/lib/accommodation-units'
 import { buildBoardTypeLabelsFromMessages, resolveHotelBoardTypeLabel } from '@/lib/hotel-room-board-type'
@@ -154,13 +155,11 @@ export default function StayListingBookingQuoteModal(props: Props) {
   const boardLabels = buildBoardTypeLabelsFromMessages(
     (messages.listing.roomShowcase ?? {}) as Record<string, string>,
   )
-  const checkoutBoardLabel = useMemo(() => {
-    if (!isHotel || !hotelRoom) return null
-    return (
-      hotelQuote.selectedPlanLabel ??
-      resolveHotelBoardTypeLabel(hotelRoom.board_type, boardLabels)
-    )
-  }, [isHotel, hotelRoom, hotelQuote.selectedPlanLabel, boardLabels])
+  const checkoutBoardLabel =
+    isHotel && hotelRoom
+      ? hotelQuote.selectedPlanLabel ??
+        resolveHotelBoardTypeLabel(hotelRoom.board_type, boardLabels)
+      : null
 
   const nights = isHotel ? hotelQuote.nights : villaQuote.nights
   const lodgingSubtotal = isHotel ? hotelQuote.lodgingSubtotal : villaQuote.lodgingSubtotal
@@ -194,12 +193,13 @@ export default function StayListingBookingQuoteModal(props: Props) {
           currencyCode: checkoutPayment.currencyCode,
           unitPrice: checkoutPayment.unitPrice,
           guests: hotelGuests,
-          hotelRoomId: hotelRoom.id,
-          hotelRoomName: hotelRoom.name,
+          // Sentetik "Standart Oda" → checkout ilan bazlı (gerçek oda id'si yok).
+          hotelRoomId: isSyntheticHotelRoomId(hotelRoom.id) ? undefined : hotelRoom.id,
+          hotelRoomName: isSyntheticHotelRoomId(hotelRoom.id) ? undefined : hotelRoom.name,
           hotelBoardLabel: checkoutBoardLabel ?? undefined,
           mealPlanId: props.selectedMealPlanId ?? bookingCtx?.selectedMealPlanId,
           mealPlanLabel: checkoutBoardLabel ?? undefined,
-          hotelRoomQuantity: hotelBookingUnitCount,
+          hotelRoomQuantity: isSyntheticHotelRoomId(hotelRoom.id) ? undefined : hotelBookingUnitCount,
         }),
       )
     } else {

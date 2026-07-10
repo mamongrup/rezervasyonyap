@@ -88,5 +88,13 @@ export async function GET(req: NextRequest) {
     ])
   }
 
-  return NextResponse.json({ suggestions: suggestions.slice(0, limit) })
+  return NextResponse.json(
+    { suggestions: suggestions.slice(0, limit) },
+    {
+      headers: {
+        // Aynı popüler sorguları her kullanıcı için yeniden ağır katalog aramasına sokma.
+        'Cache-Control': 'public, s-maxage=30, stale-while-revalidate=300',
+      },
+    },
+  )
 }

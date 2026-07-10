@@ -606,6 +606,7 @@ export const ru: AppMessages = {
     },
     hotelBooking: {
       roomTypeLabel: 'Тип номера',
+      defaultRoomName: 'Стандартный номер',
       roomAvailabilityLoading: 'Загрузка доступности номеров…',
       roomUnitCount: '({count} ном.)',
       guestCapacitySuffix: ' · {count} гостей',

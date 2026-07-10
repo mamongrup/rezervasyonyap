@@ -1382,6 +1382,7 @@ export const en = {
     },
     hotelBooking: {
       roomTypeLabel: 'Room type',
+      defaultRoomName: 'Standard Room',
       roomAvailabilityLoading: 'Loading room availability…',
       roomUnitCount: '({count} rooms)',
       guestCapacitySuffix: ' · {count} guests',

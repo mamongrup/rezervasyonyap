@@ -598,6 +598,7 @@ export const zh: AppMessages = {
     },
     hotelBooking: {
       roomTypeLabel: '房型',
+      defaultRoomName: '标准间',
       roomAvailabilityLoading: '正在加载房态…',
       roomUnitCount: '（{count} 间）',
       guestCapacitySuffix: ' · {count} 人',

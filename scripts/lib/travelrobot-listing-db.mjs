@@ -706,6 +706,23 @@ export async function upsertTravelrobotHotelListing(
   })
   if (dryRun) return { ...core, action: 'dry-run', kind: 'hotel' }
 
+  // KPlus bazen Türkçe istenmesine rağmen yalnız İngilizce açıklama döndürür.
+  // İngilizce kaynak `en` çevirisinde korunur; Türkçe editoryal içerik mevcut AI
+  // hattında üretilmek üzere otomatik kuyruğa alınır. Aynı ilan için ikinci bir
+  // pending/running iş açılmaz.
+  if (descriptionIsEnglish) {
+    await pgClient.query(
+      `INSERT INTO ai_listing_content_batches
+         (listing_id, category_code, phase, status, overwrite)
+       SELECT $1::uuid, 'hotel', 'tr_description', 'pending', true
+       WHERE NOT EXISTS (
+         SELECT 1 FROM ai_listing_content_batches
+         WHERE listing_id = $1::uuid AND status IN ('pending', 'running')
+       )`,
+      [core.listingId],
+    )
+  }
+
   const geo = nested?.GeoLocation ?? nested?.geoLocation
   const lat = geo?.Latitude ?? geo?.latitude
   const lng = geo?.Longitude ?? geo?.longitude

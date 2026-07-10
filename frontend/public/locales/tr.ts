@@ -898,6 +898,7 @@ export const tr = {
     },
     hotelBooking: {
       roomTypeLabel: 'Oda tipi',
+      defaultRoomName: 'Standart Oda',
       roomAvailabilityLoading: 'Oda müsaitliği yükleniyor…',
       roomUnitCount: '({count} oda)',
       guestCapacitySuffix: ' · {count} kişi',

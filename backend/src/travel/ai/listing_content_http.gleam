@@ -15,18 +15,24 @@ import gleam/option.{None, Some}
 import gleam/result
 import gleam/string
 import pog
-import travel/db/resilient_pog as db_exec
 import travel/ai/ai_job_run
 import travel/db/decode_helpers as row_dec
+import travel/db/resilient_pog as db_exec
 import travel/identity/admin_gate
 import wisp.{type Request, type Response}
 
 const profile_tr = "listing_description_tr"
+
 const profile_translator = "translator"
+
 const profile_seo = "seo_writer"
+
 const tr_locale = "tr"
+
 const min_desc_chars = 120
+
 const min_seo_title_chars = 10
+
 const min_seo_desc_chars = 40
 
 fn read_body_string(req: Request) -> Result(String, Nil) {
@@ -68,9 +74,12 @@ fn category_hint(code: String) -> String {
       "Feribot: güzergâh, kalkış/varış limanları, sefer süresi ve yolculuk kolaylığını anlat."
     "transfer" ->
       "Transfer: güzergâh, araç tipi, kapasite, havalimanı/otel bağlantısı ve konforu vurgula."
-    "tour" -> "Tur: program, süre, dahil/hariç hizmetler ve deneyim odaklı anlatım."
-    "activity" -> "Aktivite: süre, lokasyon, dahil olanlar ve katılımcı profilini vurgula."
-    "car_rental" -> "Araç kiralama: araç sınıfı, teslim/iade, km ve sürüş kolaylığını anlat."
+    "tour" ->
+      "Tur: program, süre, dahil/hariç hizmetler ve deneyim odaklı anlatım."
+    "activity" ->
+      "Aktivite: süre, lokasyon, dahil olanlar ve katılımcı profilini vurgula."
+    "car_rental" ->
+      "Araç kiralama: araç sınıfı, teslim/iade, km ve sürüş kolaylığını anlat."
     "flight" -> "Uçak/otobüs: güzergâh, sınıf ve seyahat kolaylığını vurgula."
     "cruise" -> "Gemi turu: rota, gemi olanakları ve seyahat deneyimini anlat."
     _ -> "Genel turizm ürünü: güven, konfor ve rezervasyon değerini öne çıkar."
@@ -109,7 +118,15 @@ fn listing_context_row() -> decode.Decoder(
   use desc_tr <- decode.field(4, decode.string)
   use attrs_json <- decode.field(5, decode.string)
   use status <- decode.field(6, decode.string)
-  decode.success(#(listing_id, slug, category_code, title_tr, desc_tr, attrs_json, status))
+  decode.success(#(
+    listing_id,
+    slug,
+    category_code,
+    title_tr,
+    desc_tr,
+    attrs_json,
+    status,
+  ))
 }
 
 fn batch_pick_row() -> decode.Decoder(#(String, String, String, String, Bool)) {
@@ -168,7 +185,10 @@ fn slice_json_object_loose(s: String) -> Result(String, Nil) {
       case closing_opt {
         None -> Error(Nil)
         Some(end_idx) ->
-          Ok("{" <> string.slice(from: after_first, at_index: 0, length: end_idx + 1))
+          Ok(
+            "{"
+            <> string.slice(from: after_first, at_index: 0, length: end_idx + 1),
+          )
       }
     }
   }
@@ -197,10 +217,9 @@ fn find_matching_close_brace_loop(
   case list.drop(gs, idx) {
     [] -> Error(Nil)
     [g, ..] -> {
-      let next =
-        fn(i_str: Bool, esc: Bool) {
-          find_matching_close_brace_loop(gs, idx + 1, depth, i_str, esc)
-        }
+      let next = fn(i_str: Bool, esc: Bool) {
+        find_matching_close_brace_loop(gs, idx + 1, depth, i_str, esc)
+      }
       case in_string {
         True ->
           case escaped {
@@ -221,14 +240,26 @@ fn find_matching_close_brace_loop(
             False ->
               case g == "{" {
                 True ->
-                  find_matching_close_brace_loop(gs, idx + 1, depth + 1, False, False)
+                  find_matching_close_brace_loop(
+                    gs,
+                    idx + 1,
+                    depth + 1,
+                    False,
+                    False,
+                  )
                 False ->
                   case g == "}" {
                     True ->
                       case depth == 1 {
                         True -> Ok(idx)
                         False ->
-                          find_matching_close_brace_loop(gs, idx + 1, depth - 1, False, False)
+                          find_matching_close_brace_loop(
+                            gs,
+                            idx + 1,
+                            depth - 1,
+                            False,
+                            False,
+                          )
                       }
                     False -> next(False, False)
                   }
@@ -317,7 +348,10 @@ fn strip_json_colon_prefix(s: String) -> Result(String, Nil) {
   }
 }
 
-fn extract_json_string_field_loose(raw: String, field: String) -> Result(String, Nil) {
+fn extract_json_string_field_loose(
+  raw: String,
+  field: String,
+) -> Result(String, Nil) {
   let cleaned = clean_json_text(raw)
   case string.split_once(cleaned, "\"" <> field <> "\"") {
     Error(_) -> Error(Nil)
@@ -345,7 +379,10 @@ fn parse_ai_description(raw: String) -> Result(String, Nil) {
                 Ok(t) -> Ok(t)
                 Error(_) -> {
                   let cleaned = clean_json_text(raw)
-                  case string.starts_with(cleaned, "<") && string.length(cleaned) >= 80 {
+                  case
+                    string.starts_with(cleaned, "<")
+                    && string.length(cleaned) >= 80
+                  {
                     True -> Ok(cleaned)
                     False ->
                       case
@@ -363,6 +400,18 @@ fn parse_ai_description(raw: String) -> Result(String, Nil) {
   }
 }
 
+/// Eski KPlus/Travelrobot importlarında İngilizce metin yanlışlıkla `tr`
+/// çevirisine yazılmış olabilir. Uzunluk kontrolü tek başına bu kaydı tamamlanmış
+/// saymamalı; yaygın İngilizce kelimelerden en az üçünü arar.
+fn looks_like_english_description(raw: String) -> Bool {
+  let text = " " <> string.lowercase(string.trim(raw)) <> " "
+  let signals = [
+    " the ", " and ", " with ", " from ", " located ", " hotel ", " rooms ",
+    " featuring ", " complimentary ", " nearest ", " breakfast ",
+  ]
+  list.count(signals, fn(signal) { string.contains(text, signal) }) >= 3
+}
+
 fn need_work_sql() -> String {
   "
   (
@@ -373,6 +422,16 @@ fn need_work_sql() -> String {
       where lt.listing_id = l.id and lower(lo.code) = 'tr'
       limit 1
     ), '')) < 120
+    or (
+      lower(coalesce(l.external_provider_code, '')) = 'travelrobot'
+      and lower(coalesce((
+        select lt.description
+        from listing_translations lt
+        join locales lo on lo.id = lt.locale_id
+        where lt.listing_id = l.id and lower(lo.code) = 'tr'
+        limit 1
+      ), '')) ~ '\\m(the|and|with|from|located|featuring|complimentary|nearest|breakfast)\\M'
+    )
     or exists (
       select 1 from locales lo
       where coalesce(lo.is_active, true) = true
@@ -407,11 +466,10 @@ pub fn stats(req: Request, ctx: Context) -> Response {
     Error(r) -> r
     Ok(_) -> {
       let cat = query_param(req, "category_code")
-      let cat_filter =
-        case cat == "" {
-          True -> ""
-          False -> " and pc.code = $1 "
-        }
+      let cat_filter = case cat == "" {
+        True -> ""
+        False -> " and pc.code = $1 "
+      }
       let total_sql =
         "select count(*)::int from listings l join product_categories pc on pc.id = l.category_id where l.status in ('draft','published')"
         <> cat_filter
@@ -442,7 +500,8 @@ pub fn stats(req: Request, ctx: Context) -> Response {
 
       let run_count = fn(sql: String) {
         case cat == "" {
-          True -> pog.query(sql) |> pog.returning(int_col0) |> db_exec.execute(ctx.db)
+          True ->
+            pog.query(sql) |> pog.returning(int_col0) |> db_exec.execute(ctx.db)
           False ->
             pog.query(sql)
             |> pog.parameter(pog.text(cat))
@@ -454,11 +513,17 @@ pub fn stats(req: Request, ctx: Context) -> Response {
       case run_count(total_sql) {
         Error(_) -> json_err(500, "listing_content_total_failed")
         Ok(total_ret) -> {
-          let total = case total_ret.rows { [n] -> n _ -> 0 }
+          let total = case total_ret.rows {
+            [n] -> n
+            _ -> 0
+          }
           case run_count(need_sql) {
             Error(_) -> json_err(500, "listing_content_need_failed")
             Ok(need_ret) -> {
-              let need_work = case need_ret.rows { [n] -> n _ -> 0 }
+              let need_work = case need_ret.rows {
+                [n] -> n
+                _ -> 0
+              }
               let batches_q = case cat == "" {
                 True ->
                   pog.query(batches_sql)
@@ -524,7 +589,9 @@ pub fn queue_all(req: Request, ctx: Context) -> Response {
   case admin_gate.require_admin_users_read(req, ctx) {
     Error(r) -> r
     Ok(_) -> {
-      let #(category_code, only_incomplete, overwrite) = case read_body_string(req) {
+      let #(category_code, only_incomplete, overwrite) = case
+        read_body_string(req)
+      {
         Error(_) -> #("", True, False)
         Ok(body) ->
           case string.trim(body) == "" {
@@ -544,16 +611,13 @@ pub fn queue_all(req: Request, ctx: Context) -> Response {
             True -> " and " <> need_work_sql()
             False -> ""
           }
-          let find_sql =
-            "
+          let find_sql = "
             select l.id::text, pc.code
             from listings l
             join product_categories pc on pc.id = l.category_id
             where pc.code = $1
               and l.status in ('draft','published')
-              "
-            <> incomplete_filter
-            <> "
+              " <> incomplete_filter <> "
               and not exists (
                 select 1 from ai_listing_content_batches b
                 where b.listing_id = l.id
@@ -757,15 +821,16 @@ fn create_and_run_job(
   }
 }
 
-fn lookup_locale_id(conn: pog.Connection, locale_code: String) -> Result(Int, Nil) {
+fn lookup_locale_id(
+  conn: pog.Connection,
+  locale_code: String,
+) -> Result(Int, Nil) {
   let int_col0 = {
     use n <- decode.field(0, decode.int)
     decode.success(n)
   }
   case
-    pog.query(
-      "select id from locales where lower(code) = lower($1) limit 1",
-    )
+    pog.query("select id from locales where lower(code) = lower($1) limit 1")
     |> pog.parameter(pog.text(locale_code))
     |> pog.returning(int_col0)
     |> pog.execute(conn)
@@ -860,7 +925,11 @@ fn upsert_seo(
   }
 }
 
-fn locale_has_seo(conn: pog.Connection, listing_id: String, locale_code: String) -> Bool {
+fn locale_has_seo(
+  conn: pog.Connection,
+  listing_id: String,
+  locale_code: String,
+) -> Bool {
   case
     pog.query(
       "select 1 from seo_metadata sm join locales lo on lo.id = sm.locale_id "
@@ -909,7 +978,12 @@ fn run_tr_phase(
   loc: #(String, String, String, String, String, String, String),
 ) -> Result(Nil, String) {
   let #(_, slug, _, title_tr, desc_tr, attrs_json, status) = loc
-  case overwrite || string.length(string.trim(desc_tr)) < min_desc_chars {
+  let tr_is_english = looks_like_english_description(desc_tr)
+  case
+    overwrite
+    || string.length(string.trim(desc_tr)) < min_desc_chars
+    || tr_is_english
+  {
     False ->
       case advance_batch(ctx.db, batch_id, "translations", "pending") {
         Error(_) -> Error("listing_content_batch_advance_failed")
@@ -917,12 +991,22 @@ fn run_tr_phase(
       }
     True -> {
       let en_source_desc = case load_locale_title_desc(ctx, listing_id, "en") {
-        Ok(#(_, en_desc)) -> string.trim(en_desc)
-        Error(_) -> ""
+        Ok(#(_, en_desc)) -> {
+          let source = string.trim(en_desc)
+          case source == "" && tr_is_english {
+            True -> string.trim(desc_tr)
+            False -> source
+          }
+        }
+        Error(_) ->
+          case tr_is_english {
+            True -> string.trim(desc_tr)
+            False -> ""
+          }
       }
       let tr_instruction = case en_source_desc != "" {
         True ->
-          "Kaynak İngilizce otel açıklamasını Türkçeye çevir ve Türkçe site için doğal, SEO uyumlu hale getir. HTML yapısını koru. JSON: {\"description\":\"<HTML>\"}"
+          "Kaynak İngilizce otel açıklamasını Türkçeye çevir ve profesyonel bir seyahat editörü gibi yeniden düzenle. Yazım ve noktalama kurallarına uy; tekrarları, ham mesafe yığınlarını ve reklam dili kalıplarını temizle. Bilgi uydurma. Okunabilir semantik HTML üret: 3-6 kısa paragraf; uygun olduğunda Konum, Odalar, Olanaklar ve Yeme-İçme bilgilerini başlık veya listeyle grupla. Türkiye kullanıcısı için metrik birimleri öne al. Yalnızca JSON döndür: {\"description\":\"<HTML>\"}"
         False ->
           "Türkçe ilan açıklaması yaz. JSON: {\"description\":\"<HTML>\"}"
       }
@@ -930,7 +1014,13 @@ fn run_tr_phase(
         json.object([
           #("task", json.string("listing_tr_description")),
           #("locale", json.string(tr_locale)),
-          #("source_locale", json.string(case en_source_desc != "" { True -> "en" False -> "" })),
+          #(
+            "source_locale",
+            json.string(case en_source_desc != "" {
+              True -> "en"
+              False -> ""
+            }),
+          ),
           #("listing_id", json.string(listing_id)),
           #("slug", json.string(slug)),
           #("category_code", json.string(category_code)),
@@ -949,10 +1039,20 @@ fn run_tr_phase(
           case parse_ai_description(raw) {
             Error(_) -> Error("listing_content_tr_parse_failed")
             Ok(description) ->
-              case upsert_translation(ctx.db, listing_id, tr_locale, title_tr, description) {
+              case
+                upsert_translation(
+                  ctx.db,
+                  listing_id,
+                  tr_locale,
+                  title_tr,
+                  description,
+                )
+              {
                 Error(e) -> Error(e)
                 Ok(Nil) ->
-                  case advance_batch(ctx.db, batch_id, "translations", "pending") {
+                  case
+                    advance_batch(ctx.db, batch_id, "translations", "pending")
+                  {
                     Error(_) -> Error("listing_content_batch_advance_failed")
                     Ok(Nil) -> Ok(Nil)
                   }
@@ -1010,9 +1110,23 @@ fn run_translations_phase(
                 Error(_) ->
                   case extract_json_string_field_loose(raw, "title") {
                     Error(_) -> Error("listing_content_i18n_parse_failed")
-                    Ok(t_title) -> save_i18n_translation(ctx, listing_id, locale_code, t_title, raw)
+                    Ok(t_title) ->
+                      save_i18n_translation(
+                        ctx,
+                        listing_id,
+                        locale_code,
+                        t_title,
+                        raw,
+                      )
                   }
-                Ok(t_title) -> save_i18n_translation(ctx, listing_id, locale_code, t_title, raw)
+                Ok(t_title) ->
+                  save_i18n_translation(
+                    ctx,
+                    listing_id,
+                    locale_code,
+                    t_title,
+                    raw,
+                  )
               }
             }
           }
@@ -1034,13 +1148,17 @@ fn save_i18n_translation(
       case extract_json_string_field_loose(raw, "description") {
         Error(_) -> Error("listing_content_i18n_parse_failed")
         Ok(t_desc) ->
-          case upsert_translation(ctx.db, listing_id, locale_code, t_title, t_desc) {
+          case
+            upsert_translation(ctx.db, listing_id, locale_code, t_title, t_desc)
+          {
             Error(e) -> Error(e)
             Ok(Nil) -> Ok(Nil)
           }
       }
     Ok(t_desc) ->
-      case upsert_translation(ctx.db, listing_id, locale_code, t_title, t_desc) {
+      case
+        upsert_translation(ctx.db, listing_id, locale_code, t_title, t_desc)
+      {
         Error(e) -> Error(e)
         Ok(Nil) -> Ok(Nil)
       }
@@ -1101,13 +1219,25 @@ fn run_seo_phase(
                     Error(_) ->
                       case json_field_string(raw, "title") {
                         Error(_) ->
-                          case extract_json_string_field_loose(raw, "meta_title") {
-                            Error(_) -> Error("listing_content_seo_parse_failed")
-                            Ok(mt) -> save_seo_fields(ctx, listing_id, locale_code, mt, raw)
+                          case
+                            extract_json_string_field_loose(raw, "meta_title")
+                          {
+                            Error(_) ->
+                              Error("listing_content_seo_parse_failed")
+                            Ok(mt) ->
+                              save_seo_fields(
+                                ctx,
+                                listing_id,
+                                locale_code,
+                                mt,
+                                raw,
+                              )
                           }
-                        Ok(mt) -> save_seo_fields(ctx, listing_id, locale_code, mt, raw)
+                        Ok(mt) ->
+                          save_seo_fields(ctx, listing_id, locale_code, mt, raw)
                       }
-                    Ok(mt) -> save_seo_fields(ctx, listing_id, locale_code, mt, raw)
+                    Ok(mt) ->
+                      save_seo_fields(ctx, listing_id, locale_code, mt, raw)
                   }
                 }
               }
@@ -1142,11 +1272,10 @@ fn persist_seo(
   meta_desc: String,
   raw: String,
 ) -> Result(Nil, String) {
-  let kw =
-    case json_field_string(raw, "keywords") {
-      Ok(k) -> k
-      Error(_) -> ""
-    }
+  let kw = case json_field_string(raw, "keywords") {
+    Ok(k) -> k
+    Error(_) -> ""
+  }
   let mt = string.slice(meta_title, 0, 70)
   let md = string.slice(meta_desc, 0, 160)
   case upsert_seo(ctx.db, listing_id, locale_code, mt, md, kw) {
@@ -1199,7 +1328,16 @@ fn run_batch_core(
     Ok(loc) ->
       case phase {
         "tr_description" ->
-          case run_tr_phase(ctx, batch_id, listing_id, category_code, overwrite, loc) {
+          case
+            run_tr_phase(
+              ctx,
+              batch_id,
+              listing_id,
+              category_code,
+              overwrite,
+              loc,
+            )
+          {
             Error(e) -> {
               fail_batch(ctx.db, batch_id, e)
               Error(e)
@@ -1207,7 +1345,9 @@ fn run_batch_core(
             Ok(Nil) -> Ok(#(listing_id, "translations", True))
           }
         "translations" ->
-          case run_translations_phase(ctx, batch_id, listing_id, overwrite, loc) {
+          case
+            run_translations_phase(ctx, batch_id, listing_id, overwrite, loc)
+          {
             Error(e) -> {
               fail_batch(ctx.db, batch_id, e)
               Error(e)
@@ -1215,7 +1355,9 @@ fn run_batch_core(
             Ok(Nil) -> Ok(#(listing_id, "seo", True))
           }
         "seo" ->
-          case run_seo_phase(ctx, batch_id, listing_id, category_code, overwrite) {
+          case
+            run_seo_phase(ctx, batch_id, listing_id, category_code, overwrite)
+          {
             Error(e) -> {
               fail_batch(ctx.db, batch_id, e)
               Error(e)
@@ -1262,7 +1404,11 @@ pub fn process_next(req: Request, ctx: Context) -> Response {
         Error(_) -> json_err(500, "listing_content_pick_failed")
         Ok(ret) ->
           case ret.rows {
-            [] -> wisp.json_response("{\"done\":true,\"message\":\"queue_empty\"}", 200)
+            [] ->
+              wisp.json_response(
+                "{\"done\":true,\"message\":\"queue_empty\"}",
+                200,
+              )
             [batch] -> {
               let #(batch_id, listing_id, category_code, phase, _) = batch
               case run_batch_core(ctx, batch) {

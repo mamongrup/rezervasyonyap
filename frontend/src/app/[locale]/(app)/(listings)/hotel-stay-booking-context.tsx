@@ -98,6 +98,14 @@ export function HotelStayBookingProvider({
     [rooms, selectedRoomId],
   )
 
+  // Tek oda tipi (ör. sentetik "Standart Oda") → otomatik seç. Aksi halde takvim
+  // bölümündeki tek seçenekli <select> onChange tetiklemez, oda seçili kalmaz ve
+  // tarih seçince alıntı modalı açılmaz ("takvimde seçilmiyor").
+  const onlyRoomId = rooms.length === 1 ? rooms[0]!.id : null
+  useEffect(() => {
+    if (onlyRoomId) setSelectedRoomId((prev) => (prev ? prev : onlyRoomId))
+  }, [onlyRoomId])
+
   useEffect(() => {
     const active = pickActiveMealPlans(quoteProps.mealPlans)
     const defaultPlan = pickDefaultMealPlanForRoom(active, selectedRoom?.board_type)

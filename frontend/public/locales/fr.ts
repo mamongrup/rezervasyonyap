@@ -606,6 +606,7 @@ export const fr: AppMessages = {
     },
     hotelBooking: {
       roomTypeLabel: 'Type de chambre',
+      defaultRoomName: 'Chambre Standard',
       roomAvailabilityLoading: 'Chargement des disponibilités…',
       roomUnitCount: '({count} chambres)',
       guestCapacitySuffix: ' · {count} personnes',
