@@ -841,6 +841,9 @@ export default function CatalogNewListingClient({
   const [sourcePriceUrl, setSourcePriceUrl] = useState('')
   const [sourceAnalyzing, setSourceAnalyzing] = useState(false)
   const [sourceAnalyzeMessage, setSourceAnalyzeMessage] = useState('')
+  const [referenceCandidates, setReferenceCandidates] = useState<Array<{ url: string; title: string; snippet: string; score?: number; reason?: string }>>([])
+  const [selectedReferenceUrls, setSelectedReferenceUrls] = useState<string[]>([])
+  const [referenceSearchBusy, setReferenceSearchBusy] = useState(false)
   /** İlan oluşmadan önce yüklenen galeri anahtarları; kayıtta `addListingImage` ile bağlanır */
   const [pendingGalleryKeys, setPendingGalleryKeys] = useState<string[]>([])
   /** Tatil evi düzenle: sunucudaki sıralı görseller (önizleme); yükleme ayrı galeri sayfasında */
@@ -1033,6 +1036,32 @@ export default function CatalogNewListingClient({
     }
     setPendingGalleryKeys((previous) => previous.includes(url) ? previous : [...previous, url])
     setSourceAnalyzeMessage('Görsel galeriye eklendi.')
+  }
+
+  async function runReferenceSearch(action: 'search' | 'evaluate') {
+    const query = [title, address, districtLabel, cityDisplay, provinceCity, categoryCode].filter(Boolean).join(' ')
+    if (!title.trim()) return setSourceAnalyzeMessage('Referans araması için önce ilan başlığını girin.')
+    if (action === 'evaluate' && selectedReferenceUrls.length !== 3) return setSourceAnalyzeMessage('Lütfen tam 3 site seçin.')
+    setReferenceSearchBusy(true)
+    try {
+      const res = await fetch('/api/listing-reference-search', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action, query, candidates: referenceCandidates.filter((c) => selectedReferenceUrls.includes(c.url)) }),
+      })
+      const data = await res.json() as { error?: string; candidates?: typeof referenceCandidates; decision?: (typeof referenceCandidates)[number]; evaluated?: typeof referenceCandidates; confident?: boolean }
+      if (!res.ok) throw new Error(data.error || 'Referans araması başarısız.')
+      if (action === 'search') {
+        setReferenceCandidates(data.candidates || []); setSelectedReferenceUrls([])
+        setSourceAnalyzeMessage(`${data.candidates?.length || 0} aday bulundu. Değerlendirmek için 3 site seçin.`)
+      } else if (data.decision) {
+        setReferenceCandidates(data.evaluated || referenceCandidates)
+        if (data.confident) setSourceReferenceUrl(data.decision.url)
+        setSourceAnalyzeMessage(data.confident
+          ? `Karar: ${data.decision.title} (%${data.decision.score} eşleşme). Referans bağlantısı seçildi.`
+          : `Somut eşleşme bulunamadı. En yüksek aday %${data.decision.score}; yanlış kayıt önlemek için otomatik seçilmedi.`)
+      }
+    } catch (error) { setSourceAnalyzeMessage(error instanceof Error ? error.message : 'Referans araması başarısız.') }
+    finally { setReferenceSearchBusy(false) }
   }
 
   useEffect(() => {
@@ -3875,7 +3904,34 @@ export default function CatalogNewListingClient({
                       {sourceAnalyzing ? 'Okunuyor…' : 'Bilgileri getir'}
                     </button>
                   </div>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    <button type="button" disabled={referenceSearchBusy} onClick={() => void runReferenceSearch('search')} className="rounded-xl border border-neutral-300 px-3 py-2 text-sm font-semibold disabled:opacity-50 dark:border-neutral-700">
+                      {referenceSearchBusy ? 'Aranıyor…' : '5 referans adayı bul'}
+                    </button>
+                    {referenceCandidates.length ? (
+                      <button type="button" disabled={referenceSearchBusy || selectedReferenceUrls.length !== 3} onClick={() => void runReferenceSearch('evaluate')} className="rounded-xl bg-emerald-600 px-3 py-2 text-sm font-semibold text-white disabled:opacity-40">
+                        Seçilen 3 siteyi değerlendir
+                      </button>
+                    ) : null}
+                  </div>
                 </Field>
+                {referenceCandidates.length ? (
+                  <div className="space-y-2 md:col-span-2">
+                    {referenceCandidates.map((candidate) => {
+                      const checked = selectedReferenceUrls.includes(candidate.url)
+                      return (
+                        <label key={candidate.url} className="flex cursor-pointer gap-3 rounded-xl border border-neutral-200 p-3 text-sm dark:border-neutral-700">
+                          <input type="checkbox" checked={checked} disabled={!checked && selectedReferenceUrls.length >= 3} onChange={() => setSelectedReferenceUrls((prev) => checked ? prev.filter((url) => url !== candidate.url) : [...prev, candidate.url])} />
+                          <span className="min-w-0">
+                            <span className="block font-semibold">{candidate.title || new URL(candidate.url).hostname}{candidate.score != null ? ` — %${candidate.score}` : ''}</span>
+                            <span className="block truncate text-neutral-500">{candidate.url}</span>
+                            <span className="block text-neutral-500">{candidate.reason || candidate.snippet}</span>
+                          </span>
+                        </label>
+                      )
+                    })}
+                  </div>
+                ) : null}
                 <Field className="block">
                   <Label>Görsel bağlantısı (Google Drive veya doğrudan)</Label>
                   <div className="flex gap-2">
