@@ -6,6 +6,9 @@ declare global {
       maximize?: () => void
       toggle?: () => void
       showWidget?: () => void
+      hideWidget?: () => void
+      onLoad?: () => void
+      onChatMinimized?: () => void
     }
     Tawk_LoadStart?: Date
   }
@@ -18,6 +21,7 @@ export type TawkRuntimeConfig = {
 
 let runtimeConfig: TawkRuntimeConfig | null = null
 let loadPromise: Promise<void> | null = null
+let openRequested = false
 
 function envTawkConfig(): TawkRuntimeConfig {
   return {
@@ -51,7 +55,9 @@ export function isTawkConfigured(): boolean {
 /** Tawk.to widget'ını aç / büyüt */
 export function openTawkWidget(): void {
   if (typeof window === 'undefined') return
+  openRequested = true
   const api = window.Tawk_API
+  api?.showWidget?.()
   if (api?.maximize) {
     api.maximize()
     return
@@ -77,6 +83,18 @@ export function ensureTawkScriptLoaded(): Promise<void> {
 
   loadPromise = new Promise((resolve) => {
     window.Tawk_API = window.Tawk_API || {}
+    window.Tawk_API.onLoad = () => {
+      if (openRequested) {
+        window.Tawk_API?.showWidget?.()
+        window.Tawk_API?.maximize?.()
+      } else {
+        window.Tawk_API?.hideWidget?.()
+      }
+    }
+    window.Tawk_API.onChatMinimized = () => {
+      openRequested = false
+      window.Tawk_API?.hideWidget?.()
+    }
     window.Tawk_LoadStart = new Date()
     const s = document.createElement('script')
     s.id = 'tawk-embed-script'

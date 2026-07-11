@@ -82,6 +82,8 @@ export function buildContentSecurityPolicy(mode = 'enforce') {
       'https://googleads.g.doubleclick.net',
       'https://www.google.com',
       'https://www.gstatic.com',
+      // Tawk.to emoji paketi (emojione) bu CDN'den dinamik olarak yüklenir.
+      'https://cdn.jsdelivr.net',
       'https://embed.tawk.to',
       'https://*.tawk.to',
       ...(cdn ? [cdn] : []),

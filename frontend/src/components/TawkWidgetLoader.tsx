@@ -1,6 +1,6 @@
 'use client'
 
-import { setTawkRuntimeConfig, ensureTawkScriptLoaded, isTawkConfigured } from '@/lib/tawk-widget'
+import { setTawkRuntimeConfig, isTawkConfigured } from '@/lib/tawk-widget'
 import { getSitePublicConfig as fetchSitePublicConfig } from '@/lib/travel-api'
 import { useEffect, useState } from 'react'
 
@@ -15,7 +15,6 @@ export default function TawkWidgetLoader() {
         if (cancelled) return
         setTawkRuntimeConfig(pub.branding ?? null)
         setReady(isTawkConfigured())
-        if (isTawkConfigured()) void ensureTawkScriptLoaded()
       })
       .catch(() => {
         if (!cancelled) setTawkRuntimeConfig(null)

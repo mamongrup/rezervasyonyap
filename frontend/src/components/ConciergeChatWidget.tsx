@@ -27,7 +27,7 @@ function normalizeChatLocale(raw: string): SiteLocaleCode {
   return ALLOWED_CHAT_LOCALES.has(l) ? (l as SiteLocaleCode) : 'tr'
 }
 
-export default function ConciergeChatWidget() {
+export default function ConciergeChatWidget({ hideLauncher = false }: { hideLauncher?: boolean }) {
   const pathname = usePathname()
   const uiLocale = normalizeChatLocale(useLocaleSegment())
   const hideOnManage = pathname?.includes('/manage')
@@ -128,7 +128,7 @@ export default function ConciergeChatWidget() {
   return (
     <>
       {/* Floating button — sadece lg+ ekranlarda görünür (mobilde bottom nav'da yer alıyor) */}
-      {!floatingSuppressed ? (
+      {!floatingSuppressed && !hideLauncher ? (
       <button
         type="button"
         onClick={onToggle}

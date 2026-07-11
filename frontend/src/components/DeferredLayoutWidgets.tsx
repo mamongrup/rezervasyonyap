@@ -9,7 +9,7 @@ const ConciergeChatWidget = dynamic(() => import('@/components/ConciergeChatWidg
 const SitePopupsRenderer = dynamic(() => import('@/components/popups/SitePopupsRenderer'), {
   ssr: false,
 })
-const WhatsAppFloatButton = dynamic(() => import('@/components/WhatsAppFloatButton'), {
+const CustomerSupportFloatMenu = dynamic(() => import('@/components/CustomerSupportFloatMenu'), {
   ssr: false,
 })
 const TawkWidgetLoader = dynamic(() => import('@/components/TawkWidgetLoader'), {
@@ -31,9 +31,9 @@ export function DeferredLayoutWidgets({ locale }: Props) {
   if (!mounted) return null
   return (
     <>
-      <WhatsAppFloatButton />
+      <CustomerSupportFloatMenu />
       <TawkWidgetLoader />
-      <ConciergeChatWidget />
+      <ConciergeChatWidget hideLauncher />
       <SitePopupsRenderer locale={locale} />
     </>
   )
