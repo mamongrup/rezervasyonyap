@@ -10,6 +10,7 @@ import { useEffect, useRef, useState } from 'react'
 export default function CustomerSupportFloatMenu() {
   const suppressed = useFloatingWidgetsSuppressed()
   const [open, setOpen] = useState(false)
+  const [pageOverlayOpen, setPageOverlayOpen] = useState(false)
   const [whatsapp, setWhatsapp] = useState(() => getSitePublicConfig().whatsappE164)
   const [tawkReady, setTawkReady] = useState(() => isTawkConfigured())
   const rootRef = useRef<HTMLDivElement>(null)
@@ -25,6 +26,23 @@ export default function CustomerSupportFloatMenu() {
     return () => { cancelled = true }
   }, [])
 
+  // Galeri, rezervasyon tarih/misafir seçicileri ve diğer ikincil ekranlar
+  // açıldığında destek düğmesi içerik üzerinde kalmasın. Registry kullanmayan
+  // eski dialogları da DOM üzerinden yakalar.
+  useEffect(() => {
+    const detectOverlay = () => {
+      const active = Boolean(
+        document.querySelector('[role="dialog"], .react-datepicker-popper, [data-vitrin-overlay="true"]'),
+      )
+      setPageOverlayOpen(active)
+      if (active) setOpen(false)
+    }
+    detectOverlay()
+    const observer = new MutationObserver(detectOverlay)
+    observer.observe(document.body, { childList: true, subtree: true })
+    return () => observer.disconnect()
+  }, [])
+
   useEffect(() => {
     const close = (event: MouseEvent) => {
       if (!rootRef.current?.contains(event.target as Node)) setOpen(false)
@@ -33,7 +51,7 @@ export default function CustomerSupportFloatMenu() {
     return () => document.removeEventListener('mousedown', close)
   }, [])
 
-  if (suppressed) return null
+  if (suppressed || pageOverlayOpen) return null
 
   const openAssistant = () => {
     setOpen(false)

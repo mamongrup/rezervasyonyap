@@ -1,6 +1,7 @@
 'use client'
 
 import { Button } from '@/shared/Button'
+import { useRegisterVitrinOverlay, vitrinOverlayDialogClassName } from '@/components/aside/aside'
 import ButtonClose from '@/shared/ButtonClose'
 import { getMessages } from '@/utils/getT'
 import { CloseButton, Dialog, DialogBackdrop, DialogPanel } from '@headlessui/react'
@@ -141,6 +142,7 @@ function GalleryShowAllOverlay({
 const HeaderGallery = ({ images, gridType = 'grid1' }: Props) => {
   let [isOpen, setIsOpen] = useState(false)
   let [startIndex, setStartIndex] = useState(0)
+  useRegisterVitrinOverlay(isOpen)
 
   const params = useParams()
   const locale = typeof params?.locale === 'string' ? params.locale : 'tr'
@@ -196,7 +198,7 @@ const HeaderGallery = ({ images, gridType = 'grid1' }: Props) => {
       )}
 
       {/* Dialog for full-screen image gallery */}
-      <Dialog open={isOpen} onClose={() => setIsOpen(false)} className="relative z-50">
+      <Dialog open={isOpen} onClose={() => setIsOpen(false)} className={vitrinOverlayDialogClassName}>
         {/* The backdrop, rendered as a fixed sibling to the panel container */}
         <DialogBackdrop className="fixed inset-0 bg-black" />
 
