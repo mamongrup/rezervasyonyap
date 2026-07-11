@@ -835,6 +835,12 @@ export default function CatalogNewListingClient({
 
   // ── İçerik ──
   const [youtubeUrl, setYoutubeUrl] = useState('')
+  const [sourceReferenceUrl, setSourceReferenceUrl] = useState('')
+  const [sourceImagesUrl, setSourceImagesUrl] = useState('')
+  const [sourceAvailabilityUrl, setSourceAvailabilityUrl] = useState('')
+  const [sourcePriceUrl, setSourcePriceUrl] = useState('')
+  const [sourceAnalyzing, setSourceAnalyzing] = useState(false)
+  const [sourceAnalyzeMessage, setSourceAnalyzeMessage] = useState('')
   /** İlan oluşmadan önce yüklenen galeri anahtarları; kayıtta `addListingImage` ile bağlanır */
   const [pendingGalleryKeys, setPendingGalleryKeys] = useState<string[]>([])
   /** Tatil evi düzenle: sunucudaki sıralı görseller (önizleme); yükleme ayrı galeri sayfasında */
@@ -972,6 +978,57 @@ export default function CatalogNewListingClient({
 
   function removePendingGallery(idx: number) {
     setPendingGalleryKeys((prev) => prev.filter((_, j) => j !== idx))
+  }
+
+  async function analyzeReferenceUrl() {
+    const url = sourceReferenceUrl.trim()
+    if (!url) return setSourceAnalyzeMessage('Önce referans bağlantısını girin.')
+    setSourceAnalyzing(true)
+    setSourceAnalyzeMessage('')
+    try {
+      const res = await fetch('/api/listing-reference-analyze', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url }),
+      })
+      const data = (await res.json()) as {
+        error?: string
+        title?: string
+        description?: string
+        image?: string
+        price?: string
+        availabilityUrl?: string
+      }
+      if (!res.ok) throw new Error(data.error || 'Bağlantı okunamadı')
+      if (data.title) setTitle(data.title)
+      if (data.description) setDescription(data.description)
+      if (data.image) {
+        setSourceImagesUrl(data.image)
+        setPendingGalleryKeys((previous) => previous.includes(data.image!) ? previous : [...previous, data.image!])
+      }
+      if (data.price) setBasePrice(data.price)
+      if (data.availabilityUrl) setSourceAvailabilityUrl(data.availabilityUrl)
+      setSourceAnalyzeMessage('Kaynak okundu. Bulunan alanlar forma aktarıldı; kaydetmeden önce kontrol edin.')
+    } catch (error) {
+      setSourceAnalyzeMessage(error instanceof Error ? error.message : 'Bağlantı okunamadı')
+    } finally {
+      setSourceAnalyzing(false)
+    }
+  }
+
+  function addSourceImage() {
+    let url = sourceImagesUrl.trim()
+    if (!url) return setSourceAnalyzeMessage('Önce görsel bağlantısını girin.')
+    const driveId = url.match(/drive\.google\.com\/(?:file\/d\/|open\?id=)([a-zA-Z0-9_-]+)/)?.[1]
+    if (driveId) url = `https://drive.google.com/uc?export=download&id=${driveId}`
+    try {
+      const parsed = new URL(url)
+      if (!['http:', 'https:'].includes(parsed.protocol)) throw new Error()
+    } catch {
+      return setSourceAnalyzeMessage('Geçerli bir HTTPS görsel veya herkese açık Google Drive dosya bağlantısı girin.')
+    }
+    setPendingGalleryKeys((previous) => previous.includes(url) ? previous : [...previous, url])
+    setSourceAnalyzeMessage('Görsel galeriye eklendi.')
   }
 
   useEffect(() => {
@@ -1252,11 +1309,6 @@ export default function CatalogNewListingClient({
       setNearbyPoisBusy(false)
       return
     }
-    if (!isStayRentalWizard && !isHotel) {
-      setEditListingReady(true)
-      return
-    }
-
     const token = getStoredAuthToken()
     if (!token) {
       setEditListingReady(true)
@@ -1304,7 +1356,7 @@ export default function CatalogNewListingClient({
           getListingMeta(token, lid, orgParam).catch(() => null),
           getVerticalMeta<Record<string, unknown>>(
             lid,
-            isHotel ? 'hotel' : isYacht ? 'yacht_charter' : 'holiday_home',
+            categoryCode,
           ).catch(() => ({} as Record<string, unknown>)),
           getListingAttributeValues(token, lid).catch(() => ({ values: [] })),
           getListingPriceLineSelections(token, lid, orgParam).catch(() => ({ item_ids: [] as string[] })),
@@ -1460,6 +1512,10 @@ export default function CatalogNewListingClient({
           }
           setPropertyType(meta.property_type ?? '')
           setYoutubeUrl(meta.youtube_url ?? '')
+          setSourceReferenceUrl(meta.source_reference_url ?? '')
+          setSourceImagesUrl(meta.source_images_url ?? '')
+          setSourceAvailabilityUrl(meta.source_availability_url ?? '')
+          setSourcePriceUrl(meta.source_price_url ?? '')
           setMinistryLicenseRef((prev) => (prev.trim() ? prev : (meta.tourism_cert_no ?? '')))
           setAddress(meta.address ?? '')
           setDistrictLabel(meta.district_label ?? '')
@@ -2827,6 +2883,10 @@ export default function CatalogNewListingClient({
       if (roomCount.trim()) metaBody.room_count = roomCount.trim()
       if (isVilla && propertyType.trim()) metaBody.property_type = propertyType.trim()
       if (youtubeUrl.trim()) metaBody.youtube_url = youtubeUrl.trim()
+      metaBody.source_reference_url = sourceReferenceUrl.trim()
+      metaBody.source_images_url = sourceImagesUrl.trim()
+      metaBody.source_availability_url = sourceAvailabilityUrl.trim()
+      metaBody.source_price_url = sourcePriceUrl.trim()
       if (ministryLicenseRef.trim()) metaBody.tourism_cert_no = ministryLicenseRef.trim()
       if (address.trim()) metaBody.address = address.trim()
       if (isHotel) {
@@ -3797,6 +3857,39 @@ export default function CatalogNewListingClient({
             {/* ── ADIM 0 devam: İlan İçeriği ── */}
             {currentStep === 0 && (
             <>
+            <Section title="Kaynak ve otomatik kontrol">
+              <p className="mb-4 text-sm text-neutral-500">
+                İlanın asıl sayfasını tanımlayın. Sistem başlık, açıklama, fiyat ve görsel bilgisini okuyup forma aktarır;
+                kayıt sonrasında bu bağlantılar fiyat ve müsaitlik kontrollerinde kullanılır.
+              </p>
+              <div className="grid gap-4 md:grid-cols-2">
+                <Field className="block md:col-span-2">
+                  <Label>İlan referans bağlantısı</Label>
+                  <div className="flex gap-2">
+                    <Input value={sourceReferenceUrl} onChange={(e) => setSourceReferenceUrl(e.target.value)} placeholder="https://..." />
+                    <button type="button" disabled={sourceAnalyzing} onClick={() => void analyzeReferenceUrl()} className="shrink-0 rounded-xl bg-neutral-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50 dark:bg-white dark:text-neutral-900">
+                      {sourceAnalyzing ? 'Okunuyor…' : 'Bilgileri getir'}
+                    </button>
+                  </div>
+                </Field>
+                <Field className="block">
+                  <Label>Görsel bağlantısı (Google Drive veya doğrudan)</Label>
+                  <div className="flex gap-2">
+                    <Input value={sourceImagesUrl} onChange={(e) => setSourceImagesUrl(e.target.value)} placeholder="Herkese açık Drive dosyası ya da görsel URL'si" />
+                    <button type="button" onClick={addSourceImage} className="shrink-0 rounded-xl border border-neutral-300 px-3 py-2 text-sm font-semibold dark:border-neutral-700">Galeriye ekle</button>
+                  </div>
+                </Field>
+                <Field className="block">
+                  <Label>Fiyat kontrol bağlantısı</Label>
+                  <Input value={sourcePriceUrl} onChange={(e) => setSourcePriceUrl(e.target.value)} placeholder="Boşsa referans bağlantısı kullanılır" />
+                </Field>
+                <Field className="block md:col-span-2">
+                  <Label>Müsaitlik bağlantısı (iCal / ICS veya kaynak sayfa)</Label>
+                  <Input value={sourceAvailabilityUrl} onChange={(e) => setSourceAvailabilityUrl(e.target.value)} placeholder="https://.../calendar.ics" />
+                </Field>
+              </div>
+              {sourceAnalyzeMessage ? <p className="mt-3 text-sm text-amber-700 dark:text-amber-300">{sourceAnalyzeMessage}</p> : null}
+            </Section>
             {/* İlan İçeriği */}
             <Section
               title={
