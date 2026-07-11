@@ -10356,6 +10356,15 @@ export interface ListingMeta {
   city?: string
   /** Vitrin konum: il (ör. Muğla, Antalya) */
   province_city?: string
+  /** İlan bilgilerinin alındığı harici kaynak ve otomatik kontrol bağlantıları. */
+  source_reference_url?: string
+  source_images_url?: string
+  source_availability_url?: string
+  source_price_url?: string
+  /** Arka plan kaynak senkronizasyonunun son sonucu (salt okunur). */
+  source_last_sync_at?: string
+  source_last_sync_status?: string
+  source_last_sync_error?: string
 }
 
 /** PostgreSQL jsonb, string değerlerde U+0000 kabul etmez; kayıt öncesi tüm düğümlerde çıkarılır. */
@@ -10400,6 +10409,10 @@ const LISTING_META_PUT_KEYS = new Set([
   'district_label',
   'city',
   'province_city',
+  'source_reference_url',
+  'source_images_url',
+  'source_availability_url',
+  'source_price_url',
 ])
 
 /** listings.map_lat / map_lng = NUMERIC(10,7); aralık dışı veya aşırı hassas değerler PG güncellemesini düşürür */
