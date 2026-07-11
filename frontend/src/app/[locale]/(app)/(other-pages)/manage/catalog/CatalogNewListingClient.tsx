@@ -996,6 +996,7 @@ export default function CatalogNewListingClient({
         title?: string
         description?: string
         image?: string
+        images?: string[]
         price?: string
         availabilityUrl?: string
       }
@@ -1006,9 +1007,12 @@ export default function CatalogNewListingClient({
         setSourceImagesUrl(data.image)
         setPendingGalleryKeys((previous) => previous.includes(data.image!) ? previous : [...previous, data.image!])
       }
+      if (data.images?.length) {
+        setPendingGalleryKeys((previous) => [...new Set([...previous, ...data.images!])])
+      }
       if (data.price) setBasePrice(data.price)
       if (data.availabilityUrl) setSourceAvailabilityUrl(data.availabilityUrl)
-      setSourceAnalyzeMessage('Kaynak okundu. Bulunan alanlar forma aktarıldı; kaydetmeden önce kontrol edin.')
+      setSourceAnalyzeMessage(`Kaynak okundu${data.images?.length ? `; Drive klasöründen ${data.images.length} görsel galeriye eklendi` : ''}. Bulunan alanları kaydetmeden önce kontrol edin.`)
     } catch (error) {
       setSourceAnalyzeMessage(error instanceof Error ? error.message : 'Bağlantı okunamadı')
     } finally {
@@ -3018,7 +3022,7 @@ export default function CatalogNewListingClient({
       }
 
       // Tur2: iCal — tatil evi ana formda; otelde yeni ilanda tek kayıt; düzenlemede otel beslemeleri gelişmiş panelden.
-      const icalUrlTrim = icalImportUrl.trim()
+      const icalUrlTrim = (sourceAvailabilityUrl.trim() || icalImportUrl.trim())
       if (icalUrlTrim) {
         if (isStayRentalWizard) {
           if (!editListingId || !icalUrlsAtHydrateRef.current.has(icalUrlTrim)) {

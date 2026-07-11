@@ -264,6 +264,20 @@ main() {
     warn "Sosyal paylaşım worker systemd dosyaları bulunamadı."
   fi
 
+  if [[ "${SKIP_IMPORT_SCHEDULER_TIMER:-0}" == "1" ]]; then
+    warn "SKIP_IMPORT_SCHEDULER_TIMER=1 — ilan kaynak senkronizasyon zamanlayıcısı atlandı."
+  elif [[ -f "$APP_ROOT/deploy/systemd/travel-import-scheduler.service" && -f "$APP_ROOT/deploy/systemd/travel-import-scheduler.timer" ]]; then
+    step "İlan kaynak ve sağlayıcı senkronizasyon timer kurulumu"
+    cp "$APP_ROOT/deploy/systemd/travel-import-scheduler.service" /etc/systemd/system/travel-import-scheduler.service \
+      && cp "$APP_ROOT/deploy/systemd/travel-import-scheduler.timer" /etc/systemd/system/travel-import-scheduler.timer \
+      && systemctl daemon-reload \
+      && systemctl enable --now travel-import-scheduler.timer \
+      && ok "travel-import-scheduler.timer etkin" \
+      || warn "travel-import-scheduler.timer kurulamadı; systemd/log kontrol edin."
+  else
+    warn "İlan kaynak senkronizasyon systemd dosyaları bulunamadı."
+  fi
+
   if [[ "${SKIP_WARM_CACHE_TIMER:-0}" == "1" ]]; then
     warn "SKIP_WARM_CACHE_TIMER=1 — vitrin önbellek ısıtma timer kurulumu atlandı."
   elif [[ -f "$APP_ROOT/deploy/systemd/travel-warm-cache.service" && -f "$APP_ROOT/deploy/systemd/travel-warm-cache.timer" ]]; then

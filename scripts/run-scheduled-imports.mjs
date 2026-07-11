@@ -28,6 +28,7 @@ const PROVIDER_SCRIPTS = {
   travelrobot: 'scripts/sync-travelrobot-auto.mjs',
   turna: 'scripts/import-turna-flights.mjs',
   yolcu360: 'scripts/sync-yolcu360-auto.mjs',
+  listing_reference: 'scripts/sync-listing-reference-sources.mjs',
 }
 
 const args = new Set(process.argv.slice(2))
@@ -121,7 +122,9 @@ async function main() {
         continue
       }
 
-      const hours = Array.isArray(schedule[provider]) ? schedule[provider] : []
+      const hours = Array.isArray(schedule[provider])
+        ? schedule[provider]
+        : (provider === 'listing_reference' ? [1, 7, 13, 19] : [])
       const shouldRun = FORCE_ALL || hours.includes(nowHour)
 
       if (!shouldRun) {

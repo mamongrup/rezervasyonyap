@@ -24,6 +24,7 @@ const schedule = {
   travelrobot: parseHoursEnv('IMPORT_SCHEDULE_TRAVELROBOT', [2, 14]),
   turna: parseHoursEnv('IMPORT_SCHEDULE_TURNA', [4]),
   yolcu360: parseHoursEnv('IMPORT_SCHEDULE_YOLCU360', [6]),
+  listing_reference: parseHoursEnv('IMPORT_SCHEDULE_LISTING_REFERENCE', [1, 7, 13, 19]),
 }
 
 console.log(dryRun ? '[dry-run] import_schedule:' : 'Kaydediliyor import_schedule:')

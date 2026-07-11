@@ -61,10 +61,14 @@ export async function POST(req: NextRequest) {
       .find(Boolean)
     const offers = jsonLd && typeof jsonLd.offers === 'object' ? jsonLd.offers as Record<string, unknown> : null
     const titleTag = decode(html.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1] ?? '')
+    const driveIds = current.hostname === 'drive.google.com'
+      ? [...new Set([...html.matchAll(/(?:\/file\/d\/|\\x2Ffile\\x2Fd\\x2F)([a-zA-Z0-9_-]{20,})/g)].map((match) => match[1]))]
+      : []
     return NextResponse.json({
       title: String(jsonLd?.name ?? meta(html, 'og:title') ?? titleTag).slice(0, 240),
       description: String(jsonLd?.description ?? meta(html, 'og:description') ?? meta(html, 'description')).slice(0, 10_000),
       image: String(jsonLd?.image ?? meta(html, 'og:image')).slice(0, 2_000),
+      images: driveIds.slice(0, 100).map((id) => `https://drive.google.com/uc?export=download&id=${id}`),
       price: String(offers?.price ?? meta(html, 'product:price:amount')).replace(/[^0-9.,]/g, '').slice(0, 30),
       sourceUrl: current.toString(),
     })
