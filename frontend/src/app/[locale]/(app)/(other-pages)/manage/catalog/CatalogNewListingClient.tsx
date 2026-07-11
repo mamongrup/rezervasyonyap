@@ -1478,6 +1478,23 @@ export default function CatalogNewListingClient({
           return next
         })
 
+        // Genel kategori formu tek dil alanı kullanır. Çeviriler yalnızca
+        // listingByLocale içine yazılırsa canlıda bulunan başlık/açıklama
+        // düzenleme ekranında boş görünür. İstenen dil, ardından Türkçe ve
+        // son olarak ilk dolu çeviriyle formu hydrate et.
+        if (!isVilla) {
+          const selectedTranslation =
+            trans.translations.find((item) => item.locale_code === locale) ??
+            trans.translations.find((item) => item.locale_code === 'tr') ??
+            trans.translations.find((item) => item.title?.trim() || item.description?.trim())
+          if (selectedTranslation) {
+            setTitle(selectedTranslation.title ?? '')
+            setDescription(selectedTranslation.description ?? '')
+          } else if (row?.title?.trim()) {
+            setTitle(row.title.trim())
+          }
+        }
+
         if (basics) {
           setStatus(basics.status === 'published' ? 'published' : basics.status === 'archived' ? 'archived' : 'draft')
           setMinStayNights(basics.min_stay_nights ?? '')
