@@ -4774,7 +4774,7 @@ export async function getCheckoutPaymentMethods(): Promise<CheckoutPaymentMethod
 }
 
 export async function setActivePaymentProvider(
-  code: 'paytr' | 'paratika',
+  code: 'parampos' | 'paratika',
   token: string,
 ): Promise<{ ok: boolean; active: string }> {
   const b = base()

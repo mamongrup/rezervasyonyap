@@ -834,7 +834,7 @@ export default function GeneralSettingsClient({ embedded = false }: GeneralSetti
     }))
   }
 
-  async function onSetProvider(code: 'paytr' | 'paratika') {
+  async function onSetProvider(code: 'parampos' | 'paratika') {
     const token = getStoredAuthToken()
     if (!token) {
       setStatus({
@@ -1367,8 +1367,8 @@ export default function GeneralSettingsClient({ embedded = false }: GeneralSetti
           <code className="rounded bg-neutral-100 px-1 font-mono text-xs dark:bg-neutral-800">admin.integrations.write</code>.
         </p>
         <div className="mt-4 flex flex-wrap gap-3">
-          <ButtonPrimary type="button" onClick={() => void onSetProvider('paytr')}>
-            PayTR seç
+          <ButtonPrimary type="button" onClick={() => void onSetProvider('parampos')}>
+            ParamPOS seç
           </ButtonPrimary>
           <ButtonPrimary type="button" onClick={() => void onSetProvider('paratika')}>
             Paratika seç

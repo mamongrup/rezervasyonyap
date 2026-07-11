@@ -9,8 +9,8 @@ import gleam/json
 import gleam/result
 import gleam/string
 import pog
-import travel/db/resilient_pog as db_exec
 import travel/db/decode_helpers as row_dec
+import travel/db/resilient_pog as db_exec
 import travel/identity/permissions
 import wisp.{type Request, type Response}
 
@@ -32,7 +32,9 @@ fn trim_or_empty(s: String) -> String {
   string.trim(s)
 }
 
-fn checkout_bank_decoder() -> decode.Decoder(#(String, String, String, String, String)) {
+fn checkout_bank_decoder() -> decode.Decoder(
+  #(String, String, String, String, String),
+) {
   {
     use iban_try <- decode.optional_field("iban_try", "", decode.string)
     use eur <- decode.optional_field("iban_eur", "", decode.string)
@@ -43,49 +45,36 @@ fn checkout_bank_decoder() -> decode.Decoder(#(String, String, String, String, S
   }
 }
 
-fn checkout_methods_from_db(db: pog.Connection) -> #(
-  String,
-  String,
-  String,
-  String,
-  String,
-  String,
-  String,
-) {
-  let raw =
-    case
-      pog.query(
-        "select coalesce(value_json::text, '{}') from site_settings"
-        <> " where key = $1 and organization_id is null limit 1",
-      )
-      |> pog.parameter(pog.text(checkout_methods_key))
-      |> pog.returning({
-        use a <- decode.field(0, decode.string)
-        decode.success(a)
-      })
-      |> db_exec.execute(db)
-    {
-      Ok(ret) ->
-        case ret.rows {
-          [r] -> r
-          _ -> "{}"
-        }
-      Error(_) -> "{}"
-    }
+fn checkout_methods_from_db(
+  db: pog.Connection,
+) -> #(String, String, String, String, String, String, String) {
+  let raw = case
+    pog.query(
+      "select coalesce(value_json::text, '{}') from site_settings"
+      <> " where key = $1 and organization_id is null limit 1",
+    )
+    |> pog.parameter(pog.text(checkout_methods_key))
+    |> pog.returning({
+      use a <- decode.field(0, decode.string)
+      decode.success(a)
+    })
+    |> db_exec.execute(db)
+  {
+    Ok(ret) ->
+      case ret.rows {
+        [r] -> r
+        _ -> "{}"
+      }
+    Error(_) -> "{}"
+  }
 
   let bank_decoder =
-    decode.field(
-      "bank_transfer",
-      checkout_bank_decoder(),
-      fn(v) { decode.success(v) },
-    )
+    decode.field("bank_transfer", checkout_bank_decoder(), fn(v) {
+      decode.success(v)
+    })
 
   let wu_decoder =
-    decode.field(
-      "western_union",
-      decode.string,
-      fn(v) { decode.success(v) },
-    )
+    decode.field("western_union", decode.string, fn(v) { decode.success(v) })
 
   let ria_decoder =
     decode.field("ria", decode.string, fn(v) { decode.success(v) })
@@ -203,13 +192,15 @@ fn set_decoder() -> decode.Decoder(String) {
   decode.field("code", decode.string, fn(code) { decode.success(code) })
 }
 
-/// POST /api/v1/payments/active-provider — `{ "code": "paytr" | "paratika" }` — `admin.integrations.write`
+/// POST /api/v1/payments/active-provider — `{ "code": "parampos" | "paratika" }` — `admin.integrations.write`
 pub fn set_active_provider(req: Request, ctx: Context) -> Response {
   use <- wisp.require_method(req, http.Post)
   case permissions.session_user_from_request(req, ctx.db) {
     Error(r) -> r
     Ok(uid) ->
-      case permissions.user_has_permission(ctx.db, uid, "admin.integrations.write") {
+      case
+        permissions.user_has_permission(ctx.db, uid, "admin.integrations.write")
+      {
         False -> json_err(403, "forbidden")
         True ->
           case read_body_string(req) {
@@ -219,7 +210,7 @@ pub fn set_active_provider(req: Request, ctx: Context) -> Response {
                 Error(_) -> json_err(400, "invalid_json")
                 Ok(code_raw) -> {
                   let code = string.lowercase(string.trim(code_raw))
-                  case code == "paytr" || code == "paratika" {
+                  case code == "parampos" || code == "paratika" {
                     False -> json_err(400, "invalid_code")
                     True ->
                       case

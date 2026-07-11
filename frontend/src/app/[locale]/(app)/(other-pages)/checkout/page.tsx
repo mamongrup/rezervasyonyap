@@ -440,15 +440,12 @@ function CheckoutPageContent() {
           currency_code: out.currency_code,
         }
 
-        let provider: 'paytr' | 'paratika' | 'none' = 'none'
+        let provider: 'parampos' | 'paratika' | 'none' = 'none'
         try {
           const ap = await getActivePaymentProvider()
-          if (ap.active === 'paytr' || ap.active === 'paratika') provider = ap.active
+          if (ap.active === 'parampos' || ap.active === 'paratika') provider = ap.active
         } catch {
           /* env fallback */
-        }
-        if (provider === 'none' && process.env.NEXT_PUBLIC_PAYTR_CHECKOUT !== '0') {
-          provider = 'paytr'
         }
 
         localStorage.setItem('travel_paydone_email', email)
@@ -484,15 +481,19 @@ function CheckoutPageContent() {
 
         setCreatedPublicCode(out.public_code)
 
+        if (paymentChannel === 'card' && provider === 'none') {
+          throw new Error('card_payment_provider_not_configured')
+        }
+
         if (paymentChannel === 'card' && provider === 'paratika') {
           setParatikaPayload(payload)
           setPending(false)
           return
         }
 
-        if (paymentChannel === 'card' && provider === 'paytr') {
-          sessionStorage.setItem('travel_paytr_checkout', JSON.stringify(payload))
-          router.push(vitrinHref('/checkout/paytr'))
+        if (paymentChannel === 'card' && provider === 'parampos') {
+          sessionStorage.setItem('travel_parampos_checkout', JSON.stringify({ ...payload, guest_phone: contactPhone.trim() }))
+          router.push(vitrinHref('/checkout/parampos'))
           return
         }
 

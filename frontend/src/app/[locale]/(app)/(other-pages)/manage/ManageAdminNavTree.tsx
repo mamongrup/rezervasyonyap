@@ -174,7 +174,7 @@ const GROUPS: NavGroupDef[] = [
     items: [
       { path: '/manage/admin/settings/listing-api', label: 'İlan API (Wtatil, Travelrobot, Turna…)' },
       { path: '/manage/admin/settings/integrations', label: 'Genel entegrasyon ayarları' },
-      { path: '/manage/finance/payment-gateways', label: 'Sanal POS (PayTR / Paratika)' },
+      { path: '/manage/finance/payment-gateways', label: 'Sanal POS (ParamPOS / Paratika)' },
     ],
   },
   {
@@ -186,7 +186,7 @@ const GROUPS: NavGroupDef[] = [
       { path: '/manage/admin/payments/gateways', label: 'Ticari & sosyal (GMP/IG/WA)' },
       { path: '/manage/finance/invoices', label: 'Tüm faturalar' },
       { path: '/manage/finance/commissions', label: 'Komisyon ayarları' },
-      { path: '/manage/finance/payment-gateways', label: 'Sanal POS (PayTR / Paratika)' },
+      { path: '/manage/finance/payment-gateways', label: 'Sanal POS (ParamPOS / Paratika)' },
       { path: '/manage/finance/reports', label: 'Mali raporlar' },
     ],
   },

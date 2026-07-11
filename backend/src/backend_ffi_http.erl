@@ -1,6 +1,7 @@
 -module(backend_ffi_http).
 -export([
   post_urlencoded/2,
+  post_xml/3,
   get_url/1,
   get_url_with_auth/2,
   post_json/3,
@@ -9,6 +10,23 @@
   parse_tcmb_xml/1,
   spawn_unlinked/1
 ]).
+
+post_xml(Url, Body, SoapAction) when is_binary(Url), is_binary(Body), is_binary(SoapAction) ->
+  {ok, _} = application:ensure_all_started(inets),
+  {ok, _} = application:ensure_all_started(ssl),
+  UrlStr = binary_to_list(Url),
+  Headers = [{"SOAPAction", binary_to_list(SoapAction)}, {"Accept", "text/xml"}],
+  Request = {UrlStr, Headers, "text/xml; charset=utf-8", binary_to_list(Body)},
+  HttpOptions = [{connect_timeout, 15000}, {timeout, 45000}, {ssl, ssl_opts_for_url(UrlStr)}],
+  case httpc:request(post, Request, HttpOptions, []) of
+    {ok, {{_, Status, _}, _RespHeaders, RespBody}} ->
+      Bin = iolist_to_binary(RespBody),
+      case Status >= 200 andalso Status < 300 of
+        true -> {ok, Bin};
+        false -> {error, Bin}
+      end;
+    {error, Reason} -> {error, iolist_to_binary(io_lib:format("~p", [Reason]))}
+  end.
 
 %% Gleam closure'ı bağımsız (unlinked) bir Erlang process olarak başlatır.
 spawn_unlinked(Fun) ->

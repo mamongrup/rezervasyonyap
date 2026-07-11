@@ -845,7 +845,7 @@ export default function AgencyManageClient() {
             Kalıcı tahakkuk (ödeme sonrası, DB)
           </h3>
           <p className="mt-1 text-xs text-neutral-500">
-            PayTR/Paratika <span className="font-mono">captured</span> sonrası yazılan{' '}
+            ParamPOS/Paratika <span className="font-mono">captured</span> sonrası yazılan{' '}
             <span className="font-mono">commission_accrual_lines</span>; filtre: kayıt{' '}
             <span className="font-mono">created_at</span>.
           </p>

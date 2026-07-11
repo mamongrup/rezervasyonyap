@@ -3,12 +3,22 @@
 @external(erlang, "backend_ffi_http", "post_urlencoded")
 pub fn post_urlencoded(url: String, body: String) -> Result(String, String)
 
+@external(erlang, "backend_ffi_http", "post_xml")
+pub fn post_xml(
+  url: String,
+  body: String,
+  soap_action: String,
+) -> Result(String, String)
+
 @external(erlang, "backend_ffi_http", "get_url")
 pub fn get_url(url: String) -> Result(String, String)
 
 /// `authorization` boşsa Authorization başlığı gönderilmez; aksi halde `Bearer …` veya tam başlık değeri.
 @external(erlang, "backend_ffi_http", "get_url_with_auth")
-pub fn get_url_with_auth(url: String, authorization: String) -> Result(String, String)
+pub fn get_url_with_auth(
+  url: String,
+  authorization: String,
+) -> Result(String, String)
 
 /// JSON gövde; `authorization` boşsa Authorization başlığı gönderilmez.
 @external(erlang, "backend_ffi_http", "post_json_with_timeout")
@@ -20,7 +30,11 @@ pub fn post_json_with_timeout(
 ) -> Result(String, String)
 
 /// Varsayılan 180 sn (eski davranış); ayarlı süre için `post_json_with_timeout` kullanın.
-pub fn post_json(url: String, body: String, authorization: String) -> Result(String, String) {
+pub fn post_json(
+  url: String,
+  body: String,
+  authorization: String,
+) -> Result(String, String) {
   post_json_with_timeout(url, body, authorization, 180_000)
 }
 

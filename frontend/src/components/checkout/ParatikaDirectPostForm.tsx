@@ -25,6 +25,7 @@ type Props = {
   defaultCardOwner?: string
   labels: ParatikaDirectPostLabels
   onBeforeSubmit?: () => void
+  hiddenFields?: Record<string, string>
 }
 
 const MONTHS = Array.from({ length: 12 }, (_, i) => String(i + 1).padStart(2, '0'))
@@ -58,6 +59,7 @@ export default function ParatikaDirectPostForm({
   defaultCardOwner = '',
   labels,
   onBeforeSubmit,
+  hiddenFields = {},
 }: Props) {
   const years = useMemo(() => {
     const y = new Date().getFullYear()
@@ -81,6 +83,7 @@ export default function ParatikaDirectPostForm({
           <input type="hidden" name="installmentCount" value="1" />
           <input type="hidden" name="points" value="" />
           <input type="hidden" name="pan" value="" />
+          {Object.entries(hiddenFields).map(([name, value]) => <input key={name} type="hidden" name={name} value={value} />)}
         </>
       ) : null}
 

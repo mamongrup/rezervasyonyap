@@ -1,84 +1,85 @@
 import backend/config.{type AppConfig}
 import backend/context.{type Context, Context}
-import travel/db/pool_health
-import travel/db/resilient_pog as db_exec
-import travel/booking/booking_http
-import travel/booking/cart_coupon_http
-import travel/currency/currency_http
-import travel/banners/banner_http
-import travel/i18n/i18n_http
-import travel/i18n/localized_routes_http
-import travel/agent/agent_http
-import travel/agent/agent_catalog_http
-import travel/agent/agent_booking_http
-import travel/agent/agent_stay_quote
-import travel/agent/agent_openapi_http
-import travel/agency/agency_http
-import travel/staff/staff_http
-import travel/supplier/supplier_http
-import travel/supplier/supplier_application_http
-import travel/booking/provizyon_http
-import travel/identity/identity_http
-import travel/integrations/netgsm_http
-import travel/integrations/paratika_http
-import travel/integrations/paytr_http
-import travel/integrations/travelrobot_http
-import travel/integrations/kplus_booking_http
-import travel/integrations/turna_flight_http
-import travel/integrations/turna_http
-import travel/integrations/wtatil_http
-import travel/integrations/yolcu360_http
-import travel/module_tree
-import travel/payments/payment_settings_http
-import travel/site/site_settings_http
-import travel/admin/sync_jobs_http
-import travel/marketing/marketing_http
-import travel/messaging/messaging_catalog_http
-import travel/navigation/navigation_http
-import travel/engagement/engagement_http
-import travel/engagement/social_proof_http
-import travel/engagement/listing_reports_http
-import travel/catalog/listing_perks_http
-import travel/catalog/listing_pois_http
-import travel/catalog/super_host_http
-import travel/reviews/reviews_http
-import travel/ical/ical_export_http
-import travel/locations/locations_http
-import travel/media/listing_images_http
-import travel/media/media_http
-import travel/operations/operations_http
-import travel/blog/blog_http
-import travel/catalog/collections_http
-import travel/cms/cms_http
-import travel/seo/seo_http
-import travel/social/social_http
-import travel/social/social_worker_http
-import travel/support/ticket_http
-import travel/support/chat_http
-import travel/support/helpdesk_catalog_http
-import travel/integrations/integrations_http
-import travel/ai/ai_http
-import travel/ai_agents/agent_center_http
-import travel/ai/commerce_agent_center_http
-import travel/ai/ai_worker_http
-import travel/ai/district_ideas_http
-import travel/ai/region_content_http
-import travel/ai/trip_routes_http
-import travel/ai/listing_content_http
-import travel/verticals/verticals_http
-import travel/catalog/catalog_http
-import travel/workspace/workspace_http
+import envoy
 import gleam/dynamic/decode
 import gleam/http
 import gleam/http/request
 import gleam/http/response
 import gleam/json
-import envoy
 import gleam/list
 import gleam/otp/actor
-import pog
 import gleam/result
 import gleam/string
+import pog
+import travel/admin/sync_jobs_http
+import travel/agency/agency_http
+import travel/agent/agent_booking_http
+import travel/agent/agent_catalog_http
+import travel/agent/agent_http
+import travel/agent/agent_openapi_http
+import travel/agent/agent_stay_quote
+import travel/ai/ai_http
+import travel/ai/ai_worker_http
+import travel/ai/commerce_agent_center_http
+import travel/ai/district_ideas_http
+import travel/ai/listing_content_http
+import travel/ai/region_content_http
+import travel/ai/trip_routes_http
+import travel/ai_agents/agent_center_http
+import travel/banners/banner_http
+import travel/blog/blog_http
+import travel/booking/booking_http
+import travel/booking/cart_coupon_http
+import travel/booking/provizyon_http
+import travel/catalog/catalog_http
+import travel/catalog/collections_http
+import travel/catalog/listing_perks_http
+import travel/catalog/listing_pois_http
+import travel/catalog/super_host_http
+import travel/cms/cms_http
+import travel/currency/currency_http
+import travel/db/pool_health
+import travel/db/resilient_pog as db_exec
+import travel/engagement/engagement_http
+import travel/engagement/listing_reports_http
+import travel/engagement/social_proof_http
+import travel/i18n/i18n_http
+import travel/i18n/localized_routes_http
+import travel/ical/ical_export_http
+import travel/identity/identity_http
+import travel/integrations/integrations_http
+import travel/integrations/kplus_booking_http
+import travel/integrations/netgsm_http
+import travel/integrations/parampos_http
+import travel/integrations/paratika_http
+import travel/integrations/paytr_http
+import travel/integrations/travelrobot_http
+import travel/integrations/turna_flight_http
+import travel/integrations/turna_http
+import travel/integrations/wtatil_http
+import travel/integrations/yolcu360_http
+import travel/locations/locations_http
+import travel/marketing/marketing_http
+import travel/media/listing_images_http
+import travel/media/media_http
+import travel/messaging/messaging_catalog_http
+import travel/module_tree
+import travel/navigation/navigation_http
+import travel/operations/operations_http
+import travel/payments/payment_settings_http
+import travel/reviews/reviews_http
+import travel/seo/seo_http
+import travel/site/site_settings_http
+import travel/social/social_http
+import travel/social/social_worker_http
+import travel/staff/staff_http
+import travel/supplier/supplier_application_http
+import travel/supplier/supplier_http
+import travel/support/chat_http
+import travel/support/helpdesk_catalog_http
+import travel/support/ticket_http
+import travel/verticals/verticals_http
+import travel/workspace/workspace_http
 import wisp.{type Request, type Response}
 
 pub fn create_context(cfg: AppConfig) -> Result(Context, String) {
@@ -87,8 +88,7 @@ pub fn create_context(cfg: AppConfig) -> Result(Context, String) {
       case db_exec.start(cfg.database_reserve) {
         Ok(actor.Started(data: db_reserve, ..)) -> {
           let _ = db_exec.set_reserve_pool(db_reserve)
-          let _ =
-            pool_health.start(db, db_reserve, cfg.db_health_interval_ms)
+          let _ = pool_health.start(db, db_reserve, cfg.db_health_interval_ms)
           Ok(Context(db:, invoice_notify: cfg.invoice_notify))
         }
         Error(_) -> Error("PostgreSQL reserve pool failed to start")
@@ -120,9 +120,11 @@ fn dispatch(req: Request, ctx: Context) -> Response {
 
     http.Get, ["api", "v1", "modules"] -> modules_json()
 
-    http.Get, ["api", "v1", "i18n", "locales"] -> i18n_http.list_locales(req, ctx)
+    http.Get, ["api", "v1", "i18n", "locales"] ->
+      i18n_http.list_locales(req, ctx)
 
-    http.Post, ["api", "v1", "i18n", "locales"] -> i18n_http.create_locale(req, ctx)
+    http.Post, ["api", "v1", "i18n", "locales"] ->
+      i18n_http.create_locale(req, ctx)
 
     http.Get, ["api", "v1", "i18n", "bundle"] -> i18n_http.get_bundle(req, ctx)
 
@@ -192,14 +194,34 @@ fn dispatch(req: Request, ctx: Context) -> Response {
     http.Put, ["api", "v1", "catalog", "listings", lid, "hotel-rooms"] ->
       catalog_http.put_manage_hotel_rooms(req, ctx, lid)
 
-    http.Delete, ["api", "v1", "catalog", "listings", lid, "hotel-rooms", rid] ->
-      catalog_http.delete_manage_hotel_room(req, ctx, lid, rid)
+    http.Delete, ["api", "v1", "catalog", "listings", lid, "hotel-rooms", rid]
+    -> catalog_http.delete_manage_hotel_room(req, ctx, lid, rid)
 
-    http.Get, ["api", "v1", "catalog", "listings", lid, "hotel-rooms", rid, "availability-calendar"] ->
-      catalog_http.get_hotel_room_availability_calendar(req, ctx, lid, rid)
+    http.Get,
+      [
+        "api",
+        "v1",
+        "catalog",
+        "listings",
+        lid,
+        "hotel-rooms",
+        rid,
+        "availability-calendar",
+      ]
+    -> catalog_http.get_hotel_room_availability_calendar(req, ctx, lid, rid)
 
-    http.Put, ["api", "v1", "catalog", "listings", lid, "hotel-rooms", rid, "availability-calendar"] ->
-      catalog_http.put_hotel_room_availability_calendar(req, ctx, lid, rid)
+    http.Put,
+      [
+        "api",
+        "v1",
+        "catalog",
+        "listings",
+        lid,
+        "hotel-rooms",
+        rid,
+        "availability-calendar",
+      ]
+    -> catalog_http.put_hotel_room_availability_calendar(req, ctx, lid, rid)
 
     // ── Yemek Planları ────────────────────────────────────────────────
     http.Get, ["api", "v1", "catalog", "listings", lid, "meal-plans"] ->
@@ -214,8 +236,8 @@ fn dispatch(req: Request, ctx: Context) -> Response {
     http.Delete, ["api", "v1", "catalog", "listings", lid, "meal-plans", pid] ->
       catalog_http.delete_manage_meal_plan(req, ctx, lid, pid)
 
-    http.Get, ["api", "v1", "catalog", "public", "listings", lid, "meal-plans"] ->
-      catalog_http.list_public_meal_plans(req, ctx, lid)
+    http.Get, ["api", "v1", "catalog", "public", "listings", lid, "meal-plans"]
+    -> catalog_http.list_public_meal_plans(req, ctx, lid)
 
     http.Get, ["api", "v1", "catalog", "listings", lid, "hotel-promotions"] ->
       catalog_http.list_manage_hotel_promotions(req, ctx, lid)
@@ -223,14 +245,16 @@ fn dispatch(req: Request, ctx: Context) -> Response {
     http.Post, ["api", "v1", "catalog", "listings", lid, "hotel-promotions"] ->
       catalog_http.create_manage_hotel_promotion(req, ctx, lid)
 
-    http.Put, ["api", "v1", "catalog", "listings", lid, "hotel-promotions", pid] ->
-      catalog_http.update_manage_hotel_promotion(req, ctx, lid, pid)
+    http.Put, ["api", "v1", "catalog", "listings", lid, "hotel-promotions", pid]
+    -> catalog_http.update_manage_hotel_promotion(req, ctx, lid, pid)
 
-    http.Delete, ["api", "v1", "catalog", "listings", lid, "hotel-promotions", pid] ->
-      catalog_http.delete_manage_hotel_promotion(req, ctx, lid, pid)
+    http.Delete,
+      ["api", "v1", "catalog", "listings", lid, "hotel-promotions", pid]
+    -> catalog_http.delete_manage_hotel_promotion(req, ctx, lid, pid)
 
-    http.Get, ["api", "v1", "catalog", "public", "listings", lid, "hotel-promotions"] ->
-      catalog_http.list_public_hotel_promotions(req, ctx, lid)
+    http.Get,
+      ["api", "v1", "catalog", "public", "listings", lid, "hotel-promotions"]
+    -> catalog_http.list_public_hotel_promotions(req, ctx, lid)
 
     http.Get, ["api", "v1", "catalog", "listings", lid, "hotel-activities"] ->
       catalog_http.list_manage_hotel_activities(req, ctx, lid)
@@ -238,41 +262,74 @@ fn dispatch(req: Request, ctx: Context) -> Response {
     http.Post, ["api", "v1", "catalog", "listings", lid, "hotel-activities"] ->
       catalog_http.create_manage_hotel_activity(req, ctx, lid)
 
-    http.Put, ["api", "v1", "catalog", "listings", lid, "hotel-activities", aid] ->
-      catalog_http.update_manage_hotel_activity(req, ctx, lid, aid)
+    http.Put, ["api", "v1", "catalog", "listings", lid, "hotel-activities", aid]
+    -> catalog_http.update_manage_hotel_activity(req, ctx, lid, aid)
 
-    http.Delete, ["api", "v1", "catalog", "listings", lid, "hotel-activities", aid] ->
-      catalog_http.delete_manage_hotel_activity(req, ctx, lid, aid)
+    http.Delete,
+      ["api", "v1", "catalog", "listings", lid, "hotel-activities", aid]
+    -> catalog_http.delete_manage_hotel_activity(req, ctx, lid, aid)
 
-    http.Get, ["api", "v1", "catalog", "public", "listings", lid, "hotel-activities"] ->
-      catalog_http.list_public_hotel_activities(req, ctx, lid)
+    http.Get,
+      ["api", "v1", "catalog", "public", "listings", lid, "hotel-activities"]
+    -> catalog_http.list_public_hotel_activities(req, ctx, lid)
 
-    http.Get, ["api", "v1", "catalog", "public", "listings", lid, "price-rules"] ->
-      catalog_http.list_public_listing_price_rules(req, ctx, lid)
+    http.Get, ["api", "v1", "catalog", "public", "listings", lid, "price-rules"]
+    -> catalog_http.list_public_listing_price_rules(req, ctx, lid)
 
-    http.Get, ["api", "v1", "catalog", "public", "listings", lid, "price-lines"] ->
-      catalog_http.list_public_listing_price_lines(req, ctx, lid)
+    http.Get, ["api", "v1", "catalog", "public", "listings", lid, "price-lines"]
+    -> catalog_http.list_public_listing_price_lines(req, ctx, lid)
 
-    http.Get, ["api", "v1", "catalog", "public", "listings", lid, "tour-periods"] ->
-      catalog_http.list_public_tour_periods(req, ctx, lid)
+    http.Get,
+      ["api", "v1", "catalog", "public", "listings", lid, "tour-periods"]
+    -> catalog_http.list_public_tour_periods(req, ctx, lid)
 
-    http.Get, ["api", "v1", "catalog", "public", "listings", lid, "ferry-details"] ->
-      catalog_http.get_public_ferry_details(req, ctx, lid)
+    http.Get,
+      ["api", "v1", "catalog", "public", "listings", lid, "ferry-details"]
+    -> catalog_http.get_public_ferry_details(req, ctx, lid)
 
-    http.Get, ["api", "v1", "catalog", "public", "listings", lid, "accommodation-rules"] ->
-      catalog_http.get_public_listing_accommodation_rules(req, ctx, lid)
+    http.Get,
+      ["api", "v1", "catalog", "public", "listings", lid, "accommodation-rules"]
+    -> catalog_http.get_public_listing_accommodation_rules(req, ctx, lid)
 
-    http.Get, ["api", "v1", "catalog", "public", "listings", lid, "availability-calendar"] ->
-      catalog_http.list_public_listing_availability_calendar(req, ctx, lid)
+    http.Get,
+      [
+        "api",
+        "v1",
+        "catalog",
+        "public",
+        "listings",
+        lid,
+        "availability-calendar",
+      ]
+    -> catalog_http.list_public_listing_availability_calendar(req, ctx, lid)
 
-    http.Get, ["api", "v1", "catalog", "public", "listings", lid, "hotel-rooms", rid, "availability-calendar"] ->
-      catalog_http.list_public_hotel_room_availability_calendar(req, ctx, lid, rid)
+    http.Get,
+      [
+        "api",
+        "v1",
+        "catalog",
+        "public",
+        "listings",
+        lid,
+        "hotel-rooms",
+        rid,
+        "availability-calendar",
+      ]
+    ->
+      catalog_http.list_public_hotel_room_availability_calendar(
+        req,
+        ctx,
+        lid,
+        rid,
+      )
 
-    http.Get, ["api", "v1", "catalog", "public", "listings", lid, "activity-sessions"] ->
-      catalog_http.list_public_activity_sessions(req, ctx, lid)
+    http.Get,
+      ["api", "v1", "catalog", "public", "listings", lid, "activity-sessions"]
+    -> catalog_http.list_public_activity_sessions(req, ctx, lid)
 
-    http.Post, ["api", "v1", "catalog", "public", "listings", lid, "activity-quote"] ->
-      catalog_http.quote_public_activity(req, ctx, lid)
+    http.Post,
+      ["api", "v1", "catalog", "public", "listings", lid, "activity-quote"]
+    -> catalog_http.quote_public_activity(req, ctx, lid)
 
     http.Get, ["api", "v1", "catalog", "public", "listings", lid, "bedrooms"] ->
       catalog_http.list_public_listing_bedrooms(req, ctx, lid)
@@ -289,11 +346,11 @@ fn dispatch(req: Request, ctx: Context) -> Response {
     http.Patch, ["api", "v1", "catalog", "listings", lid, "hotel-details"] ->
       catalog_http.patch_manage_hotel_details(req, ctx, lid)
 
-    http.Get, ["api", "v1", "catalog", "listings", lid, "availability-calendar"] ->
-      catalog_http.get_listing_availability_calendar(req, ctx, lid)
+    http.Get, ["api", "v1", "catalog", "listings", lid, "availability-calendar"]
+    -> catalog_http.get_listing_availability_calendar(req, ctx, lid)
 
-    http.Put, ["api", "v1", "catalog", "listings", lid, "availability-calendar"] ->
-      catalog_http.put_listing_availability_calendar(req, ctx, lid)
+    http.Put, ["api", "v1", "catalog", "listings", lid, "availability-calendar"]
+    -> catalog_http.put_listing_availability_calendar(req, ctx, lid)
 
     http.Get, ["api", "v1", "catalog", "listings", lid, "activity-sessions"] ->
       catalog_http.list_manage_activity_sessions(req, ctx, lid)
@@ -307,8 +364,8 @@ fn dispatch(req: Request, ctx: Context) -> Response {
     http.Post, ["api", "v1", "catalog", "listings", lid, "price-rules"] ->
       catalog_http.create_listing_price_rule(req, ctx, lid)
 
-    http.Delete, ["api", "v1", "catalog", "listings", lid, "price-rules", rid] ->
-      catalog_http.delete_listing_price_rule(req, ctx, lid, rid)
+    http.Delete, ["api", "v1", "catalog", "listings", lid, "price-rules", rid]
+    -> catalog_http.delete_listing_price_rule(req, ctx, lid, rid)
 
     http.Get, ["api", "v1", "catalog", "listings", lid, "external-bookings"] ->
       catalog_http.list_listing_external_bookings(req, ctx, lid)
@@ -316,11 +373,13 @@ fn dispatch(req: Request, ctx: Context) -> Response {
     http.Post, ["api", "v1", "catalog", "listings", lid, "external-bookings"] ->
       catalog_http.create_listing_external_booking(req, ctx, lid)
 
-    http.Patch, ["api", "v1", "catalog", "listings", lid, "external-bookings", bid] ->
-      catalog_http.patch_listing_external_booking(req, ctx, lid, bid)
+    http.Patch,
+      ["api", "v1", "catalog", "listings", lid, "external-bookings", bid]
+    -> catalog_http.patch_listing_external_booking(req, ctx, lid, bid)
 
-    http.Delete, ["api", "v1", "catalog", "listings", lid, "external-bookings", bid] ->
-      catalog_http.delete_listing_external_booking(req, ctx, lid, bid)
+    http.Delete,
+      ["api", "v1", "catalog", "listings", lid, "external-bookings", bid]
+    -> catalog_http.delete_listing_external_booking(req, ctx, lid, bid)
 
     http.Get, ["api", "v1", "catalog", "listings", lid, "basics"] ->
       catalog_http.get_listing_basics(req, ctx, lid)
@@ -382,14 +441,14 @@ fn dispatch(req: Request, ctx: Context) -> Response {
     http.Delete, ["api", "v1", "catalog", "price-line-items", plid] ->
       catalog_http.delete_price_line_item(req, ctx, plid)
 
-    http.Put, ["api", "v1", "catalog", "price-line-items", plid, "translations"] ->
-      catalog_http.put_price_line_item_translations(req, ctx, plid)
+    http.Put, ["api", "v1", "catalog", "price-line-items", plid, "translations"]
+    -> catalog_http.put_price_line_item_translations(req, ctx, plid)
 
-    http.Get, ["api", "v1", "catalog", "listings", lid, "price-line-selections"] ->
-      catalog_http.get_listing_price_line_selections(req, ctx, lid)
+    http.Get, ["api", "v1", "catalog", "listings", lid, "price-line-selections"]
+    -> catalog_http.get_listing_price_line_selections(req, ctx, lid)
 
-    http.Put, ["api", "v1", "catalog", "listings", lid, "price-line-selections"] ->
-      catalog_http.put_listing_price_line_selections(req, ctx, lid)
+    http.Put, ["api", "v1", "catalog", "listings", lid, "price-line-selections"]
+    -> catalog_http.put_listing_price_line_selections(req, ctx, lid)
 
     http.Get, ["api", "v1", "catalog", "accommodation-rules"] ->
       catalog_http.get_manage_category_accommodation_rules(req, ctx)
@@ -400,8 +459,8 @@ fn dispatch(req: Request, ctx: Context) -> Response {
     http.Put, ["api", "v1", "catalog", "attribute-defs", did, "translations"] ->
       catalog_http.put_attribute_def_translations(req, ctx, did)
 
-    http.Put, ["api", "v1", "catalog", "attribute-groups", gid, "translations"] ->
-      catalog_http.put_attribute_group_translations(req, ctx, gid)
+    http.Put, ["api", "v1", "catalog", "attribute-groups", gid, "translations"]
+    -> catalog_http.put_attribute_group_translations(req, ctx, gid)
 
     http.Get, ["api", "v1", "currency", "currencies"] ->
       currency_http.list_currencies(req, ctx)
@@ -426,17 +485,22 @@ fn dispatch(req: Request, ctx: Context) -> Response {
 
     http.Get, ["api", "v1", "roles"] -> identity_http.list_roles(req, ctx)
 
-    http.Post, ["api", "v1", "auth", "register"] -> identity_http.register(req, ctx)
+    http.Post, ["api", "v1", "auth", "register"] ->
+      identity_http.register(req, ctx)
 
     http.Post, ["api", "v1", "auth", "login"] -> identity_http.login(req, ctx)
 
-    http.Delete, ["api", "v1", "auth", "session"] -> identity_http.logout(req, ctx)
+    http.Delete, ["api", "v1", "auth", "session"] ->
+      identity_http.logout(req, ctx)
 
-    http.Post, ["api", "v1", "auth", "change-password"] -> identity_http.change_password(req, ctx)
+    http.Post, ["api", "v1", "auth", "change-password"] ->
+      identity_http.change_password(req, ctx)
 
-    http.Post, ["api", "v1", "auth", "forgot-password"] -> identity_http.forgot_password(req, ctx)
+    http.Post, ["api", "v1", "auth", "forgot-password"] ->
+      identity_http.forgot_password(req, ctx)
 
-    http.Post, ["api", "v1", "auth", "reset-password"] -> identity_http.reset_password(req, ctx)
+    http.Post, ["api", "v1", "auth", "reset-password"] ->
+      identity_http.reset_password(req, ctx)
 
     http.Get, ["api", "v1", "auth", "me"] -> identity_http.me(req, ctx)
 
@@ -451,8 +515,8 @@ fn dispatch(req: Request, ctx: Context) -> Response {
     http.Get, ["api", "v1", "admin", "tc-verifications"] ->
       identity_http.admin_list_tc_verifications(req, ctx)
 
-    http.Post, ["api", "v1", "admin", "tc-verifications", tc_req_id, "review"] ->
-      identity_http.admin_review_tc_verification(req, ctx, tc_req_id)
+    http.Post, ["api", "v1", "admin", "tc-verifications", tc_req_id, "review"]
+    -> identity_http.admin_review_tc_verification(req, ctx, tc_req_id)
 
     http.Get, ["api", "v1", "admin", "workspace", "tasks"] ->
       workspace_http.admin_list_tasks(req, ctx)
@@ -528,35 +592,47 @@ fn dispatch(req: Request, ctx: Context) -> Response {
     http.Get, ["api", "v1", "agent", "catalog", "listings", lid] ->
       agent_catalog_http.get_listing(req, ctx, lid)
 
-    http.Get, ["api", "v1", "agent", "catalog", "listings", lid, "availability-calendar"] ->
-      agent_catalog_http.availability_calendar(req, ctx, lid)
+    http.Get,
+      [
+        "api",
+        "v1",
+        "agent",
+        "catalog",
+        "listings",
+        lid,
+        "availability-calendar",
+      ]
+    -> agent_catalog_http.availability_calendar(req, ctx, lid)
 
-    http.Get, ["api", "v1", "agent", "catalog", "listings", lid, "activity-sessions"] ->
-      agent_catalog_http.activity_sessions(req, ctx, lid)
+    http.Get,
+      ["api", "v1", "agent", "catalog", "listings", lid, "activity-sessions"]
+    -> agent_catalog_http.activity_sessions(req, ctx, lid)
 
-    http.Post, ["api", "v1", "agent", "catalog", "listings", lid, "activity-quote"] ->
-      agent_catalog_http.activity_quote(req, ctx, lid)
+    http.Post,
+      ["api", "v1", "agent", "catalog", "listings", lid, "activity-quote"]
+    -> agent_catalog_http.activity_quote(req, ctx, lid)
 
     http.Get, ["api", "v1", "agent", "catalog", "listings", lid, "images"] ->
       agent_catalog_http.listing_images(req, ctx, lid)
 
-    http.Get, ["api", "v1", "agent", "catalog", "listings", lid, "meal-plans"] ->
-      agent_catalog_http.meal_plans(req, ctx, lid)
+    http.Get, ["api", "v1", "agent", "catalog", "listings", lid, "meal-plans"]
+    -> agent_catalog_http.meal_plans(req, ctx, lid)
 
-    http.Get, ["api", "v1", "agent", "catalog", "listings", lid, "price-rules"] ->
-      agent_catalog_http.price_rules(req, ctx, lid)
+    http.Get, ["api", "v1", "agent", "catalog", "listings", lid, "price-rules"]
+    -> agent_catalog_http.price_rules(req, ctx, lid)
 
-    http.Get, ["api", "v1", "agent", "catalog", "listings", lid, "price-lines"] ->
-      agent_catalog_http.price_lines(req, ctx, lid)
+    http.Get, ["api", "v1", "agent", "catalog", "listings", lid, "price-lines"]
+    -> agent_catalog_http.price_lines(req, ctx, lid)
 
-    http.Get, ["api", "v1", "agent", "catalog", "listings", lid, "accommodation-rules"] ->
-      agent_catalog_http.accommodation_rules(req, ctx, lid)
+    http.Get,
+      ["api", "v1", "agent", "catalog", "listings", lid, "accommodation-rules"]
+    -> agent_catalog_http.accommodation_rules(req, ctx, lid)
 
     http.Get, ["api", "v1", "agent", "catalog", "listings", lid, "bedrooms"] ->
       agent_catalog_http.bedrooms(req, ctx, lid)
 
-    http.Post, ["api", "v1", "agent", "catalog", "listings", lid, "stay-quote"] ->
-      agent_stay_quote.stay_quote(req, ctx, lid)
+    http.Post, ["api", "v1", "agent", "catalog", "listings", lid, "stay-quote"]
+    -> agent_stay_quote.stay_quote(req, ctx, lid)
 
     http.Post, ["api", "v1", "agent", "bookings"] ->
       agent_booking_http.create_booking(req, ctx)
@@ -584,7 +660,8 @@ fn dispatch(req: Request, ctx: Context) -> Response {
     http.Get, ["api", "v1", "staff", "reservations"] ->
       staff_http.list_reservations(req, ctx)
 
-    http.Get, ["api", "v1", "staff", "listings"] -> staff_http.list_listings(req, ctx)
+    http.Get, ["api", "v1", "staff", "listings"] ->
+      staff_http.list_listings(req, ctx)
 
     http.Post, ["api", "v1", "staff", "pos", "carts", cid, "checkout"] ->
       staff_http.pos_checkout(req, ctx, cid)
@@ -609,9 +686,11 @@ fn dispatch(req: Request, ctx: Context) -> Response {
     http.Get, ["api", "v1", "agency", "sales-summary"] ->
       agency_http.sales_summary(req, ctx)
 
-    http.Get, ["api", "v1", "agency", "api-keys"] -> agency_http.list_api_keys(req, ctx)
+    http.Get, ["api", "v1", "agency", "api-keys"] ->
+      agency_http.list_api_keys(req, ctx)
 
-    http.Post, ["api", "v1", "agency", "api-keys"] -> agency_http.create_api_key(req, ctx)
+    http.Post, ["api", "v1", "agency", "api-keys"] ->
+      agency_http.create_api_key(req, ctx)
 
     http.Delete, ["api", "v1", "agency", "api-keys", kid] ->
       agency_http.delete_api_key(req, ctx, kid)
@@ -640,12 +719,14 @@ fn dispatch(req: Request, ctx: Context) -> Response {
     http.Patch, ["api", "v1", "agency", "invoices", iid] ->
       agency_http.patch_invoice_notes(req, ctx, iid)
 
-    http.Get, ["api", "v1", "agency", "invoices"] -> agency_http.list_invoices(req, ctx)
+    http.Get, ["api", "v1", "agency", "invoices"] ->
+      agency_http.list_invoices(req, ctx)
 
     http.Post, ["api", "v1", "agency", "invoices", "preview"] ->
       agency_http.preview_invoice(req, ctx)
 
-    http.Post, ["api", "v1", "agency", "invoices"] -> agency_http.create_invoice(req, ctx)
+    http.Post, ["api", "v1", "agency", "invoices"] ->
+      agency_http.create_invoice(req, ctx)
 
     // ── Tedarikçi Başvuruları ─────────────────────────────────────────────────
     http.Get, ["api", "v1", "supplier", "applications"] ->
@@ -663,8 +744,8 @@ fn dispatch(req: Request, ctx: Context) -> Response {
     http.Get, ["api", "v1", "admin", "supplier-applications"] ->
       supplier_application_http.admin_list_applications(req, ctx)
 
-    http.Post, ["api", "v1", "admin", "supplier-applications", aid, "approve"] ->
-      supplier_application_http.admin_approve(req, ctx, aid)
+    http.Post, ["api", "v1", "admin", "supplier-applications", aid, "approve"]
+    -> supplier_application_http.admin_approve(req, ctx, aid)
 
     http.Post, ["api", "v1", "admin", "supplier-applications", aid, "reject"] ->
       supplier_application_http.admin_reject(req, ctx, aid)
@@ -818,8 +899,9 @@ fn dispatch(req: Request, ctx: Context) -> Response {
     http.Post, ["api", "v1", "admin", "provizyon", res_id, "transfer"] ->
       provizyon_http.admin_add_transfer(req, ctx, res_id)
 
-    http.Patch, ["api", "v1", "admin", "provizyon", "transfers", tid, "complete"] ->
-      provizyon_http.admin_complete_transfer(req, ctx, tid)
+    http.Patch,
+      ["api", "v1", "admin", "provizyon", "transfers", tid, "complete"]
+    -> provizyon_http.admin_complete_transfer(req, ctx, tid)
 
     http.Post, ["api", "v1", "carts", cart_id, "checkout"] ->
       booking_http.checkout(req, ctx, cart_id)
@@ -890,8 +972,7 @@ fn dispatch(req: Request, ctx: Context) -> Response {
     http.Post, ["api", "v1", "carts", cart_id, "lines"] ->
       booking_http.add_cart_line(req, ctx, cart_id)
 
-    http.Post, ["api", "v1", "carts"] ->
-      booking_http.create_cart(req, ctx)
+    http.Post, ["api", "v1", "carts"] -> booking_http.create_cart(req, ctx)
 
     http.Post, ["api", "v1", "integrations", "paytr", "notification"] ->
       paytr_http.notification(req, ctx)
@@ -904,6 +985,12 @@ fn dispatch(req: Request, ctx: Context) -> Response {
 
     http.Post, ["api", "v1", "integrations", "paratika", "return"] ->
       paratika_http.payment_return(req, ctx)
+
+    http.Post, ["api", "v1", "integrations", "parampos", "start"] ->
+      parampos_http.start_3d(req, ctx)
+
+    http.Post, ["api", "v1", "integrations", "parampos", "return"] ->
+      parampos_http.payment_return(req, ctx)
 
     http.Get, ["api", "v1", "payments", "active-provider"] ->
       payment_settings_http.get_active_provider(req, ctx)
@@ -997,9 +1084,11 @@ fn dispatch(req: Request, ctx: Context) -> Response {
 
     http.Get, ["api", "v1", "social", "jobs"] -> social_http.list_jobs(req, ctx)
 
-    http.Post, ["api", "v1", "social", "jobs"] -> social_http.create_job(req, ctx)
+    http.Post, ["api", "v1", "social", "jobs"] ->
+      social_http.create_job(req, ctx)
 
-    http.Delete, ["api", "v1", "social", "jobs"] -> social_http.clear_jobs(req, ctx)
+    http.Delete, ["api", "v1", "social", "jobs"] ->
+      social_http.clear_jobs(req, ctx)
 
     http.Patch, ["api", "v1", "listings", lid, "social"] ->
       social_http.patch_listing_social(req, ctx, lid)
@@ -1051,7 +1140,8 @@ fn dispatch(req: Request, ctx: Context) -> Response {
     http.Patch, ["api", "v1", "media", "image-profiles"] ->
       media_http.update_image_profile(req, ctx)
 
-    http.Post, ["api", "v1", "media", "files"] -> media_http.register_file(req, ctx)
+    http.Post, ["api", "v1", "media", "files"] ->
+      media_http.register_file(req, ctx)
 
     http.Patch, ["api", "v1", "media", "files", fid] ->
       media_http.patch_file(req, ctx, fid)
@@ -1071,26 +1161,34 @@ fn dispatch(req: Request, ctx: Context) -> Response {
     http.Patch, ["api", "v1", "listings", lid, "images", iid] ->
       listing_images_http.patch_image_scene(req, ctx, lid, iid)
 
-    http.Get, ["api", "v1", "seo", "metadata"] -> seo_http.get_metadata(req, ctx)
+    http.Get, ["api", "v1", "seo", "metadata"] ->
+      seo_http.get_metadata(req, ctx)
 
-    http.Post, ["api", "v1", "seo", "metadata"] -> seo_http.upsert_metadata(req, ctx)
+    http.Post, ["api", "v1", "seo", "metadata"] ->
+      seo_http.upsert_metadata(req, ctx)
 
     http.Get, ["api", "v1", "seo", "schema"] -> seo_http.list_schema(req, ctx)
 
-    http.Post, ["api", "v1", "seo", "schema"] -> seo_http.upsert_schema(req, ctx)
+    http.Post, ["api", "v1", "seo", "schema"] ->
+      seo_http.upsert_schema(req, ctx)
 
-    http.Get, ["api", "v1", "seo", "redirects"] -> seo_http.list_redirects(req, ctx)
+    http.Get, ["api", "v1", "seo", "redirects"] ->
+      seo_http.list_redirects(req, ctx)
 
-    http.Post, ["api", "v1", "seo", "redirects"] -> seo_http.create_redirect(req, ctx)
+    http.Post, ["api", "v1", "seo", "redirects"] ->
+      seo_http.create_redirect(req, ctx)
 
     http.Delete, ["api", "v1", "seo", "redirects", rid] ->
       seo_http.delete_redirect(req, ctx, rid)
 
-    http.Get, ["api", "v1", "seo", "sitemap"] -> seo_http.sitemap_entries(req, ctx)
+    http.Get, ["api", "v1", "seo", "sitemap"] ->
+      seo_http.sitemap_entries(req, ctx)
 
-    http.Get, ["api", "v1", "seo", "sitemap.xml"] -> seo_http.sitemap_xml(req, ctx)
+    http.Get, ["api", "v1", "seo", "sitemap.xml"] ->
+      seo_http.sitemap_xml(req, ctx)
 
-    http.Post, ["api", "v1", "seo", "not-found"] -> seo_http.log_not_found(req, ctx)
+    http.Post, ["api", "v1", "seo", "not-found"] ->
+      seo_http.log_not_found(req, ctx)
 
     http.Get, ["api", "v1", "seo", "not-found", "logs"] ->
       seo_http.list_not_found_logs(req, ctx)
@@ -1123,9 +1221,11 @@ fn dispatch(req: Request, ctx: Context) -> Response {
     http.Put, ["api", "v1", "cms", "pages", pid, "curated-filter"] ->
       cms_http.put_curated_filter(req, ctx, pid)
 
-    http.Get, ["api", "v1", "cms", "pages", pid] -> cms_http.get_page(req, ctx, pid)
+    http.Get, ["api", "v1", "cms", "pages", pid] ->
+      cms_http.get_page(req, ctx, pid)
 
-    http.Patch, ["api", "v1", "cms", "pages", pid] -> cms_http.patch_page(req, ctx, pid)
+    http.Patch, ["api", "v1", "cms", "pages", pid] ->
+      cms_http.patch_page(req, ctx, pid)
 
     http.Get, ["api", "v1", "banners", "placements", "public"] ->
       banner_http.list_placements_public(req, ctx)
@@ -1172,14 +1272,14 @@ fn dispatch(req: Request, ctx: Context) -> Response {
     http.Get, ["api", "v1", "catalog", "public", "holiday-home-faq-template"] ->
       catalog_http.get_public_holiday_home_faq_template(req, ctx)
 
-    http.Get, ["api", "v1", "catalog", "public", "yacht-charter-faq-template"] ->
-      catalog_http.get_public_yacht_charter_faq_template(req, ctx)
+    http.Get, ["api", "v1", "catalog", "public", "yacht-charter-faq-template"]
+    -> catalog_http.get_public_yacht_charter_faq_template(req, ctx)
 
-    http.Get, ["api", "v1", "catalog", "public", "holiday-home-property-types"] ->
-      catalog_http.get_public_holiday_home_property_types(req, ctx)
+    http.Get, ["api", "v1", "catalog", "public", "holiday-home-property-types"]
+    -> catalog_http.get_public_holiday_home_property_types(req, ctx)
 
-    http.Get, ["api", "v1", "catalog", "public", "yacht-charter-property-types"] ->
-      catalog_http.get_public_yacht_charter_property_types(req, ctx)
+    http.Get, ["api", "v1", "catalog", "public", "yacht-charter-property-types"]
+    -> catalog_http.get_public_yacht_charter_property_types(req, ctx)
 
     http.Get, ["api", "v1", "catalog", "public", "category-stats"] ->
       collections_http.public_category_stats(req, ctx)
@@ -1230,14 +1330,17 @@ fn dispatch(req: Request, ctx: Context) -> Response {
     http.Put, ["api", "v1", "blog", "posts", pid, "translations"] ->
       blog_http.upsert_translation(req, ctx, pid)
 
-    http.Get, ["api", "v1", "blog", "posts", pid] -> blog_http.get_post(req, ctx, pid)
+    http.Get, ["api", "v1", "blog", "posts", pid] ->
+      blog_http.get_post(req, ctx, pid)
 
-    http.Patch, ["api", "v1", "blog", "posts", pid] -> blog_http.patch_post(req, ctx, pid)
+    http.Patch, ["api", "v1", "blog", "posts", pid] ->
+      blog_http.patch_post(req, ctx, pid)
 
     http.Put, ["api", "v1", "blog", "posts", pid, "meta"] ->
       blog_http.put_post_meta(req, ctx, pid)
 
-    http.Delete, ["api", "v1", "blog", "posts", pid] -> blog_http.delete_post(req, ctx, pid)
+    http.Delete, ["api", "v1", "blog", "posts", pid] ->
+      blog_http.delete_post(req, ctx, pid)
 
     http.Patch, ["api", "v1", "blog", "categories", cid] ->
       blog_http.patch_category(req, ctx, cid)
@@ -1296,8 +1399,8 @@ fn dispatch(req: Request, ctx: Context) -> Response {
     http.Get, ["api", "v1", "public", "marketing", "active-campaigns"] ->
       marketing_http.list_public_active_campaigns(req, ctx)
 
-    http.Get, ["api", "v1", "public", "marketing", "listing-detail-campaigns"] ->
-      marketing_http.list_public_listing_detail_campaigns(req, ctx)
+    http.Get, ["api", "v1", "public", "marketing", "listing-detail-campaigns"]
+    -> marketing_http.list_public_listing_detail_campaigns(req, ctx)
 
     http.Get, ["api", "v1", "public", "marketing", "active-coupons"] ->
       marketing_http.list_public_active_coupons(req, ctx)
@@ -1383,8 +1486,9 @@ fn dispatch(req: Request, ctx: Context) -> Response {
     http.Post, ["api", "v1", "engagement", "recently-viewed"] ->
       engagement_http.add_recently_viewed(req, ctx)
 
-    http.Delete, ["api", "v1", "engagement", "comparison-sets", sid, "items", item_lid] ->
-      engagement_http.remove_comparison_item(req, ctx, sid, item_lid)
+    http.Delete,
+      ["api", "v1", "engagement", "comparison-sets", sid, "items", item_lid]
+    -> engagement_http.remove_comparison_item(req, ctx, sid, item_lid)
 
     http.Get, ["api", "v1", "engagement", "comparison-sets", sid, "items"] ->
       engagement_http.list_comparison_items(req, ctx, sid)
@@ -1537,8 +1641,8 @@ fn dispatch(req: Request, ctx: Context) -> Response {
     http.Post, ["api", "v1", "integrations", "google-merchant-products"] ->
       integrations_http.upsert_google_merchant_product(req, ctx)
 
-    http.Patch, ["api", "v1", "integrations", "google-merchant-products", gmpid] ->
-      integrations_http.patch_google_merchant_product(req, ctx, gmpid)
+    http.Patch, ["api", "v1", "integrations", "google-merchant-products", gmpid]
+    -> integrations_http.patch_google_merchant_product(req, ctx, gmpid)
 
     http.Get, ["api", "v1", "integrations", "whatsapp-order-intents"] ->
       integrations_http.list_whatsapp_order_intents(req, ctx)
@@ -1700,14 +1804,16 @@ fn dispatch(req: Request, ctx: Context) -> Response {
     http.Post, ["api", "v1", "ai", "worker", "start-background"] ->
       ai_worker_http.post_start_background(req, ctx)
 
-    http.Delete, ["api", "v1", "verticals", "listings", lid, "hotel-rooms", rid] ->
-      verticals_http.delete_hotel_room(req, ctx, lid, rid)
+    http.Delete, ["api", "v1", "verticals", "listings", lid, "hotel-rooms", rid]
+    -> verticals_http.delete_hotel_room(req, ctx, lid, rid)
 
-    http.Delete, ["api", "v1", "verticals", "listings", lid, "related-rules", rrid] ->
-      verticals_http.delete_related_rule(req, ctx, lid, rrid)
+    http.Delete,
+      ["api", "v1", "verticals", "listings", lid, "related-rules", rrid]
+    -> verticals_http.delete_related_rule(req, ctx, lid, rrid)
 
-    http.Delete, ["api", "v1", "verticals", "listings", lid, "transfer-zones", zid] ->
-      verticals_http.delete_transfer_zone(req, ctx, lid, zid)
+    http.Delete,
+      ["api", "v1", "verticals", "listings", lid, "transfer-zones", zid]
+    -> verticals_http.delete_transfer_zone(req, ctx, lid, zid)
 
     http.Get, ["api", "v1", "verticals", "listings", lid, "hotel-rooms"] ->
       verticals_http.list_hotel_rooms(req, ctx, lid)
@@ -1733,11 +1839,13 @@ fn dispatch(req: Request, ctx: Context) -> Response {
     http.Patch, ["api", "v1", "verticals", "listings", lid, "holiday-home"] ->
       verticals_http.patch_holiday_home(req, ctx, lid)
 
-    http.Get, ["api", "v1", "verticals", "listings", lid, "holiday-home", "bedrooms"] ->
-      verticals_http.list_holiday_home_bedrooms(req, ctx, lid)
+    http.Get,
+      ["api", "v1", "verticals", "listings", lid, "holiday-home", "bedrooms"]
+    -> verticals_http.list_holiday_home_bedrooms(req, ctx, lid)
 
-    http.Put, ["api", "v1", "verticals", "listings", lid, "holiday-home", "bedrooms"] ->
-      verticals_http.put_holiday_home_bedrooms(req, ctx, lid)
+    http.Put,
+      ["api", "v1", "verticals", "listings", lid, "holiday-home", "bedrooms"]
+    -> verticals_http.put_holiday_home_bedrooms(req, ctx, lid)
 
     http.Get, ["api", "v1", "verticals", "listings", lid, "yacht"] ->
       verticals_http.get_yacht(req, ctx, lid)
@@ -1855,15 +1963,14 @@ fn health_check(ctx: Context) -> Response {
     use n <- decode.field(0, decode.int)
     decode.success(n)
   }
-  let db_ok =
-    case
-      pog.query("select 1")
-      |> pog.returning(row_decoder)
-      |> db_exec.execute(ctx.db)
-    {
-      Ok(returned) -> returned.count > 0 && !list.is_empty(returned.rows)
-      Error(_) -> False
-    }
+  let db_ok = case
+    pog.query("select 1")
+    |> pog.returning(row_decoder)
+    |> db_exec.execute(ctx.db)
+  {
+    Ok(returned) -> returned.count > 0 && !list.is_empty(returned.rows)
+    Error(_) -> False
+  }
 
   let status = case db_ok {
     True -> 200
@@ -1872,10 +1979,13 @@ fn health_check(ctx: Context) -> Response {
 
   let body =
     json.object([
-      #("status", json.string(case db_ok {
-        True -> "ok"
-        False -> "degraded"
-      })),
+      #(
+        "status",
+        json.string(case db_ok {
+          True -> "ok"
+          False -> "degraded"
+        }),
+      ),
       #("database", json.bool(db_ok)),
     ])
     |> json.to_string
@@ -1891,9 +2001,9 @@ fn cors_preflight_response() -> Response {
 fn is_local_dev_origin(origin: String) -> Bool {
   let o = string.lowercase(string.trim(origin))
   string.starts_with(o, "http://localhost:")
-    || string.starts_with(o, "http://127.0.0.1:")
-    || string.starts_with(o, "https://localhost:")
-    || string.starts_with(o, "https://127.0.0.1:")
+  || string.starts_with(o, "http://127.0.0.1:")
+  || string.starts_with(o, "https://localhost:")
+  || string.starts_with(o, "https://127.0.0.1:")
 }
 
 fn with_cors(resp: Response, req: Request) -> Response {
@@ -1901,7 +2011,9 @@ fn with_cors(resp: Response, req: Request) -> Response {
   // Boşsa "*" ile herkese açık (credentials olmadan).
   let allowed_origins =
     envoy.get("CORS_ALLOWED_ORIGINS")
-    |> result.map(fn(v) { string.split(string.trim(v), ",") |> list.map(string.trim) })
+    |> result.map(fn(v) {
+      string.split(string.trim(v), ",") |> list.map(string.trim)
+    })
     |> result.unwrap([])
 
   let req_origin = request.get_header(req, "origin")
@@ -1939,7 +2051,8 @@ fn with_cors(resp: Response, req: Request) -> Response {
     |> response.set_header("access-control-max-age", "86400")
 
   case send_credentials {
-    True -> response.set_header(resp, "access-control-allow-credentials", "true")
+    True ->
+      response.set_header(resp, "access-control-allow-credentials", "true")
     False -> resp
   }
 }

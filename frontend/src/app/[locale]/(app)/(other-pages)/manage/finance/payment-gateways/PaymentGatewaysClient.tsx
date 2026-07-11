@@ -19,7 +19,7 @@ import {
 } from '@/lib/checkout-payment-methods-config'
 import { listSiteSettings, setActivePaymentProvider, upsertSiteSetting } from '@/lib/travel-api'
 
-type GatewayId = 'paytr' | 'paratika'
+type GatewayId = 'parampos' | 'paratika'
 
 interface GatewayConfig {
   enabled: boolean
@@ -34,7 +34,7 @@ interface GatewayConfig {
 }
 
 const INITIAL: Record<GatewayId, GatewayConfig> = {
-  paytr: { enabled: false, merchant_id: '', merchant_key: '', merchant_salt: '', mode: 'sandbox' },
+  parampos: { enabled: false, merchant_id: '', merchant_key: '', merchant_salt: '', merchant_sd_secret: '', mode: 'sandbox' },
   paratika: {
     enabled: false,
     merchant_id: '',
@@ -47,11 +47,11 @@ const INITIAL: Record<GatewayId, GatewayConfig> = {
 }
 
 const GATEWAY_INFO: Record<GatewayId, { name: string; logo: string; desc: string; docsUrl: string }> = {
-  paytr: {
-    name: 'PayTR',
+  parampos: {
+    name: 'ParamPOS',
     logo: '💳',
-    desc: 'Türkiye\'nin önde gelen sanal POS sağlayıcılarından biri. Tüm Türk bankaları desteklenir.',
-    docsUrl: 'https://dev.paytr.com',
+    desc: 'ParamPOS 3D Secure API ile kendi ödeme ekranınızdan güvenli tahsilat alın.',
+    docsUrl: 'https://dev.param.com.tr/tr/api',
   },
   paratika: {
     name: 'Paratika',
@@ -121,7 +121,7 @@ export default function PaymentGatewaysClient() {
           try {
             const parsed = JSON.parse(row.value_json) as Partial<Record<GatewayId, GatewayConfig>>
             setConfigs((prev) => ({
-              paytr: { ...prev.paytr, ...(parsed.paytr ?? {}) },
+              parampos: { ...prev.parampos, ...(parsed.parampos ?? {}) },
               paratika: { ...prev.paratika, ...(parsed.paratika ?? {}) },
             }))
           } catch { /* ignore */ }
@@ -146,7 +146,13 @@ export default function PaymentGatewaysClient() {
   }, [])
 
   const update = (gw: GatewayId, field: keyof GatewayConfig, value: string | boolean) =>
-    setConfigs((prev) => ({ ...prev, [gw]: { ...prev[gw], [field]: value } }))
+    setConfigs((prev) => {
+      if (field === 'enabled' && value === true) {
+        const other: GatewayId = gw === 'parampos' ? 'paratika' : 'parampos'
+        return { ...prev, [other]: { ...prev[other], enabled: false }, [gw]: { ...prev[gw], enabled: true } }
+      }
+      return { ...prev, [gw]: { ...prev[gw], [field]: value } }
+    })
 
   const updateBankField = (
     field: keyof CheckoutPaymentMethodsConfig['bank_transfer'],
@@ -166,6 +172,13 @@ export default function PaymentGatewaysClient() {
     setSaving(true)
     setError(null)
     try {
+      const activeEntry = (Object.entries(configs) as [GatewayId, GatewayConfig][]).find(([, cfg]) => cfg.enabled)
+      if (activeEntry) {
+        const [gateway, cfg] = activeEntry
+        const required = [cfg.merchant_id, cfg.merchant_key, cfg.merchant_salt]
+        if (gateway === 'parampos') required.push(cfg.merchant_sd_secret ?? '')
+        if (required.some((value) => !value.trim())) throw new Error(`${gateway}_required_credentials_missing`)
+      }
       await Promise.all([
         upsertSiteSetting(token, {
           key: 'payment_gateways',
@@ -206,7 +219,7 @@ export default function PaymentGatewaysClient() {
         <div>
           <h1 className="text-2xl font-bold text-neutral-900 dark:text-neutral-100">Sanal POS / Ödeme Geçidi</h1>
           <p className="mt-1 text-sm text-neutral-500">
-            PayTR ve Paratika ödeme entegrasyonlarını yönetin. Yalnızca biri aktif olabilir.
+            ParamPOS ve Paratika ödeme entegrasyonlarını yönetin. Yalnızca biri aktif olabilir.
           </p>
         </div>
       </div>
@@ -219,7 +232,7 @@ export default function PaymentGatewaysClient() {
       ) : null}
 
       <div className="space-y-6">
-        {(['paytr', 'paratika'] as GatewayId[]).map((gw) => {
+        {(['parampos', 'paratika'] as GatewayId[]).map((gw) => {
           const info = GATEWAY_INFO[gw]
           const cfg = configs[gw]
           return (
@@ -319,9 +332,9 @@ export default function PaymentGatewaysClient() {
                     </div>
                   ) : null}
 
-                  <div className={clsx('grid gap-4', gw === 'paratika' ? 'sm:grid-cols-2' : 'sm:grid-cols-3')}>
+                  <div className="grid gap-4 sm:grid-cols-2">
                     <div>
-                      <label className="mb-1 block text-xs font-medium text-neutral-500">Merchant ID</label>
+                      <label className="mb-1 block text-xs font-medium text-neutral-500">{gw === 'parampos' ? 'Terminal No (CLIENT_CODE)' : 'Merchant ID'}</label>
                       <input
                         type="text"
                         value={cfg.merchant_id}
@@ -332,22 +345,22 @@ export default function PaymentGatewaysClient() {
                     </div>
                     <div>
                       <label className="mb-1 block text-xs font-medium text-neutral-500">
-                        {gw === 'paratika' ? 'Merchant User (e-posta)' : 'Merchant Key'}
+                        {gw === 'paratika' ? 'Merchant User (e-posta)' : 'Web Servis Kullanıcı Adı (CLIENT_USERNAME)'}
                       </label>
                       <SecretInput
                         value={cfg.merchant_key}
                         onChange={(v) => update(gw, 'merchant_key', v)}
-                        placeholder={gw === 'paratika' ? 'e-posta veya kullanıcı adı...' : 'gizli anahtar...'}
+                        placeholder={gw === 'paratika' ? 'e-posta veya kullanıcı adı...' : 'kullanıcı adı...'}
                       />
                     </div>
                     <div>
                       <label className="mb-1 block text-xs font-medium text-neutral-500">
-                        {gw === 'paratika' ? 'Merchant Password (şifre)' : 'Merchant Salt'}
+                        {gw === 'paratika' ? 'Merchant Password (şifre)' : 'Web Servis Kullanıcı Şifresi (CLIENT_PASSWORD)'}
                       </label>
                       <SecretInput
                         value={cfg.merchant_salt}
                         onChange={(v) => update(gw, 'merchant_salt', v)}
-                        placeholder={gw === 'paratika' ? 'şifre...' : 'güvenlik tuzu...'}
+                        placeholder="şifre..."
                       />
                     </div>
                     {gw === 'paratika' && (
@@ -360,6 +373,12 @@ export default function PaymentGatewaysClient() {
                           onChange={(v) => update(gw, 'merchant_sd_secret', v)}
                           placeholder="gizli imza anahtarı..."
                         />
+                      </div>
+                    )}
+                    {gw === 'parampos' && (
+                      <div>
+                        <label className="mb-1 block text-xs font-medium text-neutral-500">Anahtar (GUID)</label>
+                        <SecretInput value={cfg.merchant_sd_secret ?? ''} onChange={(v) => update(gw, 'merchant_sd_secret', v)} placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" />
                       </div>
                     )}
                   </div>

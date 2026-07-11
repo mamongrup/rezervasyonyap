@@ -172,19 +172,17 @@ export default function AgencySalesClient() {
         payment_amount: out.payment_amount,
         currency_code: out.currency_code,
       }
-      let provider: 'paytr' | 'paratika' | 'none' = 'none'
+      let provider: 'parampos' | 'paratika' | 'none' = 'none'
       try {
         const ap = await getActivePaymentProvider()
-        if (ap.active === 'paytr' || ap.active === 'paratika') provider = ap.active
+        if (ap.active === 'parampos' || ap.active === 'paratika') provider = ap.active
       } catch {
         /* ignore */
       }
-      if (provider === 'none' && process.env.NEXT_PUBLIC_PAYTR_CHECKOUT !== '0') {
-        provider = 'paytr'
-      }
-      if (provider === 'paytr') {
-        sessionStorage.setItem('travel_paytr_checkout', JSON.stringify(payload))
-        router.push(vitrinPath('/checkout/paytr'))
+      if (provider === 'none') throw new Error('card_payment_provider_not_configured')
+      if (provider === 'parampos') {
+        sessionStorage.setItem('travel_parampos_checkout', JSON.stringify(payload))
+        router.push(vitrinPath('/checkout/parampos'))
       } else if (provider === 'paratika') {
         sessionStorage.setItem('travel_paratika_checkout', JSON.stringify(payload))
         router.push(vitrinPath('/checkout/paratika'))

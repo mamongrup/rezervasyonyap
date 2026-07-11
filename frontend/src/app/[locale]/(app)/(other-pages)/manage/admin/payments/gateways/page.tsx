@@ -40,7 +40,7 @@ export default function AdminPaymentGatewaysPage() {
           >
             <CreditCard className="h-4 w-4 shrink-0 opacity-80" aria-hidden />
             <span>
-              <span className="font-semibold">Sanal POS (PayTR / Paratika)</span>
+              <span className="font-semibold">Sanal POS (ParamPOS / Paratika)</span>
               <span className="mt-0.5 block text-xs font-normal opacity-90">
                 Ödeme geçidi ve üye işyeri anahtarları → Finans sayfasına git
               </span>
