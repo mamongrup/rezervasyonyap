@@ -3,8 +3,11 @@
 #   powershell -ExecutionPolicy Bypass -File .\scripts\clone-travel-from-git.ps1
 #   powershell -ExecutionPolicy Bypass -File .\scripts\clone-travel-from-git.ps1 -Force
 #
-# Herhangi bir dizinden tek satir:
-#   irm https://raw.githubusercontent.com/mamongrup/rezervasyonyap/main/scripts/clone-travel-from-git.ps1 | iex
+# Herhangi bir dizinden:
+#   irm https://raw.githubusercontent.com/mamongrup/rezervasyonyap/main/scripts/clone-travel-from-git.ps1 -OutFile $env:TEMP\clone-travel.ps1
+#   powershell -ExecutionPolicy Bypass -File $env:TEMP\clone-travel.ps1
+# Sifirdan klon (yedek alir):
+#   powershell -ExecutionPolicy Bypass -File $env:TEMP\clone-travel.ps1 -Force
 
 param(
     [string]$LaragonRoot = 'C:\laragon',
@@ -35,6 +38,25 @@ function Find-GitExecutable([string]$Root) {
     $cmd = Get-Command git.exe -ErrorAction SilentlyContinue
     if ($cmd) { return $cmd.Source }
     return $null
+}
+
+function Get-GitShortHead {
+    param(
+        [Parameter(Mandatory = $true)][string]$GitExe,
+        [string]$WorkingDirectory = ''
+    )
+    $prev = $ErrorActionPreference
+    $ErrorActionPreference = 'SilentlyContinue'
+    try {
+        if ($WorkingDirectory) { Push-Location $WorkingDirectory }
+        $hash = & $GitExe rev-parse --short HEAD 2>$null
+        if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($hash)) { return 'unknown' }
+        if ($hash -is [System.Array]) { $hash = $hash[-1] }
+        return "$hash".Trim()
+    } finally {
+        if ($WorkingDirectory) { Pop-Location }
+        $ErrorActionPreference = $prev
+    }
 }
 
 function Invoke-GitQuiet {
@@ -115,7 +137,7 @@ if ($feLocalBackup) {
     Write-Host '[OK] frontend\.env.local geri yuklendi' -ForegroundColor DarkGray
 }
 
-$head = Invoke-GitQuiet -GitExe $git -Arguments @('rev-parse', '--short', 'HEAD') -WorkingDirectory $RepoRoot
+$head = Get-GitShortHead -GitExe $git -WorkingDirectory $RepoRoot
 Write-Host "[OK] Proje hazir: $RepoRoot (HEAD $head)" -ForegroundColor Green
 
 if (-not $SkipSetup) {

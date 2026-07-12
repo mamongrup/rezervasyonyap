@@ -214,6 +214,9 @@ function Ensure-TravelDatabase {
     try {
         if ($Password) { $env:PGPASSWORD = $Password } else { Remove-Item Env:PGPASSWORD -ErrorAction SilentlyContinue }
         $dbExists = Get-PsqlScalar -Psql $Psql -Sql "SELECT 1 FROM pg_database WHERE datname='$Database'" -User $User -Password $Password
+        if ([string]::IsNullOrWhiteSpace($dbExists)) {
+            throw "PostgreSQL baglantisi kurulamadi. Laragon PostgreSQL calisiyor mu? psql: $Psql"
+        }
         if ($dbExists -ne '1') {
             Write-Host "Veritabani olusturuluyor: $Database" -ForegroundColor Yellow
             & $Psql -h 127.0.0.1 -p 5432 -U $User -d postgres -v ON_ERROR_STOP=1 -c "CREATE DATABASE $Database;"

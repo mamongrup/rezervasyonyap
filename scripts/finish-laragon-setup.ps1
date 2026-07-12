@@ -24,8 +24,17 @@ if (-not $RepoRoot) {
 }
 
 $lib = Join-Path $PSScriptRoot 'lib\Resolve-LaragonPostgresql.ps1'
-if (-not (Test-Path $lib)) {
-    throw "Eksik: $lib"
+$libDir = Split-Path $lib -Parent
+if (-not (Test-Path $libDir)) {
+    New-Item -ItemType Directory -Force -Path $libDir | Out-Null
+}
+try {
+    $libUrl = 'https://raw.githubusercontent.com/mamongrup/rezervasyonyap/main/scripts/lib/Resolve-LaragonPostgresql.ps1'
+    Invoke-WebRequest -Uri $libUrl -OutFile $lib -UseBasicParsing
+} catch {
+    if (-not (Test-Path $lib)) {
+        throw "Eksik: $lib"
+    }
 }
 . $lib
 
@@ -66,9 +75,9 @@ Write-Host "[OK] psql: $($tools.Psql)" -ForegroundColor Green
 $env:PSQL = $tools.Psql
 
 Write-Step 'PostgreSQL servisi'
-Start-LaragonPostgresql -Tools $tools -LaragonRoot $LaragonRoot -ResetData:$ResetPostgresData.IsPresent
-Ensure-PostgresqlSuperuser -Psql $tools.Psql -User $PgUser -Password $PgPassword
-Ensure-TravelDatabase -Psql $tools.Psql -Database $PgDatabase -User $PgUser -Password $PgPassword
+Start-LaragonPostgresql -Tools $tools -LaragonRoot $LaragonRoot -ResetData:([bool]$ResetPostgresData)
+Ensure-PostgresqlSuperuser -Psql $tools.Psql -User $PgUser -Password $(if ($PgPassword) { $PgPassword } else { '' })
+Ensure-TravelDatabase -Psql $tools.Psql -Database $PgDatabase -User $PgUser -Password $(if ($PgPassword) { $PgPassword } else { '' })
 Enable-LaragonPostgresqlAutoStart -LaragonRoot $LaragonRoot
 
 Write-Step 'Ortam dosyalari'
