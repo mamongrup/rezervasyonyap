@@ -88,7 +88,7 @@ function Ensure-Repo {
     }
 
     Write-Host 'Git yok — GitHub zip indiriliyor...' -ForegroundColor Yellow
-    $zipUrl = "https://github.com/mamongrup/rezervasyonyap/archive/refs/heads/$($BranchName -replace '/','-').zip"
+    $zipUrl = "https://github.com/mamongrup/rezervasyonyap/archive/refs/heads/$BranchName.zip"
     $altZipUrl = 'https://github.com/mamongrup/rezervasyonyap/archive/refs/heads/main.zip'
     $zipPath = Join-Path $env:TEMP 'rezervasyonyap-bootstrap.zip'
     $extractRoot = Join-Path $env:TEMP 'rezervasyonyap-bootstrap-extract'
