@@ -9,7 +9,7 @@
 param(
     [string]$LaragonRoot = 'C:\laragon',
     [string]$RepoRoot = '',
-    [string]$Branch = 'cursor/finish-laragon-setup-e166',
+    [string]$Branch = 'main',
     [string]$RepoUrl = 'https://github.com/mamongrup/rezervasyonyap.git',
     [switch]$ResetPostgresData
 )
