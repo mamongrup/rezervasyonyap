@@ -64,7 +64,7 @@ function Get-LaragonPostgresqlDataDirs {
 function Test-PostgresqlConnection {
     param(
         [Parameter(Mandatory = $true)][string]$Psql,
-        [string]$Host = '127.0.0.1',
+        [string]$PgHost = '127.0.0.1',
         [int]$Port = 5432,
         [string]$User = 'postgres',
         [string]$Database = 'postgres',
@@ -74,7 +74,7 @@ function Test-PostgresqlConnection {
     $prev = $env:PGPASSWORD
     try {
         if ($Password) { $env:PGPASSWORD = $Password } else { Remove-Item Env:PGPASSWORD -ErrorAction SilentlyContinue }
-        & $Psql -h $Host -p $Port -U $User -d $Database -t -A -c 'SELECT 1' 2>$null | Out-Null
+        & $Psql -h $PgHost -p $Port -U $User -d $Database -t -A -c 'SELECT 1' 2>$null | Out-Null
         return ($LASTEXITCODE -eq 0)
     } finally {
         if ($null -ne $prev) { $env:PGPASSWORD = $prev } else { Remove-Item Env:PGPASSWORD -ErrorAction SilentlyContinue }

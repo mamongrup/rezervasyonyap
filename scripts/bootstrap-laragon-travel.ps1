@@ -76,21 +76,11 @@ function Ensure-Repo {
         Write-Host "[OK] Repo mevcut: $TargetRoot" -ForegroundColor Green
         if ($GitExe) {
             $env:PATH = "$(Split-Path $GitExe -Parent);$env:PATH"
-            $fetchCode = Invoke-GitQuiet -GitExe $GitExe -Arguments @('fetch', 'origin', $BranchName) -WorkingDirectory $TargetRoot
-            if ($fetchCode -ne 0) {
-                Write-Host "git fetch uyarisi (kod $fetchCode) - mevcut dosyalarla devam" -ForegroundColor Yellow
-            }
-            $checkoutCode = Invoke-GitQuiet -GitExe $GitExe -Arguments @('checkout', '-B', $BranchName, "origin/$BranchName") -WorkingDirectory $TargetRoot
+            Invoke-GitQuiet -GitExe $GitExe -Arguments @('fetch', 'origin') -WorkingDirectory $TargetRoot | Out-Null
+            $remoteRef = "origin/$BranchName"
+            $checkoutCode = Invoke-GitQuiet -GitExe $GitExe -Arguments @('checkout', '-B', $BranchName, $remoteRef) -WorkingDirectory $TargetRoot
             if ($checkoutCode -ne 0) {
-                $checkoutCode = Invoke-GitQuiet -GitExe $GitExe -Arguments @('checkout', $BranchName) -WorkingDirectory $TargetRoot
-            }
-            if ($checkoutCode -ne 0) {
-                Write-Host 'Branch checkout basarisiz, main deneniyor...' -ForegroundColor Yellow
-                $mainCode = Invoke-GitQuiet -GitExe $GitExe -Arguments @('checkout', '-B', 'main', 'origin/main') -WorkingDirectory $TargetRoot
-                if ($mainCode -ne 0) {
-                    Invoke-GitQuiet -GitExe $GitExe -Arguments @('checkout', 'main') -WorkingDirectory $TargetRoot | Out-Null
-                }
-                Invoke-GitQuiet -GitExe $GitExe -Arguments @('pull', 'origin', 'main') -WorkingDirectory $TargetRoot | Out-Null
+                Write-Host "git checkout $BranchName basarisiz - mevcut dosyalarla devam" -ForegroundColor Yellow
             } else {
                 Invoke-GitQuiet -GitExe $GitExe -Arguments @('pull', 'origin', $BranchName) -WorkingDirectory $TargetRoot | Out-Null
             }
