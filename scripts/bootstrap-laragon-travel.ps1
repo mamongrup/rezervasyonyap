@@ -78,12 +78,18 @@ function Ensure-Repo {
             $env:PATH = "$(Split-Path $GitExe -Parent);$env:PATH"
             $fetchCode = Invoke-GitQuiet -GitExe $GitExe -Arguments @('fetch', 'origin', $BranchName) -WorkingDirectory $TargetRoot
             if ($fetchCode -ne 0) {
-                Write-Host "git fetch uyarisi (kod $fetchCode) — mevcut dosyalarla devam" -ForegroundColor Yellow
+                Write-Host "git fetch uyarisi (kod $fetchCode) - mevcut dosyalarla devam" -ForegroundColor Yellow
             }
-            $checkoutCode = Invoke-GitQuiet -GitExe $GitExe -Arguments @('checkout', $BranchName) -WorkingDirectory $TargetRoot
+            $checkoutCode = Invoke-GitQuiet -GitExe $GitExe -Arguments @('checkout', '-B', $BranchName, "origin/$BranchName") -WorkingDirectory $TargetRoot
+            if ($checkoutCode -ne 0) {
+                $checkoutCode = Invoke-GitQuiet -GitExe $GitExe -Arguments @('checkout', $BranchName) -WorkingDirectory $TargetRoot
+            }
             if ($checkoutCode -ne 0) {
                 Write-Host 'Branch checkout basarisiz, main deneniyor...' -ForegroundColor Yellow
-                Invoke-GitQuiet -GitExe $GitExe -Arguments @('checkout', 'main') -WorkingDirectory $TargetRoot | Out-Null
+                $mainCode = Invoke-GitQuiet -GitExe $GitExe -Arguments @('checkout', '-B', 'main', 'origin/main') -WorkingDirectory $TargetRoot
+                if ($mainCode -ne 0) {
+                    Invoke-GitQuiet -GitExe $GitExe -Arguments @('checkout', 'main') -WorkingDirectory $TargetRoot | Out-Null
+                }
                 Invoke-GitQuiet -GitExe $GitExe -Arguments @('pull', 'origin', 'main') -WorkingDirectory $TargetRoot | Out-Null
             } else {
                 Invoke-GitQuiet -GitExe $GitExe -Arguments @('pull', 'origin', $BranchName) -WorkingDirectory $TargetRoot | Out-Null
@@ -95,7 +101,7 @@ function Ensure-Repo {
     if (Test-Path $TargetRoot) {
         $items = Get-ChildItem $TargetRoot -Force -ErrorAction SilentlyContinue
         if ($items -and $items.Count -gt 0) {
-            throw "Hedef dolu ama git repo degil: $TargetRoot — klasoru bosaltin veya baska yol verin."
+            throw "Hedef dolu ama git repo degil: $TargetRoot - klasoru bosaltin veya baska yol verin."
         }
     } else {
         New-Item -ItemType Directory -Force -Path $TargetRoot | Out-Null
@@ -114,7 +120,7 @@ function Ensure-Repo {
         return $TargetRoot
     }
 
-    Write-Host 'Git yok — GitHub zip indiriliyor...' -ForegroundColor Yellow
+    Write-Host 'Git yok - GitHub zip indiriliyor...' -ForegroundColor Yellow
     $zipUrl = "https://github.com/mamongrup/rezervasyonyap/archive/refs/heads/$BranchName.zip"
     $altZipUrl = 'https://github.com/mamongrup/rezervasyonyap/archive/refs/heads/main.zip'
     $zipPath = Join-Path $env:TEMP 'rezervasyonyap-bootstrap.zip'
@@ -152,7 +158,7 @@ Write-Host "Repo:    $RepoRoot"
 Write-Host "Branch:  $Branch"
 
 if (-not (Test-Path $LaragonRoot)) {
-    throw "Laragon bulunamadi: $LaragonRoot — Laragon kurulu mu?"
+    throw "Laragon bulunamadi: $LaragonRoot - Laragon kurulu mu?"
 }
 
 $www = Join-Path $LaragonRoot 'www'
@@ -162,14 +168,14 @@ $git = Find-GitExecutable
 if ($git) {
     Write-Host "[OK] Git: $git" -ForegroundColor Green
 } else {
-    Write-Host 'Git PATH yok — zip ile indirilecek (Laragon Menu > Tools > Git kurabilirsiniz)' -ForegroundColor Yellow
+    Write-Host 'Git PATH yok - zip ile indirilecek (Laragon Menu > Tools > Git kurabilirsiniz)' -ForegroundColor Yellow
 }
 
 $repo = Ensure-Repo -TargetRoot $RepoRoot -GitExe $git -BranchName $Branch
 
 $finish = Join-Path $repo 'scripts\finish-laragon-setup.ps1'
 if (-not (Test-Path $finish)) {
-    throw "finish-laragon-setup.ps1 yok: $finish — branch guncel mi kontrol edin."
+    throw "finish-laragon-setup.ps1 yok: $finish - branch guncel mi kontrol edin."
 }
 
 Write-Step 'Kurulum scripti calistiriliyor'

@@ -35,7 +35,7 @@ $envExample = Join-Path $BackendDir 'backend.env.example'
 $envLocal = Join-Path $BackendDir 'backend.env'
 if (-not (Test-Path $envLocal)) {
   Copy-Item $envExample $envLocal
-  Write-Host "[OK] backend.env oluşturuldu — TURNA_API_KEY ekleyin" -ForegroundColor Green
+  Write-Host "[OK] backend.env olusturuldu - TURNA_API_KEY ekleyin" -ForegroundColor Green
 } else {
   Write-Host "[OK] backend.env mevcut" -ForegroundColor Green
 }

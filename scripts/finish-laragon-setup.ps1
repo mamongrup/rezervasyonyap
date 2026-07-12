@@ -39,7 +39,7 @@ Write-Host "Repo:     $RepoRoot"
 Write-Host "Laragon:  $LaragonRoot"
 
 if (-not (Test-Path $RepoRoot)) {
-    throw "Repo bulunamadi: $RepoRoot — once git clone ile C:\laragon\www\travel olusturun."
+    throw "Repo bulunamadi: $RepoRoot - once git clone ile C:\laragon\www\travel olusturun."
 }
 
 # Laragon PostgreSQL junction (postgresql -> postgresql-18.4)
@@ -93,7 +93,7 @@ if (-not (Test-Path $feLocal) -and (Test-Path $feExample)) {
 if (-not $SkipMigrations) {
     Write-Step 'SQL migration'
     if (Test-TravelSchemaReady -Psql $tools.Psql -Database $PgDatabase -User $PgUser -Password $PgPassword) {
-        Write-Host '[OK] travel semasi zaten var — migration atlandi' -ForegroundColor Green
+        Write-Host '[OK] travel semasi zaten var - migration atlandi' -ForegroundColor Green
         Write-Host '     (sifirdan kurmak icin: travel DB silin veya -ResetPostgresData)' -ForegroundColor DarkGray
     } else {
         $runAll = Join-Path $RepoRoot 'backend\priv\sql\run_all.ps1'
@@ -122,7 +122,7 @@ if (-not $SkipNpm) {
         $env:PATH = "$nodeDir;$nodeDir\node_modules\npm\bin;" + $env:PATH
         Write-Host "[OK] Node: $(Join-Path $nodeDir 'node.exe')" -ForegroundColor Green
     } else {
-        Write-Host 'UYARI: Laragon Node bulunamadi — PATH uzerindeki node kullanilacak' -ForegroundColor Yellow
+        Write-Host 'UYARI: Laragon Node bulunamadi - PATH uzerindeki node kullanilacak' -ForegroundColor Yellow
     }
 
     Push-Location (Join-Path $RepoRoot 'frontend')
@@ -178,8 +178,10 @@ Write-Host '=== Kurulum tamam ===' -ForegroundColor Green
 Write-Host 'Laragon: Menu > Preferences > General > "Start All automatically" acik olsun; PostgreSQL tikli olsun.'
 Write-Host ''
 Write-Host 'Calistirma (iki ayri terminal):'
-Write-Host "  1) cd $RepoRoot; .\scripts\start-travel-api.ps1"
-Write-Host "  2) cd $RepoRoot; .\scripts\start-frontend.ps1"
+Write-Host ('  1) cd ' + $RepoRoot)
+Write-Host '     .\scripts\start-travel-api.ps1'
+Write-Host ('  2) cd ' + $RepoRoot)
+Write-Host '     .\scripts\start-frontend.ps1'
 Write-Host ''
 Write-Host 'Tarayici: http://localhost:3000'
 Write-Host 'API:      http://127.0.0.1:8080/api/v1/meta'
