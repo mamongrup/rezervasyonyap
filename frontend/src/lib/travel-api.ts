@@ -8825,6 +8825,13 @@ export async function createSupportChatFollowup(
   return json(res)
 }
 
+export async function setSupportChatContactPreferences(sessionId: string, input: { email?: string; phone?: string; email_consent: boolean; whatsapp_consent: boolean }): Promise<{ ok: boolean }> {
+  const b = base(); if (!b) throw new Error('NEXT_PUBLIC_API_URL_missing')
+  const res = await fetch(`${b}/api/v1/support/chat/sessions/${encodeURIComponent(sessionId)}/contact-preferences`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(input) })
+  if (!res.ok) throw new Error(`chat_contact_preferences_${res.status}`)
+  return json(res)
+}
+
 export type SupportDepartment = {
   id: string
   code: string
@@ -11599,6 +11606,23 @@ export async function patchAgentRecommendation(
     const err = await res.json().catch(() => ({}))
     throw new Error((err as { error?: string }).error ?? `agent_recommendation_patch_${res.status}`)
   }
+  return json(res)
+}
+
+export type AiControlCenterOverview = {
+  counts: { queued: number; running: number; awaiting_approval: number; failed: number; knowledge_sources: number }
+  quality: { average_7d: number; failed_7d: number }
+  cost: { usd_30d: number; tokens_30d: number }
+  agents: Array<{ code: string; display_name: string; status: string; org_role: string; parent_code: string | null; jobs_24h: number; succeeded_24h: number; failed_24h: number; quality_7d: number; cost_30d: number }>
+  recent_failures: Array<{ id: string; entity_type: string; entity_id: string; current_stage: string; error: string; updated_at: string }>
+  generated_at: string
+}
+
+export async function getAiControlCenterOverview(token: string): Promise<AiControlCenterOverview> {
+  const b = base()
+  if (!b) throw new Error('NEXT_PUBLIC_API_URL_missing')
+  const res = await fetch(`${b}/api/v1/ai/control-center/overview`, { headers: { Authorization: `Bearer ${token}` } })
+  if (!res.ok) throw new Error(`ai_control_center_${res.status}`)
   return json(res)
 }
 

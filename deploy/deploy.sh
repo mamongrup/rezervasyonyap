@@ -250,6 +250,21 @@ main() {
   ok "frontend build tamam"
   fi
 
+  if [[ "${SKIP_AI_WORKER_TIMER:-0}" == "1" ]]; then
+    warn "SKIP_AI_WORKER_TIMER=1 — AI watchdog ve kuyruk worker timer kurulumu atlandı."
+  elif [[ -f "$APP_ROOT/deploy/systemd/travel-ai-worker.service" && -f "$APP_ROOT/deploy/systemd/travel-ai-worker.timer" ]]; then
+    step "AI watchdog ve kuyruk worker timer kurulumu"
+    cp "$APP_ROOT/deploy/systemd/travel-ai-worker.service" /etc/systemd/system/travel-ai-worker.service \
+      && cp "$APP_ROOT/deploy/systemd/travel-ai-worker.timer" /etc/systemd/system/travel-ai-worker.timer \
+      && chmod +x "$APP_ROOT/deploy/scripts/ai-worker-run-steps.sh" \
+      && systemctl daemon-reload \
+      && systemctl enable --now travel-ai-worker.timer \
+      && ok "travel-ai-worker.timer etkin" \
+      || warn "travel-ai-worker.timer kurulamadı; AI watchdog için systemd/log kontrol edin."
+  else
+    warn "AI worker systemd dosyaları bulunamadı."
+  fi
+
   if [[ "${SKIP_SOCIAL_WORKER_TIMER:-0}" == "1" ]]; then
     warn "SKIP_SOCIAL_WORKER_TIMER=1 — sosyal paylaşım worker timer kurulumu atlandı."
   elif [[ -f "$APP_ROOT/deploy/systemd/travel-social-worker.service" && -f "$APP_ROOT/deploy/systemd/travel-social-worker.timer" ]]; then

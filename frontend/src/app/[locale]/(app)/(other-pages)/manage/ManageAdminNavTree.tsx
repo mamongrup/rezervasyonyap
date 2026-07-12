@@ -2,25 +2,19 @@
 
 import clsx from 'clsx'
 import {
-  Bell,
-  Bot,
   CalendarCheck,
   ChevronDown,
   ChevronRight,
   CreditCard,
   FileText,
-  GalleryHorizontalEnd,
   LayoutDashboard,
   MapPin,
   Megaphone,
   MessageSquare,
   Package,
-  Plug,
   Search,
   Settings,
-  Share2,
   Users,
-  Wrench,
   X,
 } from 'lucide-react'
 import Link from 'next/link'
@@ -49,14 +43,11 @@ function getGroupItems(g: NavGroupDef): NavLeaf[] {
 const GROUPS: NavGroupDef[] = [
   {
     id: 'dashboard',
-    label: 'Gösterge Paneli',
+    label: 'Genel Bakış',
     Icon: LayoutDashboard,
     items: [
-      { path: '/manage/admin', label: 'Gösterge & istatistikler' },
+      { path: '/manage/admin', label: 'Gösterge paneli' },
       { path: '/manage/operations', label: 'Operasyon Merkezi' },
-      { path: '/manage/admin/workspace', label: 'İş planı & duyurular' },
-      { path: '/manage/admin/access', label: 'Kullanıcı & rol yönetimi' },
-      { path: '/manage/admin/settings?tab=google', label: 'Analitik & takip kodları' },
     ],
   },
   {
@@ -83,48 +74,42 @@ const GROUPS: NavGroupDef[] = [
   },
   {
     id: 'members',
-    label: 'Üyeler',
+    label: 'Kullanıcılar',
     Icon: Users,
     items: [
       { path: '/manage/members/customers', label: 'Müşteriler' },
-      { path: '/manage/admin/catalog/suppliers', label: 'Tedarikçi başvuruları' },
-      { path: '/manage/admin/catalog/agencies', label: 'Acente profilleri' },
-      { path: '/manage/admin/catalog/grants', label: 'Kategori izinleri' },
-      { path: '/manage/admin/catalog/subcategories', label: 'Alt kategori yönetimi' },
       { path: '/manage/members/agencies', label: 'Acenteler' },
-      { path: '/manage/agency-verify', label: 'TÜRSAB Doğrulama' },
-      { path: '/manage/supplier-verify', label: 'Firma Doğrulama' },
       { path: '/manage/members/staff', label: 'Personel' },
       { path: '/manage/members/admins', label: 'Yöneticiler' },
+      { path: '/manage/agency-verify', label: 'Acente doğrulama' },
+      { path: '/manage/supplier-verify', label: 'Tedarikçi doğrulama' },
     ],
   },
   {
     id: 'content',
     label: 'İçerik Yönetimi',
     Icon: FileText,
-    items: [
-      { path: '/manage/content/blog', label: 'Blog kategorileri & yazılar' },
-      { path: '/manage/admin/content/navigation', label: 'Navigasyon menüsü' },
-      { path: '/manage/content/header-footer', label: 'Header & footer (üst / alt menü linkleri)' },
-      { path: '/manage/content/mega-menu', label: 'Mega menü' },
-      { path: '/manage/content/catalog-menu', label: 'Katalog menüsü (header)' },
-      { path: '/manage/content/sliders', label: 'Slider & banner' },
-      { path: '/manage/content/popups', label: 'Popup yönetimi' },
-      { path: '/manage/admin/content/seo-redirects', label: 'SEO yönlendirmeleri' },
-      { path: '/manage/content/page-builder', label: 'Kategori & arama sayfaları' },
-      { path: '/manage/content/category-images', label: 'Kategori Resimleri' },
-      { path: '/manage/content/featured-listings', label: 'Öne çıkan ilanlar (vitrin)' },
-      { path: '/manage/content/featured-regions', label: 'Bölgeye göre öne çıkar' },
-      { path: '/manage/content/pages', label: 'Sayfalar (CMS)' },
-    ],
-  },
-  {
-    id: 'media',
-    label: 'Medya',
-    Icon: GalleryHorizontalEnd,
-    items: [
-      { path: '/manage/media', label: 'Medya kütüphanesi' },
-      { path: '/manage/settings/image-quality', label: 'Görsel kalitesi & yükleme' },
+    sections: [
+      {
+        heading: 'Sayfalar ve vitrin',
+        items: [
+          { path: '/manage/content/pages', label: 'Sayfalar (CMS)' },
+          { path: '/manage/content/page-builder', label: 'Sayfa düzenleyici' },
+          { path: '/manage/content/sliders', label: 'Slider ve bannerlar' },
+          { path: '/manage/content/featured-listings', label: 'Öne çıkan ilanlar' },
+          { path: '/manage/content/featured-regions', label: 'Öne çıkan bölgeler' },
+        ],
+      },
+      {
+        heading: 'Menüler ve yayınlar',
+        items: [
+          { path: '/manage/content/header-footer', label: 'Üst ve alt menü' },
+          { path: '/manage/content/mega-menu', label: 'Mega menü' },
+          { path: '/manage/content/catalog-menu', label: 'Katalog menüsü' },
+          { path: '/manage/content/blog', label: 'Blog' },
+          { path: '/manage/content/popups', label: 'Popup yönetimi' },
+        ],
+      },
     ],
   },
   {
@@ -142,25 +127,24 @@ const GROUPS: NavGroupDef[] = [
     ],
   },
   {
-    id: 'marketing_comms',
-    label: 'Pazarlama & iletişim',
+    id: 'marketing',
+    label: 'Pazarlama',
     Icon: MessageSquare,
-    items: [
-      { path: '/manage/admin/marketing/messaging', label: 'Mesajlaşma kataloğu' },
-    ],
-  },
-  {
-    id: 'social_media',
-    label: 'Sosyal medya',
-    Icon: Share2,
     sections: [
       {
-        heading: 'API & paylaşım',
-        items: [{ path: '/manage/admin/marketing/social', label: 'Sosyal API & kuyruk' }],
+        heading: 'Kampanyalar',
+        items: [
+          { path: '/manage/campaigns', label: 'Tüm kampanyalar' },
+          { path: '/manage/campaigns/coupons', label: 'Kuponlar' },
+          { path: '/manage/campaigns/early-booking', label: 'Erken rezervasyon' },
+          { path: '/manage/campaigns/last-minute', label: 'Son dakika' },
+        ],
       },
       {
-        heading: 'Kanal sayfaları',
+        heading: 'İletişim ve sosyal medya',
         items: [
+          { path: '/manage/admin/marketing/messaging', label: 'Mesajlaşma' },
+          { path: '/manage/admin/marketing/social', label: 'Sosyal medya yönetimi' },
           { path: '/manage/social/instagram', label: 'Instagram Shop & Story' },
           { path: '/manage/social/whatsapp', label: 'WhatsApp' },
         ],
@@ -168,22 +152,10 @@ const GROUPS: NavGroupDef[] = [
     ],
   },
   {
-    id: 'integrations',
-    label: 'Entegrasyonlar',
-    Icon: Plug,
-    items: [
-      { path: '/manage/admin/settings/listing-api', label: 'İlan API (Wtatil, Travelrobot, Turna…)' },
-      { path: '/manage/admin/settings/integrations', label: 'Genel entegrasyon ayarları' },
-      { path: '/manage/finance/payment-gateways', label: 'Sanal POS (ParamPOS / Paratika)' },
-    ],
-  },
-  {
     id: 'finance',
     label: 'Finans & Muhasebe',
     Icon: CreditCard,
     items: [
-      { path: '/manage/admin/payments/provizyon', label: 'Provizyon yönetimi' },
-      { path: '/manage/admin/payments/gateways', label: 'Ticari & sosyal (GMP/IG/WA)' },
       { path: '/manage/finance/invoices', label: 'Tüm faturalar' },
       { path: '/manage/finance/commissions', label: 'Komisyon ayarları' },
       { path: '/manage/finance/payment-gateways', label: 'Sanal POS (ParamPOS / Paratika)' },
@@ -191,88 +163,57 @@ const GROUPS: NavGroupDef[] = [
     ],
   },
   {
-    id: 'notifications',
-    label: 'Bildirimler',
-    Icon: Bell,
-    items: [
-      { path: '/manage/notifications/email', label: 'E-posta şablonları' },
-      { path: '/manage/notifications/sms', label: 'SMS (Netgsm)' },
-      { path: '/manage/notifications/push', label: 'Push bildirimleri' },
-    ],
-  },
-  {
-    id: 'ai',
-    label: 'Yapay zeka',
-    Icon: Bot,
+    id: 'growth',
+    label: 'SEO & Yapay Zeka',
+    Icon: Search,
     sections: [
       {
-        heading: 'Operasyon & içerik araçları',
+        heading: 'SEO',
         items: [
-          { path: '/manage/admin/settings?tab=ai', label: 'Yapay zeka ayarları' },
-          { path: '/manage/ai/content', label: 'İçerik oluşturucu' },
-          { path: '/manage/ai/listing-content', label: 'İlan içerik & SEO (toplu)' },
-          { path: '/manage/ai/regions', label: 'Bölge oluşturucu' },
-          { path: '/manage/ai/seo', label: 'SEO oluşturucu' },
-          { path: '/manage/ai/translate', label: 'Çeviri asistanı' },
-          { path: '/manage/ai/chatbot', label: 'Chatbot ayarları' },
+          { path: '/manage/seo', label: 'SEO ayarları' },
+          { path: '/manage/seo/sitemap', label: 'Site haritası' },
+          { path: '/manage/seo/redirects', label: 'Yönlendirmeler' },
+          { path: '/manage/seo/404', label: '404 yönetimi' },
         ],
       },
       {
-        heading: 'Yönetim & izleme',
-        items: [{ path: '/manage/admin/marketing/ai', label: 'Sağlayıcılar & iş kuyruğu' }],
+        heading: 'Yapay zeka araçları',
+        items: [
+          { path: '/manage/ai/content', label: 'İçerik oluşturucu' },
+          { path: '/manage/ai/listing-content', label: 'İlan içeriği ve SEO' },
+          { path: '/manage/ai/regions', label: 'Bölge oluşturucu' },
+          { path: '/manage/ai/translate', label: 'Çeviri asistanı' },
+        ],
       },
-    ],
-  },
-  {
-    id: 'seo',
-    label: 'SEO',
-    Icon: Search,
-    items: [
-      { path: '/manage/seo', label: 'SEO genel ayarları' },
-      { path: '/manage/seo/sitemap', label: 'Site haritası' },
-      { path: '/manage/seo/404', label: '404 yönetimi' },
-      { path: '/manage/seo/redirects', label: '301 yönlendirmeler' },
-      { path: '/manage/seo/rich-snippets', label: 'Rich Snippets' },
-      { path: '/manage/seo/merchant', label: 'Google Merchant' },
-      { path: '/manage/seo/links', label: 'Link yönetimi' },
     ],
   },
   {
     id: 'settings',
-    label: 'Ayarlar',
+    label: 'Sistem Ayarları',
     Icon: Settings,
-    items: [
-      { path: '/manage/admin/settings?tab=kimlik', label: 'Site kimliği' },
-      { path: '/manage/admin/settings?tab=operasyon', label: 'Ödeme & kur' },
-      { path: '/manage/admin/settings?tab=seo', label: 'SEO' },
-      { path: '/manage/admin/settings?tab=sosyal', label: 'Sosyal medya' },
-      { path: '/manage/admin/settings?tab=ai', label: 'Yapay zeka' },
-      { path: '/manage/admin/settings?tab=google', label: 'Google' },
-      { path: '/manage/admin/settings?tab=merchant', label: 'Merchant & kategoriler' },
-      { path: '/manage/admin/settings/integrations', label: 'Entegrasyon genel ayarları' },
-      { path: '/manage/admin/settings/listing-api', label: 'İlan API (Wtatil, Travelrobot, Turna…)' },
-      { path: '/manage/admin/settings/notifications', label: 'Bildirim ayarları' },
-      { path: '/manage/i18n', label: 'Diller & çeviriler' },
-      { path: '/manage/settings/cdn', label: 'CDN (Bunny / Cloudflare)' },
-      { path: '/manage/settings/image-quality', label: 'Görsel kalitesi & yükleme' },
-      { path: '/manage/settings/reviews', label: 'Yorum yönetimi' },
-    ],
-  },
-  {
-    id: 'access',
-    label: 'Erişim Kontrolü',
-    Icon: Users,
-    items: [
-      { path: '/manage/admin/access', label: 'Kullanıcılar & Roller' },
-    ],
-  },
-  {
-    id: 'tools',
-    label: 'Araçlar',
-    Icon: Wrench,
-    items: [
-      { path: '/manage/admin/tools', label: 'Araçlar' },
-      { path: '/manage/audit-log', label: 'Denetim günlüğü' },
+    sections: [
+      {
+        heading: 'Site ve bağlantılar',
+        items: [
+          { path: '/manage/admin/settings', label: 'Genel site ayarları' },
+          { path: '/manage/admin/settings/integrations', label: 'Entegrasyonlar' },
+          { path: '/manage/admin/settings/listing-api', label: 'İlan API bağlantıları' },
+          { path: '/manage/settings/cdn', label: 'CDN ayarları' },
+        ],
+      },
+      {
+        heading: 'Yönetim',
+        items: [
+          { path: '/manage/ai/approvals', label: 'AI onay kuyruğu' },
+          { path: '/manage/ai/control-center', label: 'AI kontrol merkezi' },
+          { path: '/manage/admin/access', label: 'Kullanıcılar ve roller' },
+          { path: '/manage/i18n', label: 'Diller ve çeviriler' },
+          { path: '/manage/media', label: 'Medya kütüphanesi' },
+          { path: '/manage/settings/image-quality', label: 'Görsel yükleme ayarları' },
+          { path: '/manage/notifications/email', label: 'Bildirim şablonları' },
+          { path: '/manage/audit-log', label: 'Denetim günlüğü' },
+        ],
+      },
     ],
   },
 ]
