@@ -1,7 +1,7 @@
 # Sifirdan Laragon + travel kurulumu (git PATH'te olmasa da calisir).
 # Yonetici PowerShell — herhangi bir dizinden:
 #   Set-ExecutionPolicy Bypass -Scope Process -Force
-#   irm https://raw.githubusercontent.com/mamongrup/rezervasyonyap/cursor/finish-laragon-setup-e166/scripts/bootstrap-laragon-travel.ps1 | iex
+#   irm https://raw.githubusercontent.com/mamongrup/rezervasyonyap/main/scripts/bootstrap-laragon-travel.ps1 | iex
 #
 # Veya indirip:
 #   powershell -ExecutionPolicy Bypass -File C:\Users\...\Downloads\bootstrap-laragon-travel.ps1
