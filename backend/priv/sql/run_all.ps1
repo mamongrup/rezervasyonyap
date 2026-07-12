@@ -1,9 +1,20 @@
 # PostgreSQL — install_order.txt içindeki modules/*.sql dosyalarını sırayla uygular.
 # Kullanım (Laragon): .\run_all.ps1
-# Ortam: $env:PGDATABASE (varsayılan travel), $env:PGUSER (varsayılan postgres)
+# Ortam: $env:PGDATABASE (varsayılan travel), $env:PGUSER (varsayılan postgres), $env:PSQL
 $ErrorActionPreference = 'Stop'
-$psql = if ($env:PSQL) { $env:PSQL } else { 'C:\laragon\bin\postgresql\postgresql-18.4\bin\psql.exe' }
-if (-not (Test-Path $psql)) { $psql = 'psql' }
+$psql = $env:PSQL
+if (-not $psql) {
+  $candidates = @(
+    'C:\laragon\bin\postgresql\postgresql\bin\psql.exe',
+    'C:\laragon\bin\postgresql\postgresql-18.4\bin\psql.exe',
+    'C:\laragon\bin\postgresql\postgresql-18\bin\psql.exe'
+  )
+  $psql = $candidates | Where-Object { Test-Path $_ } | Select-Object -First 1
+}
+if (-not $psql -or -not (Test-Path $psql)) {
+  $cmd = Get-Command psql.exe -ErrorAction SilentlyContinue
+  if ($cmd) { $psql = $cmd.Source } else { $psql = 'psql' }
+}
 $base = Split-Path -Parent $MyInvocation.MyCommand.Path
 $db = if ($env:PGDATABASE) { $env:PGDATABASE } else { 'travel' }
 $user = if ($env:PGUSER) { $env:PGUSER } else { 'postgres' }

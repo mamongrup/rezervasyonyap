@@ -1,5 +1,6 @@
 # Bir kerelik yerel Windows kurulumu (Laragon + travel repo)
-# Kullanım: .\scripts\setup-local-windows.ps1
+# Tam kurulum (PostgreSQL + migration + npm): .\scripts\finish-laragon-setup.ps1
+# Yalnızca Erlang/rebar/gleam: .\scripts\setup-local-windows.ps1
 
 $ErrorActionPreference = 'Stop'
 $RepoRoot = Split-Path $PSScriptRoot -Parent
@@ -56,7 +57,8 @@ Write-Host "[OK] gleam build tamam" -ForegroundColor Green
 
 Write-Host ""
 Write-Host "Sonraki adımlar:" -ForegroundColor Cyan
+Write-Host "  PostgreSQL/migration henüz yoksa: .\scripts\finish-laragon-setup.ps1 -SkipGleam"
 Write-Host "  1. backend\backend.env içine TURNA_API_KEY yazın (veya panelden kaydedin)"
 Write-Host "  2. Terminal 1: .\scripts\start-travel-api.ps1"
 Write-Host "  3. Terminal 2: .\scripts\start-frontend.ps1"
-Write-Host "  4. Test: http://localhost:3000/ucak-bileti/all?from=IST&to=AYT&date=2026-07-17"
+Write-Host "  4. Test: http://localhost:3000"
