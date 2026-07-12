@@ -65,6 +65,35 @@ function Invoke-GitQuiet {
     }
 }
 
+function Update-SetupScriptsFromGithub {
+    param(
+        [Parameter(Mandatory = $true)][string]$TargetRoot,
+        [string]$BranchName = 'main'
+    )
+
+    $base = "https://raw.githubusercontent.com/mamongrup/rezervasyonyap/$BranchName"
+    $files = @(
+        'scripts/finish-laragon-setup.ps1',
+        'scripts/lib/Resolve-LaragonPostgresql.ps1',
+        'scripts/bootstrap-laragon-travel.ps1'
+    )
+
+    foreach ($rel in $files) {
+        $url = "$base/$rel"
+        $dest = Join-Path $TargetRoot ($rel -replace '/', '\')
+        $parent = Split-Path $dest -Parent
+        if ($parent -and -not (Test-Path $parent)) {
+            New-Item -ItemType Directory -Force -Path $parent | Out-Null
+        }
+        try {
+            Invoke-WebRequest -Uri $url -OutFile $dest -UseBasicParsing
+            Write-Host "[OK] Guncellendi: $rel" -ForegroundColor DarkGray
+        } catch {
+            Write-Host "Script indirilemedi: $rel" -ForegroundColor Yellow
+        }
+    }
+}
+
 function Ensure-Repo {
     param(
         [string]$TargetRoot,
