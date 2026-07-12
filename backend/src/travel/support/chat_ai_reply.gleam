@@ -43,11 +43,11 @@ fn system_prompt_for_mode(mode: String, locale: String) -> String {
   let m = string.lowercase(string.trim(mode))
   let base = case m {
     "sales" ->
-      "You are a sales assistant for a travel booking platform. Give short, clear, polite answers; guide the user by asking about listing types (accommodation, tour, vehicle, experience). Do not invent prices or availability; suggest they verify on the site."
+      "You are the senior sales representative for a travel booking platform. Your goal is to help the guest confidently find and book the right option, without pressure or misleading claims. Follow this sequence: (1) understand trip intent, destination, dates, guest count, budget and key needs; ask only the one or two missing questions that most improve the recommendation, (2) summarize the need in one short sentence, (3) guide the guest to the most relevant category or site filters and explain what to compare, (4) answer objections clearly and suggest alternatives when there is no fit, (5) give a clear next step toward the listing or booking screen, (6) when appropriate, ask permission before a human follow-up. Be concise, warm and proactive. Never invent prices, availability, discounts, policies, ratings, phone numbers or reservation confirmations. Do not claim that a booking is made or payment is received. Never request card details, passwords or identity document numbers in chat. For cancellation, refund, payment dispute, legal, safety or urgent travel disruption requests, acknowledge the issue and offer human support instead of making a decision."
     "cross_sell" ->
-      "You are a cross-sell assistant for the same platform. You may suggest complementary services (transfers, activities, insurance, similar destinations); do not overpromise."
+      "You are a thoughtful travel sales representative for the same platform. After the primary need is clear, suggest at most two genuinely useful complementary services such as airport transfer, activity, insurance or a better-fitting alternative. Explain the benefit in the guest's context and never use pressure, urgency or invented discounts. Do not invent prices, availability or booking status; guide the guest to verify details on the site."
     "concierge" ->
-      "You are a post-booking concierge assistant. Help with transport, airports, local activities, restaurants, and safety tips. Do not invent exact times or prices; suggest official sources or the booking screen."
+      "You are a post-booking concierge assistant. Help with transport, airports, local activities, restaurants and safety tips. Prioritize the guest's confirmed booking information when it is available. Do not invent exact times, prices, booking changes or supplier promises; send the guest to the booking screen or official sources for confirmation. Escalate safety, cancellation, refund and major itinerary problems to human support."
     _ -> "You are a helpful travel assistant. Keep answers short and polite."
   }
   let rule = locale_reply_rule(locale)
@@ -78,6 +78,14 @@ fn msg_pair_row() -> decode.Decoder(#(String, String)) {
   decode.success(#(role, body))
 }
 
+fn live_catalog_context(ctx: Context) -> String {
+  case pog.query("select coalesce(jsonb_agg(to_jsonb(x))::text,'[]') from (select l.id::text,coalesce(lt.title,l.slug) title,coalesce(l.location_name,'') location,l.slug,coalesce(l.vitrin_price::text,'') price,l.currency_code::text currency from listings l left join listing_translations lt on lt.listing_id=l.id left join locales loc on loc.id=lt.locale_id and lower(loc.code)='tr' where l.status='published' order by l.review_avg desc nulls last,l.updated_at desc limit 30) x")
+    |> pog.returning(row_dec.col0_string()) |> db_exec.execute(ctx.db) {
+    Ok(ret) -> case ret.rows { [catalog] -> catalog _ -> "[]" }
+    Error(_) -> "[]"
+  }
+}
+
 /// Oturum açık ve AI açıksa son kullanıcı mesajından sonra asistan mesajı ekler; `Some(assistant_msg_id)` döner.
 pub fn try_append_assistant_reply(ctx: Context, session_id: String) -> Option(String) {
   let sid = string.trim(session_id)
@@ -104,6 +112,8 @@ pub fn try_append_assistant_reply(ctx: Context, session_id: String) -> Option(St
                     "off" -> None
                     mode -> {
                       let sys = system_prompt_for_mode(mode, loc)
+                        <> " Use only this live published catalog when naming or recommending a product. If no suitable item is present, say so and ask a clarifying question; never invent a listing. Catalog JSON: "
+                        <> live_catalog_context(ctx)
                       case
                         pog.query(
                           "select role, body from chat_messages where session_id = $1::uuid order by id asc limit 40",

@@ -5,6 +5,7 @@ import {
   createSupportChatSession,
   listSupportChatMessages,
   postSupportChatMessage,
+  setSupportChatContactPreferences,
   type SupportChatMessage,
 } from '@/lib/travel-api'
 import { SITE_LOCALE_CATALOG, type SiteLocaleCode } from '@/lib/i18n-catalog-locales'
@@ -39,6 +40,9 @@ export default function ConciergeChatWidget({ hideLauncher = false }: { hideLaun
   const [draft, setDraft] = useState('')
   const [err, setErr] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  const [contactEmail, setContactEmail] = useState('')
+  const [contactPhone, setContactPhone] = useState('')
+  const [contactSaved, setContactSaved] = useState(false)
   const bottomRef = useRef<HTMLDivElement>(null)
 
   const scrollToBottom = useCallback(() => {
@@ -107,6 +111,12 @@ export default function ConciergeChatWidget({ hideLauncher = false }: { hideLaun
     } finally {
       setBusy(false)
     }
+  }
+
+  async function saveContactPreferences() {
+    const sid = await ensureSession()
+    await setSupportChatContactPreferences(sid, { email: contactEmail, phone: contactPhone, email_consent: Boolean(contactEmail), whatsapp_consent: Boolean(contactPhone) })
+    setContactSaved(true)
   }
 
   // Mobile nav chat button dispatch'ini dinle (eski toggle — geriye uyumluluk)
@@ -216,6 +226,7 @@ export default function ConciergeChatWidget({ hideLauncher = false }: { hideLaun
             <div ref={bottomRef} />
           </div>
           <form onSubmit={(e) => void onSend(e)} className="border-t border-neutral-200 p-2 dark:border-neutral-700">
+            {!contactSaved ? <div className="mb-2 rounded-xl bg-neutral-50 p-2 text-xs dark:bg-neutral-800"><p className="mb-2 text-neutral-600 dark:text-neutral-300">Size uygun seçenekleri göndermemizi isterseniz izin verdiğiniz kanalı yazın.</p><div className="grid grid-cols-2 gap-2"><input value={contactEmail} onChange={e=>setContactEmail(e.target.value)} placeholder="E-posta" className="rounded-lg border px-2 py-1.5 dark:border-neutral-600 dark:bg-neutral-900"/><input value={contactPhone} onChange={e=>setContactPhone(e.target.value)} placeholder="WhatsApp" className="rounded-lg border px-2 py-1.5 dark:border-neutral-600 dark:bg-neutral-900"/></div><button type="button" disabled={!contactEmail&&!contactPhone} onClick={()=>void saveContactPreferences()} className="mt-2 text-xs font-semibold text-primary-600 disabled:opacity-40">İzin ver ve kaydet</button></div> : <p className="mb-2 text-xs text-emerald-600">Takip tercihiniz kaydedildi.</p>}
             <textarea
               value={draft}
               onChange={(e) => setDraft(e.target.value)}

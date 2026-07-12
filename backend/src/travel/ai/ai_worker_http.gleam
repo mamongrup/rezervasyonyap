@@ -17,6 +17,7 @@ import gleam/json
 import gleam/list
 import gleam/string
 import travel/ai/district_ideas_http
+import travel/ai/ai_watchdog
 import travel/ai/region_content_http
 import travel/identity/admin_gate
 import wisp.{type Request, type Response}
@@ -185,6 +186,16 @@ pub fn post_run_steps(req: Request, ctx: Context) -> Response {
     Error(r) -> r
     Ok(_) -> {
       let loops = query_loops(req)
+      let #(watchdog_processed, watchdog_idle, watchdog_errors) =
+        case query_enabled(req, "workflow") {
+          False -> #(0, 0, [])
+          True ->
+            case ai_watchdog.worker_try_watchdog(ctx) {
+              Ok(True) -> #(1, 0, [])
+              Ok(False) -> #(0, 1, [])
+              Error(e) -> #(0, 0, [e])
+            }
+        }
       let want_district = query_enabled(req, "district")
       let want_region = query_enabled(req, "region")
       let want_place = query_enabled(req, "place")
@@ -224,6 +235,14 @@ pub fn post_run_steps(req: Request, ctx: Context) -> Response {
       let body =
         json.object([
           #("loops", json.int(loops)),
+          #(
+            "workflow_watchdog",
+            json.object([
+              #("processed", json.int(watchdog_processed)),
+              #("idle_ticks", json.int(watchdog_idle)),
+              #("errors", json.array(watchdog_errors, json.string)),
+            ]),
+          ),
           #(
             "district_travel_ideas",
             json.object([

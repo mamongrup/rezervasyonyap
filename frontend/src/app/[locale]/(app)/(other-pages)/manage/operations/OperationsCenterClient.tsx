@@ -21,6 +21,49 @@ import Link from 'next/link'
 import type { ElementType, ReactNode } from 'react'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 
+type AiUnit = {
+  title: string
+  description: string
+  automation: string
+  approval: string
+  path: string
+}
+
+const AI_UNITS: AiUnit[] = [
+  { title: 'İlan ve katalog operasyonu', description: 'İlan kalitesi, eksik bilgi, görsel ve yayın kontrolü.', automation: 'Taslak ve kalite önerisi', approval: 'Yayın değişikliği onaylı', path: '/manage/catalog' },
+  { title: 'Gelir ve kampanya yönetimi', description: 'Talep, dönüşüm ve marja göre kampanya fırsatları.', automation: 'Fırsat tespiti ve taslak', approval: 'Fiyat/indirim onaylı', path: '/manage/campaigns' },
+  { title: 'Pazarlama ve sosyal medya', description: 'İçerik takvimi, kanal performansı ve yanıt taslakları.', automation: 'İçerik üretimi ve plan', approval: 'Yayın onaylı', path: '/manage/social' },
+  { title: 'Satış ve müşteri adayı', description: 'Chatbot ile ihtiyaç keşfi, teklif yönlendirmesi ve takip.', automation: '7/24 görüşme ve lead özeti', approval: 'İzinli takip / teklif onaylı', path: '/manage/ai/chatbot' },
+  { title: 'Rezervasyon ve müşteri başarısı', description: 'Öncesi, sırası ve sonrası destek; aksama eskalasyonları.', automation: 'Hatırlatma ve risk uyarısı', approval: 'İade/değişiklik onaylı', path: '/manage/reservations' },
+  { title: 'Tedarikçi başarısı', description: 'Onay süreleri, içerik kalitesi ve tedarikçi iletişimi.', automation: 'SLA takibi ve brifing taslağı', approval: 'Sözleşme/ödeme onaylı', path: '/manage/supplier-verify' },
+  { title: 'Finans ve faturalandırma', description: 'Fatura, komisyon, provizyon ve mutabakat istisnaları.', automation: 'Eşleştirme ve anomali uyarısı', approval: 'Ödeme ve muhasebe kaydı onaylı', path: '/manage/finance/invoices' },
+  { title: 'Risk, kalite ve uyum', description: 'Dolandırıcılık, olağandışı işlem, şikâyet ve denetim izleri.', automation: 'Risk skoru ve vaka özeti', approval: 'Kısıtlama/karar insan onaylı', path: '/manage/audit-log' },
+  { title: 'Veri ve büyüme analitiği', description: 'Dönüşüm hunisi, birim ekonomi ve aksiyon önceliği.', automation: 'Günlük içgörü ve öneri', approval: 'Strateji insan onaylı', path: '/manage/admin' },
+]
+
+const AI_ORG_DIRECTORS = [
+  { title: 'İlan Operasyon Müdürü', workers: 'İlan Kalite · Görsel · İlan Metni · TR → Çoklu Dil Çeviri', path: '/manage/catalog' },
+  { title: 'Gelir ve Kampanya Müdürü', workers: 'Fiyat İçgörü · Kampanya Uzmanı', path: '/manage/campaigns' },
+  { title: 'Pazarlama ve Büyüme Müdürü', workers: 'Sosyal Medya Yayın · Blog · SEO · Bölge İçeriği', path: '/manage/social' },
+  { title: 'Satış ve Müşteri Operasyon Müdürü', workers: 'AI Satış Temsilcisi · Destek Triyaj · Concierge', path: '/manage/ai/chatbot' },
+  { title: 'Finans ve Muhasebe Müdürü', workers: 'Fatura Kontrol · Muhasebe Özet', path: '/manage/finance/invoices' },
+  { title: 'Risk, Kalite ve Uyum Müdürü', workers: 'Risk Sinyali · Denetim Kontrol', path: '/manage/audit-log' },
+  { title: 'Veri ve İçgörü Müdürü', workers: 'Günlük İçgörü · KPI Analiz', path: '/manage/admin' },
+]
+
+const AI_CONTENT_LIFECYCLE = [
+  ['01', 'Alım', 'İlan, sayfa, bölge, blog veya kampanya'],
+  ['02', 'Doğrulama', 'Eksik, çelişkili ve riskli bilgileri bulur'],
+  ['03', 'Türkçe içerik', 'Marka, yazım ve satış kurallarına uygunlaştırır'],
+  ['04', 'Görsel', 'Kalite, sıra, alt metin ve performansı hazırlar'],
+  ['05', 'Yerelleştirme', 'Türkçe kaynağı her hedef dile kültürel olarak uyarlar'],
+  ['06', 'Çok dilli SEO', 'Her dilde ayrı arama niyeti ve SEO paketi üretir'],
+  ['07', 'Kalite kapısı', 'Kaynak, doğruluk, tekrar ve marka kontrolü yapar'],
+  ['08', 'Yayın', 'Yalnızca gerekli istisnaları onaya gönderir'],
+  ['09', 'Dağıtım', 'Sosyal medya ve kanala özel paylaşım üretir'],
+  ['10', 'Öğrenme', 'Dönüşümü ölçer ve içeriği sürekli geliştirir'],
+] as const
+
 function fmtDate(raw?: string) {
   if (!raw) return 'Tarih yok'
   try {
@@ -157,6 +200,7 @@ export default function OperationsCenterClient() {
     reservations: vitrinHref('/manage/reservations'),
     provizyon: vitrinHref('/manage/admin/payments/provizyon'),
     chatbot: vitrinHref('/manage/ai/chatbot'),
+    approvals: vitrinHref('/manage/ai/approvals'),
   }), [vitrinHref])
 
   const load = useCallback(async () => {
@@ -210,6 +254,9 @@ export default function OperationsCenterClient() {
           <RefreshCw className={clsx('size-4', loading && 'animate-spin')} />
           Yenile
         </button>
+        <Link href={links.approvals} className="rounded-xl bg-violet-600 px-3 py-2 text-sm font-semibold text-white hover:bg-violet-700">
+          AI onay kuyruğu
+        </Link>
       </div>
 
       {error ? (
@@ -217,6 +264,35 @@ export default function OperationsCenterClient() {
           {error}
         </div>
       ) : null}
+
+      <section className="mb-6 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-neutral-800 dark:bg-neutral-900">
+        <div className="border-b border-slate-100 bg-slate-50 px-5 py-4 dark:border-neutral-800 dark:bg-neutral-950/30">
+          <p className="text-xs font-semibold uppercase tracking-wide text-primary-600">Yönetim yapısı</p>
+          <h2 className="mt-1 text-lg font-bold text-neutral-900 dark:text-white">Sizin AI operasyon kadronuz</h2>
+          <p className="mt-1 text-sm text-neutral-500 dark:text-neutral-400">Her kritik karar size gelir; ajanlar yalnızca tanımlı yetki ve onay sınırlarında çalışır.</p>
+        </div>
+        <div className="p-5">
+          <div className="mx-auto max-w-sm rounded-xl border-2 border-primary-200 bg-primary-50 px-4 py-3 text-center dark:border-primary-800 dark:bg-primary-950/30">
+            <p className="text-xs font-semibold uppercase tracking-wide text-primary-700 dark:text-primary-300">Sahip ve son onay</p>
+            <p className="mt-1 font-bold text-neutral-900 dark:text-white">Siz</p>
+          </div>
+          <div className="mx-auto h-5 w-px bg-primary-200 dark:bg-primary-800" />
+          <div className="mx-auto max-w-sm rounded-xl bg-violet-600 px-4 py-3 text-center text-white shadow-sm">
+            <p className="text-xs font-semibold uppercase tracking-wide text-violet-100">AI Genel Müdürü</p>
+            <p className="mt-1 font-bold">Öncelik, risk ve onay kuyruğu</p>
+          </div>
+          <div className="mx-auto h-5 w-px bg-violet-200 dark:bg-violet-800" />
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+            {AI_ORG_DIRECTORS.map((director) => (
+              <Link key={director.title} href={vitrinHref(director.path)} className="rounded-xl border border-neutral-200 p-3 transition hover:border-violet-300 hover:shadow-sm dark:border-neutral-800 dark:hover:border-violet-800">
+                <p className="text-sm font-semibold text-neutral-900 dark:text-white">{director.title}</p>
+                <div className="my-2 border-t border-dashed border-neutral-200 dark:border-neutral-700" />
+                <p className="text-[11px] leading-relaxed text-neutral-500 dark:text-neutral-400"><span className="font-semibold text-violet-700 dark:text-violet-300">Uzman ajanlar:</span> {director.workers}</p>
+              </Link>
+            ))}
+          </div>
+        </div>
+      </section>
 
       {counts ? (
         <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-4 xl:grid-cols-7">
@@ -229,6 +305,51 @@ export default function OperationsCenterClient() {
           <KpiCard label="Transfer bekleyen" value={counts.pending_transfers} href={links.provizyon} tone="bg-sky-100 text-sky-700 dark:bg-sky-950/40 dark:text-sky-300" Icon={Truck} />
         </div>
       ) : null}
+
+      <section className="mb-6 rounded-2xl border border-cyan-100 bg-gradient-to-br from-cyan-50/70 to-white p-5 dark:border-cyan-900/50 dark:from-cyan-950/20 dark:to-neutral-900">
+        <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wide text-cyan-700 dark:text-cyan-300">Sitenin beyni ve sinir sistemi</p>
+            <h2 className="mt-1 text-lg font-semibold text-neutral-900 dark:text-white">Evrensel içerik yaşam döngüsü</h2>
+            <p className="mt-1 max-w-3xl text-sm text-neutral-600 dark:text-neutral-300">Her içerik aynı kalite zincirinden geçer. Ajanlar işi birbirine devreder; siz yalnızca yayın, para, risk veya marka istisnası olduğunda devreye girersiniz.</p>
+          </div>
+          <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-200">İstisna bazlı yönetim</span>
+        </div>
+        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
+          {AI_CONTENT_LIFECYCLE.map(([number, title, description]) => (
+            <div key={number} className="relative rounded-xl border border-white bg-white/90 p-3 shadow-sm dark:border-neutral-800 dark:bg-neutral-900/80">
+              <span className="text-[10px] font-bold text-cyan-600 dark:text-cyan-300">{number}</span>
+              <h3 className="mt-1 text-sm font-semibold text-neutral-900 dark:text-white">{title}</h3>
+              <p className="mt-1 text-[11px] leading-relaxed text-neutral-500 dark:text-neutral-400">{description}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section className="mb-6 rounded-2xl border border-violet-100 bg-violet-50/40 p-5 dark:border-violet-900/60 dark:bg-violet-950/15">
+        <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wide text-violet-700 dark:text-violet-300">AI işletim modeli</p>
+            <h2 className="mt-1 text-lg font-semibold text-neutral-900 dark:text-white">Az insanla çalışan operasyon birimleri</h2>
+            <p className="mt-1 max-w-3xl text-sm text-neutral-600 dark:text-neutral-300">
+              Yapay zeka düşük riskli işleri hazırlar ve takip eder; para, sözleşme, fiyat, iade ve dışarıya gönderilen kritik iletişimler onay kuyruğundan geçer.
+            </p>
+          </div>
+          <Link href={links.chatbot} className="rounded-xl bg-violet-600 px-3 py-2 text-sm font-semibold text-white hover:bg-violet-700">
+            AI satış temsilcisini aç
+          </Link>
+        </div>
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+          {AI_UNITS.map((unit) => (
+            <Link key={unit.title} href={vitrinHref(unit.path)} className="rounded-xl border border-white/80 bg-white/85 p-4 transition hover:-translate-y-0.5 hover:shadow-sm dark:border-neutral-800 dark:bg-neutral-900/80">
+              <h3 className="text-sm font-semibold text-neutral-900 dark:text-white">{unit.title}</h3>
+              <p className="mt-1 min-h-10 text-xs leading-relaxed text-neutral-500 dark:text-neutral-400">{unit.description}</p>
+              <p className="mt-3 text-[11px] font-medium text-violet-700 dark:text-violet-300">AI: {unit.automation}</p>
+              <p className="mt-1 text-[11px] text-neutral-500 dark:text-neutral-400">Kontrol: {unit.approval}</p>
+            </Link>
+          ))}
+        </div>
+      </section>
 
       <div className="grid gap-5 xl:grid-cols-2">
         <TaskList
