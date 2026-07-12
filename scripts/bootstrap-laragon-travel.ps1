@@ -37,6 +37,34 @@ function Find-GitExecutable {
     return $null
 }
 
+function Invoke-GitQuiet {
+    param(
+        [Parameter(Mandatory = $true)][string]$GitExe,
+        [Parameter(Mandatory = $true)][string[]]$Arguments,
+        [string]$WorkingDirectory = ''
+    )
+
+    $prev = $ErrorActionPreference
+    $ErrorActionPreference = 'SilentlyContinue'
+    try {
+        if ($WorkingDirectory) {
+            Push-Location $WorkingDirectory
+        }
+        try {
+            # Git stderr (ornegin "From https://...") PowerShell'de NativeCommandError uretir; yoksay.
+            $null = & $GitExe @Arguments 2>&1
+        } catch {
+            # stderr kaynakli false-positive; exit code'a guven
+        }
+        return $LASTEXITCODE
+    } finally {
+        if ($WorkingDirectory) {
+            Pop-Location
+        }
+        $ErrorActionPreference = $prev
+    }
+}
+
 function Ensure-Repo {
     param(
         [string]$TargetRoot,
@@ -48,18 +76,17 @@ function Ensure-Repo {
         Write-Host "[OK] Repo mevcut: $TargetRoot" -ForegroundColor Green
         if ($GitExe) {
             $env:PATH = "$(Split-Path $GitExe -Parent);$env:PATH"
-            Push-Location $TargetRoot
-            try {
-                & $GitExe fetch origin $BranchName 2>$null
-                & $GitExe checkout $BranchName 2>$null
-                if ($LASTEXITCODE -ne 0) {
-                    & $GitExe checkout main 2>$null
-                    & $GitExe pull origin main 2>$null
-                } else {
-                    & $GitExe pull origin $BranchName 2>$null
-                }
-            } finally {
-                Pop-Location
+            $fetchCode = Invoke-GitQuiet -GitExe $GitExe -Arguments @('fetch', 'origin', $BranchName) -WorkingDirectory $TargetRoot
+            if ($fetchCode -ne 0) {
+                Write-Host "git fetch uyarisi (kod $fetchCode) — mevcut dosyalarla devam" -ForegroundColor Yellow
+            }
+            $checkoutCode = Invoke-GitQuiet -GitExe $GitExe -Arguments @('checkout', $BranchName) -WorkingDirectory $TargetRoot
+            if ($checkoutCode -ne 0) {
+                Write-Host 'Branch checkout basarisiz, main deneniyor...' -ForegroundColor Yellow
+                Invoke-GitQuiet -GitExe $GitExe -Arguments @('checkout', 'main') -WorkingDirectory $TargetRoot | Out-Null
+                Invoke-GitQuiet -GitExe $GitExe -Arguments @('pull', 'origin', 'main') -WorkingDirectory $TargetRoot | Out-Null
+            } else {
+                Invoke-GitQuiet -GitExe $GitExe -Arguments @('pull', 'origin', $BranchName) -WorkingDirectory $TargetRoot | Out-Null
             }
         }
         return $TargetRoot
@@ -77,12 +104,12 @@ function Ensure-Repo {
     if ($GitExe) {
         Write-Host "Git ile klonlaniyor: $RepoUrl -> $TargetRoot" -ForegroundColor Yellow
         $env:PATH = "$(Split-Path $GitExe -Parent);$env:PATH"
-        & $GitExe clone --branch $BranchName --single-branch $RepoUrl $TargetRoot 2>$null
-        if ($LASTEXITCODE -ne 0) {
+        $cloneCode = Invoke-GitQuiet -GitExe $GitExe -Arguments @('clone', '--branch', $BranchName, '--single-branch', $RepoUrl, $TargetRoot)
+        if ($cloneCode -ne 0) {
             Write-Host "Branch klonu basarisiz, main klonlaniyor..." -ForegroundColor Yellow
             if (Test-Path $TargetRoot) { Remove-Item $TargetRoot -Recurse -Force }
-            & $GitExe clone $RepoUrl $TargetRoot
-            if ($LASTEXITCODE -ne 0) { throw "git clone basarisiz (exit $LASTEXITCODE)" }
+            $mainCode = Invoke-GitQuiet -GitExe $GitExe -Arguments @('clone', $RepoUrl, $TargetRoot)
+            if ($mainCode -ne 0) { throw "git clone basarisiz (exit $mainCode)" }
         }
         return $TargetRoot
     }
