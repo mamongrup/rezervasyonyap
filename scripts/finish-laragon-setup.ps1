@@ -165,9 +165,9 @@ try {
 if ($metaOk) {
     Write-Host '[OK] travel-api zaten calisiyor (8080)' -ForegroundColor Green
 } else {
-    $count = (& $tools.Psql -h 127.0.0.1 -p 5432 -U $PgUser -d $PgDatabase -t -A -c 'SELECT count(*) FROM locales' 2>$null).Trim()
-    if ($count -match '^\d+$') {
-        Write-Host "[OK] DB baglantisi + locales=$count" -ForegroundColor Green
+    $countRaw = Get-PsqlScalar -Psql $tools.Psql -Sql 'SELECT count(*) FROM locales' -User $PgUser -Database $PgDatabase -Password $PgPassword
+    if ($countRaw -match '^\d+$') {
+        Write-Host "[OK] DB baglantisi + locales=$countRaw" -ForegroundColor Green
     } else {
         Write-Host 'UYARI: DB dogrulama tamamlanamadi' -ForegroundColor Yellow
     }

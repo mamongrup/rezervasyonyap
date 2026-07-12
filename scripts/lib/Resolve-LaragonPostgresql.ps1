@@ -154,6 +154,32 @@ function Start-LaragonPostgresql {
     return $true
 }
 
+function Get-PsqlScalar {
+    param(
+        [Parameter(Mandatory = $true)][string]$Psql,
+        [Parameter(Mandatory = $true)][string]$Sql,
+        [string]$PgHost = '127.0.0.1',
+        [int]$Port = 5432,
+        [string]$User = 'postgres',
+        [string]$Database = 'postgres',
+        [string]$Password = ''
+    )
+
+    $prev = $env:PGPASSWORD
+    $prevEa = $ErrorActionPreference
+    try {
+        $ErrorActionPreference = 'SilentlyContinue'
+        if ($Password) { $env:PGPASSWORD = $Password } else { Remove-Item Env:PGPASSWORD -ErrorAction SilentlyContinue }
+        $out = & $Psql -h $PgHost -p $Port -U $User -d $Database -t -A -c $Sql 2>$null
+        if ($LASTEXITCODE -ne 0 -or $null -eq $out) { return '' }
+        if ($out -is [System.Array]) { $out = ($out | ForEach-Object { "$_" }) -join '' }
+        return "$out".Trim()
+    } finally {
+        $ErrorActionPreference = $prevEa
+        if ($null -ne $prev) { $env:PGPASSWORD = $prev } else { Remove-Item Env:PGPASSWORD -ErrorAction SilentlyContinue }
+    }
+}
+
 function Ensure-PostgresqlSuperuser {
     param(
         [Parameter(Mandatory = $true)][string]$Psql,
@@ -164,7 +190,7 @@ function Ensure-PostgresqlSuperuser {
     $prev = $env:PGPASSWORD
     try {
         if ($Password) { $env:PGPASSWORD = $Password } else { Remove-Item Env:PGPASSWORD -ErrorAction SilentlyContinue }
-        $exists = (& $Psql -h 127.0.0.1 -p 5432 -U $User -d postgres -t -A -c "SELECT 1 FROM pg_roles WHERE rolname='$User'" 2>$null).Trim()
+        $exists = Get-PsqlScalar -Psql $Psql -Sql "SELECT 1 FROM pg_roles WHERE rolname='$User'" -User $User -Password $Password
         if ($exists -eq '1') { return }
 
         $createuser = Join-Path (Split-Path $Psql -Parent) 'createuser.exe'
@@ -187,7 +213,7 @@ function Ensure-TravelDatabase {
     $prev = $env:PGPASSWORD
     try {
         if ($Password) { $env:PGPASSWORD = $Password } else { Remove-Item Env:PGPASSWORD -ErrorAction SilentlyContinue }
-        $dbExists = (& $Psql -h 127.0.0.1 -p 5432 -U $User -d postgres -t -A -c "SELECT 1 FROM pg_database WHERE datname='$Database'" 2>$null).Trim()
+        $dbExists = Get-PsqlScalar -Psql $Psql -Sql "SELECT 1 FROM pg_database WHERE datname='$Database'" -User $User -Password $Password
         if ($dbExists -ne '1') {
             Write-Host "Veritabani olusturuluyor: $Database" -ForegroundColor Yellow
             & $Psql -h 127.0.0.1 -p 5432 -U $User -d postgres -v ON_ERROR_STOP=1 -c "CREATE DATABASE $Database;"
@@ -210,7 +236,7 @@ function Test-TravelSchemaReady {
     $prev = $env:PGPASSWORD
     try {
         if ($Password) { $env:PGPASSWORD = $Password } else { Remove-Item Env:PGPASSWORD -ErrorAction SilentlyContinue }
-        $val = (& $Psql -h 127.0.0.1 -p 5432 -U $User -d $Database -t -A -c "SELECT to_regclass('public.organizations')::text" 2>$null).Trim()
+        $val = Get-PsqlScalar -Psql $Psql -Sql "SELECT to_regclass('public.organizations')::text" -User $User -Database $Database -Password $Password
         return ($val -and $val -ne '' -and $val -ne 'null')
     } finally {
         if ($null -ne $prev) { $env:PGPASSWORD = $prev } else { Remove-Item Env:PGPASSWORD -ErrorAction SilentlyContinue }
