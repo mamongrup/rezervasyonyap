@@ -12,9 +12,6 @@ const SitePopupsRenderer = dynamic(() => import('@/components/popups/SitePopupsR
 const CustomerSupportFloatMenu = dynamic(() => import('@/components/CustomerSupportFloatMenu'), {
   ssr: false,
 })
-const TawkWidgetLoader = dynamic(() => import('@/components/TawkWidgetLoader'), {
-  ssr: false,
-})
 
 /**
  * Footer üstü — WhatsApp, concierge, site popup.
@@ -23,18 +20,18 @@ const TawkWidgetLoader = dynamic(() => import('@/components/TawkWidgetLoader'), 
 type Props = { locale: string }
 
 export function DeferredLayoutWidgets({ locale }: Props) {
-  const [mounted, setMounted] = useState(false)
+  const [renderPopups, setRenderPopups] = useState(false)
+
   useEffect(() => {
-    const id = window.setTimeout(() => setMounted(true), 5500)
+    const id = window.setTimeout(() => setRenderPopups(true), 5500)
     return () => window.clearTimeout(id)
   }, [])
-  if (!mounted) return null
+
   return (
     <>
       <CustomerSupportFloatMenu />
-      <TawkWidgetLoader />
       <ConciergeChatWidget hideLauncher />
-      <SitePopupsRenderer locale={locale} />
+      {renderPopups ? <SitePopupsRenderer locale={locale} /> : null}
     </>
   )
 }

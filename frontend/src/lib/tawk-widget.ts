@@ -36,9 +36,7 @@ function activeTawkConfig(): TawkRuntimeConfig {
 }
 
 /** `/api/v1/site/public-config` branding veya env — vitrin widget yüklemesi */
-export function setTawkRuntimeConfig(
-  branding: Record<string, unknown> | null | undefined,
-): void {
+export function setTawkRuntimeConfig(branding: Record<string, unknown> | null | undefined): void {
   const next = getTawkConfigFromBranding(branding)
   const prev = activeTawkConfig()
   runtimeConfig = next.propertyId ? next : null
@@ -67,6 +65,13 @@ export function openTawkWidget(): void {
     return
   }
   api?.showWidget?.()
+}
+
+/** Yönetim ekranlarında veya rota değişiminde yerel destek düğmesi dışında kalan Tawk arayüzünü gizle. */
+export function hideTawkWidget(): void {
+  if (typeof window === 'undefined') return
+  openRequested = false
+  window.Tawk_API?.hideWidget?.()
 }
 
 /** Tawk embed script — panelden veya env ile yapılandırıldıysa */
