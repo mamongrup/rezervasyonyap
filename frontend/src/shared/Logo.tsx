@@ -1,11 +1,7 @@
 'use client'
 
 import { useVitrinHref } from '@/hooks/use-vitrin-href'
-import {
-  resolveSiteLogoUrl,
-  pickEffectiveSiteLogoUrls,
-  normalizeSiteLogoUrl,
-} from '@/lib/resolve-site-logo-url'
+import { normalizeSiteLogoUrl, pickEffectiveSiteLogoUrls, resolveSiteLogoUrl } from '@/lib/resolve-site-logo-url'
 import { siteUploadBrowserHref } from '@/lib/site-upload-browser-href'
 import { getSitePublicConfig } from '@/lib/travel-api'
 import Link from 'next/link'
@@ -24,21 +20,30 @@ interface LogoProps {
 function detectCategoryCode(pathname: string): string | null {
   const segments = pathname.toLowerCase().split('/')
   const MAP: [string, string][] = [
-    ['oteller', 'hotel'], ['stay-categories', 'hotel'],
-    ['turlar', 'tour'], ['tour-categories', 'tour'],
-    ['tatil-evleri', 'holiday_home'], ['villa', 'holiday_home'],
-    ['arac-kiralama', 'car_rental'], ['car-categories', 'car_rental'],
-    ['aktiviteler', 'activity'], ['experience-categories', 'activity'],
-    ['kruvaziyer', 'cruise'], ['cruise', 'cruise'],
-    ['yat-kiralama', 'yacht_charter'], ['yacht', 'yacht_charter'],
-    ['ucak-bileti', 'flight'], ['flight-categories', 'flight'],
+    ['oteller', 'hotel'],
+    ['stay-categories', 'hotel'],
+    ['turlar', 'tour'],
+    ['tour-categories', 'tour'],
+    ['tatil-evleri', 'holiday_home'],
+    ['villa', 'holiday_home'],
+    ['arac-kiralama', 'car_rental'],
+    ['car-categories', 'car_rental'],
+    ['aktiviteler', 'activity'],
+    ['experience-categories', 'activity'],
+    ['kruvaziyer', 'cruise'],
+    ['cruise', 'cruise'],
+    ['yat-kiralama', 'yacht_charter'],
+    ['yacht', 'yacht_charter'],
+    ['ucak-bileti', 'flight'],
+    ['flight-categories', 'flight'],
     ['hac-umre', 'hajj'],
     ['vize', 'visa'],
     ['transfer', 'transfer'],
     ['feribot', 'ferry'],
     ['plaj', 'beach_lounger'],
     ['sinema', 'cinema_ticket'],
-    ['etkinlik', 'event'], ['konser', 'event'],
+    ['etkinlik', 'event'],
+    ['konser', 'event'],
     ['restoran', 'restaurant_table'],
   ]
   for (const seg of segments) {
@@ -49,7 +54,10 @@ function detectCategoryCode(pathname: string): string | null {
   return null
 }
 
-interface CategoryLogo { logo_url?: string; logo_url_dark?: string }
+interface CategoryLogo {
+  logo_url?: string
+  logo_url_dark?: string
+}
 
 interface BrandingConfig {
   logo_url?: string
@@ -76,7 +84,9 @@ function readCachedBranding(): BrandingConfig | null {
 function writeCachedBranding(b: BrandingConfig) {
   try {
     localStorage.setItem(LS_KEY, JSON.stringify(b))
-  } catch { /* ignore */ }
+  } catch {
+    /* ignore */
+  }
 }
 
 /** API/cache güncellemesinde geçerli logoyu silme — önceki oturumdaki gerçek URL korunur */
@@ -102,13 +112,11 @@ function TextLogoFallback({ siteName, className }: { siteName?: string; classNam
   const [first, ...rest] = name.split(' ')
   return (
     <span
-      className={`inline-flex items-baseline gap-1 font-extrabold leading-none tracking-tight ${className ?? ''}`}
+      className={`inline-flex items-baseline gap-1 leading-none font-extrabold tracking-tight ${className ?? ''}`}
       style={{ fontSize: '1.45rem' }}
     >
       <span className="text-primary-600">{first}</span>
-      {rest.length > 0 && (
-        <span className="text-neutral-800 dark:text-white">{rest.join(' ')}</span>
-      )}
+      {rest.length > 0 && <span className="text-neutral-800 dark:text-white">{rest.join(' ')}</span>}
     </span>
   )
 }
@@ -116,6 +124,7 @@ function TextLogoFallback({ siteName, className }: { siteName?: string; classNam
 const Logo: React.FC<LogoProps> = ({ className = 'w-auto', src, darkSrc, alt }) => {
   const pathname = usePathname() ?? ''
   const vitrinPath = useVitrinHref()
+  const logoHref = pathname.includes('/manage') ? vitrinPath('/manage/admin') : vitrinPath('/')
   /** Açık/koyu ayrı — gizli koyu tema img 404 verince açık logoyu düşürmez */
   const [lightFailed, setLightFailed] = useState(false)
   const [darkFailed, setDarkFailed] = useState(false)
@@ -174,7 +183,9 @@ const Logo: React.FC<LogoProps> = ({ className = 'w-auto', src, darkSrc, alt }) 
           setCategoryLogos(b.category_logos as Record<string, CategoryLogo>)
         }
       })
-      .catch(() => { /* cache veya fallback kullanılmaya devam eder */ })
+      .catch(() => {
+        /* cache veya fallback kullanılmaya devam eder */
+      })
   }, [src])
 
   const catCode = detectCategoryCode(pathname)
@@ -182,8 +193,7 @@ const Logo: React.FC<LogoProps> = ({ className = 'w-auto', src, darkSrc, alt }) 
 
   const propsPicked = src ? pickEffectiveSiteLogoUrls(src, darkSrc ?? src) : null
   const categoryPicked = pickEffectiveSiteLogoUrls(catLogo?.logo_url, catLogo?.logo_url_dark)
-  const sitePicked =
-    propsPicked ?? pickEffectiveSiteLogoUrls(branding.logo_url, branding.logo_url_dark)
+  const sitePicked = propsPicked ?? pickEffectiveSiteLogoUrls(branding.logo_url, branding.logo_url_dark)
   const activeLogoUrl = categoryPicked.light ?? sitePicked.light
   const activeDarkUrl = categoryPicked.dark ?? sitePicked.dark
   const renderedLightUrl = lightOverride ?? activeLogoUrl
@@ -234,7 +244,7 @@ const Logo: React.FC<LogoProps> = ({ className = 'w-auto', src, darkSrc, alt }) 
 
     return (
       <Link
-        href={vitrinPath('/')}
+        href={logoHref}
         className={`inline-flex items-center gap-2.5 focus:ring-0 focus:outline-hidden ${className}`}
       >
         <img
@@ -246,9 +256,7 @@ const Logo: React.FC<LogoProps> = ({ className = 'w-auto', src, darkSrc, alt }) 
         />
         <span className="flex flex-col leading-none">
           {line1 && (
-            <span className="text-[18px] font-bold tracking-tight text-neutral-900 dark:text-white">
-              {line1}
-            </span>
+            <span className="text-[18px] font-bold tracking-tight text-neutral-900 dark:text-white">{line1}</span>
           )}
           {line2 && (
             <span className="text-[14px] font-semibold tracking-wide" style={{ color: line2Color }}>
@@ -263,17 +271,13 @@ const Logo: React.FC<LogoProps> = ({ className = 'w-auto', src, darkSrc, alt }) 
   // ── Full image mode ───────────────────────────────────────────────────────
   const canShowLight = !!renderedLightUrl && !lightFailed
   const canShowDark = !!renderedDarkUrl && !darkFailed
-  const logoSrcLight = canShowLight
-    ? logoImgSrc(resolveSiteLogoUrl(renderedLightUrl))
-    : ''
-  const logoSrcDark = canShowDark
-    ? logoImgSrc(resolveSiteLogoUrl(renderedDarkUrl))
-    : ''
+  const logoSrcLight = canShowLight ? logoImgSrc(resolveSiteLogoUrl(renderedLightUrl)) : ''
+  const logoSrcDark = canShowDark ? logoImgSrc(resolveSiteLogoUrl(renderedDarkUrl)) : ''
 
   if (!canShowLight && !canShowDark) {
     return (
       <Link
-        href={vitrinPath('/')}
+        href={logoHref}
         className={`inline-flex items-center text-primary-600 focus:ring-0 focus:outline-hidden ${className}`}
       >
         <TextLogoFallback siteName={branding.site_name} />
@@ -283,7 +287,7 @@ const Logo: React.FC<LogoProps> = ({ className = 'w-auto', src, darkSrc, alt }) 
 
   return (
     <Link
-      href={vitrinPath('/')}
+      href={logoHref}
       className={`inline-flex items-center text-primary-600 focus:ring-0 focus:outline-hidden ${className}`}
     >
       {sameLogoAsset ? (
