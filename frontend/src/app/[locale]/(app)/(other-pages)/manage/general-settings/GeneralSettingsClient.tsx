@@ -71,7 +71,7 @@ function BrandingImageUploadRow({
   url,
   onChange,
   purpose,
-  accept: _accept,
+  accept,
   preview,
 }: {
   label: string
@@ -82,7 +82,6 @@ function BrandingImageUploadRow({
   accept: string
   preview: 'logo-light' | 'logo-dark' | 'favicon'
 }) {
-  void _accept // MIME filtresi — galeri modalında kullanılmıyor; çağıranlar geriye uyumluluk için iletir.
   const [pickerOpen, setPickerOpen] = useState(false)
   const uploadTarget = useMemo(
     () =>
@@ -136,6 +135,8 @@ function BrandingImageUploadRow({
         open={pickerOpen}
         title={`${label} — görsel seç`}
         uploadTarget={uploadTarget}
+        accept={accept}
+        allowedExtensions={preview === 'favicon' ? undefined : ['svg']}
         onClose={() => setPickerOpen(false)}
         onSelect={(nextUrl) => {
           // Sabit dosya adı (fixedStem) kullanıldığında URL değişmez; tarayıcı ve CDN
@@ -1156,20 +1157,20 @@ export default function GeneralSettingsClient({ embedded = false }: GeneralSetti
               <div className="mt-6 grid grid-cols-1 gap-8 sm:grid-cols-2">
                 <BrandingImageUploadRow
                   label="Logo (açık tema)"
-                  hint="JPEG, PNG, WebP, GIF, SVG veya ICO. Logo kayıpsız AVIF olarak saklanır. En fazla 2 MB."
+                  hint="Yalnızca SVG logo yüklenebilir. Vektör olarak kalite kaybı olmadan saklanır. En fazla 2 MB."
                   url={logoUrl}
                   onChange={setLogoUrl}
                   purpose="brand-logo-light"
-                  accept="image/png,image/jpeg,image/webp,image/avif,image/svg+xml,.svg"
+                  accept="image/svg+xml,.svg"
                   preview="logo-light"
                 />
                 <BrandingImageUploadRow
                   label="Logo (koyu tema, isteğe bağlı)"
-                  hint="Koyu arka planda okunaklı bir varyant."
+                  hint="Yalnızca SVG. Koyu arka planda okunaklı açık renkli bir varyant kullanın."
                   url={logoDarkUrl}
                   onChange={setLogoDarkUrl}
                   purpose="brand-logo-dark"
-                  accept="image/png,image/jpeg,image/webp,image/avif,image/svg+xml,.svg"
+                  accept="image/svg+xml,.svg"
                   preview="logo-dark"
                 />
               </div>

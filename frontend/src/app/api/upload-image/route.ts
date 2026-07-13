@@ -71,6 +71,17 @@ function stemFromOriginalFilename(name: string): string {
   return sanitizePathSegment(base) || 'gorsel'
 }
 
+function sanitizeLogoSvg(buffer: Buffer): Buffer {
+  let svg = buffer.toString('utf8').replace(/^\uFEFF/, '').trim()
+  if (!/<svg\b/i.test(svg)) throw new Error('Geçerli bir SVG logo dosyası seçin.')
+  svg = svg
+    .replace(/<script\b[\s\S]*?<\/script\s*>/gi, '')
+    .replace(/<foreignObject\b[\s\S]*?<\/foreignObject\s*>/gi, '')
+    .replace(/\s+on[a-z]+\s*=\s*(?:"[^"]*"|'[^']*')/gi, '')
+    .replace(/(?:href|xlink:href)\s*=\s*(["'])\s*(?:javascript:|https?:|\/\/)[\s\S]*?\1/gi, '')
+  return Buffer.from(svg, 'utf8')
+}
+
 /**
  * Logo / favicon — genel `site` vitrin profilinden (cover, q60, vivid) ayrı:
  * oran korunur, renk bozulmaz, kayıpsız kalite.
@@ -436,7 +447,18 @@ export async function POST(req: NextRequest) {
     let ext: string
     let warning: string | undefined
 
-    if (isPdf) {
+    const isBrandLogo = fixedStem === 'brand-logo-light' || fixedStem === 'brand-logo-dark'
+    if (isBrandLogo && originalExt !== 'svg' && file.type !== 'image/svg+xml') {
+      return NextResponse.json(
+        { ok: false, error: 'Logo için yalnızca SVG dosyası yükleyebilirsiniz.' },
+        { status: 400 },
+      )
+    }
+
+    if (isBrandLogo) {
+      outputBuffer = sanitizeLogoSvg(rawBuffer)
+      ext = 'svg'
+    } else if (isPdf) {
       outputBuffer = rawBuffer
       ext = 'pdf'
     } else {

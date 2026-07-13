@@ -50,6 +50,10 @@ type Props = {
   /** Galeri seçimi veya tek dosya yükleme sonrası */
   onSelect: (url: string, meta?: ManageMediaPickMeta) => void
   uploadTarget: ManageMediaPickerUploadTarget
+  /** Dosya secici MIME filtresi. Bos ise tum desteklenen gorseller. */
+  accept?: string
+  /** Galeri ve yuklemede izin verilen uzantilar (ornegin yalnizca `svg`). */
+  allowedExtensions?: string[]
   /** Galeride gezilecek üst kök; yükleme hedefi `uploadTarget` olarak kalır. */
   libraryRoot?: string
   /** Birden fazla dosya seçimi (sıralı isim: batchStartIndex + i; `fixedStem` / `slot` ile uyumsuz) */
@@ -143,6 +147,8 @@ export function ManageMediaPickerModal({
   onClose,
   onSelect,
   uploadTarget,
+  accept = 'image/jpeg,image/png,image/webp,image/avif,image/gif,image/svg+xml,image/x-icon,image/vnd.microsoft.icon',
+  allowedExtensions,
   libraryRoot,
   allowMultipleUpload = false,
   batchStartIndex,
@@ -303,11 +309,15 @@ export function ManageMediaPickerModal({
 
   const filteredFiles = useMemo(() => {
     const pool = folderFeaturesEnabled ? filesHere : scopedFlatItems
-    if (!q) return pool
-    return pool.filter(
+    const allowed = (allowedExtensions ?? []).map((x) => x.toLowerCase().replace(/^\./, ''))
+    const byType = allowed.length
+      ? pool.filter((it) => allowed.some((ext) => it.relPath.toLowerCase().split('?')[0]!.endsWith(`.${ext}`)))
+      : pool
+    if (!q) return byType
+    return byType.filter(
       (it) => it.relPath.toLowerCase().includes(q) || it.url.toLowerCase().includes(q),
     )
-  }, [folderFeaturesEnabled, filesHere, scopedFlatItems, q])
+  }, [folderFeaturesEnabled, filesHere, scopedFlatItems, q, allowedExtensions])
 
   const breadcrumbSegments = useMemo(() => {
     if (!folderFeaturesEnabled) return []
@@ -551,6 +561,11 @@ export function ManageMediaPickerModal({
     async (fileList: FileList | File[]) => {
       const files = Array.from(fileList).filter((f) => f.size > 0)
       if (files.length === 0) return
+      const allowed = (allowedExtensions ?? []).map((x) => x.toLowerCase().replace(/^\./, ''))
+      if (allowed.length && files.some((f) => !allowed.includes((f.name.split('.').pop() ?? '').toLowerCase()))) {
+        setError(`Yalnizca ${allowed.map((x) => `.${x}`).join(', ')} dosyasi yukleyebilirsiniz.`)
+        return
+      }
 
       const t = effectiveUploadTarget
       if (resolveUploadFixedStem(t) && files.length > 1) {
@@ -595,7 +610,7 @@ export function ManageMediaPickerModal({
         if (fileRef.current) fileRef.current.value = ''
       }
     },
-    [effectiveUploadTarget, batchStartIndex, onSelect, onSelectBatch, onClose, load],
+    [effectiveUploadTarget, batchStartIndex, onSelect, onSelectBatch, onClose, load, allowedExtensions],
   )
 
   const onDragEnter = useCallback((e: React.DragEvent) => {
@@ -1108,7 +1123,7 @@ export function ManageMediaPickerModal({
           <input
             ref={fileRef}
             type="file"
-            accept="image/jpeg,image/png,image/webp,image/avif,image/gif,image/svg+xml,image/x-icon,image/vnd.microsoft.icon"
+            accept={accept}
             multiple={fileInputMultiple}
             className="hidden"
             onChange={(e) => {
