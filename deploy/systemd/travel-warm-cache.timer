@@ -4,12 +4,12 @@
 # soğuk render penceresini kapatmak içindir.
 
 [Unit]
-Description=Travel — vitrin ISR önbellek ısıtma (15 dk)
+Description=Travel — vitrin ISR önbellek ısıtma (5 dk)
 
 [Timer]
-OnBootSec=3min
-OnUnitActiveSec=15min
-AccuracySec=1min
+OnBootSec=20s
+OnUnitActiveSec=5min
+AccuracySec=15s
 Persistent=true
 Unit=travel-warm-cache.service
 

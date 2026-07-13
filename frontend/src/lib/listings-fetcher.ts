@@ -61,7 +61,10 @@ import {
 export { HOLIDAY_TYPE_HANDLE_MAP, YACHT_TYPE_HANDLE_MAP } from '@/lib/stay-rental-categories'
 
 /** Vitrin katalog listesi — SSR fetch önbelleği (her sayfa geçişinde API’ye gitmeyi önler). */
-const CATALOG_LISTINGS_FETCH_INIT: RequestInit = { next: { revalidate: 60 } }
+// Tam liste sayfaları ayrıca `category-page-data` içindeki kalıcı önbellekle
+// korunur. Aynı 5 dakikalık pencere, farklı sayfalardaki aynı katalog isteğinin
+// de her dakika yeniden pahalı SQL çalıştırmasını önler.
+const CATALOG_LISTINGS_FETCH_INIT: RequestInit = { next: { revalidate: 300 } }
 /** Nadiren değişen katalog meta (emlak tipi vb.). */
 const CATALOG_META_FETCH_INIT: RequestInit = { next: { revalidate: 300 } }
 

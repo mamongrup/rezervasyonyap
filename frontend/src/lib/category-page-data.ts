@@ -28,7 +28,10 @@ function fetchDefaultCategoryListingsCached(
   return unstable_cache(
     async () => fetchCategoryListings(categorySlug, {}, {}, locale),
     ['category-listings-v1', categorySlug, locale],
-    { revalidate: 60, tags: [`category-listings-${categorySlug}`] },
+    // Kategori vitrinleri ilk üretimde API/DB üzerinde pahalı olabilir. Kabuk verisi
+    // zaten 5 dakika tutulduğundan listeyi de aynı sürede saklamak, her dakika bir
+    // ziyaretçiyi soğuk render'a düşürmeyi engeller.
+    { revalidate: 300, tags: [`category-listings-${categorySlug}`] },
   )()
 }
 
