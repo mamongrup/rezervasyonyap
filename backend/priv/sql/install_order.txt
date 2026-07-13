@@ -207,6 +207,7 @@ modules/362_ai_governance_quality_knowledge.sql
 modules/363_ai_listing_calendar_pricing.sql
 modules/364_ai_sales_followup_reservation_comms.sql
 modules/365_perf_catalog_online_index_repair.sql
+modules/366_ai_operations_supervisor.sql
 
 # Kurulum doğrulama (install_order’a dahil değil — elle çalıştırın):
 #   psql -U postgres -d travel -f priv/sql/check_installation.sql

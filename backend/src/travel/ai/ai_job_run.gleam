@@ -61,7 +61,7 @@ pub fn run_ai_job(ctx: Context, job_id: String) -> Result(Nil, String) {
     False ->
       case
         pog.query(
-          "update ai_jobs set status = 'running' where id = $1::uuid and status = 'queued' returning input_json::text, profile_code",
+          "update ai_jobs j set status = 'running' where j.id = $1::uuid and j.status = 'queued' and not exists (select 1 from ai_agents a join ai_agent_runtime_state r on r.agent_code=a.code where a.feature_profile_code=j.profile_code and r.circuit_open_until>now()) and (select coalesce(sum(estimated_cost_usd),0) from ai_jobs where created_at>=current_date)<(select daily_cost_limit_usd from ai_operations_policy where singleton) and (select count(*) from ai_jobs where created_at>now()-interval '1 hour')<(select max_jobs_per_hour from ai_operations_policy where singleton) returning j.input_json::text, j.profile_code",
         )
         |> pog.parameter(pog.text(jid))
         |> pog.returning(start_row())

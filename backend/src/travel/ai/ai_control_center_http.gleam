@@ -34,6 +34,15 @@ const sql = "select jsonb_build_object(
    'tokens_30d',coalesce((select sum(estimated_input_tokens+estimated_output_tokens) from ai_jobs where created_at>now()-interval '30 days'),0)
  ),
  'agents',(select coalesce(jsonb_agg(to_jsonb(h) order by h.org_role,h.display_name),'[]'::jsonb) from ai_agent_health h),
+ 'supervisor',jsonb_build_object(
+   'open_incidents',(select count(*) from ai_operations_incidents where status='open'),
+   'critical_incidents',(select count(*) from ai_operations_incidents where status='open' and severity='critical'),
+   'degraded_agents',(select count(*) from ai_agent_runtime_state where health_status in ('degraded','half_open','quarantined')),
+   'quarantined_agents',(select count(*) from ai_agent_runtime_state where health_status='quarantined'),
+   'digest',coalesce((select summary_json from ai_executive_digests order by digest_date desc limit 1),'{}'::jsonb),
+   'requires_attention',coalesce((select requires_attention from ai_executive_digests order by digest_date desc limit 1),false)
+ ),
+ 'incidents',(select coalesce(jsonb_agg(to_jsonb(i) order by i.last_seen_at desc),'[]'::jsonb) from (select id::text,agent_code,severity,status,title,last_error,occurrence_count,last_seen_at::text from ai_operations_incidents where status='open' order by last_seen_at desc limit 20) i),
  'recent_failures',(select coalesce(jsonb_agg(to_jsonb(f)),'[]'::jsonb) from (select w.id::text,w.entity_type,w.entity_id,w.current_stage,coalesce(w.error,'') error,w.updated_at::text from ai_work_items w where w.status='failed' order by w.updated_at desc limit 10) f),
  'generated_at',now()::text
 )::text"

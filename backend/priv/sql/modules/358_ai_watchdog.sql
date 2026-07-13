@@ -33,6 +33,12 @@ DECLARE
   v_promoted INT := 0;
   v_approvals INT := 0;
 BEGIN
+  -- Operations Supervisor is installed after this module. Invoke it when available
+  -- so circuit transitions and the executive digest remain current on every tick.
+  IF to_regprocedure('ai_ops_supervisor_tick()') IS NOT NULL THEN
+    PERFORM ai_ops_supervisor_tick();
+  END IF;
+
   -- Uzun süredir running kalan genel AI işlerini başarısız say; adım retry akışına girsin.
   UPDATE ai_jobs
   SET status = 'failed', error = 'watchdog_stale_timeout', finished_at = now()

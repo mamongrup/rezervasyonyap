@@ -11613,7 +11613,9 @@ export type AiControlCenterOverview = {
   counts: { queued: number; running: number; awaiting_approval: number; failed: number; knowledge_sources: number }
   quality: { average_7d: number; failed_7d: number }
   cost: { usd_30d: number; tokens_30d: number }
-  agents: Array<{ code: string; display_name: string; status: string; org_role: string; parent_code: string | null; jobs_24h: number; succeeded_24h: number; failed_24h: number; quality_7d: number; cost_30d: number }>
+  agents: Array<{ code: string; display_name: string; status: string; org_role: string; parent_code: string | null; health_status: string; consecutive_failures: number; last_seen_at: string | null; last_success_at: string | null; last_failure_at: string | null; circuit_open_until: string | null; jobs_24h: number; succeeded_24h: number; failed_24h: number; quality_7d: number; cost_30d: number }>
+  supervisor: { open_incidents: number; critical_incidents: number; degraded_agents: number; quarantined_agents: number; digest: Record<string, unknown>; requires_attention: boolean }
+  incidents: Array<{ id: string; agent_code: string | null; severity: string; status: string; title: string; last_error: string; occurrence_count: number; last_seen_at: string }>
   recent_failures: Array<{ id: string; entity_type: string; entity_id: string; current_stage: string; error: string; updated_at: string }>
   generated_at: string
 }
