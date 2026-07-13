@@ -19,8 +19,9 @@ IDLE_MIN_SECONDS="${TRAVEL_DB_IDLE_MIN_SECONDS:-45}"
 ACTIVE_MIN_SECONDS="${TRAVEL_DB_ACTIVE_MIN_SECONDS:-45}"
 APP_PREFIX="${TRAVEL_DB_GUARD_APPLICATION_PREFIX:-travel_api}"
 APP_EXACT="${TRAVEL_DB_GUARD_APPLICATION_EXACT:-nonode@nohost}"
+APP_THRESHOLD="${TRAVEL_DB_APP_CONN_THRESHOLD:-20}"
 
-for value in "$PERCENT" "$IDLE_MIN_SECONDS" "$ACTIVE_MIN_SECONDS"; do
+for value in "$PERCENT" "$IDLE_MIN_SECONDS" "$ACTIVE_MIN_SECONDS" "$APP_THRESHOLD"; do
   case "$value" in ''|*[!0-9]*) fail "Guard ayarları sayısal olmalı" ;; esac
 done
 [[ "$PERCENT" -ge 20 && "$PERCENT" -le 95 ]] || fail "TRAVEL_DB_CONN_PERCENT 20-95 olmalı"
@@ -54,9 +55,9 @@ THRESHOLD=$((USABLE * PERCENT / 100))
 
 APP_TOTAL="$(psql_guard -tA -v ON_ERROR_STOP=1 -c \
   "select count(*)::int from pg_stat_activity where application_name like '${PREFIX_SQL}%' or application_name = '${EXACT_SQL}'")"
-ok "PostgreSQL guard: total=$TOTAL usable=$USABLE threshold=$THRESHOLD travel=$APP_TOTAL mode=$PSQL_MODE"
+ok "PostgreSQL guard: total=$TOTAL usable=$USABLE global_threshold=$THRESHOLD travel=$APP_TOTAL travel_threshold=$APP_THRESHOLD mode=$PSQL_MODE"
 
-if [[ "$TOTAL" -lt "$THRESHOLD" ]]; then
+if [[ "$TOTAL" -lt "$THRESHOLD" && "$APP_TOTAL" -le "$APP_THRESHOLD" ]]; then
   exit 0
 fi
 

@@ -10,6 +10,7 @@ Environment=TRAVEL_DB_CONN_PERCENT=75
 Environment=TRAVEL_DB_IDLE_MIN_SECONDS=45
 Environment=TRAVEL_DB_ACTIVE_MIN_SECONDS=45
 Environment=TRAVEL_DB_GUARD_APPLICATION_EXACT=nonode@nohost
+Environment=TRAVEL_DB_APP_CONN_THRESHOLD=20
 ExecStart=/bin/bash /var/www/vhosts/rezervasyonyap.tr/httpdocs/deploy/scripts/guard-postgres-connections.sh
 Nice=10
 
