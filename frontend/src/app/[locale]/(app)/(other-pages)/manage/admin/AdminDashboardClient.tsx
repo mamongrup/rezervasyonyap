@@ -493,9 +493,9 @@ export default function AdminDashboardClient() {
       {/* ── KPI Kartları ──────────────────────────────────────────────────── */}
       <div className="mb-8 grid grid-cols-2 gap-4 sm:grid-cols-3 xl:grid-cols-5">
         <KpiCard
-          label="Toplam ilan"
+          label="Vitrindeki ilanlar"
           value={fmtCount(publishedListings)}
-          sub="yayında"
+          sub="görünür ve yayında"
           icon={Layers}
           iconColor="#00a76f"
           sparkline={EMPTY_SPARKLINE_6}

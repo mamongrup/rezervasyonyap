@@ -7726,7 +7726,9 @@ pub fn get_public_listing_accommodation_rules(
   }
 }
 
-/// GET /api/v1/admin/catalog/dashboard-stats — yayında ilan sayısı (dashboard KPI; `admin.users.read`).
+/// GET /api/v1/admin/catalog/dashboard-stats — vitrinde gerçekten görünebilen ilan sayısı
+/// (dashboard KPI; `admin.users.read`). Ham `published` sayımı; görselsiz, fiyatsız
+/// otel/tur ve taslak import kayıtlarını kullanıcıya "yayında" gibi gösterdiği için yanıltıcıdır.
 pub fn admin_dashboard_catalog_stats(req: Request, ctx: Context) -> Response {
   use <- wisp.require_method(req, http.Get)
   case admin_gate.require_admin_users_read(req, ctx) {
@@ -7734,7 +7736,17 @@ pub fn admin_dashboard_catalog_stats(req: Request, ctx: Context) -> Response {
     Ok(_) ->
       case
         pog.query(
-          "select count(*)::text from listings where status = 'published'",
+          "select count(*)::text from listings l "
+            <> "join product_categories pc on pc.id = l.category_id "
+            <> "where l.status = 'published' "
+            <> "and (pc.code = 'flight' "
+            <> "or coalesce(trim(l.featured_image_url), '') <> '' "
+            <> "or coalesce(trim(l.thumbnail_url), '') <> '' "
+            <> "or exists (select 1 from listing_images li "
+            <> "           where li.listing_id = l.id "
+            <> "             and trim(coalesce(li.storage_key, '')) <> '' limit 1)) "
+            <> "and (pc.code != 'hotel' or coalesce(l.vitrin_price, l.first_charge_amount, 0) > 0) "
+            <> "and (pc.code != 'tour' or coalesce(l.vitrin_price, l.first_charge_amount, 0) > 0)",
         )
         |> pog.returning(one_string_row())
         |> db_exec.execute(ctx.db)
