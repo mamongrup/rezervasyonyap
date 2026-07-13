@@ -63,6 +63,12 @@ export function mapWtatilTransportToTravelType(transportType) {
 
 /** Konaklama tipi — mealType / tourType / program metninden tahmin. */
 export function mapWtatilAccommodationType(tour) {
+  const nights = Number(tour?.numberOfNights)
+  const explicit = normKey(
+    [pickText(tour, 'accommodationType', 'accommodation_type'), pickText(tour.tourType, 'name', 'text')]
+      .filter(Boolean)
+      .join(' '),
+  )
   const hay = [
     pickText(tour, 'accommodationType', 'accommodation_type'),
     pickText(tour.tourType, 'name', 'text'),
@@ -74,7 +80,19 @@ export function mapWtatilAccommodationType(tour) {
     .join(' ')
   const raw = normKey(hay)
 
-  if (raw.includes('gunubirlik') || raw.includes('gunluk') || raw.includes('daily') || raw.includes('no stay')) {
+  // Programdaki "günlük" sözcüğü konaklamasız tur anlamına gelmez.
+  if (Number.isFinite(nights) && nights > 0) {
+    if (raw.includes('kamp') || raw.includes('camping')) return 'camping'
+    if (raw.includes('villa')) return 'villa'
+    if (raw.includes('hostel') || raw.includes('pansiyon')) return 'hostel'
+    return 'hotel'
+  }
+  if (
+    explicit.includes('gunubirlik') ||
+    explicit.includes('daily tour') ||
+    explicit.includes('no stay') ||
+    explicit.includes('konaklamasiz')
+  ) {
     return 'none'
   }
   if (raw.includes('kamp') || raw.includes('camping')) return 'camping'
@@ -85,27 +103,38 @@ export function mapWtatilAccommodationType(tour) {
 }
 
 export function parseWtatilVisaRequired(visaDetail) {
-  if (visaDetail == null) return false
+  if (visaDetail == null) return null
   if (typeof visaDetail === 'boolean') return visaDetail
   if (typeof visaDetail === 'number') return visaDetail > 0
   if (typeof visaDetail === 'object') {
-    const required = visaDetail.required ?? visaDetail.isRequired ?? visaDetail.visaRequired
+    const required =
+      visaDetail.required ??
+      visaDetail.isRequired ??
+      visaDetail.visaRequired ??
+      visaDetail.isVisaRequired
     if (typeof required === 'boolean') return required
     if (required != null && String(required).trim()) {
       const s = normKey(required)
       if (s === 'false' || s === '0' || s === 'no' || s === 'hayir') return false
       return true
     }
-    const text = pickText(visaDetail, 'name', 'text', 'description', 'detail')
-    if (!text) return Object.keys(visaDetail).length > 0
+    const text = [
+      pickText(visaDetail, 'name', 'title', 'text', 'description', 'detail', 'visaTypeName'),
+      ...Object.values(visaDetail).filter((value) => typeof value === 'string'),
+    ]
+      .filter(Boolean)
+      .join(' ')
+    if (!text) return null
     const s = normKey(text)
-    if (s.includes('gerekmez') || s.includes('not required') || s.includes('vizesiz')) return false
-    return true
+    if (s.includes('gerekmez') || s.includes('gerekmiyor') || s.includes('not required') || s.includes('visa free') || s.includes('vizesiz')) return false
+    if (s.includes('gerekli') || s.includes('gerektirir') || s.includes('required') || s.includes('vizeli')) return true
+    return null
   }
   const s = normKey(visaDetail)
-  if (!s || s === 'null' || s === '{}') return false
-  if (s.includes('gerekmez') || s.includes('not required') || s.includes('vizesiz')) return false
-  return true
+  if (!s || s === 'null' || s === '{}') return null
+  if (s.includes('gerekmez') || s.includes('gerekmiyor') || s.includes('not required') || s.includes('visa free') || s.includes('vizesiz')) return false
+  if (s.includes('gerekli') || s.includes('gerektirir') || s.includes('required') || s.includes('vizeli')) return true
+  return null
 }
 
 export function parseWtatilIsGuided(tour) {

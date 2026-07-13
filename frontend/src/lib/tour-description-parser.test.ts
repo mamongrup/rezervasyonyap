@@ -67,4 +67,17 @@ describe('parseTourDescription', () => {
     expect(general?.html).toContain('rezervasyonyap.com.tr')
     expect(general?.html).not.toMatch(/wtatil/i)
   })
+
+  it('decodes provider entities and separates days sent on one line', () => {
+    const raw =
+      '1.Gün İstanbul – Sharm&nbsp; İlk gün programı. 2. Gün Sharm El Sheikh&nbsp; Sabah kahvaltısı &amp; serbest zaman. 3.Gün Kahire&nbsp; Dönüş programı.'
+    const parsed = parseTourDescription(raw)
+
+    expect(parsed.programHtml).toContain('1.Gün İstanbul – Sharm')
+    expect(parsed.programHtml).toContain('2.Gün Sharm El Sheikh')
+    expect(parsed.programHtml).toContain('Sabah kahvaltısı &amp; serbest zaman.')
+    expect(parsed.programHtml).toContain('3.Gün Kahire')
+    expect(parsed.programHtml).not.toContain('&amp;nbsp;')
+    expect(parsed.programHtml.match(/<article/g)).toHaveLength(3)
+  })
 })

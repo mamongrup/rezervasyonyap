@@ -69,9 +69,7 @@ const INFO_SECTION_DEFS: SectionDef[] = [
 ]
 
 /** Uçuş tablosu: «Uçuşlar Hakkında» varsa hemen sonra, yoksa «Diğer Hususlar» öncesi */
-export function tourFlightScheduleInsertAfterSectionId(
-  sections: Pick<TourInfoSection, 'id'>[],
-): string | undefined {
+export function tourFlightScheduleInsertAfterSectionId(sections: Pick<TourInfoSection, 'id'>[]): string | undefined {
   if (sections.some((s) => s.id === 'tour-section-flights-info')) return 'tour-section-flights-info'
   const otherIdx = sections.findIndex((s) => s.id === 'tour-section-other')
   if (otherIdx > 0) return sections[otherIdx - 1]?.id
@@ -88,29 +86,19 @@ export function sortTourInfoSections(sections: TourInfoSection[]): TourInfoSecti
   })
 }
 
-const FLIGHT_FOOTNOTE_LINES = [
-  /^Kalkış ve varış saatleri yerel saatlerdir/i,
-  /^Gruplarda fiyatlar geçerli değildir/i,
-]
+const FLIGHT_FOOTNOTE_LINES = [/^Kalkış ve varış saatleri yerel saatlerdir/i, /^Gruplarda fiyatlar geçerli değildir/i]
 
-const DAY_HEADING_RE = /(?:^|\n)\s*(\d+)\.?\s*Gün\s+([^\n]+)/gi
+const DAY_HEADING_RE = /(?:^|\n)\s*(\d+)\.?\s*Gün\s*:?\s*([^\n]+)/gi
 
 /** Wtatil marka adını sitede gösterilecek alan adıyla değiştirir. */
 export function replaceTourBrandName(text: string): string {
   return text
-    .replace(
-      /Wtatil\s*[''´`]\s*(den|dan|de|da|nin|nın|nun|nün|yi|yı|yu|yü)/gi,
-      "rezervasyonyap.com.tr'$1",
-    )
+    .replace(/Wtatil\s*[''´`]\s*(den|dan|de|da|nin|nın|nun|nün|yi|yı|yu|yü)/gi, "rezervasyonyap.com.tr'$1")
     .replace(/Wtatil/gi, 'rezervasyonyap.com.tr')
 }
 
 function escapeHtml(text: string): string {
-  return text
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
+  return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 }
 
 function normalizePlain(raw: string): string {
@@ -120,12 +108,42 @@ function normalizePlain(raw: string): string {
       .replace(/\t/g, ' ')
       .replace(/[ \u00a0]+/g, ' ')
       .replace(/\n{3,}/g, '\n\n')
-      .trim(),
+      .trim()
   )
 }
 
+function decodeHtmlEntities(raw: string): string {
+  const named: Record<string, string> = {
+    amp: '&',
+    apos: "'",
+    gt: '>',
+    lt: '<',
+    // Wtatil tur programında başlık ve gövde ayıracı olarak kullanılıyor.
+    nbsp: '\n',
+    quot: '"',
+  }
+  return raw.replace(/&(#x?[0-9a-f]+|[a-z]+);/gi, (full, entity: string) => {
+    const key = entity.toLowerCase()
+    if (key.startsWith('#x')) {
+      const code = Number.parseInt(key.slice(2), 16)
+      return Number.isFinite(code) ? String.fromCodePoint(code) : full
+    }
+    if (key.startsWith('#')) {
+      const code = Number.parseInt(key.slice(1), 10)
+      return Number.isFinite(code) ? String.fromCodePoint(code) : full
+    }
+    return named[key] ?? full
+  })
+}
+
 function stripHtmlTags(raw: string): string {
-  return raw.replace(/<[^>]+>/g, ' ')
+  return decodeHtmlEntities(
+    raw
+      .replace(/<br\s*\/?>/gi, '\n')
+      .replace(/<\/(?:div|h[1-6]|li|p|section|article)>/gi, '\n')
+      .replace(/<li\b[^>]*>/gi, '• ')
+      .replace(/<[^>]+>/g, ' ')
+  ).replace(/\s+(?=\d+\s*\.?\s*Gün\s*:?)/gi, '\n')
 }
 
 function isSectionBoundary(plain: string, index: number): boolean {
@@ -137,7 +155,10 @@ function findSectionMarkers(plain: string, from = 0): Array<{ index: number; def
   const markers: Array<{ index: number; def: SectionDef; matchLen: number }> = []
 
   for (const def of INFO_SECTION_DEFS) {
-    const re = new RegExp(def.pattern.source, def.pattern.flags.includes('g') ? def.pattern.flags : `${def.pattern.flags}g`)
+    const re = new RegExp(
+      def.pattern.source,
+      def.pattern.flags.includes('g') ? def.pattern.flags : `${def.pattern.flags}g`
+    )
     const slice = plain.slice(from)
     for (const match of slice.matchAll(re)) {
       if (match.index == null) continue
@@ -147,7 +168,11 @@ function findSectionMarkers(plain: string, from = 0): Array<{ index: number; def
     }
   }
 
-  markers.sort((a, b) => a.index - b.index || INFO_SECTION_DEFS.findIndex((d) => d.id === a.def.id) - INFO_SECTION_DEFS.findIndex((d) => d.id === b.def.id))
+  markers.sort(
+    (a, b) =>
+      a.index - b.index ||
+      INFO_SECTION_DEFS.findIndex((d) => d.id === a.def.id) - INFO_SECTION_DEFS.findIndex((d) => d.id === b.def.id)
+  )
 
   const deduped: typeof markers = []
   for (const marker of markers) {
@@ -182,7 +207,13 @@ function extractFlightFootnotes(text: string): { body: string; footnotes: string
     kept.push(line)
   }
 
-  return { body: kept.join('\n').replace(/\n{3,}/g, '\n\n').trim(), footnotes }
+  return {
+    body: kept
+      .join('\n')
+      .replace(/\n{3,}/g, '\n\n')
+      .trim(),
+    footnotes,
+  }
 }
 
 function stripLeadingClauseNumber(text: string): string {
@@ -193,9 +224,14 @@ function splitNumberedClauses(body: string, sectionTitle: string): string[] {
   const plain = normalizePlain(body)
   if (!plain) return []
 
-  let rest = plain.replace(new RegExp(`^${sectionTitle.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*:?\\s*`, 'i'), '').trim()
+  let rest = plain
+    .replace(new RegExp(`^${sectionTitle.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*:?\\s*`, 'i'), '')
+    .trim()
 
-  const parts = rest.split(/\s+(?=\d+\-\s)/).map((p) => p.trim()).filter(Boolean)
+  const parts = rest
+    .split(/\s+(?=\d+\-\s)/)
+    .map((p) => p.trim())
+    .filter(Boolean)
   if (parts.length === 0) return []
 
   return parts.map((part) => stripLeadingClauseNumber(part)).filter(Boolean)
@@ -203,7 +239,10 @@ function splitNumberedClauses(body: string, sectionTitle: string): string[] {
 
 function splitLineList(body: string, sectionTitle: string): string[] {
   const plain = normalizePlain(body)
-  const lines = plain.split('\n').map((l) => l.trim()).filter(Boolean)
+  const lines = plain
+    .split('\n')
+    .map((l) => l.trim())
+    .filter(Boolean)
   if (lines.length === 0) return []
 
   const first = lines[0].replace(new RegExp(`^${sectionTitle}\\s*:?\\s*`, 'i'), '').trim()
@@ -221,10 +260,7 @@ function splitLineList(body: string, sectionTitle: string): string[] {
 }
 
 function formatInfoSectionBody(body: string, sectionTitle: string, kind: 'numbered' | 'list'): string {
-  const items =
-    kind === 'list'
-      ? splitLineList(body, sectionTitle)
-      : splitNumberedClauses(body, sectionTitle)
+  const items = kind === 'list' ? splitLineList(body, sectionTitle) : splitNumberedClauses(body, sectionTitle)
 
   if (items.length === 0) {
     const plain = normalizePlain(body)
@@ -247,7 +283,7 @@ function formatProgramHtml(raw: string): string {
 
   const matches = [...plain.matchAll(DAY_HEADING_RE)]
   if (matches.length === 0) {
-    return `<div class="space-y-3 text-sm leading-snug text-neutral-700 dark:text-neutral-300">${plain
+    return `<div class="space-y-3 text-sm font-normal leading-relaxed text-neutral-700 dark:text-neutral-300">${plain
       .split('\n\n')
       .filter(Boolean)
       .map((p) => `<p>${escapeHtml(p.trim())}</p>`)
@@ -269,11 +305,11 @@ function formatProgramHtml(raw: string): string {
     }
 
     articles.push(
-      `<article class="space-y-2"><h3 class="text-base font-semibold text-neutral-900 dark:text-neutral-100">${escapeHtml(dayHeading)}</h3>${
+      `<article class="space-y-2"><h3 class="text-sm font-semibold text-neutral-900 dark:text-neutral-100">${escapeHtml(dayHeading)}</h3>${
         dayBody
-          ? `<p class="text-sm leading-snug text-neutral-700 dark:text-neutral-300">${escapeHtml(dayBody)}</p>`
+          ? `<p class="text-sm font-normal leading-relaxed text-neutral-700 dark:text-neutral-300">${escapeHtml(dayBody)}</p>`
           : ''
-      }</article>`,
+      }</article>`
     )
   }
 
@@ -284,7 +320,7 @@ function formatProgramHtml(raw: string): string {
   if (konaklamaMatch?.[1]?.trim()) {
     const note = normalizePlain(konaklamaMatch[1])
     articles.push(
-      `<aside class="rounded-xl border border-neutral-200 bg-neutral-50/80 p-4 dark:border-neutral-700 dark:bg-neutral-900/40"><h3 class="text-sm font-semibold text-neutral-900 dark:text-neutral-100">Konaklama</h3><p class="mt-1 text-sm leading-snug text-neutral-700 dark:text-neutral-300">${escapeHtml(note)}</p></aside>`,
+      `<aside class="rounded-xl border border-neutral-200 bg-neutral-50/80 p-4 dark:border-neutral-700 dark:bg-neutral-900/40"><h3 class="text-sm font-semibold text-neutral-900 dark:text-neutral-100">Konaklama</h3><p class="mt-1 text-sm leading-snug text-neutral-700 dark:text-neutral-300">${escapeHtml(note)}</p></aside>`
     )
   }
 
@@ -314,16 +350,12 @@ export function parseTourDescription(raw: string): ParsedTourDescription {
     const bodyStart = marker.index + marker.matchLen
     const bodyEnd = i + 1 < markers.length ? markers[i + 1].index : infoPlain.length
     const body = infoPlain.slice(bodyStart, bodyEnd).trim()
-    const kind =
-      marker.def.id === 'tour-section-paid' || marker.def.id === 'tour-section-free' ? 'list' : 'numbered'
+    const kind = marker.def.id === 'tour-section-paid' || marker.def.id === 'tour-section-free' ? 'list' : 'numbered'
     let html = formatInfoSectionBody(body, marker.def.title, kind)
 
     if (marker.def.id === 'tour-section-flights-info' && footnotes.length > 0) {
       const notesHtml = footnotes
-        .map(
-          (note) =>
-            `<p class="text-sm leading-snug text-neutral-700 dark:text-neutral-300">${escapeHtml(note)}</p>`,
-        )
+        .map((note) => `<p class="text-sm leading-snug text-neutral-700 dark:text-neutral-300">${escapeHtml(note)}</p>`)
         .join('')
       html = notesHtml + html
     }
@@ -338,10 +370,7 @@ export function parseTourDescription(raw: string): ParsedTourDescription {
       id: 'tour-section-flights-info',
       title: 'Uçuşlar Hakkında',
       html: footnotes
-        .map(
-          (note) =>
-            `<p class="text-sm leading-snug text-neutral-700 dark:text-neutral-300">${escapeHtml(note)}</p>`,
-        )
+        .map((note) => `<p class="text-sm leading-snug text-neutral-700 dark:text-neutral-300">${escapeHtml(note)}</p>`)
         .join(''),
     })
   }

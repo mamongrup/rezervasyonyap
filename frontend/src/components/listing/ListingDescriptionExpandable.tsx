@@ -1,8 +1,8 @@
 'use client'
 
-import ButtonSecondary from '@/shared/ButtonSecondary'
 import { sanitizeRichCmsHtml } from '@/lib/sanitize-cms-html'
 import { stripHtml } from '@/lib/social-share/strip-html'
+import ButtonSecondary from '@/shared/ButtonSecondary'
 import { getMessages } from '@/utils/getT'
 import { useState } from 'react'
 
@@ -39,9 +39,9 @@ export default function ListingDescriptionExpandable({
 
   // Site genelindeki eski gövde boyutu (prose-sm). SEO hiyerarşisi h2/h3 ile gelir.
   const prose =
-    'prose prose-sm max-w-none text-neutral-700 dark:text-neutral-300 dark:prose-invert ' +
-    'prose-p:my-3 prose-p:leading-relaxed prose-p:first:mt-0 prose-p:last:mb-0 ' +
-    'prose-ul:my-3 prose-ol:my-3 prose-li:my-1 prose-li:leading-relaxed ' +
+    'prose prose-sm max-w-none font-normal text-neutral-700 dark:text-neutral-300 dark:prose-invert ' +
+    'prose-p:my-3 prose-p:font-normal prose-p:leading-relaxed prose-p:first:mt-0 prose-p:last:mb-0 ' +
+    'prose-ul:my-3 prose-ol:my-3 prose-li:my-1 prose-li:font-normal prose-li:leading-relaxed ' +
     'prose-strong:font-semibold prose-strong:text-neutral-900 dark:prose-strong:text-neutral-100 ' +
     'prose-headings:font-semibold prose-headings:text-neutral-900 dark:prose-headings:text-neutral-100 ' +
     'prose-h2:mb-3 prose-h2:mt-0 prose-h2:text-xl prose-h2:leading-snug ' +
@@ -56,11 +56,7 @@ export default function ListingDescriptionExpandable({
     <div className="flex flex-col gap-6 sm:gap-8">
       <div className="relative">
         <div
-          className={
-            expanded
-              ? prose
-              : `${prose} ${COLLAPSED_MAX_HEIGHT_CLASS} overflow-hidden`
-          }
+          className={expanded ? prose : `${prose} ${COLLAPSED_MAX_HEIGHT_CLASS} overflow-hidden`}
           dangerouslySetInnerHTML={{ __html: safeHtml }}
         />
         {!expanded ? (

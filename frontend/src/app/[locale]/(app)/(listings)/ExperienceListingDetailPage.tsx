@@ -1,61 +1,22 @@
 import ListingDescriptionExpandable from '@/components/listing/ListingDescriptionExpandable'
 import TourItineraryMapSection from '@/components/listing/TourItineraryMapSection'
-import { parseTourDayPins, parseTourItineraryPinsFromDays } from '@/lib/tour-itinerary-geocoder'
-import { parseCruiseItineraryPins } from '@/lib/cruise-itinerary-pins'
-import { formatCruiseRouteSummary } from '@/lib/cruise-route-display'
-import { getExperienceListingByHandle, listingHostForSection } from '@/data/listings'
-import {
-  Clock01Icon,
-  Globe02Icon,
-  UserMultiple02Icon,
-} from '@hugeicons/core-free-icons'
-import { HugeiconsIcon } from '@hugeicons/react'
-import { Metadata } from 'next'
-import { redirect } from 'next/navigation'
 import NearbyPlacesSection from '@/components/travel/NearbyPlacesSection'
-import { fetchCategoryListings } from '@/lib/listings-fetcher'
-import { getSitePublicConfig } from '@/lib/site-public-config'
-import { buildListingOgImageUrl } from '@/lib/social-share/listing-og-image-url'
-import { sanitizeRichCmsHtml } from '@/lib/sanitize-cms-html'
-import { stripHtml } from '@/lib/social-share/strip-html'
+import { getExperienceListingByHandle, listingHostForSection } from '@/data/listings'
+import { parseActivityVitrinMeta, pickActivitySectionTitle } from '@/lib/activity-vitrin-meta'
+import { guessCalendarMonthsShownFromRequest } from '@/lib/calendar-months-shown-server'
+import type { CatalogListingVerticalCode } from '@/lib/catalog-listing-vertical'
 import { normalizeCatalogVertical } from '@/lib/catalog-listing-vertical'
-import { SITE_LOCALE_CATALOG } from '@/lib/i18n-catalog-locales'
-import {
-  detailPathForVertical,
-  experienceBrowsePathForVertical,
-} from '@/lib/listing-detail-routes'
-import { vitrinHref } from '@/lib/vitrin-href'
-import {
-  fetchPublicListingAvailabilityDaysSafe,
-  fetchPublicListingDetailCampaigns,
-  getPublicTourPeriods,
-  getVerticalMeta,
-  listPublicActivitySessions,
-  type ActivitySessionRow,
-} from '@/lib/travel-api'
-import { parseListingDetailCampaignsPayload } from '@/lib/listing-detail-campaigns'
-import { formatTourLanguageLabels } from '@/lib/tour-listing-card-meta'
-import { mergeTourPeriodOptions } from '@/lib/tour-periods'
-import {
-  parseTourFlightSchedulesFromDescription,
-  stripFlightScheduleBlockFromDescription,
-} from '@/lib/tour-flight-schedule'
-import { resolveTourCountryCards } from '@/lib/tour-countries-resolve'
-import {
-  parseTourDescription,
-  replaceTourBrandName,
-  tourFlightScheduleInsertAfterSectionId,
-} from '@/lib/tour-description-parser'
-import { unwrapVerticalMetaPayload } from '@/lib/listing-pools'
+import { parseCruiseItineraryPins } from '@/lib/cruise-itinerary-pins'
 import {
   cruiseInfoSections as buildCruiseInfoSections,
+  cruiseOverviewItems as buildCruiseOverviewItems,
   cruiseCabins,
   cruiseIncludedExcluded,
   cruiseItineraryDays,
-  cruiseOverviewItems as buildCruiseOverviewItems,
   cruisePeriodSelectOptions,
   parseCruiseVerticalMeta,
 } from '@/lib/cruise-meta'
+import { formatCruiseRouteSummary } from '@/lib/cruise-route-display'
 import {
   gezinomiIncludedExcludedLists,
   gezinomiTourDeparturePoints,
@@ -68,57 +29,68 @@ import {
   hasGezinomiTourStructuredContent,
   parseGezinomiTourVerticalMeta,
 } from '@/lib/gezinomi-tour-meta'
-import { guessCalendarMonthsShownFromRequest } from '@/lib/calendar-months-shown-server'
+import { SITE_LOCALE_CATALOG } from '@/lib/i18n-catalog-locales'
+import { parseListingDetailCampaignsPayload } from '@/lib/listing-detail-campaigns'
+import { detailPathForVertical, experienceBrowsePathForVertical } from '@/lib/listing-detail-routes'
+import { galleryUrlsForStayDetailHeader } from '@/lib/listing-gallery-hero-order'
+import { unwrapVerticalMetaPayload } from '@/lib/listing-pools'
+import { fetchCategoryListings } from '@/lib/listings-fetcher'
 import { resolveRegionPlacesForListingPage } from '@/lib/region-places-from-location-page'
 import {
   regionBrowseSlugFromLocationPin,
   regionPlacesSlugFromCity,
   shortRegionLabelFromLocationPin,
 } from '@/lib/region-places-slug'
-import ActivityExtraFeesSection from './ActivityExtraFeesSection'
-import { pickActivitySectionTitle, parseActivityVitrinMeta } from '@/lib/activity-vitrin-meta'
 import { resolveActivityRelatedListings } from '@/lib/resolve-activity-related-listings'
+import { sanitizeRichCmsHtml } from '@/lib/sanitize-cms-html'
+import { buildExperienceListingDetailJsonLd } from '@/lib/seo/listing-detail-jsonld'
+import { getSitePublicConfig } from '@/lib/site-public-config'
+import { buildListingOgImageUrl } from '@/lib/social-share/listing-og-image-url'
+import { stripHtml } from '@/lib/social-share/strip-html'
 import { normalizeStayLocationPin } from '@/lib/stay-location-display'
+import { resolveTourCountryCards } from '@/lib/tour-countries-resolve'
+import { parseTourDescription, tourFlightScheduleInsertAfterSectionId } from '@/lib/tour-description-parser'
+import {
+  parseTourFlightSchedulesFromDescription,
+  stripFlightScheduleBlockFromDescription,
+} from '@/lib/tour-flight-schedule'
+import { parseTourDayPins, parseTourItineraryPinsFromDays } from '@/lib/tour-itinerary-geocoder'
+import { formatTourLanguageLabels } from '@/lib/tour-listing-card-meta'
+import { mergeTourPeriodOptions } from '@/lib/tour-periods'
+import {
+  fetchPublicListingAvailabilityDaysSafe,
+  fetchPublicListingDetailCampaigns,
+  getPublicTourPeriods,
+  getVerticalMeta,
+  listPublicActivitySessions,
+  type ActivitySessionRow,
+} from '@/lib/travel-api'
+import { vitrinHref } from '@/lib/vitrin-href'
 import { Divider } from '@/shared/divider'
+import type { TListingBase } from '@/types/listing-types'
 import { getMessages } from '@/utils/getT'
 import { interpolate } from '@/utils/interpolate'
-import { buildExperienceListingDetailJsonLd } from '@/lib/seo/listing-detail-jsonld'
-import { galleryUrlsForStayDetailHeader } from '@/lib/listing-gallery-hero-order'
-import type { TListingBase } from '@/types/listing-types'
-import type { CatalogListingVerticalCode } from '@/lib/catalog-listing-vertical'
-import HeaderGallery from './components/HeaderGallery'
-import SectionDateRange from './components/SectionDateRange'
-import SectionHeader from './components/SectionHeader'
-import { SectionHeading } from './components/SectionHeading'
-import SectionHost from './components/SectionHost'
-import ListingDetailOurFeatures from './components/ListingDetailOurFeatures'
-import ListingDetailCampaignsFromList from './ListingDetailCampaignsFromList'
-import SimilarListings from './components/SimilarListings'
-import SectionListingReviews from './components/SectionListingReviews'
-import SectionMap from './components/SectionMap'
+import { Clock01Icon, Globe02Icon, UserMultiple02Icon } from '@hugeicons/core-free-icons'
+import { HugeiconsIcon } from '@hugeicons/react'
+import { Metadata } from 'next'
+import { redirect } from 'next/navigation'
 import ActivityBookingPanel from './ActivityBookingPanel'
-import TourCountryInfoSection from './TourCountryInfoSection'
-import {
-  LISTING_DETAIL_SECTION_GAP,
-  LISTING_DETAIL_SECTION_GAP_Y,
-  LISTING_SECTION_SHELL,
-} from './listing-section-classes'
-import ExperienceBookingSidebar from './ExperienceBookingSidebar'
-import TourBookingSidebar from './TourBookingSidebar'
-import CruiseBookingSidebar from './CruiseBookingSidebar'
-import ExperienceBookingMobileStickyBar from './ExperienceBookingMobileStickyBar'
-import CruiseShipDetailsSection from './CruiseShipDetailsSection'
-import TourItineraryAccordion from './TourItineraryAccordion'
-import CruiseCabinPricingSection from './CruiseCabinPricingSection'
-import CruiseCabinsUnavailableSection from './CruiseCabinsUnavailableSection'
-import { CruiseCabinProvider } from './CruiseCabinContext'
-import TourFlightScheduleSection from './TourFlightScheduleSection'
-import { TourPeriodProvider } from './TourPeriodContext'
 import ActivityOverviewSection, {
   ActivityDescriptionSection,
   ActivityRulesSection,
   type ActivityOverviewItem,
 } from './ActivityDetailSections'
+import ActivityExtraFeesSection from './ActivityExtraFeesSection'
+import CruiseBookingSidebar from './CruiseBookingSidebar'
+import { CruiseCabinProvider } from './CruiseCabinContext'
+import CruiseCabinPricingSection from './CruiseCabinPricingSection'
+import CruiseCabinsUnavailableSection from './CruiseCabinsUnavailableSection'
+import CruiseShipDetailsSection from './CruiseShipDetailsSection'
+import ExperienceBookingMobileStickyBar from './ExperienceBookingMobileStickyBar'
+import ExperienceBookingSidebar from './ExperienceBookingSidebar'
+import ListingDetailCampaignsFromList from './ListingDetailCampaignsFromList'
+import TourBookingSidebar from './TourBookingSidebar'
+import TourCountryInfoSection from './TourCountryInfoSection'
 import {
   TourDeparturePointsSection,
   TourIncludedExcludedSection,
@@ -128,6 +100,23 @@ import {
   type TourItineraryDay,
   type TourOverviewItem,
 } from './TourDetailSections'
+import TourFlightScheduleSection from './TourFlightScheduleSection'
+import TourItineraryAccordion from './TourItineraryAccordion'
+import { TourPeriodProvider } from './TourPeriodContext'
+import HeaderGallery from './components/HeaderGallery'
+import ListingDetailOurFeatures from './components/ListingDetailOurFeatures'
+import SectionDateRange from './components/SectionDateRange'
+import SectionHeader from './components/SectionHeader'
+import { SectionHeading } from './components/SectionHeading'
+import SectionHost from './components/SectionHost'
+import SectionListingReviews from './components/SectionListingReviews'
+import SectionMap from './components/SectionMap'
+import SimilarListings from './components/SimilarListings'
+import {
+  LISTING_DETAIL_SECTION_GAP,
+  LISTING_DETAIL_SECTION_GAP_Y,
+  LISTING_SECTION_SHELL,
+} from './listing-section-classes'
 
 type TourMeta = {
   duration_days?: string
@@ -214,7 +203,7 @@ function parseTourMeta(raw: unknown): TourMeta {
     duration_days: textFromMeta(data.duration_days),
     min_people: textFromMeta(data.min_people),
     max_people: textFromMeta(data.max_people),
-    visa_required: data.visa_required === true,
+    visa_required: typeof data.visa_required === 'boolean' ? data.visa_required : undefined,
     travel_type: textFromMeta(data.travel_type),
     is_guided: data.is_guided === true,
     accommodation_type: textFromMeta(data.accommodation_type),
@@ -359,8 +348,7 @@ export default async function ExperienceListingDetailPage({
   const catalogListingId = listing.id
   const activityToday = new Date().toISOString().slice(0, 10)
   const city = (listing as TListingBase).city
-  const regionSlugForPlaces =
-    regionBrowseSlugFromLocationPin(city) ?? regionPlacesSlugFromCity(city)
+  const regionSlugForPlaces = regionBrowseSlugFromLocationPin(city) ?? regionPlacesSlugFromCity(city)
   const [
     availabilityCalendarDays,
     rawTourMeta,
@@ -374,24 +362,14 @@ export default async function ExperienceListingDetailPage({
     rawCruiseMeta,
     listingDetailCampaignsRaw,
   ] = await Promise.all([
-    vertical === 'tour'
-      ? Promise.resolve([])
-      : fetchPublicListingAvailabilityDaysSafe(catalogListingId),
-    vertical === 'tour'
-      ? getVerticalMeta(catalogListingId, 'tour').catch(() => null)
-      : Promise.resolve(null),
-    vertical === 'activity'
-      ? getVerticalMeta(catalogListingId, 'activity').catch(() => null)
-      : Promise.resolve(null),
+    vertical === 'tour' ? Promise.resolve([]) : fetchPublicListingAvailabilityDaysSafe(catalogListingId),
+    vertical === 'tour' ? getVerticalMeta(catalogListingId, 'tour').catch(() => null) : Promise.resolve(null),
+    vertical === 'activity' ? getVerticalMeta(catalogListingId, 'activity').catch(() => null) : Promise.resolve(null),
     vertical === 'activity'
       ? listPublicActivitySessions(catalogListingId).catch(() => ({ sessions: [] }))
       : Promise.resolve({ sessions: [] }),
-    vertical === 'tour'
-      ? getPublicTourPeriods(catalogListingId).catch(() => null)
-      : Promise.resolve(null),
-    vertical === 'tour'
-      ? resolveTourCountryCards(catalogListingId).catch(() => [])
-      : Promise.resolve([]),
+    vertical === 'tour' ? getPublicTourPeriods(catalogListingId).catch(() => null) : Promise.resolve(null),
+    vertical === 'tour' ? resolveTourCountryCards(catalogListingId).catch(() => []) : Promise.resolve([]),
     vertical === 'tour'
       ? fetchCategoryListings('turlar', {}, { perPage: 9 }, locale).catch(() => ({ listings: [] }))
       : Promise.resolve({ listings: [] }),
@@ -402,12 +380,10 @@ export default async function ExperienceListingDetailPage({
       ? resolveRegionPlacesForListingPage(
           regionSlugForPlaces,
           locale,
-          shortRegionLabelFromLocationPin(city) || city || undefined,
+          shortRegionLabelFromLocationPin(city) || city || undefined
         )
       : Promise.resolve(null),
-    isCruise
-      ? getVerticalMeta(catalogListingId, 'cruise').catch(() => null)
-      : Promise.resolve(null),
+    isCruise ? getVerticalMeta(catalogListingId, 'cruise').catch(() => null) : Promise.resolve(null),
     fetchPublicListingDetailCampaigns({
       listingId: catalogListingId,
       categoryCode: vertical,
@@ -453,27 +429,30 @@ export default async function ExperienceListingDetailPage({
           locale,
         })
       : []
-  const gezinomiDeparturePoints = useGezinomiTourLayout
-    ? gezinomiTourDeparturePoints(gezinomiTourMeta)
-    : []
-  const gezinomiPeriodTimeLabels = useGezinomiTourLayout
-    ? gezinomiTourPeriodTimeLabels(gezinomiTourMeta)
-    : []
-  const tourPeriodOptions =
-    wtatilTourPeriodOptions.length > 0 ? wtatilTourPeriodOptions : gezinomiTourPeriodOptions
-  const tourFlightSchedules =
-    isTour && description ? parseTourFlightSchedulesFromDescription(description) : []
-  const listingTour = listing as TListingBase & { durationNights?: number }
+  const gezinomiDeparturePoints = useGezinomiTourLayout ? gezinomiTourDeparturePoints(gezinomiTourMeta) : []
+  const gezinomiPeriodTimeLabels = useGezinomiTourLayout ? gezinomiTourPeriodTimeLabels(gezinomiTourMeta) : []
+  const tourPeriodOptions = wtatilTourPeriodOptions.length > 0 ? wtatilTourPeriodOptions : gezinomiTourPeriodOptions
+  const tourFlightSchedules = isTour && description ? parseTourFlightSchedulesFromDescription(description) : []
+  const listingTour = listing as TListingBase & {
+    durationNights?: number
+    visaRequired?: boolean
+    accommodationType?: string
+  }
   const tourNights = listingTour.durationNights
-  const tourDurationLine =
-    tourMeta?.duration_days
-      ? interpolate(td.durationDays, { count: tourMeta.duration_days })
-      : tourNights != null && tourNights > 0
-        ? interpolate(td.durationNightsDays, {
-            nights: String(tourNights),
-            days: String(tourNights + 1),
-          })
-        : durationTime || td.durationNotSpecified
+  const tourAccommodationType =
+    tourNights != null &&
+    tourNights > 0 &&
+    (listingTour.accommodationType || tourMeta?.accommodation_type) === 'none'
+      ? 'hotel'
+      : listingTour.accommodationType || tourMeta?.accommodation_type || ''
+  const tourDurationLine = tourMeta?.duration_days
+    ? interpolate(td.durationDays, { count: tourMeta.duration_days })
+    : tourNights != null && tourNights > 0
+      ? interpolate(td.durationNightsDays, {
+          nights: String(tourNights),
+          days: String(tourNights + 1),
+        })
+      : durationTime || td.durationNotSpecified
   const activityMeta = isActivity ? parseActivityMeta(rawActivityMeta) : null
   const cruiseMeta = isCruise ? parseCruiseVerticalMeta(rawCruiseMeta) : null
   const listingPriceMoney = listing as TListingBase & {
@@ -482,9 +461,7 @@ export default async function ExperienceListingDetailPage({
     listingCurrencyCode?: string
   }
   const cruisePeriodCurrency =
-    listingPriceMoney.priceCurrency?.trim() ||
-    listingPriceMoney.listingCurrencyCode?.trim() ||
-    'TRY'
+    listingPriceMoney.priceCurrency?.trim() || listingPriceMoney.listingCurrencyCode?.trim() || 'TRY'
   const cruisePeriodOptions =
     isCruise && cruiseMeta
       ? cruisePeriodSelectOptions(cruiseMeta, {
@@ -507,21 +484,18 @@ export default async function ExperienceListingDetailPage({
           visa: cd.visa ?? 'Vize',
           tourCode: cd.tourCode ?? 'Tur kodu',
         },
-        tourNights,
+        tourNights
       )
     : []
   const cruiseInfoRaw = isCruise ? buildCruiseInfoSections(cruiseMeta, locale) : []
   const cruiseInfo = cruiseInfoRaw.filter(
-    (section) => !(section.id === 'cruise-visits' && Boolean(cruiseMeta?.route_summary?.trim())),
+    (section) => !(section.id === 'cruise-visits' && Boolean(cruiseMeta?.route_summary?.trim()))
   )
   const cruiseDays = isCruise ? cruiseItineraryDays(cruiseMeta) : []
   const cruiseCabinsList = isCruise
     ? cruiseCabins({
         ...(cruiseMeta ?? {}),
-        gallery_urls:
-          cruiseMeta?.gallery_urls?.length
-            ? cruiseMeta.gallery_urls
-            : galleryImgs?.filter(Boolean) ?? [],
+        gallery_urls: cruiseMeta?.gallery_urls?.length ? cruiseMeta.gallery_urls : (galleryImgs?.filter(Boolean) ?? []),
       })
     : []
   const cruiseServices = isCruise ? cruiseIncludedExcluded(cruiseMeta) : { included: [], excluded: [] }
@@ -532,16 +506,10 @@ export default async function ExperienceListingDetailPage({
       : city?.trim()
         ? formatCruiseRouteSummary(city)
         : undefined
-  const activityVitrin = isActivity
-    ? parseActivityVitrinMeta(unwrapVerticalMetaPayload(rawActivityMeta))
-    : null
+  const activityVitrin = isActivity ? parseActivityVitrinMeta(unwrapVerticalMetaPayload(rawActivityMeta)) : null
   const allActivitySessions = isActivity ? activitySessionsResult.sessions : []
-  const activityInitialDate = isActivity
-    ? firstActivityBookingDate(allActivitySessions, activityToday)
-    : activityToday
-  const initialActivitySessions = isActivity
-    ? activitySessionsForDate(allActivitySessions, activityInitialDate)
-    : []
+  const activityInitialDate = isActivity ? firstActivityBookingDate(allActivitySessions, activityToday) : activityToday
+  const initialActivitySessions = isActivity ? activitySessionsForDate(allActivitySessions, activityInitialDate) : []
   const tourLanguages = splitMetaList(tourMeta?.languages)
   const tourLanguageLine = formatTourLanguageLabels(tourLanguages)
   const tourGroupLine = tourMeta?.max_people
@@ -557,27 +525,17 @@ export default async function ExperienceListingDetailPage({
     isTour && tourDescriptionStripped?.trim() && !useGezinomiTourLayout
       ? parseTourDescription(tourDescriptionStripped)
       : { programHtml: '', infoSections: [] }
-  const gezinomiItineraryDays = useGezinomiTourLayout
-    ? gezinomiTourItineraryDays(gezinomiTourMeta)
-    : []
-  const gezinomiInfoSections = useGezinomiTourLayout
-    ? gezinomiTourInfoSections(gezinomiTourMeta)
-    : []
+  const gezinomiItineraryDays = useGezinomiTourLayout ? gezinomiTourItineraryDays(gezinomiTourMeta) : []
+  const gezinomiInfoSections = useGezinomiTourLayout ? gezinomiTourInfoSections(gezinomiTourMeta) : []
   const gezinomiIncludedExcluded = useGezinomiTourLayout
     ? gezinomiIncludedExcludedLists(gezinomiTourMeta)
     : { included: [], excluded: [] }
   const tourInfoSections = useGezinomiTourLayout
     ? gezinomiInfoSections.filter((section) => {
-        if (
-          gezinomiIncludedExcluded.included.length > 0 &&
-          section.id === 'cruise-section-included'
-        ) {
+        if (gezinomiIncludedExcluded.included.length > 0 && section.id === 'cruise-section-included') {
           return false
         }
-        if (
-          gezinomiIncludedExcluded.excluded.length > 0 &&
-          section.id === 'cruise-section-excluded'
-        ) {
+        if (gezinomiIncludedExcluded.excluded.length > 0 && section.id === 'cruise-section-excluded') {
           return false
         }
         return true
@@ -605,12 +563,26 @@ export default async function ExperienceListingDetailPage({
   const tourOverviewItems: TourOverviewItem[] = isTour
     ? [
         ...(useGezinomiTourLayout
-          ? gezinomiTourOverviewItems(gezinomiTourMeta, {
-              departure: locale.startsWith('en') ? 'Departure' : 'Kalkış',
-              concept: locale.startsWith('en') ? 'Meal concept' : 'Yeme içme',
-              region: locale.startsWith('en') ? 'Region' : 'Bölge',
-            }, locale)
+          ? gezinomiTourOverviewItems(
+              gezinomiTourMeta,
+              {
+                departure: locale.startsWith('en') ? 'Departure' : 'Kalkış',
+                concept: locale.startsWith('en') ? 'Meal concept' : 'Yeme içme',
+                region: locale.startsWith('en') ? 'Region' : 'Bölge',
+              },
+              locale
+            )
           : []),
+        tourNights != null && tourNights > 0
+          ? {
+              label: locale.startsWith('en') ? 'Duration' : 'Süre',
+              value: interpolate(td.durationNightsDays, {
+                nights: String(tourNights),
+                days: String(tourNights + 1),
+              }),
+              icon: 'duration',
+            }
+          : null,
         tourMeta?.travel_type && travelTypeLabel(locale, tourMeta.travel_type)
           ? {
               label: td.overview.transport,
@@ -618,22 +590,27 @@ export default async function ExperienceListingDetailPage({
               icon: 'transport',
             }
           : null,
-        tourMeta?.accommodation_type && accommodationTypeLabel(locale, tourMeta.accommodation_type)
+        tourAccommodationType && accommodationTypeLabel(locale, tourAccommodationType)
           ? {
               label: td.overview.accommodation,
-              value: accommodationTypeLabel(locale, tourMeta.accommodation_type),
+              value: accommodationTypeLabel(locale, tourAccommodationType),
               icon: 'location',
             }
           : null,
-        tourMeta?.is_guided
-          ? { label: td.overview.guide, value: td.overview.guidedTour, icon: 'guide' }
+        tourMeta?.is_guided ? { label: td.overview.guide, value: td.overview.guidedTour, icon: 'guide' } : null,
+        (listingTour.visaRequired ?? tourMeta?.visa_required) != null
+          ? {
+              label: td.overview.visa,
+              value:
+                (listingTour.visaRequired ?? tourMeta?.visa_required) === true
+                  ? td.overview.visaRequired
+                  : locale.startsWith('en')
+                    ? 'Visa not required'
+                    : 'Vize gerektirmez',
+              icon: 'visa',
+            }
           : null,
-        tourMeta?.visa_required
-          ? { label: td.overview.visa, value: td.overview.visaRequired, icon: 'visa' }
-          : null,
-        tourLanguageLine
-          ? { label: td.overview.language, value: tourLanguageLine, icon: 'language' }
-          : null,
+        tourLanguageLine ? { label: td.overview.language, value: tourLanguageLine, icon: 'language' } : null,
       ].filter((item): item is TourOverviewItem => item !== null)
     : []
   const tourLinkBase = detailPathForVertical('tour')
@@ -657,9 +634,7 @@ export default async function ExperienceListingDetailPage({
           linkBase: tourLinkBase,
         }))
     : []
-  const otherActivities = isActivity
-    ? similarActivitiesRes.listings.filter((l) => l.handle !== handle)
-    : []
+  const otherActivities = isActivity ? similarActivitiesRes.listings.filter((l) => l.handle !== handle) : []
   const regionPin = normalizeStayLocationPin(city ?? address ?? '')
   const similarActivityListings = isActivity
     ? await resolveActivityRelatedListings({
@@ -676,9 +651,7 @@ export default async function ExperienceListingDetailPage({
         locale,
         excludeHandle: handle,
         manualIds: activityVitrin?.region_listing_ids,
-        autoCandidates: otherActivities.filter(
-          (l) => !similarActivityListings.some((s) => s.id === l.id),
-        ),
+        autoCandidates: otherActivities.filter((l) => !similarActivityListings.some((s) => s.id === l.id)),
         listingCategory: listingCategory?.trim(),
         regionPin,
         mode: 'region',
@@ -688,7 +661,7 @@ export default async function ExperienceListingDetailPage({
     activityVitrin ?? undefined,
     'region',
     locale,
-    ad.regionListings ?? dp.nearbyListings,
+    ad.regionListings ?? dp.nearbyListings
   )
   const activityRegionCarouselListings = isActivity
     ? regionActivityListings.length > 0
@@ -699,7 +672,7 @@ export default async function ExperienceListingDetailPage({
     activityVitrin ?? undefined,
     'extra_fees',
     locale,
-    ad.extraFeesTitle ?? 'Ek Ücretler',
+    ad.extraFeesTitle ?? 'Ek Ücretler'
   )
 
   const activityOverviewItems: ActivityOverviewItem[] = isActivity
@@ -764,7 +737,7 @@ export default async function ExperienceListingDetailPage({
   })
 
   const galleryForShare = Array.from(
-    new Set([featuredImage, ...(galleryImgs ?? [])].filter((u): u is string => Boolean(u))),
+    new Set([featuredImage, ...(galleryImgs ?? [])].filter((u): u is string => Boolean(u)))
   )
   const galleryImages = galleryUrlsForStayDetailHeader(featuredImage, galleryImgs)
 
@@ -782,13 +755,22 @@ export default async function ExperienceListingDetailPage({
       >
         <div className="flex flex-col items-center space-y-3 text-center sm:flex-row sm:space-y-0 sm:gap-x-3 sm:text-start">
           <HugeiconsIcon icon={Clock01Icon} className="h-6 w-6" strokeWidth={1.75} />
-          <span>{isTour ? tourDurationLine : isCruise && cruiseMeta?.night_count ? interpolate(td.durationNightsDays, { nights: String(cruiseMeta.night_count), days: String(cruiseMeta.night_count + 1) }) : isCruise ? tourDurationLine : activityDurationLine}</span>
+          <span>
+            {isTour
+              ? tourDurationLine
+              : isCruise && cruiseMeta?.night_count
+                ? interpolate(td.durationNightsDays, {
+                    nights: String(cruiseMeta.night_count),
+                    days: String(cruiseMeta.night_count + 1),
+                  })
+                : isCruise
+                  ? tourDurationLine
+                  : activityDurationLine}
+          </span>
         </div>
         <div className="flex flex-col items-center space-y-3 text-center sm:flex-row sm:space-y-0 sm:gap-x-3 sm:text-start">
           <HugeiconsIcon icon={UserMultiple02Icon} className="h-6 w-6" strokeWidth={1.75} />
-          <span>
-            {isTour ? tourGroupLine : activityCapacityLine}
-          </span>
+          <span>{isTour ? tourGroupLine : activityCapacityLine}</span>
         </div>
         <div className="flex flex-col items-center space-y-3 text-center sm:flex-row sm:space-y-0 sm:gap-x-3 sm:text-start">
           <HugeiconsIcon icon={Globe02Icon} className="h-6 w-6" strokeWidth={1.75} />
@@ -811,16 +793,13 @@ export default async function ExperienceListingDetailPage({
     (listing as TListingBase & { currencyCode?: string }).currencyCode?.trim() ||
     'TRY'
 
-
   const listingPrepaymentPercent = (listing as TListingBase & { prepaymentPercent?: string }).prepaymentPercent
   const siteConfigForUrl = getSitePublicConfig()
   const tourListingPublicUrl = siteConfigForUrl.siteUrl
     ? `${siteConfigForUrl.siteUrl}${await vitrinHref(locale, `${canonicalPath}/${handle}`)}`
     : undefined
   const gezinomiQuoteOnly =
-    useGezinomiTourLayout &&
-    tourPeriodOptions.length > 0 &&
-    tourPeriodOptions.every((p) => p.onlineCheckout === false)
+    useGezinomiTourLayout && tourPeriodOptions.length > 0 && tourPeriodOptions.every((p) => p.onlineCheckout === false)
 
   const listingMoney = listing as TListingBase & {
     priceAmount?: number
@@ -828,8 +807,7 @@ export default async function ExperienceListingDetailPage({
     listingCurrencyCode?: string
     prepaymentPercent?: string
   }
-  const listingPriceCur =
-    listingMoney.priceCurrency || listingMoney.listingCurrencyCode || undefined
+  const listingPriceCur = listingMoney.priceCurrency || listingMoney.listingCurrencyCode || undefined
 
   const renderSidebarPriceAndForm = () => {
     const priceCur = listingPriceCur
@@ -865,7 +843,7 @@ export default async function ExperienceListingDetailPage({
 
   const renderTourMainContent = () => (
     <>
-      <div className={`flex min-w-0 w-full flex-col ${LISTING_DETAIL_SECTION_GAP_Y} lg:w-3/5 xl:w-[62%]`}>
+      <div className={`flex w-full min-w-0 flex-col ${LISTING_DETAIL_SECTION_GAP_Y} lg:w-3/5 xl:w-[62%]`}>
         {renderSectionHeader()}
         <ListingDetailCampaignsFromList locale={locale} campaigns={listingDetailCampaigns} />
         {tourOverviewItems.length > 0 || tourProgramHtml ? (
@@ -902,7 +880,7 @@ export default async function ExperienceListingDetailPage({
           locale={locale}
         />
       </div>
-      <div className="flex grow flex-col overflow-visible lg:min-w-[min(100%,320px)] lg:max-w-md lg:self-stretch">
+      <div className="flex grow flex-col overflow-visible lg:max-w-md lg:min-w-[min(100%,320px)] lg:self-stretch">
         <div className="sticky top-5">{renderSidebarPriceAndForm()}</div>
       </div>
     </>
@@ -917,9 +895,7 @@ export default async function ExperienceListingDetailPage({
         <ListingDetailCampaignsFromList locale={locale} campaigns={listingDetailCampaigns} />
         {isCruise ? (
           <>
-            {cruiseOverview.length > 0 ? (
-              <TourOverviewSection items={cruiseOverview} locale={locale} />
-            ) : null}
+            {cruiseOverview.length > 0 ? <TourOverviewSection items={cruiseOverview} locale={locale} /> : null}
             {description?.trim() ? (
               <div id="cruise-section-about" className="listingSection__wrap scroll-mt-28">
                 <SectionHeading>{cd.aboutTitle}</SectionHeading>
@@ -932,9 +908,7 @@ export default async function ExperienceListingDetailPage({
             ) : (
               <CruiseCabinsUnavailableSection locale={locale} />
             )}
-            {cruiseDays.length > 0 ? (
-              <TourItineraryAccordion days={cruiseDays} locale={locale} />
-            ) : null}
+            {cruiseDays.length > 0 ? <TourItineraryAccordion days={cruiseDays} locale={locale} /> : null}
             <CruiseShipDetailsSection meta={cruiseMeta} locale={locale} />
             {cruiseServices.included.length > 0 || cruiseServices.excluded.length > 0 ? (
               <TourIncludedExcludedSection
@@ -1007,10 +981,7 @@ export default async function ExperienceListingDetailPage({
   return (
     <div>
       {detailJsonLd && (
-        <script
-          type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(detailJsonLd) }}
-        />
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(detailJsonLd) }} />
       )}
       <HeaderGallery gridType={galleryImages.length >= 4 ? 'grid4' : 'grid1'} images={galleryImages} />
 
@@ -1038,7 +1009,9 @@ export default async function ExperienceListingDetailPage({
               flightSchedules={[]}
               currencyCode={cruisePeriodCurrency}
             >
-              <main className="flex flex-col gap-6 lg:flex-row lg:items-start xl:gap-8">{renderNonTourMainContent()}</main>
+              <main className="flex flex-col gap-6 lg:flex-row lg:items-start xl:gap-8">
+                {renderNonTourMainContent()}
+              </main>
               <ExperienceBookingMobileStickyBar
                 locale={locale}
                 variant="cruise"
