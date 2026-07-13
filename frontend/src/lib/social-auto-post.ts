@@ -228,6 +228,10 @@ function isMetaRateLimitError(message: string): boolean {
   )
 }
 
+function isTransientSocialAssetError(message: string): boolean {
+  return message === 'social_cover_unavailable' || message === 'social_share_images_unreachable'
+}
+
 /** Meta Page/User token süresi dolmuş veya iptal edilmiş — yeniden denemek işe yaramaz. */
 export function isMetaAuthError(message: string): boolean {
   const m = message.toLowerCase()
@@ -841,15 +845,32 @@ export async function processOneSocialJob(
     .map((k) => absoluteMediaUrl(siteUrl, k))
     .filter((u) => u.startsWith('https://'))
   const coverUrl = listingSocialCoverUrl(job)
-  const hasGeneratedCover = selectedKeys.some(isGeneratedSocialCoverKey)
-  const postImageUrls = [hasGeneratedCover ? '' : coverUrl, ...imageUrls]
+  const generatedCoverKey = selectedKeys.find(isGeneratedSocialCoverKey) ?? ''
+  const coverCandidateUrl = generatedCoverKey
+    ? absoluteMediaUrl(siteUrl, generatedCoverKey)
+    : coverUrl
+  const postImageUrls = [coverCandidateUrl, ...imageUrls]
     .filter((u) => u.startsWith('https://'))
     .filter((u, i, arr) => arr.indexOf(u) === i)
     .slice(0, 10)
-  const metaPostImageUrls = await metaReadyImageUrls(siteUrl, postImageUrls)
+  // Feed paylasiminda marka kapagi zorunludur. Kapak endpoint'i gecici olarak
+  // erisilemezse yalniz galeri fotograflariyla yayin yapmak yerine isi pending
+  // birakip sonraki worker turunda yeniden deneriz.
+  const isFeedPost = (job.post_type ?? 'feed') === 'feed'
+  const metaCoverUrls = coverCandidateUrl
+    ? await metaReadyImageUrls(siteUrl, [coverCandidateUrl])
+    : []
+  const coverUnavailable = isFeedPost && metaCoverUrls.length === 0
+  const metaGalleryUrls = await metaReadyImageUrls(siteUrl, postImageUrls.slice(1))
+  const metaPostImageUrls = [...metaCoverUrls, ...metaGalleryUrls]
+    .filter((u, i, arr) => arr.indexOf(u) === i)
+    .slice(0, 10)
   const shouldStop = options?.shouldStop
 
   try {
+    if (coverUnavailable) {
+      throw new Error('social_cover_unavailable')
+    }
     if (shouldStop && (await shouldStop())) {
       return { ok: false, network: job.network, post_type: job.post_type, job_id: job.id, error: 'social_worker_stopped' }
     }
@@ -941,6 +962,11 @@ export async function processOneSocialJob(
     }
     if (isMetaRateLimitError(msg)) {
       // Leave job pending — Meta throttled us; retry later instead of marking failed.
+      return { ok: false, network: job.network, post_type: job.post_type, job_id: job.id, error: msg }
+    }
+    if (isTransientSocialAssetError(msg)) {
+      // Kapak veya medya proxy'si gecici olarak hazir degil. Isi failed yapma;
+      // pending kalsin ve zamanlayici sonraki turda yeniden denesin.
       return { ok: false, network: job.network, post_type: job.post_type, job_id: job.id, error: msg }
     }
     if (isMetaAuthError(msg)) {
@@ -1059,7 +1085,7 @@ export async function processPendingSocialJobs(options?: {
       posted += 1
     } else if (r.error === 'social_worker_stopped') {
       break
-    } else if (r.error && isMetaRateLimitError(r.error)) {
+    } else if (r.error && (isMetaRateLimitError(r.error) || isTransientSocialAssetError(r.error))) {
       rateLimitedNetworks.add(job.network)
     } else if (r.error && isMetaAuthError(r.error)) {
       failed += 1
