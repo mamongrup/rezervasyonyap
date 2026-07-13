@@ -25,13 +25,39 @@ function normKey(raw) {
     .replace(/[\u0300-\u036f]/g, '')
 }
 
+export function decodeWtatilContentText(raw) {
+  let text = String(raw ?? '')
+  const named = { amp: '&', apos: "'", gt: '>', lt: '<', nbsp: ' ', quot: '"' }
+  for (let pass = 0; pass < 3; pass++) {
+    const next = text.replace(/&(#x?[0-9a-f]+|[a-z]+);?/gi, (full, entity) => {
+      const key = String(entity).toLowerCase()
+      if (key.startsWith('#x')) {
+        const code = Number.parseInt(key.slice(2), 16)
+        return Number.isFinite(code) ? String.fromCodePoint(code) : full
+      }
+      if (key.startsWith('#')) {
+        const code = Number.parseInt(key.slice(1), 10)
+        return Number.isFinite(code) ? String.fromCodePoint(code) : full
+      }
+      return named[key] ?? full
+    })
+    if (next === text) break
+    text = next
+  }
+  return text
+}
+
 function stripHtml(raw) {
-  return String(raw ?? '')
+  return decodeWtatilContentText(raw)
     .replace(/<br\s*\/?>/gi, '\n')
-    .replace(/<\/p>/gi, '\n')
+    .replace(/<\/(?:div|h[1-6]|li|p|section|article)>/gi, '\n')
+    .replace(/<li\b[^>]*>/gi, '• ')
     .replace(/<[^>]+>/g, ' ')
     .replace(/\r/g, '')
     .replace(/[ \u00a0]+/g, ' ')
+    .replace(/[ \t]+([,.;:!?])/g, '$1')
+    .replace(/([,.;:!?])(?=[A-ZÇĞİÖŞÜ])/g, '$1 ')
+    .replace(/\n{3,}/g, '\n\n')
     .trim()
 }
 

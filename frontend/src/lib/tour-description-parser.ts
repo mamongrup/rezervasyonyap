@@ -119,21 +119,27 @@ function decodeHtmlEntities(raw: string): string {
     gt: '>',
     lt: '<',
     // Wtatil tur programında başlık ve gövde ayıracı olarak kullanılıyor.
-    nbsp: '\n',
+    nbsp: ' ',
     quot: '"',
   }
-  return raw.replace(/&(#x?[0-9a-f]+|[a-z]+);/gi, (full, entity: string) => {
-    const key = entity.toLowerCase()
-    if (key.startsWith('#x')) {
-      const code = Number.parseInt(key.slice(2), 16)
-      return Number.isFinite(code) ? String.fromCodePoint(code) : full
-    }
-    if (key.startsWith('#')) {
-      const code = Number.parseInt(key.slice(1), 10)
-      return Number.isFinite(code) ? String.fromCodePoint(code) : full
-    }
-    return named[key] ?? full
-  })
+  let text = raw
+  for (let pass = 0; pass < 3; pass++) {
+    const next = text.replace(/&(#x?[0-9a-f]+|[a-z]+);?/gi, (full, entity: string) => {
+      const key = entity.toLowerCase()
+      if (key.startsWith('#x')) {
+        const code = Number.parseInt(key.slice(2), 16)
+        return Number.isFinite(code) ? String.fromCodePoint(code) : full
+      }
+      if (key.startsWith('#')) {
+        const code = Number.parseInt(key.slice(1), 10)
+        return Number.isFinite(code) ? String.fromCodePoint(code) : full
+      }
+      return named[key] ?? full
+    })
+    if (next === text) break
+    text = next
+  }
+  return text
 }
 
 function stripHtmlTags(raw: string): string {

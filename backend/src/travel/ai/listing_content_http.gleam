@@ -412,6 +412,24 @@ fn looks_like_english_description(raw: String) -> Bool {
   list.count(signals, fn(signal) { string.contains(text, signal) }) >= 3
 }
 
+/// Sağlayıcıdan gelen metinlerde HTML entity'si bazen bir kez daha encode
+/// edilerek kullanıcıya `&nbsp;` şeklinde görünür. Uzun bir açıklama olsa bile
+/// bu kayıt editör ajanından yeniden geçmelidir.
+fn looks_like_dirty_description(raw: String) -> Bool {
+  let text = string.lowercase(raw)
+  string.contains(text, "&nbsp") || string.contains(text, "&amp;nbsp")
+}
+
+fn clean_ai_description(raw: String) -> String {
+  raw
+  |> string.replace("&amp;nbsp;", " ")
+  |> string.replace("&amp;nbsp", " ")
+  |> string.replace("&nbsp;", " ")
+  |> string.replace("&nbsp", " ")
+  |> string.replace("\u{00a0}", " ")
+  |> string.trim
+}
+
 fn need_work_sql() -> String {
   "
   (
@@ -422,6 +440,20 @@ fn need_work_sql() -> String {
       where lt.listing_id = l.id and lower(lo.code) = 'tr'
       limit 1
     ), '')) < 120
+    or lower(coalesce((
+      select lt.description
+      from listing_translations lt
+      join locales lo on lo.id = lt.locale_id
+      where lt.listing_id = l.id and lower(lo.code) = 'tr'
+      limit 1
+    ), '')) like '%&nbsp%'
+    or lower(coalesce((
+      select lt.description
+      from listing_translations lt
+      join locales lo on lo.id = lt.locale_id
+      where lt.listing_id = l.id and lower(lo.code) = 'tr'
+      limit 1
+    ), '')) like '%&amp;nbsp%'
     or (
       lower(coalesce(l.external_provider_code, '')) = 'travelrobot'
       and lower(coalesce((
@@ -979,10 +1011,12 @@ fn run_tr_phase(
 ) -> Result(Nil, String) {
   let #(_, slug, _, title_tr, desc_tr, attrs_json, status) = loc
   let tr_is_english = looks_like_english_description(desc_tr)
+  let tr_is_dirty = looks_like_dirty_description(desc_tr)
   case
     overwrite
     || string.length(string.trim(desc_tr)) < min_desc_chars
     || tr_is_english
+    || tr_is_dirty
   {
     False ->
       case advance_batch(ctx.db, batch_id, "translations", "pending") {
@@ -1004,11 +1038,16 @@ fn run_tr_phase(
             False -> ""
           }
       }
-      let tr_instruction = case en_source_desc != "" {
-        True ->
-          "Kaynak İngilizce otel açıklamasını Türkçeye çevir ve profesyonel bir seyahat editörü gibi yeniden düzenle. Yazım ve noktalama kurallarına uy; tekrarları, ham mesafe yığınlarını ve reklam dili kalıplarını temizle. Bilgi uydurma. Okunabilir semantik HTML üret: 3-6 kısa paragraf; uygun olduğunda Konum, Odalar, Olanaklar ve Yeme-İçme bilgilerini başlık veya listeyle grupla. Türkiye kullanıcısı için metrik birimleri öne al. Yalnızca JSON döndür: {\"description\":\"<HTML>\"}"
-        False ->
-          "Türkçe ilan açıklaması yaz. JSON: {\"description\":\"<HTML>\"}"
+      let tr_instruction = case string.lowercase(string.trim(category_code)) {
+        "tour" ->
+          "Mevcut tur programını profesyonel bir Türkçe seyahat editörü ve SEO içerik uzmanı gibi düzenle. Kaynaktaki gün sayısı, gece sayısı, uçuş, saat, rota, otel, ücret, vize ve dahil/hariç hizmet bilgilerini aynen koru; kesinlikle yeni bilgi uydurma veya var olan bilgiyi değiştirme. Programı her gün için ayrı <h3> başlığı ve kısa, okunabilir <p> paragraflarıyla gün gün sırala. Dahil olanlar, dahil olmayanlar ve önemli bilgileri uygun <h3>, <ul> ve <li> yapısıyla grupla. Yazım, büyük-küçük harf ve Türkçe noktalama kurallarını düzelt; tekrarları ve reklam dili kalıplarını temizle. &nbsp;, &amp;nbsp; veya başka görünür HTML entity metni bırakma. Anahtar kelimeleri doğal kullan; anahtar kelime doldurma yapma. Sadece güvenli semantik HTML kullan: <h2>, <h3>, <p>, <ul>, <ol>, <li>, <strong>. Yalnızca JSON döndür: {\"description\":\"<HTML>\"}"
+        _ ->
+          case en_source_desc != "" {
+            True ->
+              "Kaynak İngilizce otel açıklamasını Türkçeye çevir ve profesyonel bir seyahat editörü gibi yeniden düzenle. Yazım ve noktalama kurallarına uy; tekrarları, ham mesafe yığınlarını ve reklam dili kalıplarını temizle. Bilgi uydurma. Okunabilir semantik HTML üret: 3-6 kısa paragraf; uygun olduğunda Konum, Odalar, Olanaklar ve Yeme-İçme bilgilerini başlık veya listeyle grupla. Türkiye kullanıcısı için metrik birimleri öne al. &nbsp; veya &amp;nbsp; gibi görünür HTML entity metni bırakma. Yalnızca JSON döndür: {\"description\":\"<HTML>\"}"
+            False ->
+              "Türkçe ilan açıklamasını profesyonel bir seyahat editörü gibi, yazım ve SEO kurallarına uygun biçimde düzenle. Bilgi uydurma; &nbsp; veya &amp;nbsp; gibi görünür HTML entity metni bırakma. JSON: {\"description\":\"<HTML>\"}"
+          }
       }
       let input =
         json.object([
@@ -1045,7 +1084,7 @@ fn run_tr_phase(
                   listing_id,
                   tr_locale,
                   title_tr,
-                  description,
+                  clean_ai_description(description),
                 )
               {
                 Error(e) -> Error(e)
@@ -1368,6 +1407,54 @@ fn run_batch_core(
           let _ = advance_batch(ctx.db, batch_id, "done", "done")
           Ok(#(listing_id, "done", False))
         }
+      }
+  }
+}
+
+/// Sunucu AI zamanlayıcısı için tek adımlık içerik editörü. Önce mevcut
+/// kuyruğu işler; kuyruk boşsa görünür `&nbsp;` kalıntısı bulunan bir turu
+/// otomatik olarak editör kuyruğuna alır. Böylece temizlik panel/insan
+/// müdahalesine bağlı kalmaz.
+pub fn worker_try_listing_content(ctx: Context) -> Result(Bool, String) {
+  let pick_sql =
+    "update ai_listing_content_batches set status = 'running', updated_at = now() "
+    <> "where id = (select id from ai_listing_content_batches where status = 'pending' "
+    <> "order by case phase when 'tr_description' then 0 when 'translations' then 1 when 'seo' then 2 else 3 end, created_at limit 1) "
+    <> "returning id::text, listing_id::text, category_code, phase, overwrite"
+  case
+    pog.query(pick_sql)
+    |> pog.returning(batch_pick_row())
+    |> db_exec.execute(ctx.db)
+  {
+    Error(_) -> Error("listing_content_pick_failed")
+    Ok(ret) ->
+      case ret.rows {
+        [batch] ->
+          case run_batch_core(ctx, batch) {
+            Ok(_) -> Ok(True)
+            Error(e) -> Error(e)
+          }
+        [] -> {
+          let seed_sql =
+            "insert into ai_listing_content_batches (listing_id, category_code, phase, status, overwrite) "
+            <> "select l.id, pc.code, 'tr_description', 'pending', false from listings l "
+            <> "join product_categories pc on pc.id = l.category_id "
+            <> "join listing_translations lt on lt.listing_id = l.id "
+            <> "join locales lo on lo.id = lt.locale_id and lower(lo.code) = 'tr' "
+            <> "where pc.code = 'tour' and l.status in ('draft','published') "
+            <> "and (lower(coalesce(lt.description,'')) like '%&nbsp%' or lower(coalesce(lt.description,'')) like '%&amp;nbsp%') "
+            <> "and not exists (select 1 from ai_listing_content_batches b where b.listing_id = l.id and b.status in ('pending','running')) "
+            <> "order by l.updated_at desc limit 1 returning id::text"
+          case
+            pog.query(seed_sql)
+            |> pog.returning(row_dec.col0_string())
+            |> db_exec.execute(ctx.db)
+          {
+            Error(_) -> Error("listing_content_seed_failed")
+            Ok(seed_ret) -> Ok(!list.is_empty(seed_ret.rows))
+          }
+        }
+        _ -> Error("listing_content_unexpected_batch_rows")
       }
   }
 }

@@ -80,4 +80,15 @@ describe('parseTourDescription', () => {
     expect(parsed.programHtml).not.toContain('&amp;nbsp;')
     expect(parsed.programHtml.match(/<article/g)).toHaveLength(3)
   })
+
+  it('removes double encoded and semicolonless nbsp remnants', () => {
+    const raw =
+      '1.GÃ¼n Ä°stanbul &amp;nbsp; Roma programÄ±. 2.GÃ¼n Roma &nbsp DÃ¶nÃ¼ÅŸ programÄ±. Ãœcretli: &amp;nbsp; Vize Ã¼creti.'
+    const parsed = parseTourDescription(raw)
+    const output = [parsed.programHtml, ...parsed.infoSections.map((section) => section.html)].join(' ')
+
+    expect(output).not.toMatch(/&(?:amp;)?nbsp;?/i)
+    expect(output).toContain('Ä°stanbul Roma')
+    expect(output).toContain('Vize Ã¼creti')
+  })
 })

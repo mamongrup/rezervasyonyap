@@ -149,7 +149,29 @@ type ActivityMeta = {
 }
 
 function textFromMeta(value: unknown): string {
-  return typeof value === 'string' ? value.trim() : value == null ? '' : String(value).trim()
+  let text = typeof value === 'string' ? value : value == null ? '' : String(value)
+  const named: Record<string, string> = { amp: '&', apos: "'", gt: '>', lt: '<', nbsp: ' ', quot: '"' }
+  for (let pass = 0; pass < 3; pass++) {
+    const next = text.replace(/&(#x?[0-9a-f]+|[a-z]+);?/gi, (full, entity: string) => {
+      const key = entity.toLowerCase()
+      if (key.startsWith('#x')) {
+        const code = Number.parseInt(key.slice(2), 16)
+        return Number.isFinite(code) ? String.fromCodePoint(code) : full
+      }
+      if (key.startsWith('#')) {
+        const code = Number.parseInt(key.slice(1), 10)
+        return Number.isFinite(code) ? String.fromCodePoint(code) : full
+      }
+      return named[key] ?? full
+    })
+    if (next === text) break
+    text = next
+  }
+  return text
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/\s+/g, ' ')
+    .replace(/\s+([,.;:!?])/g, '$1')
+    .trim()
 }
 
 function splitMetaList(raw: string | string[] | undefined): string[] {
