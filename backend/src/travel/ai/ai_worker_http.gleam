@@ -16,8 +16,9 @@ import gleam/int
 import gleam/json
 import gleam/list
 import gleam/string
-import travel/ai/district_ideas_http
 import travel/ai/ai_watchdog
+import travel/ai/district_ideas_http
+import travel/ai/listing_content_http
 import travel/ai/region_content_http
 import travel/identity/admin_gate
 import wisp.{type Request, type Response}
@@ -44,8 +45,7 @@ fn trim_env_secret() -> Result(String, Nil) {
 
 fn auth_worker(req: Request) -> Result(Nil, Response) {
   case trim_env_secret() {
-    Error(_) ->
-      Error(json_err(503, "worker_secret_not_configured"))
+    Error(_) -> Error(json_err(503, "worker_secret_not_configured"))
     Ok(expected) ->
       case request.get_header(req, worker_secret_header) {
         Error(_) -> Error(json_err(401, "unauthorized"))
@@ -105,17 +105,7 @@ fn run_steps_loop(
   place_ran: Int,
   place_idle: Int,
   place_errs: List(String),
-) -> #(
-  Int,
-  Int,
-  List(String),
-  Int,
-  Int,
-  List(String),
-  Int,
-  Int,
-  List(String),
-) {
+) -> #(Int, Int, List(String), Int, Int, List(String), Int, Int, List(String)) {
   case loops_left < 1 {
     True -> #(
       district_ran,
@@ -129,6 +119,10 @@ fn run_steps_loop(
       place_errs,
     )
     False -> {
+      // İlan içerik editörü zamanlayıcının doğal bir parçasıdır. Sonuç diğer
+      // içerik hatlarını engellemez; başarısız batch kendi hatasını saklar.
+      let _ = listing_content_http.worker_try_listing_content(ctx)
+
       let #(dr, di, de) = case want_district {
         False -> #(district_ran, district_idle, district_errs)
         True ->
@@ -186,16 +180,17 @@ pub fn post_run_steps(req: Request, ctx: Context) -> Response {
     Error(r) -> r
     Ok(_) -> {
       let loops = query_loops(req)
-      let #(watchdog_processed, watchdog_idle, watchdog_errors) =
-        case query_enabled(req, "workflow") {
-          False -> #(0, 0, [])
-          True ->
-            case ai_watchdog.worker_try_watchdog(ctx) {
-              Ok(True) -> #(1, 0, [])
-              Ok(False) -> #(0, 1, [])
-              Error(e) -> #(0, 0, [e])
-            }
-        }
+      let #(watchdog_processed, watchdog_idle, watchdog_errors) = case
+        query_enabled(req, "workflow")
+      {
+        False -> #(0, 0, [])
+        True ->
+          case ai_watchdog.worker_try_watchdog(ctx) {
+            Ok(True) -> #(1, 0, [])
+            Ok(False) -> #(0, 1, [])
+            Error(e) -> #(0, 0, [e])
+          }
+      }
       let want_district = query_enabled(req, "district")
       let want_region = query_enabled(req, "region")
       let want_place = query_enabled(req, "place")
