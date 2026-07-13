@@ -1,12 +1,12 @@
 'use client'
 
+import { useVitrinHref } from '@/hooks/use-vitrin-href'
+import { useManageAccess } from '@/lib/use-manage-access'
+import Link from 'next/link'
 import { useParams, usePathname } from 'next/navigation'
 import { useEffect, useState } from 'react'
-import { ManageSubnav } from './ManageSubnav'
 import ManagePanelTopBar from './ManagePanelTopBar'
-import { useManageAccess } from '@/lib/use-manage-access'
-import { useVitrinHref } from '@/hooks/use-vitrin-href'
-import Link from 'next/link'
+import { ManageSubnav } from './ManageSubnav'
 
 /**
  * Site geneli `ApplicationLayout` ile aynı Header / Footer korunur; burada yalnızca panel yan menüsü + içerik alanı var.
@@ -41,9 +41,19 @@ export default function ManageShellClient({ children }: { children: React.ReactN
 
   if (access.kind === 'no_token') {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-neutral-50 dark:bg-neutral-950 px-4 text-center">
-        <svg className="h-12 w-12 text-neutral-300 dark:text-neutral-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
+      <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-neutral-50 px-4 text-center dark:bg-neutral-950">
+        <svg
+          className="h-12 w-12 text-neutral-300 dark:text-neutral-600"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+          strokeWidth={1.5}
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z"
+          />
         </svg>
         <p className="text-base font-medium text-neutral-700 dark:text-neutral-300">
           {en ? 'Please log in to access the management panel.' : 'Yönetim paneline erişmek için giriş yapın.'}
@@ -60,9 +70,13 @@ export default function ManageShellClient({ children }: { children: React.ReactN
 
   if (access.kind === 'forbidden') {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-neutral-50 dark:bg-neutral-950 px-4 text-center">
+      <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-neutral-50 px-4 text-center dark:bg-neutral-950">
         <svg className="h-12 w-12 text-red-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z"
+          />
         </svg>
         <p className="text-base font-medium text-red-600 dark:text-red-400">
           {en ? 'You do not have permission to access this page.' : 'Bu sayfaya erişim izniniz yok.'}
@@ -96,14 +110,22 @@ export default function ManageShellClient({ children }: { children: React.ReactN
         {/* Sidebar header */}
         <div className="flex h-14 shrink-0 items-center gap-3 border-b border-[color:var(--manage-sidebar-border)] px-4">
           <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-[color:var(--manage-primary)] text-white">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden>
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.5"
+              aria-hidden
+            >
               <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z" strokeLinecap="round" strokeLinejoin="round" />
               <polyline points="9 22 9 12 15 12 15 22" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
           </div>
           <span className="text-sm font-semibold text-[color:var(--manage-text)]">Yönetim Paneli</span>
         </div>
-        <div className="min-h-0 flex-1 overflow-y-auto px-1 pb-4 pt-2 lg:flex-none lg:overflow-visible lg:pt-3">
+        <div className="min-h-0 flex-1 overflow-y-auto px-1 pt-2 pb-4 lg:flex-none lg:overflow-visible lg:pt-3">
           <ManageSubnav onNavLinkClick={() => setMobileOpen(false)} />
         </div>
       </aside>
@@ -112,7 +134,7 @@ export default function ManageShellClient({ children }: { children: React.ReactN
         {/* Mobil: site header’ının altında küçük FAB — ikinci bir tam genişlik header yok */}
         <button
           type="button"
-          className="fixed left-4 top-[5.25rem] z-30 flex h-11 w-11 items-center justify-center rounded-full border border-[color:var(--manage-sidebar-border)] bg-[color:var(--manage-sidebar-bg)] text-[color:var(--manage-text)] shadow-md lg:hidden"
+          className="fixed top-[5.25rem] left-4 z-30 flex h-11 w-11 items-center justify-center rounded-full border border-[color:var(--manage-sidebar-border)] bg-[color:var(--manage-sidebar-bg)] text-[color:var(--manage-text)] shadow-md lg:hidden"
           onClick={() => setMobileOpen((o) => !o)}
           aria-expanded={mobileOpen}
           aria-label={menuLabel}
@@ -127,7 +149,7 @@ export default function ManageShellClient({ children }: { children: React.ReactN
         </button>
 
         <ManagePanelTopBar />
-        <main className="min-w-0 w-full max-w-full shrink-0 overflow-x-hidden">{children}</main>
+        <main className="mx-auto w-full max-w-[1440px] min-w-0 shrink-0 overflow-x-hidden">{children}</main>
       </div>
     </div>
   )
