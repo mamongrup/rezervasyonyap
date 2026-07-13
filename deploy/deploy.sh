@@ -307,6 +307,21 @@ main() {
     warn "Vitrin önbellek ısıtma systemd dosyaları bulunamadı."
   fi
 
+  if [[ "${SKIP_DB_GUARD_TIMER:-0}" == "1" ]]; then
+    warn "SKIP_DB_GUARD_TIMER=1 — PostgreSQL otomatik bağlantı koruyucusu atlandı."
+  elif [[ -f "$APP_ROOT/deploy/systemd/travel-db-guard.service" && -f "$APP_ROOT/deploy/systemd/travel-db-guard.timer" ]]; then
+    step "PostgreSQL otomatik bağlantı koruyucusu kurulumu"
+    cp "$APP_ROOT/deploy/systemd/travel-db-guard.service" /etc/systemd/system/travel-db-guard.service \
+      && cp "$APP_ROOT/deploy/systemd/travel-db-guard.timer" /etc/systemd/system/travel-db-guard.timer \
+      && chmod +x "$APP_ROOT/deploy/scripts/guard-postgres-connections.sh" \
+      && systemctl daemon-reload \
+      && systemctl enable --now travel-db-guard.timer \
+      && ok "travel-db-guard.timer etkin" \
+      || warn "travel-db-guard.timer kurulamadı; PostgreSQL bağlantılarını elle kontrol edin."
+  else
+    warn "PostgreSQL bağlantı guard systemd dosyaları bulunamadı."
+  fi
+
   step "Servis restart"
   systemctl daemon-reload
   if [[ "$RESTART_API" == "1" ]]; then

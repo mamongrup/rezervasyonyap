@@ -40,8 +40,10 @@ pub fn load() -> AppConfig {
 
   let primary_name = process.new_name(prefix: "travel_db_primary")
   let reserve_name = process.new_name(prefix: "travel_db_reserve")
-  let pool_size = env_pos_int("PG_POOL_SIZE", 10)
-  let reserve_size = env_pos_int("PG_RESERVE_POOL_SIZE", 4)
+  // Tek API instance'ı PostgreSQL slotlarını tüketmesin. Ortam değişkeni
+  // hatalı/aşırı verilse bile havuzlar güvenli üst sınırda tutulur.
+  let pool_size = env_bounded_int("PG_POOL_SIZE", 6, 2, 12)
+  let reserve_size = env_bounded_int("PG_RESERVE_POOL_SIZE", 2, 1, 4)
   let idle_ms = env_pos_int("PG_IDLE_INTERVAL_MS", 5000)
   let health_ms = env_pos_int("PG_HEALTH_INTERVAL_MS", 15_000)
 
@@ -130,16 +132,38 @@ fn env_pos_int(name: String, fallback: Int) -> Int {
   }
 }
 
+fn env_bounded_int(name: String, fallback: Int, minimum: Int, maximum: Int) -> Int {
+  let value = env_pos_int(name, fallback)
+  case value < minimum {
+    True -> minimum
+    False -> case value > maximum { True -> maximum  False -> value }
+  }
+}
+
 fn finish_pool_config(
   cfg: pog.Config,
   pool_size: Int,
   idle_ms: Int,
   app_name: String,
 ) -> pog.Config {
+  let statement_timeout_ms =
+    env_bounded_int("PG_STATEMENT_TIMEOUT_MS", 15_000, 1000, 60_000)
+  let lock_timeout_ms = env_bounded_int("PG_LOCK_TIMEOUT_MS", 5000, 500, 30_000)
+  let idle_tx_timeout_ms =
+    env_bounded_int("PG_IDLE_TX_TIMEOUT_MS", 30_000, 5000, 120_000)
   cfg
   |> pog.pool_size(pool_size)
   |> pog.idle_interval(idle_ms)
   |> pog.connection_parameter("application_name", app_name)
+  |> pog.connection_parameter(
+    "statement_timeout",
+    int.to_string(statement_timeout_ms),
+  )
+  |> pog.connection_parameter("lock_timeout", int.to_string(lock_timeout_ms))
+  |> pog.connection_parameter(
+    "idle_in_transaction_session_timeout",
+    int.to_string(idle_tx_timeout_ms),
+  )
 }
 
 fn trim_opt(s: Result(String, Nil)) -> Option(String) {

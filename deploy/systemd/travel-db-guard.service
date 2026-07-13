@@ -1,0 +1,16 @@
+[Unit]
+Description=Travel PostgreSQL connection self-healing guard
+After=postgresql.service
+Wants=postgresql.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=/var/www/vhosts/rezervasyonyap.tr/httpdocs
+Environment=TRAVEL_DB_CONN_PERCENT=75
+Environment=TRAVEL_DB_IDLE_MIN_SECONDS=45
+Environment=TRAVEL_DB_ACTIVE_MIN_SECONDS=45
+ExecStart=/bin/bash /var/www/vhosts/rezervasyonyap.tr/httpdocs/deploy/scripts/guard-postgres-connections.sh
+Nice=10
+
+[Install]
+WantedBy=multi-user.target

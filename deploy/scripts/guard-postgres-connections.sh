@@ -1,20 +1,11 @@
 #!/usr/bin/env bash
-# travel-api restart/deploy sonrası biriken orphan PostgreSQL bağlantılarını temizler.
-#
-# Varsayılan davranış:
-# - travel-api ile aynı DB kullanıcısını tespit eder.
-# - Bağlantı sayısı eşik altındaysa yalnız raporlar.
-# - Eşik üstündeyse aynı kullanıcının idle ve uzun süredir aktif bağlantılarını sonlandırır.
-#
-# Örnek:
-#   ./deploy/scripts/guard-postgres-connections.sh
-#   TRAVEL_DB_CONN_THRESHOLD=30 TRAVEL_DB_IDLE_MIN_SECONDS=20 TRAVEL_DB_ACTIVE_MIN_SECONDS=120 ./deploy/scripts/guard-postgres-connections.sh
+# PostgreSQL bağlantı slotları dolmadan Travel API bağlantılarını otomatik iyileştirir.
+# Yalnızca application_name=travel_api* bağlantılarına müdahale eder; Plesk ve diğer
+# uygulamaların bağlantılarını sonlandırmaz.
 
 set -euo pipefail
 
 APP_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-
-# shellcheck source=deploy/scripts/lib/psql-env.sh
 source "$APP_ROOT/deploy/scripts/lib/psql-env.sh"
 
 fail() { echo "[FAIL] $*" >&2; exit 1; }
@@ -23,115 +14,74 @@ warn() { echo "[WARN] $*" >&2; }
 
 command -v psql >/dev/null 2>&1 || fail "psql bulunamadı"
 
-THRESHOLD="${TRAVEL_DB_CONN_THRESHOLD:-30}"
-IDLE_MIN_SECONDS="${TRAVEL_DB_IDLE_MIN_SECONDS:-20}"
-ACTIVE_MIN_SECONDS="${TRAVEL_DB_ACTIVE_MIN_SECONDS:-120}"
+PERCENT="${TRAVEL_DB_CONN_PERCENT:-75}"
+IDLE_MIN_SECONDS="${TRAVEL_DB_IDLE_MIN_SECONDS:-45}"
+ACTIVE_MIN_SECONDS="${TRAVEL_DB_ACTIVE_MIN_SECONDS:-45}"
+APP_PREFIX="${TRAVEL_DB_GUARD_APPLICATION_PREFIX:-travel_api}"
 
-case "$THRESHOLD" in
-  ''|*[!0-9]*) fail "TRAVEL_DB_CONN_THRESHOLD sayısal olmalı: $THRESHOLD" ;;
-esac
-case "$IDLE_MIN_SECONDS" in
-  ''|*[!0-9]*) fail "TRAVEL_DB_IDLE_MIN_SECONDS sayısal olmalı: $IDLE_MIN_SECONDS" ;;
-esac
-case "$ACTIVE_MIN_SECONDS" in
-  ''|*[!0-9]*) fail "TRAVEL_DB_ACTIVE_MIN_SECONDS sayısal olmalı: $ACTIVE_MIN_SECONDS" ;;
-esac
+for value in "$PERCENT" "$IDLE_MIN_SECONDS" "$ACTIVE_MIN_SECONDS"; do
+  case "$value" in ''|*[!0-9]*) fail "Guard ayarları sayısal olmalı" ;; esac
+done
+[[ "$PERCENT" -ge 20 && "$PERCENT" -le 95 ]] || fail "TRAVEL_DB_CONN_PERCENT 20-95 olmalı"
 
 load_travel_db_env
 
-db_user_from_url() {
-  local url="$1"
-  printf '%s' "$url" | sed -E 's#^[a-zA-Z0-9+.-]+://([^:/@?]+).*#\1#'
-}
-
-db_name_from_url() {
-  local url="$1"
-  local no_query="${url%%\?*}"
-  printf '%s' "$no_query" | sed -E 's#^.*/([^/?]+)$#\1#'
-}
-
-sql_quote() {
-  printf "%s" "$1" | sed "s/'/''/g"
-}
-
-DB_USER="${TRAVEL_DB_APP_USER:-}"
-DB_NAME="${TRAVEL_DB_APP_DATABASE:-}"
-
-if [[ -z "$DB_USER" && -n "${DATABASE_URL:-}" ]]; then
-  DB_USER="$(db_user_from_url "$DATABASE_URL")"
-fi
-if [[ -z "$DB_NAME" && -n "${DATABASE_URL:-}" ]]; then
-  DB_NAME="$(db_name_from_url "$DATABASE_URL")"
-fi
-DB_USER="${DB_USER:-${PGUSER:-}}"
-DB_NAME="${DB_NAME:-${PGDATABASE:-}}"
-
-# Son çare: normal bağlantı mümkünse app kullanıcısından öğren.
-if [[ -z "$DB_USER" ]]; then
-  DB_USER="$(psql_travel -tA -v ON_ERROR_STOP=1 -c "select current_user" | tr -d '[:space:]')"
-fi
-if [[ -z "$DB_NAME" ]]; then
-  DB_NAME="$(psql_travel -tA -v ON_ERROR_STOP=1 -c "select current_database()" | tr -d '[:space:]')"
-fi
-
-if [[ -z "$DB_USER" || -z "$DB_NAME" ]]; then
-  fail "DB kullanıcı/veritabanı tespit edilemedi"
-fi
-
 PSQL_MODE="app"
-GUARD_CONNECT_DB="${TRAVEL_DB_GUARD_DATABASE:-postgres}"
+CONNECT_DB="${TRAVEL_DB_GUARD_DATABASE:-postgres}"
+if command -v sudo >/dev/null 2>&1 && sudo -n -u postgres psql -d "$CONNECT_DB" -tA -c "select 1" >/dev/null 2>&1; then
+  PSQL_MODE="sudo"
+elif command -v runuser >/dev/null 2>&1 && runuser -u postgres -- psql -d "$CONNECT_DB" -tA -c "select 1" >/dev/null 2>&1; then
+  PSQL_MODE="runuser"
+fi
 
 psql_guard() {
-  if [[ "$PSQL_MODE" == "postgres-sudo" ]]; then
-    sudo -u postgres psql -d "$GUARD_CONNECT_DB" "$@"
-  elif [[ "$PSQL_MODE" == "postgres-runuser" ]]; then
-    runuser -u postgres -- psql -d "$GUARD_CONNECT_DB" "$@"
-  else
-    psql_travel "$@"
-  fi
+  case "$PSQL_MODE" in
+    sudo) sudo -u postgres psql -d "$CONNECT_DB" "$@" ;;
+    runuser) runuser -u postgres -- psql -d "$CONNECT_DB" "$@" ;;
+    *) psql_travel "$@" ;;
+  esac
 }
 
-if command -v sudo >/dev/null 2>&1 && sudo -n -u postgres psql -d "$GUARD_CONNECT_DB" -tA -c "select 1" >/dev/null 2>&1; then
-  PSQL_MODE="postgres-sudo"
-elif command -v runuser >/dev/null 2>&1 && runuser -u postgres -- psql -d "$GUARD_CONNECT_DB" -tA -c "select 1" >/dev/null 2>&1; then
-  PSQL_MODE="postgres-runuser"
-fi
+PREFIX_SQL="${APP_PREFIX//\'/\'\'}"
+read -r TOTAL MAX_CONN RESERVED <<<"$(psql_guard -tA -F ' ' -v ON_ERROR_STOP=1 -c \
+  "select count(*)::int, current_setting('max_connections')::int, current_setting('superuser_reserved_connections')::int from pg_stat_activity")"
 
-DB_USER_SQL="$(sql_quote "$DB_USER")"
-DB_NAME_SQL="$(sql_quote "$DB_NAME")"
-DB_FILTER_SQL="and datname = '$DB_NAME_SQL'"
+USABLE=$((MAX_CONN - RESERVED))
+THRESHOLD=$((USABLE * PERCENT / 100))
+[[ "$THRESHOLD" -ge 1 ]] || THRESHOLD=1
 
-if [[ "$PSQL_MODE" != "app" ]]; then
-  DB_EXISTS="$(psql_guard -tA -v ON_ERROR_STOP=1 -c "select exists(select 1 from pg_database where datname = '$DB_NAME_SQL')" | tr -d '[:space:]')"
-  if [[ "$DB_EXISTS" != "t" && "$DB_EXISTS" != "true" ]]; then
-    warn "DB adı '$DB_NAME' bulunamadı; guard sadece user='$DB_USER' filtresiyle çalışacak."
-    DB_FILTER_SQL=""
-  fi
-fi
+APP_TOTAL="$(psql_guard -tA -v ON_ERROR_STOP=1 -c \
+  "select count(*)::int from pg_stat_activity where application_name like '${PREFIX_SQL}%'")"
+ok "PostgreSQL guard: total=$TOTAL usable=$USABLE threshold=$THRESHOLD travel=$APP_TOTAL mode=$PSQL_MODE"
 
-TOTAL="$(psql_guard -tA -v ON_ERROR_STOP=1 -c "select count(*)::int from pg_stat_activity where usename = '$DB_USER_SQL' $DB_FILTER_SQL" | tr -d '[:space:]')"
-IDLE_OLD="$(psql_guard -tA -v ON_ERROR_STOP=1 -c "select count(*)::int from pg_stat_activity where usename = '$DB_USER_SQL' $DB_FILTER_SQL and pid <> pg_backend_pid() and state = 'idle' and now() - state_change > make_interval(secs => $IDLE_MIN_SECONDS)" | tr -d '[:space:]')"
-ACTIVE_OLD="$(psql_guard -tA -v ON_ERROR_STOP=1 -c "select count(*)::int from pg_stat_activity where usename = '$DB_USER_SQL' $DB_FILTER_SQL and pid <> pg_backend_pid() and state = 'active' and now() - query_start > make_interval(secs => $ACTIVE_MIN_SECONDS)" | tr -d '[:space:]')"
-
-ok "PostgreSQL bağlantı durumu: mode=$PSQL_MODE connect_db=$GUARD_CONNECT_DB db=$DB_NAME user=$DB_USER total=$TOTAL idle_old=${IDLE_OLD} active_old=${ACTIVE_OLD} threshold=$THRESHOLD"
-
-if [[ "$TOTAL" -le "$THRESHOLD" ]]; then
+if [[ "$TOTAL" -lt "$THRESHOLD" ]]; then
   exit 0
 fi
 
-warn "Bağlantı sayısı eşik üstünde; eski idle bağlantılar sonlandırılıyor."
+warn "Bağlantı kullanımı %${PERCENT} eşiğinde; eski Travel bağlantıları iyileştiriliyor."
 
-TERMINATED="$(psql_guard -tA -v ON_ERROR_STOP=1 -c "select count(*)::int from (select pg_terminate_backend(pid) from pg_stat_activity where usename = '$DB_USER_SQL' $DB_FILTER_SQL and pid <> pg_backend_pid() and state = 'idle' and now() - state_change > make_interval(secs => $IDLE_MIN_SECONDS)) x" | tr -d '[:space:]')"
-AFTER="$(psql_guard -tA -v ON_ERROR_STOP=1 -c "select count(*)::int from pg_stat_activity where usename = '$DB_USER_SQL' $DB_FILTER_SQL" | tr -d '[:space:]')"
+# Önce boştaki ve yarım transaction bağlantılarını kapat. Havuz ihtiyaç halinde
+# kontrollü biçimde yeniden bağlanır.
+IDLE_TERMINATED="$(psql_guard -tA -v ON_ERROR_STOP=1 -c "
+select count(*)::int from (
+  select pg_terminate_backend(pid)
+  from pg_stat_activity
+  where pid <> pg_backend_pid()
+    and application_name like '${PREFIX_SQL}%'
+    and state in ('idle', 'idle in transaction', 'idle in transaction (aborted)')
+    and now() - state_change > make_interval(secs => $IDLE_MIN_SECONDS)
+) x")"
 
-ok "PostgreSQL idle bağlantı temizliği: terminated=$TERMINATED remaining=$AFTER"
+# Uzun sorguyu önce nazikçe iptal et; API havuzu bağlantıyı yeniden kullanabilir.
+ACTIVE_CANCELLED="$(psql_guard -tA -v ON_ERROR_STOP=1 -c "
+select count(*)::int from (
+  select pg_cancel_backend(pid)
+  from pg_stat_activity
+  where pid <> pg_backend_pid()
+    and application_name like '${PREFIX_SQL}%'
+    and state = 'active'
+    and now() - query_start > make_interval(secs => $ACTIVE_MIN_SECONDS)
+) x")"
 
-if [[ "$AFTER" -gt "$THRESHOLD" ]]; then
-  warn "Bağlantı sayısı hâlâ yüksek; $ACTIVE_MIN_SECONDS saniyeden eski aktif bağlantılar sonlandırılıyor."
-  ACTIVE_TERMINATED="$(psql_guard -tA -v ON_ERROR_STOP=1 -c "select count(*)::int from (select pg_terminate_backend(pid) from pg_stat_activity where usename = '$DB_USER_SQL' $DB_FILTER_SQL and pid <> pg_backend_pid() and state = 'active' and now() - query_start > make_interval(secs => $ACTIVE_MIN_SECONDS)) x" | tr -d '[:space:]')"
-  AFTER_ACTIVE="$(psql_guard -tA -v ON_ERROR_STOP=1 -c "select count(*)::int from pg_stat_activity where usename = '$DB_USER_SQL' $DB_FILTER_SQL" | tr -d '[:space:]')"
-  ok "PostgreSQL aktif bağlantı temizliği: terminated=$ACTIVE_TERMINATED remaining=$AFTER_ACTIVE"
-  if [[ "$AFTER_ACTIVE" -gt "$THRESHOLD" ]]; then
-    warn "Bağlantı sayısı hâlâ yüksek. Yeni aktif istekler veya farklı kullanıcılar olabilir; pg_stat_activity inceleyin."
-  fi
-fi
+AFTER="$(psql_guard -tA -v ON_ERROR_STOP=1 -c "select count(*)::int from pg_stat_activity")"
+ok "PostgreSQL guard tamam: idle_terminated=$IDLE_TERMINATED active_cancelled=$ACTIVE_CANCELLED total_after=$AFTER"
