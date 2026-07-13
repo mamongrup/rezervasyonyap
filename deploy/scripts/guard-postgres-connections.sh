@@ -18,6 +18,7 @@ PERCENT="${TRAVEL_DB_CONN_PERCENT:-75}"
 IDLE_MIN_SECONDS="${TRAVEL_DB_IDLE_MIN_SECONDS:-45}"
 ACTIVE_MIN_SECONDS="${TRAVEL_DB_ACTIVE_MIN_SECONDS:-45}"
 APP_PREFIX="${TRAVEL_DB_GUARD_APPLICATION_PREFIX:-travel_api}"
+APP_EXACT="${TRAVEL_DB_GUARD_APPLICATION_EXACT:-nonode@nohost}"
 
 for value in "$PERCENT" "$IDLE_MIN_SECONDS" "$ACTIVE_MIN_SECONDS"; do
   case "$value" in ''|*[!0-9]*) fail "Guard ayarları sayısal olmalı" ;; esac
@@ -43,6 +44,7 @@ psql_guard() {
 }
 
 PREFIX_SQL="${APP_PREFIX//\'/\'\'}"
+EXACT_SQL="${APP_EXACT//\'/\'\'}"
 read -r TOTAL MAX_CONN RESERVED <<<"$(psql_guard -tA -F ' ' -v ON_ERROR_STOP=1 -c \
   "select count(*)::int, current_setting('max_connections')::int, current_setting('superuser_reserved_connections')::int from pg_stat_activity")"
 
@@ -51,7 +53,7 @@ THRESHOLD=$((USABLE * PERCENT / 100))
 [[ "$THRESHOLD" -ge 1 ]] || THRESHOLD=1
 
 APP_TOTAL="$(psql_guard -tA -v ON_ERROR_STOP=1 -c \
-  "select count(*)::int from pg_stat_activity where application_name like '${PREFIX_SQL}%'")"
+  "select count(*)::int from pg_stat_activity where application_name like '${PREFIX_SQL}%' or application_name = '${EXACT_SQL}'")"
 ok "PostgreSQL guard: total=$TOTAL usable=$USABLE threshold=$THRESHOLD travel=$APP_TOTAL mode=$PSQL_MODE"
 
 if [[ "$TOTAL" -lt "$THRESHOLD" ]]; then
@@ -67,7 +69,8 @@ select count(*)::int from (
   select pg_terminate_backend(pid)
   from pg_stat_activity
   where pid <> pg_backend_pid()
-    and application_name like '${PREFIX_SQL}%'
+    and (application_name like '${PREFIX_SQL}%' or application_name = '${EXACT_SQL}')
+    and backend_type = 'client backend'
     and state in ('idle', 'idle in transaction', 'idle in transaction (aborted)')
     and now() - state_change > make_interval(secs => $IDLE_MIN_SECONDS)
 ) x")"
@@ -78,7 +81,8 @@ select count(*)::int from (
   select pg_cancel_backend(pid)
   from pg_stat_activity
   where pid <> pg_backend_pid()
-    and application_name like '${PREFIX_SQL}%'
+    and (application_name like '${PREFIX_SQL}%' or application_name = '${EXACT_SQL}')
+    and backend_type = 'client backend'
     and state = 'active'
     and now() - query_start > make_interval(secs => $ACTIVE_MIN_SECONDS)
 ) x")"
