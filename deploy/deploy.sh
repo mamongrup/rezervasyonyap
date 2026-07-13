@@ -13,6 +13,7 @@
 #   SKIP_VERIFY=1 ./deploy/deploy.sh                          # verify bekleme atlanir
 #   SKIP_SOCIAL_WORKER_TIMER=1 ./deploy/deploy.sh             # sosyal paylaşım worker timer kurulumunu atla
 #   SKIP_DB_CONN_GUARD=1 ./deploy/deploy.sh                   # PostgreSQL orphan bağlantı temizliğini atla
+#   SKIP_AI_OPERATIONS_SCHEMA=1 ./deploy/deploy.sh             # AI operasyon amiri SQL modülünü atla
 #   TRAVEL_DB_CONN_THRESHOLD=30 ./deploy/deploy.sh             # bağlantı guard eşiği
 #   FORCE_NPM_CI=1 ./deploy/deploy.sh                         # node_modules'u zorla yenile
 #   ./deploy/deploy-api-only.sh                               # API-only kisa yol
@@ -248,6 +249,17 @@ main() {
     fi
   )
   ok "frontend build tamam"
+  fi
+
+  if [[ "${SKIP_AI_OPERATIONS_SCHEMA:-0}" == "1" ]]; then
+    warn "SKIP_AI_OPERATIONS_SCHEMA=1 — AI operasyon amiri veritabanı modülü atlandı."
+  elif [[ -f "$APP_ROOT/backend/priv/sql/modules/366_ai_operations_supervisor.sql" ]]; then
+    step "AI operasyon amiri veritabanı modülü"
+    bash "$APP_ROOT/deploy/apply-sql.sh" \
+      "$APP_ROOT/backend/priv/sql/modules/366_ai_operations_supervisor.sql"
+    ok "AI operasyon amiri şeması etkin"
+  else
+    fail "AI operasyon amiri SQL modülü bulunamadı."
   fi
 
   if [[ "${SKIP_AI_WORKER_TIMER:-0}" == "1" ]]; then
