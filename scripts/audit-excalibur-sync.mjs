@@ -26,7 +26,7 @@ const SAMPLE = 15
 async function mysqlCalendarStats(conn, legacyId) {
   const [[row]] = await conn.query(
     `SELECT COUNT(*) AS days,
-            SUM(CASE WHEN active = 0 THEN 1 ELSE 0 END) AS blocked,
+            SUM(CASE WHEN COALESCE(active, 0) <> 1 THEN 1 ELSE 0 END) AS blocked,
             SUM(CASE WHEN price IS NOT NULL AND price > 0 THEN 1 ELSE 0 END) AS priced_days
      FROM bravo_space_dates WHERE target_id = ?`,
     [legacyId],
@@ -81,9 +81,11 @@ async function main() {
   )
 
   const { rows: pgListings } = await pg.query(
-    `SELECT id::text, slug, external_listing_ref
-     FROM listings
-     WHERE external_listing_ref IS NOT NULL AND btrim(external_listing_ref) <> ''`,
+    `SELECT l.id::text, l.slug, l.external_listing_ref
+     FROM listings l
+     JOIN product_categories c ON c.id = l.category_id
+     WHERE c.code = 'holiday_home'
+       AND l.external_listing_ref ~ '^[0-9]+$'`,
   )
   const byRef = new Map(pgListings.map((r) => [String(r.external_listing_ref), r]))
 

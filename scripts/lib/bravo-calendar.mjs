@@ -17,11 +17,11 @@ export async function importBravoAvailabilityCalendar(pgClient, mysql, listingId
      ORDER BY start_date`,
     [legacyId],
   )
-  if (!dates.length) return { days: 0, blocked: 0, skipped: true }
-
   await pgClient.query(`DELETE FROM listing_availability_calendar WHERE listing_id = $1::uuid`, [
     listingId,
   ])
+
+  if (!dates.length) return { days: 0, blocked: 0, skipped: true }
 
   const BATCH = 400
   let inserted = 0

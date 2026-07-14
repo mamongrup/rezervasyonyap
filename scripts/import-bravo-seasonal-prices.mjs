@@ -38,7 +38,9 @@ await pgClient.connect()
 
 let q = `SELECT l.id::text, l.slug, l.external_listing_ref
          FROM listings l
-         WHERE l.external_listing_ref IS NOT NULL`
+         JOIN product_categories c ON c.id = l.category_id
+         WHERE c.code = 'holiday_home'
+           AND l.external_listing_ref ~ '^[0-9]+$'`
 const params = []
 if (slugFilter) {
   q += ` AND l.slug = $1`
