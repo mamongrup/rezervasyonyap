@@ -3,7 +3,7 @@ import { resolveMegaMenuFeatured } from '@/data/mega-menu-sidebar'
 import { getNavMegaMenuLocalized, resolveHeaderCurrencies } from '@/data/navigation'
 import { pickEffectiveSiteLogoUrls } from '@/lib/resolve-site-logo-url'
 import { vitrinHref } from '@/lib/vitrin-href'
-import Logo from '@/shared/Logo'
+import Logo, { type BrandingConfig } from '@/shared/Logo'
 import clsx from 'clsx'
 import { FC } from 'react'
 import AvatarDropdown from './AvatarDropdown'
@@ -30,6 +30,7 @@ const Header: FC<HeaderProps> = async ({ hasBorderBottom = true, className, loca
     getCatalogMenuForLocale(locale),
   ])
   const branding = siteConfig?.branding as Record<string, unknown> | null ?? null
+  const initialBranding = (branding ?? {}) as BrandingConfig
   const pickedLogos = pickEffectiveSiteLogoUrls(
     typeof branding?.logo_url === 'string' ? branding.logo_url : null,
     typeof branding?.logo_url_dark === 'string' ? branding.logo_url_dark : null,
@@ -58,7 +59,12 @@ const Header: FC<HeaderProps> = async ({ hasBorderBottom = true, className, loca
       <div className="container">
         <div className="flex h-20 justify-between gap-x-2">
           <div className="flex items-center justify-center gap-x-2 sm:gap-x-6">
-            <Logo src={logoSrc} darkSrc={logoDarkSrc} alt={siteName} />
+            <Logo
+              src={logoSrc}
+              darkSrc={logoDarkSrc}
+              alt={siteName}
+              initialBranding={initialBranding}
+            />
             <div className="hidden h-7 border-l border-neutral-200 md:block dark:border-neutral-700"></div>
             <div className="hidden md:block">
               <CategoriesDropdown items={resolvedCatalogItems} homeHref={catalogHomeHref} locale={locale} />

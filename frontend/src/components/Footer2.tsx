@@ -5,7 +5,7 @@ import { getSitePublicConfig, mergeBrandingIntoEnvContact } from '@/lib/site-pub
 import { vitrinHref } from '@/lib/vitrin-href'
 import { cn } from '@/lib/utils'
 import { getMessages } from '@/utils/getT'
-import Logo from '@/shared/Logo'
+import Logo, { type BrandingConfig } from '@/shared/Logo'
 import { use, type JSX, type SVGProps } from 'react'
 
 function socialIcon(name: string): (props: SVGProps<SVGSVGElement>) => JSX.Element {
@@ -115,7 +115,12 @@ export default function Footer2({ locale, branding }: Footer2Props) {
       <div className="container min-w-0 pt-16 pb-8 sm:pt-20 sm:pb-10">
         <div className="grid min-w-0 grid-cols-1 gap-10 lg:grid-cols-[minmax(0,280px)_minmax(0,1fr)]">
           <div className="min-w-0 space-y-6">
-            <Logo src={logoSrc} darkSrc={logoDarkSrc} alt={logoAlt} />
+            <Logo
+              src={logoSrc}
+              darkSrc={logoDarkSrc}
+              alt={logoAlt}
+              initialBranding={(branding ?? {}) as BrandingConfig}
+            />
             <p className="break-words text-sm/6 text-balance text-gray-600 dark:text-neutral-400">{tagline}</p>
 
             {socialItems.length > 0 && (

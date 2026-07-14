@@ -15,6 +15,7 @@ interface LogoProps {
   src?: string
   darkSrc?: string
   alt?: string
+  initialBranding?: BrandingConfig
 }
 
 function detectCategoryCode(pathname: string): string | null {
@@ -59,7 +60,7 @@ interface CategoryLogo {
   logo_url_dark?: string
 }
 
-interface BrandingConfig {
+export interface BrandingConfig {
   logo_url?: string
   logo_url_dark?: string
   logo_icon_url?: string
@@ -249,7 +250,7 @@ function AnimatedBrandIcon({
   )
 }
 
-const Logo: React.FC<LogoProps> = ({ className = 'w-auto', src, darkSrc, alt }) => {
+const Logo: React.FC<LogoProps> = ({ className = 'w-auto', src, darkSrc, alt, initialBranding }) => {
   const pathname = usePathname() ?? ''
   const vitrinPath = useVitrinHref()
   const logoHref = pathname.includes('/manage') ? vitrinPath('/manage/admin') : vitrinPath('/')
@@ -265,6 +266,18 @@ const Logo: React.FC<LogoProps> = ({ className = 'w-auto', src, darkSrc, alt }) 
    * kullanmalı. localStorage sadece useEffect içinde okunur.
    */
   const [branding, setBranding] = useState<BrandingConfig>(() => {
+    if (initialBranding) {
+      const picked = pickEffectiveSiteLogoUrls(
+        initialBranding.logo_url ?? src,
+        initialBranding.logo_url_dark ?? darkSrc ?? src,
+      )
+      return {
+        ...initialBranding,
+        logo_url: picked.light ?? undefined,
+        logo_url_dark: picked.dark ?? undefined,
+        site_name: initialBranding.site_name ?? alt ?? 'Logo',
+      }
+    }
     if (src) {
       const picked = pickEffectiveSiteLogoUrls(src, darkSrc ?? src)
       return {
@@ -275,9 +288,15 @@ const Logo: React.FC<LogoProps> = ({ className = 'w-auto', src, darkSrc, alt }) 
     }
     return { site_name: alt ?? '' }
   })
-  const [categoryLogos, setCategoryLogos] = useState<Record<string, CategoryLogo>>({})
+  const [categoryLogos, setCategoryLogos] = useState<Record<string, CategoryLogo>>(
+    initialBranding?.category_logos ?? {},
+  )
 
   useEffect(() => {
+    if (initialBranding) {
+      writeCachedBranding(initialBranding)
+      return
+    }
     if (src) return
 
     // 1) Önce cache'ten anında yükle (flash'ı önler)
@@ -314,7 +333,7 @@ const Logo: React.FC<LogoProps> = ({ className = 'w-auto', src, darkSrc, alt }) 
       .catch(() => {
         /* cache veya fallback kullanılmaya devam eder */
       })
-  }, [src])
+  }, [src, initialBranding])
 
   const catCode = detectCategoryCode(pathname)
   const catLogo = catCode ? categoryLogos[catCode] : null
