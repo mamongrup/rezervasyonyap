@@ -44,13 +44,18 @@ async function loadListingBundle(pg, row) {
     `SELECT day::text AS day, is_available, am_available, pm_available,
             price_override::text AS price_override
      FROM listing_availability_calendar
-     WHERE listing_id = $1::uuid ORDER BY day`,
+     WHERE listing_id = $1::uuid
+       AND day >= date_trunc('month', current_date)::date
+     ORDER BY day`,
     [listingId],
   )
   const rules = await pg.query(
     `SELECT valid_from::text AS valid_from, valid_to::text AS valid_to,
             rule_json::text AS rule_json
-     FROM listing_price_rules WHERE listing_id = $1::uuid ORDER BY valid_from`,
+     FROM listing_price_rules
+     WHERE listing_id = $1::uuid
+       AND (valid_to IS NULL OR valid_to >= date_trunc('month', current_date)::date)
+     ORDER BY valid_from`,
     [listingId],
   )
 

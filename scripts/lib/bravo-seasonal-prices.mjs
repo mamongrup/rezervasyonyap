@@ -86,6 +86,7 @@ export async function importBravoSeasonalPriceRules(pgClient, mysql, listingId, 
     `SELECT DATE(start_date) AS day, price
      FROM bravo_space_dates
      WHERE target_id = ?
+       AND start_date >= DATE_FORMAT(CURRENT_DATE(), '%Y-%m-01')
      ORDER BY start_date`,
     [legacyId],
   )
