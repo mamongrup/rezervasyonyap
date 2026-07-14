@@ -2509,7 +2509,7 @@ export async function getPublicListingPriceRules(listingId: string): Promise<Lis
   try {
     const res = await fetch(
       `${b}/api/v1/catalog/public/listings/${encodeURIComponent(listingId)}/price-rules`,
-      { next: { revalidate: 120 } },
+      { cache: 'no-store' },
     )
     if (!res.ok) return []
     const data = await json<{ rules: ListingPriceRuleRow[] }>(res)
