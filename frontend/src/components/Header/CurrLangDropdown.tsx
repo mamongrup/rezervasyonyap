@@ -8,6 +8,7 @@ import {
 } from '@/contexts/preferred-currency-context'
 import { type HeaderCurrencyItem } from '@/data/navigation'
 import { swapLocaleInPathnameLocalized } from '@/lib/localized-path-shared'
+import { LOCALE_PREFERENCE_COOKIE } from '@/lib/international-locale-routing'
 import { Link } from '@/shared/link'
 import {
   CloseButton,
@@ -86,6 +87,10 @@ const Languages = ({ activeLocale }: { activeLocale: string }) => {
             as={Link}
             href={href}
             key={item.code}
+            onClick={() => {
+              const secure = window.location.protocol === 'https:' ? '; Secure' : ''
+              document.cookie = `${LOCALE_PREFERENCE_COOKIE}=${encodeURIComponent(item.code)}; Path=/; Max-Age=31536000; SameSite=Lax${secure}`
+            }}
             className={clsx(
               '-m-2.5 flex items-center rounded-lg p-2.5 transition duration-150 ease-in-out hover:bg-neutral-100 focus:outline-hidden dark:hover:bg-neutral-700',
               isActive ? 'bg-neutral-100 dark:bg-neutral-700' : 'opacity-80',

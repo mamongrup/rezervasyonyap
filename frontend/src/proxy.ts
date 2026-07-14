@@ -1,6 +1,12 @@
 import { LOCALIZED_FIRST_SEGMENT_ALIASES } from '@/data/localized-middleware-rewrites'
 import { facetQueryRedirectResponse } from '@/lib/category-facet-proxy-redirect'
 import { defaultLocale, isAppLocale } from '@/lib/i18n-config'
+import {
+  countryFromRequestHeaders,
+  isInternationalSiteHost,
+  LOCALE_PREFERENCE_COOKIE,
+  resolveInternationalLocale,
+} from '@/lib/international-locale-routing'
 import type { NextRequest } from 'next/server'
 import { NextResponse } from 'next/server'
 import {
@@ -314,6 +320,30 @@ export function proxy(request: NextRequest) {
   const segments = pathname.split('/').filter(Boolean)
   const first = segments[0]
   const def = defaultLocale.toLowerCase()
+
+  // Uluslararası marka: dil tercihi → tarayıcı dili → güvenilir ülke başlığı → İngilizce.
+  // Açık dil segmentlerine dokunulmaz; yalnızca dil segmentsiz ilk ziyaret yönlendirilir.
+  if (
+    (!first || !isAppLocale(first)) &&
+    isInternationalSiteHost(host, process.env.INTERNATIONAL_SITE_HOSTS)
+  ) {
+    const locale = resolveInternationalLocale({
+      preferredLocale: request.cookies.get(LOCALE_PREFERENCE_COOKIE)?.value,
+      acceptLanguage: request.headers.get('accept-language'),
+      country: countryFromRequestHeaders(request.headers),
+      userAgent: request.headers.get('user-agent'),
+    })
+    const suffix = pathname === '/' ? '' : pathname
+    const url = request.nextUrl.clone()
+    url.pathname = `/${locale}${suffix}`
+    const res = NextResponse.redirect(url, 307)
+    res.headers.set(
+      'Vary',
+      'Accept-Language, Cookie, CF-IPCountry, X-Vercel-IP-Country, CloudFront-Viewer-Country',
+    )
+    applySecurityHeaders(res)
+    return res
+  }
 
   // /en/... — varsayılan dil dışı; vitrin segment alias (rewrite) + next
   if (first && isAppLocale(first) && first.toLowerCase() !== def) {
