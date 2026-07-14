@@ -92,6 +92,7 @@ function SectionDateRangeCalendar({
         startDate,
         endDate,
         minNights,
+        allowBeforeMinStay: true,
         allowSubMinStayGapBooking: bookingRules?.allowSubMinStayGapBooking,
         formatLocalYmd,
       }),
@@ -100,6 +101,23 @@ function SectionDateRangeCalendar({
 
   const onChangeDate = (dates: [Date | null, Date | null]) => {
     const [start, end] = dates
+    if (
+      start &&
+      end &&
+      !stayListingCalendarDaySelectable(end, {
+        effectiveMinDate,
+        byYmd,
+        startDate: start,
+        endDate: null,
+        minNights,
+        allowSubMinStayGapBooking: bookingRules?.allowSubMinStayGapBooking,
+        formatLocalYmd,
+      })
+    ) {
+      setStartDate(start)
+      setEndDate(null)
+      return
+    }
     setStartDate(start)
     setEndDate(end)
   }

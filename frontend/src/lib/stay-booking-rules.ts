@@ -146,6 +146,8 @@ export function stayListingCalendarDaySelectable(
     startDate: Date | null
     endDate: Date | null
     minNights: number
+    /** Takvim aralığı çizilirken minimum geceden önceki ara günleri görünür tut. */
+    allowBeforeMinStay?: boolean
     /** Min. gecelemede boşluk doldurma — aradaki kısa boşlukta min. konaklamayı esnet */
     allowSubMinStayGapBooking?: boolean
     formatLocalYmd: (x: Date) => string
@@ -177,6 +179,7 @@ export function stayListingCalendarDaySelectable(
     const minN = Math.max(1, opts.minNights)
     const allowGap = opts.allowSubMinStayGapBooking === true
 
+    if (nights < minN && opts.allowBeforeMinStay === true) return true
     if (allowGap && maxN < minN) {
       return nights >= 1 && nights <= maxN
     }

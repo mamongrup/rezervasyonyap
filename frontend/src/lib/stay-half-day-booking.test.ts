@@ -194,6 +194,24 @@ describe('single-block boundaries (turnover half-days)', () => {
       }),
     ).toBe(false)
   })
+
+  it('keeps pre-minimum checkout days paintable without making them valid checkouts', () => {
+    const start = new Date(2026, 7, 23)
+    const candidate = new Date(2026, 7, 24)
+    const opts = {
+      effectiveMinDate: minDate,
+      byYmd,
+      startDate: start,
+      endDate: null,
+      minNights: 3,
+      formatLocalYmd,
+    }
+
+    expect(stayListingCalendarDaySelectable(candidate, opts)).toBe(false)
+    expect(
+      stayListingCalendarDaySelectable(candidate, { ...opts, allowBeforeMinStay: true }),
+    ).toBe(true)
+  })
 })
 
 describe('computeStayRentalLodgingQuote availability', () => {
