@@ -237,7 +237,7 @@ const Logo: React.FC<LogoProps> = ({ className = 'w-auto', src, darkSrc, alt }) 
 
   // ── Icon + Text mode ──────────────────────────────────────────────────────
   const iconUrl = normalizeSiteLogoUrl(branding.logo_icon_url)
-  if (!activeLogoUrl && !catLogo && branding.logo_mode === 'icon_text' && iconUrl && !iconFailed) {
+  if (!catLogo && branding.logo_mode === 'icon_text' && iconUrl && !iconFailed) {
     const line1 = branding.logo_text_line1 || branding.site_name || ''
     const line2 = branding.logo_text_line2 || ''
     const line2Color = branding.logo_text_line2_color || '#f97316'
