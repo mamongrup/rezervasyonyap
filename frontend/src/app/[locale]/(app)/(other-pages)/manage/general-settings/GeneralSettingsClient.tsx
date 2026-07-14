@@ -1187,6 +1187,7 @@ export default function GeneralSettingsClient({ embedded = false }: GeneralSetti
                       folder="branding"
                       prefix="logo-icon"
                       aspectRatio="1/1"
+                      objectFit="contain"
                       placeholder="İkon yükle"
                     />
                   </div>

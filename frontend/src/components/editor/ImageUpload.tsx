@@ -36,6 +36,8 @@ interface ImageUploadProps {
   placeholder?: string
   /** Aspect ratio hint (CSS değeri: "16/9", "1/1", "4/3") */
   aspectRatio?: string
+  /** Preview fit mode. Use `contain` for logos and icons. */
+  objectFit?: 'cover' | 'contain'
   /** Küçük mod — sadece icon buton gösterir */
   compact?: boolean
   /** Çoklu dosya seçimi (galeri modalında birden fazla dosya) */
@@ -63,6 +65,7 @@ export default function ImageUpload({
   useOriginalStem,
   placeholder = 'Galeriden seçin veya yükleyin',
   aspectRatio = '16/9',
+  objectFit = 'cover',
   compact = false,
   multiple = false,
   onBatchComplete,
@@ -202,7 +205,14 @@ export default function ImageUpload({
                 warning ? 'border-amber-400' : 'border-neutral-200 dark:border-neutral-700',
               )}
             >
-              <NextImage src={value} alt="" fill className="object-cover" sizes="56px" unoptimized />
+              <NextImage
+                src={value}
+                alt=""
+                fill
+                className={objectFit === 'contain' ? 'object-contain p-1' : 'object-cover'}
+                sizes="56px"
+                unoptimized
+              />
               {warning && (
                 <div className="absolute inset-0 flex items-center justify-center bg-amber-500/70">
                   <AlertTriangle className="h-5 w-5 text-white" />
@@ -276,7 +286,7 @@ export default function ImageUpload({
             src={value}
             alt=""
             fill
-            className="object-cover"
+            className={objectFit === 'contain' ? 'object-contain p-4' : 'object-cover'}
             sizes="(max-width:768px) 100vw, 50vw"
             unoptimized
           />
