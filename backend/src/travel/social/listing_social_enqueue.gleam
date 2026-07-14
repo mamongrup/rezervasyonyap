@@ -6,8 +6,8 @@ import gleam/list
 import gleam/option.{type Option, None, Some}
 import gleam/string
 import pog
-import travel/db/resilient_pog as db_exec
 import travel/db/decode_helpers as row_dec
+import travel/db/resilient_pog as db_exec
 
 const social_api_key = "social_api"
 
@@ -83,16 +83,14 @@ fn networks_to_enqueue(raw: String) -> List(String) {
   let pin_token = pick_str(raw, ["pinterest", "access_token"])
   let pin_board = pick_str(raw, ["pinterest", "board_id"])
 
-  let mut =
-    case meta_auto && page_id != "" && page_token != "" {
-      True -> list.append(mut, ["facebook"])
-      False -> mut
-    }
-  let mut =
-    case meta_auto && ig_id != "" && page_token != "" {
-      True -> list.append(mut, ["instagram"])
-      False -> mut
-    }
+  let mut = case meta_auto && page_id != "" && page_token != "" {
+    True -> list.append(mut, ["facebook"])
+    False -> mut
+  }
+  let mut = case meta_auto && ig_id != "" && page_token != "" {
+    True -> list.append(mut, ["instagram"])
+    False -> mut
+  }
   case pin_auto && pin_token != "" && pin_board != "" {
     True -> list.append(mut, ["pinterest"])
     False -> mut
@@ -134,19 +132,22 @@ fn fetch_listing_for_enqueue(
   }
 }
 
-fn listing_image_keys(db: pog.Connection, listing_id: String, featured: String) -> List(String) {
-  let from_db =
-    case
-      pog.query(
-        "select storage_key::text from listing_images where listing_id = $1::uuid order by sort_order asc nulls last limit 40",
-      )
-      |> pog.parameter(pog.text(listing_id))
-      |> pog.returning(row_dec.col0_string())
-      |> db_exec.execute(db)
-    {
-      Error(_) -> []
-      Ok(ret) -> list.map(ret.rows, fn(s) { string.trim(s) })
-    }
+fn listing_image_keys(
+  db: pog.Connection,
+  listing_id: String,
+  featured: String,
+) -> List(String) {
+  let from_db = case
+    pog.query(
+      "select storage_key::text from listing_images where listing_id = $1::uuid order by sort_order asc nulls last limit 40",
+    )
+    |> pog.parameter(pog.text(listing_id))
+    |> pog.returning(row_dec.col0_string())
+    |> db_exec.execute(db)
+  {
+    Error(_) -> []
+    Ok(ret) -> list.map(ret.rows, fn(s) { string.trim(s) })
+  }
   let keys = list.filter(from_db, fn(s) { s != "" })
   case keys {
     [] ->
@@ -172,23 +173,25 @@ fn insert_pending_job(
   listing_id: String,
   network: String,
   image_keys: List(String),
+  post_type: String,
 ) -> Result(Bool, Nil) {
   case list.is_empty(image_keys) {
     True -> Ok(False)
     False ->
       case
         pog.query(
-          "insert into social_share_jobs (entity_type, entity_id, network, image_keys, status) "
-          <> "select 'listing', $1::uuid, $2, $3::text[], 'pending' "
+          "insert into social_share_jobs (entity_type, entity_id, network, image_keys, status, post_type) "
+          <> "select 'listing', $1::uuid, $2, $3::text[], 'pending', $4 "
           <> "where not exists ( "
           <> "  select 1 from social_share_jobs j "
           <> "  where j.entity_type = 'listing' and j.entity_id = $1::uuid "
-          <> "    and j.network = $2 and j.status = 'pending' "
+          <> "    and j.network = $2 and j.post_type = $4 and j.status = 'pending' "
           <> ") returning id::text",
         )
         |> pog.parameter(pog.text(listing_id))
         |> pog.parameter(pog.text(network))
         |> pog.parameter(pog.array(pog.text, image_keys))
+        |> pog.parameter(pog.text(post_type))
         |> pog.returning(row_dec.col0_string())
         |> db_exec.execute(db)
       {
@@ -219,7 +222,7 @@ pub fn enqueue_listing_published(
               let imgs = listing_image_keys(db, lid, featured)
               let count =
                 list.fold(nets, 0, fn(acc: Int, n: String) {
-                  case insert_pending_job(db, lid, n, imgs) {
+                  case insert_pending_job(db, lid, n, imgs, "feed") {
                     Error(_) -> acc
                     Ok(True) -> acc + 1
                     Ok(False) -> acc
@@ -233,7 +236,10 @@ pub fn enqueue_listing_published(
 }
 
 /// Güncelleme öncesi `listings.status` (yayına geçiş tespiti için).
-pub fn listing_status(db: pog.Connection, listing_id: String) -> Result(String, Nil) {
+pub fn listing_status(
+  db: pog.Connection,
+  listing_id: String,
+) -> Result(String, Nil) {
   case
     pog.query("select status::text from listings where id = $1::uuid limit 1")
     |> pog.parameter(pog.text(string.trim(listing_id)))
@@ -258,6 +264,7 @@ fn rotation_listing_row() -> decode.Decoder(#(String, String)) {
 fn fetch_next_rotation_listings(
   db: pog.Connection,
   network: String,
+  post_type: String,
   category_codes: List(String),
   min_repost_hours: Int,
   limit: Int,
@@ -288,23 +295,24 @@ fn fetch_next_rotation_listings(
           <> "and not exists ( "
           <> "  select 1 from social_share_jobs j "
           <> "  where j.entity_type = 'listing' and j.entity_id = l.id "
-          <> "    and j.network = $2 and j.status = 'pending' "
+          <> "    and j.network = $2 and j.post_type = $3 and j.status = 'pending' "
           <> ") "
           <> "and not exists ( "
           <> "  select 1 from social_share_jobs j2 "
           <> "  where j2.entity_type = 'listing' and j2.entity_id = l.id "
-          <> "    and j2.network = $2 and j2.status = 'posted' "
-          <> "    and j2.posted_at > now() - ($3::integer * interval '1 hour') "
+          <> "    and j2.network = $2 and j2.post_type = $3 and j2.status = 'posted' "
+          <> "    and j2.posted_at > now() - ($4::integer * interval '1 hour') "
           <> ") "
           <> "order by ( "
           <> "  select max(j3.posted_at) from social_share_jobs j3 "
           <> "  where j3.entity_type = 'listing' and j3.entity_id = l.id "
-          <> "    and j3.network = $2 and j3.status = 'posted' "
+          <> "    and j3.network = $2 and j3.post_type = $3 and j3.status = 'posted' "
           <> ") asc nulls first, l.updated_at desc "
-          <> "limit $4",
+          <> "limit $5",
         )
         |> pog.parameter(pog.array(pog.text, category_codes))
         |> pog.parameter(pog.text(network))
+        |> pog.parameter(pog.text(post_type))
         |> pog.parameter(pog.int(hours))
         |> pog.parameter(pog.int(lim))
         |> pog.returning(rotation_listing_row())
@@ -314,6 +322,71 @@ fn fetch_next_rotation_listings(
         Ok(ret) -> ret.rows
       }
   }
+}
+
+fn rotation_type_due(
+  db: pog.Connection,
+  network: String,
+  post_type: String,
+  every_hours: Int,
+) -> Bool {
+  let hours = case every_hours < 1 {
+    True -> 1
+    False -> every_hours
+  }
+  case
+    pog.query(
+      "select not exists ( "
+      <> "  select 1 from social_share_jobs "
+      <> "  where network = $1 and post_type = $2 "
+      <> "    and status in ('pending', 'posted', 'failed') "
+      <> "    and coalesce(posted_at, created_at) > now() - ($3::integer * interval '1 hour') "
+      <> ")",
+    )
+    |> pog.parameter(pog.text(network))
+    |> pog.parameter(pog.text(post_type))
+    |> pog.parameter(pog.int(hours))
+    |> pog.returning({
+      use due <- decode.field(0, decode.bool)
+      decode.success(due)
+    })
+    |> db_exec.execute(db)
+  {
+    Ok(ret) ->
+      case ret.rows {
+        [due] -> due
+        _ -> False
+      }
+    Error(_) -> False
+  }
+}
+
+fn enqueue_rotation_type(
+  db: pog.Connection,
+  network: String,
+  post_type: String,
+  categories: List(String),
+  min_repost_hours: Int,
+  limit: Int,
+) -> Int {
+  let candidates =
+    fetch_next_rotation_listings(
+      db,
+      network,
+      post_type,
+      categories,
+      min_repost_hours,
+      limit,
+    )
+  list.fold(candidates, 0, fn(acc: Int, row: #(String, String)) {
+    let #(listing_id, featured) = row
+    let images = listing_image_keys(db, listing_id, featured)
+    case insert_pending_job(db, listing_id, network, images, post_type) {
+      Error(_) -> acc
+      Ok(True) -> acc + 1
+      Ok(False) -> acc
+    }
+  })
 }
 
 /// Periyodik döngü: villa / yat / aktivite ilanlarını sırayla kuyruğa ekler.
@@ -332,21 +405,33 @@ pub fn enqueue_rotation(
         False -> per_network_limit
       }
       let nets = networks_to_enqueue(api_raw)
-      let count =
+      let feed_count =
         list.fold(nets, 0, fn(acc: Int, net: String) {
-          let candidates =
-            fetch_next_rotation_listings(db, net, cats, min_hours, per_net)
-          list.fold(candidates, acc, fn(a: Int, row: #(String, String)) {
-            let #(lid, feat) = row
-            let imgs = listing_image_keys(db, lid, feat)
-            case insert_pending_job(db, lid, net, imgs) {
-              Error(_) -> a
-              Ok(True) -> a + 1
-              Ok(False) -> a
-            }
-          })
+          acc + enqueue_rotation_type(db, net, "feed", cats, min_hours, per_net)
         })
-      Ok(count)
+      let story_enabled = pick_bool(api_raw, ["rotation", "auto_story"], True)
+      let reel_enabled = pick_bool(api_raw, ["rotation", "auto_reel"], True)
+      let story_hours = pick_int(api_raw, ["rotation", "story_every_hours"], 6)
+      let reel_hours = pick_int(api_raw, ["rotation", "reel_every_hours"], 24)
+      let story_count = case
+        story_enabled
+        && list.contains(nets, "instagram")
+        && rotation_type_due(db, "instagram", "story", story_hours)
+      {
+        True ->
+          enqueue_rotation_type(db, "instagram", "story", cats, min_hours, 1)
+        False -> 0
+      }
+      let reel_count = case
+        reel_enabled
+        && list.contains(nets, "instagram")
+        && rotation_type_due(db, "instagram", "reel", reel_hours)
+      {
+        True ->
+          enqueue_rotation_type(db, "instagram", "reel", cats, min_hours, 1)
+        False -> 0
+      }
+      Ok(feed_count + story_count + reel_count)
     }
   }
 }

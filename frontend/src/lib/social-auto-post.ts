@@ -41,6 +41,10 @@ export interface SocialApiSettings {
     category_codes?: string[]
     min_repost_hours?: number
     per_run_limit?: number
+    auto_story?: boolean
+    story_every_hours?: number
+    auto_reel?: boolean
+    reel_every_hours?: number
   }
 }
 
@@ -874,7 +878,7 @@ export async function processOneSocialJob(
     if (shouldStop && (await shouldStop())) {
       return { ok: false, network: job.network, post_type: job.post_type, job_id: job.id, error: 'social_worker_stopped' }
     }
-    if (job.network === 'instagram' && job.post_type !== 'story') {
+    if (job.network === 'instagram' && (job.post_type ?? 'feed') === 'feed') {
       const existingPostId = await findRecentlyPublishedInstagramMedia(
         socialApi.meta ?? {},
         pageUrl,

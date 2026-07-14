@@ -69,6 +69,10 @@ interface RotationSettings {
   category_codes: string[]
   min_repost_hours: number
   per_run_limit: number
+  auto_story: boolean
+  story_every_hours: number
+  auto_reel: boolean
+  reel_every_hours: number
 }
 
 interface SocialApiSettings {
@@ -86,6 +90,10 @@ const DEFAULT_ROTATION: RotationSettings = {
   category_codes: ['holiday_home', 'yacht_charter', 'activity'],
   min_repost_hours: 24,
   per_run_limit: 1,
+  auto_story: true,
+  story_every_hours: 6,
+  auto_reel: true,
+  reel_every_hours: 24,
 }
 
 const EMPTY: SocialApiSettings = {
@@ -583,6 +591,64 @@ export default function AdminSocialApiSection() {
                 }
                 hint="10 dakikada bir tetikte her platform için en fazla bu kadar yeni kuyruk işi."
               />
+            </div>
+            <div className="rounded-xl border border-[color:var(--manage-card-border)] p-4">
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-3">
+                  <ToggleField
+                    label="Instagram Story otomatik paylaş"
+                    checked={settings.rotation.auto_story}
+                    onChange={(v) =>
+                      setSettings((prev) => ({
+                        ...prev,
+                        rotation: { ...prev.rotation, auto_story: v },
+                      }))
+                    }
+                    hint="Galeriden dikey Story hazırlanır. Normal gönderi kuyruğundan bağımsız çalışır."
+                  />
+                  <PlainField
+                    label="Story paylaşım aralığı (saat)"
+                    value={String(settings.rotation.story_every_hours)}
+                    onChange={(v) =>
+                      setSettings((prev) => ({
+                        ...prev,
+                        rotation: {
+                          ...prev.rotation,
+                          story_every_hours: Math.max(1, Number.parseInt(v, 10) || 6),
+                        },
+                      }))
+                    }
+                    hint="Varsayılan 6 saat; aynı anda yalnızca bir Story işi oluşturulur."
+                  />
+                </div>
+                <div className="space-y-3">
+                  <ToggleField
+                    label="Instagram Reels otomatik paylaş"
+                    checked={settings.rotation.auto_reel}
+                    onChange={(v) =>
+                      setSettings((prev) => ({
+                        ...prev,
+                        rotation: { ...prev.rotation, auto_reel: v },
+                      }))
+                    }
+                    hint="İlan galerisinden 9:16 slayt videosu hazırlanıp otomatik yayınlanır."
+                  />
+                  <PlainField
+                    label="Reels paylaşım aralığı (saat)"
+                    value={String(settings.rotation.reel_every_hours)}
+                    onChange={(v) =>
+                      setSettings((prev) => ({
+                        ...prev,
+                        rotation: {
+                          ...prev.rotation,
+                          reel_every_hours: Math.max(1, Number.parseInt(v, 10) || 24),
+                        },
+                      }))
+                    }
+                    hint="Varsayılan 24 saat; video üretimi ve Meta işleme süresi nedeniyle daha seyrektir."
+                  />
+                </div>
+              </div>
             </div>
           </div>
         </div>
