@@ -10,30 +10,20 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { createRequire } from 'node:module'
 import { importBravoSeasonalPriceRules } from './lib/bravo-seasonal-prices.mjs'
+import { mysqlConfigFromArgv } from './lib/bravo-mysql-config.mjs'
+import { createPgClient } from './lib/pg-client.mjs'
 
 const TRAVEL_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const require = createRequire(path.join(TRAVEL_ROOT, 'frontend', 'package.json'))
 const mysql = require('mysql2/promise')
-const pg = require('pg')
 
 const slugFilter = (() => {
   const i = process.argv.indexOf('--slug')
   return i >= 0 ? process.argv[i + 1]?.trim() : ''
 })()
 
-const mysqlConn = await mysql.createConnection({
-  host: '127.0.0.1',
-  user: 'root',
-  password: '',
-  database: 'rezervasyonyap',
-})
-const pgClient = new pg.Client({
-  host: '127.0.0.1',
-  port: 5432,
-  user: 'postgres',
-  password: '',
-  database: 'travel',
-})
+const mysqlConn = await mysql.createConnection(mysqlConfigFromArgv())
+const pgClient = createPgClient()
 await pgClient.connect()
 
 let q = `SELECT l.id::text, l.slug, l.external_listing_ref
