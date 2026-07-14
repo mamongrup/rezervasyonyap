@@ -1401,12 +1401,28 @@ fn persist_i18n_translation(
       {
         Error(e) -> Error(e)
         Ok(Nil) ->
-          mark_batch_locale_done(
-            ctx.db,
-            batch_id,
-            "translations",
-            locale_code,
-          )
+          case
+            mark_batch_locale_done(
+              ctx.db,
+              batch_id,
+              "translations",
+              locale_code,
+            )
+          {
+            Error(e) -> Error(e)
+            Ok(Nil) ->
+              case
+                advance_batch(
+                  ctx.db,
+                  batch_id,
+                  "translations",
+                  "pending",
+                )
+              {
+                Error(_) -> Error("listing_content_batch_advance_failed")
+                Ok(Nil) -> Ok(Nil)
+              }
+          }
       }
   }
 }
@@ -1566,7 +1582,14 @@ fn persist_seo(
   case upsert_seo(ctx.db, listing_id, locale_code, mt, md, kw) {
     Error(e) -> Error(e)
     Ok(Nil) ->
-      mark_batch_locale_done(ctx.db, batch_id, "seo", locale_code)
+      case mark_batch_locale_done(ctx.db, batch_id, "seo", locale_code) {
+        Error(e) -> Error(e)
+        Ok(Nil) ->
+          case advance_batch(ctx.db, batch_id, "seo", "pending") {
+            Error(_) -> Error("listing_content_batch_advance_failed")
+            Ok(Nil) -> Ok(Nil)
+          }
+      }
   }
 }
 
@@ -1663,7 +1686,10 @@ fn run_batch_core(
 /// düz yazı veya SEO/çeviri eksiği bulunan bir ilanı otomatik kuyruğa alır.
 pub fn worker_try_listing_content(ctx: Context) -> Result(Bool, String) {
   let pick_sql =
-    "update ai_listing_content_batches set status = 'running', updated_at = now() "
+    "with reset_stale as ("
+    <> "update ai_listing_content_batches set status = 'pending', error = null, updated_at = now() "
+    <> "where status = 'running' and updated_at < now() - interval '20 minutes' returning id"
+    <> ") update ai_listing_content_batches set status = 'running', updated_at = now() "
     <> "where id = (select id from ai_listing_content_batches where status = 'pending' "
     <> "order by created_at, case phase when 'tr_description' then 0 when 'translations' then 1 when 'seo' then 2 else 3 end limit 1) "
     <> "returning id::text, listing_id::text, category_code, phase, overwrite"
