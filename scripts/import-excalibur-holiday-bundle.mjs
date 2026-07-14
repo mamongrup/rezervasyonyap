@@ -161,6 +161,20 @@ async function replacePriceRules(pg, listingId, rules) {
   return rules.length
 }
 
+async function removeSyntheticHolidayHomeMealPlan(pg, listingId, rules) {
+  if (!rules?.length) return 0
+  const result = await pg.query(
+    `DELETE FROM listing_meal_plans
+     WHERE listing_id = $1::uuid
+       AND plan_code = 'room_only'
+       AND lower(btrim(label)) = 'konaklama'
+       AND included_meals = '[]'::jsonb
+       AND included_extras = '[]'::jsonb`,
+    [listingId],
+  )
+  return result.rowCount || 0
+}
+
 async function applyItem(pg, item, stats) {
   let listingId = await findListingId(pg, item)
   const isNew = !listingId
@@ -202,6 +216,11 @@ async function applyItem(pg, item, stats) {
 
   stats.calendarDays += await replaceCalendar(pg, listingId, item.calendar || [])
   stats.priceRules += await replacePriceRules(pg, listingId, item.price_rules || [])
+  stats.syntheticMealPlansRemoved += await removeSyntheticHolidayHomeMealPlan(
+    pg,
+    listingId,
+    item.price_rules || [],
+  )
   stats.ok++
 }
 
@@ -217,7 +236,15 @@ async function main() {
 
   const pg = createPgClient()
   await pg.connect()
-  const stats = { ok: 0, created: 0, updated: 0, calendarDays: 0, priceRules: 0, errors: 0 }
+  const stats = {
+    ok: 0,
+    created: 0,
+    updated: 0,
+    calendarDays: 0,
+    priceRules: 0,
+    syntheticMealPlansRemoved: 0,
+    errors: 0,
+  }
 
   for (let i = 0; i < data.listings.length; i++) {
     const item = data.listings[i]
