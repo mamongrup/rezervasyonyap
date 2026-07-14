@@ -130,6 +130,24 @@ async function collectMediaFiles(prefix: string | null = null): Promise<MediaFil
   return rows
 }
 
+async function listImmediateMediaFolders(prefix: string | null): Promise<string[]> {
+  const absDir = prefix ? path.join(UPLOADS_ROOT, prefix) : UPLOADS_ROOT
+  let dirents: import('node:fs').Dirent[] = []
+  try {
+    dirents = await fs.readdir(absDir, { withFileTypes: true })
+  } catch {
+    return []
+  }
+
+  return dirents
+    .filter((entry) => {
+      if (!entry.isDirectory() || entry.name.startsWith('.')) return false
+      return prefix ? true : Boolean(SAFE_FOLDERS[entry.name])
+    })
+    .map((entry) => (prefix ? `${prefix}/${entry.name}` : entry.name))
+    .sort((a, b) => a.localeCompare(b, 'tr'))
+}
+
 export async function GET(req: NextRequest) {
   const cookieStore = await cookies()
   const auth = await verifyAdminMediaToken(cookieStore.get('travel_auth_token')?.value)
@@ -139,10 +157,14 @@ export async function GET(req: NextRequest) {
 
   try {
     const prefix = sanitizePrefix(req.nextUrl.searchParams.get('prefix'))
-    const items = await collectMediaFiles(prefix)
+    const [items, folders] = await Promise.all([
+      collectMediaFiles(prefix),
+      listImmediateMediaFolders(prefix),
+    ])
     const res = NextResponse.json({
       ok: true,
       items,
+      folders,
       truncated: items.length >= MAX_FILES,
     })
     res.headers.set('Cache-Control', 'no-store')

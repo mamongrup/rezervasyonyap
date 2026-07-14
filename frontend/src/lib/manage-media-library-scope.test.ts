@@ -30,6 +30,16 @@ describe('manage media library scope', () => {
     expect(initialMediaBrowsePrefix(target)).toBe('listings/ilanlar/oteller/kaya-otel')
   })
 
+  it('can browse the full gallery while keeping the upload folder as the starting point', () => {
+    const target = { folder: 'branding', subPath: '' }
+
+    expect(resolveMediaLibraryBase(target, '/')).toBe('')
+    expect(initialMediaBrowsePrefix(target, '/')).toBe('branding')
+    expect(mediaBrowseAllowed('', 'listings/ilanlar/villa')).toBe(true)
+    expect(mediaCanBrowseUp('', 'branding')).toBe(true)
+    expect(parentMediaBrowsePrefix('', 'branding')).toBe('')
+  })
+
   it('lets pagebuilder modules browse the shared pagebuilder root while uploading into the module folder', () => {
     const target = {
       folder: 'site',

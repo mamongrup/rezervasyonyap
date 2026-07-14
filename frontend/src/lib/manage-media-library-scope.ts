@@ -16,6 +16,7 @@ export function mediaUploadBasePath(target: Pick<ManageMediaPickerUploadTarget, 
 }
 
 export function mediaBrowseAllowed(libraryBase: string, browsePrefix: string): boolean {
+  if (!libraryBase) return true
   return browsePrefix === libraryBase || browsePrefix.startsWith(`${libraryBase}/`)
 }
 
@@ -39,6 +40,7 @@ export function resolveMediaLibraryBase(
   libraryRoot?: string,
 ): string {
   const uploadBase = mediaUploadBasePath(target)
+  if (libraryRoot?.trim() === '/') return ''
   const normalized = normalizeMediaPath(libraryRoot) || defaultMediaLibraryRootForTarget(target)
   return normalized && mediaBrowseAllowed(normalized, uploadBase) ? normalized : uploadBase
 }

@@ -6,7 +6,6 @@ import {
   type ManageMediaPickerUploadTarget,
 } from '@/lib/manage-upload-image-form'
 import {
-  initialMediaBrowsePrefix,
   mediaCanBrowseUp,
   mediaBrowseAllowed,
   mediaUploadBasePath,
@@ -94,7 +93,7 @@ function joinBrowsePrefix(parent: string, child: string): string {
 
 function childFolderNames(items: ApiRow[], browsePrefix: string, extraFolders: string[]): string[] {
   const p = browsePrefix.replace(/\/+$/, '')
-  const prefix = `${p}/`
+  const prefix = p ? `${p}/` : ''
   const names = new Set<string>()
   for (const it of items) {
     if (!it.relPath.startsWith(prefix)) continue
@@ -149,7 +148,7 @@ export function ManageMediaPickerModal({
   uploadTarget,
   accept = 'image/jpeg,image/png,image/webp,image/avif,image/gif,image/svg+xml,image/x-icon,image/vnd.microsoft.icon',
   allowedExtensions,
-  libraryRoot,
+  libraryRoot = '/',
   allowMultipleUpload = false,
   batchStartIndex,
   onSelectBatch,
@@ -181,12 +180,17 @@ export function ManageMediaPickerModal({
     () => resolveMediaLibraryBase(uploadTarget, libraryRoot),
     [uploadTarget, libraryRoot],
   )
-  const folderFeaturesEnabled = !uploadTarget.fixedStem?.trim()
+  const initialBrowsePrefix = useMemo(
+    () => (mediaBrowseAllowed(libraryBase, uploadBase) ? uploadBase : libraryBase),
+    [libraryBase, uploadBase],
+  )
+  const uploadFollowsBrowse = !uploadTarget.fixedStem?.trim()
+  const folderFeaturesEnabled = true
 
   const effectiveUploadTarget = useMemo(
     () =>
-      folderFeaturesEnabled ? effectiveTargetFromBrowse(uploadTarget, browsePrefix) : uploadTarget,
-    [folderFeaturesEnabled, uploadTarget, browsePrefix],
+      uploadFollowsBrowse ? effectiveTargetFromBrowse(uploadTarget, browsePrefix) : uploadTarget,
+    [uploadFollowsBrowse, uploadTarget, browsePrefix],
   )
 
   const load = useCallback(async () => {
@@ -194,11 +198,12 @@ export function ManageMediaPickerModal({
     setError(null)
     try {
       const u = new URL('/api/manage/media-library', window.location.origin)
-      if (libraryBase.trim()) u.searchParams.set('prefix', libraryBase)
+      if (browsePrefix.trim()) u.searchParams.set('prefix', browsePrefix)
       const res = await fetch(u.toString(), { credentials: 'include', cache: 'no-store' })
       const data = (await res.json().catch(() => ({}))) as {
         ok?: boolean
         items?: ApiRow[]
+        folders?: string[]
         error?: string
       }
       if (!res.ok || !data.ok) {
@@ -207,13 +212,14 @@ export function ManageMediaPickerModal({
         return
       }
       setItems(Array.isArray(data.items) ? data.items : [])
+      setExtraFolders(Array.isArray(data.folders) ? data.folders : [])
     } catch {
       setError('Ağ hatası.')
       setItems([])
     } finally {
       setLoading(false)
     }
-  }, [libraryBase])
+  }, [browsePrefix])
 
   const fetchRefs = useCallback(async (paths: string[]): Promise<Record<string, string[]>> => {
     if (paths.length === 0) return {}
@@ -238,7 +244,7 @@ export function ManageMediaPickerModal({
   useEffect(() => {
     if (open) {
       setSearch('')
-      setBrowsePrefix(initialMediaBrowsePrefix(uploadTarget, libraryRoot))
+      setBrowsePrefix(initialBrowsePrefix)
       setExtraFolders([])
       setCreatingFolder(false)
       setNewFolderName('')
@@ -246,9 +252,12 @@ export function ManageMediaPickerModal({
       setSelectedPaths(new Set())
       setMoveDialogOpen(false)
       setViewMode('grid')
-      void load()
     }
-  }, [open, uploadBase, libraryBase, load])
+  }, [open, initialBrowsePrefix])
+
+  useEffect(() => {
+    if (open) void load()
+  }, [open, load])
 
   useEffect(() => {
     setSelectedPaths(new Set())
@@ -257,12 +266,13 @@ export function ManageMediaPickerModal({
   useEffect(() => {
     if (!open || !folderFeaturesEnabled) return
     if (!mediaBrowseAllowed(libraryBase, browsePrefix)) {
-      setBrowsePrefix(initialMediaBrowsePrefix(uploadTarget, libraryRoot))
+      setBrowsePrefix(initialBrowsePrefix)
     }
-  }, [open, folderFeaturesEnabled, uploadBase, libraryBase, browsePrefix])
+  }, [open, folderFeaturesEnabled, libraryBase, browsePrefix, initialBrowsePrefix])
 
   const scopedFlatItems = useMemo(() => {
     const base = libraryBase
+    if (!base) return items
     return items.filter((it) => it.relPath === base || it.relPath.startsWith(`${base}/`))
   }, [items, libraryBase])
 
@@ -283,9 +293,9 @@ export function ManageMediaPickerModal({
     const base = libraryBase
     for (const it of items) {
       const rp = it.relPath
-      if (rp !== base && !rp.startsWith(`${base}/`)) continue
+      if (base && rp !== base && !rp.startsWith(`${base}/`)) continue
       let d = posixDirname(rp)
-      while (d && (d === base || d.startsWith(`${base}/`))) {
+      while (d && (!base || d === base || d.startsWith(`${base}/`))) {
         set.add(d)
         if (d === base) break
         d = posixDirname(d)
@@ -323,7 +333,9 @@ export function ManageMediaPickerModal({
     if (!folderFeaturesEnabled) return []
     const baseParts = libraryBase.split('/').filter(Boolean)
     const browseParts = browsePrefix.split('/').filter(Boolean)
-    const crumbs: { label: string; prefix: string }[] = []
+    const crumbs: { label: string; prefix: string }[] = libraryBase
+      ? []
+      : [{ label: 'Tüm Galeri', prefix: '' }]
     for (let i = baseParts.length; i <= browseParts.length; i++) {
       const prefix = browseParts.slice(0, i).join('/')
       const label = browseParts[i - 1] ?? ''
