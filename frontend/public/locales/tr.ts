@@ -1023,9 +1023,9 @@ export const tr = {
       rulesGap:
         'Boşluk doldurma: Açıkken, yalnızca iki dolu aralık arasındaki kısa müsait günleri dolduran konaklamalarda minimum gece kuralı uygulanmaz.',
       legendAvailable: 'Müsait',
-      legendCheckin: 'Giriş günü (öğleden sonra dolu)',
-      legendCheckout: 'Çıkış günü (sabah dolu)',
-      legendTurnover: 'Değişim günü (sabah çıkış / öğleden sonra giriş)',
+      legendCheckin: 'Öğlene kadar müsait (çıkış yapılabilir)',
+      legendCheckout: 'Öğleden sonra müsait (giriş yapılabilir)',
+      legendTurnover: 'Aynı gün çıkış ve giriş',
       legendBlocked: 'Dolu',
       legendOption: 'Opsiyon',
       legendPromo: 'Fırsat',

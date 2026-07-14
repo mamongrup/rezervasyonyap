@@ -119,9 +119,19 @@ async function replaceCalendar(pg, listingId, days) {
     const params = [listingId]
     let p = 2
     for (const d of chunk) {
-      values.push(`($1::uuid, $${p}::date, $${p + 1}, $${p + 1}, $${p + 1}, $${p + 2})`)
-      params.push(d.day, d.is_available, d.price_override)
-      p += 3
+      const amAvailable = d.am_available ?? d.is_available
+      const pmAvailable = d.pm_available ?? d.is_available
+      values.push(
+        `($1::uuid, $${p}::date, $${p + 1}::boolean, $${p + 2}::boolean, $${p + 3}::boolean, $${p + 4})`,
+      )
+      params.push(
+        d.day,
+        Boolean(d.is_available || amAvailable || pmAvailable),
+        Boolean(amAvailable),
+        Boolean(pmAvailable),
+        d.price_override,
+      )
+      p += 5
       n++
     }
     await pg.query(

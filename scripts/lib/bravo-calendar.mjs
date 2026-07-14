@@ -9,8 +9,66 @@
  * @param {number} legacyId
  * @returns {Promise<{ days: number, blocked: number, skipped: boolean }>}
  */
+function dayKey(value) {
+  if (value instanceof Date) return value.toISOString().slice(0, 10)
+  return String(value ?? '').slice(0, 10)
+}
+
+function nextDayKey(value) {
+  const date = new Date(`${dayKey(value)}T12:00:00Z`)
+  date.setUTCDate(date.getUTCDate() + 1)
+  return date.toISOString().slice(0, 10)
+}
+
+/**
+ * Bravo yalnızca tam-gün `active` tutar. İki açık gün arasındaki 2+ günlük dolu
+ * blokları rezervasyon kabul edip giriş/çıkış sınırlarını yarım gün olarak açar.
+ */
+export function applyBravoTurnoverBoundaries(dates) {
+  const out = dates.map((d) => {
+    const available = Number(d.active) === 1
+    return { ...d, amAvailable: available, pmAvailable: available }
+  })
+
+  let i = 0
+  while (i < out.length) {
+    if (out[i].amAvailable || out[i].pmAvailable) {
+      i += 1
+      continue
+    }
+
+    let j = i
+    while (
+      j + 1 < out.length &&
+      !out[j + 1].amAvailable &&
+      !out[j + 1].pmAvailable &&
+      dayKey(out[j + 1].day) === nextDayKey(out[j].day)
+    ) {
+      j += 1
+    }
+
+    const previous = i > 0 ? out[i - 1] : undefined
+    const next = j + 1 < out.length ? out[j + 1] : undefined
+    const previousOpen = previous?.amAvailable || previous?.pmAvailable
+    const nextOpen = next?.amAvailable || next?.pmAvailable
+    const boundedByKnownDays =
+      previous &&
+      next &&
+      dayKey(out[i].day) === nextDayKey(previous.day) &&
+      dayKey(next.day) === nextDayKey(out[j].day)
+
+    if (j > i && boundedByKnownDays && previousOpen && nextOpen) {
+      out[i].amAvailable = true
+      out[j].pmAvailable = true
+    }
+    i = j + 1
+  }
+
+  return out
+}
+
 export async function importBravoAvailabilityCalendar(pgClient, mysql, listingId, legacyId) {
-  const [dates] = await mysql.query(
+  const [sourceDates] = await mysql.query(
     `SELECT DATE(start_date) AS day, active, price
      FROM bravo_space_dates
      WHERE target_id = ?
@@ -21,7 +79,9 @@ export async function importBravoAvailabilityCalendar(pgClient, mysql, listingId
     listingId,
   ])
 
-  if (!dates.length) return { days: 0, blocked: 0, skipped: true }
+  if (!sourceDates.length) return { days: 0, blocked: 0, skipped: true }
+
+  const dates = applyBravoTurnoverBoundaries(sourceDates)
 
   const BATCH = 400
   let inserted = 0
@@ -32,11 +92,17 @@ export async function importBravoAvailabilityCalendar(pgClient, mysql, listingId
     const params = [listingId]
     let p = 2
     for (const d of chunk) {
-      const available = Number(d.active) === 1
-      if (!available) blocked++
-      values.push(`($1::uuid, $${p}::date, $${p + 1}, $${p + 1}, $${p + 1}, $${p + 2})`)
-      params.push(d.day, available, d.price != null ? String(d.price) : null)
-      p += 3
+      if (Number(d.active) !== 1) blocked++
+      values.push(
+        `($1::uuid, $${p}::date, ($${p + 1}::boolean OR $${p + 2}::boolean), $${p + 1}::boolean, $${p + 2}::boolean, $${p + 3})`,
+      )
+      params.push(
+        d.day,
+        d.amAvailable,
+        d.pmAvailable,
+        d.price != null ? String(d.price) : null,
+      )
+      p += 4
       inserted++
     }
     await pgClient.query(
