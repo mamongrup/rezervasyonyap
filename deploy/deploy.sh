@@ -14,6 +14,7 @@
 #   SKIP_SOCIAL_WORKER_TIMER=1 ./deploy/deploy.sh             # sosyal paylaşım worker timer kurulumunu atla
 #   SKIP_DB_CONN_GUARD=1 ./deploy/deploy.sh                   # PostgreSQL orphan bağlantı temizliğini atla
 #   SKIP_AI_OPERATIONS_SCHEMA=1 ./deploy/deploy.sh             # AI operasyon amiri SQL modülünü atla
+#   SKIP_MULTIDOMAIN_ENV=1 ./deploy/deploy.sh                 # çoklu domain frontend env güncellemesini atla
 #   TRAVEL_DB_CONN_THRESHOLD=30 ./deploy/deploy.sh             # bağlantı guard eşiği
 #   FORCE_NPM_CI=1 ./deploy/deploy.sh                         # node_modules'u zorla yenile
 #   ./deploy/deploy-api-only.sh                               # API-only kisa yol
@@ -148,6 +149,15 @@ main() {
     chmod +x "$APP_ROOT/deploy/scripts/social-process-pending.sh" || true
   fi
   chmod +x "$APP_ROOT/deploy/deploy-api-only.sh" 2>/dev/null || true
+
+  if [[ "${SKIP_MULTIDOMAIN_ENV:-0}" == "1" ]]; then
+    warn "SKIP_MULTIDOMAIN_ENV=1 — çoklu domain frontend env güncellemesi atlandı."
+  elif [[ -f "$APP_ROOT/deploy/scripts/ensure-multidomain-frontend-env.sh" ]]; then
+    step "Çoklu domain ve uluslararası dil ortam ayarları"
+    bash "$APP_ROOT/deploy/scripts/ensure-multidomain-frontend-env.sh"
+  else
+    fail "Çoklu domain env hazırlama scripti bulunamadı."
+  fi
 
   step "Backend build + Erlang shipment"
   # travel-api.service genelde httpdocs DIŞINDA bir WorkingDirectory kullanır (ör. /opt/.../erlang-shipment).
