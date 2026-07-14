@@ -272,6 +272,14 @@ main() {
     fail "AI operasyon amiri SQL modülü bulunamadı."
   fi
 
+  if [[ -f "$APP_ROOT/backend/priv/sql/modules/367_ai_listing_content_locale_progress.sql" ]]; then
+    step "AI ilan içerik dil ilerleme şeması"
+    bash "$APP_ROOT/deploy/apply-sql.sh" \
+      "$APP_ROOT/backend/priv/sql/modules/367_ai_listing_content_locale_progress.sql"
+  else
+    fail "AI ilan içerik dil ilerleme SQL modülü bulunamadı."
+  fi
+
   if [[ "${SKIP_AI_WORKER_TIMER:-0}" == "1" ]]; then
     warn "SKIP_AI_WORKER_TIMER=1 — AI watchdog ve kuyruk worker timer kurulumu atlandı."
   elif [[ -f "$APP_ROOT/deploy/systemd/travel-ai-worker.service" && -f "$APP_ROOT/deploy/systemd/travel-ai-worker.timer" ]]; then

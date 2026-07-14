@@ -252,6 +252,40 @@ function pickText(obj, ...keys) {
   return ''
 }
 
+const SITE_CONTENT_LOCALES = new Set(['tr', 'en', 'de', 'ru', 'zh', 'fr'])
+
+function normalizeContentLocale(raw) {
+  const code = String(raw ?? '').trim().toLowerCase().replace('_', '-')
+  if (code.startsWith('zh')) return 'zh'
+  return code.split('-')[0]
+}
+
+export function hasEditorialHtmlStructure(raw) {
+  const text = String(raw ?? '').trim()
+  return /<(?:p|h2|h3|ul|ol|li)(?:\s|>)/i.test(text)
+}
+
+/** KPlus GetHotelDetails dil yanıtlarını doğrudan doğru locale kaydında korur. */
+export function extractTravelrobotHotelTranslations(hotel) {
+  const details = hotel?.I18nDetails ?? hotel?.i18nDetails ?? {}
+  const translations = {}
+  for (const [rawLocale, rawValue] of Object.entries(details)) {
+    const locale = normalizeContentLocale(rawLocale)
+    if (!SITE_CONTENT_LOCALES.has(locale) || locale === 'tr') continue
+    const value = rawValue?.Result ?? rawValue?.result ?? rawValue
+    const node = value?.Hotel ?? value?.hotel ?? value
+    if (!node || typeof node !== 'object') continue
+    const title =
+      pickText(value, 'HotelName', 'hotelName', 'Name', 'name') ||
+      pickText(node, 'HotelName', 'hotelName', 'Name', 'name')
+    const description =
+      pickText(value, 'Description', 'description', 'Details', 'details', 'SummaryText', 'summaryText') ||
+      pickText(node, 'Description', 'description', 'Details', 'details', 'SummaryText', 'summaryText')
+    if (title || description) translations[locale] = { title, description }
+  }
+  return translations
+}
+
 /** KPlus CDN bazen `/Assets/Img/no-logo.png` döner — CDN 500 verir, vitrinde boş kalır. */
 function isKplusPlaceholderImage(url) {
   const u = String(url || '').trim()
@@ -555,7 +589,12 @@ async function upsertListingCore(
      VALUES ($1::uuid, $2, $3, $4)
      ON CONFLICT (listing_id, locale_id) DO UPDATE SET
        title = EXCLUDED.title,
-       description = COALESCE(EXCLUDED.description, listing_translations.description)`,
+       description = CASE
+         WHEN listing_translations.description ~* '<(p|h2|h3|ul|ol|li)([[:space:]]|>)'
+          AND COALESCE(EXCLUDED.description, '') !~* '<(p|h2|h3|ul|ol|li)([[:space:]]|>)'
+         THEN listing_translations.description
+         ELSE COALESCE(EXCLUDED.description, listing_translations.description)
+       END`,
     [listingId, ctx.localeTrId, title, description || null],
   )
 
@@ -570,7 +609,12 @@ async function upsertListingCore(
        VALUES ($1::uuid, $2, $3, $4)
        ON CONFLICT (listing_id, locale_id) DO UPDATE SET
          title = COALESCE(NULLIF(EXCLUDED.title, ''), listing_translations.title),
-         description = COALESCE(NULLIF(EXCLUDED.description, ''), listing_translations.description)`,
+         description = CASE
+           WHEN listing_translations.description ~* '<(p|h2|h3|ul|ol|li)([[:space:]]|>)'
+            AND COALESCE(EXCLUDED.description, '') !~* '<(p|h2|h3|ul|ol|li)([[:space:]]|>)'
+           THEN listing_translations.description
+           ELSE COALESCE(NULLIF(EXCLUDED.description, ''), listing_translations.description)
+         END`,
       [listingId, localeId, t, d || null],
     )
   }
@@ -679,9 +723,10 @@ export async function upsertTravelrobotHotelListing(
     pickText(nested ?? {}, 'SummaryText', 'summaryText', 'Description', 'description')
   const descriptionIsEnglish = looksLikeEnglishHotelText(description)
   const trDescription = descriptionIsEnglish ? null : description
-  const translations = descriptionIsEnglish
-    ? { en: { title, description } }
-    : {}
+  const translations = extractTravelrobotHotelTranslations(hotel)
+  if (descriptionIsEnglish) {
+    translations.en = { title, description }
+  }
   const city = pickText(nested ?? {}, 'City', 'city', 'CityName', 'cityName', 'Location', 'location')
   const country = extractTravelrobotHotelCountryText(hotel)
   const locName =
@@ -710,11 +755,16 @@ export async function upsertTravelrobotHotelListing(
   // İngilizce kaynak `en` çevirisinde korunur; Türkçe editoryal içerik mevcut AI
   // hattında üretilmek üzere otomatik kuyruğa alınır. Aynı ilan için ikinci bir
   // pending/running iş açılmaz.
-  if (descriptionIsEnglish) {
+  if (
+    core.created ||
+    descriptionIsEnglish ||
+    !trDescription ||
+    !hasEditorialHtmlStructure(trDescription)
+  ) {
     await pgClient.query(
       `INSERT INTO ai_listing_content_batches
          (listing_id, category_code, phase, status, overwrite)
-       SELECT $1::uuid, 'hotel', 'tr_description', 'pending', true
+       SELECT $1::uuid, 'hotel', 'tr_description', 'pending', false
        WHERE NOT EXISTS (
          SELECT 1 FROM ai_listing_content_batches
          WHERE listing_id = $1::uuid AND status IN ('pending', 'running')

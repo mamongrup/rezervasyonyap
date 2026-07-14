@@ -23,8 +23,12 @@ const PRIORITY_CATEGORIES = [
   'hotel',
   'holiday_home',
   'yacht_charter',
+  'activity',
+  'tour',
+  'cruise',
   'ferry',
-  'transfer',
+  'car_rental',
+  'flight',
 ] as const
 
 export default function ListingContentAiPanel() {
@@ -171,8 +175,12 @@ export default function ListingContentAiPanel() {
               İlan içerik & SEO (kategori toplu)
             </h1>
             <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-400">
-              Seçilen kategorideki ilanlar için sırayla: Türkçe açıklama (yazım + SEO) → en, de, ru, zh, fr
-              çevirisi → her dilde ayrı SEO meta başlık/açıklama.
+              Seçilen kategorideki ilanlar önce Türkçe editör kalite kontrolünden geçer. Ardından en, de, ru,
+              zh ve fr çevirileri ile her dilde ayrı SEO meta başlık/açıklaması hazırlanır.
+            </p>
+            <p className="mt-2 text-xs text-emerald-800 dark:text-emerald-300">
+              Otel, villa, yat, aktivite, tur, gemi turu, feribot, araç kiralama ve uçak bileti içerikleri sunucu
+              zamanlayıcısı tarafından eksik/kalitesiz kayıt kalmayana kadar otomatik işlenir.
             </p>
             <p className="mt-2 text-xs text-violet-800 dark:text-violet-300">
               DeepSeek aktif olmalı (
