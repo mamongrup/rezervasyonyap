@@ -458,7 +458,7 @@ export default function CatalogNewListingClient({
   const TOTAL_STEPS = 7
   const WIZARD_STEPS: WizardStep[] = [
     {
-      label: 'Temel Bilgi',
+      label: 'Temel & Ücretler',
       shortLabel: '1',
       icon: <span className="text-xs font-bold">1</span>,
     },
@@ -473,25 +473,34 @@ export default function CatalogNewListingClient({
       icon: <span className="text-xs font-bold">3</span>,
     },
     {
-      label: 'Galeri',
+      label: 'Fotoğraflar',
       shortLabel: '4',
       icon: <span className="text-xs font-bold">4</span>,
     },
     {
-      label: 'Takvim',
+      label: 'Takvim & Sezon',
       shortLabel: '5',
       icon: <span className="text-xs font-bold">5</span>,
     },
     {
-      label: 'Fiyat',
+      label: 'İşletme',
       shortLabel: '6',
       icon: <span className="text-xs font-bold">6</span>,
     },
     {
-      label: 'Yayın',
+      label: 'Kontrol & Yayın',
       shortLabel: '7',
       icon: <span className="text-xs font-bold">7</span>,
     },
+  ]
+  const WIZARD_STEP_HELP = [
+    'İlan adı, açıklama, temel satış fiyatı ve müşteriye yansıtılan tüm ek ücretler.',
+    'Adres, bölge, harita konumu ve yakın çevre bilgileri.',
+    'Kapasite, oda, imkanlar, kurallar, havuz ve giriş-çıkış saatleri.',
+    'Vitrinde kullanılacak fotoğraflar ve kapak görseli.',
+    'Müsaitlik, dönemsel fiyatlar, iCal ve harici rezervasyonlar.',
+    'İlan sahibi, ödeme, komisyon, onay ve tedarikçi ayarları.',
+    'SEO, promosyon, yayın durumu ve son kontroller.',
   ]
 
   const initialStep = Math.min(
@@ -3700,6 +3709,19 @@ export default function CatalogNewListingClient({
                 </h1>
               </div>
               <div className="mt-4 border-b border-neutral-200 dark:border-neutral-700" />
+              <div className="mt-4 flex items-start gap-3 rounded-2xl border border-primary-100 bg-primary-50/60 px-4 py-3 dark:border-primary-900/40 dark:bg-primary-950/20">
+                <span className="inline-flex h-7 min-w-7 items-center justify-center rounded-full bg-primary-600 px-2 text-xs font-bold text-white">
+                  {currentStep + 1}
+                </span>
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">
+                    {WIZARD_STEPS[currentStep]?.label}
+                  </p>
+                  <p className="mt-0.5 text-xs leading-5 text-neutral-600 dark:text-neutral-400">
+                    {WIZARD_STEP_HELP[currentStep]}
+                  </p>
+                </div>
+              </div>
             </header>
           </div>
         {translateMsg ? (
@@ -4554,11 +4576,11 @@ export default function CatalogNewListingClient({
                     </svg>
                     <p className="max-w-md text-sm text-neutral-500 dark:text-neutral-400">
                       Önce ilanı kaydedin; ardından bu adımda müsaitlik (opsiyon / fırsat günleri), dönemsel fiyat
-                      (liste fiyatı compare_at), iCal ve harici rezervasyon defteri kullanılabilir. Yatak odaları ve
-                      referans kodu için 2. ve 6. adımlara da dönebilirsiniz.
+                      (liste fiyatı compare_at), iCal ve harici rezervasyon defteri kullanılabilir. Eksik kapasite
+                      bilgileri için Özellikler, tedarikçi bilgileri için İşletme adımına dönebilirsiniz.
                     </p>
-                    <button type="button" onClick={() => goToStep(6)} className="mt-2 rounded-xl bg-primary-600 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-700">
-                      Fiyat adımına geç →
+                    <button type="button" onClick={() => goToStep(0)} className="mt-2 rounded-xl bg-primary-600 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-700">
+                      Temel bilgiler ve ücretlere dön →
                     </button>
                   </div>
                 ) : (
@@ -5018,8 +5040,16 @@ export default function CatalogNewListingClient({
               </Section>
             )}
 
-            {/* ── ADIM 5: Fiyat (villa Fiyatlandırma+EkÜcretler) ── */}
-            {isVilla && currentStep === 5 && (
+            {/* ── ADIM 0: Ücretler (villa Fiyatlandırma+EkÜcretler) ── */}
+            {currentStep === 0 && (
+              <div className="rounded-2xl border border-primary-200 bg-gradient-to-r from-primary-50 to-white px-5 py-4 dark:border-primary-900/50 dark:from-primary-950/30 dark:to-neutral-900">
+                <p className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">Ücretler ve satış ayarları</p>
+                <p className="mt-1 text-xs leading-5 text-neutral-600 dark:text-neutral-400">
+                  Gecelik fiyat, kısa konaklama, ek ücretler, pansiyon seçenekleri ve fiyata dahil/hariç kalemleri bu bölümde birlikte yönetilir.
+                </p>
+              </div>
+            )}
+            {isVilla && currentStep === 0 && (
                 <Section title="Fiyatlandırma">
                   <Field className="block max-w-md">
                     <Label>
@@ -5319,8 +5349,8 @@ export default function CatalogNewListingClient({
             {/* ── ADIM 1: Konum (villa) ── */}
             {currentStep === 1 && isVilla && locationSection}
 
-            {/* ── ADIM 5 devam: Yemek Planları (hotel, holiday_home, yacht_charter) ── */}
-            {currentStep === 5 && MEAL_PLAN_CATS.has(categoryCode) && editListingId && (
+            {/* ── ADIM 0 devam: Yemek Planları (hotel, holiday_home, yacht_charter) ── */}
+            {currentStep === 0 && MEAL_PLAN_CATS.has(categoryCode) && editListingId && (
               <Section
                 title="Yemek Planları"
                 subtitle="Pansiyon seçenekleri ve gecelik ücretler. Ön yüzde «Pansiyon Seçenekleri» olarak listelenir."
@@ -5450,8 +5480,8 @@ export default function CatalogNewListingClient({
                 </Section>
               </>
             )}
-            {/* ── ADIM 4 devam: Fiyatlandırma (non-villa) ── */}
-            {!isVilla && currentStep === 5 && (
+            {/* ── ADIM 0 devam: Fiyatlandırma (non-villa) ── */}
+            {!isVilla && currentStep === 0 && (
               <>
                 {/* Fiyatlandırma — kısa konaklama + temizlik aynı kartta */}
                 <Section title="Fiyatlandırma">
@@ -5671,8 +5701,8 @@ export default function CatalogNewListingClient({
             </Section>
             )}
 
-            {/* ── ADIM 5: Yayın ── */}
-            {currentStep === 6 && (
+            {/* ── ADIM 5: İşletme ve ilan sahibi ── */}
+            {currentStep === 5 && (
             <>
             {/* İlan Sahibi Bilgileri (+ villa: BTrans / banka) */}
             <Section
@@ -5939,8 +5969,8 @@ export default function CatalogNewListingClient({
             </>
             )}
 
-            {/* ── ADIM 4 devam: Fiyata dahil (villa) ── */}
-            {isVilla && currentStep === 5 && (
+            {/* ── ADIM 0 devam: Fiyata dahil (villa) ── */}
+            {isVilla && currentStep === 0 && (
               <Section
                 title="Fiyata dahil & hariç"
                 subtitle="Katalogda tanımlı kalemleri işaretleyin; etiketler mevcut arayüz diline göre listelenir."
@@ -6250,7 +6280,7 @@ export default function CatalogNewListingClient({
               </div>
             )}
 
-            {!isVilla ? (
+            {!isVilla && currentStep === 6 ? (
               <Section
                 title="Yayın Durumu"
                 subtitle="İlanın kaydedildikten sonra vitrinde nasıl görüneceğini seçin."
