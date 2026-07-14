@@ -6,7 +6,7 @@ import { siteUploadBrowserHref } from '@/lib/site-upload-browser-href'
 import { getSitePublicConfig } from '@/lib/travel-api'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useId, useState } from 'react'
 
 const LS_KEY = 'travel_branding_cache'
 
@@ -118,6 +118,134 @@ function TextLogoFallback({ siteName, className }: { siteName?: string; classNam
       <span className="text-primary-600">{first}</span>
       {rest.length > 0 && <span className="text-neutral-800 dark:text-white">{rest.join(' ')}</span>}
     </span>
+  )
+}
+
+function AnimatedBrandIcon({
+  src,
+  alt,
+  className,
+  onError,
+}: {
+  src: string
+  alt: string
+  className?: string
+  onError?: () => void
+}) {
+  const uid = useId().replace(/:/g, '')
+  const tealFilter = `brand-teal-${uid}`
+  const warmFilter = `brand-warm-${uid}`
+  const sunClip = `brand-sun-${uid}`
+
+  const rays = [
+    { x: 45, y: 315, w: 210, h: 125, delay: 1.82 },
+    { x: 245, y: 45, w: 185, h: 215, delay: 1.9 },
+    { x: 585, y: 45, w: 105, h: 175, delay: 1.98 },
+    { x: 775, y: 200, w: 130, h: 120, delay: 2.06 },
+    { x: 845, y: 400, w: 110, h: 75, delay: 2.14 },
+  ]
+
+  return (
+    <svg
+      viewBox="0 0 1024 1024"
+      role="img"
+      aria-label={alt}
+      className={className}
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <style>{`
+        .brand-wave-layer {
+          clip-path: inset(0 100% 0 0);
+          animation: brand-wave-in .72s cubic-bezier(.4,0,.2,1) forwards;
+        }
+        .brand-sun-layer {
+          opacity: 0;
+          transform-box: fill-box;
+          transform-origin: center;
+          animation: brand-sun-in 1.05s cubic-bezier(.3,.05,.2,1) .62s forwards;
+        }
+        .brand-ray-layer {
+          opacity: 0;
+          transform-box: fill-box;
+          transform-origin: center;
+          animation: brand-ray-in .34s cubic-bezier(.2,.9,.35,1.35) forwards;
+        }
+        .brand-final-layer { opacity: 0; animation: brand-final-in .01s linear 2.52s forwards; }
+        @keyframes brand-wave-in { to { clip-path: inset(0 0 0 0); } }
+        @keyframes brand-sun-in {
+          0% { opacity: 0; transform: scale(.08) rotate(-12deg); }
+          100% { opacity: 1; transform: scale(1) rotate(0); }
+        }
+        @keyframes brand-ray-in {
+          0% { opacity: 0; transform: scale(.18) rotate(-10deg); }
+          72% { opacity: 1; transform: scale(1.1) rotate(2deg); }
+          100% { opacity: 1; transform: scale(1) rotate(0); }
+        }
+        @keyframes brand-final-in { to { opacity: 1; } }
+        @media (prefers-reduced-motion: reduce) {
+          .brand-wave-layer, .brand-sun-layer, .brand-ray-layer { display: none; animation: none; }
+          .brand-final-layer { opacity: 1; animation: none; }
+        }
+      `}</style>
+      <defs>
+        <filter id={tealFilter} colorInterpolationFilters="sRGB">
+          <feColorMatrix
+            in="SourceGraphic"
+            result="colorMask"
+            values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  -2 0 2 0 0"
+          />
+          <feComponentTransfer in="colorMask" result="thresholdMask">
+            <feFuncA type="discrete" tableValues="0 1" />
+          </feComponentTransfer>
+          <feComposite in="SourceGraphic" in2="thresholdMask" operator="in" />
+        </filter>
+        <filter id={warmFilter} colorInterpolationFilters="sRGB">
+          <feColorMatrix
+            in="SourceGraphic"
+            result="colorMask"
+            values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  2 0 -2 0 0"
+          />
+          <feComponentTransfer in="colorMask" result="thresholdMask">
+            <feFuncA type="discrete" tableValues="0 1" />
+          </feComponentTransfer>
+          <feComposite in="SourceGraphic" in2="thresholdMask" operator="in" />
+        </filter>
+        <clipPath id={sunClip}>
+          <circle cx="548" cy="526" r="405" />
+        </clipPath>
+      </defs>
+
+      <g className="brand-wave-layer" filter={`url(#${tealFilter})`}>
+        <image href={src} width="1024" height="1024" preserveAspectRatio="xMidYMid meet" onError={onError} />
+      </g>
+      <g className="brand-sun-layer" clipPath={`url(#${sunClip})`} filter={`url(#${warmFilter})`}>
+        <image href={src} width="1024" height="1024" preserveAspectRatio="xMidYMid meet" />
+      </g>
+      {rays.map((ray, index) => (
+        <svg
+          key={`${ray.x}-${ray.y}`}
+          x={ray.x}
+          y={ray.y}
+          width={ray.w}
+          height={ray.h}
+          viewBox={`${ray.x} ${ray.y} ${ray.w} ${ray.h}`}
+          overflow="visible"
+          className="brand-ray-layer"
+          style={{ animationDelay: `${ray.delay + index * 0.015}s` }}
+        >
+          <g filter={`url(#${warmFilter})`}>
+            <image href={src} width="1024" height="1024" preserveAspectRatio="xMidYMid meet" />
+          </g>
+        </svg>
+      ))}
+      <image
+        className="brand-final-layer"
+        href={src}
+        width="1024"
+        height="1024"
+        preserveAspectRatio="xMidYMid meet"
+      />
+    </svg>
   )
 }
 
@@ -247,11 +375,10 @@ const Logo: React.FC<LogoProps> = ({ className = 'w-auto', src, darkSrc, alt }) 
         href={logoHref}
         className={`inline-flex items-center gap-2.5 focus:ring-0 focus:outline-hidden ${className}`}
       >
-        <img
+        <AnimatedBrandIcon
           src={logoImgSrc(resolveSiteLogoUrl(iconUrl))}
           alt={altText}
           className="h-14 w-14 shrink-0 object-contain"
-          style={{ imageRendering: '-webkit-optimize-contrast' }}
           onError={() => setIconFailed(true)}
         />
         <span className="inline-flex items-baseline gap-1 leading-none whitespace-nowrap">
