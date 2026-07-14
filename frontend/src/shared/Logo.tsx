@@ -254,12 +254,12 @@ const Logo: React.FC<LogoProps> = ({ className = 'w-auto', src, darkSrc, alt }) 
           style={{ imageRendering: '-webkit-optimize-contrast' }}
           onError={() => setIconFailed(true)}
         />
-        <span className="flex flex-col leading-none">
+        <span className="inline-flex items-baseline gap-1 leading-none whitespace-nowrap">
           {line1 && (
             <span className="text-[18px] font-bold tracking-tight text-neutral-900 dark:text-white">{line1}</span>
           )}
           {line2 && (
-            <span className="text-[14px] font-semibold tracking-wide" style={{ color: line2Color }}>
+            <span className="text-[18px] font-semibold tracking-tight" style={{ color: line2Color }}>
               {line2}
             </span>
           )}

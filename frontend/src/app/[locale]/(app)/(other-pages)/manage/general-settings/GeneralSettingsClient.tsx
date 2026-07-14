@@ -1202,14 +1202,14 @@ export default function GeneralSettingsClient({ embedded = false }: GeneralSetti
                       ) : (
                         <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-neutral-100 text-2xl dark:bg-neutral-800">🔤</div>
                       )}
-                      <span className="flex flex-col leading-none">
+                      <span className="inline-flex items-baseline gap-1 leading-none whitespace-nowrap">
                         {(logoTextLine1 || siteName) && (
                           <span className="text-[17px] font-bold tracking-tight text-neutral-900 dark:text-white">
                             {logoTextLine1 || siteName}
                           </span>
                         )}
                         {logoTextLine2 && (
-                          <span className="text-[13px] font-semibold tracking-wide" style={{ color: logoTextLine2Color || '#f97316' }}>
+                          <span className="text-[17px] font-semibold tracking-tight" style={{ color: logoTextLine2Color || '#f97316' }}>
                             {logoTextLine2}
                           </span>
                         )}
