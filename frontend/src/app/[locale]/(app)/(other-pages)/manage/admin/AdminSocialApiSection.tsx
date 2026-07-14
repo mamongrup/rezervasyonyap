@@ -70,9 +70,10 @@ interface RotationSettings {
   min_repost_hours: number
   per_run_limit: number
   auto_story: boolean
-  story_every_hours: number
+  stories_per_day: number
+  story_category_codes: string[]
   auto_reel: boolean
-  reel_every_hours: number
+  reel_category_codes: string[]
 }
 
 interface SocialApiSettings {
@@ -85,15 +86,27 @@ interface SocialApiSettings {
   rotation: RotationSettings
 }
 
+const VISUAL_SOCIAL_CATEGORIES = [
+  'holiday_home',
+  'yacht_charter',
+  'activity',
+  'cruise',
+  'hotel',
+  'ferry',
+  'car_rental',
+  'flight',
+]
+
 const DEFAULT_ROTATION: RotationSettings = {
   enabled: true,
   category_codes: ['holiday_home', 'yacht_charter', 'activity'],
   min_repost_hours: 24,
   per_run_limit: 1,
   auto_story: true,
-  story_every_hours: 6,
+  stories_per_day: 18,
+  story_category_codes: VISUAL_SOCIAL_CATEGORIES,
   auto_reel: true,
-  reel_every_hours: 24,
+  reel_category_codes: VISUAL_SOCIAL_CATEGORIES,
 }
 
 const EMPTY: SocialApiSettings = {
@@ -607,18 +620,35 @@ export default function AdminSocialApiSection() {
                     hint="Galeriden dikey Story hazırlanır. Normal gönderi kuyruğundan bağımsız çalışır."
                   />
                   <PlainField
-                    label="Story paylaşım aralığı (saat)"
-                    value={String(settings.rotation.story_every_hours)}
+                    label="Günlük Story sayısı"
+                    value={String(settings.rotation.stories_per_day)}
                     onChange={(v) =>
                       setSettings((prev) => ({
                         ...prev,
                         rotation: {
                           ...prev.rotation,
-                          story_every_hours: Math.max(1, Number.parseInt(v, 10) || 6),
+                          stories_per_day: Math.max(1, Number.parseInt(v, 10) || 18),
                         },
                       }))
                     }
-                    hint="Varsayılan 6 saat; aynı anda yalnızca bir Story işi oluşturulur."
+                    hint="Varsayılan 18; yaklaşık 80 dakikada bir ve aynı anda yalnızca bir Story işi oluşturulur."
+                  />
+                  <PlainField
+                    label="Story kategorileri (virgülle)"
+                    value={settings.rotation.story_category_codes.join(', ')}
+                    onChange={(v) =>
+                      setSettings((prev) => ({
+                        ...prev,
+                        rotation: {
+                          ...prev.rotation,
+                          story_category_codes: v
+                            .split(',')
+                            .map((s) => s.trim().toLowerCase())
+                            .filter(Boolean),
+                        },
+                      }))
+                    }
+                    hint="18 Story bu kategoriler arasında dengeli ve karışık dağıtılır."
                   />
                 </div>
                 <div className="space-y-3">
@@ -634,18 +664,21 @@ export default function AdminSocialApiSection() {
                     hint="İlan galerisinden 9:16 slayt videosu hazırlanıp otomatik yayınlanır."
                   />
                   <PlainField
-                    label="Reels paylaşım aralığı (saat)"
-                    value={String(settings.rotation.reel_every_hours)}
+                    label="Günlük Reels kategorileri (virgülle)"
+                    value={settings.rotation.reel_category_codes.join(', ')}
                     onChange={(v) =>
                       setSettings((prev) => ({
                         ...prev,
                         rotation: {
                           ...prev.rotation,
-                          reel_every_hours: Math.max(1, Number.parseInt(v, 10) || 24),
+                          reel_category_codes: v
+                            .split(',')
+                            .map((s) => s.trim().toLowerCase())
+                            .filter(Boolean),
                         },
                       }))
                     }
-                    hint="Varsayılan 24 saat; video üretimi ve Meta işleme süresi nedeniyle daha seyrektir."
+                    hint={`Her kategoriden günde 1 lüks ilan: toplam ${settings.rotation.reel_category_codes.length} Reels. Lüks etiketi/5 yıldız öncelenir; yoksa kategorinin en yüksek fiyatlı ilanı seçilir.`}
                   />
                 </div>
               </div>

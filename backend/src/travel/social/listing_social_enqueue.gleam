@@ -15,6 +15,17 @@ const default_rotation_categories = [
   "holiday_home", "yacht_charter", "activity",
 ]
 
+const default_visual_social_categories = [
+  "holiday_home",
+  "yacht_charter",
+  "activity",
+  "cruise",
+  "hotel",
+  "ferry",
+  "car_rental",
+  "flight",
+]
+
 fn pick_bool(raw: String, path: List(String), default: Bool) -> Bool {
   case json.parse(raw, decode.at(path, decode.bool)) {
     Ok(b) -> b
@@ -37,21 +48,26 @@ fn pick_int(raw: String, path: List(String), default: Int) -> Int {
 }
 
 fn pick_category_codes(raw: String) -> List(String) {
+  pick_category_codes_at(raw, "category_codes", default_rotation_categories)
+}
+
+fn pick_category_codes_at(
+  raw: String,
+  key: String,
+  defaults: List(String),
+) -> List(String) {
   case
-    json.parse(
-      raw,
-      decode.at(["rotation", "category_codes"], decode.list(decode.string)),
-    )
+    json.parse(raw, decode.at(["rotation", key], decode.list(decode.string)))
   {
     Ok(codes) -> {
       let trimmed = list.map(codes, fn(s) { string.lowercase(string.trim(s)) })
       let filtered = list.filter(trimmed, fn(s) { s != "" })
       case list.is_empty(filtered) {
-        True -> default_rotation_categories
+        True -> defaults
         False -> filtered
       }
     }
-    Error(_) -> default_rotation_categories
+    Error(_) -> defaults
   }
 }
 
@@ -268,6 +284,8 @@ fn fetch_next_rotation_listings(
   category_codes: List(String),
   min_repost_hours: Int,
   limit: Int,
+  category_cooldown_hours: Int,
+  prefer_luxury: Bool,
 ) -> List(#(String, String)) {
   let hours = case min_repost_hours < 1 {
     True -> 24
@@ -277,6 +295,10 @@ fn fetch_next_rotation_listings(
     True -> 1
     False -> limit
   }
+  let category_hours = case category_cooldown_hours < 0 {
+    True -> 0
+    False -> category_cooldown_hours
+  }
   case list.is_empty(category_codes) {
     True -> []
     False ->
@@ -285,6 +307,9 @@ fn fetch_next_rotation_listings(
           "select l.id::text, coalesce(l.featured_image_url::text, '') "
           <> "from listings l "
           <> "inner join product_categories pc on pc.id = l.category_id "
+          <> "left join listing_holiday_home_details h on h.listing_id = l.id "
+          <> "left join listing_yacht_details y on y.listing_id = l.id "
+          <> "left join listing_hotel_details hotel on hotel.listing_id = l.id "
           <> "where l.status = 'published' "
           <> "and coalesce(l.share_to_social, false) = true "
           <> "and pc.code = any($1::text[]) "
@@ -303,7 +328,27 @@ fn fetch_next_rotation_listings(
           <> "    and j2.network = $2 and j2.post_type = $3 and j2.status = 'posted' "
           <> "    and j2.posted_at > now() - ($4::integer * interval '1 hour') "
           <> ") "
+          <> "and ($6::integer = 0 or not exists ( "
+          <> "  select 1 from social_share_jobs jc "
+          <> "  inner join listings lc on lc.id = jc.entity_id "
+          <> "  where jc.entity_type = 'listing' and lc.category_id = l.category_id "
+          <> "    and jc.network = $2 and jc.post_type = $3 "
+          <> "    and (jc.status = 'pending' or (jc.status in ('posted', 'failed') "
+          <> "      and coalesce(jc.posted_at, jc.created_at) > now() - ($6::integer * interval '1 hour'))) "
+          <> ")) "
           <> "order by ( "
+          <> "  select max(jc2.posted_at) from social_share_jobs jc2 "
+          <> "  inner join listings lc2 on lc2.id = jc2.entity_id "
+          <> "  where jc2.entity_type = 'listing' and lc2.category_id = l.category_id "
+          <> "    and jc2.network = $2 and jc2.post_type = $3 and jc2.status = 'posted' "
+          <> ") asc nulls first, "
+          <> "case when $7::boolean and ( "
+          <> "  'luxury' = any(coalesce(h.theme_codes, '{}'::text[])) "
+          <> "  or 'luxury' = any(coalesce(y.theme_codes, '{}'::text[])) "
+          <> "  or coalesce(hotel.star_rating, 0) >= 5 "
+          <> ") then 0 when $7::boolean then 1 else 0 end asc, "
+          <> "case when $7::boolean then coalesce(l.vitrin_price, l.first_charge_amount, 0) end desc nulls last, "
+          <> "( "
           <> "  select max(j3.posted_at) from social_share_jobs j3 "
           <> "  where j3.entity_type = 'listing' and j3.entity_id = l.id "
           <> "    and j3.network = $2 and j3.post_type = $3 and j3.status = 'posted' "
@@ -315,6 +360,8 @@ fn fetch_next_rotation_listings(
         |> pog.parameter(pog.text(post_type))
         |> pog.parameter(pog.int(hours))
         |> pog.parameter(pog.int(lim))
+        |> pog.parameter(pog.int(category_hours))
+        |> pog.parameter(pog.bool(prefer_luxury))
         |> pog.returning(rotation_listing_row())
         |> db_exec.execute(db)
       {
@@ -328,11 +375,11 @@ fn rotation_type_due(
   db: pog.Connection,
   network: String,
   post_type: String,
-  every_hours: Int,
+  per_day: Int,
 ) -> Bool {
-  let hours = case every_hours < 1 {
+  let daily_count = case per_day < 1 {
     True -> 1
-    False -> every_hours
+    False -> per_day
   }
   case
     pog.query(
@@ -340,12 +387,12 @@ fn rotation_type_due(
       <> "  select 1 from social_share_jobs "
       <> "  where network = $1 and post_type = $2 "
       <> "    and status in ('pending', 'posted', 'failed') "
-      <> "    and coalesce(posted_at, created_at) > now() - ($3::integer * interval '1 hour') "
+      <> "    and coalesce(posted_at, created_at) > now() - (interval '24 hours' / $3::double precision) "
       <> ")",
     )
     |> pog.parameter(pog.text(network))
     |> pog.parameter(pog.text(post_type))
-    |> pog.parameter(pog.int(hours))
+    |> pog.parameter(pog.int(daily_count))
     |> pog.returning({
       use due <- decode.field(0, decode.bool)
       decode.success(due)
@@ -368,6 +415,8 @@ fn enqueue_rotation_type(
   categories: List(String),
   min_repost_hours: Int,
   limit: Int,
+  category_cooldown_hours: Int,
+  prefer_luxury: Bool,
 ) -> Int {
   let candidates =
     fetch_next_rotation_listings(
@@ -377,6 +426,8 @@ fn enqueue_rotation_type(
       categories,
       min_repost_hours,
       limit,
+      category_cooldown_hours,
+      prefer_luxury,
     )
   list.fold(candidates, 0, fn(acc: Int, row: #(String, String)) {
     let #(listing_id, featured) = row
@@ -399,6 +450,18 @@ pub fn enqueue_rotation(
     False -> Ok(0)
     True -> {
       let cats = pick_category_codes(api_raw)
+      let story_cats =
+        pick_category_codes_at(
+          api_raw,
+          "story_category_codes",
+          default_visual_social_categories,
+        )
+      let reel_cats =
+        pick_category_codes_at(
+          api_raw,
+          "reel_category_codes",
+          default_visual_social_categories,
+        )
       let min_hours = pick_int(api_raw, ["rotation", "min_repost_hours"], 24)
       let per_net = case per_network_limit < 1 {
         True -> pick_int(api_raw, ["rotation", "per_run_limit"], 1)
@@ -407,28 +470,57 @@ pub fn enqueue_rotation(
       let nets = networks_to_enqueue(api_raw)
       let feed_count =
         list.fold(nets, 0, fn(acc: Int, net: String) {
-          acc + enqueue_rotation_type(db, net, "feed", cats, min_hours, per_net)
+          acc
+          + enqueue_rotation_type(
+            db,
+            net,
+            "feed",
+            cats,
+            min_hours,
+            per_net,
+            0,
+            False,
+          )
         })
       let story_enabled = pick_bool(api_raw, ["rotation", "auto_story"], True)
       let reel_enabled = pick_bool(api_raw, ["rotation", "auto_reel"], True)
-      let story_hours = pick_int(api_raw, ["rotation", "story_every_hours"], 6)
-      let reel_hours = pick_int(api_raw, ["rotation", "reel_every_hours"], 24)
+      let stories_per_day =
+        pick_int(api_raw, ["rotation", "stories_per_day"], 18)
+      let reels_per_day = list.length(reel_cats)
       let story_count = case
         story_enabled
         && list.contains(nets, "instagram")
-        && rotation_type_due(db, "instagram", "story", story_hours)
+        && rotation_type_due(db, "instagram", "story", stories_per_day)
       {
         True ->
-          enqueue_rotation_type(db, "instagram", "story", cats, min_hours, 1)
+          enqueue_rotation_type(
+            db,
+            "instagram",
+            "story",
+            story_cats,
+            min_hours,
+            1,
+            0,
+            False,
+          )
         False -> 0
       }
       let reel_count = case
         reel_enabled
         && list.contains(nets, "instagram")
-        && rotation_type_due(db, "instagram", "reel", reel_hours)
+        && rotation_type_due(db, "instagram", "reel", reels_per_day)
       {
         True ->
-          enqueue_rotation_type(db, "instagram", "reel", cats, min_hours, 1)
+          enqueue_rotation_type(
+            db,
+            "instagram",
+            "reel",
+            reel_cats,
+            min_hours,
+            1,
+            24,
+            True,
+          )
         False -> 0
       }
       Ok(feed_count + story_count + reel_count)

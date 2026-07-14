@@ -42,9 +42,10 @@ export interface SocialApiSettings {
     min_repost_hours?: number
     per_run_limit?: number
     auto_story?: boolean
-    story_every_hours?: number
+    stories_per_day?: number
+    story_category_codes?: string[]
     auto_reel?: boolean
-    reel_every_hours?: number
+    reel_category_codes?: string[]
   }
 }
 
