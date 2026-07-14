@@ -10,19 +10,16 @@ import type { SeasonalPricingRowModel } from '@/lib/listing-price-rules-public'
 import { formatMoneyIntl } from '@/lib/parse-listing-price'
 import type { MealPlanItem } from '@/lib/travel-api'
 import type { MealPlanSummary } from '@/types/listing-types'
-import ButtonSecondary from '@/shared/ButtonSecondary'
 import { Divider } from '@/shared/divider'
 import { getMessages } from '@/utils/getT'
 import clsx from 'clsx'
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useMemo } from 'react'
 import {
   damageDepositHasContent,
   extraFeesListHasContent,
   type ListingExtraChargesModel,
 } from '@/lib/listing-extra-charges-model'
 import { SectionHeading, SectionSubheading } from './components/SectionHeading'
-
-const VISIBLE_COUNT = 7
 
 function parseFeeAmountString(raw: string): number | null {
   const n = parseFloat(String(raw).replace(/\s/g, '').replace(',', '.'))
@@ -93,7 +90,6 @@ export default function ListingSeasonalPricingSection({
     summary?: MealPlanSummary | null
   }
 }) {
-  const [expanded, setExpanded] = useState(false)
   const ctx = usePreferredCurrencyContext()
   const messages = getMessages(locale)
   const sp = messages.listing.seasonalPricing
@@ -117,13 +113,6 @@ export default function ListingSeasonalPricingSection({
     },
     [ctx?.preferredCode, ctx?.rates],
   )
-
-  const visibleRows = useMemo(() => {
-    if (expanded || rows.length <= VISIBLE_COUNT) return rows
-    return rows.slice(0, VISIBLE_COUNT)
-  }, [rows, expanded])
-
-  const hiddenCount = rows.length > VISIBLE_COUNT ? rows.length - VISIBLE_COUNT : 0
 
   const showExtraFeesList = extraFeesListHasContent(extraCharges)
   const showDamageDeposit = damageDepositHasContent(extraCharges)
@@ -278,7 +267,7 @@ export default function ListingSeasonalPricingSection({
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-neutral-200 dark:divide-neutral-700">
-                  {visibleRows.map((row, i) => (
+                  {rows.map((row, i) => (
                     <tr
                       key={`${row.periodLabel}-${i}`}
                       className="text-neutral-800 transition-colors hover:bg-neutral-50 dark:text-neutral-100 dark:hover:bg-neutral-800/30"
@@ -444,20 +433,6 @@ export default function ListingSeasonalPricingSection({
         </div>
       ) : null}
 
-      {hiddenCount > 0 ? (
-        <div className="mt-8 flex flex-col gap-6 sm:gap-8">
-          <div className="w-14 border-b border-neutral-200 dark:border-neutral-700" />
-          <div className="flex justify-center sm:justify-start">
-            <ButtonSecondary
-              type="button"
-              onClick={() => setExpanded((e) => !e)}
-              className="rounded-full px-6"
-            >
-              {expanded ? sp.showLess : sp.showAll}
-            </ButtonSecondary>
-          </div>
-        </div>
-      ) : null}
     </div>
   )
 }
