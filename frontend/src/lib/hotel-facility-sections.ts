@@ -16,6 +16,7 @@ export type HotelFacilityAccordionContent = {
   sections: HotelFacilityAccordionSection[]
   generalTermsTitle: string
   generalTermsHtml?: string | null
+  generalTermsItems?: string[]
 }
 
 function sectionHasContent(section: HotelFacilityAccordionSection): boolean {
@@ -111,6 +112,7 @@ export function buildHotelFacilityAccordionContent(input: {
   amenityLabels: Record<string, string>
   campaignBadges?: readonly string[]
   generalTermsTitle: string
+  generalTermsItems?: readonly string[]
   /** Panel `vertical_hotel` meta */
   vitrinMeta?: {
     general_terms_html?: string | null
@@ -153,15 +155,18 @@ export function buildHotelFacilityAccordionContent(input: {
   }
 
   const filtered = expandHotelFacilitySections(sections).filter(sectionHasContent)
-  const generalTermsHtml =
-    input.vitrinMeta?.general_terms_html?.trim() ||
-    (isDemo ? HOTEL_DEMO_GENERAL_TERMS_HTML : null)
+  // Sağlayıcıdan gelen summary alanı ilan tanıtımıdır; çoğu zaman başka dilde,
+  // bozuk/kaçışlı HTML ile gelir ve "Genel Şartlar" değildir. Genel şartlar
+  // gerçek, yapılandırılmış rezervasyon kurallarından ve sayfa dilinde üretilir.
+  const generalTermsHtml = isDemo ? HOTEL_DEMO_GENERAL_TERMS_HTML : null
+  const generalTermsItems = [...new Set((input.generalTermsItems ?? []).map((x) => x.trim()).filter(Boolean))]
 
-  if (filtered.length === 0 && !generalTermsHtml?.trim()) return null
+  if (filtered.length === 0 && !generalTermsHtml?.trim() && generalTermsItems.length === 0) return null
 
   return {
     sections: filtered,
     generalTermsTitle: input.generalTermsTitle,
     generalTermsHtml,
+    generalTermsItems,
   }
 }

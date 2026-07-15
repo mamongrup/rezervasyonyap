@@ -15,7 +15,12 @@ export default function HotelFacilityAccordionSections({
   className?: string
   id?: string
 }) {
-  if (content.sections.length === 0 && !content.generalTermsHtml?.trim()) return null
+  if (
+    content.sections.length === 0 &&
+    !content.generalTermsHtml?.trim() &&
+    !content.generalTermsItems?.length
+  )
+    return null
 
   return (
     <div id={id} className={clsx('scroll-mt-28', className)}>
@@ -76,17 +81,25 @@ export default function HotelFacilityAccordionSections({
         ))}
       </div>
 
-      {content.generalTermsHtml?.trim() ? (
+      {content.generalTermsHtml?.trim() || content.generalTermsItems?.length ? (
         <div className="mt-6 rounded-2xl border border-neutral-200 bg-neutral-50/70 p-4 sm:p-5 dark:border-neutral-700 dark:bg-neutral-800/40">
           <h3 className="text-sm font-semibold text-neutral-900 dark:text-white">
             {content.generalTermsTitle}
           </h3>
-          <div
-            className="prose prose-sm mt-3 max-w-none leading-relaxed text-neutral-700 dark:prose-invert dark:text-neutral-300"
-            dangerouslySetInnerHTML={{
-              __html: sanitizeRichCmsHtml(content.generalTermsHtml),
-            }}
-          />
+          {content.generalTermsItems?.length ? (
+            <ul className="mt-3 list-disc space-y-2 ps-5 text-sm leading-6 text-neutral-700 dark:text-neutral-300">
+              {content.generalTermsItems.map((item) => (
+                <li key={item}>{item}</li>
+              ))}
+            </ul>
+          ) : (
+            <div
+              className="prose prose-sm mt-3 max-w-none leading-relaxed text-neutral-700 dark:prose-invert dark:text-neutral-300"
+              dangerouslySetInnerHTML={{
+                __html: sanitizeRichCmsHtml(content.generalTermsHtml ?? ''),
+              }}
+            />
+          )}
         </div>
       ) : null}
     </div>

@@ -173,6 +173,49 @@ export function sanitizeRichCmsHtml(html: string): string {
   return sanitizeCmsHtml(html, 'rich')
 }
 
+function escapePlainText(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+}
+
+/**
+ * Eski sağlayıcı kayıtlarını yapay zekâ editoryal kuyruğu tamamlanana kadar
+ * okunabilir tutar. Kaçışlı HTML'i çözer; düz ve uzun metni kısa paragraflara
+ * böler. Çıktı yine `sanitizeRichCmsHtml` ile temizlenmelidir.
+ */
+export function normalizeImportedRichTextHtml(raw: string): string {
+  let value = String(raw ?? '').trim()
+  if (!value) return ''
+
+  value = value
+    .replace(/&amp;lt;/gi, '&lt;')
+    .replace(/&amp;gt;/gi, '&gt;')
+    .replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>')
+    .replace(/&amp;nbsp;?/gi, ' ')
+    .replace(/&nbsp;?/gi, ' ')
+    .replace(/\r\n?/g, '\n')
+
+  if (/<(p|h[1-6]|ul|ol|li|div|blockquote)\b/i.test(value)) return value
+
+  const plain = value.replace(/<br\s*\/?>/gi, '\n').replace(/\s+/g, ' ').trim()
+  if (!plain) return ''
+
+  const sentences = plain
+    .split(/(?<=[.!?])\s+(?=[A-ZÀ-ÖØ-ÞÇĞİÖŞÜА-ЯЁ])/u)
+    .map((sentence) => sentence.trim())
+    .filter(Boolean)
+  const paragraphs: string[] = []
+  for (let index = 0; index < sentences.length; index += 3) {
+    paragraphs.push(`<p>${escapePlainText(sentences.slice(index, index + 3).join(' '))}</p>`)
+  }
+  return paragraphs.join('') || `<p>${escapePlainText(plain)}</p>`
+}
+
 /** Panel → SEO → header_html / footer_html (meta, link, sınırlı harici script) */
 export function sanitizeSiteUiHtml(html: string): string {
   return sanitizeCmsHtml(html, 'siteUi')

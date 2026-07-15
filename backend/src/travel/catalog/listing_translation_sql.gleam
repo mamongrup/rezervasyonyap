@@ -27,9 +27,9 @@ pub fn title_select_sql(
   <> " and nullif(trim(lt_any.title), '') is not null limit 1), l.slug)"
 }
 
-/// Vitrin açıklamasında başka dile geri düşülmez ve ham sağlayıcı metni
-/// yayımlanmaz. Yalnızca istenen dilde editoryal olarak bölümlendirilmiş HTML
-/// kullanılabilir; eksik kayıtları içerik işçisi arka planda tamamlar.
+/// Vitrin açıklamasında başka dile geri düşülmez. İstenen dildeki kayıt,
+/// editoryal işleme kuyruğu devam ederken de görünür kalır; içerik işçisi aynı
+/// kaydı daha sonra SEO uyumlu semantik HTML ile günceller.
 pub fn description_select_sql(
   listing_id_sql: String,
   locale_placeholder: String,
@@ -40,10 +40,6 @@ pub fn description_select_sql(
   <> listing_id_sql
   <> " and lower(lo.code) = lower("
   <> locale_placeholder
-  <> ") and length(coalesce(lt.description, '')) >= 80 "
-  <> "and lower(coalesce(lt.description, '')) ~ '<p([[:space:]]|>)' "
-  <> "and lower(coalesce(lt.description, '')) ~ '<(h2|h3|ul|ol)([[:space:]]|>)' "
-  <> "and lower(coalesce(lt.description, '')) not like '%&nbsp%' "
-  <> "and lower(coalesce(lt.description, '')) not like '%&amp;nbsp%' "
+  <> ") and nullif(trim(lt.description), '') is not null "
   <> "limit 1), '')"
 }

@@ -880,21 +880,6 @@ export default async function StayListingDetailPageContent({
         ]
       : []
   const hasHotelCampaigns = hotelCampaignGroups.some((group) => group.promotions.length > 0)
-  const hotelFacilityContent =
-    vertical === 'hotel'
-      ? buildHotelFacilityAccordionContent({
-          handle,
-          amenityKeys,
-          amenityLabels,
-          campaignBadges: hotelCampaignGroups.flatMap((group) =>
-            group.promotions.map((p) => p.title),
-          ),
-          generalTermsTitle: hd?.generalTermsTitle ?? 'Genel Şartlar',
-          vitrinMeta: hotelVitrinMeta,
-          excludeDistanceSections: true,
-          useDemoFallback: isHotelDemoListing,
-        })
-      : null
   const hotelDistanceFacilitySections =
     vertical === 'hotel'
       ? (hotelVitrinMeta?.facility_sections ?? []).filter(isHotelDistanceFacilitySection)
@@ -925,6 +910,27 @@ export default async function StayListingDetailPageContent({
     stayBookingRules: listing.stayBookingRules,
     listingCurrency: priceCurrency,
   })
+  const hotelGeneralTermsItems = [
+    ...accommodationRuleLines.map((rule) => rule.text),
+    cancellationPolicyPlain,
+    prepaymentNoteText,
+  ].filter((item): item is string => Boolean(item?.trim()))
+  const hotelFacilityContent =
+    vertical === 'hotel'
+      ? buildHotelFacilityAccordionContent({
+          handle,
+          amenityKeys,
+          amenityLabels,
+          campaignBadges: hotelCampaignGroups.flatMap((group) =>
+            group.promotions.map((p) => p.title),
+          ),
+          generalTermsTitle: hd?.generalTermsTitle ?? 'Genel Şartlar',
+          generalTermsItems: hotelGeneralTermsItems,
+          vitrinMeta: hotelVitrinMeta,
+          excludeDistanceSections: true,
+          useDemoFallback: isHotelDemoListing,
+        })
+      : null
   const hotelPetPolicyText = findAccommodationRuleText(
     catalogAccommodationRules,
     localeLang,

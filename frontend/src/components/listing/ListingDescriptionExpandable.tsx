@@ -1,6 +1,6 @@
 'use client'
 
-import { sanitizeRichCmsHtml } from '@/lib/sanitize-cms-html'
+import { normalizeImportedRichTextHtml, sanitizeRichCmsHtml } from '@/lib/sanitize-cms-html'
 import { stripHtml } from '@/lib/social-share/strip-html'
 import ButtonSecondary from '@/shared/ButtonSecondary'
 import { getMessages } from '@/utils/getT'
@@ -26,7 +26,7 @@ export default function ListingDescriptionExpandable({
   previewMax?: number
 }) {
   const messages = getMessages(locale)
-  const safeHtml = sanitizeRichCmsHtml(html)
+  const safeHtml = sanitizeRichCmsHtml(normalizeImportedRichTextHtml(html))
   const plain = stripHtml(safeHtml)
   const limit = previewMax ?? PLAIN_PREVIEW_MAX
   const needsClamp = plain.length > limit
