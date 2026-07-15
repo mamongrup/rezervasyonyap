@@ -982,6 +982,8 @@ export const fr: AppMessages = {
       distancesColHistoric: 'Sites historiques',
       distancesColSurroundings: 'Alentours',
       distancesColTransport: 'Transports',
+      distancesColAttractions: 'Lieux à visiter',
+      distancesColEssentials: 'Services essentiels',
       distancesFootnote:
         'Les distances indiquées sont calculées à vol d’oiseau ; les distances réelles peuvent varier.',
     },

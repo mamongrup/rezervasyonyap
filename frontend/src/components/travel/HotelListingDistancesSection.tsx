@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { Binoculars, Info, Landmark, PlaneTakeoff } from 'lucide-react'
+import { Info, Landmark, PlaneTakeoff, ShoppingBasket } from 'lucide-react'
 import { getMessages } from '@/utils/getT'
 import { interpolate } from '@/utils/interpolate'
 
@@ -72,13 +72,13 @@ export default function HotelListingDistancesSection({
     {
       key: 'historic',
       icon: <Landmark className="h-5 w-5" aria-hidden />,
-      title: hd?.distancesColHistoric ?? hdFallback.distancesColHistoric,
+      title: hd?.distancesColAttractions ?? hdFallback.distancesColAttractions,
       items: historicPlaces,
     },
     {
       key: 'surroundings',
-      icon: <Binoculars className="h-5 w-5" aria-hidden />,
-      title: hd?.distancesColSurroundings ?? hdFallback.distancesColSurroundings,
+      icon: <ShoppingBasket className="h-5 w-5" aria-hidden />,
+      title: hd?.distancesColEssentials ?? hdFallback.distancesColEssentials,
       items: surroundings,
     },
     {

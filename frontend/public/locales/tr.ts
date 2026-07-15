@@ -1315,6 +1315,8 @@ export const tr = {
       distancesColHistoric: 'Tarihi Yerler',
       distancesColSurroundings: 'Çevredekiler',
       distancesColTransport: 'Ulaşım',
+      distancesColAttractions: 'Gezilecek Yerler',
+      distancesColEssentials: 'Temel İhtiyaçlar',
       distancesFootnote:
         'Belirtilen uzaklıklar kuş uçuşu olarak hesaplanmakta olup, gerçek mesafeler değişkenlik gösterebilir.',
     },

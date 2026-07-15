@@ -981,6 +981,8 @@ export const ru: AppMessages = {
       distancesColHistoric: 'Исторические места',
       distancesColSurroundings: 'Окрестности',
       distancesColTransport: 'Транспорт',
+      distancesColAttractions: 'Что посмотреть',
+      distancesColEssentials: 'Необходимые услуги',
       distancesFootnote:
         'Указанные расстояния рассчитаны по прямой; фактические маршруты могут отличаться.',
     },

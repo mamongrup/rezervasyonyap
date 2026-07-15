@@ -1863,6 +1863,8 @@ export const en = {
       distancesColHistoric: 'Historic places',
       distancesColSurroundings: 'Nearby attractions',
       distancesColTransport: 'Transport',
+      distancesColAttractions: 'Places to visit',
+      distancesColEssentials: 'Essentials',
       distancesFootnote:
         'Distances are calculated as the crow flies; actual travel distances may vary.',
     },

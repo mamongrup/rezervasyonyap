@@ -964,6 +964,8 @@ export const zh: AppMessages = {
       distancesColHistoric: '历史景点',
       distancesColSurroundings: '周边',
       distancesColTransport: '交通',
+      distancesColAttractions: '游览景点',
+      distancesColEssentials: '基本生活设施',
       distancesFootnote: '所示距离为直线距离，实际路程可能有所不同。',
     },
     servicePois: {

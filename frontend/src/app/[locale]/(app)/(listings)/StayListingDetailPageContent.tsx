@@ -97,6 +97,7 @@ import HeaderGallery from './components/HeaderGallery'
 import { buildHotelFaqItems } from './hotel-faq-items'
 import {
   buildHotelListingDistanceColumns,
+  buildHotelDistanceColumnsFromFacilitySections,
   HOTEL_DEMO_AMENITY_ROWS,
   HOTEL_DEMO_CONTRACT,
   HOTEL_DEMO_INTRO_HTML,
@@ -116,9 +117,7 @@ import HotelFAQSection, { AccordionFaqSection } from './HotelFAQSection'
 import HotelFacilityAccordionSections from './HotelFacilityAccordionSections'
 import {
   buildHotelFacilityAccordionContent,
-  expandHotelFacilitySections,
   isHotelDistanceFacilitySection,
-  type HotelFacilityAccordionContent,
 } from '@/lib/hotel-facility-sections'
 import HotelListingPromotionsSection from './HotelListingPromotionsSection'
 import HotelListingActivitiesSection from './HotelListingActivitiesSection'
@@ -514,6 +513,17 @@ export default async function StayListingDetailPageContent({
   }))
   const isHotelDemoListing = vertical === 'hotel' && handle === HOTEL_DEMO_LISTING_HANDLE
   const hotelVitrinMeta = hotelVitrinMetaRaw != null ? parseHotelVitrinMeta(hotelVitrinMetaRaw) : null
+  const hotelDistanceFacilitySections =
+    vertical === 'hotel'
+      ? (hotelVitrinMeta?.facility_sections ?? []).filter(isHotelDistanceFacilitySection)
+      : []
+  const importedHotelDistanceColumns = buildHotelDistanceColumnsFromFacilitySections(
+    hotelDistanceFacilitySections,
+  )
+  const hasImportedHotelDistances =
+    importedHotelDistanceColumns.historic.length > 0 ||
+    importedHotelDistanceColumns.surroundings.length > 0 ||
+    importedHotelDistanceColumns.transport.length > 0
   const hotelActivities =
     vertical === 'hotel'
       ? fetchedHotelActivities.length > 0
@@ -524,11 +534,13 @@ export default async function StayListingDetailPageContent({
       : []
   const hotelListingDistances =
     vertical === 'hotel'
-      ? buildHotelListingDistanceColumns({
-          nearbyPois,
-          servicePois,
-          useDemoFallback: isHotelDemoListing,
-        })
+      ? hasImportedHotelDistances
+        ? importedHotelDistanceColumns
+        : buildHotelListingDistanceColumns({
+            nearbyPois,
+            servicePois,
+            useDemoFallback: isHotelDemoListing,
+          })
       : null
   const stayListingDistances =
     vertical !== 'hotel' && isStayRentalCategory(vertical)
@@ -880,18 +892,6 @@ export default async function StayListingDetailPageContent({
         ]
       : []
   const hasHotelCampaigns = hotelCampaignGroups.some((group) => group.promotions.length > 0)
-  const hotelDistanceFacilitySections =
-    vertical === 'hotel'
-      ? (hotelVitrinMeta?.facility_sections ?? []).filter(isHotelDistanceFacilitySection)
-      : []
-  const hotelDistanceFacilityContent: HotelFacilityAccordionContent | null =
-    hotelDistanceFacilitySections.length > 0
-      ? {
-          sections: expandHotelFacilitySections(hotelDistanceFacilitySections),
-          generalTermsTitle: hd?.generalTermsTitle ?? 'Genel Şartlar',
-          generalTermsHtml: null,
-        }
-      : null
   const hotelCheckInOut = formatListingCheckInOutLines(catalogAccommodationRules, {
     checkInRuleTemplate: dp.checkInRuleTemplate ?? dp.checkInRule,
     checkOutRuleTemplate: dp.checkOutRuleTemplate ?? dp.checkOutRule,
@@ -1499,12 +1499,6 @@ export default async function StayListingDetailPageContent({
           amenities={servicePois.amenities}
           transport={servicePois.transport}
           variant="embedded"
-        />
-      ) : null}
-      {hotelDistanceFacilityContent ? (
-        <HotelFacilityAccordionSections
-          id="stay-section-location-distances"
-          content={hotelDistanceFacilityContent}
         />
       ) : null}
     </div>

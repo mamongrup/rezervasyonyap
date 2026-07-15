@@ -156,6 +156,53 @@ export const HOTEL_DEMO_DISTANCES: {
   ],
 }
 
+type HotelDistanceColumns = typeof HOTEL_DEMO_DISTANCES
+
+const TRANSPORT_DISTANCE_PATTERN =
+  /airport|havaliman|aeropuerto|aéroport|flughafen|аэропорт|机场|station|terminal|metro|subway|tram|train|railway|otogar|bus|ferry|port|harbour|harbor|marina|liman/i
+const ESSENTIAL_DISTANCE_PATTERN =
+  /hospital|hastane|pharmacy|eczane|clinic|medical|market|supermarket|grocery|shopping|mall|bazaar|çarşı|bank|atm|university|üniversite|commerce/i
+const ATTRACTION_DISTANCE_PATTERN =
+  /museum|müze|park|mosque|cami|church|kilise|stadium|stadyum|gallery|galeri|culture|kültür|congress|kongre|statue|heykel|sarcoph|lahit|beach|plaj|tower|kule|square|meydan|historic|tarih|castle|kale|palace|saray|theater|tiyatro/i
+
+function classifyDistanceName(name: string): keyof HotelDistanceColumns {
+  if (TRANSPORT_DISTANCE_PATTERN.test(name)) return 'transport'
+  if (ESSENTIAL_DISTANCE_PATTERN.test(name)) return 'surroundings'
+  if (ATTRACTION_DISTANCE_PATTERN.test(name)) return 'historic'
+  return 'historic'
+}
+
+function parseProviderDistanceItem(raw: string): HotelDistanceItem | null {
+  const match = String(raw ?? '').trim().match(/^(.+?):\s*(\d+(?:[.,]\d+)?)\s*(km|m)\s*$/i)
+  if (!match) return null
+  const value = Number(match[2].replace(',', '.'))
+  if (!Number.isFinite(value)) return null
+  return {
+    name: match[1].trim(),
+    distanceKm: match[3].toLowerCase() === 'm' ? value / 1000 : value,
+  }
+}
+
+/** Sağlayıcının tek "Mesafeler" listesini anlamlı vitrin gruplarına ayırır. */
+export function buildHotelDistanceColumnsFromFacilitySections(
+  sections: readonly { items?: readonly string[] }[],
+): HotelDistanceColumns {
+  const result: HotelDistanceColumns = { historic: [], surroundings: [], transport: [] }
+  const seen = new Set<string>()
+  for (const section of sections) {
+    for (const raw of section.items ?? []) {
+      const item = parseProviderDistanceItem(raw)
+      if (!item) continue
+      const key = item.name.toLocaleLowerCase('tr').replace(/\s+/g, ' ')
+      if (seen.has(key)) continue
+      seen.add(key)
+      result[classifyDistanceName(item.name)].push(item)
+    }
+  }
+  for (const items of Object.values(result)) items.sort((a, b) => a.distanceKm - b.distanceKm)
+  return result
+}
+
 export function buildHotelListingDistanceColumns(input: {
   nearbyPois: NearbyPoi[]
   servicePois: ListingServicePois
@@ -169,15 +216,15 @@ export function buildHotelListingDistanceColumns(input: {
     (a, b) => (a.distance_km ?? 0) - (b.distance_km ?? 0),
   )
 
-  let historic = sortedNearby.slice(0, 3).map((poi) => ({
-    name: poi.title,
-    distanceKm: poi.distance_km ?? 0,
-  }))
-
-  let surroundings = sortedNearby.slice(3, 6).map((poi) => ({
-    name: poi.title,
-    distanceKm: poi.distance_km ?? 0,
-  }))
+  const nearbyColumns: HotelDistanceColumns = { historic: [], surroundings: [], transport: [] }
+  for (const poi of sortedNearby.slice(0, 9)) {
+    nearbyColumns[classifyDistanceName(poi.title)].push({
+      name: poi.title,
+      distanceKm: poi.distance_km ?? 0,
+    })
+  }
+  let historic = nearbyColumns.historic
+  let surroundings = nearbyColumns.surroundings
 
   if (surroundings.length === 0 && input.servicePois.amenities.length > 0) {
     surroundings = input.servicePois.amenities.slice(0, 3).map((poi) => ({
@@ -186,7 +233,7 @@ export function buildHotelListingDistanceColumns(input: {
     }))
   }
 
-  let transport = input.servicePois.transport.slice(0, 3).map((poi) => ({
+  let transport = input.servicePois.transport.slice(0, 6).map((poi) => ({
     name: poi.label?.trim() || poi.type,
     distanceKm: poi.distance_km,
   }))
