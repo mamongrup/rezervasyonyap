@@ -84,3 +84,23 @@ test('galerinin Src ve RoomType alanları da oda görseli olarak okunur', () => 
 
   assert.deepEqual(rows[0].meta.images, ['https://cdn.example/media/91725'])
 })
+
+test('sağlayıcı yalnızca Room etiketi verirse gerçek oda fotoğrafları kullanılır', () => {
+  const rows = buildTravelrobotHotelRoomRows({
+    HotelImages: [
+      { Url: 'https://cdn.example/pool.jpg', ImageTitle: 'Pool' },
+      { Url: 'https://cdn.example/room-1.jpg', ImageTitle: 'Room' },
+      { Url: 'https://cdn.example/room-2.jpg', ImageTitle: 'Room' },
+      { Url: 'https://cdn.example/lobby.jpg', ImageTitle: 'Lobby' },
+      { Url: 'https://cdn.example/bathroom.jpg', ImageTitle: 'Bathroom' },
+    ],
+    Rooms: [{ Name: '1 King bed' }],
+  })
+
+  assert.equal(rows[0].meta.images.length, 3)
+  assert.ok(rows[0].meta.images.includes('https://cdn.example/room-1.jpg'))
+  assert.ok(rows[0].meta.images.includes('https://cdn.example/room-2.jpg'))
+  assert.ok(rows[0].meta.images.includes('https://cdn.example/bathroom.jpg'))
+  assert.ok(!rows[0].meta.images.includes('https://cdn.example/pool.jpg'))
+  assert.ok(!rows[0].meta.images.includes('https://cdn.example/lobby.jpg'))
+})

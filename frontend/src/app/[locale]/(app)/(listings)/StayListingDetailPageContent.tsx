@@ -62,6 +62,7 @@ import {
   getComputedServicePois,
   getListingNearbyPois,
   getPublicHotelRooms,
+  getPublicListingImages,
   fetchPublicListingAttributesSafe,
   getPublicMealPlans,
   getPublicHotelPromotions,
@@ -73,6 +74,7 @@ import {
   isAttributeValueTrue,
   type ListingPriceRuleRow,
 } from '@/lib/travel-api'
+import { roomGalleryFallback } from '@/lib/hotel-room-gallery-fallback'
 import type { TListingHolidayHome } from '@/types/listing-types'
 import type { RegionPlaceData } from '@/app/api/region-places/route'
 import { guessCalendarMonthsShownFromRequest } from '@/lib/calendar-months-shown-server'
@@ -457,6 +459,7 @@ export default async function StayListingDetailPageContent({
     attrs,
     hotelValidCampaignsPayload,
     hotelRoomsResult,
+    hotelGalleryResult,
   ] = await Promise.all([
     vertical === 'yacht_charter' && catalogListingId
       ? fetchPublicVerticalYachtSafe(catalogListingId)
@@ -484,6 +487,9 @@ export default async function StayListingDetailPageContent({
       ? fetchPublicHotelValidCampaigns({ next: { revalidate: 60 } })
       : Promise.resolve(null),
     getPublicHotelRooms(catalogListingId ?? listing.id).catch(() => null),
+    vertical === 'hotel'
+      ? getPublicListingImages(catalogListingId ?? listing.id).catch(() => null)
+      : Promise.resolve(null),
   ])
   const yachtCharterSpecs =
     vertical === 'yacht_charter' && catalogListingId
@@ -615,6 +621,8 @@ export default async function StayListingDetailPageContent({
       }
       const heroImage = pickString('image') ?? pickString('hero_image')
       const galleryImages = pickStringArr('images')
+      const fallbackImages = roomGalleryFallback(hotelGalleryResult?.images ?? [], row.name)
+      const resolvedImages = galleryImages ?? (heroImage ? [heroImage] : fallbackImages)
       return {
         id: row.id,
         name: row.name,
@@ -628,8 +636,8 @@ export default async function StayListingDetailPageContent({
         amenities: pickStringArr('amenities'),
         paidAmenities: pickStringArr('paid_amenities'),
         roomScore: pickNumber('room_score') ?? pickNumber('score'),
-        image: heroImage,
-        images: galleryImages ?? (heroImage ? [heroImage] : null),
+        image: heroImage ?? fallbackImages[0] ?? null,
+        images: resolvedImages.length > 0 ? resolvedImages : null,
         unitCount: row.unit_count,
       }
     })

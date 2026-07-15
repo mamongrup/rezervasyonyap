@@ -388,6 +388,27 @@ function meaningfulRoomTokens(value) {
     .filter((token) => token.length >= 3 && !ROOM_IMAGE_STOP_WORDS.has(token))
 }
 
+function genericRoomGalleryImages(galleryEntries, roomName) {
+  const primary = []
+  const secondary = []
+  for (const entry of galleryEntries ?? []) {
+    const url = String(entry?.url || '').trim()
+    const title = normalizeRoomImageText(entry?.title)
+    if (!url) continue
+    if (['room', 'guest room', 'bedroom', 'hotel room'].includes(title)) primary.push(url)
+    else if (['living area', 'bathroom', 'private bathroom'].includes(title)) secondary.push(url)
+  }
+  const pool = [...new Set([...primary, ...secondary])]
+  if (!primary.length || !pool.length) return []
+
+  // Sağlayıcı yalnızca "Room" diyorsa yine gerçek oda fotoğraflarını kullan;
+  // oda kartlarının tamamında aynı kapak görünmesin diye oda adına göre döndür.
+  const seed = [...String(roomName || '')].reduce((sum, char) => sum + char.charCodeAt(0), 0)
+  const offset = seed % primary.length
+  const rotatedPrimary = [...primary.slice(offset), ...primary.slice(0, offset)]
+  return [...new Set([...rotatedPrimary, ...secondary])].slice(0, 6)
+}
+
 /**
  * GetHotelDetails çoğunlukla oda fotoğraflarını HotelImages[] içinde döndürür.
  * Görsel başlığı/caption'ı veya URL dosya adı oda adıyla gerçekten eşleşiyorsa
@@ -420,11 +441,12 @@ export function matchTravelrobotRoomGalleryImages(galleryEntries, roomName) {
     if (score >= 6 || (overlap.length >= 2 && distinctive)) scored.push({ url, score })
   }
 
-  return scored
+  const matched = scored
     .sort((a, b) => b.score - a.score)
     .map((entry) => entry.url)
     .filter((url, index, all) => all.indexOf(url) === index)
     .slice(0, 12)
+  return matched.length ? matched : genericRoomGalleryImages(galleryEntries, roomName)
 }
 
 function altMetaFromOffer(alt, room, hotel) {
