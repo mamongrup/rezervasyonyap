@@ -38,6 +38,7 @@ import {
 } from './lib/tatilsepeti-import-checkpoint.mjs'
 import { createPgClient } from './lib/pg-client.mjs'
 import { cliLog } from './lib/cli-log.mjs'
+import { createJobReporter } from './lib/sync-job-reporter.mjs'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const args = new Set(process.argv.slice(2))
@@ -62,6 +63,9 @@ const listPathsIdx = process.argv.indexOf('--list-paths')
 const LIST_PATHS = listPathsIdx >= 0
   ? process.argv[listPathsIdx + 1].split(',').map((s) => s.trim()).filter(Boolean)
   : (process.env.TATILSEPETI_LIST_PATHS || 'yurtici-oteller').split(',').map((s) => s.trim())
+const jobIdIdx = process.argv.indexOf('--job-id')
+const JOB_ID = jobIdIdx >= 0 ? process.argv[jobIdIdx + 1] : (process.env.SYNC_JOB_ID || '')
+const reporter = createJobReporter(JOB_ID)
 
 const { statePath, catalogPath } = defaultPaths()
 const LOG_PATH = process.env.TATILSEPETI_IMPORT_LOG || path.join(__dirname, '..', 'backups', 'tatilsepeti-hotel-import.log')
@@ -201,6 +205,8 @@ async function main() {
   const effectiveEnd =
     LIMIT > 0 ? endIndex : IS_RETRY_MODE ? hotels.length : Math.max(startIndex, batchEnd)
 
+  await reporter.start(hotels.length)
+
   appendLog(
     `[run] otel ${startIndex + 1}–${effectiveEnd} / ${hotels.length} (batch ${Math.floor(startIndex / BATCH_SIZE) + 1}, boyut ${BATCH_SIZE}) dry-run=${DRY_RUN}`,
   )
@@ -256,6 +262,7 @@ async function main() {
       if (!DRY_RUN && processedInRun % CHECKPOINT_EVERY === 0) {
         saveState(state, statePath)
       }
+      await reporter.step('', IS_RETRY_MODE ? processedInRun : state.nextIndex, hotels.length)
     }
 
     if (!DRY_RUN) {
@@ -284,12 +291,16 @@ async function main() {
         )
       }
     }
+    await reporter.done(
+      `Tatil Sepeti tamam: ${state.stats.created} yeni, ${state.stats.updated} güncelleme, ${state.stats.failed} hata.`,
+    )
   } finally {
     if (pg) await pg.end()
   }
 }
 
-main().catch((e) => {
+main().catch(async (e) => {
+  await reporter.fail(e.message || String(e))
   appendLog(`[FATAL] ${e.stack || e.message}`)
   process.exit(1)
 })

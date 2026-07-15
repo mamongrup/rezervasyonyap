@@ -10,7 +10,7 @@ import { fetchSiteSettingsFromPanel, startAiWorkerBackground, upsertSiteSettingF
 // Types
 // ──────────────────────────────────────────────────────────
 
-type SyncProvider = 'wtatil' | 'travelrobot' | 'turna' | 'yolcu360'
+type SyncProvider = 'wtatil' | 'travelrobot' | 'turna' | 'yolcu360' | 'tatilsepeti' | 'tatilbudur'
 
 interface SyncJob {
   id: string
@@ -29,6 +29,8 @@ interface ImportSchedule {
   travelrobot: number[]
   turna: number[]
   yolcu360: number[]
+  tatilsepeti: number[]
+  tatilbudur: number[]
 }
 
 const PROVIDERS: { key: SyncProvider; label: string; desc: string }[] = [
@@ -36,6 +38,8 @@ const PROVIDERS: { key: SyncProvider; label: string; desc: string }[] = [
   { key: 'travelrobot', label: 'Travelrobot (Tur · Otel · Uçuş)', desc: 'KPlus tur, otel ve uçuş ilanlarını içe aktarır (panel ayarındaki açık modüller)' },
   { key: 'turna', label: 'Turna (Uçak)', desc: 'Turna uçak biletlerini içe aktarır' },
   { key: 'yolcu360', label: 'Yolcu360 (Araç)', desc: 'Yolcu360 araç kiralama ilanlarını içe aktarır' },
+  { key: 'tatilsepeti', label: 'Tatil Sepeti (Otel)', desc: 'Türkiye otellerini oda tipleri, fiyatları ve özellikleriyle günceller' },
+  { key: 'tatilbudur', label: 'Tatilbudur (Otel)', desc: 'İzinli partner feed’indeki otel, oda, fiyat ve özellikleri günceller' },
 ]
 
 const EMPTY_SCHEDULE: ImportSchedule = {
@@ -43,6 +47,8 @@ const EMPTY_SCHEDULE: ImportSchedule = {
   travelrobot: [],
   turna: [],
   yolcu360: [],
+  tatilsepeti: [],
+  tatilbudur: [],
 }
 
 const SETTINGS_KEY = 'import_schedule'
@@ -307,7 +313,7 @@ function ProviderRow({ provider, label, desc, scheduleHours, onScheduleChange, o
         </div>
         {scheduleHours.length > 0 && (
           <p className="mt-1.5 text-[11px] text-neutral-400">
-            Saat {scheduleHours.map((h) => `${String(h).padStart(2, '0')}:00`).join(', ')} UTC'de otomatik çalışır (panel açıkken)
+            Saat {scheduleHours.map((h) => `${String(h).padStart(2, '0')}:00`).join(', ')} UTC&apos;de sunucuda otomatik çalışır
           </p>
         )}
       </div>

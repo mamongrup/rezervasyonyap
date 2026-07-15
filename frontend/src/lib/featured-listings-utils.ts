@@ -206,9 +206,20 @@ export async function loadFeaturedPlacesListingPool(
   locale: string,
 ): Promise<TListingBase[]> {
   const allIds = collectAllFeaturedListingIds(tabIds)
+  // Anasayfadaki otel vitrini Türkiye odaklıdır. Hem otomatik havuzu hem de
+  // panelden seçilmiş ilanları aynı yurtiçi filtresinden geçir; böylece manuel
+  // listede kalmış bir yurtdışı oteli "Önerilenler"e geri sızmaz.
+  const hotelScope = categorySlug === 'oteller' ? 'domestic' : undefined
   const [apiResult, featuredRows] = await Promise.all([
-    fetchCategoryListings(categorySlug, {}, { perPage: 100 }, locale),
-    allIds.length > 0 ? fetchListingsByIds(categorySlug, allIds, locale) : Promise.resolve([]),
+    fetchCategoryListings(
+      categorySlug,
+      hotelScope ? { hotel_scope: hotelScope } : {},
+      { perPage: 100 },
+      locale,
+    ),
+    allIds.length > 0
+      ? fetchListingsByIds(categorySlug, allIds, locale, { hotelScope })
+      : Promise.resolve([]),
   ])
 
   const merged = new Map<string, TListingBase>()

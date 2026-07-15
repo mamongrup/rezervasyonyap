@@ -815,6 +815,7 @@ export async function fetchListingsByIds(
   categorySlug: string,
   listingIds: string[],
   locale = 'tr',
+  opts: { hotelScope?: string } = {},
 ): Promise<TListingBase[]> {
   const ids = listingIds.map((id) => id.trim()).filter(Boolean)
   if (ids.length === 0) return []
@@ -826,6 +827,7 @@ export async function fetchListingsByIds(
     {
       categoryCode,
       listingIds: ids,
+      hotelScope: opts.hotelScope?.trim() || undefined,
       perPage: Math.min(100, ids.length),
       locale: locale || 'tr',
     },

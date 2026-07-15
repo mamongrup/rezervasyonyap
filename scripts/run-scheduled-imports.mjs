@@ -28,6 +28,8 @@ const PROVIDER_SCRIPTS = {
   travelrobot: 'scripts/sync-travelrobot-auto.mjs',
   turna: 'scripts/import-turna-flights.mjs',
   yolcu360: 'scripts/sync-yolcu360-auto.mjs',
+  tatilsepeti: 'scripts/import-tatilsepeti-hotels.mjs',
+  tatilbudur: 'scripts/import-tatilbudur-hotels.mjs',
   listing_reference: 'scripts/sync-listing-reference-sources.mjs',
 }
 

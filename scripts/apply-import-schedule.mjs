@@ -24,6 +24,10 @@ const schedule = {
   travelrobot: parseHoursEnv('IMPORT_SCHEDULE_TRAVELROBOT', [2, 14]),
   turna: parseHoursEnv('IMPORT_SCHEDULE_TURNA', [4]),
   yolcu360: parseHoursEnv('IMPORT_SCHEDULE_YOLCU360', [6]),
+  // Otel detay/fiyatları gece yenilenir. Tatilbudur resmi feed tanımlandığında
+  // IMPORT_SCHEDULE_TATILBUDUR ile etkinleştirilir.
+  tatilsepeti: parseHoursEnv('IMPORT_SCHEDULE_TATILSEPETI', [0]),
+  tatilbudur: parseHoursEnv('IMPORT_SCHEDULE_TATILBUDUR', []),
   listing_reference: parseHoursEnv('IMPORT_SCHEDULE_LISTING_REFERENCE', [1, 7, 13, 19]),
 }
 
