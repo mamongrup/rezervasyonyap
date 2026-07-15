@@ -98,6 +98,21 @@ const LOGO_PROFILE: FolderProfile = {
 }
 
 /**
+ * Header ikonları kare bir tuvale sahiptir. Genel `site` profili 16:9 ve `cover`
+ * kullandığı için ikonun alt/üst parçalarını kesmemelidir.
+ */
+const LOGO_ICON_PROFILE: FolderProfile = {
+  width: 1024,
+  height: 1024,
+  fit: 'inside',
+  vivid: false,
+  quality: 100,
+  effort: 6,
+  thumb: 0,
+  sharpen: false,
+}
+
+/**
  * `site` klasöründeki marka ve partner logoları.
  * `fixedStem` (brand-logo-*), `prefix=logo` veya `page-builder/partners/…` yolu.
  */
@@ -119,6 +134,7 @@ function siteBrandingUploadProfile(
       sharpen: false,
     }
   }
+  if (fixedStem === 'brand-logo-icon') return { ...LOGO_ICON_PROFILE }
   if (/^brand-logo/i.test(fixedStem)) return { ...LOGO_PROFILE }
   const prefix = (opts?.prefix ?? '').toLowerCase()
   const segs = opts?.subSegments ?? []

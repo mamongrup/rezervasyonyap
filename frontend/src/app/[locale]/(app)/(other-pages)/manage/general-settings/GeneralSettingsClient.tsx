@@ -1184,8 +1184,8 @@ export default function GeneralSettingsClient({ embedded = false }: GeneralSetti
                     <ImageUpload
                       value={logoIconUrl}
                       onChange={setLogoIconUrl}
-                      folder="branding"
-                      prefix="logo-icon"
+                      folder="site"
+                      fixedStem="brand-logo-icon"
                       aspectRatio="1/1"
                       objectFit="contain"
                       placeholder="İkon yükle"

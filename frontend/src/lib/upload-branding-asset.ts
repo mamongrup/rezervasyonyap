@@ -2,7 +2,11 @@
 import { uploadFetch } from '@/lib/upload-fetch'
 
 /** `logo-light` gibi sabit adlar önyüzde şablon sanılır; yükleme dosya adı farklı olmalı */
-export type BrandingUploadPurpose = 'brand-logo-light' | 'brand-logo-dark' | 'brand-favicon'
+export type BrandingUploadPurpose =
+  | 'brand-logo-light'
+  | 'brand-logo-dark'
+  | 'brand-logo-icon'
+  | 'brand-favicon'
 
 export async function uploadBrandingAsset(file: File, purpose: BrandingUploadPurpose): Promise<string> {
   const form = new FormData()
