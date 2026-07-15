@@ -74,6 +74,11 @@ const reporter = createJobReporter(JOB_ID)
 const { statePath, catalogPath } = defaultPaths()
 const LOG_PATH = process.env.TATILSEPETI_IMPORT_LOG || path.join(__dirname, '..', 'backups', 'tatilsepeti-hotel-import.log')
 
+function isNetworkFailure(error) {
+  const message = `${error?.message || ''} ${error?.cause?.message || ''} ${error?.cause?.cause?.code || ''}`
+  return /fetch failed|ağ bağlantısı|ECONN|ETIMEDOUT|ENETUNREACH|EHOSTUNREACH|UND_ERR|socket/i.test(message)
+}
+
 function appendLog(line) {
   fs.mkdirSync(path.dirname(LOG_PATH), { recursive: true })
   fs.appendFileSync(LOG_PATH, `${new Date().toISOString()} ${line}\n`)
@@ -248,6 +253,14 @@ async function main() {
           `${label} → ${result.action} görsel:${result.imageCount} oda:${result.roomCount} tamlık:${result.completeness?.score ?? '?'}%`,
         )
       } catch (e) {
+        // Sağlayıcı bağlantısı topluca kesildiğinde oteli başarısız sayıp
+        // checkpoint'i ilerletme. Arka plan çalıştırıcısı bekledikten sonra
+        // aynı otelden güvenli biçimde devam eder.
+        if (isNetworkFailure(e)) {
+          if (!DRY_RUN) saveState(state, statePath)
+          appendLog(`${label} → AĞ BEKLEMESİ: ${String(e.message).slice(0, 200)}`)
+          throw new Error(`provider_network_cooldown:${e.message}`, { cause: e })
+        }
         state.stats.failed++
         if (!IS_RETRY_MODE) state.nextIndex = i + 1
         state.failedHotelIds = state.failedHotelIds || []

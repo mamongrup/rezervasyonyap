@@ -181,7 +181,10 @@ export async function fetchHotelListCatalog(session, listPaths = DEFAULT_LIST_PA
   const all = []
   for (const path of listPaths) {
     const base = `${ORIGIN}/${path.replace(/^\/+/, '')}`
-    const first = await session.fetch(base)
+    const first = await session.fetchWithRetry(base, {
+      onRetry: ({ attempt, wait, status }) =>
+        log(`[retry] katalog ${path} HTTP/ağ ${status || 'bağlantı'} — ${wait}ms (#${attempt})`),
+    })
     if (!first.ok) throw new Error(`Liste HTTP ${first.status} ${base}`)
     const firstHtml = await first.text()
     const totalPages = parseListTotalPages(firstHtml)
@@ -191,7 +194,10 @@ export async function fetchHotelListCatalog(session, listPaths = DEFAULT_LIST_PA
     for (let p = 2; p <= totalPages; p++) {
       await sleep(Number(process.env.TATILSEPETI_PAGE_DELAY_MS || 400))
       const url = `${base}${base.includes('?') ? '&' : '?'}sayfa=${p}`
-      const r = await session.fetch(url)
+      const r = await session.fetchWithRetry(url, {
+        onRetry: ({ attempt, wait, status }) =>
+          log(`[retry] katalog ${path}/${p} HTTP/ağ ${status || 'bağlantı'} — ${wait}ms (#${attempt})`),
+      })
       if (!r.ok) throw new Error(`Liste HTTP ${r.status} ${url}`)
       const html = await r.text()
       all.push(...parseListPageHotels(html, url))

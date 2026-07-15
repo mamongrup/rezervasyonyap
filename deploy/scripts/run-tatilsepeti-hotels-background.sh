@@ -28,7 +28,12 @@ nohup bash -c "
   EXTRA_ARGS=($*)
   while true; do
     echo \"=== batch start \$(date -Iseconds) ===\" >> \"$LOG_FILE\"
-    ./deploy/scripts/import-tatilsepeti-hotels.sh \"\${EXTRA_ARGS[@]}\" >> \"$LOG_FILE\" 2>&1 || true
+    if ! ./deploy/scripts/import-tatilsepeti-hotels.sh \"\${EXTRA_ARGS[@]}\" >> \"$LOG_FILE\" 2>&1; then
+      COOLDOWN=\"\${TATILSEPETI_FAILURE_COOLDOWN_SECONDS:-300}\"
+      echo \"=== sağlayıcı/ağ hatası; \${COOLDOWN} sn beklenecek \$(date -Iseconds) ===\" >> \"$LOG_FILE\"
+      sleep \"\$COOLDOWN\"
+      continue
+    fi
     DONE=\$(node -e \"
       const fs=require('fs');
       const s=JSON.parse(fs.readFileSync('$APP_ROOT/backups/tatilsepeti-hotel-import-state.json','utf8'));
