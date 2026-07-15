@@ -21,8 +21,11 @@ WITH target_listings AS (
       WHERE lt.listing_id = l.id
         AND lower(lo.code) = 'tr'
         AND length(coalesce(lt.description, '')) >= 120
-        AND lower(coalesce(lt.description, '')) ~ '<(p|h2|h3|ul|ol|li)([[:space:]]|>)'
+        AND lower(coalesce(lt.description, '')) ~ '<p([[:space:]]|>)'
+        AND lower(coalesce(lt.description, '')) ~ '<(h2|h3|ul|ol)([[:space:]]|>)'
         AND lower(coalesce(lt.description, '')) NOT LIKE '%&nbsp%'
+        AND lower(coalesce(lt.description, '')) NOT LIKE '%&amp;nbsp%'
+        AND lower(coalesce(lt.description, '')) !~ '\\m(the|and|with|from|located|featuring|complimentary|nearest|breakfast)\\M'
     ) AS tr_ready,
     NOT EXISTS (
       SELECT 1
@@ -35,8 +38,10 @@ WITH target_listings AS (
           AND lower(lo.code) = wanted.locale_code
           AND length(coalesce(lt.title, '')) > 0
           AND length(coalesce(lt.description, '')) > 80
-          AND lower(coalesce(lt.description, '')) ~ '<(p|h2|h3|ul|ol|li)([[:space:]]|>)'
+          AND lower(coalesce(lt.description, '')) ~ '<p([[:space:]]|>)'
+          AND lower(coalesce(lt.description, '')) ~ '<(h2|h3|ul|ol)([[:space:]]|>)'
           AND lower(coalesce(lt.description, '')) NOT LIKE '%&nbsp%'
+          AND lower(coalesce(lt.description, '')) NOT LIKE '%&amp;nbsp%'
       )
     ) AS translations_ready,
     NOT EXISTS (
@@ -57,7 +62,7 @@ WITH target_listings AS (
   JOIN product_categories pc ON pc.id = l.category_id
   WHERE pc.code IN (
     'holiday_home', 'yacht_charter', 'activity', 'tour', 'cruise',
-    'hotel', 'ferry', 'car_rental', 'flight'
+    'hotel', 'ferry', 'transfer', 'car_rental', 'flight'
   )
     AND l.status IN ('draft', 'published')
 ), batch_counts AS (
@@ -83,7 +88,8 @@ GROUP BY t.category_code
 ORDER BY CASE t.category_code
   WHEN 'hotel' THEN 0 WHEN 'holiday_home' THEN 1 WHEN 'yacht_charter' THEN 2
   WHEN 'activity' THEN 3 WHEN 'tour' THEN 4 WHEN 'cruise' THEN 5
-  WHEN 'ferry' THEN 6 WHEN 'car_rental' THEN 7 WHEN 'flight' THEN 8 ELSE 9 END
+  WHEN 'ferry' THEN 6 WHEN 'transfer' THEN 7 WHEN 'car_rental' THEN 8
+  WHEN 'flight' THEN 9 ELSE 10 END
 `
 
 const client = createPgClient()
