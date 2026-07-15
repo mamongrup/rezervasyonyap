@@ -6,7 +6,7 @@ import { siteUploadBrowserHref } from '@/lib/site-upload-browser-href'
 import { getSitePublicConfig } from '@/lib/travel-api'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import React, { useEffect, useId, useState } from 'react'
+import React, { useEffect, useId, useRef, useState } from 'react'
 
 const LS_KEY = 'travel_branding_cache'
 
@@ -137,6 +137,31 @@ function AnimatedBrandIcon({
   const tealFilter = `brand-teal-${uid}`
   const warmFilter = `brand-warm-${uid}`
   const sunClip = `brand-sun-${uid}`
+  const [imageReady, setImageReady] = useState(false)
+  const [animationCycle, setAnimationCycle] = useState(0)
+  const hoverArmed = useRef(true)
+
+  useEffect(() => {
+    let active = true
+    setImageReady(false)
+    const image = new window.Image()
+    image.onload = () => {
+      if (active) setImageReady(true)
+    }
+    image.onerror = () => {
+      if (active) onError?.()
+    }
+    image.src = src
+    return () => {
+      active = false
+    }
+  }, [src, onError])
+
+  useEffect(() => {
+    if (!imageReady) return
+    const timer = window.setInterval(() => setAnimationCycle((cycle) => cycle + 1), 12_000)
+    return () => window.clearInterval(timer)
+  }, [imageReady])
 
   const rays = [
     { x: 45, y: 315, w: 210, h: 125, delay: 1.82 },
@@ -146,6 +171,10 @@ function AnimatedBrandIcon({
     { x: 845, y: 400, w: 110, h: 75, delay: 2.14 },
   ]
 
+  if (!imageReady) {
+    return <span className={`inline-block ${className ?? ''}`} aria-hidden="true" />
+  }
+
   return (
     <svg
       viewBox="0 0 1024 1024"
@@ -153,6 +182,14 @@ function AnimatedBrandIcon({
       aria-label={alt}
       className={className}
       xmlns="http://www.w3.org/2000/svg"
+      onMouseEnter={() => {
+        if (!hoverArmed.current) return
+        hoverArmed.current = false
+        setAnimationCycle((cycle) => cycle + 1)
+      }}
+      onMouseLeave={() => {
+        hoverArmed.current = true
+      }}
     >
       <style>{`
         .brand-wave-layer {
@@ -215,37 +252,38 @@ function AnimatedBrandIcon({
           <circle cx="548" cy="526" r="405" />
         </clipPath>
       </defs>
-
-      <g className="brand-wave-layer" filter={`url(#${tealFilter})`}>
-        <image href={src} width="1024" height="1024" preserveAspectRatio="xMidYMid meet" onError={onError} />
+      <g key={animationCycle}>
+        <g className="brand-wave-layer" filter={`url(#${tealFilter})`}>
+          <image href={src} width="1024" height="1024" preserveAspectRatio="xMidYMid meet" onError={onError} />
+        </g>
+        <g className="brand-sun-layer" clipPath={`url(#${sunClip})`} filter={`url(#${warmFilter})`}>
+          <image href={src} width="1024" height="1024" preserveAspectRatio="xMidYMid meet" />
+        </g>
+        {rays.map((ray, index) => (
+          <svg
+            key={`${ray.x}-${ray.y}`}
+            x={ray.x}
+            y={ray.y}
+            width={ray.w}
+            height={ray.h}
+            viewBox={`${ray.x} ${ray.y} ${ray.w} ${ray.h}`}
+            overflow="visible"
+            className="brand-ray-layer"
+            style={{ animationDelay: `${ray.delay + index * 0.015}s` }}
+          >
+            <g filter={`url(#${warmFilter})`}>
+              <image href={src} width="1024" height="1024" preserveAspectRatio="xMidYMid meet" />
+            </g>
+          </svg>
+        ))}
+        <image
+          className="brand-final-layer"
+          href={src}
+          width="1024"
+          height="1024"
+          preserveAspectRatio="xMidYMid meet"
+        />
       </g>
-      <g className="brand-sun-layer" clipPath={`url(#${sunClip})`} filter={`url(#${warmFilter})`}>
-        <image href={src} width="1024" height="1024" preserveAspectRatio="xMidYMid meet" />
-      </g>
-      {rays.map((ray, index) => (
-        <svg
-          key={`${ray.x}-${ray.y}`}
-          x={ray.x}
-          y={ray.y}
-          width={ray.w}
-          height={ray.h}
-          viewBox={`${ray.x} ${ray.y} ${ray.w} ${ray.h}`}
-          overflow="visible"
-          className="brand-ray-layer"
-          style={{ animationDelay: `${ray.delay + index * 0.015}s` }}
-        >
-          <g filter={`url(#${warmFilter})`}>
-            <image href={src} width="1024" height="1024" preserveAspectRatio="xMidYMid meet" />
-          </g>
-        </svg>
-      ))}
-      <image
-        className="brand-final-layer"
-        href={src}
-        width="1024"
-        height="1024"
-        preserveAspectRatio="xMidYMid meet"
-      />
     </svg>
   )
 }
