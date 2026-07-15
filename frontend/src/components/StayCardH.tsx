@@ -10,7 +10,7 @@ import Link from 'next/link'
 import { FC } from 'react'
 import { useVitrinHref } from '@/hooks/use-vitrin-href'
 import { normalizeCatalogVertical } from '@/lib/catalog-listing-vertical'
-import { stayDetailPathForVertical } from '@/lib/stay-detail-routes'
+import { detailPathForVertical } from '@/lib/listing-detail-routes'
 
 interface StayCardHProps {
   className?: string
@@ -36,7 +36,7 @@ const StayCardH: FC<StayCardHProps> = ({ className = '', data }) => {
     listingVertical,
   } = data
 
-  const detailBase = stayDetailPathForVertical(normalizeCatalogVertical(listingVertical))
+  const detailBase = detailPathForVertical(normalizeCatalogVertical(listingVertical))
   const listingHref = vitrinHref(`${detailBase}/${listingHandle}`)
 
   const renderSliderGallery = () => {

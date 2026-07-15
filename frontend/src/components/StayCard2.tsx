@@ -18,7 +18,7 @@ import { useParams } from 'next/navigation'
 import { FC, useState } from 'react'
 import { useVitrinHref } from '@/hooks/use-vitrin-href'
 import { normalizeCatalogVertical } from '@/lib/catalog-listing-vertical'
-import { stayDetailPathForVertical } from '@/lib/stay-detail-routes'
+import { detailPathForVertical } from '@/lib/listing-detail-routes'
 interface StayCard2Props {
   className?: string
   data: TListingBase
@@ -56,7 +56,7 @@ const StayCard2: FC<StayCard2Props> = ({ size = 'default', className = '', data 
       ? holidayHomeCapacitySummary(data as TListingHolidayHome, messages.listing.capacitySpec, true)
       : null
 
-  const detailBase = stayDetailPathForVertical(normalizeCatalogVertical(listingVertical))
+  const detailBase = detailPathForVertical(normalizeCatalogVertical(listingVertical))
   const listingHref = vitrinHref(`${detailBase}/${listingHandle}`)
   const imgSrcRaw =
     (galleryImgs?.[0] && typeof galleryImgs[0] === 'string'

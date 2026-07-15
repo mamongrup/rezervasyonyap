@@ -43,6 +43,7 @@ const UPLOADS_ROOT = path.join(TRAVEL_ROOT, 'frontend', 'public', 'uploads', 'li
 const ORG_ID = 'a0000000-0000-4000-8000-000000000001'
 const CATEGORY_ID = 1
 const LOCALE_TR = 1
+const PROVIDER = 'bravo_space'
 
 const THEME_SLUG_TO_EN = {
   'korunakli-villalar': 'conservative',
@@ -86,6 +87,7 @@ const args = new Set(process.argv.slice(2))
 const SKIP_IMAGES = args.has('--skip-images')
 const DRY_RUN = args.has('--dry-run')
 const CREATE_MISSING_ONLY = args.has('--create-missing-only')
+const REPAIR_ID_COLLISIONS = args.has('--repair-id-collisions')
 const limitIdx = process.argv.indexOf('--limit')
 const LIMIT = limitIdx >= 0 ? Number(process.argv[limitIdx + 1]) : 0
 
@@ -207,10 +209,14 @@ async function loadLocationName(mysql, locationId) {
 async function findExistingListing(pgClient, slug, legacyId) {
   const r = await pgClient.query(
     `SELECT id::text, slug, external_listing_ref FROM listings
-     WHERE external_listing_ref = $1
-        OR slug = $2
+     WHERE organization_id = $1::uuid
+       AND category_id = $2
+       AND (
+         (external_provider_code = $3 AND external_listing_ref = $4)
+         OR slug = $5
+       )
      LIMIT 1`,
-    [String(legacyId), slug],
+    [ORG_ID, CATEGORY_ID, PROVIDER, String(legacyId), slug],
   )
   return r.rows[0] || null
 }
@@ -425,14 +431,15 @@ async function importOne(pgClient, mysql, space, mediaMap, stats) {
     if (listingId) {
       await pgClient.query(
         `UPDATE listings SET
-           slug = $2, status = $3, currency_code = $4,
-           min_stay_nights = $5, cleaning_fee_amount = NULL,
-           map_lat = $6, map_lng = $7, location_name = $8,
-           external_listing_ref = $9, share_to_social = $10,
-           instant_book = $11, updated_at = now()
+           category_id = $2, slug = $3, status = $4, currency_code = $5,
+           min_stay_nights = $6, cleaning_fee_amount = NULL,
+           map_lat = $7, map_lng = $8, location_name = $9,
+           external_provider_code = $10, external_listing_ref = $11,
+           share_to_social = $12, instant_book = $13, updated_at = now()
          WHERE id = $1::uuid`,
         [
           listingId,
+          CATEGORY_ID,
           slug,
           status,
           currency,
@@ -440,6 +447,7 @@ async function importOne(pgClient, mysql, space, mediaMap, stats) {
           space.map_lat,
           space.map_lng,
           locationName || space.address || '',
+          PROVIDER,
           String(legacyId),
           Boolean(space.is_featured),
           Boolean(space.is_instant),
@@ -450,11 +458,12 @@ async function importOne(pgClient, mysql, space, mediaMap, stats) {
         `INSERT INTO listings (
            organization_id, category_id, slug, status, currency_code,
            min_stay_nights, map_lat, map_lng, location_name,
-           external_listing_ref, share_to_social, instant_book, listing_source
+           external_provider_code, external_listing_ref,
+           share_to_social, instant_book, listing_source
          ) VALUES (
            $1::uuid, $2, $3, $4, $5,
            $6, $7, $8, $9,
-           $10, $11, $12, 'manual'
+           $10, $11, $12, $13, 'manual'
          ) RETURNING id::text`,
         [
           ORG_ID,
@@ -466,6 +475,7 @@ async function importOne(pgClient, mysql, space, mediaMap, stats) {
           space.map_lat,
           space.map_lng,
           locationName || space.address || '',
+          PROVIDER,
           String(legacyId),
           Boolean(space.is_featured),
           Boolean(space.is_instant),
@@ -548,6 +558,8 @@ async function main() {
     DRY_RUN,
     'create-missing-only=',
     CREATE_MISSING_ONLY,
+    'repair-id-collisions=',
+    REPAIR_ID_COLLISIONS,
     'limit=',
     LIMIT || 'all',
   )
@@ -558,7 +570,14 @@ async function main() {
   await pgClient.connect()
 
   let sql = `SELECT s.* FROM bravo_spaces s
-    WHERE s.deleted_at IS NULL AND s.status = 'publish'
+    WHERE s.deleted_at IS NULL AND s.status = 'publish'`
+  if (REPAIR_ID_COLLISIONS) {
+    sql += ` AND EXISTS (
+      SELECT 1 FROM bravo_events e
+      WHERE e.id = s.id AND e.deleted_at IS NULL AND e.status = 'publish'
+    )`
+  }
+  sql += `
     ORDER BY s.id`
   if (LIMIT > 0) sql += ` LIMIT ${LIMIT}`
 

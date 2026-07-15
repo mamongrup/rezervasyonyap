@@ -16,6 +16,7 @@ import { mediaUrlCandidates } from './lib/bravo-media.mjs'
 import { avifFileName, downloadAndSaveAvif } from './lib/wtatil-image-download.mjs'
 import { listingStorageKey, listingUploadDir } from './lib/listing-upload-path.mjs'
 import { createPgClient } from './lib/pg-client.mjs'
+import { mysqlConfigFromArgv } from './lib/bravo-mysql-config.mjs'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const TRAVEL_ROOT = path.resolve(__dirname, '..')
@@ -29,6 +30,7 @@ const ORG_ID = 'a0000000-0000-4000-8000-000000000001'
 const args = new Set(process.argv.slice(2))
 const SKIP_IMAGES = args.has('--skip-images')
 const DRY_RUN = args.has('--dry-run')
+const REPAIR_ID_COLLISIONS = args.has('--repair-id-collisions')
 const limitIdx = process.argv.indexOf('--limit')
 const LIMIT = limitIdx >= 0 ? Number(process.argv[limitIdx + 1]) : 0
 
@@ -473,14 +475,18 @@ async function importOne(pgClient, mysqlConn, ctx, event, mediaMap, stats) {
 
 async function main() {
   log('=== import-bravo-events start ===')
-  log('skip-images=', SKIP_IMAGES, 'dry-run=', DRY_RUN, 'limit=', LIMIT || 'all')
+  log(
+    'skip-images=',
+    SKIP_IMAGES,
+    'dry-run=',
+    DRY_RUN,
+    'repair-id-collisions=',
+    REPAIR_ID_COLLISIONS,
+    'limit=',
+    LIMIT || 'all',
+  )
 
-  const mysqlConn = await mysql.createConnection({
-    host: '127.0.0.1',
-    user: 'root',
-    password: '',
-    database: 'rezervasyonyap',
-  })
+  const mysqlConn = await mysql.createConnection(mysqlConfigFromArgv())
 
   const pgClient = createPgClient()
   await pgClient.connect()
@@ -488,7 +494,14 @@ async function main() {
   const ctx = await resolveImportContext(pgClient)
 
   let sql = `SELECT e.* FROM bravo_events e
-    WHERE e.deleted_at IS NULL AND e.status = 'publish'
+    WHERE e.deleted_at IS NULL AND e.status = 'publish'`
+  if (REPAIR_ID_COLLISIONS) {
+    sql += ` AND EXISTS (
+      SELECT 1 FROM bravo_spaces s
+      WHERE s.id = e.id AND s.deleted_at IS NULL AND s.status = 'publish'
+    )`
+  }
+  sql += `
     ORDER BY e.id`
   if (LIMIT > 0) sql += ` LIMIT ${LIMIT}`
 
