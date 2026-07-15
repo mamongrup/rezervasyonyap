@@ -1,21 +1,24 @@
 #!/usr/bin/env bash
-# Ortak uygulamaya bağlı marka domainlerini frontend host güvenliği ve
-# uluslararası dil yönlendirmesi için production env dosyasına güvenle ekler.
+# Ortak uygulamaya bağlı marka domainlerini frontend host güvenliği, backend
+# CORS ve uluslararası dil yönlendirmesi için production env dosyalarına ekler.
 set -euo pipefail
 
 ENV_FILE="${FRONTEND_ENV_FILE:-/etc/rezervasyonyap/frontend.env}"
-REQUIRED_ALLOWED_HOSTS="rezervasyonyap.tr,www.rezervasyonyap.tr,rezervasyonyap.com.tr,www.rezervasyonyap.com.tr,reservationinturkey.com,www.reservationinturkey.com,127.0.0.1,localhost"
+BACKEND_ENV_FILE="${BACKEND_ENV_FILE:-/etc/rezervasyonyap/backend.env}"
+REQUIRED_ALLOWED_HOSTS="rezervasyonyap.tr,www.rezervasyonyap.tr,rezervasyonyap.com.tr,www.rezervasyonyap.com.tr,reservationinturkey.com,www.reservationinturkey.com,tatil-evi.com,www.tatil-evi.com,127.0.0.1,localhost"
 REQUIRED_INTERNATIONAL_HOSTS="reservationinturkey.com,www.reservationinturkey.com"
+REQUIRED_CORS_ORIGINS="https://rezervasyonyap.tr,https://www.rezervasyonyap.tr,https://rezervasyonyap.com.tr,https://www.rezervasyonyap.com.tr,https://reservationinturkey.com,https://www.reservationinturkey.com,https://tatil-evi.com,https://www.tatil-evi.com"
 
 env_value() {
-  local key="$1"
+  local file="$1"
+  local key="$2"
   awk -v key="$key" '
     index($0, key "=") == 1 {
       sub("^[^=]*=", "", $0)
       print $0
       exit
     }
-  ' "$ENV_FILE"
+  ' "$file"
 }
 
 merge_csv() {
@@ -35,10 +38,11 @@ merge_csv() {
 }
 
 upsert_env() {
-  local key="$1"
-  local value="$2"
+  local file="$1"
+  local key="$2"
+  local value="$3"
   local tmp
-  tmp="$(mktemp "${ENV_FILE}.tmp.XXXXXX")"
+  tmp="$(mktemp "${file}.tmp.XXXXXX")"
   awk -v key="$key" -v value="$value" '
     BEGIN { written = 0 }
     index($0, key "=") == 1 {
@@ -48,21 +52,25 @@ upsert_env() {
     }
     { print }
     END { if (!written) print key "=" value }
-  ' "$ENV_FILE" > "$tmp"
-  chmod --reference="$ENV_FILE" "$tmp" 2>/dev/null || chmod 600 "$tmp"
-  chown --reference="$ENV_FILE" "$tmp" 2>/dev/null || true
-  mv -f "$tmp" "$ENV_FILE"
+  ' "$file" > "$tmp"
+  chmod --reference="$file" "$tmp" 2>/dev/null || chmod 600 "$tmp"
+  chown --reference="$file" "$tmp" 2>/dev/null || true
+  mv -f "$tmp" "$file"
 }
 
-mkdir -p "$(dirname "$ENV_FILE")"
-if [[ ! -f "$ENV_FILE" ]]; then
-  touch "$ENV_FILE"
-  chmod 600 "$ENV_FILE"
-fi
+for file in "$ENV_FILE" "$BACKEND_ENV_FILE"; do
+  mkdir -p "$(dirname "$file")"
+  if [[ ! -f "$file" ]]; then
+    touch "$file"
+    chmod 600 "$file"
+  fi
+done
 
-allowed="$(merge_csv "$(env_value ALLOWED_HOSTS)" "$REQUIRED_ALLOWED_HOSTS")"
-international="$(merge_csv "$(env_value INTERNATIONAL_SITE_HOSTS)" "$REQUIRED_INTERNATIONAL_HOSTS")"
-upsert_env ALLOWED_HOSTS "$allowed"
-upsert_env INTERNATIONAL_SITE_HOSTS "$international"
+allowed="$(merge_csv "$(env_value "$ENV_FILE" ALLOWED_HOSTS)" "$REQUIRED_ALLOWED_HOSTS")"
+international="$(merge_csv "$(env_value "$ENV_FILE" INTERNATIONAL_SITE_HOSTS)" "$REQUIRED_INTERNATIONAL_HOSTS")"
+cors="$(merge_csv "$(env_value "$BACKEND_ENV_FILE" CORS_ALLOWED_ORIGINS)" "$REQUIRED_CORS_ORIGINS")"
+upsert_env "$ENV_FILE" ALLOWED_HOSTS "$allowed"
+upsert_env "$ENV_FILE" INTERNATIONAL_SITE_HOSTS "$international"
+upsert_env "$BACKEND_ENV_FILE" CORS_ALLOWED_ORIGINS "$cors"
 
-echo "[OK] Çoklu domain frontend env ayarları hazır: $ENV_FILE"
+echo "[OK] Çoklu domain env ayarları hazır: $ENV_FILE, $BACKEND_ENV_FILE"

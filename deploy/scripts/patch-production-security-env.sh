@@ -15,7 +15,7 @@ patch_env() {
 }
 
 patch_env /etc/rezervasyonyap/backend.env CORS_ALLOWED_ORIGINS \
-  "https://rezervasyonyap.tr,https://www.rezervasyonyap.tr"
+  "https://rezervasyonyap.tr,https://www.rezervasyonyap.tr,https://rezervasyonyap.com.tr,https://www.rezervasyonyap.com.tr,https://reservationinturkey.com,https://www.reservationinturkey.com,https://tatil-evi.com,https://www.tatil-evi.com"
 patch_env /etc/rezervasyonyap/frontend.env CSP_MODE enforce
 
 echo "[OK] backend.env:"
