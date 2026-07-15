@@ -574,7 +574,7 @@ async function main() {
   if (REPAIR_ID_COLLISIONS) {
     sql += ` AND EXISTS (
       SELECT 1 FROM bravo_events e
-      WHERE e.id = s.id AND e.deleted_at IS NULL AND e.status = 'publish'
+      WHERE e.id = s.id AND e.deleted_at IS NULL
     )`
   }
   sql += `

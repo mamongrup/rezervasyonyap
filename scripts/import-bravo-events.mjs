@@ -494,12 +494,14 @@ async function main() {
   const ctx = await resolveImportContext(pgClient)
 
   let sql = `SELECT e.* FROM bravo_events e
-    WHERE e.deleted_at IS NULL AND e.status = 'publish'`
+    WHERE e.deleted_at IS NULL`
   if (REPAIR_ID_COLLISIONS) {
     sql += ` AND EXISTS (
       SELECT 1 FROM bravo_spaces s
       WHERE s.id = e.id AND s.deleted_at IS NULL AND s.status = 'publish'
     )`
+  } else {
+    sql += ` AND e.status = 'publish'`
   }
   sql += `
     ORDER BY e.id`
