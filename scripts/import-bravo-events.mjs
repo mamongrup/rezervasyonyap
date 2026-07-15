@@ -17,11 +17,17 @@ import { avifFileName, downloadAndSaveAvif } from './lib/wtatil-image-download.m
 import { listingStorageKey, listingUploadDir } from './lib/listing-upload-path.mjs'
 import { createPgClient } from './lib/pg-client.mjs'
 import { mysqlConfigFromArgv } from './lib/bravo-mysql-config.mjs'
+import { createBundleMysql, loadBravoCollisionBundle } from './lib/bravo-collision-bundle.mjs'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const TRAVEL_ROOT = path.resolve(__dirname, '..')
 const require = createRequire(path.join(TRAVEL_ROOT, 'frontend', 'package.json'))
-const mysql = require('mysql2/promise')
+const REPAIR_BUNDLE_PATH = path.join(
+  TRAVEL_ROOT,
+  'scripts',
+  'data',
+  'bravo-id-collision-repair.json',
+)
 
 const UPLOADS_ROOT = path.join(TRAVEL_ROOT, 'frontend', 'public', 'uploads', 'listings')
 const PROVIDER = 'bravo_event'
@@ -486,40 +492,57 @@ async function main() {
     LIMIT || 'all',
   )
 
-  const mysqlConn = await mysql.createConnection(mysqlConfigFromArgv())
+  let mysqlConn
+  let events
+  let mediaMap
+
+  if (REPAIR_ID_COLLISIONS && existsSync(REPAIR_BUNDLE_PATH)) {
+    const bundle = await loadBravoCollisionBundle(REPAIR_BUNDLE_PATH)
+    mysqlConn = createBundleMysql(bundle)
+    events = LIMIT > 0 ? bundle.events.slice(0, LIMIT) : bundle.events
+    mediaMap = new Map((bundle.media ?? []).map((row) => [Number(row.id), row]))
+    log('repair source=portable PostgreSQL bundle:', REPAIR_BUNDLE_PATH)
+  } else {
+    const mysql = require('mysql2/promise')
+    mysqlConn = await mysql.createConnection(mysqlConfigFromArgv())
+
+    let sql = `SELECT e.* FROM bravo_events e
+      WHERE e.deleted_at IS NULL`
+    if (REPAIR_ID_COLLISIONS) {
+      sql += ` AND EXISTS (
+        SELECT 1 FROM bravo_spaces s
+        WHERE s.id = e.id AND s.deleted_at IS NULL AND s.status = 'publish'
+      )`
+    } else {
+      sql += ` AND e.status = 'publish'`
+    }
+    sql += `
+      ORDER BY e.id`
+    if (LIMIT > 0) sql += ` LIMIT ${LIMIT}`
+
+    const [sourceEvents] = await mysqlConn.query(sql)
+    events = sourceEvents
+  }
 
   const pgClient = createPgClient()
   await pgClient.connect()
 
   const ctx = await resolveImportContext(pgClient)
 
-  let sql = `SELECT e.* FROM bravo_events e
-    WHERE e.deleted_at IS NULL`
-  if (REPAIR_ID_COLLISIONS) {
-    sql += ` AND EXISTS (
-      SELECT 1 FROM bravo_spaces s
-      WHERE s.id = e.id AND s.deleted_at IS NULL AND s.status = 'publish'
-    )`
-  } else {
-    sql += ` AND e.status = 'publish'`
-  }
-  sql += `
-    ORDER BY e.id`
-  if (LIMIT > 0) sql += ` LIMIT ${LIMIT}`
-
-  const [events] = await mysqlConn.query(sql)
   log('publish events to import:', events.length)
 
-  const allMediaIds = []
-  for (const e of events) {
-    if (e.image_id) allMediaIds.push(Number(e.image_id))
-    if (e.banner_image_id) allMediaIds.push(Number(e.banner_image_id))
-    for (const part of String(e.gallery || '').split(',')) {
-      const n = Number(part.trim())
-      if (n) allMediaIds.push(n)
+  if (!mediaMap) {
+    const allMediaIds = []
+    for (const e of events) {
+      if (e.image_id) allMediaIds.push(Number(e.image_id))
+      if (e.banner_image_id) allMediaIds.push(Number(e.banner_image_id))
+      for (const part of String(e.gallery || '').split(',')) {
+        const n = Number(part.trim())
+        if (n) allMediaIds.push(n)
+      }
     }
+    mediaMap = await loadMediaMap(mysqlConn, allMediaIds)
   }
-  const mediaMap = await loadMediaMap(mysqlConn, allMediaIds)
   log('media_files loaded:', mediaMap.size)
 
   const stats = {

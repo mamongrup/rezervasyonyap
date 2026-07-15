@@ -26,6 +26,7 @@ import {
 import { listingStorageKey, listingUploadDir } from './lib/listing-upload-path.mjs'
 import { mysqlConfigFromArgv } from './lib/bravo-mysql-config.mjs'
 import { createPgClient } from './lib/pg-client.mjs'
+import { createBundleMysql, loadBravoCollisionBundle } from './lib/bravo-collision-bundle.mjs'
 import {
   applyBravoHolidayHomeVitrinFields,
   buildBravoHolidayHomeVitrinPackage,
@@ -36,7 +37,12 @@ import {
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const TRAVEL_ROOT = path.resolve(__dirname, '..')
 const require = createRequire(path.join(TRAVEL_ROOT, 'frontend', 'package.json'))
-const mysql = require('mysql2/promise')
+const REPAIR_BUNDLE_PATH = path.join(
+  TRAVEL_ROOT,
+  'scripts',
+  'data',
+  'bravo-id-collision-repair.json',
+)
 
 const UPLOADS_ROOT = path.join(TRAVEL_ROOT, 'frontend', 'public', 'uploads', 'listings')
 
@@ -494,7 +500,7 @@ async function importOne(pgClient, mysql, space, mediaMap, stats) {
     )
 
     const ownerContact =
-      vitrin.ownerContact || (await loadBravoOwnerContact(mysql, space))
+      vitrin.ownerContact || space.__owner_contact || (await loadBravoOwnerContact(mysql, space))
     await applyBravoHolidayHomeVitrinFields(pgClient, listingId, {
       meta,
       pools: vitrin.pools,
@@ -564,37 +570,59 @@ async function main() {
     LIMIT || 'all',
   )
 
-  const mysqlConn = await mysql.createConnection(mysqlConfigFromArgv())
+  let mysqlConn
+  let spaces
+  let mediaMap
+
+  if (REPAIR_ID_COLLISIONS && existsSync(REPAIR_BUNDLE_PATH)) {
+    const bundle = await loadBravoCollisionBundle(REPAIR_BUNDLE_PATH)
+    mysqlConn = createBundleMysql(bundle)
+    const bundledSpaces = bundle.spaces.map((space) => ({
+      ...space,
+      // Owner iletisim bilgileri tasinabilir onarim paketine bilerek dahil edilmez.
+      __owner_contact: {},
+    }))
+    spaces = LIMIT > 0 ? bundledSpaces.slice(0, LIMIT) : bundledSpaces
+    mediaMap = new Map((bundle.media ?? []).map((row) => [Number(row.id), row]))
+    log('repair source=portable PostgreSQL bundle:', REPAIR_BUNDLE_PATH)
+  } else {
+    const mysql = require('mysql2/promise')
+    mysqlConn = await mysql.createConnection(mysqlConfigFromArgv())
+
+    let sql = `SELECT s.* FROM bravo_spaces s
+      WHERE s.deleted_at IS NULL AND s.status = 'publish'`
+    if (REPAIR_ID_COLLISIONS) {
+      sql += ` AND EXISTS (
+        SELECT 1 FROM bravo_events e
+        WHERE e.id = s.id AND e.deleted_at IS NULL
+      )`
+    }
+    sql += `
+      ORDER BY s.id`
+    if (LIMIT > 0) sql += ` LIMIT ${LIMIT}`
+
+    const [sourceSpaces] = await mysqlConn.query(sql)
+    spaces = sourceSpaces
+  }
 
   const pgClient = createPgClient()
   await pgClient.connect()
 
-  let sql = `SELECT s.* FROM bravo_spaces s
-    WHERE s.deleted_at IS NULL AND s.status = 'publish'`
-  if (REPAIR_ID_COLLISIONS) {
-    sql += ` AND EXISTS (
-      SELECT 1 FROM bravo_events e
-      WHERE e.id = s.id AND e.deleted_at IS NULL
-    )`
-  }
-  sql += `
-    ORDER BY s.id`
-  if (LIMIT > 0) sql += ` LIMIT ${LIMIT}`
-
-  const [spaces] = await mysqlConn.query(sql)
   log('publish listings to import:', spaces.length)
 
-  const allMediaIds = []
-  for (const s of spaces) {
-    if (s.image_id) allMediaIds.push(Number(s.image_id))
-    if (s.banner_image_id) allMediaIds.push(Number(s.banner_image_id))
-    for (const part of String(s.gallery || '').split(',')) {
-      const n = Number(part.trim())
-      if (n) allMediaIds.push(n)
+  if (!mediaMap) {
+    const allMediaIds = []
+    for (const s of spaces) {
+      if (s.image_id) allMediaIds.push(Number(s.image_id))
+      if (s.banner_image_id) allMediaIds.push(Number(s.banner_image_id))
+      for (const part of String(s.gallery || '').split(',')) {
+        const n = Number(part.trim())
+        if (n) allMediaIds.push(n)
+      }
     }
+    log('loading media map...', allMediaIds.length, 'ids')
+    mediaMap = await loadMediaMap(mysqlConn, allMediaIds)
   }
-  log('loading media map...', allMediaIds.length, 'ids')
-  const mediaMap = await loadMediaMap(mysqlConn, allMediaIds)
   log('media rows loaded:', mediaMap.size)
 
   const stats = {
