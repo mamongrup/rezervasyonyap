@@ -68,10 +68,15 @@ fn all_locales() -> List(String) {
   ["tr", "en", "de", "ru", "zh", "fr"]
 }
 
+fn hotel_content_standard() -> String {
+  "OTEL İÇERİĞİ ÖZEL KURALI: Otel açıklamasında yalnızca tesisin konumu, konaklama birimleri, olanakları, yeme-içme seçenekleri ve doğrulanabilir deneyim bilgileri yer alır. Giriş/çıkış saatleri, ön ödeme, iptal, evcil hayvan, çocuk ve diğer tesis kurallarını açıklamaya, SSS'ye veya önemli notlara tekrar yazma; bunlar yalnızca yapılandırılmış Kurallar bölümünde gösterilir. Ham sağlayıcı etiketlerini (Property Desc, Rooms, Amenities vb.) hedef dilde doğal başlıklara dönüştür."
+}
+
 fn category_hint(code: String) -> String {
   case string.lowercase(string.trim(code)) {
     "hotel" ->
-      "Otel ilanı: konum, oda/tesis olanakları, çevre, check-in/out ve konaklama deneyimini vurgula."
+      "Otel ilanı: konum, oda ve tesis olanakları, çevre ve konaklama deneyimini vurgula. "
+      <> hotel_content_standard()
     "holiday_home" ->
       "Tatil evi/villa: kapasite, oda sayısı, havuz/bahçe, manzara ve konaklama konforunu anlat."
     "yacht_charter" ->

@@ -17,6 +17,15 @@ export interface HotelFaqSource {
   petPolicyText?: string | null
   /** Otele özgü ek SSS maddeleri (panel) */
   customFaqItems?: Array<{ q: string; a: string }> | null
+  /** Politika maddeleri Kurallar bölümünde gösteriliyorsa false olmalıdır. */
+  includePolicyItems?: boolean
+}
+
+const POLICY_QUESTION_PATTERN =
+  /check[\s-]?(?:in|out)|giriş|çıkış|ön\s*ödeme|prepay|deposit|iptal|cancel|evcil|hayvan|pet|ruhsat|lisans|license/i
+
+export function isHotelPolicyFaqQuestion(question: string): boolean {
+  return POLICY_QUESTION_PATTERN.test(String(question ?? '').trim())
 }
 
 export function buildHotelFaqItems(
@@ -26,10 +35,11 @@ export function buildHotelFaqItems(
   type Item = { q: string; a: string }
   const items: Item[] = []
   const str = (v: unknown): string => (typeof v === 'string' ? v.trim() : '')
+  const includePolicyItems = source.includePolicyItems !== false
 
   const checkInLine = str(source.checkInLine)
   const checkOutLine = str(source.checkOutLine)
-  if (checkInLine || checkOutLine) {
+  if (includePolicyItems && (checkInLine || checkOutLine)) {
     const parts = [checkInLine, checkOutLine].filter(Boolean)
     items.push({
       q: t.qCheckInOut ?? 'Check-in ve check-out saatleri nedir?',
@@ -47,7 +57,7 @@ export function buildHotelFaqItems(
   }
 
   const prepaymentNote = str(source.prepaymentNote)
-  if (prepaymentNote) {
+  if (includePolicyItems && prepaymentNote) {
     items.push({
       q: t.qPrepayment ?? 'Rezervasyon için ne kadar ön ödeme alınır?',
       a: prepaymentNote,
@@ -55,7 +65,7 @@ export function buildHotelFaqItems(
   }
 
   const cancellationText = str(source.cancellationText)
-  if (cancellationText) {
+  if (includePolicyItems && cancellationText) {
     items.push({
       q: t.qCancellation ?? 'Rezervasyonumu nasıl iptal edebilirim?',
       a: cancellationText,
@@ -63,7 +73,7 @@ export function buildHotelFaqItems(
   }
 
   const petPolicyText = str(source.petPolicyText)
-  if (petPolicyText) {
+  if (includePolicyItems && petPolicyText) {
     items.push({
       q: t.qPets ?? 'Evcil hayvan kabul ediyor musunuz?',
       a: petPolicyText,
@@ -71,7 +81,7 @@ export function buildHotelFaqItems(
   }
 
   const ministryLicenseRef = str(source.ministryLicenseRef)
-  if (ministryLicenseRef) {
+  if (includePolicyItems && ministryLicenseRef) {
     items.push({
       q: t.qLicense ?? 'Tesisin Bakanlık ruhsat numarası nedir?',
       a: ministryLicenseRef,
@@ -81,7 +91,7 @@ export function buildHotelFaqItems(
   for (const custom of source.customFaqItems ?? []) {
     const q = str(custom.q)
     const a = str(custom.a)
-    if (q && a) items.push({ q, a })
+    if (q && a && (includePolicyItems || !isHotelPolicyFaqQuestion(q))) items.push({ q, a })
   }
 
   return items

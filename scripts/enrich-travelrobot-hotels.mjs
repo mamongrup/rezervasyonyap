@@ -9,6 +9,7 @@
  *   node scripts/enrich-travelrobot-hotels.mjs --with-rooms --rooms-only --skip-static
  *   node scripts/enrich-travelrobot-hotels.mjs --skip-static --with-rooms
  *   node scripts/enrich-travelrobot-hotels.mjs --with-i18n --limit 50
+ *   node scripts/enrich-travelrobot-hotels.mjs --external-ref KTR333729 --quality-repair
  *
  * --with-rooms: her otel için SearchHotel (oda/fiyat) — 1200+ otelde yavaş; --limit ile parça parça çalıştırın.
  */
@@ -26,15 +27,19 @@ import { countUniqueHotelRoomNames } from './lib/travelrobot-hotel-rooms.mjs'
 import { createPgClient } from './lib/pg-client.mjs'
 import { createJobReporter } from './lib/sync-job-reporter.mjs'
 import { cliLog } from './lib/cli-log.mjs'
+import { assessAndPersistHotelImportQuality } from './lib/hotel-import-quality.mjs'
 
 const args = new Set(process.argv.slice(2))
+const externalRefIdx = process.argv.indexOf('--external-ref')
+const EXTERNAL_REF = externalRefIdx >= 0 ? String(process.argv[externalRefIdx + 1] ?? '').trim() : ''
+const QUALITY_REPAIR = args.has('--quality-repair') || Boolean(EXTERNAL_REF)
 const DRY_RUN = args.has('--dry-run')
 const SKIP_STATIC = args.has('--skip-static')
 const ROOMS_ONLY = args.has('--rooms-only')
-const FORCE = args.has('--force')
+const FORCE = args.has('--force') || QUALITY_REPAIR
 const FULL = args.has('--full')
-const WITH_VITRIN = args.has('--with-vitrin') || FULL || FORCE
-const WITH_I18N = args.has('--with-i18n') || FULL
+const WITH_VITRIN = args.has('--with-vitrin') || FULL || FORCE || QUALITY_REPAIR
+const WITH_I18N = args.has('--with-i18n') || FULL || QUALITY_REPAIR
 const WITH_ROOMS_CLI =
   args.has('--with-rooms') || args.has('--no-with-rooms') ? args.has('--with-rooms') : null
 const limitIdx = process.argv.indexOf('--limit')
@@ -70,9 +75,10 @@ async function loadTravelrobotHotels(pgClient, orgId) {
        AND l.external_provider_code = 'travelrobot'
        AND lhd.travelrobot_hotel_code IS NOT NULL
        AND trim(lhd.travelrobot_hotel_code) <> ''
+       AND ($4::text = '' OR lhd.travelrobot_hotel_code = $4)
      ORDER BY l.updated_at ASC, l.slug ASC
      OFFSET $2 LIMIT CASE WHEN $3 > 0 THEN $3 ELSE NULL END`,
-    [orgId, OFFSET, LIMIT > 0 ? LIMIT : null],
+    [orgId, OFFSET, LIMIT > 0 ? LIMIT : null, EXTERNAL_REF],
   )
   return r.rows.map((row) => {
     let catalog = {}
@@ -99,7 +105,7 @@ function catalogRowFromDb(item) {
 
 async function main() {
   cliLog(
-    `Başlıyor — limit=${LIMIT || 'yok'}, offset=${OFFSET}, with-rooms=${WITH_ROOMS_CLI ?? 'panel'}, skip-static=${SKIP_STATIC}`,
+    `Başlıyor — limit=${LIMIT || 'yok'}, offset=${OFFSET}, ref=${EXTERNAL_REF || 'tümü'}, kalite-onarımı=${QUALITY_REPAIR}, with-rooms=${WITH_ROOMS_CLI ?? 'panel'}, skip-static=${SKIP_STATIC}`,
   )
   cliLog('Panel ayarları yükleniyor (DB)…')
   const cfg = await loadTravelrobotConfig()
@@ -150,8 +156,11 @@ async function main() {
       const item = items[i]
       let row = mergeStaticHotelContent(catalogRowFromDb(item), staticMap.get(item.code))
 
-      const fetchRooms =
-        WITH_ROOMS_CLI != null ? WITH_ROOMS_CLI : cfg.importHotelRooms !== false
+      const fetchRooms = QUALITY_REPAIR
+        ? true
+        : WITH_ROOMS_CLI != null
+          ? WITH_ROOMS_CLI
+          : cfg.importHotelRooms !== false
       cliLog(`[${i + 1}/${items.length}] ${item.code} — API zenginleştirme…`)
       try {
         const enriched = await enrichTravelrobotHotelRows(cfg, tokenCode, [row], {
@@ -181,6 +190,11 @@ async function main() {
           overwriteExtras: FORCE || FULL,
           overwriteVitrin: FORCE || FULL,
         })
+        const quality = QUALITY_REPAIR
+          ? await assessAndPersistHotelImportQuality(client, result.listingId, {
+              forceEditorialRefresh: true,
+            })
+          : result.quality
         updated++
         if (result.imageCount) withImages++
         if (result.roomCount) roomHitCount++
@@ -192,8 +206,11 @@ async function main() {
         const extrasNote = extras
           ? `, ${extras.mealPlans ?? 0} pansiyon, ${extras.calendarDays ?? 0} gün fiyat${extras.translations ? `, ${extras.translations} dil` : ''}`
           : ''
+        const qualityNote = quality
+          ? `, kalite=${quality.status} dil:${quality.locale_count}/${quality.required_locales} galeri:${quality.gallery_count} oda-görsel:${quality.rooms_with_images}/${quality.room_count}`
+          : ''
         await reporter.step(
-          `[${i + 1}/${items.length}] ${result.slug} — ${result.imageCount ?? 0} görsel, ${result.roomCount ?? previewRooms} oda${vitrinNote}${extrasNote}`,
+          `[${i + 1}/${items.length}] ${result.slug} — ${result.imageCount ?? 0} görsel, ${result.roomCount ?? previewRooms} oda${vitrinNote}${extrasNote}${qualityNote}`,
           i + 1,
           items.length,
         )

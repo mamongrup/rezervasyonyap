@@ -123,7 +123,6 @@ import HotelListingPromotionsSection from './HotelListingPromotionsSection'
 import HotelListingActivitiesSection from './HotelListingActivitiesSection'
 import HotelHighlightsSection from './HotelHighlightsSection'
 import ListingDetailCampaignsFromList from './ListingDetailCampaignsFromList'
-import HotelImportantNotesSection from './HotelImportantNotesSection'
 import HotelPropertyInfoGrid from './HotelPropertyInfoGrid'
 import HotelRoomShowcase, { type HotelRoomShowcaseItem } from './HotelRoomShowcase'
 import HotelListingMainShell from './HotelListingMainShell'
@@ -161,7 +160,6 @@ import HotelListingDistancesSection from '@/components/travel/HotelListingDistan
 import SectionMealPlans from '@/components/listing/SectionMealPlans'
 import {
   buildListingAccommodationRuleLines,
-  findAccommodationRuleText,
   formatListingCheckInOutLines,
 } from '@/lib/listing-accommodation-rules'
 import {
@@ -910,11 +908,15 @@ export default async function StayListingDetailPageContent({
     stayBookingRules: listing.stayBookingRules,
     listingCurrency: priceCurrency,
   })
-  const hotelGeneralTermsItems = [
-    ...accommodationRuleLines.map((rule) => rule.text),
-    cancellationPolicyPlain,
-    prepaymentNoteText,
-  ].filter((item): item is string => Boolean(item?.trim()))
+  const hotelPrimaryRuleValues = new Set(
+    [hotelCheckInLine, hotelCheckOutLine, prepaymentNoteText]
+      .map((value) => String(value ?? '').trim().toLocaleLowerCase(locale))
+      .filter(Boolean),
+  )
+  const hotelAdditionalRuleLines = accommodationRuleLines
+    .map((rule) => rule.text.trim())
+    .filter(Boolean)
+    .filter((text) => !hotelPrimaryRuleValues.has(text.toLocaleLowerCase(locale)))
   const hotelFacilityContent =
     vertical === 'hotel'
       ? buildHotelFacilityAccordionContent({
@@ -925,17 +927,12 @@ export default async function StayListingDetailPageContent({
             group.promotions.map((p) => p.title),
           ),
           generalTermsTitle: hd?.generalTermsTitle ?? 'Genel Şartlar',
-          generalTermsItems: hotelGeneralTermsItems,
+          generalTermsItems: [],
           vitrinMeta: hotelVitrinMeta,
           excludeDistanceSections: true,
           useDemoFallback: isHotelDemoListing,
         })
       : null
-  const hotelPetPolicyText = findAccommodationRuleText(
-    catalogAccommodationRules,
-    localeLang,
-    /pet|evcil|hayvan|köpek|kedi/i,
-  )
   const hotelHasBreakfast = mealPlans.some((m) =>
     ['bed_breakfast', 'half_board', 'full_board', 'all_inclusive'].includes(m.plan_code),
   )
@@ -943,14 +940,9 @@ export default async function StayListingDetailPageContent({
     vertical === 'hotel'
       ? buildHotelFaqItems(
           {
-            checkInLine: hotelCheckInLine,
-            checkOutLine: hotelCheckOutLine,
-            prepaymentNote: prepaymentNoteText,
-            cancellationText: cancellationPolicyPlain,
-            ministryLicenseRef: listing.ministryLicenseRef,
             hasBreakfastIncluded: hotelHasBreakfast,
-            petPolicyText: hotelPetPolicyText,
             customFaqItems: hotelVitrinMeta?.faq_items ?? null,
+            includePolicyItems: false,
           },
           messages.listing.faq as Record<string, string>,
         )
@@ -1618,6 +1610,9 @@ export default async function StayListingDetailPageContent({
                       : null,
                   hasBreakfast: hotelHasBreakfast,
                   prepaymentLine: prepaymentNoteText?.trim() ?? null,
+                  cancellationLine: cancellationPolicyPlain?.trim() ?? null,
+                  ministryLicenseLine: listing.ministryLicenseRef?.trim() ?? null,
+                  additionalRuleLines: hotelAdditionalRuleLines,
                 }}
                 contract={
                   listingContractBody
@@ -1644,25 +1639,13 @@ export default async function StayListingDetailPageContent({
                   <HotelFAQSection
                     locale={locale}
                     source={{
-                      checkInLine: hotelCheckInLine,
-                      checkOutLine: hotelCheckOutLine,
-                      prepaymentNote: prepaymentNoteText,
-                      cancellationText: cancellationPolicyPlain,
-                      ministryLicenseRef: listing.ministryLicenseRef,
                       hasBreakfastIncluded: hotelHasBreakfast,
-                      petPolicyText: hotelPetPolicyText,
+                      customFaqItems: hotelVitrinMeta?.faq_items ?? null,
+                      includePolicyItems: false,
                     }}
                   />
                 </div>
               ) : null}
-              <HotelImportantNotesSection
-                locale={locale}
-                ruleLines={accommodationRuleLines}
-                ministryLicenseLine={null}
-                prepaymentNoteText={prepaymentNoteText}
-                listingContractHref={null}
-                cancellationPolicyPlain={cancellationPolicyPlain}
-              />
             </>
           ) : (
             <>

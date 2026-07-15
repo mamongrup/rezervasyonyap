@@ -2,6 +2,7 @@
  * Tatilsepeti otelleri — PostgreSQL upsert (provider: tatilsepeti).
  */
 import { scoreHotelPackage } from './tatilsepeti-hotel-api.mjs'
+import { assessAndPersistHotelImportQuality } from './hotel-import-quality.mjs'
 
 const PROVIDER = 'tatilsepeti'
 
@@ -158,6 +159,7 @@ async function upsertRoomsAndPrices(pgClient, listingId, pkg) {
           capacity_text: room.capacityText,
           features: room.features,
           image: room.image,
+          images: room.images?.length ? room.images : room.image ? [room.image] : [],
           seasonal_prices: room.seasonalPrices || [],
         }),
       ],
@@ -335,6 +337,8 @@ export async function upsertTatilsepetiHotelListing(
     ],
   )
 
+  const quality = await assessAndPersistHotelImportQuality(pgClient, listingId)
+
   return {
     action: created ? 'created' : 'updated',
     listingId,
@@ -345,5 +349,6 @@ export async function upsertTatilsepetiHotelListing(
     mealPlanCount,
     amenityCount,
     completeness,
+    quality,
   }
 }

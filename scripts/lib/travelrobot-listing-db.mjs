@@ -5,6 +5,7 @@
 import { applyTravelrobotHotelVitrinFields } from './travelrobot-hotel-vitrin-db.mjs'
 import { applyTravelrobotHotelExtrasFields } from './travelrobot-hotel-extras-db.mjs'
 import { extractHotelMinNightlyPrice, collectHotelGalleryEntries } from './travelrobot-hotel-extras.mjs'
+import { assessAndPersistHotelImportQuality } from './hotel-import-quality.mjs'
 import { looksLikeEnglishHotelText } from './travelrobot-hotel-vitrin.mjs'
 
 export { extractHotelMinNightlyPrice } from './travelrobot-hotel-extras.mjs'
@@ -838,6 +839,8 @@ export async function upsertTravelrobotHotelListing(
     })
   }
 
+  const quality = await assessAndPersistHotelImportQuality(pgClient, core.listingId)
+
   return {
     ...core,
     action: core.created ? 'created' : 'updated',
@@ -846,6 +849,7 @@ export async function upsertTravelrobotHotelListing(
     imageCount: extrasStats?.gallery ?? collectHotelImageUrls(hotel).length,
     vitrinStats,
     extrasStats,
+    quality,
   }
 }
 

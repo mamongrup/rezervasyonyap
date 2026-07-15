@@ -25,6 +25,9 @@ export type HotelPropertyInfoItem = {
   starRating?: number | null
   hasBreakfast?: boolean | null
   prepaymentLine?: string | null
+  cancellationLine?: string | null
+  ministryLicenseLine?: string | null
+  additionalRuleLines?: string[] | null
 }
 
 export default function HotelPropertyInfoGrid({
@@ -92,7 +95,22 @@ export default function HotelPropertyInfoGrid({
   }
 
   const contractHtml = contract?.bodyHtml?.trim()
-  if (items.length === 0 && !contractHtml) return null
+  const normalizedCardValues = new Set(
+    items.map((item) => item.value.trim().toLocaleLowerCase(locale)),
+  )
+  const additionalRules = [
+    ...(source.additionalRuleLines ?? []),
+    source.cancellationLine ?? '',
+    source.ministryLicenseLine ?? '',
+  ]
+    .map((line) => String(line ?? '').trim())
+    .filter(Boolean)
+    .filter((line) => !normalizedCardValues.has(line.toLocaleLowerCase(locale)))
+    .filter((line, index, all) =>
+      all.findIndex((candidate) => candidate.toLocaleLowerCase(locale) === line.toLocaleLowerCase(locale)) === index,
+    )
+
+  if (items.length === 0 && additionalRules.length === 0 && !contractHtml) return null
 
   return (
     <div id="stay-section-rules" className={clsx('listingSection__wrap scroll-mt-28', className)}>
@@ -137,10 +155,25 @@ export default function HotelPropertyInfoGrid({
         </ul>
       ) : null}
 
+      {additionalRules.length > 0 ? (
+        <ul className={clsx('grid gap-3 sm:grid-cols-2', items.length > 0 && 'mt-5')}>
+          {additionalRules.map((rule) => (
+            <li
+              key={rule}
+              className="flex items-start gap-2.5 rounded-2xl border border-neutral-100 bg-neutral-50/60 px-4 py-3 text-sm leading-relaxed text-neutral-700 dark:border-neutral-700 dark:bg-neutral-800/40 dark:text-neutral-300"
+            >
+              <BadgeCheck className="mt-0.5 h-4 w-4 shrink-0 text-green-500" strokeWidth={1.75} aria-hidden />
+              <span>{rule}</span>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+
       {contractHtml ? (
         <div
           className={clsx(
-            items.length > 0 && 'mt-6 border-t border-neutral-100 pt-6 dark:border-neutral-800',
+            (items.length > 0 || additionalRules.length > 0) &&
+              'mt-6 border-t border-neutral-100 pt-6 dark:border-neutral-800',
           )}
         >
           <h3 className="text-sm font-semibold text-neutral-900 dark:text-white">
