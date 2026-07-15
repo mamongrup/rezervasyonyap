@@ -100,13 +100,22 @@ export class TatilsepetiSession {
     const retryable = opts.retryableStatuses || RETRYABLE_HTTP
     const onRetry = opts.onRetry || (() => {})
     let last = null
+    let lastError = null
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
       if (attempt > 0) {
         const wait = jitterMs(baseMs * 2 ** (attempt - 1))
         onRetry({ attempt, wait, status: last?.status })
         await sleep(wait)
       }
-      last = await this.fetch(url, opts)
+      try {
+        last = await this.fetch(url, opts)
+        lastError = null
+      } catch (error) {
+        lastError = error
+        last = { status: 0, ok: false }
+        if (attempt >= maxRetries) break
+        continue
+      }
       if (last.ok) return last
       if (!retryable.has(last.status)) return last
       if (last.status === 429) {
@@ -114,6 +123,13 @@ export class TatilsepetiSession {
         onRetry({ attempt: attempt + 1, wait: extra, status: 429, cooldown: true })
         await sleep(extra)
       }
+    }
+    if (lastError) {
+      const cause = lastError?.cause
+      const details = [cause?.code, cause?.address, cause?.port].filter(Boolean).join(' ')
+      throw new Error(`Tatilsepeti ağ bağlantısı başarısız: ${details || lastError.message}`, {
+        cause: lastError,
+      })
     }
     return last
   }

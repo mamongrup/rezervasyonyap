@@ -17,6 +17,7 @@
  */
 import fs from 'node:fs'
 import path from 'node:path'
+import dns from 'node:dns'
 import { fileURLToPath } from 'node:url'
 import {
   TatilsepetiSession,
@@ -41,6 +42,9 @@ import { cliLog } from './lib/cli-log.mjs'
 import { createJobReporter } from './lib/sync-job-reporter.mjs'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
+// Bazı sunucularda Tatilsepeti'nin IPv6 adresi çözümleniyor ancak dış IPv6
+// rotası çalışmıyor. curl -4 başarılıyken Node fetch bu nedenle düşebiliyor.
+dns.setDefaultResultOrder('ipv4first')
 const args = new Set(process.argv.slice(2))
 
 const DRY_RUN = args.has('--dry-run')

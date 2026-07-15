@@ -30,6 +30,9 @@ fi
 cd "$APP_ROOT"
 mkdir -p "$(dirname "$LOG_FILE")"
 
+# curl -4 erişirken Node.js'in erişilemeyen IPv6 rotasını seçmesini engelle.
+export NODE_OPTIONS="${NODE_OPTIONS:+$NODE_OPTIONS }--dns-result-order=ipv4first"
+
 echo "→ PostgreSQL bağlantı testi…"
 node scripts/test-pg-env.mjs || exit 1
 
