@@ -40,6 +40,7 @@ import {
 import { createPgClient } from './lib/pg-client.mjs'
 import { cliLog } from './lib/cli-log.mjs'
 import { createJobReporter } from './lib/sync-job-reporter.mjs'
+import { nextProviderHttpHealth } from './lib/provider-http-health.mjs'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 // Bazı sunucularda Tatilsepeti'nin IPv6 adresi çözümleniyor ancak dış IPv6
@@ -239,6 +240,8 @@ async function main() {
           status,
           dryRun: DRY_RUN,
         })
+        const hadProvider400 = Number(state.providerConsecutiveDetail400 || 0) > 0
+        state.providerConsecutiveDetail400 = 0
         if (!DRY_RUN) {
           if (result.action === 'created') state.stats.created++
           else state.stats.updated++
@@ -252,13 +255,23 @@ async function main() {
         appendLog(
           `${label} → ${result.action} görsel:${result.imageCount} oda:${result.roomCount} tamlık:${result.completeness?.score ?? '?'}%`,
         )
+        if (hadProvider400 && !DRY_RUN) saveState(state, statePath)
       } catch (e) {
+        const providerHealth = nextProviderHttpHealth(
+          state.providerConsecutiveDetail400,
+          e,
+          Number(process.env.TATILSEPETI_CONSECUTIVE_400_LIMIT || 3),
+        )
+        state.providerConsecutiveDetail400 = providerHealth.consecutive400
         // Sağlayıcı bağlantısı topluca kesildiğinde oteli başarısız sayıp
         // checkpoint'i ilerletme. Arka plan çalıştırıcısı bekledikten sonra
         // aynı otelden güvenli biçimde devam eder.
-        if (isNetworkFailure(e)) {
+        if (isNetworkFailure(e) || providerHealth.shouldPause) {
           if (!DRY_RUN) saveState(state, statePath)
-          appendLog(`${label} → AĞ BEKLEMESİ: ${String(e.message).slice(0, 200)}`)
+          const reason = providerHealth.status
+            ? `HTTP ${providerHealth.status}; ardışık400=${providerHealth.consecutive400}`
+            : 'ağ bağlantısı'
+          appendLog(`${label} → SAĞLAYICI BEKLEMESİ (${reason}): ${String(e.message).slice(0, 200)}`)
           throw new Error(`provider_network_cooldown:${e.message}`, { cause: e })
         }
         state.stats.failed++
@@ -274,6 +287,8 @@ async function main() {
         }
         processedInRun++
         appendLog(`${label} → HATA: ${String(e.message).slice(0, 160)}`)
+        // SIGTERM/SSH kesintisinde son hata listesi kaybolmasın.
+        if (!DRY_RUN) saveState(state, statePath)
       }
 
       if (!DRY_RUN && processedInRun % CHECKPOINT_EVERY === 0) {

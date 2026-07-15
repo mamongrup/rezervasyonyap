@@ -26,14 +26,22 @@ nohup bash -c "
   set -euo pipefail
   cd \"$APP_ROOT\"
   EXTRA_ARGS=($*)
+  FAILURE_COUNT=0
   while true; do
     echo \"=== batch start \$(date -Iseconds) ===\" >> \"$LOG_FILE\"
     if ! ./deploy/scripts/import-tatilsepeti-hotels.sh \"\${EXTRA_ARGS[@]}\" >> \"$LOG_FILE\" 2>&1; then
-      COOLDOWN=\"\${TATILSEPETI_FAILURE_COOLDOWN_SECONDS:-300}\"
-      echo \"=== sağlayıcı/ağ hatası; \${COOLDOWN} sn beklenecek \$(date -Iseconds) ===\" >> \"$LOG_FILE\"
+      FAILURE_COUNT=\$((FAILURE_COUNT + 1))
+      BASE_COOLDOWN=\"\${TATILSEPETI_FAILURE_COOLDOWN_SECONDS:-900}\"
+      MAX_COOLDOWN=\"\${TATILSEPETI_MAX_FAILURE_COOLDOWN_SECONDS:-21600}\"
+      SHIFT=\$((FAILURE_COUNT - 1))
+      if [[ \"\$SHIFT\" -gt 4 ]]; then SHIFT=4; fi
+      COOLDOWN=\$((BASE_COOLDOWN * (1 << SHIFT)))
+      if [[ \"\$COOLDOWN\" -gt \"\$MAX_COOLDOWN\" ]]; then COOLDOWN=\"\$MAX_COOLDOWN\"; fi
+      echo \"=== sağlayıcı/ağ hatası #\${FAILURE_COUNT}; \${COOLDOWN} sn beklenecek \$(date -Iseconds) ===\" >> \"$LOG_FILE\"
       sleep \"\$COOLDOWN\"
       continue
     fi
+    FAILURE_COUNT=0
     DONE=\$(node -e \"
       const fs=require('fs');
       const s=JSON.parse(fs.readFileSync('$APP_ROOT/backups/tatilsepeti-hotel-import-state.json','utf8'));
