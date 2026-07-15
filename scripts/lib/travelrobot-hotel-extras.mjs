@@ -354,6 +354,79 @@ function imagesFromAlt(alt, room) {
   return urls
 }
 
+const ROOM_IMAGE_STOP_WORDS = new Set([
+  'room',
+  'rooms',
+  'oda',
+  'odasi',
+  'bed',
+  'beds',
+  'yatak',
+  'full',
+  'type',
+  'subject',
+  'availability',
+  'is',
+  'to',
+  'with',
+  'the',
+])
+
+function normalizeRoomImageText(value) {
+  return String(value || '')
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+function meaningfulRoomTokens(value) {
+  return normalizeRoomImageText(value)
+    .split(' ')
+    .filter((token) => token.length >= 3 && !ROOM_IMAGE_STOP_WORDS.has(token))
+}
+
+/**
+ * GetHotelDetails çoğunlukla oda fotoğraflarını HotelImages[] içinde döndürür.
+ * Görsel başlığı/caption'ı veya URL dosya adı oda adıyla gerçekten eşleşiyorsa
+ * ilgili odaya bağlanır; lobi, havuz ve restoran fotoğrafları oda diye atanmaz.
+ */
+export function matchTravelrobotRoomGalleryImages(galleryEntries, roomName) {
+  const roomText = normalizeRoomImageText(roomName)
+  const roomTokens = [...new Set(meaningfulRoomTokens(roomName))]
+  if (!roomText || roomTokens.length === 0) return []
+
+  const scored = []
+  for (const entry of galleryEntries ?? []) {
+    const url = String(entry?.url || '').trim()
+    if (!url) continue
+    let decodedUrl = url
+    try {
+      decodedUrl = decodeURIComponent(url)
+    } catch {
+      // Bozuk URL kodlaması eşleştirmeyi engellememeli.
+    }
+    const imageText = normalizeRoomImageText(`${entry?.title ?? ''} ${decodedUrl}`)
+    if (!imageText) continue
+    const imageTokens = new Set(meaningfulRoomTokens(imageText))
+    const overlap = roomTokens.filter((token) => imageTokens.has(token))
+    const exactPhrase = imageText.includes(roomText) || roomText.includes(imageText)
+    const distinctive = overlap.some((token) =>
+      ['suite', 'deluxe', 'standard', 'family', 'double', 'twin', 'single', 'king', 'queen', 'bedroom'].includes(token),
+    )
+    const score = (exactPhrase ? 10 : 0) + overlap.length * 2 + (distinctive ? 2 : 0)
+    if (score >= 6 || (overlap.length >= 2 && distinctive)) scored.push({ url, score })
+  }
+
+  return scored
+    .sort((a, b) => b.score - a.score)
+    .map((entry) => entry.url)
+    .filter((url, index, all) => all.indexOf(url) === index)
+    .slice(0, 12)
+}
+
 function altMetaFromOffer(alt, room, hotel) {
   const roomCode = pickText(alt, 'RoomCode', 'roomCode')
   const resultKey = pickText(alt, 'ResultKey', 'resultKey') || pickText(alt, 'Key', 'key')
@@ -390,11 +463,13 @@ function altMetaFromOffer(alt, room, hotel) {
 /** Vitrin oda satırları — aynı oda adında en ucuz teklif + zengin meta. */
 export function buildTravelrobotHotelRoomRows(hotel) {
   const rooms = hotel?.Rooms ?? hotel?.rooms ?? []
+  const galleryEntries = collectHotelGalleryEntries(hotel)
   const raw = []
   for (const room of rooms) {
     const roomName = pickText(room, 'Name', 'name', 'RoomName', 'roomName') || 'Standart Oda'
     const alts = room?.RoomAlternatives ?? room?.roomAlternatives ?? []
     if (!alts.length) {
+      const images = matchTravelrobotRoomGalleryImages(galleryEntries, roomName)
       raw.push({
         name: roomName.slice(0, 200),
         boardType: null,
@@ -402,7 +477,11 @@ export function buildTravelrobotHotelRoomRows(hotel) {
         currency: 'TRY',
         capacity: capacityFromAlt({}, room),
         unitCount: 1,
-        meta: { source: 'travelrobot' },
+        meta: {
+          source: 'travelrobot',
+          images,
+          ...(images[0] ? { image: images[0] } : {}),
+        },
         dailyCalendar: [],
       })
       continue
@@ -413,6 +492,9 @@ export function buildTravelrobotHotelRoomRows(hotel) {
       const nightly = resolveOfferNightlyPrice(alt, room, hotel)
       const currency = String(alt?.CurrencyCode ?? alt?.currencyCode ?? 'TRY').trim().toUpperCase()
       const meta = altMetaFromOffer(alt, room, hotel)
+      if (!meta.images?.length) {
+        meta.images = matchTravelrobotRoomGalleryImages(galleryEntries, name)
+      }
       const image = meta.images?.[0]
       if (image) meta.image = image
       const dailyCalendar = buildDailyCalendarForAlt(alt, room, hotel, nightly)
@@ -601,8 +683,35 @@ export function collectHotelGalleryEntries(hotel) {
         if (typeof item === 'string') push(item)
         else {
           push(
-            pickText(item, 'Url', 'url', 'ImageUrl', 'imageUrl', 'Path', 'path'),
-            pickText(item, 'ImageTitle', 'imageTitle', 'Title', 'title', 'Caption', 'caption'),
+            pickText(
+              item,
+              'Url',
+              'url',
+              'ImageUrl',
+              'imageUrl',
+              'Path',
+              'path',
+              'Src',
+              'src',
+              'MediaUrl',
+              'mediaUrl',
+            ),
+            [
+              pickText(item, 'ImageTitle', 'imageTitle', 'Title', 'title', 'Caption', 'caption'),
+              pickText(
+                item,
+                'Description',
+                'description',
+                'RoomType',
+                'roomType',
+                'Category',
+                'category',
+                'AltText',
+                'altText',
+              ),
+            ]
+              .filter(Boolean)
+              .join(' '),
           )
         }
       }

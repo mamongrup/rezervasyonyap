@@ -35,6 +35,12 @@ const min_seo_title_chars = 10
 
 const min_seo_desc_chars = 40
 
+/// Tüm dış sağlayıcı ve toplu içe aktarımlarda bağlayıcı editoryal standart.
+/// Aynı metnin farklı dil alanlarına kopyalanması tamamlanmış çeviri sayılmaz.
+fn imported_content_standard() -> String {
+  "AKTARILAN İÇERİK İÇİN ZORUNLU STANDART: Sağlayıcıdan gelen ham başlık, açıklama veya ürün detayını doğrudan yayımlama. Önce Türkçe sürümü Türkçe yazım, büyük-küçük harf ve noktalama kurallarına göre profesyonelce düzenle; ardından her aktif vitrin dili için o dilin ana dili düzeyinde ayrı başlık, açıklama ve ziyaretçiye gösterilen detay metinleri üret. Oda tipi, pansiyon tipi, olanak, konum, program, dahil-hariç hizmet, kural ve önemli bilgi adlarını da hedef dilde doğal biçimde yaz. Açıklama kolay taranmalı; kısa paragraflar, anlamlı bölüm başlıkları ve uygun yerlerde listeler kullanılmalı, tek parça metin olmamalı. Her dilde doğal SEO terimleri kullan; anahtar kelime doldurma, otomatik çeviri hissi, tekrar, görünür HTML entity veya bozuk karakter bırakma. Özel adları ve doğrulanabilir fiyat, tarih, kapasite, ölçü, rota, konum, oda ve hizmet bilgilerini koru; eksik bilgiyi uydurma. Yalnızca güvenli semantik HTML kullan: <h2>, <h3>, <p>, <ul>, <ol>, <li>, <strong>."
+}
+
 fn read_body_string(req: Request) -> Result(String, Nil) {
   use bits <- result.try(wisp.read_body_bits(req))
   bit_array.to_string(bits)
@@ -421,22 +427,22 @@ fn looks_like_dirty_description(raw: String) -> Bool {
 }
 
 /// Uzun olsa bile tek parça sağlayıcı metni kullanıcı dostu sayılmaz. En az bir
-/// semantik paragraf, başlık veya liste yapısı bulunmalıdır.
+/// paragraf ve ayrıca anlamlı bir başlık veya liste yapısı bulunmalıdır.
 fn looks_like_unstructured_description(raw: String) -> Bool {
   let text = string.lowercase(string.trim(raw))
-  text != ""
-  && !string.contains(text, "<p")
-  && !string.contains(text, "<h2")
-  && !string.contains(text, "<h3")
-  && !string.contains(text, "<ul")
-  && !string.contains(text, "<ol")
-  && !string.contains(text, "<li")
+  let has_grouping =
+    string.contains(text, "<h2")
+    || string.contains(text, "<h3")
+    || string.contains(text, "<ul")
+    || string.contains(text, "<ol")
+  text != "" && { !string.contains(text, "<p") || !has_grouping }
 }
 
 fn has_editorial_quality(raw: String) -> Bool {
   let text = string.lowercase(string.trim(raw))
   string.length(text) >= min_desc_chars
   && string.contains(text, "<p")
+  && !looks_like_unstructured_description(text)
   && !looks_like_dirty_description(text)
   && !string.contains(text, "<script")
   && !string.contains(text, "<iframe")
@@ -484,11 +490,17 @@ fn need_work_sql() -> String {
         join locales lo on lo.id = lt.locale_id
         where lt.listing_id = l.id and lower(lo.code) = 'tr'
         limit 1
-      ), '')) !~ '<(p|h2|h3|ul|ol|li)([[:space:]]|>)'
+      ), '')) !~ '<p([[:space:]]|>)'
+      or lower(coalesce((
+        select lt.description
+        from listing_translations lt
+        join locales lo on lo.id = lt.locale_id
+        where lt.listing_id = l.id and lower(lo.code) = 'tr'
+        limit 1
+      ), '')) !~ '<(h2|h3|ul|ol)([[:space:]]|>)'
     )
     or (
-      lower(coalesce(l.external_provider_code, '')) = 'travelrobot'
-      and lower(coalesce((
+      lower(coalesce((
         select lt.description
         from listing_translations lt
         join locales lo on lo.id = lt.locale_id
@@ -506,7 +518,8 @@ fn need_work_sql() -> String {
             and lt.locale_id = lo.id
             and length(coalesce(lt.title, '')) > 0
             and length(coalesce(lt.description, '')) > 80
-            and lower(coalesce(lt.description, '')) ~ '<(p|h2|h3|ul|ol|li)([[:space:]]|>)'
+            and lower(coalesce(lt.description, '')) ~ '<p([[:space:]]|>)'
+            and lower(coalesce(lt.description, '')) ~ '<(h2|h3|ul|ol)([[:space:]]|>)'
             and lower(coalesce(lt.description, '')) not like '%&nbsp%'
         )
     )
@@ -1101,7 +1114,8 @@ fn locale_has_translation(
       "select 1 from listing_translations lt join locales lo on lo.id = lt.locale_id "
       <> "where lt.listing_id = $1::uuid and lower(lo.code) = lower($2) "
       <> "and length(coalesce(lt.title,'')) > 0 and length(coalesce(lt.description,'')) > 80 "
-      <> "and lower(coalesce(lt.description,'')) ~ '<(p|h2|h3|ul|ol|li)([[:space:]]|>)' "
+      <> "and lower(coalesce(lt.description,'')) ~ '<p([[:space:]]|>)' "
+      <> "and lower(coalesce(lt.description,'')) ~ '<(h2|h3|ul|ol)([[:space:]]|>)' "
       <> "and lower(coalesce(lt.description,'')) not like '%&nbsp%' limit 1",
     )
     |> pog.parameter(pog.text(listing_id))
@@ -1139,9 +1153,7 @@ fn run_tr_phase(
         Ok(Nil) -> Ok(Nil)
       }
     True -> {
-      let en_source = case
-        tr_is_english || string.trim(desc_tr) == ""
-      {
+      let en_source = case tr_is_english || string.trim(desc_tr) == "" {
         False -> #("", "")
         True ->
           case load_locale_title_desc(ctx, listing_id, "en") {
@@ -1186,13 +1198,17 @@ fn run_tr_phase(
           #("slug", json.string(slug)),
           #("category_code", json.string(category_code)),
           #("category_hint", json.string(category_hint(category_code))),
+          #("content_standard", json.string(imported_content_standard())),
           #("title", json.string(title_tr)),
           #("existing_description", json.string(desc_tr)),
           #("source_description_en", json.string(en_source_desc)),
           #("source_title_en", json.string(en_source_title)),
           #("status", json.string(status)),
           #("attributes_json", json.string(attrs_json)),
-          #("instruction", json.string(tr_instruction)),
+          #(
+            "instruction",
+            json.string(imported_content_standard() <> " " <> tr_instruction),
+          ),
         ])
         |> json.to_string
       case create_and_run_job(ctx, profile_tr, input) {
@@ -1220,12 +1236,7 @@ fn run_tr_phase(
                   {
                     Error(e) -> Error(e)
                     Ok(Nil) ->
-                      case
-                        prepare_translation_refresh(
-                          ctx.db,
-                          batch_id,
-                        )
-                      {
+                      case prepare_translation_refresh(ctx.db, batch_id) {
                         Error(_) ->
                           Error("listing_content_translation_refresh_failed")
                         Ok(Nil) ->
@@ -1269,12 +1280,7 @@ fn run_translations_phase(
         list.filter(target_locales(), fn(locale_code) {
           case overwrite {
             True ->
-              !batch_locale_done(
-                ctx.db,
-                batch_id,
-                "translations",
-                locale_code,
-              )
+              !batch_locale_done(ctx.db, batch_id, "translations", locale_code)
             False -> !locale_has_translation(ctx.db, listing_id, locale_code)
           }
         })
@@ -1290,12 +1296,14 @@ fn run_translations_phase(
               #("task", json.string("listing_i18n")),
               #("source_locale", json.string(tr_locale)),
               #("target_locale", json.string(locale_code)),
+              #("content_standard", json.string(imported_content_standard())),
               #("title", json.string(title_src)),
               #("description", json.string(desc_src)),
               #(
                 "instruction",
                 json.string(
-                  "Kaynak Türkçe ilan başlığını ve açıklamasını hedef dilde ana dili seviyesinde, yazım ve SEO kurallarına uygun çevir. Özel adları, gerçekleri, fiyatları, tarihleri, ölçüleri ve HTML bölüm yapısını koru; bilgi uydurma. Kelimesi kelimesine yapay anlatım yerine doğal ve kolay okunan seyahat dili kullan. Başlıkları, kısa paragrafları ve listeleri koru. Anahtar kelime doldurma yapma. Yalnızca JSON döndür: {\"title\":\"...\",\"description\":\"<HTML>\"}",
+                  imported_content_standard()
+                  <> " Kaynak Türkçe ilan başlığını ve açıklamasını hedef dilde ana dili seviyesinde, yazım ve SEO kurallarına uygun çevir. Özel adları, gerçekleri, fiyatları, tarihleri, ölçüleri ve HTML bölüm yapısını koru; bilgi uydurma. Kelimesi kelimesine yapay anlatım yerine doğal ve kolay okunan seyahat dili kullan. Başlıkları, kısa paragrafları ve listeleri koru. Anahtar kelime doldurma yapma. Yalnızca JSON döndür: {\"title\":\"...\",\"description\":\"<HTML>\"}",
                 ),
               ),
             ])
@@ -1383,6 +1391,7 @@ fn persist_i18n_translation(
     string.length(string.trim(title)) >= 2
     && string.length(clean_description) > 80
     && string.contains(lower, "<p")
+    && !looks_like_unstructured_description(clean_description)
     && !looks_like_dirty_description(clean_description)
     && !string.contains(lower, "<script")
     && !string.contains(lower, "<iframe")
@@ -1411,14 +1420,7 @@ fn persist_i18n_translation(
           {
             Error(e) -> Error(e)
             Ok(Nil) ->
-              case
-                advance_batch(
-                  ctx.db,
-                  batch_id,
-                  "translations",
-                  "pending",
-                )
-              {
+              case advance_batch(ctx.db, batch_id, "translations", "pending") {
                 Error(_) -> Error("listing_content_batch_advance_failed")
                 Ok(Nil) -> Ok(Nil)
               }
@@ -1468,12 +1470,17 @@ fn run_seo_phase(
                   #("locale", json.string(locale_code)),
                   #("listing_id", json.string(listing_id)),
                   #("category_code", json.string(category_code)),
+                  #(
+                    "content_standard",
+                    json.string(imported_content_standard()),
+                  ),
                   #("title", json.string(title)),
                   #("description", json.string(desc)),
                   #(
                     "instruction",
                     json.string(
-                      "Bu dilde arama sonucu meta başlık (max 70 karakter) ve meta açıklama (max 160 karakter) yaz. JSON: {\"meta_title\":\"...\",\"meta_description\":\"...\",\"keywords\":\"virgülle\"}",
+                      imported_content_standard()
+                      <> " Bu dilde, içeriğin gerçek diline uygun benzersiz arama sonucu meta başlık (en fazla 70 karakter) ve meta açıklama (en fazla 160 karakter) yaz. Başka dilde metin bırakma; doğal arama niyetini gözet ve anahtar kelime doldurma yapma. JSON: {\"meta_title\":\"...\",\"meta_description\":\"...\",\"keywords\":\"virgülle\"}",
                     ),
                   ),
                 ])
@@ -1552,15 +1559,7 @@ fn save_seo_fields(
           )
       }
     Ok(md) ->
-      persist_seo(
-        ctx,
-        batch_id,
-        listing_id,
-        locale_code,
-        meta_title,
-        md,
-        raw,
-      )
+      persist_seo(ctx, batch_id, listing_id, locale_code, meta_title, md, raw)
   }
 }
 
@@ -1711,12 +1710,12 @@ pub fn worker_try_listing_content(ctx: Context) -> Result(Bool, String) {
             "insert into ai_listing_content_batches (listing_id, category_code, phase, status, overwrite) "
             <> "select l.id, pc.code, 'tr_description', 'pending', false from listings l "
             <> "join product_categories pc on pc.id = l.category_id "
-            <> "where pc.code in ('holiday_home','yacht_charter','activity','tour','cruise','hotel','ferry','car_rental','flight') "
+            <> "where pc.code in ('holiday_home','yacht_charter','activity','tour','cruise','hotel','ferry','transfer','car_rental','flight') "
             <> "and l.status in ('draft','published') and "
             <> need_work_sql()
             <> "and not exists (select 1 from ai_listing_content_batches b where b.listing_id = l.id and b.status in ('pending','running')) "
             <> "and not exists (select 1 from ai_listing_content_batches b where b.listing_id = l.id and b.status = 'failed' and b.updated_at > now() - interval '6 hours') "
-            <> "order by case pc.code when 'hotel' then 0 when 'holiday_home' then 1 when 'yacht_charter' then 2 when 'activity' then 3 when 'cruise' then 4 when 'ferry' then 5 when 'car_rental' then 6 when 'flight' then 7 else 8 end, l.updated_at desc limit 1 returning id::text"
+            <> "order by case pc.code when 'hotel' then 0 when 'holiday_home' then 1 when 'yacht_charter' then 2 when 'activity' then 3 when 'cruise' then 4 when 'ferry' then 5 when 'transfer' then 6 when 'car_rental' then 7 when 'flight' then 8 else 9 end, l.updated_at desc limit 1 returning id::text"
           case
             pog.query(seed_sql)
             |> pog.returning(row_dec.col0_string())
