@@ -2,6 +2,7 @@
  * Baransel Yachting → travel PostgreSQL yat kiralama aktarımı.
  *
  *   node scripts/import-baransen-yachts.mjs --dry-run --limit 5
+ *   node scripts/import-baransen-yachts.mjs --ids 28,29 --skip-images
  *   node scripts/import-baransen-yachts.mjs --skip-images
  *   BARANSEN_STATUS=published node scripts/import-baransen-yachts.mjs
  */
@@ -29,6 +30,13 @@ const limitIdx = process.argv.indexOf('--limit')
 const LIMIT = limitIdx >= 0 ? Number(process.argv[limitIdx + 1]) : 0
 const pageIdx = process.argv.indexOf('--max-pages')
 const MAX_PAGES = pageIdx >= 0 ? Number(process.argv[pageIdx + 1]) : 0
+const idsIdx = process.argv.indexOf('--ids')
+const ONLY_IDS = new Set(
+  (idsIdx >= 0 ? String(process.argv[idsIdx + 1] || '') : '')
+    .split(',')
+    .map((value) => value.trim())
+    .filter(Boolean),
+)
 
 async function main() {
   const orgId = process.env.BARANSEN_ORG_ID || DEFAULT_ORG
@@ -42,6 +50,7 @@ async function main() {
   console.log(`Liste: ${cards.length} tekne (sayfa limit=${MAX_PAGES || 'tümü'})`)
 
   let targets = cards
+  if (ONLY_IDS.size) targets = targets.filter((card) => ONLY_IDS.has(String(card.baransenId)))
   if (LIMIT > 0) targets = targets.slice(0, LIMIT)
 
   const pg = createPgClient()

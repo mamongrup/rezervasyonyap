@@ -7,7 +7,10 @@ import { getSitePublicConfig as getSitePublicConfigSync, mergeBrandingIntoEnvCon
 import { buildListingOgImageUrl } from '@/lib/social-share/listing-og-image-url'
 import { sanitizeRichCmsHtml } from '@/lib/sanitize-cms-html'
 import { stripHtml } from '@/lib/social-share/strip-html'
-import { normalizeCatalogVertical } from '@/lib/catalog-listing-vertical'
+import {
+  normalizeCatalogVertical,
+  type CatalogListingVerticalCode,
+} from '@/lib/catalog-listing-vertical'
 import { listPublicCategoryThemeItems } from '@/lib/catalog-theme-items-api'
 import {
   buildSeasonalPricingTableRows,
@@ -180,11 +183,13 @@ function formatPrepaymentPercentForDisplay(raw: string): string {
 
 export async function generateStayListingMetadata({
   params,
+  expectedVertical,
 }: {
   params: Promise<{ locale: string; handle: string }>
+  expectedVertical?: CatalogListingVerticalCode
 }): Promise<Metadata> {
   const { handle, locale } = await params
-  const listing = await getStayListingByHandle(handle, locale)
+  const listing = await getStayListingByHandle(handle, locale, expectedVertical)
   if (!listing) return { title: getMessages(locale).listing.detailPage.notFoundTitle }
   const plainDesc = listing.description ? stripHtml(listing.description) : listing.title
   const ogImage = buildListingOgImageUrl({ kind: 'stay', handle, locale })
@@ -313,10 +318,18 @@ export default async function StayListingDetailPageContent({
   linkBase: StayDetailLinkBase | string
 }) {
   const { handle, locale } = await params
+  const verticalFromUrl: CatalogListingVerticalCode | undefined =
+    linkBase === HOLIDAY_HOME_DETAIL_PATH
+      ? 'holiday_home'
+      : linkBase === STAY_DETAIL_YACHT_PATH
+        ? 'yacht_charter'
+        : linkBase === STAY_DETAIL_HOTEL_PATH
+          ? 'hotel'
+          : undefined
   const [calendarMonthsShown, sitePubApi, listing] = await Promise.all([
     guessCalendarMonthsShownFromRequest(),
     getCachedSiteConfig(),
-    getStayListingByHandle(handle, locale),
+    getStayListingByHandle(handle, locale, verticalFromUrl),
   ])
   if (!listing?.id) {
     const browse =
@@ -334,14 +347,6 @@ export default async function StayListingDetailPageContent({
   // canonical /otel sayfasında her durumda görünür; yat ve tatil evi yine kendi
   // dallarında kalır.
   const verticalFromListing = normalizeCatalogVertical(listing.listingVertical)
-  const verticalFromUrl =
-    linkBase === HOLIDAY_HOME_DETAIL_PATH
-      ? 'holiday_home'
-      : linkBase === STAY_DETAIL_YACHT_PATH
-        ? 'yacht_charter'
-        : linkBase === STAY_DETAIL_HOTEL_PATH
-          ? 'hotel'
-          : undefined
   const vertical = verticalFromListing ?? verticalFromUrl
   if (vertical && vertical !== 'hotel' && !isStayRentalCategory(vertical)) {
     redirect(await vitrinHref(locale, `${detailPathForVertical(vertical)}/${handle}`))

@@ -145,8 +145,13 @@ export type TStayListingResolved = TStayListing & {
 export const getStayListingByHandle = cache(async (
   handle: string,
   locale?: string,
+  expectedCategoryCode?: CatalogListingVerticalCode,
 ): Promise<TStayListingResolved | null> => {
-  const catalogId = await resolvePublishedListingIdForStayPage(handle, locale)
+  const catalogId = await resolvePublishedListingIdForStayPage(
+    handle,
+    locale,
+    expectedCategoryCode,
+  )
   if (!catalogId) return null
 
   const [pub, vitrine] = await Promise.all([
@@ -157,6 +162,12 @@ export const getStayListingByHandle = cache(async (
   if (!item) return null
 
   const api = mapPublicListingItemToListingBase(item)
+  if (
+    expectedCategoryCode &&
+    normalizeCatalogVertical(api.listingVertical) !== expectedCategoryCode
+  ) {
+    return null
+  }
   const pinFromSearch = (api.city ?? api.address ?? '').trim()
   const pinFromVitrine = vitrine?.location_label?.trim() ?? ''
   const pinFromHierarchy = formatListingLocationHierarchy({

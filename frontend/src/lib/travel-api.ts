@@ -10113,14 +10113,20 @@ const STAY_PAGE_LISTING_UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 /** GET /catalog/public/listings/by-slug/:slug — tam slug eşleşmesi (detay sayfası). */
-export async function resolvePublicListingIdBySlug(slug: string): Promise<string | null> {
+export async function resolvePublicListingIdBySlug(
+  slug: string,
+  categoryCode?: string,
+): Promise<string | null> {
   const s = slug.trim()
   if (!s) return null
   const b = base()
   if (!b) return null
   try {
+    const query = new URLSearchParams()
+    if (categoryCode?.trim()) query.set('category_code', categoryCode.trim())
+    const suffix = query.size > 0 ? `?${query.toString()}` : ''
     const res = await fetch(
-      `${b}/api/v1/catalog/public/listings/by-slug/${encodeURIComponent(s)}`,
+      `${b}/api/v1/catalog/public/listings/by-slug/${encodeURIComponent(s)}${suffix}`,
       { next: { revalidate: 60 } },
     )
     if (res.status === 404) return null
@@ -10140,15 +10146,35 @@ export async function resolvePublicListingIdBySlug(slug: string): Promise<string
 export async function resolvePublishedListingIdForStayPage(
   handle: string,
   locale?: string,
+  expectedCategoryCode?: string,
 ): Promise<string | null> {
   const h = handle.trim()
   if (!h) return null
   if (STAY_PAGE_LISTING_UUID_RE.test(h)) return h
 
-  const byExactSlug = await resolvePublicListingIdBySlug(h)
+  const expectedCategory = expectedCategoryCode?.trim()
+  if (expectedCategory) {
+    const scoped = await searchPublicListings({
+      q: h,
+      categoryCode: expectedCategory,
+      locale,
+      perPage: 40,
+    })
+    const exact = scoped?.listings?.find(
+      (listing) => listing.slug.trim().toLowerCase() === h.toLowerCase(),
+    )
+    if (exact) return exact.id
+  }
+
+  const byExactSlug = await resolvePublicListingIdBySlug(h, expectedCategory)
   if (byExactSlug) return byExactSlug
 
-  const res = await searchPublicListings({ q: h, locale, perPage: 40 })
+  const res = await searchPublicListings({
+    q: h,
+    categoryCode: expectedCategory || undefined,
+    locale,
+    perPage: 40,
+  })
   if (!res?.listings?.length) return null
   const hl = h.toLowerCase()
   const bySlug = res.listings.find((l) => l.slug.toLowerCase() === hl)

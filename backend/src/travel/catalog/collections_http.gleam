@@ -867,17 +867,29 @@ fn listing_id_only_row() -> decode.Decoder(String) {
 pub fn get_public_listing_id_by_slug(req: Request, ctx: Context, slug: String) -> Response {
   use <- wisp.require_method(req, http.Get)
   let s = string.trim(slug)
+  let qs = case request.get_query(req) {
+    Ok(values) -> values
+    Error(_) -> []
+  }
+  let category_code =
+    list.key_find(qs, "category_code")
+    |> result.unwrap("")
+    |> string.trim
   case s == "" {
     True -> json_err(400, "slug_required")
     False ->
       case
         pog.query(
           "select l.id::text from listings l "
+            <> "inner join product_categories pc on pc.id = l.category_id "
             <> "where l.status = 'published' "
             <> public_listing_must_have_image_sql()
-            <> "and lower(l.slug) = lower($1) limit 1",
+            <> "and lower(l.slug) = lower($1) "
+            <> "and ($2 = '' or lower(pc.code) = lower($2)) "
+            <> "order by l.updated_at desc, l.id limit 1",
         )
         |> pog.parameter(pog.text(s))
+        |> pog.parameter(pog.text(category_code))
         |> pog.returning(listing_id_only_row())
         |> db_exec.execute(ctx.db)
       {
@@ -3018,5 +3030,4 @@ pub fn public_tour_kultur_hub_stats(req: Request, ctx: Context) -> Response {
     }
   }
 }
-
 
