@@ -44,10 +44,41 @@ function slugFromHref(href) {
 }
 
 function parseMoneyTr(text) {
-  const m = String(text || '').match(/([\d.]+)/)
+  const raw = String(text || '')
+  // 46.200,00 | ₺7.673 | 7.673,88 TL
+  const m = raw.match(/([\d.]+)(?:,\s*(\d{1,2}))?/)
   if (!m) return null
-  const n = Number(m[1].replace(/\./g, ''))
+  const whole = m[1].replace(/\./g, '')
+  const frac = m[2] != null ? `.${m[2]}` : ''
+  const n = Number(`${whole}${frac}`)
   return Number.isFinite(n) && n > 0 ? n : null
+}
+
+function pad2(n) {
+  return String(n).padStart(2, '0')
+}
+
+/** GG.AA.YYYY */
+export function formatTrDate(date) {
+  const d = date instanceof Date ? date : new Date(date)
+  return `${pad2(d.getDate())}.${pad2(d.getMonth() + 1)}.${d.getFullYear()}`
+}
+
+/** Varsayılan arama penceresi: bugün+offset → +nights (oda listesi AJAX için zorunlu). */
+export function defaultStayWindow(now = new Date()) {
+  const offsetDays = Number(process.env.TATILSEPETI_STAY_OFFSET_DAYS || 14)
+  const nights = Math.max(1, Number(process.env.TATILSEPETI_STAY_NIGHTS || 7))
+  const checkIn = new Date(now)
+  checkIn.setHours(12, 0, 0, 0)
+  checkIn.setDate(checkIn.getDate() + offsetDays)
+  const checkOut = new Date(checkIn)
+  checkOut.setDate(checkOut.getDate() + nights)
+  return {
+    checkIn: formatTrDate(checkIn),
+    checkOut: formatTrDate(checkOut),
+    nights,
+    adults: Math.max(1, Number(process.env.TATILSEPETI_STAY_ADULTS || 2)),
+  }
 }
 
 /** @param {Headers} headers */
@@ -235,11 +266,18 @@ function parseHiddenFields(html) {
 
 function parseGalleryImages(html) {
   const urls = []
-  const re = /(?:src|data-src)="(https:\/\/cdn\.tatilsepeti\.com\/Files\/Images\/Tesis\/[^"]+)"/gi
-  let m
-  while ((m = re.exec(html))) {
-    const u = m[1].replace(/&amp;/g, '&')
-    if (!urls.includes(u)) urls.push(u)
+  const patterns = [
+    /(?:src|data-src)="(https:\/\/cdn\.tatilsepeti\.com\/Files\/Images\/Tesis\/[^"]+)"/gi,
+    /(?:src|data-src)="(https:\/\/i\.travelapi\.com\/[^"]+\.(?:jpg|jpeg|png|webp)[^"]*)"/gi,
+    /(?:src|data-src)="(https:\/\/cdn\.tatilsepeti\.com\/Files\/Images\/TesisOda\/[^"]+)"/gi,
+  ]
+  for (const re of patterns) {
+    let m
+    while ((m = re.exec(html))) {
+      const u = m[1].replace(/&amp;/g, '&')
+      if (/ts-loading|wwwroot\/images|room-bed\.svg/i.test(u)) continue
+      if (!urls.includes(u)) urls.push(u)
+    }
   }
   return urls
 }
@@ -320,7 +358,7 @@ function parseRoomCards(html, hotelId) {
       'i',
     )
     const blockRe = new RegExp(
-      `getRoom(?:Images|Availability|AllPrice)\\(\\s*${hotelId}\\s*,\\s*${roomTypeId}[\\s\\S]{0,6000}`,
+      `getRoom(?:Images|Availability|AllPrice)\\(\\s*${hotelId}\\s*,\\s*${roomTypeId}[\\s\\S]{0,8000}`,
       'i',
     )
     const block = blockRe.exec(html)?.[0] || ''
@@ -332,9 +370,12 @@ function parseRoomCards(html, hotelId) {
       block.match(/hotel-detail-cards__content-div__description[\s\S]*?<span>([\s\S]*?)<\/span>/i)?.[1] ||
         '',
     )
-    const image = block.match(
-      /data-src="(https:\/\/cdn\.tatilsepeti\.com\/Files\/Images\/TesisOda\/[^"]+)"/i,
-    )?.[1]
+    const image =
+      block.match(
+        /(?:data-src|src)="(https:\/\/cdn\.tatilsepeti\.com\/Files\/Images\/TesisOda\/[^"]+)"/i,
+      )?.[1] ||
+      block.match(/(?:data-src|src)="(https:\/\/i\.travelapi\.com\/[^"]+\.(?:jpg|jpeg|png|webp)[^"]*)"/i)?.[1] ||
+      null
     const roomFeatures = [
       ...block.matchAll(
         /hotel-detail-cards__content-div__hotel-features[\s\S]*?<span>([\s\S]*?)<\/span>/gi,
@@ -364,7 +405,170 @@ function parseRoomCards(html, hotelId) {
       features: [...new Set([...roomFeatures, ...modalFeatures])],
     })
   }
+  return attachDomesticQuotes(rooms, html, hotelId)
+}
+
+/** Yerli kartlarda toplam fiyat, getRoom çağrısından ÖNCE gelir; ayrı eşleştir. */
+function attachDomesticQuotes(rooms, html, hotelId) {
+  const quotes = new Map()
+  const re = /hotel-detail-cards__price-div__single__all-prices__discount-price">([\d.]+),<small[^>]*>\s*(\d{2})\s*TL/gi
+  let m
+  while ((m = re.exec(html))) {
+    const total = parseMoneyTr(`${m[1]},${m[2]}`)
+    if (total == null) continue
+    const before = html.slice(Math.max(0, m.index - 5000), m.index)
+    const ids = [
+      ...before.matchAll(
+        new RegExp(`getRoom(?:Images|Availability|AllPrice)\\(\\s*${hotelId}\\s*,\\s*(\\d+)`, 'gi'),
+      ),
+    ].map((x) => x[1])
+    const roomTypeId = ids.length ? ids[ids.length - 1] : null
+    if (roomTypeId && !quotes.has(roomTypeId)) quotes.set(roomTypeId, total)
+  }
+  for (const room of rooms) {
+    if (quotes.has(String(room.roomTypeId))) {
+      room.quoteTotal = quotes.get(String(room.roomTypeId))
+    }
+  }
   return rooms
+}
+
+/** Yeni yabancı/entegre otel kartları (Hotel__Details--Card, id=room_*). */
+export function parseForeignRoomCards(html) {
+  const rooms = []
+  const re = /id="room_(\d+)"([\s\S]*?)(?=id="room_\d+"|$)/gi
+  let m
+  while ((m = re.exec(html))) {
+    const roomTypeId = m[1]
+    const block = m[2]
+    const name = stripTags(
+      block.match(/Header--Title[^>]*>\s*([\s\S]*?)<\/span>/i)?.[1] ||
+        block.match(/Section--Title[^>]*>\s*([\s\S]*?)<\/h2>/i)?.[1] ||
+        '',
+    )
+    const capacityText = stripTags(
+      block.match(/Header--Description[\s\S]*?<span>([\s\S]*?)<\/span>/i)?.[1] || '',
+    )
+    const image =
+      block.match(/(?:src|data-src)="(https:\/\/i\.travelapi\.com\/[^"]+)"/i)?.[1] ||
+      block.match(/(?:src|data-src)="(https:\/\/cdn\.tatilsepeti\.com\/Files\/Images\/[^"]+)"/i)?.[1] ||
+      null
+    const features = [
+      ...block.matchAll(/class="Allowed">([\s\S]*?)<\/div>/gi),
+    ]
+      .map((x) => stripTags(x[1]))
+      .filter(Boolean)
+    const nightly =
+      parseMoneyTr(block.match(/gecelik\s*₺\s*([\d.]+)/i)?.[1] || '') ||
+      parseMoneyTr(block.match(/Gecelik\s*([\d.,\s]+)/i)?.[1] || '')
+    rooms.push({
+      roomTypeId,
+      name: name || `Oda ${roomTypeId}`,
+      boardType: '',
+      capacityText,
+      image,
+      features: [...new Set(features)].slice(0, 40),
+      quoteNightly: nightly,
+      sourceLayout: 'foreign',
+    })
+  }
+  return rooms
+}
+
+function mergeRoomLists(...lists) {
+  const byId = new Map()
+  for (const list of lists) {
+    for (const room of list || []) {
+      const id = String(room.roomTypeId)
+      const prev = byId.get(id)
+      if (!prev) {
+        byId.set(id, { ...room })
+        continue
+      }
+      byId.set(id, {
+        ...prev,
+        ...room,
+        name: room.name && room.name !== `Oda ${id}` ? room.name : prev.name,
+        boardType: room.boardType || prev.boardType,
+        capacityText: room.capacityText || prev.capacityText,
+        image: room.image || prev.image,
+        features: [...new Set([...(prev.features || []), ...(room.features || [])])],
+        quoteTotal: room.quoteTotal ?? prev.quoteTotal,
+        quoteNightly: room.quoteNightly ?? prev.quoteNightly,
+      })
+    }
+  }
+  return [...byId.values()]
+}
+
+function applyStayQuotes(rooms, stay) {
+  const dateRange = `${stay.checkIn} - ${stay.checkOut}`
+  for (const room of rooms) {
+    let nightly = room.quoteNightly ?? null
+    if (nightly == null && room.quoteTotal != null && stay.nights > 0) {
+      nightly = Math.round(room.quoteTotal / stay.nights)
+    }
+    if (nightly != null && nightly > 0) {
+      room.seasonalPrices = room.seasonalPrices || []
+      if (!room.seasonalPrices.length) {
+        room.seasonalPrices.push({
+          dateRange,
+          priceType: room.boardType || 'Oda',
+          doublePerPerson: nightly,
+          singlePrice: null,
+          extraBed: null,
+          childPrice: null,
+          raw: { source: 'hotel_detail_quote', total: room.quoteTotal ?? null, nights: stay.nights },
+        })
+      }
+    }
+  }
+  return rooms
+}
+
+/**
+ * Oda kartları SSR'da skeleton; gerçek liste tarihli POST /Hotel/Detail/ ile gelir.
+ */
+export async function fetchHotelRoomListHtml(session, hotelId, opts = {}) {
+  const stay = opts.stay || defaultStayWindow()
+  const log = opts.log || (() => {})
+  const referer = opts.referer || `${ORIGIN}/`
+  const search = `oda:${stay.adults};tarih:${stay.checkIn},${stay.checkOut};click:true`
+  const body = new URLSearchParams({
+    Id: String(hotelId),
+    IsUndated: 'false',
+    Search: search,
+  })
+  const r = await session.fetchWithRetry(`${ORIGIN}/Hotel/Detail/`, {
+    method: 'POST',
+    accept: 'application/json, text/javascript, */*; q=0.01',
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+      'X-Requested-With': 'XMLHttpRequest',
+      Referer: referer,
+      Origin: ORIGIN,
+    },
+    body: body.toString(),
+    onRetry: ({ attempt, wait, status, cooldown }) =>
+      log(
+        `[retry] Hotel/Detail oda ${hotelId} HTTP ${status}${cooldown ? ' (cooldown)' : ''} — ${wait}ms (#${attempt})`,
+      ),
+  })
+  if (!r.ok) return { ok: false, status: r.status, roomListHtml: '', stay, showLoadMore: false }
+  const text = await r.text()
+  try {
+    const data = JSON.parse(text)
+    return {
+      ok: true,
+      status: r.status,
+      roomListHtml: String(data.roomList || ''),
+      stay,
+      showLoadMore: Boolean(data.showLoadMore),
+      raw: data,
+    }
+  } catch (e) {
+    return { ok: false, status: r.status, roomListHtml: '', stay, error: e.message, showLoadMore: false }
+  }
 }
 
 export function parseRoomAllPriceHtml(htmlJson) {
@@ -459,16 +663,42 @@ export async function fetchHotelDetailPackage(session, listRow, opts = {}) {
   const gallery = parseGalleryImages(html)
   const locationRows = parseLocationTable(html)
   const features = parseFeatureLists(html)
-  const rooms = parseRoomCards(html, hotelId)
 
+  // SSR sayfada oda kartları skeleton; tarihli Hotel/Detail POST zorunlu.
+  const stay = opts.stay || defaultStayWindow()
+  const roomList = await fetchHotelRoomListHtml(session, hotelId, {
+    stay,
+    referer: url,
+    log,
+  })
+  if (!roomList.ok) {
+    log(`[uyarı] oda listesi ${hotelId}: HTTP ${roomList.status}${roomList.error ? ` ${roomList.error}` : ''}`)
+  } else if (/tarih seçiniz/i.test(roomList.roomListHtml || '')) {
+    log(`[uyarı] oda listesi ${hotelId}: tarih zorunlu yanıtı (checkIn=${stay.checkIn})`)
+  }
+
+  const roomHtml = roomList.roomListHtml || ''
+  let rooms = mergeRoomLists(
+    parseRoomCards(html, hotelId),
+    parseRoomCards(roomHtml, hotelId),
+    parseForeignRoomCards(roomHtml),
+  )
+  applyStayQuotes(rooms, stay)
+
+  // GetRoomAllPrice sezon takvimi — yalnızca klasik (yerli) oda tipi id'lerinde.
   if (fetchRoomPrices && rooms.length) {
     for (const room of rooms) {
+      if (room.sourceLayout === 'foreign') continue
+      if (!/^\d+$/.test(String(room.roomTypeId))) continue
       await sleep(Number(process.env.TATILSEPETI_ROOM_PRICE_DELAY_MS || 250))
       const priceResult = await fetchRoomAllPrices(session, hotelId, room.roomTypeId, log)
-      room.seasonalPrices = priceResult.rows
       room.priceFetchOk = priceResult.ok
-      if (!priceResult.ok) room.priceFetchError = priceResult.error
-      if (!priceResult.ok) log(`[uyarı] fiyat ${hotelId}/${room.roomTypeId}: ${priceResult.error}`)
+      if (priceResult.ok && priceResult.rows.length) {
+        room.seasonalPrices = priceResult.rows
+      } else if (!priceResult.ok) {
+        room.priceFetchError = priceResult.error
+        log(`[uyarı] fiyat ${hotelId}/${room.roomTypeId}: ${priceResult.error}`)
+      }
     }
   }
 
@@ -480,9 +710,17 @@ export async function fetchHotelDetailPackage(session, listRow, opts = {}) {
           if (p != null && (min == null || p < min)) min = p
         }
       }
+      if (room.quoteNightly != null && (min == null || room.quoteNightly < min)) {
+        min = room.quoteNightly
+      }
     }
     return min
   })()
+
+  // Oda görsellerini galeriye ekle (özellikle travelapi kaynaklı).
+  for (const room of rooms) {
+    if (room.image && !gallery.includes(room.image)) gallery.push(room.image)
+  }
 
   return {
     hotelId,
@@ -501,6 +739,7 @@ export async function fetchHotelDetailPackage(session, listRow, opts = {}) {
     locationRows,
     features,
     rooms,
+    stayWindow: stay,
     minNightlyPrice: minPrice,
     listMeta: listRow,
     fetchedAt: new Date().toISOString(),
