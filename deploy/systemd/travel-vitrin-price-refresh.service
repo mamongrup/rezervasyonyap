@@ -19,8 +19,11 @@ Wants=network-online.target
 Type=oneshot
 WorkingDirectory=/var/www/vhosts/rezervasyonyap.tr/httpdocs
 ExecStart=/bin/bash /var/www/vhosts/rezervasyonyap.tr/httpdocs/deploy/scripts/refresh-vitrin-prices.sh
-Nice=10
-IOSchedulingClass=best-effort
+Nice=15
+IOSchedulingClass=idle
+IOSchedulingPriority=7
+# Uzun süren full-table refresh başka sorguları kilitlemesin diye üst sınır
+TimeoutStartSec=45min
 
 [Install]
 WantedBy=multi-user.target
