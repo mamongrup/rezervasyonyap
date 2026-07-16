@@ -601,8 +601,12 @@ for (const villa of VILLAS) {
   console.log('Import', villa.title, villa.driveFolderId)
   let galleryUrls = []
   if (!SKIP_IMAGES && !DRY_RUN) {
+    // Yalnızca Google Drive — Villagezegeni CDN filigranlı, kullanılmaz.
     galleryUrls = await driveFolderGalleryUrls(villa.driveFolderId)
     console.log('Drive images:', galleryUrls.length)
+    if (!galleryUrls.length) {
+      throw new Error(`Drive görseli yok: ${villa.title} ${villa.driveFolderId}`)
+    }
   } else if (DRY_RUN) {
     galleryUrls = [`https://drive.google.com/uc?id=dry-run-${villa.key}&export=download`]
   }
