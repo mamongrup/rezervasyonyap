@@ -32,7 +32,9 @@ const SLUG = valueAfter('--slug')
 const DIR = valueAfter('--dir')
 const ROOT = valueAfter('--root')
 
-const LARAGON_ROOT = process.env.VILLA_PHOTOS_ROOT || 'C:/laragon/www/BuVillaSenin'
+const LARAGON_ROOT =
+  process.env.VILLA_PHOTOS_ROOT ||
+  'C:/laragon/www/BuVillaSenin/Kurulum dosyaları'
 
 /** @type {{ slug: string, relCandidates: string[], title: string }[]} */
 const PRESETS = [
@@ -58,6 +60,7 @@ const PRESETS = [
     slug: 'fethiye-ada-villa',
     title: 'Fethiye Ada Villa',
     relCandidates: [
+      // not: klasör adında çift boşluk var ("ada online  fotolar")
       path.join('ADA', 'ada online  fotolar'),
       path.join('ADA', 'ada online fotolar'),
       path.join('Kurulum dosyaları', 'ADA', 'ada online  fotolar'),
