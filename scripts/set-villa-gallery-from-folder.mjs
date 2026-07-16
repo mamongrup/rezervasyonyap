@@ -6,13 +6,16 @@
  *     --slug kayakoy-kuzey-villa \
  *     --dir "C:/Users/mamon/Desktop/BuVillaSenin/Kurulum dosyaları/KUZEY/Kuzey online foto"
  *
- * Üç villa (Windows masaüstü varsayılan kök):
- *   node scripts/set-villa-gallery-from-folder.mjs --from-desktop
+ * Laragon (önerilen):
+ *   node scripts/set-villa-gallery-from-folder.mjs --from-laragon
  *
- * Sunucuda klasörleri kopyaladıktan sonra:
- *   node scripts/set-villa-gallery-from-folder.mjs \
- *     --root "/var/www/vhosts/rezervasyonyap.tr/httpdocs/tmp/villa-photos"
+ *   veya:
+ *   node scripts/set-villa-gallery-from-folder.mjs --root "C:/laragon/www/BuVillaSenin"
+ *
+ * Sunucu:
+ *   node scripts/set-villa-gallery-from-folder.mjs --root "/path/to/BuVillaSenin"
  */
+import { existsSync } from 'node:fs'
 import path from 'node:path'
 import { createPgClient } from './lib/pg-client.mjs'
 import { applyLocalGalleryToListing, listLocalGalleryFiles } from './lib/local-gallery-folder.mjs'
@@ -24,41 +27,61 @@ const valueAfter = (flag) => {
 }
 
 const DRY_RUN = argv.includes('--dry-run')
-const FROM_DESKTOP = argv.includes('--from-desktop')
+const FROM_LARAGON = argv.includes('--from-laragon') || argv.includes('--from-desktop')
 const SLUG = valueAfter('--slug')
 const DIR = valueAfter('--dir')
 const ROOT = valueAfter('--root')
 
-const DESKTOP_ROOT =
-  process.env.VILLA_PHOTOS_DESKTOP ||
-  'C:/Users/mamon/Desktop/BuVillaSenin/Kurulum dosyaları'
+const LARAGON_ROOT = process.env.VILLA_PHOTOS_ROOT || 'C:/laragon/www/BuVillaSenin'
 
-/** @type {{ slug: string, rel: string, title: string }[]} */
+/** @type {{ slug: string, relCandidates: string[], title: string }[]} */
 const PRESETS = [
   {
     slug: 'kayakoy-kuzey-villa',
-    rel: path.join('KUZEY', 'Kuzey online foto'),
     title: 'Kayaköy Kuzey Villa',
+    relCandidates: [
+      path.join('KUZEY', 'Kuzey online foto'),
+      path.join('Kurulum dosyaları', 'KUZEY', 'Kuzey online foto'),
+      'KUZEY',
+    ],
   },
   {
     slug: 'kayakoy-guney-villa',
-    rel: path.join('GÜNEY', 'Güney online foto'),
     title: 'Kayaköy Güney Villa',
+    relCandidates: [
+      path.join('GÜNEY', 'Güney online foto'),
+      path.join('Kurulum dosyaları', 'GÜNEY', 'Güney online foto'),
+      'GÜNEY',
+    ],
   },
   {
     slug: 'fethiye-ada-villa',
-    rel: path.join('ADA', 'ada online  fotolar'),
     title: 'Fethiye Ada Villa',
+    relCandidates: [
+      path.join('ADA', 'ada online  fotolar'),
+      path.join('ADA', 'ada online fotolar'),
+      path.join('Kurulum dosyaları', 'ADA', 'ada online  fotolar'),
+      path.join('Kurulum dosyaları', 'ADA', 'ada online fotolar'),
+      'ADA',
+    ],
   },
 ]
 
+function resolvePresetDir(base, relCandidates) {
+  for (const rel of relCandidates) {
+    const abs = path.join(base, rel)
+    if (existsSync(abs)) return abs
+  }
+  return path.join(base, relCandidates[0])
+}
+
 function jobsFromArgs() {
   if (SLUG && DIR) return [{ slug: SLUG, dir: DIR, title: SLUG }]
-  if (FROM_DESKTOP || ROOT) {
-    const base = ROOT || DESKTOP_ROOT
+  if (FROM_LARAGON || ROOT) {
+    const base = ROOT || LARAGON_ROOT
     return PRESETS.map((p) => ({
       slug: p.slug,
-      dir: path.join(base, p.rel),
+      dir: resolvePresetDir(base, p.relCandidates),
       title: p.title,
     }))
   }
@@ -68,9 +91,9 @@ function jobsFromArgs() {
 const jobs = jobsFromArgs()
 if (!jobs) {
   console.error(`Kullanım:
-  node scripts/set-villa-gallery-from-folder.mjs --slug <slug> --dir "<klasör>"
-  node scripts/set-villa-gallery-from-folder.mjs --from-desktop
-  node scripts/set-villa-gallery-from-folder.mjs --root "/path/to/Kurulum dosyaları"`)
+  node scripts/set-villa-gallery-from-folder.mjs --from-laragon
+  node scripts/set-villa-gallery-from-folder.mjs --root "C:/laragon/www/BuVillaSenin"
+  node scripts/set-villa-gallery-from-folder.mjs --slug <slug> --dir "<klasör>"`)
   process.exit(1)
 }
 
