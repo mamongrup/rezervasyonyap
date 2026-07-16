@@ -1,5 +1,5 @@
 /**
- * Fethiye Kayaköy — Villa Kuzey + Villa Güney (Villagezegeni + Drive galeri, EUR sezon).
+ * Fethiye Kayaköy — Kayaköy Kuzey Villa + Kayaköy Güney Villa (Villagezegeni + Drive, EUR).
  *
  *   node scripts/import-kayakoy-kuzey-guney-villas.mjs
  *   node scripts/import-kayakoy-kuzey-guney-villas.mjs --dry-run
@@ -57,11 +57,11 @@ const THEMES_GUNEY = ['nature', 'pool', 'jacuzzi', 'luxury', 'family', 'conserva
 const VILLAS = [
   {
     key: 'kuzey',
-    slug: 'villa-kuzey-kayakoy',
+    slug: 'kayakoy-kuzey-villa',
     externalRef: '2447',
     sourceUrl: 'https://www.villagezegeni.com/kiralik-villa/villa-kuzey-kayakoy',
     driveFolderId: '108zEApaO7QF1xMjQKitS9DKFBJw9Z524',
-    title: 'Villa Kuzey Kayaköy',
+    title: 'Kayaköy Kuzey Villa',
     themeCodes: THEMES_KUZEY,
     poolDims: { width: '5', length: '11', depth: '1.60' },
     poolSizeLabel: '11×5×1.60 m',
@@ -81,12 +81,12 @@ const VILLAS = [
     damageDeposit: 500,
     translations: {
       tr: {
-        title: 'Villa Kuzey Kayaköy',
+        title: 'Kayaköy Kuzey Villa',
         description: html([
-          { type: 'h2', text: 'Villa Kuzey Kayaköy' },
+          { type: 'h2', text: 'Kayaköy Kuzey Villa' },
           {
             type: 'p',
-            text: 'Villa Kuzey Kayaköy, Fethiye Kayaköy’de doğanın içinde konumlanan, özel havuzlu ve jakuzili lüks bir tatil villasıdır. Altı kişilik kapasitesiyle aileler, arkadaş grupları ve balayı çiftleri için sakin bir konaklama sunar. Tam korunaklı havuzu sayesinde muhafazakâr misafirler için de uygundur.',
+            text: 'Kayaköy Kuzey Villa, Fethiye Kayaköy’de doğanın içinde konumlanan, özel havuzlu ve jakuzili lüks bir tatil villasıdır. Altı kişilik kapasitesiyle aileler, arkadaş grupları ve balayı çiftleri için sakin bir konaklama sunar. Tam korunaklı havuzu sayesinde muhafazakâr misafirler için de uygundur.',
           },
           { type: 'h2', text: 'Konaklama' },
           {
@@ -119,12 +119,12 @@ const VILLAS = [
         ]),
       },
       en: {
-        title: 'Villa Kuzey Kayaköy',
+        title: 'Kayaköy Kuzey Villa',
         description: html([
-          { type: 'h2', text: 'Villa Kuzey Kayaköy' },
+          { type: 'h2', text: 'Kayaköy Kuzey Villa' },
           {
             type: 'p',
-            text: 'Villa Kuzey Kayaköy is a luxury holiday villa with a private pool and jacuzzi, set in nature in Kayaköy, Fethiye. Sleeping up to six guests, it suits families, friends and honeymoon couples. The fully sheltered pool also makes it suitable for conservative guests.',
+            text: 'Kayaköy Kuzey Villa is a luxury holiday villa with a private pool and jacuzzi, set in nature in Kayaköy, Fethiye. Sleeping up to six guests, it suits families, friends and honeymoon couples. The fully sheltered pool also makes it suitable for conservative guests.',
           },
           { type: 'h2', text: 'Accommodation' },
           {
@@ -157,12 +157,12 @@ const VILLAS = [
         ]),
       },
       de: {
-        title: 'Villa Kuzey Kayaköy',
+        title: 'Kayaköy Kuzey Villa',
         description: html([
-          { type: 'h2', text: 'Villa Kuzey Kayaköy' },
+          { type: 'h2', text: 'Kayaköy Kuzey Villa' },
           {
             type: 'p',
-            text: 'Villa Kuzey Kayaköy ist eine luxuriöse Ferienvilla mit privatem Pool und Whirlpool in der Natur von Kayaköy/Fethiye. Für bis zu sechs Gäste geeignet – Familien, Freundesgruppen und Flitterwochenpaare. Der voll geschützte Pool macht sie auch für konservative Gäste passend.',
+            text: 'Kayaköy Kuzey Villa ist eine luxuriöse Ferienvilla mit privatem Pool und Whirlpool in der Natur von Kayaköy/Fethiye. Für bis zu sechs Gäste geeignet – Familien, Freundesgruppen und Flitterwochenpaare. Der voll geschützte Pool macht sie auch für konservative Gäste passend.',
           },
           { type: 'h2', text: 'Unterkunft' },
           {
@@ -195,12 +195,12 @@ const VILLAS = [
         ]),
       },
       ru: {
-        title: 'Villa Kuzey Kayaköy',
+        title: 'Kayaköy Kuzey Villa',
         description: html([
-          { type: 'h2', text: 'Villa Kuzey Kayaköy' },
+          { type: 'h2', text: 'Kayaköy Kuzey Villa' },
           {
             type: 'p',
-            text: 'Villa Kuzey Kayaköy — роскошная вилла с частным бассейном и джакузи среди природы в Каякее (Фетхие). Вмещает до 6 гостей: семьи, компании друзей и молодожёны. Полностью закрытый бассейн удобен и для консервативных гостей.',
+            text: 'Kayaköy Kuzey Villa — роскошная вилла с частным бассейном и джакузи среди природы в Каякее (Фетхие). Вмещает до 6 гостей: семьи, компании друзей и молодожёны. Полностью закрытый бассейн удобен и для консервативных гостей.',
           },
           { type: 'h2', text: 'Размещение' },
           {
@@ -233,12 +233,12 @@ const VILLAS = [
         ]),
       },
       zh: {
-        title: 'Villa Kuzey Kayaköy',
+        title: 'Kayaköy Kuzey Villa',
         description: html([
-          { type: 'h2', text: 'Villa Kuzey Kayaköy' },
+          { type: 'h2', text: 'Kayaköy Kuzey Villa' },
           {
             type: 'p',
-            text: 'Villa Kuzey Kayaköy 位于费特希耶 Kayaköy 的自然环境中，配有私人泳池与按摩浴缸，最多可住 6 人，适合家庭、朋友与蜜月旅客。泳池完全遮蔽，也适合注重隐私的宾客。',
+            text: 'Kayaköy Kuzey Villa 位于费特希耶 Kayaköy 的自然环境中，配有私人泳池与按摩浴缸，最多可住 6 人，适合家庭、朋友与蜜月旅客。泳池完全遮蔽，也适合注重隐私的宾客。',
           },
           { type: 'h2', text: '住宿设施' },
           {
@@ -271,12 +271,12 @@ const VILLAS = [
         ]),
       },
       fr: {
-        title: 'Villa Kuzey Kayaköy',
+        title: 'Kayaköy Kuzey Villa',
         description: html([
-          { type: 'h2', text: 'Villa Kuzey Kayaköy' },
+          { type: 'h2', text: 'Kayaköy Kuzey Villa' },
           {
             type: 'p',
-            text: 'Villa Kuzey Kayaköy est une villa de vacances de luxe avec piscine privée et jacuzzi, au cœur de la nature à Kayaköy (Fethiye). Capacité de six personnes : familles, amis et couples en lune de miel. La piscine entièrement abritée convient aussi aux séjours plus privés.',
+            text: 'Kayaköy Kuzey Villa est une villa de vacances de luxe avec piscine privée et jacuzzi, au cœur de la nature à Kayaköy (Fethiye). Capacité de six personnes : familles, amis et couples en lune de miel. La piscine entièrement abritée convient aussi aux séjours plus privés.',
           },
           { type: 'h2', text: 'Hébergement' },
           {
@@ -312,11 +312,11 @@ const VILLAS = [
   },
   {
     key: 'guney',
-    slug: 'villa-guney-kayakoy',
+    slug: 'kayakoy-guney-villa',
     externalRef: '2448',
     sourceUrl: 'https://www.villagezegeni.com/kiralik-villa/villa-guney-kayakoy-',
     driveFolderId: '1-AS01BZ0t_cVKYEGEEiGm7XHM7VNX9HY',
-    title: 'Villa Güney Kayaköy',
+    title: 'Kayaköy Güney Villa',
     themeCodes: THEMES_GUNEY,
     poolDims: { width: '5', length: '11.5', depth: '1.60' },
     poolSizeLabel: '11.5×5×1.60 m',
@@ -336,12 +336,12 @@ const VILLAS = [
     damageDeposit: 500,
     translations: {
       tr: {
-        title: 'Villa Güney Kayaköy',
+        title: 'Kayaköy Güney Villa',
         description: html([
-          { type: 'h2', text: 'Villa Güney Kayaköy' },
+          { type: 'h2', text: 'Kayaköy Güney Villa' },
           {
             type: 'p',
-            text: 'Villa Güney Kayaköy, Fethiye Kayaköy’de doğayla iç içe, özel havuzlu ve jakuzili lüks bir tatil villasıdır. Altı kişilik kapasitesiyle aileler ve arkadaş grupları için geniştir; tam korunaklı havuzu ve salıncağıyla sakin bir tatil atmosferi sunar.',
+            text: 'Kayaköy Güney Villa, Fethiye Kayaköy’de doğayla iç içe, özel havuzlu ve jakuzili lüks bir tatil villasıdır. Altı kişilik kapasitesiyle aileler ve arkadaş grupları için geniştir; tam korunaklı havuzu ve salıncağıyla sakin bir tatil atmosferi sunar.',
           },
           { type: 'h2', text: 'Konaklama' },
           {
@@ -374,12 +374,12 @@ const VILLAS = [
         ]),
       },
       en: {
-        title: 'Villa Güney Kayaköy',
+        title: 'Kayaköy Güney Villa',
         description: html([
-          { type: 'h2', text: 'Villa Güney Kayaköy' },
+          { type: 'h2', text: 'Kayaköy Güney Villa' },
           {
             type: 'p',
-            text: 'Villa Güney Kayaköy is a luxury holiday villa with a private pool and jacuzzi in Kayaköy, Fethiye. Sleeping six guests, it works well for families and friends, with a fully sheltered pool and garden swing for a quiet stay.',
+            text: 'Kayaköy Güney Villa is a luxury holiday villa with a private pool and jacuzzi in Kayaköy, Fethiye. Sleeping six guests, it works well for families and friends, with a fully sheltered pool and garden swing for a quiet stay.',
           },
           { type: 'h2', text: 'Accommodation' },
           {
@@ -412,12 +412,12 @@ const VILLAS = [
         ]),
       },
       de: {
-        title: 'Villa Güney Kayaköy',
+        title: 'Kayaköy Güney Villa',
         description: html([
-          { type: 'h2', text: 'Villa Güney Kayaköy' },
+          { type: 'h2', text: 'Kayaköy Güney Villa' },
           {
             type: 'p',
-            text: 'Villa Güney Kayaköy ist eine luxuriöse Ferienvilla mit privatem Pool und Whirlpool in Kayaköy/Fethiye. Für sechs Gäste geeignet – ideal für Familien und Freundesgruppen, mit voll geschütztem Pool und Gartenschaukel.',
+            text: 'Kayaköy Güney Villa ist eine luxuriöse Ferienvilla mit privatem Pool und Whirlpool in Kayaköy/Fethiye. Für sechs Gäste geeignet – ideal für Familien und Freundesgruppen, mit voll geschütztem Pool und Gartenschaukel.',
           },
           { type: 'h2', text: 'Unterkunft' },
           {
@@ -450,12 +450,12 @@ const VILLAS = [
         ]),
       },
       ru: {
-        title: 'Villa Güney Kayaköy',
+        title: 'Kayaköy Güney Villa',
         description: html([
-          { type: 'h2', text: 'Villa Güney Kayaköy' },
+          { type: 'h2', text: 'Kayaköy Güney Villa' },
           {
             type: 'p',
-            text: 'Villa Güney Kayaköy — роскошная вилла с частным бассейном и джакузи в Каякее (Фетхие). Рассчитана на 6 гостей: семьи и компании друзей. Полностью закрытый бассейн и садовые качели создают спокойную атмосферу.',
+            text: 'Kayaköy Güney Villa — роскошная вилла с частным бассейном и джакузи в Каякее (Фетхие). Рассчитана на 6 гостей: семьи и компании друзей. Полностью закрытый бассейн и садовые качели создают спокойную атмосферу.',
           },
           { type: 'h2', text: 'Размещение' },
           {
@@ -488,12 +488,12 @@ const VILLAS = [
         ]),
       },
       zh: {
-        title: 'Villa Güney Kayaköy',
+        title: 'Kayaköy Güney Villa',
         description: html([
-          { type: 'h2', text: 'Villa Güney Kayaköy' },
+          { type: 'h2', text: 'Kayaköy Güney Villa' },
           {
             type: 'p',
-            text: 'Villa Güney Kayaköy 位于费特希耶 Kayaköy，配有私人泳池与按摩浴缸，最多可住 6 人，适合家庭与朋友出行。泳池完全遮蔽，花园配有秋千，氛围安静私密。',
+            text: 'Kayaköy Güney Villa 位于费特希耶 Kayaköy，配有私人泳池与按摩浴缸，最多可住 6 人，适合家庭与朋友出行。泳池完全遮蔽，花园配有秋千，氛围安静私密。',
           },
           { type: 'h2', text: '住宿设施' },
           {
@@ -526,12 +526,12 @@ const VILLAS = [
         ]),
       },
       fr: {
-        title: 'Villa Güney Kayaköy',
+        title: 'Kayaköy Güney Villa',
         description: html([
-          { type: 'h2', text: 'Villa Güney Kayaköy' },
+          { type: 'h2', text: 'Kayaköy Güney Villa' },
           {
             type: 'p',
-            text: 'Villa Güney Kayaköy est une villa de vacances de luxe avec piscine privée et jacuzzi à Kayaköy (Fethiye). Capacité de six personnes, idéale pour familles et amis, avec piscine entièrement abritée et balançoire au jardin.',
+            text: 'Kayaköy Güney Villa est une villa de vacances de luxe avec piscine privée et jacuzzi à Kayaköy (Fethiye). Capacité de six personnes, idéale pour familles et amis, avec piscine entièrement abritée et balançoire au jardin.',
           },
           { type: 'h2', text: 'Hébergement' },
           {

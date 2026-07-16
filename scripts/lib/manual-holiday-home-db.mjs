@@ -10,6 +10,7 @@ import { applyListingPropertyType } from './bravo-property-type.mjs'
 import { buildSeasonalRuleJson } from './bravo-seasonal-prices.mjs'
 import { downloadGalleryImages } from './wtatil-image-download.mjs'
 import { HOLIDAY_HOME_RULE_CODE_TO_ACCOMMODATION_ID } from './bravo-holiday-home-map.mjs'
+import { upsertAvailabilityCalendar } from './akdenizvillam-calendar.mjs'
 
 const DEFAULT_ORG = 'a0000000-0000-4000-8000-000000000001'
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -301,6 +302,7 @@ export async function upsertManualHolidayHome(pg, ctx, pkg, opts = {}) {
     )
 
     const imageCount = await upsertImages(pg, listingId, slug, pkg.galleryUrls, { skipImages })
+    const calendar = await upsertAvailabilityCalendar(pg, listingId, pkg.calendarDays || [])
 
     await pg.query('COMMIT')
 
@@ -319,6 +321,8 @@ export async function upsertManualHolidayHome(pg, ctx, pkg, opts = {}) {
       externalRef,
       imageCount,
       priceBands: pkg.seasonalPrices?.length || 0,
+      calendarDays: calendar.days,
+      calendarBlocked: calendar.blocked,
       currency: pkg.currency || 'EUR',
       vitrinPrice: pkg.vitrinPrice,
       title: pkg.title,
