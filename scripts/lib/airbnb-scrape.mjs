@@ -86,14 +86,24 @@ function parseDeposit(priceDetails = []) {
   return null
 }
 
-function buildThemes(amenities = [], description = '') {
+function buildThemes(amenities = [], description = '', title = '') {
   // Yalnızca kanonik kodlar — deniz_manzarali / ozel_havuzlu / jakuzili eklenmez
   const themes = new Set(['pool'])
-  const hay = `${amenities.join(' ')} ${description}`.toLowerCase()
-  if (/deniz|sea|su kenar|waterfront|sıfır|sifir/.test(hay)) themes.add('sea_view')
+  const hay = `${amenities.join(' ')} ${description} ${title}`.toLocaleLowerCase('tr-TR')
+  // "Denize sıfır" / beachfront → beachfront (facet: denize-sifir); sea_view ayrı kalır
+  if (
+    /denize\s*s[ıi]f[ıi]r|beachfront|seafront|private\s*beach|plaja\s*s[ıi]f[ıi]r|su\s*kenar[ıi]/.test(
+      hay,
+    )
+  ) {
+    themes.add('beachfront')
+  }
+  if (/deniz|sea|waterfront|manzara|sıfır|sifir/.test(hay) || themes.has('beachfront')) {
+    themes.add('sea_view')
+  }
   if (/jakuzi|jacuzzi|hot tub/.test(hay)) themes.add('jacuzzi')
-  if (/sonsuzluk|infinity/.test(hay)) themes.add('luxury')
-  if (/aile|çocuk|cocuk|family/.test(hay)) themes.add('family')
+  if (/sonsuzluk|infinity|lüks|luks|luxury/.test(hay)) themes.add('luxury')
+  if (/aile|çocuk|cocuk|family|bebek|bebe/.test(hay)) themes.add('family')
   return [...themes]
 }
 
@@ -173,7 +183,8 @@ export function parseAirbnbPdp(detail, sourceUrl) {
   const maxGuests =
     detail.guest_controls?.person_capacity || parseCountLabel(detail.guest_label) || 0
   const damageDeposit = parseDeposit(detail.price_details)
-  const cleanName = cleanAirbnbTitle(detail.p3_summary_title || sd.name || `Villa ${roomId}`)
+  const rawTitle = detail.p3_summary_title || sd.name || `Villa ${roomId}`
+  const cleanName = cleanAirbnbTitle(rawTitle)
   const propertyType = 'villa'
   const title = formatHolidayHomeTitleTr(cleanName, propertyType)
   const description = buildDescription(sd, title)
@@ -184,7 +195,7 @@ export function parseAirbnbPdp(detail, sourceUrl) {
   const city = detail.city || 'Fethiye'
   const province = /mu[gğ]la/i.test(locationName) ? 'Muğla' : ''
   const pools = buildPools(amenities)
-  const themeCodes = buildThemes(amenities, description)
+  const themeCodes = buildThemes(amenities, `${description} ${sd.description || ''}`, rawTitle)
   const ruleCodes = buildRuleCodes(detail.guest_controls || {})
   const poolSizeLabel = pools.open_pool.enabled ? 'Özel havuz' : ''
 

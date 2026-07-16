@@ -102,14 +102,51 @@ async function upsertThemes(pgClient, listingId, themeCodes = []) {
   }
 }
 
+function mergeThemeCodes(base = [], extra = []) {
+  return [...new Set([...(base || []), ...(extra || [])].map((c) => String(c).trim()).filter(Boolean))]
+}
+
+async function upsertLocaleTranslations(pgClient, listingId, pkg) {
+  const locales = await pgClient.query(
+    `SELECT id, code FROM locales WHERE is_active = true ORDER BY code`,
+  )
+  const byCode = new Map(
+    (pkg.translations || []).map((t) => [String(t.locale || t.code || '').toLowerCase(), t]),
+  )
+  const trFallback = {
+    locale: 'tr',
+    title: pkg.title,
+    description: pkg.description || pkg.shortDescription || '',
+  }
+  for (const row of locales.rows) {
+    const t = byCode.get(String(row.code).toLowerCase()) || (row.code === 'tr' ? trFallback : null)
+    if (!t?.title) continue
+    await pgClient.query(
+      `INSERT INTO listing_translations (listing_id, locale_id, title, description)
+       VALUES ($1::uuid, $2, $3, $4)
+       ON CONFLICT (listing_id, locale_id) DO UPDATE SET
+         title = EXCLUDED.title,
+         description = EXCLUDED.description`,
+      [listingId, row.id, t.title, t.description || ''],
+    )
+  }
+}
+
 export async function upsertAirbnbListing(
   pgClient,
   ctx,
   pkg,
-  { status = 'published', dryRun = false, skipImages = false, updateExisting = true } = {},
+  {
+    status = 'published',
+    dryRun = false,
+    skipImages = false,
+    updateExisting = true,
+    extraThemes = [],
+  } = {},
 ) {
   const slug = pkg.slug
   const externalRef = String(pkg.externalRef)
+  const themeCodes = mergeThemeCodes(pkg.themeCodes, extraThemes)
   let listingId = await findListingId(pgClient, ctx.orgId, externalRef, slug)
   const isNew = !listingId
 
@@ -126,6 +163,7 @@ export async function upsertAirbnbListing(
       imageCount: pkg.galleryUrls?.length || 0,
       dryRun: true,
       title: pkg.title,
+      themeCodes,
     }
   }
 
@@ -191,14 +229,19 @@ export async function upsertAirbnbListing(
       listingId = ins.rows[0].id
     }
 
-    await pgClient.query(
-      `INSERT INTO listing_translations (listing_id, locale_id, title, description)
-       VALUES ($1::uuid, $2, $3, $4)
-       ON CONFLICT (listing_id, locale_id) DO UPDATE SET
-         title = EXCLUDED.title,
-         description = EXCLUDED.description`,
-      [listingId, ctx.localeTrId, pkg.title, pkg.description || pkg.shortDescription || ''],
-    )
+    // pkg.translations yoksa yalnızca TR; varsa tüm aktif diller
+    if (pkg.translations?.length) {
+      await upsertLocaleTranslations(pgClient, listingId, pkg)
+    } else {
+      await pgClient.query(
+        `INSERT INTO listing_translations (listing_id, locale_id, title, description)
+         VALUES ($1::uuid, $2, $3, $4)
+         ON CONFLICT (listing_id, locale_id) DO UPDATE SET
+           title = EXCLUDED.title,
+           description = EXCLUDED.description`,
+        [listingId, ctx.localeTrId, pkg.title, pkg.description || pkg.shortDescription || ''],
+      )
+    }
 
     await applyBravoHolidayHomeVitrinFields(pgClient, listingId, {
       meta: pkg.meta,
@@ -217,10 +260,10 @@ export async function upsertAirbnbListing(
        ON CONFLICT (listing_id) DO UPDATE SET
          theme_codes = EXCLUDED.theme_codes,
          rule_codes = EXCLUDED.rule_codes`,
-      [listingId, pkg.themeCodes || [], pkg.ruleCodes || []],
+      [listingId, themeCodes, pkg.ruleCodes || []],
     )
 
-    await upsertThemes(pgClient, listingId, pkg.themeCodes)
+    await upsertThemes(pgClient, listingId, themeCodes)
     await upsertAmenities(pgClient, listingId, pkg.amenities)
 
     if (pkg.tourismCertNo) {
@@ -256,6 +299,7 @@ export async function upsertAirbnbListing(
       imageCount,
       amenityCount: pkg.amenities?.length || 0,
       title: pkg.title,
+      themeCodes,
       vitrinPrice: pkg.vitrinPrice,
       damageDeposit: pkg.damageDeposit,
       sourceUrl: pkg.sourceUrl,
@@ -272,6 +316,9 @@ export async function runAirbnbImport(urlOrId, opts = {}) {
   await pg.connect()
   try {
     const pkg = await scrapeAirbnbListing(urlOrId)
+    if (typeof opts.enrichPackage === 'function') {
+      await opts.enrichPackage(pkg)
+    }
     const orgId = process.env.AIRBNB_ORG_ID || DEFAULT_ORG
     const ctx = opts.dryRun
       ? { orgId, categoryId: 1, localeTrId: 1 }
