@@ -28,6 +28,11 @@ import { mysqlConfigFromArgv } from './lib/bravo-mysql-config.mjs'
 import { createPgClient } from './lib/pg-client.mjs'
 import { createBundleMysql, loadBravoCollisionBundle } from './lib/bravo-collision-bundle.mjs'
 import {
+  anatoliaVillaMediaSource,
+  fetchVerifiedAnatoliaGallery,
+} from './lib/anatolia-villa-media.mjs'
+import { downloadGalleryImages } from './lib/wtatil-image-download.mjs'
+import {
   applyBravoHolidayHomeVitrinFields,
   buildBravoHolidayHomeVitrinPackage,
   BRAVO_RULE_SLUG_TO_CODE,
@@ -235,7 +240,45 @@ async function findExistingListing(pgClient, slug, legacyId) {
   return r.rows[0] || null
 }
 
-async function importImages(pgClient, listingId, slug, galleryIds, imageId, bannerId, mediaMap, stats) {
+async function importImages(
+  pgClient,
+  listingId,
+  slug,
+  galleryIds,
+  imageId,
+  bannerId,
+  mediaMap,
+  stats,
+  verifiedGallery = null,
+) {
+  if (verifiedGallery && !SKIP_IMAGES && !DRY_RUN) {
+    const rows = await downloadGalleryImages(verifiedGallery.urls, slug, UPLOADS_ROOT, {
+      categoryCode: 'holiday_home',
+      downloadConcurrency: 3,
+      convertConcurrency: 1,
+      headers: { referer: verifiedGallery.page },
+    })
+    if (rows.length < verifiedGallery.minImages) {
+      throw new Error(`Dogrulanmis Anatolia galerisi eksik: ${rows.length}/${verifiedGallery.minImages}`)
+    }
+    stats.imagesOk += rows.length
+    await pgClient.query(`DELETE FROM listing_images WHERE listing_id = $1::uuid`, [listingId])
+    for (const row of rows) {
+      await pgClient.query(
+        `INSERT INTO listing_images (listing_id, sort_order, storage_key, original_mime)
+         VALUES ($1::uuid, $2, $3, 'image/avif')`,
+        [listingId, row.sort, row.storageKey],
+      )
+    }
+    const hero = `/${rows[0].storageKey}`
+    await pgClient.query(
+      `UPDATE listings SET featured_image_url = $2, thumbnail_url = $2, updated_at = now()
+       WHERE id = $1::uuid`,
+      [listingId, hero],
+    )
+    return rows
+  }
+
   const orderedIds = []
   const seen = new Set()
   const push = (id) => {
@@ -538,16 +581,25 @@ async function importOne(pgClient, mysql, space, mediaMap, stats) {
       .map((x) => Number(x.trim()))
       .filter(Boolean)
 
-    await importImages(
-      pgClient,
-      listingId,
-      slug,
-      galleryIds,
-      space.image_id,
-      space.banner_image_id,
-      mediaMap,
-      stats,
-    )
+    const anatoliaSource = anatoliaVillaMediaSource(legacyId)
+    if (anatoliaSource && SKIP_IMAGES) {
+      log('protected gallery skip', legacyId, slug)
+    } else {
+      const verifiedGallery = anatoliaSource
+        ? await fetchVerifiedAnatoliaGallery(legacyId)
+        : null
+      await importImages(
+        pgClient,
+        listingId,
+        slug,
+        galleryIds,
+        space.image_id,
+        space.banner_image_id,
+        mediaMap,
+        stats,
+        verifiedGallery,
+      )
+    }
 
     const calDays = await importCalendar(pgClient, listingId, legacyId, mysql)
     stats.calendarDays += calDays
