@@ -28,4 +28,3 @@ nohup "${RUNNER[@]}" > "$LOG_FILE" 2>&1 < /dev/null &
 echo $! > "$PID_FILE"
 echo "[OK] Medya denetimi baslatildi PID=$(cat "$PID_FILE")"
 echo "     tail -f $LOG_FILE"
-

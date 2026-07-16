@@ -443,4 +443,3 @@ try {
 } finally {
   await pg.end()
 }
-
