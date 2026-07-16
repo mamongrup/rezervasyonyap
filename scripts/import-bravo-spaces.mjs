@@ -47,7 +47,8 @@ const REPAIR_BUNDLE_PATH = path.join(
 const UPLOADS_ROOT = path.join(TRAVEL_ROOT, 'frontend', 'public', 'uploads', 'listings')
 
 const ORG_ID = 'a0000000-0000-4000-8000-000000000001'
-const CATEGORY_ID = 1
+const CATEGORY_CODE = 'holiday_home'
+let CATEGORY_ID = null
 const LOCALE_TR = 1
 const PROVIDER = 'bravo_space'
 
@@ -96,6 +97,13 @@ const CREATE_MISSING_ONLY = args.has('--create-missing-only')
 const REPAIR_ID_COLLISIONS = args.has('--repair-id-collisions')
 const limitIdx = process.argv.indexOf('--limit')
 const LIMIT = limitIdx >= 0 ? Number(process.argv[limitIdx + 1]) : 0
+const idsIdx = process.argv.indexOf('--ids')
+const ONLY_IDS = new Set(
+  (idsIdx >= 0 ? String(process.argv[idsIdx + 1] || '') : '')
+    .split(',')
+    .map((value) => Number(value.trim()))
+    .filter(Number.isInteger),
+)
 
 const logPath = path.join(
   TRAVEL_ROOT,
@@ -568,6 +576,8 @@ async function main() {
     REPAIR_ID_COLLISIONS,
     'limit=',
     LIMIT || 'all',
+    'ids=',
+    ONLY_IDS.size ? [...ONLY_IDS].join(',') : 'all',
   )
 
   let mysqlConn
@@ -582,7 +592,10 @@ async function main() {
       // Owner iletisim bilgileri tasinabilir onarim paketine bilerek dahil edilmez.
       __owner_contact: {},
     }))
-    spaces = LIMIT > 0 ? bundledSpaces.slice(0, LIMIT) : bundledSpaces
+    const selectedSpaces = ONLY_IDS.size
+      ? bundledSpaces.filter((space) => ONLY_IDS.has(Number(space.id)))
+      : bundledSpaces
+    spaces = LIMIT > 0 ? selectedSpaces.slice(0, LIMIT) : selectedSpaces
     mediaMap = new Map((bundle.media ?? []).map((row) => [Number(row.id), row]))
     log('repair source=portable PostgreSQL bundle:', REPAIR_BUNDLE_PATH)
   } else {
@@ -602,11 +615,20 @@ async function main() {
     if (LIMIT > 0) sql += ` LIMIT ${LIMIT}`
 
     const [sourceSpaces] = await mysqlConn.query(sql)
-    spaces = sourceSpaces
+    spaces = ONLY_IDS.size
+      ? sourceSpaces.filter((space) => ONLY_IDS.has(Number(space.id)))
+      : sourceSpaces
   }
 
   const pgClient = createPgClient()
   await pgClient.connect()
+
+  const categoryResult = await pgClient.query(
+    `SELECT id FROM product_categories WHERE code = $1 LIMIT 1`,
+    [CATEGORY_CODE],
+  )
+  CATEGORY_ID = categoryResult.rows[0]?.id ?? null
+  if (!CATEGORY_ID) throw new Error(`Kategori bulunamadi: ${CATEGORY_CODE}`)
 
   log('publish listings to import:', spaces.length)
 

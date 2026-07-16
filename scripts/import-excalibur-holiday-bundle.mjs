@@ -16,7 +16,9 @@ const DRY_RUN = process.argv.includes('--dry-run')
 const BUNDLE = args[0]
 
 const ORG_ID = 'a0000000-0000-4000-8000-000000000001'
-const CATEGORY_ID = 1
+const CATEGORY_CODE = 'holiday_home'
+const PROVIDER = 'bravo_space'
+let CATEGORY_ID = null
 const CAL_BATCH = 400
 
 if (!BUNDLE) {
@@ -34,13 +36,21 @@ function readBundle(filePath) {
 async function findListingId(pg, item) {
   const ref = String(item.external_listing_ref)
   const byRef = await pg.query(
-    `SELECT id::text FROM listings WHERE external_listing_ref = $1 LIMIT 1`,
-    [ref],
+    `SELECT id::text FROM listings
+     WHERE organization_id = $1::uuid
+       AND category_id = $2
+       AND external_provider_code = $3
+       AND external_listing_ref = $4
+     LIMIT 1`,
+    [ORG_ID, CATEGORY_ID, PROVIDER, ref],
   )
   if (byRef.rows[0]?.id) return byRef.rows[0].id
-  const bySlug = await pg.query(`SELECT id::text FROM listings WHERE slug = $1 LIMIT 1`, [
-    item.slug,
-  ])
+  const bySlug = await pg.query(
+    `SELECT id::text FROM listings
+     WHERE organization_id = $1::uuid AND category_id = $2 AND slug = $3
+     LIMIT 1`,
+    [ORG_ID, CATEGORY_ID, item.slug],
+  )
   return bySlug.rows[0]?.id || null
 }
 
@@ -49,14 +59,15 @@ async function upsertListing(pg, item, listingId) {
   if (listingId) {
     await pg.query(
       `UPDATE listings SET
-         slug = $2, status = $3, currency_code = $4,
-         min_stay_nights = $5, map_lat = $6, map_lng = $7,
-         location_name = $8, share_to_social = $9, instant_book = $10,
-         external_listing_ref = $11, vitrin_price = $12,
-         first_charge_amount = $13, updated_at = now()
+         category_id = $2, slug = $3, status = $4, currency_code = $5,
+         min_stay_nights = $6, map_lat = $7, map_lng = $8,
+         location_name = $9, share_to_social = $10, instant_book = $11,
+         external_provider_code = $12, external_listing_ref = $13, vitrin_price = $14,
+         first_charge_amount = $15, updated_at = now()
        WHERE id = $1::uuid`,
       [
         listingId,
+        CATEGORY_ID,
         item.slug,
         l.status,
         l.currency_code,
@@ -66,6 +77,7 @@ async function upsertListing(pg, item, listingId) {
         l.location_name,
         l.share_to_social,
         l.instant_book,
+        PROVIDER,
         String(item.external_listing_ref),
         l.vitrin_price,
         l.first_charge_amount,
@@ -78,13 +90,13 @@ async function upsertListing(pg, item, listingId) {
     `INSERT INTO listings (
        organization_id, category_id, slug, status, currency_code,
        min_stay_nights, map_lat, map_lng, location_name,
-       external_listing_ref, share_to_social, instant_book, listing_source,
+       external_provider_code, external_listing_ref, share_to_social, instant_book, listing_source,
        vitrin_price, first_charge_amount
      ) VALUES (
        $1::uuid, $2, $3, $4, $5,
        $6, $7, $8, $9,
-       $10, $11, $12, $13,
-       $14, $15
+       $10, $11, $12, $13, $14,
+       $15, $16
      ) RETURNING id::text`,
     [
       l.organization_id || ORG_ID,
@@ -96,6 +108,7 @@ async function upsertListing(pg, item, listingId) {
       l.map_lat,
       l.map_lng,
       l.location_name,
+      PROVIDER,
       String(item.external_listing_ref),
       l.share_to_social,
       l.instant_book,
@@ -236,6 +249,12 @@ async function main() {
 
   const pg = createPgClient()
   await pg.connect()
+  const categoryResult = await pg.query(
+    `SELECT id FROM product_categories WHERE code = $1 LIMIT 1`,
+    [CATEGORY_CODE],
+  )
+  CATEGORY_ID = categoryResult.rows[0]?.id ?? null
+  if (!CATEGORY_ID) throw new Error(`Kategori bulunamadi: ${CATEGORY_CODE}`)
   const stats = {
     ok: 0,
     created: 0,
