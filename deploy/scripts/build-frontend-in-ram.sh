@@ -67,6 +67,7 @@ step "Webpack production build (ara dosyalar RAM'de)"
   export NEXT_TELEMETRY_DISABLED=1
   export NEXT_NODE_HEAP_MB="${NEXT_NODE_HEAP_MB:-4096}"
   export CSS_OPTIMIZE="${CSS_OPTIMIZE:-0}"
+  export TRAVEL_LOW_IO_BUILD="${TRAVEL_LOW_IO_BUILD:-1}"
   if command -v ionice >/dev/null 2>&1; then
     exec ionice -c3 nice -n 19 npm run build
   fi
