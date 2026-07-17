@@ -1,6 +1,10 @@
 'use client'
 
-import { clearStoredAuthToken, getStoredAuthToken } from '@/lib/auth-storage'
+import {
+  clearStoredAuthToken,
+  getStoredAuthToken,
+  isAuthSessionInvalidError,
+} from '@/lib/auth-storage'
 import { clearHeroSearchUserIdCache } from '@/lib/hero-search-plan'
 import {
   addComparisonItem,
@@ -103,11 +107,14 @@ export default function AccountProfile({ locale }: { locale: string }) {
         setPrefLocale(u.preferred_locale?.trim() ? u.preferred_locale : 'tr')
       } catch (e) {
         if (cancelled) return
-        clearStoredAuthToken()
-        clearHeroSearchUserIdCache()
-        setToken(null)
         setError(e instanceof Error ? e.message : 'load_failed')
-        redirectLogin()
+        // Geçici API hatasında oturumu silme / login'e atma.
+        if (isAuthSessionInvalidError(e)) {
+          clearStoredAuthToken()
+          clearHeroSearchUserIdCache()
+          setToken(null)
+          redirectLogin()
+        }
       } finally {
         if (!cancelled) setLoading(false)
       }

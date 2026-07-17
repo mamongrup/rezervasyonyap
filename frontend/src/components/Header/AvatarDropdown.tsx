@@ -12,6 +12,7 @@ import {
   getStoredAuthProfile,
   getStoredAuthToken,
   clearStoredAuthToken,
+  isAuthSessionInvalidError,
 } from '@/lib/auth-storage'
 import { clearHeroSearchUserIdCache } from '@/lib/hero-search-plan'
 import { getAuthMe, logoutUser } from '@/lib/travel-api'
@@ -82,7 +83,9 @@ export default function AvatarDropdown({ className }: Props) {
     try {
       const me = await getAuthMe(token)
       applyProfile(me)
-    } catch {
+    } catch (err) {
+      // Yalnız gerçek 401/403'te oturumu sil; 502/timeout sonrası taze girişi öldürme.
+      if (!isAuthSessionInvalidError(err)) return
       clearStoredAuthToken()
       setIsLoggedIn(false)
       setIsAdmin(false)

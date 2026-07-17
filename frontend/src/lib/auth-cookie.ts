@@ -11,8 +11,8 @@ import type { ResponseCookie } from 'next/dist/compiled/@edge-runtime/cookies'
 
 export const AUTH_COOKIE_NAME = 'travel_auth_token'
 
-/** 7 gün — backend `user_sessions.expires_at` ile eşleşir. */
-const AUTH_COOKIE_MAX_AGE_SECONDS = 60 * 60 * 24 * 7
+/** 30 gün — backend `user_sessions.expires_at` (~30 gün) ile uyumlu. */
+const AUTH_COOKIE_MAX_AGE_SECONDS = 60 * 60 * 24 * 30
 
 /**
  * Sertifikalı (HttpOnly + Secure + SameSite=Lax) cookie öznitelikleri.

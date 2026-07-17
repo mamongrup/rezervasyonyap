@@ -72,3 +72,20 @@ export function clearStoredAuthToken(): void {
     () => undefined,
   )
 }
+
+/**
+ * Gerçek oturum/yetki reddi (401/403). Geçici 5xx / timeout / ağ hatalarında
+ * false — aksi halde AvatarDropdown vb. taze oturumu hemen silip kullanıcıyı
+ * «giriş yapıp hemen atıldı» hissine sokuyordu.
+ */
+export function isAuthSessionInvalidError(err: unknown): boolean {
+  const status = (err as { status?: number } | null)?.status
+  if (status === 401 || status === 403) return true
+  const msg = err instanceof Error ? err.message : String(err ?? '')
+  return (
+    /(^|_)(401|403)$/i.test(msg) ||
+    /unauthorized|forbidden|invalid_session|auth_token_missing|auth_me_401|auth_me_403/i.test(
+      msg,
+    )
+  )
+}
