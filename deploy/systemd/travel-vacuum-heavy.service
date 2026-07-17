@@ -1,0 +1,16 @@
+[Unit]
+Description=Travel — ağır tablolar VACUUM/ANALYZE (oneshot)
+After=network-online.target postgresql.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/var/www/vhosts/rezervasyonyap.tr/httpdocs
+ExecStart=/bin/bash /var/www/vhosts/rezervasyonyap.tr/httpdocs/deploy/scripts/vacuum-heavy-tables.sh
+Nice=15
+IOSchedulingClass=idle
+IOSchedulingPriority=7
+TimeoutStartSec=6h
+
+[Install]
+WantedBy=multi-user.target

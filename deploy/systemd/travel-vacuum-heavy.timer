@@ -1,0 +1,15 @@
+# Pazar gecesi (UTC) — dead tuple / şişkinlik temizliği.
+# Datacenter I/O uyarısından sonra: tam VACUUM FULL değil, normal VACUUM.
+
+[Unit]
+Description=Travel — haftalık ağır tablo VACUUM
+
+[Timer]
+OnCalendar=Sun *-*-* 03:40:00
+AccuracySec=15min
+Persistent=true
+RandomizedDelaySec=20min
+Unit=travel-vacuum-heavy.service
+
+[Install]
+WantedBy=timers.target

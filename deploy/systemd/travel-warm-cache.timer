@@ -1,16 +1,16 @@
 # Vitrin ISR önbelleğini düzenli ısıtır (kritik liste/landing sayfaları).
-# Boot/restart sonrası birkaç dakika içinde ilk ısıtma; sonra periyodik tazeleme.
-# ISR revalidate (60-300s) zaten taze tutar; bu timer eviction/restart sonrası
-# soğuk render penceresini kapatmak içindir.
+# Önceki: 5 dk → katalog sorgusu + disk I/O yükü yüksekti.
+# ISR revalidate (60-300s) zaten taze tutar; 45 dk yeter.
 
 [Unit]
-Description=Travel — vitrin ISR önbellek ısıtma (5 dk)
+Description=Travel — vitrin ISR önbellek ısıtma (45 dk)
 
 [Timer]
-OnBootSec=20s
-OnUnitActiveSec=5min
-AccuracySec=15s
+OnBootSec=45s
+OnUnitActiveSec=45min
+AccuracySec=1min
 Persistent=true
+RandomizedDelaySec=2min
 Unit=travel-warm-cache.service
 
 [Install]
