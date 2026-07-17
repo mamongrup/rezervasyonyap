@@ -1,0 +1,15 @@
+# Her ayın 1'inde: bir önceki ayların fiyat/takvim satırlarını siler.
+# cutoff = date_trunc('month', today) → örn. 17 Temmuz'da 1 Temmuz öncesi.
+
+[Unit]
+Description=Travel — aylık geçmiş fiyat/takvim temizliği
+
+[Timer]
+OnCalendar=*-*-01 03:20:00
+AccuracySec=15min
+Persistent=true
+RandomizedDelaySec=20min
+Unit=travel-purge-past-calendars.service
+
+[Install]
+WantedBy=timers.target

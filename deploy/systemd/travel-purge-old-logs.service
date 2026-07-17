@@ -1,0 +1,24 @@
+# Günlük AI/outbox/bildirim log temizliği.
+#
+# Kurulum:
+#   sudo cp deploy/systemd/travel-purge-old-logs.{service,timer} /etc/systemd/system/
+#   sudo chmod +x /var/www/vhosts/rezervasyonyap.tr/httpdocs/deploy/scripts/purge-old-logs.sh
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now travel-purge-old-logs.timer
+
+[Unit]
+Description=Travel — eski AI/bildirim log temizliği (oneshot)
+After=network-online.target postgresql.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/var/www/vhosts/rezervasyonyap.tr/httpdocs
+ExecStart=/bin/bash /var/www/vhosts/rezervasyonyap.tr/httpdocs/deploy/scripts/purge-old-logs.sh
+Nice=15
+IOSchedulingClass=idle
+IOSchedulingPriority=7
+TimeoutStartSec=2h
+
+[Install]
+WantedBy=multi-user.target

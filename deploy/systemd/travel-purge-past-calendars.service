@@ -1,0 +1,26 @@
+# Bu aydan önceki fiyat bandı + müsaitlik takvimlerini siler.
+#
+# Kurulum:
+#   sudo cp deploy/systemd/travel-purge-past-calendars.{service,timer} /etc/systemd/system/
+#   sudo chmod +x /var/www/vhosts/rezervasyonyap.tr/httpdocs/deploy/scripts/purge-past-prices-calendars.sh
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now travel-purge-past-calendars.timer
+# İlk temizlik (Temmuz öncesi vb.):
+#   ./deploy/scripts/purge-past-prices-calendars.sh
+
+[Unit]
+Description=Travel — geçmiş fiyat/takvim temizliği (oneshot)
+After=network-online.target postgresql.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/var/www/vhosts/rezervasyonyap.tr/httpdocs
+ExecStart=/bin/bash /var/www/vhosts/rezervasyonyap.tr/httpdocs/deploy/scripts/purge-past-prices-calendars.sh
+Nice=15
+IOSchedulingClass=idle
+IOSchedulingPriority=7
+TimeoutStartSec=6h
+
+[Install]
+WantedBy=multi-user.target

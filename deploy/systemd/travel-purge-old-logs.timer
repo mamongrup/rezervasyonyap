@@ -1,0 +1,12 @@
+[Unit]
+Description=Travel — günlük log temizliği
+
+[Timer]
+OnCalendar=*-*-* 04:10:00
+AccuracySec=10min
+Persistent=true
+RandomizedDelaySec=15min
+Unit=travel-purge-old-logs.service
+
+[Install]
+WantedBy=timers.target
