@@ -30,16 +30,29 @@ export default function CustomerSupportFloatMenu() {
       return
     }
     let cancelled = false
+    // Tawk script'ini sayfa açılışında GİZLİ yükle → Tawk panelinde ziyaretçi
+    // izleme (kaç kişi sitede / yeni / ayrılan) yeniden çalışır. Balon gizli
+    // kalır; ziyaretçi "Canlı Destek"e basınca açılır. LCP'yi bozmamak için
+    // ilk boya sonrasına ertelenir.
+    let warmTimer: ReturnType<typeof setTimeout> | undefined
     void fetchSitePublicConfig(undefined)
       .then((pub) => {
         if (cancelled) return
         setTawkRuntimeConfig(pub.branding ?? null)
-        setTawkReady(isTawkConfigured())
+        const ready = isTawkConfigured()
+        setTawkReady(ready)
         setWhatsapp(mergeBrandingIntoEnvContact(getSitePublicConfig(), pub.branding).whatsappE164)
+        if (ready) {
+          warmTimer = setTimeout(() => {
+            // openRequested=false → onLoad balonu gizler; yalnız izleme aktif olur.
+            void ensureTawkScriptLoaded()
+          }, 4000)
+        }
       })
       .catch(() => {})
     return () => {
       cancelled = true
+      if (warmTimer) clearTimeout(warmTimer)
     }
   }, [hideOnManage])
 
