@@ -59,6 +59,14 @@ const extraImageHost =
       ]
     : []
 
+/**
+ * Bozuk / yavaş diskli VPS'te webpack paralel yazımı soft lockup'a yol açabiliyor.
+ * Acil build: TRAVEL_LOW_IO_BUILD=1 (veya CSS_OPTIMIZE=0) ile tek iş parçacığı + CSS optimize kapalı.
+ */
+const lowIoBuild =
+  process.env.TRAVEL_LOW_IO_BUILD === '1' ||
+  process.env.TRAVEL_LOW_IO_BUILD === 'true'
+
 const nextConfig = {
   /** Düşük kaynaklı VPS / uzak API: SSG sayfa üretimi 60 sn’de kesilmesin (manage çok dillı rotalar). */
   staticPageGenerationTimeout: 300,
@@ -92,6 +100,11 @@ const nextConfig = {
       config.cache = false
       /** Düşük RAM / Windows: aynı anda derlenen modül sayısını sınırla (OOM: Zone / allocation failed) */
       config.parallelism = 2
+    }
+    /** Üretim acil build: disk I/O baskısını düşür (TRAVEL_LOW_IO_BUILD=1). */
+    if (!dev && lowIoBuild) {
+      config.parallelism = 1
+      config.cache = false
     }
     config.resolve = config.resolve ?? {}
     config.resolve.modules = [
@@ -153,7 +166,11 @@ const nextConfig = {
      * bu yüzden yalnızca production build'de açılır. Kapatmak için: `CSS_OPTIMIZE=0`.
      */
     optimizeCss:
-      process.env.NODE_ENV === 'production' && process.env.CSS_OPTIMIZE !== '0',
+      process.env.NODE_ENV === 'production' &&
+      process.env.CSS_OPTIMIZE !== '0' &&
+      !lowIoBuild,
+    /** Tek CPU ile derle — bozuk diskte worker fırtınasını keser. */
+    ...(lowIoBuild ? { cpus: 1 } : {}),
     optimizePackageImports: [
       'lucide-react',
       'lodash',
