@@ -45,7 +45,7 @@ export async function GET(req: NextRequest) {
       // İlan araması
       fetch(
         `${apiBase}/api/v1/catalog/public/listings?q=${encodeURIComponent(q)}&locale=${locale}&limit=${limit}`,
-        { next: { revalidate: 30 } },
+        { next: { revalidate: 300 } },
       )
         .then((r) => r.json())
         .then((data: { listings?: PublicListingItem[] }) => {
@@ -66,7 +66,7 @@ export async function GET(req: NextRequest) {
         .catch(() => undefined),
 
       // Koleksiyon araması
-      fetch(`${apiBase}/api/v1/collections`, { next: { revalidate: 60 } })
+      fetch(`${apiBase}/api/v1/collections`, { next: { revalidate: 300 } })
         .then((r) => r.json())
         .then((data: { collections?: { id: string; slug: string; title: string; description: string | null; hero_image_url: string | null }[] }) => {
           const qLow = q.toLowerCase()

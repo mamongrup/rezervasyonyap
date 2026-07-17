@@ -9,7 +9,9 @@ import { getSitePublicConfig, type SitePublicConfig } from './travel-api'
 
 export const getCachedSiteConfig = cache(async (): Promise<SitePublicConfig | null> => {
   try {
-    return await getSitePublicConfig(undefined, withDevNoStore({ next: { revalidate: 15 } }))
+    // Site config yalnız admin panelinden değişir; 15s aşırı sık disk cache yazımı
+    // (fetch-cache I/O) yaratıyordu. 1 saat yeterli.
+    return await getSitePublicConfig(undefined, withDevNoStore({ next: { revalidate: 3600 } }))
   } catch {
     return null
   }

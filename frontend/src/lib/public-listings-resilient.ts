@@ -81,6 +81,27 @@ async function readSnapshot(params: PublicListingSearchParams): Promise<PublicLi
   }
 }
 
+// Snapshot yalnız fallback içindir; her API yanıtında yeniden yazmak gereksiz
+// disk I/O üretiyordu (DeHost yüksek yazma uyarısı). Aynı anahtar için taze bir
+// snapshot varsa (bu pencere içinde) tekrar yazma.
+const DEFAULT_SNAPSHOT_WRITE_THROTTLE_MS = 1000 * 60 * 30
+
+async function snapshotIsFresh(filePath: string): Promise<boolean> {
+  try {
+    const fs = await importNodeModule<{
+      stat: (path: string) => Promise<{ mtimeMs: number }>
+    }>('node:fs/promises')
+    const st = await fs.stat(filePath)
+    const throttleMs = envNumber(
+      'PUBLIC_LISTINGS_SNAPSHOT_WRITE_THROTTLE_MS',
+      DEFAULT_SNAPSHOT_WRITE_THROTTLE_MS,
+    )
+    return Date.now() - st.mtimeMs < throttleMs
+  } catch {
+    return false
+  }
+}
+
 async function writeSnapshot(
   params: PublicListingSearchParams,
   result: PublicListingSearchResult,
@@ -98,6 +119,8 @@ async function writeSnapshot(
       importNodeModule<{ dirname: (path: string) => string }>('node:path'),
       snapshotPath(params),
     ])
+    // Taze snapshot varsa yeniden yazma (disk I/O throttle).
+    if (await snapshotIsFresh(filePath)) return
     await fs.mkdir(path.dirname(filePath), { recursive: true })
     const tmpPath = `${filePath}.${process.pid}.tmp`
     const payload: SnapshotPayload = {

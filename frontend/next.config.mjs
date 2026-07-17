@@ -62,6 +62,11 @@ const extraImageHost =
 const nextConfig = {
   /** Düşük kaynaklı VPS / uzak API: SSG sayfa üretimi 60 sn’de kesilmesin (manage çok dillı rotalar). */
   staticPageGenerationTimeout: 300,
+  /**
+   * ISR/fetch Data Cache'i daha çok RAM'de tut → `.next/cache/fetch-cache`
+   * sürekli disk yazımını azaltır (DeHost yüksek disk I/O uyarısı). 256MB.
+   */
+  cacheMaxMemorySize: 256 * 1024 * 1024,
   reactStrictMode: false,
   poweredByHeader: false,
   compiler: {

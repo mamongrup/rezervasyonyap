@@ -294,7 +294,7 @@ export async function resolveHeaderCurrencies(): Promise<HeaderCurrencyItem[]> {
   try {
     const { withDevNoStore } = await import('@/lib/api-fetch-dev')
     const { getPublicCurrencies } = await import('@/lib/travel-api')
-    const list = await getPublicCurrencies(withDevNoStore({ next: { revalidate: 30 } }))
+    const list = await getPublicCurrencies(withDevNoStore({ next: { revalidate: 3600 } }))
     const active = list
       .filter((c) => c.is_active)
       .sort(

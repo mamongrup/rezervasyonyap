@@ -27,7 +27,7 @@ export const fetchActiveLocales = cache(async function fetchActiveLocales(): Pro
   if (!b) return FALLBACK
   try {
     const res = await fetch(`${b}/api/v1/i18n/locales`, {
-      ...withDevNoStore({ next: { revalidate: 120 } }),
+      ...withDevNoStore({ next: { revalidate: 3600 } }),
       signal: AbortSignal.timeout(I18N_FETCH_MS),
     })
     if (!res.ok) return FALLBACK
@@ -66,7 +66,7 @@ export const fetchLocalizedRoutes = cache(async function fetchLocalizedRoutes():
   if (b) {
     try {
       const res = await fetch(`${b}/api/v1/i18n/localized-routes`, {
-        ...withDevNoStore({ next: { revalidate: 120 } }),
+        ...withDevNoStore({ next: { revalidate: 3600 } }),
         signal: AbortSignal.timeout(I18N_FETCH_MS),
       })
       if (res.ok) {

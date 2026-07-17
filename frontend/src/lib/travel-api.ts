@@ -10069,7 +10069,7 @@ export async function searchPublicListings(
       typeof window === 'undefined'
         ? fetchInit?.cache === 'no-store'
           ? fetchInit
-          : ({ next: { revalidate: 60 }, ...(fetchInit ?? {}) } as RequestInit)
+          : ({ next: { revalidate: 300 }, ...(fetchInit ?? {}) } as RequestInit)
         : fetchInit ?? {}
 
     const res = await fetch(
