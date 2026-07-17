@@ -58,7 +58,7 @@ const PRESETS = [
   },
   {
     slug: 'fethiye-ada-villa',
-    title: 'Fethiye Ada Villa',
+    title: 'Ada Villa',
     relCandidates: [
       // not: klasör adında çift boşluk var ("ada online  fotolar")
       path.join('ADA', 'ada online  fotolar'),

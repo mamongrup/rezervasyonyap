@@ -1,5 +1,5 @@
 /**
- * Fethiye Ada Villa — Airbnb #672181424354502311 + 2026 EUR sezon + tüm tarihler müsait.
+ * Ada Villa — Airbnb #672181424354502311 + 2026 EUR sezon + tüm tarihler müsait.
  *
  *   node scripts/import-fethiye-ada-villa.mjs
  *   node scripts/import-fethiye-ada-villa.mjs --dry-run
@@ -46,12 +46,12 @@ const THEMES = ['beachfront', 'sea_view', 'pool', 'jacuzzi', 'luxury', 'family']
 const TRANSLATIONS = [
   {
     locale: 'tr',
-    title: 'Fethiye Ada Villa',
+    title: 'Ada Villa',
     description: html([
-      { type: 'h2', text: 'Fethiye Ada Villa' },
+      { type: 'h2', text: 'Ada Villa' },
       {
         type: 'p',
-        text: 'Fethiye Ada Villa, Şövalye Adası’nda denize sıfır konumdaki özel havuzlu bir tatil villasıdır. Akdeniz’e birkaç adım mesafede, deniz manzaralı güneşlenme alanları ve konforlu yaşam alanlarıyla altı kişilik aile ve arkadaş gruplarına sakin bir ada tatili sunar. Adaya ulaşım tekneyle sağlanır.',
+        text: 'Ada Villa, Şövalye Adası’nda denize sıfır konumdaki özel havuzlu bir tatil villasıdır. Akdeniz’e birkaç adım mesafede, deniz manzaralı güneşlenme alanları ve konforlu yaşam alanlarıyla altı kişilik aile ve arkadaş gruplarına sakin bir ada tatili sunar. Adaya ulaşım tekneyle sağlanır.',
       },
       { type: 'h2', text: 'Konaklama' },
       {
@@ -85,12 +85,12 @@ const TRANSLATIONS = [
   },
   {
     locale: 'en',
-    title: 'Fethiye Ada Villa',
+    title: 'Ada Villa',
     description: html([
-      { type: 'h2', text: 'Fethiye Ada Villa' },
+      { type: 'h2', text: 'Ada Villa' },
       {
         type: 'p',
-        text: 'Fethiye Ada Villa is a beachfront holiday home with a private pool on Şövalye Island. A few steps from the Mediterranean, it offers sea-view sun terraces and comfortable living space for up to six guests. Access is by boat.',
+        text: 'Ada Villa is a beachfront holiday home with a private pool on Şövalye Island. A few steps from the Mediterranean, it offers sea-view sun terraces and comfortable living space for up to six guests. Access is by boat.',
       },
       { type: 'h2', text: 'Accommodation' },
       {
@@ -124,12 +124,12 @@ const TRANSLATIONS = [
   },
   {
     locale: 'de',
-    title: 'Fethiye Ada Villa',
+    title: 'Ada Villa',
     description: html([
-      { type: 'h2', text: 'Fethiye Ada Villa' },
+      { type: 'h2', text: 'Ada Villa' },
       {
         type: 'p',
-        text: 'Fethiye Ada Villa ist ein Ferienhaus direkt am Meer mit privatem Pool auf der Şövalye-Insel. Nur wenige Schritte zum Mittelmeer, mit Sonnenterrasse und Platz für bis zu sechs Gäste. Anreise per Boot.',
+        text: 'Ada Villa ist ein Ferienhaus direkt am Meer mit privatem Pool auf der Şövalye-Insel. Nur wenige Schritte zum Mittelmeer, mit Sonnenterrasse und Platz für bis zu sechs Gäste. Anreise per Boot.',
       },
       { type: 'h2', text: 'Unterkunft' },
       {
@@ -163,12 +163,12 @@ const TRANSLATIONS = [
   },
   {
     locale: 'ru',
-    title: 'Fethiye Ada Villa',
+    title: 'Ada Villa',
     description: html([
-      { type: 'h2', text: 'Fethiye Ada Villa' },
+      { type: 'h2', text: 'Ada Villa' },
       {
         type: 'p',
-        text: 'Fethiye Ada Villa — дом для отпуска с частным бассейном прямо у моря на острове Шёвалье. В нескольких шагах от Средиземного моря, с террасой и размещением до 6 гостей. Добраться можно на лодке.',
+        text: 'Ada Villa — дом для отпуска с частным бассейном прямо у моря на острове Шёвалье. В нескольких шагах от Средиземного моря, с террасой и размещением до 6 гостей. Добраться можно на лодке.',
       },
       { type: 'h2', text: 'Размещение' },
       {
@@ -202,12 +202,12 @@ const TRANSLATIONS = [
   },
   {
     locale: 'zh',
-    title: 'Fethiye Ada Villa',
+    title: 'Ada Villa',
     description: html([
-      { type: 'h2', text: 'Fethiye Ada Villa' },
+      { type: 'h2', text: 'Ada Villa' },
       {
         type: 'p',
-        text: 'Fethiye Ada Villa 位于 Şövalye 岛，紧邻海边，配有私人泳池，最多可住 6 人。步行即可到达地中海，享有海景日光浴露台。需乘船抵达。',
+        text: 'Ada Villa 位于 Şövalye 岛，紧邻海边，配有私人泳池，最多可住 6 人。步行即可到达地中海，享有海景日光浴露台。需乘船抵达。',
       },
       { type: 'h2', text: '住宿设施' },
       {
@@ -241,12 +241,12 @@ const TRANSLATIONS = [
   },
   {
     locale: 'fr',
-    title: 'Fethiye Ada Villa',
+    title: 'Ada Villa',
     description: html([
-      { type: 'h2', text: 'Fethiye Ada Villa' },
+      { type: 'h2', text: 'Ada Villa' },
       {
         type: 'p',
-        text: 'Fethiye Ada Villa est une maison de vacances en bord de mer avec piscine privée sur l’île de Şövalye. À quelques pas de la Méditerranée, terrasse ensoleillée et capacité de six personnes. Accès en bateau.',
+        text: 'Ada Villa est une maison de vacances en bord de mer avec piscine privée sur l’île de Şövalye. À quelques pas de la Méditerranée, terrasse ensoleillée et capacité de six personnes. Accès en bateau.',
       },
       { type: 'h2', text: 'Hébergement' },
       {
