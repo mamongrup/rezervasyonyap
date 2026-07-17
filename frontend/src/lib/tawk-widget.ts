@@ -50,10 +50,42 @@ export function isTawkConfigured(): boolean {
   return activeTawkConfig().propertyId !== ''
 }
 
+/**
+ * Tawk kendi balonunu (launcher) varsayılan gösterir; biz kendi birleşik destek
+ * menümüzü kullandığımız için balon ASLA görünmemeli — yalnız ziyaretçi izleme
+ * için gizli yüklenir. `hideWidget()` çağrısı ile onLoad arası kısa "flash"ı
+ * önlemek için Tawk konteynerini CSS ile gizleriz; yalnız `html.tawk-open`
+ * sınıfı varken (kullanıcı "Canlı Destek"e bastığında) görünür.
+ */
+function injectTawkHideStyle(): void {
+  if (typeof document === 'undefined') return
+  if (document.getElementById('tawk-hide-style')) return
+  const style = document.createElement('style')
+  style.id = 'tawk-hide-style'
+  style.textContent = `
+    html:not(.tawk-open) #tawkchat-container,
+    html:not(.tawk-open) #tawkchat-minified-container,
+    html:not(.tawk-open) .tawkchat-container,
+    html:not(.tawk-open) iframe[title="chat widget"],
+    html:not(.tawk-open) iframe[title*="tawk" i] {
+      visibility: hidden !important;
+      opacity: 0 !important;
+      pointer-events: none !important;
+    }
+  `
+  document.head.appendChild(style)
+}
+
+function setTawkOpenClass(open: boolean): void {
+  if (typeof document === 'undefined') return
+  document.documentElement.classList.toggle('tawk-open', open)
+}
+
 /** Tawk.to widget'ını aç / büyüt */
 export function openTawkWidget(): void {
   if (typeof window === 'undefined') return
   openRequested = true
+  setTawkOpenClass(true)
   const api = window.Tawk_API
   api?.showWidget?.()
   if (api?.maximize) {
@@ -71,6 +103,7 @@ export function openTawkWidget(): void {
 export function hideTawkWidget(): void {
   if (typeof window === 'undefined') return
   openRequested = false
+  setTawkOpenClass(false)
   window.Tawk_API?.hideWidget?.()
 }
 
@@ -86,18 +119,25 @@ export function ensureTawkScriptLoaded(): Promise<void> {
 
   if (loadPromise) return loadPromise
 
+  // Balon flash'ını önlemek için script yüklenmeden önce gizleme CSS'ini ekle.
+  injectTawkHideStyle()
+
   loadPromise = new Promise((resolve) => {
     window.Tawk_API = window.Tawk_API || {}
     window.Tawk_API.onLoad = () => {
       if (openRequested) {
+        setTawkOpenClass(true)
         window.Tawk_API?.showWidget?.()
         window.Tawk_API?.maximize?.()
       } else {
+        // Gizli yüklendi: balon görünmesin, yalnız ziyaretçi izleme aktif olsun.
+        setTawkOpenClass(false)
         window.Tawk_API?.hideWidget?.()
       }
     }
     window.Tawk_API.onChatMinimized = () => {
       openRequested = false
+      setTawkOpenClass(false)
       window.Tawk_API?.hideWidget?.()
     }
     window.Tawk_LoadStart = new Date()
