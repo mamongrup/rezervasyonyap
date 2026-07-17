@@ -1,0 +1,16 @@
+# Next.js fetch-cache / snapshot dizini budama (oneshot).
+# travel-prune-next-cache.timer tarafından saatlik çağrılır.
+
+[Unit]
+Description=Travel — Next.js fetch-cache budama (disk I/O / şişme önleme)
+After=travel-web.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=/var/www/vhosts/rezervasyonyap.tr/httpdocs
+ExecStart=/bin/bash /var/www/vhosts/rezervasyonyap.tr/httpdocs/deploy/scripts/prune-next-cache.sh
+Nice=19
+IOSchedulingClass=idle
+
+[Install]
+WantedBy=multi-user.target

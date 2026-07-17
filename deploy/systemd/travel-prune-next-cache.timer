@@ -1,0 +1,15 @@
+# Saatlik: Next.js fetch-cache dizini şişmesin (disk dolması + yavaş dizin).
+
+[Unit]
+Description=Travel — Next.js fetch-cache saatlik budama
+
+[Timer]
+OnBootSec=15min
+OnUnitActiveSec=1h
+AccuracySec=5min
+Persistent=true
+RandomizedDelaySec=5min
+Unit=travel-prune-next-cache.service
+
+[Install]
+WantedBy=timers.target
