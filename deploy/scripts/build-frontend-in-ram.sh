@@ -77,6 +77,10 @@ step "Webpack production build (ara dosyalar RAM'de)"
 [[ -f "$RAM_DIR/.next/BUILD_ID" ]] || fail "BUILD_ID yok; cikti eksik"
 [[ -d "$RAM_DIR/.next/static" ]] || fail "static cikti yok; cikti eksik"
 
+# Webpack cache'i sadece bir sonraki derlemeyi hizlandirir; `next start` bunu
+# kullanmaz. 1GB+ olabildigi icin RAM build'inden kalici diske tasimiyoruz.
+rm -rf "$RAM_DIR/.next/cache/webpack"
+
 step "Basarili build diske aktariliyor"
 rm -rf "$STAGE_DIR"
 mkdir -p "$STAGE_DIR"

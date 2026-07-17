@@ -11,6 +11,7 @@ set -uo pipefail
 FRONTEND_DIR="${FRONTEND_DIR:-/var/www/vhosts/rezervasyonyap.tr/httpdocs/frontend}"
 FETCH_CACHE="$FRONTEND_DIR/.next/cache/fetch-cache"
 SNAP_CACHE="$FRONTEND_DIR/.next/cache/travel-public-listings"
+WEBPACK_CACHE="$FRONTEND_DIR/.next/cache/webpack"
 
 # Kaç saatten eski cache dosyaları silinsin (revalidate 300s olduğundan
 # 6 saat fazlasıyla güvenli; sık gezilen sayfalar zaten yeniden yazılır).
@@ -52,6 +53,13 @@ cap_by_count() {
 }
 
 log "start"
+# Webpack cache'i runtime'da kullanilmaz; RAM build sonrasi diskte kalmasi
+# sadece alan ve sonraki temizlemede metadata I/O tuketir.
+if [[ -d "$WEBPACK_CACHE" ]]; then
+  log "webpack build cache siliniyor (runtime tarafindan kullanilmaz)"
+  ionice -c3 -t nice -n 19 rm -rf "$WEBPACK_CACHE" 2>/dev/null || \
+    rm -rf "$WEBPACK_CACHE" 2>/dev/null || true
+fi
 prune_by_age "$FETCH_CACHE" "$FETCH_MAX_AGE_MIN"
 cap_by_count "$FETCH_CACHE" "$FETCH_MAX_FILES"
 prune_by_age "$SNAP_CACHE" "$SNAP_MAX_AGE_MIN"
