@@ -34,6 +34,7 @@ import {
 } from './lib/travelrobot-flight-routes.mjs'
 import { createPgClient } from './lib/pg-client.mjs'
 import { createJobReporter } from './lib/sync-job-reporter.mjs'
+import { acquireProviderSyncLock } from './lib/provider-sync-lock.mjs'
 
 const args = new Set(process.argv.slice(2))
 const PING = args.has('--ping')
@@ -216,6 +217,15 @@ async function main() {
 
   const client = createPgClient()
   await client.connect()
+
+  const lock = DRY_RUN ? null : await acquireProviderSyncLock(client, 'travelrobot')
+  if (lock && !lock.acquired) {
+    console.warn(lock.message)
+    await reporter.done('Atlandı: aynı anda başka bir Travelrobot senkronu çalışıyor.')
+    await client.end()
+    return
+  }
+
   try {
     const orgId = await resolveOrgId(client)
     await reporter.start(0)
@@ -233,6 +243,7 @@ async function main() {
     }
     await reporter.done(`Senkron tamam — ${summary.join(' · ')}${DRY_RUN ? ' (dry-run)' : ''}`)
   } finally {
+    if (lock) await lock.release()
     await client.end()
   }
 }

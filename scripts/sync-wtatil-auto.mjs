@@ -27,6 +27,7 @@ import {
 } from './lib/wtatil-listing-db.mjs'
 import { createPgClient } from './lib/pg-client.mjs'
 import { createJobReporter } from './lib/sync-job-reporter.mjs'
+import { acquireProviderSyncLock } from './lib/provider-sync-lock.mjs'
 
 const DEFAULT_ORG = 'a0000000-0000-4000-8000-000000000001'
 
@@ -98,6 +99,17 @@ async function main() {
 
   const client = createPgClient()
   if (!DRY_RUN) await client.connect()
+
+  let lock = null
+  if (!DRY_RUN) {
+    lock = await acquireProviderSyncLock(client, 'wtatil')
+    if (!lock.acquired) {
+      console.warn(lock.message)
+      await reporter.done('Atlandı: aynı anda başka bir Wtatil senkronu çalışıyor.')
+      await client.end()
+      return
+    }
+  }
 
   try {
     const ctx = await resolveImportContext(client, orgId)
@@ -203,6 +215,7 @@ async function main() {
     const summary = `Bitti: sync ${syncOk} fiyatlı, ${syncNoPrice} fiyatsız, ${syncSkipped} atlandı; yeni import ${imported}${DRY_RUN ? ' (dry-run)' : ''}.`
     await reporter.done(summary)
   } finally {
+    if (lock) await lock.release()
     if (!DRY_RUN) await client.end()
   }
 }
