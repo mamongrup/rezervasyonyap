@@ -464,7 +464,9 @@ const Logo: React.FC<LogoProps> = ({ className = 'w-auto', src, darkSrc, alt, in
   if (!catLogo && branding.logo_mode === 'icon_text' && iconUrl && !iconFailed) {
     const line1 = branding.logo_text_line1 || branding.site_name || ''
     const line2 = branding.logo_text_line2 || ''
-    const line2Color = branding.logo_text_line2_color || '#f97316'
+    // Varsayılan turuncu WCAG AA (≥4.5:1) — panel #f97316 verse bile
+    // accessibleOnWhite light modda koyulaştırır; SSR'da da güvenli başlangıç.
+    const line2Color = branding.logo_text_line2_color || '#c2410c'
 
     return (
       <Link

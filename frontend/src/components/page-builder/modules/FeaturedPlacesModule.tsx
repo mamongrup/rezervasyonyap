@@ -8,6 +8,7 @@ import {
   DEFAULT_FEATURED_DISPLAY_COUNT,
   loadFeaturedPlacesListingPool,
   normalizeFeaturedListingsConfig,
+  pruneFeaturedPlacesForClient,
   type FeaturedTabDef,
 } from '@/lib/featured-listings-utils'
 import { fetchCategoryListings } from '@/lib/listings-fetcher'
@@ -84,13 +85,13 @@ export default async function FeaturedPlacesModule({
     lastMinutePromise,
   ])
 
-  const lastMinuteListings = lastMinutePack?.[1].listings ?? []
+  const lastMinuteListingsRaw = lastMinutePack?.[1].listings ?? []
   const lastMinuteViewAllHref =
     lastMinutePack != null
       ? buildLastMinuteViewAllHref(categorySlug, lastMinutePack[0])
       : undefined
 
-  if (listings.length === 0 && lastMinuteListings.length === 0) return null
+  if (listings.length === 0 && lastMinuteListingsRaw.length === 0) return null
 
   const t = getMessages(locale)
   const categoryFeatured = t.homePage.featuredByCategory?.[categorySlug as FeaturedCategoryKey]
@@ -106,15 +107,24 @@ export default async function FeaturedPlacesModule({
   const viewAllHref = config.viewAllHref ?? `/${categorySlug}/all`
   const tabDefs = buildFeaturedTabDefs(categorySlug, t)
 
+  // Tam havuz sunucuda kalır; RSC'ye yalnızca sekme başına gösterilecek kartlar gider.
+  const pruned = pruneFeaturedPlacesForClient({
+    listings,
+    tabDefs,
+    tabIds,
+    displayCount,
+    lastMinuteListings: lastMinuteListingsRaw,
+  })
+
   return (
     <SectionGridFeaturePlaces
-      stayListings={listings}
+      stayListings={pruned.listings}
       cardType={(config.cardType as 'card1' | 'card2') ?? 'card2'}
       heading={heading}
       subHeading={subHeading}
       tabDefs={tabDefs}
-      tabListingIds={tabIds}
-      lastMinuteListings={lastMinuteListings}
+      tabListingIds={pruned.tabIds}
+      lastMinuteListings={pruned.lastMinuteListings}
       lastMinuteViewAllHref={lastMinuteViewAllHref}
       categorySlug={categorySlug}
       maxCount={displayCount}

@@ -234,6 +234,89 @@ export async function loadFeaturedPlacesListingPool(
   }))
 }
 
+/**
+ * Vitrin kartı (StayCard2 / RegionListingCard) için gerekli alanlar.
+ * galleryImgs + uzun opsiyonel alanlar RSC HTML'ini şişiriyordu (~1.7 MB anasayfa).
+ */
+export function slimListingForVitrinCard(listing: TListingBase): TListingBase {
+  const cover =
+    (typeof listing.featuredImage === 'string' && listing.featuredImage.trim()) ||
+    (typeof listing.galleryImgs?.[0] === 'string' ? listing.galleryImgs[0].trim() : '') ||
+    undefined
+  return {
+    id: listing.id,
+    handle: listing.handle,
+    title: listing.title,
+    listingCategory: listing.listingCategory,
+    listingVertical: listing.listingVertical,
+    featuredImage: cover,
+    galleryImgs: cover ? [cover] : undefined,
+    address: listing.address,
+    city: listing.city,
+    price: listing.price,
+    priceAmount: listing.priceAmount,
+    priceAmountMax: listing.priceAmountMax,
+    priceCurrency: listing.priceCurrency,
+    listingCurrencyCode: listing.listingCurrencyCode,
+    reviewStart: listing.reviewStart,
+    reviewCount: listing.reviewCount,
+    saleOff: listing.saleOff,
+    discountPercent: listing.discountPercent,
+    isAds: listing.isAds,
+    isNew: listing.isNew,
+    isCampaign: listing.isCampaign,
+    like: listing.like,
+    createdAt: listing.createdAt,
+    maxGuests: listing.maxGuests,
+    bedrooms: listing.bedrooms,
+    beds: listing.beds,
+    bathrooms: listing.bathrooms,
+    mealPlanSummary: listing.mealPlanSummary,
+  }
+}
+
+/**
+ * Tam kategori havuzundan sekmeleri sunucuda hesaplar; istemciye yalnızca
+ * gösterilecek kartlar (+ kart alanları) gider. Lüks/ekonomik dilim hesabı
+ * tam havuzda kalır; istemciye manuel tab id listesi yazılır ki yeniden
+ * dilim hesaplanmasın.
+ */
+export function pruneFeaturedPlacesForClient(opts: {
+  listings: TListingBase[]
+  tabDefs: FeaturedTabDef[]
+  tabIds: FeaturedTabListingIds
+  displayCount: number
+  lastMinuteListings?: TListingBase[]
+}): {
+  listings: TListingBase[]
+  tabIds: FeaturedTabListingIds
+  lastMinuteListings: TListingBase[]
+} {
+  const displayCount = normalizeFeaturedDisplayCount(opts.displayCount)
+  const byId = new Map<string, TListingBase>()
+  const nextTabs: FeaturedTabListingIds = { ...EMPTY_FEATURED_TAB_IDS }
+
+  for (const tab of opts.tabDefs) {
+    if (tab.kind === 'lastMinute') continue
+    const picked = pickListingsForFeaturedTab(opts.listings, tab.kind, opts.tabIds).slice(
+      0,
+      displayCount,
+    )
+    nextTabs[tab.kind] = picked.map((l) => l.id)
+    for (const row of picked) byId.set(row.id, row)
+  }
+
+  const lastMinuteListings = (opts.lastMinuteListings ?? [])
+    .slice(0, displayCount)
+    .map(slimListingForVitrinCard)
+
+  return {
+    listings: [...byId.values()].map(slimListingForVitrinCard),
+    tabIds: nextTabs,
+    lastMinuteListings,
+  }
+}
+
 /** API çevirisi yokken başlık = slug — vitrin seçicide gösterilmez. */
 export function isSlugOnlyListingTitle(listing: {
   title?: string | null

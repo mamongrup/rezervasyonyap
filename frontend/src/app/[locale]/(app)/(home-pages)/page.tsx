@@ -16,6 +16,7 @@ import { getAuthors } from '@/data/authors'
 import { CATEGORY_REGISTRY } from '@/data/category-registry'
 import { getFeaturedRegionConfig, getHomepageConfig } from '@/data/page-builder-config'
 import { normalizeCatalogVertical } from '@/lib/catalog-listing-vertical'
+import { slimListingForVitrinCard } from '@/lib/featured-listings-utils'
 import { fetchCategoryListings } from '@/lib/listings-fetcher'
 import { getHomepageDefaultModules } from '@/lib/page-builder-default-modules'
 import { panelImagesToFreeformUrls } from '@/lib/hero-gallery-slots'
@@ -114,7 +115,8 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
   }
 
   const [apiListingsResult, authors, savedRegionConfig] = await Promise.all([
-      fetchCategoryListings('oteller', {}, {}, locale),
+      // Bölge vitrini için yeterli; tam 100 satır RSC'yi şişiriyordu.
+      fetchCategoryListings('oteller', {}, { perPage: 36 }, locale),
       getAuthors(),
       getFeaturedRegionConfig('homepage'),
     ])
@@ -122,10 +124,12 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
   const featuredListings: TListingBase[] = (apiListingsResult.listings.length > 0
     ? apiListingsResult.listings
     : []
-  ).map((l) => ({
-    ...l,
-    listingVertical: normalizeCatalogVertical(l.listingVertical),
-  }))
+  ).map((l) =>
+    slimListingForVitrinCard({
+      ...l,
+      listingVertical: normalizeCatalogVertical(l.listingVertical),
+    }),
+  )
 
   // Hero config — page-builder hero modülü > homepageConfig > varsayılan mesaj
   // Page-builder hero editörü metinleri çoklu-dilli ({ tr, en, … }) saklar;
@@ -173,7 +177,8 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
 
   const heroDescription = (
     <>
-      <p className="max-w-xl text-base text-neutral-500 sm:text-xl dark:text-neutral-400">
+      {/* neutral-600 (≥4.5:1) — PSI Acc contrast; dark:neutral-300 okunabilir */}
+      <p className="max-w-xl text-base text-neutral-600 sm:text-xl dark:text-neutral-300">
         <Link href={categoryPageHref} className={heroSubheadingLinkClassName}>
           {heroSubheading}
         </Link>
@@ -197,6 +202,7 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
       >
         <HeroSectionWithSearchForm1
           heading={heroHeadingLinked}
+          headingLevel="h1"
           image={heroRightStay}
           imageAlt={m.homePage.heroAlt}
           freeformBannerLayout={DEFAULT_REGION_HERO_FREEFORM}

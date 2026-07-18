@@ -3,6 +3,7 @@ import type { FeaturedByRegionConfig, PageBuilderModule, TListingBase } from '@/
 import type { CategoryRegistryEntry } from '@/data/category-registry'
 import type { TAuthor } from '@/data/authors'
 import SectionFeaturedByRegion from '@/components/SectionFeaturedByRegion'
+import { slimListingForVitrinCard } from '@/lib/featured-listings-utils'
 import { buildDefaultFeaturedRegionConfig } from '@/lib/featured-region-defaults'
 import { resolveListingPriceUnit } from '@/lib/listing-category-display'
 import { getMessages } from '@/utils/getT'
@@ -457,10 +458,23 @@ export default async function PageBuilderRenderer({
                     subheading: cfg.subheading || messages.categoryPage.featuredDefaultSubheading,
                     viewAllHref: cfg.viewAllHref || defaultListingsBrowseHref,
                   })
+            // Bölge başına en fazla 8 kart — tam kategori havuzu RSC'ye gitmesin.
+            const regionListingIds = new Set<string>()
+            for (const region of regionCfg.regions) {
+              const matched = region.listingIds?.length
+                ? allListings.filter((l) => region.listingIds!.includes(l.id))
+                : allListings.filter(
+                    (l) => l.city?.toLowerCase() === region.name.toLowerCase(),
+                  )
+              for (const row of matched.slice(0, 8)) regionListingIds.add(row.id)
+            }
+            const regionListings = allListings
+              .filter((l) => regionListingIds.has(l.id))
+              .map(slimListingForVitrinCard)
             return (
               <SectionFeaturedByRegion
                 key={module.id}
-                allListings={allListings}
+                allListings={regionListings}
                 config={regionCfg}
                 listingLinkBase={listingLinkBase}
                 priceUnit={effectivePriceUnit}

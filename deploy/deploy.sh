@@ -250,7 +250,10 @@ main() {
     fi
 
     rm -rf .next
-    npm run build
+    # Kritik CSS inline (beasties) — PSI render-blocking CSS cezası için zorunlu.
+    # TRAVEL_LOW_IO_BUILD tek iş parçacığı; optimizeCss'i kapatmaz (next.config).
+    CSS_OPTIMIZE="${CSS_OPTIMIZE:-1}" TRAVEL_LOW_IO_BUILD="${TRAVEL_LOW_IO_BUILD:-1}" \
+      NEXT_TELEMETRY_DISABLED=1 npm run build
     npm prune --omit=dev
 
     if [[ "$WEB_STOPPED_FOR_BUILD" == "1" ]] && [[ "${RESTART_WEB}" != "1" ]]; then
