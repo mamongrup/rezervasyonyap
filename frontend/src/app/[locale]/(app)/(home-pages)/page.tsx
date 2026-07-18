@@ -46,7 +46,7 @@ export async function generateMetadata({
   }
 }
 
-// ISR: beasties (optimizeCss) static HTML'i inline CSS'e dönüştürsün diye ISR gerekli.
+// ISR: anasayfa cache (CDN/Next). CSS inline için `experimental.inlineCss` (App Router).
 // Gerçek revalidate, searchPublicListings'teki 60 sn ile sınırlanır.
 export const revalidate = 3600
 

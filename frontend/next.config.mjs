@@ -161,13 +161,13 @@ const nextConfig = {
   },
   experimental: {
     /**
-     * `optimizeCss` (beasties) — kritik CSS inline + geri kalanı defer; üretimde FCP/LCP için.
-     * Geliştirmede (`next dev`) tam `layout.css` preload + kullanılmama uyarısı (Chrome) üretir;
-     * bu yüzden yalnızca production build'de açılır. Kapatmak için: `CSS_OPTIMIZE=0`.
+     * App Router'da `optimizeCss` (beasties/critters) STREAMING ile çalışmaz —
+     * canlı HTML'de `<link rel=stylesheet>` kalır, inline `<style>` olmaz (PSI
+     * "oluşturma engelleme" ~420 ms). Next 15+/16 App Router için doğru bayrak
+     * `inlineCss`: stylesheet yerine `<style>` üretir. Tailwind atomik CSS
+     * (~63 KiB) için kabul edilebilir; kapatmak: `CSS_OPTIMIZE=0`.
      */
-    /** lowIoBuild'de dahi açık kalır — RAM build ile disk maliyeti yok; kapatmak
-     * render-blocking CSS'i ~1 sn artırıyor (PSI mobil LCP/FCP). Kapatmak için CSS_OPTIMIZE=0. */
-    optimizeCss:
+    inlineCss:
       process.env.NODE_ENV === 'production' && process.env.CSS_OPTIMIZE !== '0',
     /** Tek CPU ile derle — bozuk diskte worker fırtınasını keser. */
     ...(lowIoBuild ? { cpus: 1 } : {}),
