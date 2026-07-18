@@ -165,10 +165,10 @@ const nextConfig = {
      * Geliştirmede (`next dev`) tam `layout.css` preload + kullanılmama uyarısı (Chrome) üretir;
      * bu yüzden yalnızca production build'de açılır. Kapatmak için: `CSS_OPTIMIZE=0`.
      */
+    /** lowIoBuild'de dahi açık kalır — RAM build ile disk maliyeti yok; kapatmak
+     * render-blocking CSS'i ~1 sn artırıyor (PSI mobil LCP/FCP). Kapatmak için CSS_OPTIMIZE=0. */
     optimizeCss:
-      process.env.NODE_ENV === 'production' &&
-      process.env.CSS_OPTIMIZE !== '0' &&
-      !lowIoBuild,
+      process.env.NODE_ENV === 'production' && process.env.CSS_OPTIMIZE !== '0',
     /** Tek CPU ile derle — bozuk diskte worker fırtınasını keser. */
     ...(lowIoBuild ? { cpus: 1 } : {}),
     optimizePackageImports: [

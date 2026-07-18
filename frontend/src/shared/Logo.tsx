@@ -10,6 +10,45 @@ import React, { useEffect, useId, useRef, useState } from 'react'
 
 const LS_KEY = 'travel_branding_cache'
 
+/** WCAG bağıl parlaklık (0-1). Geçersiz hex → null. */
+function hexRelativeLuminance(hex: string): number | null {
+  const m = /^#?([0-9a-f]{6})$/i.exec(hex.trim())
+  if (!m) return null
+  const n = parseInt(m[1], 16)
+  const toLin = (c: number) => {
+    const s = c / 255
+    return s <= 0.03928 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4)
+  }
+  const r = toLin((n >> 16) & 0xff)
+  const g = toLin((n >> 8) & 0xff)
+  const b = toLin(n & 0xff)
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b
+}
+
+/**
+ * Panelden gelen marka rengi beyaz header üzerinde WCAG AA (4.5:1) altında
+ * kalabiliyor (ör. #f97316 → 2.8:1, Lighthouse contrast hatası). Light modda
+ * rengi kademeli koyulaştırıp eşiği sağlar; dark modda orijinal renk kullanılır.
+ */
+function accessibleOnWhite(hex: string): string {
+  const lum = hexRelativeLuminance(hex)
+  if (lum === null) return hex
+  let cur = hex.replace(/^#?/, '#')
+  for (let i = 0; i < 12; i++) {
+    const l = hexRelativeLuminance(cur)
+    if (l === null) return hex
+    const contrast = 1.05 / (l + 0.05)
+    if (contrast >= 4.5) return cur
+    const n = parseInt(cur.slice(1), 16)
+    const dark = (c: number) => Math.max(0, Math.round(c * 0.88))
+    const r = dark((n >> 16) & 0xff)
+    const g = dark((n >> 8) & 0xff)
+    const b = dark(n & 0xff)
+    cur = `#${((r << 16) | (g << 8) | b).toString(16).padStart(6, '0')}`
+  }
+  return cur
+}
+
 interface LogoProps {
   className?: string
   src?: string
@@ -443,7 +482,15 @@ const Logo: React.FC<LogoProps> = ({ className = 'w-auto', src, darkSrc, alt, in
             <span className="text-[18px] font-bold tracking-tight text-neutral-900 dark:text-white">{line1}</span>
           )}
           {line2 && (
-            <span className="text-[18px] font-semibold tracking-tight" style={{ color: line2Color }}>
+            <span
+              className="text-[18px] font-semibold tracking-tight text-[color:var(--logo-line2)] dark:text-[color:var(--logo-line2-dark)]"
+              style={
+                {
+                  '--logo-line2': accessibleOnWhite(line2Color),
+                  '--logo-line2-dark': line2Color,
+                } as React.CSSProperties
+              }
+            >
               {line2}
             </span>
           )}
