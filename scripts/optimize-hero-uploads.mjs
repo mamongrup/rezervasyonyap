@@ -18,7 +18,11 @@ const TRAVEL_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '
 const require = createRequire(path.join(TRAVEL_ROOT, 'frontend', 'package.json'))
 const sharp = require('sharp')
 
-const MAX_WIDTH = Number.parseInt(process.env.HERO_MAX_WIDTH ?? '900', 10) || 900
+// Kolaj slotları mobilde ~170–350 px; 640 px kaynak PSI "properly size" +
+// "efficiently encode" denetimini karşılar. Daha agresif: HERO_MAX_WIDTH=480
+const MAX_WIDTH = Number.parseInt(process.env.HERO_MAX_WIDTH ?? '640', 10) || 640
+const AVIF_QUALITY = Number.parseInt(process.env.HERO_AVIF_QUALITY ?? '42', 10) || 42
+const JPEG_QUALITY = Number.parseInt(process.env.HERO_JPEG_QUALITY ?? '58', 10) || 58
 const HERO_DIRS = [
   path.join(TRAVEL_ROOT, 'frontend', 'public', 'uploads', 'general', 'hero'),
   path.join(TRAVEL_ROOT, 'uploads', 'general', 'hero'),
@@ -35,10 +39,10 @@ async function listImages(dir) {
 
 function encoderFor(filePath, img) {
   const ext = path.extname(filePath).toLowerCase()
-  if (ext === '.avif') return img.avif({ quality: 50, effort: 6 })
-  if (ext === '.webp') return img.webp({ quality: 62 })
+  if (ext === '.avif') return img.avif({ quality: AVIF_QUALITY, effort: 6 })
+  if (ext === '.webp') return img.webp({ quality: 58 })
   if (ext === '.png') return img.png({ compressionLevel: 9, palette: true })
-  return img.jpeg({ quality: 62, mozjpeg: true, progressive: true })
+  return img.jpeg({ quality: JPEG_QUALITY, mozjpeg: true, progressive: true })
 }
 
 async function optimizeOne(filePath) {

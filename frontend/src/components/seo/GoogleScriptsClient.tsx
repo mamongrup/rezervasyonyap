@@ -34,7 +34,6 @@ function pushConsentUpdate() {
 
 export default function GoogleScriptsClient({ analytics, consentGate }: Props) {
   const { ga4_id, gtm_id, adsense_id, google_ads_id } = normalizeGoogleAnalyticsIds(analytics)
-  const adsense_auto_ads = analytics.adsense_auto_ads === true
 
   // GTM varken doğrudan gtag yüklemeyin — aksi halde GA4/Ads çift sayılır.
   const gtagIds: string[] = []
@@ -83,8 +82,10 @@ export default function GoogleScriptsClient({ analytics, consentGate }: Props) {
         {buildGoogleConsentDefaultScript(consentGate)}
       </Script>
 
+      {/* lazyOnload: LCP/FCP sonrası — PSI "unused JS" + 3. taraf cezası düşer.
+          Consent default hâlâ beforeInteractive; etiketler idle'da yüklenir. */}
       {gtm_id && (
-        <Script id="gtm-init" strategy="afterInteractive">{`
+        <Script id="gtm-init" strategy="lazyOnload">{`
 (function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
 new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
 j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
@@ -96,9 +97,9 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
         <>
           <Script
             src={`https://www.googletagmanager.com/gtag/js?id=${gtagIds[0]}`}
-            strategy="afterInteractive"
+            strategy="lazyOnload"
           />
-          <Script id="gtag-init" strategy="afterInteractive">{`
+          <Script id="gtag-init" strategy="lazyOnload">{`
 gtag('js',new Date());
 ${gtagConfigLines}`}</Script>
         </>
@@ -107,7 +108,7 @@ ${gtagConfigLines}`}</Script>
       {adsense_id && (
         <Script
           src={`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${adsense_id}`}
-          strategy={adsense_auto_ads ? 'afterInteractive' : 'lazyOnload'}
+          strategy="lazyOnload"
           crossOrigin="anonymous"
         />
       )}
