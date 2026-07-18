@@ -175,6 +175,10 @@ async function main() {
       if (!DRY_RUN) {
         await applyBravoHolidayHomeVitrinFields(pgClient, row.id, {
           meta: null,
+          // mergeListingMetaFromSpace yukarıda meta JSON'u günceller; burada
+          // meta:null bilinçli. Belge numarasını ayrıca geçirerek kanonik
+          // listings.ministry_license_ref alanını da vitrinde kullanılabilir tut.
+          tourismCertNo: vitrin.meta.tourism_cert_no,
           pools: vitrin.pools,
           ownerContact,
           poolSizeLabel: vitrin.poolSizeLabel,

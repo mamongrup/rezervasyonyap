@@ -415,7 +415,7 @@ export async function loadBravoOwnerContact(mysql, space) {
 export async function applyBravoHolidayHomeVitrinFields(
   pgClient,
   listingId,
-  { meta, pools, ownerContact, poolSizeLabel, damageDepositAmount, accommodationRuleIds },
+  { meta, pools, ownerContact, poolSizeLabel, damageDepositAmount, accommodationRuleIds, tourismCertNo },
 ) {
   if (meta && Object.keys(meta).length) {
     await pgClient.query(
@@ -476,6 +476,16 @@ export async function applyBravoHolidayHomeVitrinFields(
   if (poolSizeLabel && String(poolSizeLabel).trim()) {
     listingPatch.push(`pool_size_label = $${p}`)
     listingParams.push(String(poolSizeLabel).trim().slice(0, 200))
+    p++
+  }
+
+  // Bravo eski kayıtlarda belgeyi yalnız listing_meta.tourism_cert_no içine
+  // getiriyordu. Vitrin/public API ise kanonik listings.ministry_license_ref
+  // alanını okur. Kaynak boşsa mevcut panel değerini asla silme.
+  const cert = String(tourismCertNo ?? meta?.tourism_cert_no ?? '').trim()
+  if (cert) {
+    listingPatch.push(`ministry_license_ref = COALESCE(NULLIF($${p}, ''), ministry_license_ref)`)
+    listingParams.push(cert)
     p++
   }
 
