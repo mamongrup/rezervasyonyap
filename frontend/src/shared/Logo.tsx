@@ -231,8 +231,12 @@ function AnimatedBrandIcon({
       }}
     >
       <style>{`
+        /* Yalnızca opacity + transform — clip-path animasyonu PSI "non-composited" cezası verir. */
         .brand-wave-layer {
-          clip-path: inset(0 100% 0 0);
+          opacity: 0;
+          transform-box: fill-box;
+          transform-origin: left center;
+          transform: translateX(-8%) scaleX(0.88);
           animation: brand-wave-in .72s cubic-bezier(.4,0,.2,1) forwards;
         }
         .brand-sun-layer {
@@ -248,7 +252,9 @@ function AnimatedBrandIcon({
           animation: brand-ray-in .34s cubic-bezier(.2,.9,.35,1.35) forwards;
         }
         .brand-final-layer { opacity: 0; animation: brand-final-in .01s linear 2.52s forwards; }
-        @keyframes brand-wave-in { to { clip-path: inset(0 0 0 0); } }
+        @keyframes brand-wave-in {
+          to { opacity: 1; transform: translateX(0) scaleX(1); }
+        }
         @keyframes brand-sun-in {
           0% { opacity: 0; transform: scale(.08) rotate(-12deg); }
           100% { opacity: 1; transform: scale(1) rotate(0); }
