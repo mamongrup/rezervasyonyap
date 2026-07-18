@@ -4,6 +4,7 @@ export const BRAVO_HOLIDAY_LISTING_SQL = `
          l.status, l.currency_code, l.min_stay_nights,
          l.map_lat, l.map_lng, l.location_name, l.share_to_social,
          l.instant_book, l.vitrin_price, l.first_charge_amount,
+         l.ministry_license_ref,
          l.listing_source, l.organization_id::text AS organization_id,
          l.category_id
   FROM listings l

@@ -63,7 +63,9 @@ async function upsertListing(pg, item, listingId) {
          min_stay_nights = $6, map_lat = $7, map_lng = $8,
          location_name = $9, share_to_social = $10, instant_book = $11,
          external_provider_code = $12, external_listing_ref = $13, vitrin_price = $14,
-         first_charge_amount = $15, updated_at = now()
+         first_charge_amount = $15,
+         ministry_license_ref = COALESCE(NULLIF($16, ''), ministry_license_ref),
+         updated_at = now()
        WHERE id = $1::uuid`,
       [
         listingId,
@@ -81,6 +83,7 @@ async function upsertListing(pg, item, listingId) {
         String(item.external_listing_ref),
         l.vitrin_price,
         l.first_charge_amount,
+        l.ministry_license_ref || '',
       ],
     )
     return listingId
@@ -91,12 +94,12 @@ async function upsertListing(pg, item, listingId) {
        organization_id, category_id, slug, status, currency_code,
        min_stay_nights, map_lat, map_lng, location_name,
        external_provider_code, external_listing_ref, share_to_social, instant_book, listing_source,
-       vitrin_price, first_charge_amount
+       vitrin_price, first_charge_amount, ministry_license_ref
      ) VALUES (
        $1::uuid, $2, $3, $4, $5,
        $6, $7, $8, $9,
        $10, $11, $12, $13, $14,
-       $15, $16
+       $15, $16, NULLIF($17, '')
      ) RETURNING id::text`,
     [
       l.organization_id || ORG_ID,
@@ -115,6 +118,7 @@ async function upsertListing(pg, item, listingId) {
       l.listing_source || 'manual',
       l.vitrin_price,
       l.first_charge_amount,
+      l.ministry_license_ref || '',
     ],
   )
   return ins.rows[0].id

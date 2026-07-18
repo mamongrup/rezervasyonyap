@@ -73,6 +73,7 @@ async function loadListingBundle(pg, row) {
       instant_book: row.instant_book,
       vitrin_price: row.vitrin_price,
       first_charge_amount: row.first_charge_amount,
+      ministry_license_ref: row.ministry_license_ref,
       listing_source: row.listing_source,
       organization_id: row.organization_id,
       category_id: row.category_id,
