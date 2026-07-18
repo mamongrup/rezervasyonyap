@@ -11694,8 +11694,10 @@ export async function listPublicActiveCampaigns(params?: {
   if (params?.type) q.set('type', params.type)
   if (params?.limit) q.set('limit', String(params.limit))
   try {
+    // 300 sn: anasayfa ISR Cache-Control s-maxage bu fetch'in minimumuna iner.
+    // 60 sn iken her dakika yenileme + yavaş TTFB → PSI Perf dalgalanması (91→82).
     const res = await fetch(`${b}/api/v1/public/marketing/active-campaigns${q.toString() ? `?${q}` : ''}`, {
-      next: { revalidate: 60 },
+      next: { revalidate: 300 },
     })
     if (!res.ok) return { campaigns: [] }
     return json(res)
@@ -11788,7 +11790,7 @@ export async function listPublicActiveCoupons(params?: {
   if (params?.limit) q.set('limit', String(params.limit))
   try {
     const res = await fetch(`${b}/api/v1/public/marketing/active-coupons${q.toString() ? `?${q}` : ''}`, {
-      next: { revalidate: 60 },
+      next: { revalidate: 300 },
     })
     if (!res.ok) return { coupons: [] }
     return json(res)
@@ -11807,7 +11809,7 @@ export async function listPublicHolidayPackages(params?: {
   if (params?.limit) q.set('limit', String(params.limit))
   try {
     const res = await fetch(`${b}/api/v1/public/marketing/holiday-packages${q.toString() ? `?${q}` : ''}`, {
-      next: { revalidate: 60 },
+      next: { revalidate: 300 },
     })
     if (!res.ok) return { packages: [] }
     return json(res)

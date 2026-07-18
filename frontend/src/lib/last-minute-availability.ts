@@ -1,5 +1,6 @@
 import { listPublicActiveCampaigns } from '@/lib/travel-api'
 import type { SearchQuery } from '@/lib/listings-fetcher'
+import { cache } from 'react'
 
 /** Son dakika vitrin sekmesi — otel, tatil evi, yat */
 export const LAST_MINUTE_CATEGORY_SLUGS = new Set(['oteller', 'tatil-evleri', 'yat-kiralama'])
@@ -40,8 +41,9 @@ function addCalendarDays(base: Date, days: number): Date {
   return d
 }
 
-/** Aktif son dakika kampanyası + yakın giriş tarihi penceresi */
-export async function resolveLastMinuteDateWindow(): Promise<LastMinuteDateWindow> {
+/** Aktif son dakika kampanyası + yakın giriş tarihi penceresi.
+ * React.cache: anasayfada 3× featured_places aynı isteği tek fetch'e indirger. */
+export const resolveLastMinuteDateWindow = cache(async (): Promise<LastMinuteDateWindow> => {
   const { campaigns } = await listPublicActiveCampaigns({ type: 'last_minute', limit: 1 })
   const maxHours = parseLastMinuteMaxHours(campaigns[0]?.rules_json)
   const flexDays = Math.min(7, Math.max(1, Math.ceil(maxHours / 24)))
@@ -56,7 +58,7 @@ export async function resolveLastMinuteDateWindow(): Promise<LastMinuteDateWindo
     flexDays,
     maxHours,
   }
-}
+})
 
 /** `last_minute=1` URL / vitrin sorgusuna müsaitlik tarihlerini ekler */
 export async function applyLastMinuteSearchQuery(
