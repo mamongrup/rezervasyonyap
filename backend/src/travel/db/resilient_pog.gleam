@@ -30,7 +30,11 @@ fn reserve_pool() -> Option(pog.Connection) {
 pub fn is_transient_error(e: pog.QueryError) -> Bool {
   case e {
     pog.ConnectionUnavailable -> True
-    pog.QueryTimeout -> True
+    // QueryTimeout KASITLI olarak retry edilmez: 5+ sn süren sorgu tekrarında da
+    // büyük olasılıkla zaman aşımına uğrar. Yeniden denemek (yedek havuz + ana havuz)
+    // tek yavaş isteği 3 ardışık ağır sorguya çevirip bağlantı fırtınası
+    // (connection_unavailable → tüm API 500) tetikliyordu. Bkz. runbook §10.
+    pog.QueryTimeout -> False
     pog.PostgresqlError(code, _, _) ->
       code == "53300"
       || code == "57P01"

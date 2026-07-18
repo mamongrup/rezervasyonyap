@@ -20,6 +20,16 @@ pub fn query_error_to_string(e: pog.QueryError) -> String {
   }
 }
 
+/// Eksik kolon/tablo (migration uygulanmamış DB) — SQL'in eski-şema varyantıyla
+/// yeniden denenmesi yalnızca bu durumda anlamlıdır. Timeout/bağlantı hatasında
+/// aynı (veya daha yavaş) SQL'i tekrar çalıştırmak yükü katlar.
+pub fn is_missing_schema(e: pog.QueryError) -> Bool {
+  case e {
+    pog.PostgresqlError(code, _, _) -> code == "42703" || code == "42P01"
+    _ -> False
+  }
+}
+
 /// cart_lines INSERT — eksik kolon (305 migration) vs genel DB hatası.
 pub fn cart_line_insert_error_code(e: pog.QueryError) -> String {
   let detail = query_error_to_string(e)

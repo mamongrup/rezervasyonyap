@@ -96,3 +96,10 @@ Tamamlayıcı: `51-rezervasyonyap-production.mdc`, `53-regression-scope.mdc`.
 - **Gerçek onarım (fiyatı geri getirme):** Statik import'la gelmiş fiyatsız otelleri fiyatlandırmak için oda zenginleştirmeli yeniden import: `ONLY=hotels ./deploy/scripts/import-travelrobot-all.sh` (panelde `import_hotel_rooms` açık) veya `scripts/backfill-all-travelrobot-hotels.mjs --with-rooms`. Boşlukları görmek: `node scripts/audit-travelrobot-hotel-gaps.mjs`.
 - **Doğrulama:** `?category_code=hotel` listesinde fiyatsız otel kalmamalı; `audit-travelrobot-hotel-gaps.mjs` `no_price_rules` sayısı import sonrası düşmeli.
 - **İzleme:** `./deploy/scripts/report-priceless-hotels.sh` → kaç otelin gizlendiğini ve nedenini (price_rules/meal_plan/oda yok) gösterir. Günlük otomatik: `travel-priceless-hotels-report.timer` (06:30, journald). Sayı beklenmedik artarsa import/backfill gerekir.
+
+## 10. query_timeout kaskadı (vitrin liste 500 fırtınası)
+
+- **Belirti:** Logda `[catalog.public.listings] query_timeout` ardından `connection_unavailable` patlaması; vitrin listeler aralıklı 500.
+- **Kök neden (2026-07 gecesi):** pog sorgu zaman aşımı varsayılanı **5 sn**; I/O baskılı hostta soğuk otel sorgusu 2-6 sn. 5 sn aşılınca eski kod (a) timeout'u "geçici" sayıp aynı sorguyu yedek + ana havuzda yeniden çalıştırıyor, (b) vitrin-strip edilmiş (partial index eşleşmeyen, daha yavaş) SQL'i bir daha deniyordu → tek yavaş istek 6'ya kadar ardışık ağır sorgu → havuz doldu.
+- **Çözüm (kodda):** `resilient_pog.is_transient_error` artık `QueryTimeout` için retry etmez; strip fallback yalnızca gerçek şema hatasında (42703/42P01, `pog_errors.is_missing_schema`) çalışır; vitrin liste sorgusu `pog.timeout(12_000)` kullanır (statement_timeout 15 sn altında).
+- **Bağlantı sayısı notu:** unit `PG_POOL_SIZE=6 + PG_RESERVE_POOL_SIZE=2` → tek instance **8** bağlantı. `travel_prod` sayısı 8'in katından fazlaysa orphan var (bkz. §5); restart'tan ÖNCE terminate et, sonra restart.

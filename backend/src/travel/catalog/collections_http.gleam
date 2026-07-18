@@ -20,6 +20,12 @@ import travel/db/pog_errors
 import travel/identity/admin_gate
 import wisp.{type Request, type Response}
 
+/// Vitrin liste sayfası sorgusu için pog zaman aşımı. pog varsayılanı 5000 ms —
+/// soğuk önbellekte (I/O baskılı host) otel sorgusu 2-6 sn sürebiliyor; 5 sn'de
+/// kesmek ziyaretçiye 500 döndürüyordu. PG_STATEMENT_TIMEOUT_MS (15 sn) altında
+/// kalır ki sunucu tarafı sorgu da aynı pencerede iptal edilsin.
+const vitrin_query_timeout_ms = 12_000
+
 fn json_err(status: Int, msg: String) -> Response {
   wisp.json_response(
     json.object([#("error", json.string(msg))]) |> json.to_string,
@@ -155,7 +161,9 @@ fn run_listing_count_sql(
           "[catalog.public.listings:count] "
             <> pog_errors.query_error_to_string(e),
         )
-      case allow_vitrin_strip {
+      // Strip fallback yalnızca eksik şema (42703/42P01) içindir; timeout gibi
+      // hatalarda daha yavaş legacy SQL'i tekrar çalıştırmak yükü katlar.
+      case allow_vitrin_strip && pog_errors.is_missing_schema(e) {
         False -> fallback
         True -> {
           let legacy = strip_vitrin_price_cache_sql(sql)
@@ -1686,6 +1694,7 @@ fn search_listings_impl(
 
   case
     pog.query(page_sql)
+    |> pog.timeout(vitrin_query_timeout_ms)
     |> run_params
     |> pog.returning(pub_listing_row())
     |> db_exec.execute(ctx.db)
@@ -1696,21 +1705,29 @@ fn search_listings_impl(
           "[catalog.public.listings] "
             <> pog_errors.query_error_to_string(e),
         )
-      let fallback_count_sql = case fast_page_allowed {
-        True -> strip_vitrin_price_cache_sql(fast_count_sql)
-        False -> strip_vitrin_price_cache_sql(count_sql)
+      // Strip fallback yalnızca vitrin_price kolonu eksikse (42703) anlamlıdır.
+      // Timeout/bağlantı hatasında strip edilmiş SQL daha da yavaştır (partial
+      // index eşleşmez) — yeniden çalıştırmak bağlantı fırtınasını büyütür.
+      case pog_errors.is_missing_schema(e) {
+        False -> json_err(500, "search_failed")
+        True -> {
+          let fallback_count_sql = case fast_page_allowed {
+            True -> strip_vitrin_price_cache_sql(fast_count_sql)
+            False -> strip_vitrin_price_cache_sql(count_sql)
+          }
+          // Eski sql_paged tüm eşleşen satırlarda projeksiyon çalıştırır (dakikalar + DB tükenmesi).
+          // vitrin_price hatasında aynı fast/deferred planı strip ile yeniden dene.
+          search_listings_paged_response(
+            ctx,
+            strip_vitrin_price_cache_sql(page_sql),
+            run_params,
+            offset,
+            lim,
+            None,
+            Some(fallback_count_sql),
+          )
+        }
       }
-      // Eski sql_paged tüm eşleşen satırlarda projeksiyon çalıştırır (dakikalar + DB tükenmesi).
-      // vitrin_price hatasında aynı fast/deferred planı strip ile yeniden dene.
-      search_listings_paged_response(
-        ctx,
-        strip_vitrin_price_cache_sql(page_sql),
-        run_params,
-        offset,
-        lim,
-        None,
-        Some(fallback_count_sql),
-      )
     }
     Ok(ret) -> {
       let fallback_total =
@@ -1772,6 +1789,7 @@ fn search_listings_paged_response_impl(
 ) -> Response {
   case
     pog.query(sql_paged)
+    |> pog.timeout(vitrin_query_timeout_ms)
     |> run_params
     |> pog.returning(pub_listing_row())
     |> db_exec.execute(ctx.db)
@@ -1782,7 +1800,7 @@ fn search_listings_paged_response_impl(
           "[catalog.public.listings] "
             <> pog_errors.query_error_to_string(e),
         )
-      case allow_legacy {
+      case allow_legacy && pog_errors.is_missing_schema(e) {
         False -> json_err(500, "search_failed")
         True -> {
           let legacy = strip_vitrin_price_cache_sql(sql_paged)
