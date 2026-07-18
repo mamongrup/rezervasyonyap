@@ -102,7 +102,7 @@ export async function getNavigation(): Promise<TNavigationItem[]> {
     const { fetchPublicNavMenuItems } = await import('@/lib/travel-api')
     const { buildNavTreeFromItems } = await import('@/lib/nav-from-api')
     const { withDevNoStore } = await import('@/lib/api-fetch-dev')
-    const { items } = await fetchPublicNavMenuItems('header', undefined, withDevNoStore({ next: { revalidate: 120 } }))
+    const { items } = await fetchPublicNavMenuItems('header', undefined, withDevNoStore({ next: { revalidate: 300 } }))
     if (items.length > 0) {
       return buildNavTreeFromItems(items)
     }

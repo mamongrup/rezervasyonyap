@@ -166,8 +166,10 @@ export default async function LocaleLayout({
   }
   const options = rows.map((r) => ({ code: r.code, name: r.name }))
   const localizedRoutes = await fetchLocalizedRoutes()
+  // 300 sn: layout tüm sayfaları sarar; daha kısa revalidate tüm vitrinin
+  // Cache-Control s-maxage'ini düşürür (PSI TTFB dalgalanması).
   const initialCurrencyRates = await getPublicCurrencyRates({
-    next: { revalidate: 120 },
+    next: { revalidate: 300 },
   } as RequestInit).catch(() => [] as Awaited<ReturnType<typeof getPublicCurrencyRates>>)
   return (
     <AvailableLocalesProvider locales={options}>
