@@ -21,6 +21,7 @@ import { fetchCategoryListings } from '@/lib/listings-fetcher'
 import { getHomepageDefaultModules } from '@/lib/page-builder-default-modules'
 import { panelImagesToFreeformUrls } from '@/lib/hero-gallery-slots'
 import { resolveHeroLcpImageUrl } from '@/lib/hero-lcp-url'
+import { preferHeroAvifTriple } from '@/lib/prefer-hero-avif'
 import { DEFAULT_REGION_HERO_FREEFORM } from '@/lib/region-hero-freeform-defaults'
 import { sanitizeHeroInlineHtml } from '@/lib/sanitize-cms-html'
 import { pickLocalized, type LocalizedText } from '@/lib/localized-text'
@@ -46,8 +47,7 @@ export async function generateMetadata({
   }
 }
 
-// ISR: anasayfa cache (CDN/Next). CSS inline için `experimental.inlineCss` (App Router).
-// Gerçek revalidate, searchPublicListings'teki 60 sn ile sınırlanır.
+// ISR: anasayfa cache (CDN/Next). Fetch revalidate (listings ~300 sn) efektif üst sınırdır.
 export const revalidate = 3600
 
 // Anasayfa için sahte bir "category" — PageBuilderRenderer bağlamı için
@@ -103,7 +103,7 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
         mosaicRaw[2] || defaultHeroSrc,
       ]
     : [defaultHeroSrc, defaultHeroSrc, defaultHeroSrc]
-  const mosaicForRegionHero = panelImagesToFreeformUrls(mosaicGrid)
+  const mosaicForRegionHero = preferHeroAvifTriple(panelImagesToFreeformUrls(mosaicGrid))
 
   /** Freeform’daki gerçek LCP URL’si dizinin ilk elemanı olmayabilir — önce onu preload et. */
   const lcpHeroUrl = resolveHeroLcpImageUrl(DEFAULT_REGION_HERO_FREEFORM, mosaicForRegionHero)

@@ -161,14 +161,13 @@ const nextConfig = {
   },
   experimental: {
     /**
-     * App Router'da `optimizeCss` (beasties/critters) STREAMING ile çalışmaz —
-     * canlı HTML'de `<link rel=stylesheet>` kalır, inline `<style>` olmaz (PSI
-     * "oluşturma engelleme" ~420 ms). Next 15+/16 App Router için doğru bayrak
-     * `inlineCss`: stylesheet yerine `<style>` üretir. Tailwind atomik CSS
-     * (~63 KiB) için kabul edilebilir; kapatmak: `CSS_OPTIMIZE=0`.
+     * CSS stratejisi (App Router / Next 16):
+     * - `optimizeCss` (beasties): streaming ile UYUMSUZ → canlıda etki etmez.
+     * - `inlineCss`: stylesheet yerine `<style>` basar AMA Tailwind'i hem HTML
+     *   hem RSC flight'a gömer (~550 KB × 2 → HTML ~1.7 MB, TTFB/Speed Index bozulur).
+     * Bu yüzden ikisi de KAPALI. Harici ~63 KiB CSS + HTTP/2 kabul edilir;
+     * Perf için HTML küçültme + LCP AVIF + GTM lazy daha etkili.
      */
-    inlineCss:
-      process.env.NODE_ENV === 'production' && process.env.CSS_OPTIMIZE !== '0',
     /** Tek CPU ile derle — bozuk diskte worker fırtınasını keser. */
     ...(lowIoBuild ? { cpus: 1 } : {}),
     optimizePackageImports: [

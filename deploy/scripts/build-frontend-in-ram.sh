@@ -66,9 +66,7 @@ step "Webpack production build (ara dosyalar RAM'de)"
   cd "$RAM_DIR"
   export NEXT_TELEMETRY_DISABLED=1
   export NEXT_NODE_HEAP_MB="${NEXT_NODE_HEAP_MB:-4096}"
-  # App Router: experimental.inlineCss (optimizeCss/beasties streaming'de çalışmaz).
-  # RAM build'de ek disk I/O maliyeti yok; varsayılan açık.
-  export CSS_OPTIMIZE="${CSS_OPTIMIZE:-1}"
+  # App Router'da CSS inline (inlineCss/beasties) HTML'i şişirir — kapalı bırakılır.
   export TRAVEL_LOW_IO_BUILD="${TRAVEL_LOW_IO_BUILD:-1}"
   if command -v ionice >/dev/null 2>&1; then
     exec ionice -c3 nice -n 19 npm run build

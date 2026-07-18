@@ -45,23 +45,54 @@ function encoderFor(filePath, img) {
   return img.jpeg({ quality: JPEG_QUALITY, mozjpeg: true, progressive: true })
 }
 
+async function writeAvifSibling(filePath, input) {
+  const ext = path.extname(filePath).toLowerCase()
+  if (ext === '.avif') return 0
+  const avifPath = filePath.replace(/\.(jpe?g|png|webp)$/i, '.avif')
+  if (avifPath === filePath) return 0
+  try {
+    const existing = await fs.readFile(avifPath).catch(() => null)
+    const resized = sharp(input).resize({ width: MAX_WIDTH, withoutEnlargement: true })
+    const output = await resized.avif({ quality: AVIF_QUALITY, effort: 6 }).toBuffer()
+    if (existing && existing.length <= output.length) {
+      console.log(`avif-kept ${avifPath} (${(existing.length / 1024).toFixed(0)} KB)`)
+      return 0
+    }
+    const tmp = `${avifPath}.tmp`
+    await fs.writeFile(tmp, output)
+    await fs.rename(tmp, avifPath)
+    const before = existing ? existing.length : 0
+    console.log(
+      `avif-write ${avifPath} ${(output.length / 1024).toFixed(0)} KB` +
+        (before ? ` (was ${(before / 1024).toFixed(0)} KB)` : ''),
+    )
+    return before > output.length ? before - output.length : 0
+  } catch (e) {
+    console.warn(`avif-fail ${filePath}:`, e?.message || e)
+    return 0
+  }
+}
+
 async function optimizeOne(filePath) {
   const input = await fs.readFile(filePath)
   const meta = await sharp(input).metadata()
   const width = meta.width ?? 0
   const resized = sharp(input).resize({ width: MAX_WIDTH, withoutEnlargement: true })
   const output = await encoderFor(filePath, resized).toBuffer()
+  let saved = 0
   if (output.length >= input.length) {
     console.log(`kept      ${filePath} (${(input.length / 1024).toFixed(0)} KB, w=${width})`)
-    return 0
+  } else {
+    const tmp = `${filePath}.tmp`
+    await fs.writeFile(tmp, output)
+    await fs.rename(tmp, filePath)
+    saved = input.length - output.length
+    console.log(
+      `optimized ${filePath} ${(input.length / 1024).toFixed(0)} KB -> ${(output.length / 1024).toFixed(0)} KB (w=${width} -> <=${MAX_WIDTH})`,
+    )
   }
-  const tmp = `${filePath}.tmp`
-  await fs.writeFile(tmp, output)
-  await fs.rename(tmp, filePath)
-  const saved = input.length - output.length
-  console.log(
-    `optimized ${filePath} ${(input.length / 1024).toFixed(0)} KB -> ${(output.length / 1024).toFixed(0)} KB (w=${width} -> <=${MAX_WIDTH})`,
-  )
+  // LCP için jpg/png yanında .avif kardeş (frontend preferHeroAvifUrl kullanır)
+  saved += await writeAvifSibling(filePath, input)
   return saved
 }
 

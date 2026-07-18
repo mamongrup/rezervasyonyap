@@ -250,8 +250,7 @@ main() {
     fi
 
     rm -rf .next
-    # App Router critical CSS: experimental.inlineCss (CSS_OPTIMIZE=1 → next.config).
-    CSS_OPTIMIZE="${CSS_OPTIMIZE:-1}" TRAVEL_LOW_IO_BUILD="${TRAVEL_LOW_IO_BUILD:-1}" \
+    TRAVEL_LOW_IO_BUILD="${TRAVEL_LOW_IO_BUILD:-1}" \
       NEXT_TELEMETRY_DISABLED=1 npm run build
     npm prune --omit=dev
 
