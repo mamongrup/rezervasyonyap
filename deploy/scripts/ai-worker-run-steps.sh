@@ -42,6 +42,15 @@ if [[ -z "${SECRET// /}" ]]; then
   exit 0
 fi
 
+# Panel açık olmasa da eksik bölge/blog/mekan kuyruklarını küçük batch'lerle
+# besle. Hata mevcut işleri durdurmaz; worker bekleyen kayıtları işlemeye devam eder.
+if [[ "${AI_CONTENT_AUTO_SEED:-1}" != "0" ]]; then
+  SEED_SCRIPT="$SCRIPT_DIR/seed-ai-content-queues.sh"
+  if [[ -f "$SEED_SCRIPT" ]]; then
+    /bin/bash "$SEED_SCRIPT" || echo "[WARN] AI içerik kuyruğu beslenemedi" >&2
+  fi
+fi
+
 URL="${API_ORIGIN%/}${WORKER_PATH}?loops=${LOOPS}"
 if [[ -n "$EXTRA_QUERY" ]]; then
   URL="${URL}&${EXTRA_QUERY}"

@@ -1720,7 +1720,7 @@ pub fn worker_try_listing_content(ctx: Context) -> Result(Bool, String) {
             <> need_work_sql()
             <> "and not exists (select 1 from ai_listing_content_batches b where b.listing_id = l.id and b.status in ('pending','running')) "
             <> "and not exists (select 1 from ai_listing_content_batches b where b.listing_id = l.id and b.status = 'failed' and b.updated_at > now() - interval '6 hours') "
-            <> "order by case pc.code when 'hotel' then 0 when 'holiday_home' then 1 when 'yacht_charter' then 2 when 'activity' then 3 when 'cruise' then 4 when 'ferry' then 5 when 'transfer' then 6 when 'car_rental' then 7 when 'flight' then 8 else 9 end, l.updated_at desc limit 1 returning id::text"
+            <> "order by case pc.code when 'holiday_home' then 0 when 'yacht_charter' then 1 when 'hotel' then 2 when 'activity' then 3 when 'cruise' then 4 when 'ferry' then 5 when 'transfer' then 6 when 'car_rental' then 7 when 'flight' then 8 else 9 end, l.updated_at desc limit 1 returning id::text"
           case
             pog.query(seed_sql)
             |> pog.returning(row_dec.col0_string())
