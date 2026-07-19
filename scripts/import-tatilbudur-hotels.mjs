@@ -212,7 +212,7 @@ async function upsertHotel(pg, ctx, hotel) {
       const inserted = await pg.query(
         `INSERT INTO listings (organization_id, category_id, slug, status, currency_code, location_name,
          listing_source, external_provider_code, external_listing_ref, last_synced_at)
-         VALUES ($1::uuid,$2::uuid,$3,$4,$5,$6,'api',$7,$8,now()) RETURNING id::text`,
+         VALUES ($1::uuid,$2::smallint,$3,$4,$5,$6,'api',$7,$8,now()) RETURNING id::text`,
         [ctx.orgId, ctx.categoryId, hotel.slug, LISTING_STATUS, hotel.currency,
           hotel.city || hotel.district || null, PROVIDER, hotel.externalId],
       )
@@ -220,7 +220,7 @@ async function upsertHotel(pg, ctx, hotel) {
     }
     await pg.query(
       `INSERT INTO listing_translations (listing_id,locale_id,title,description)
-       VALUES ($1::uuid,$2::uuid,$3,$4) ON CONFLICT (listing_id,locale_id) DO UPDATE SET
+       VALUES ($1::uuid,$2::smallint,$3,$4) ON CONFLICT (listing_id,locale_id) DO UPDATE SET
        title=excluded.title, description=coalesce(nullif(excluded.description,''),listing_translations.description)`,
       [listingId, ctx.localeId, hotel.name, hotel.description],
     )

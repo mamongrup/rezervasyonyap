@@ -1,0 +1,110 @@
+{
+  "hotels": [
+    {
+      "id": "adrasan-beltom-beach-hotel",
+      "name": "Adrasan Beltom Beach Hotel",
+      "slug": "adrasan-beltom-beach-hotel",
+      "url": "https://www.tatilbudur.com/adrasan-beltom-beach-hotel",
+      "officialUrl": "https://www.beltomhotel.com/tr/otelimiz",
+      "countryCode": "TR",
+      "city": "Antalya",
+      "district": "Kumluca / Adrasan",
+      "address": "Adrasan Mah. Semt 130 Sokak No: 22, Çavuşköy, 07370 Kumluca/Antalya",
+      "description": "<section><h2>Adrasan’da doğa ve denizle iç içe konaklama</h2><p>Adrasan Beltom Beach Hotel, Antalya’nın Kumluca ilçesine bağlı Adrasan’da, sakin bir kıyı atmosferinde konaklama sunar. Tesis; aileler, çocuklu misafirler ve deniz tatilini doğayla birleştirmek isteyen konuklar için uygun olanaklara sahiptir.</p><h2>Plaj ve havuz olanakları</h2><p>Tesise ait kum plaj yaklaşık 400 metre mesafededir. Plajdaki şezlong ve şemsiyeler ücretsizdir; plajda tesise ait yiyecek-içecek servisi bulunmaz.</p><ul><li>Özel kum plaj</li><li>Açık yüzme havuzu ve çocuk havuzu</li><li>Tek bantlı su kaydırağı</li><li>Çocuk oyun alanı</li></ul><h2>Yeme ve içme</h2><p>Yarım pansiyon konseptinde açık büfe kahvaltı ve akşam yemeği sunulur. Havuz bar ve restoran bar hizmetleri ücretlidir. Konsept dışında alınan yiyecek ve içecekler ayrıca ücretlendirilir.</p><h2>Konum</h2><p>Otel; Antalya şehir merkezine yaklaşık 93 km, Antalya Havalimanı’na 109 km ve Antalya Otogarı’na 93,8 km uzaklıktadır.</p>",
+      "amenities": [
+        "Özel kum plaj",
+        "Ücretsiz şezlong ve şemsiye",
+        "Açık havuz",
+        "Çocuk havuzu",
+        "Tek bantlı su kaydırağı",
+        "Çocuk oyun alanı",
+        "Otopark",
+        "Emanet kasa",
+        "Ön büro",
+        "Yarım pansiyon",
+        "Ücretli çamaşırhane",
+        "Ücretli transfer hizmeti",
+        "Ücretli su sporları",
+        "Ücretli plaj havlusu"
+      ],
+      "images": [
+        "https://beltomhotel.com/Upload/beltom/tr/fotograf-galeri/genel-fotograflar/img_gallery/img/big/genel-fotograflar-5561f.jpg",
+        "https://beltomhotel.com/Upload/beltom/tr/fotograf-galeri/genel-fotograflar/img_gallery/img/big/genel-fotograflar-1257a.jpg",
+        "https://beltomhotel.com/Upload/beltom/tr/fotograf-galeri/genel-fotograflar/img_gallery/img/big/genel-fotograflar-f57a3.jpg",
+        "https://beltomhotel.com/Upload/beltom/tr/fotograf-galeri/genel-fotograflar/img_gallery/img/big/genel-fotograflar-fc77d.jpg",
+        "https://beltomhotel.com/Upload/beltom/tr/fotograf-galeri/genel-fotograflar/img_gallery/img/big/genel-fotograflar-fd0d4.jpg",
+        "https://beltomhotel.com/Upload/beltom/tr/fotograf-galeri/genel-fotograflar/img_gallery/img/big/genel-fotograflar-c8d8c.jpg",
+        "https://beltomhotel.com/Upload/beltom/tr/fotograf-galeri/genel-fotograflar/img_gallery/img/big/genel-fotograflar-1efd2.jpg",
+        "https://beltomhotel.com/Upload/beltom/tr/fotograf-galeri/genel-fotograflar/img_gallery/img/big/genel-fotograflar-b1678.jpg",
+        "https://beltomhotel.com/Upload/beltom/tr/fotograf-galeri/genel-fotograflar/img_gallery/img/big/genel-fotograflar-49225.jpg",
+        "https://beltomhotel.com/Upload/beltom/tr/fotograf-galeri/genel-fotograflar/img_gallery/img/big/genel-fotograflar-1a2cc.jpg",
+        "https://beltomhotel.com/Upload/beltom/tr/fotograf-galeri/genel-fotograflar/img_gallery/img/big/genel-fotograflar-9d6ad.jpg",
+        "https://beltomhotel.com/Upload/beltom/tr/fotograf-galeri/genel-fotograflar/img_gallery/img/big/genel-fotograflar-7d62b.jpg",
+        "https://beltomhotel.com/Upload/beltom/tr/fotograf-galeri/genel-fotograflar/img_gallery/img/big/genel-fotograflar-3b290.jpg",
+        "https://beltomhotel.com/Upload/beltom/tr/fotograf-galeri/genel-fotograflar/img_gallery/img/big/genel-fotograflar-e1f4c.jpg",
+        "https://beltomhotel.com/Upload/beltom/tr/fotograf-galeri/genel-fotograflar/img_gallery/img/big/genel-fotograflar-b5999.jpg",
+        "https://beltomhotel.com/Upload/beltom/tr/fotograf-galeri/genel-fotograflar/img_gallery/img/big/genel-fotograflar-767d6.jpg",
+        "https://beltomhotel.com/Upload/beltom/tr/fotograf-galeri/genel-fotograflar/img_gallery/img/big/genel-fotograflar-f01b9.jpg",
+        "https://beltomhotel.com/Upload/beltom/tr/fotograf-galeri/genel-fotograflar/img_gallery/img/big/genel-fotograflar-7d965.jpg",
+        "https://beltomhotel.com/Upload/beltom/tr/fotograf-galeri/genel-fotograflar/img_gallery/img/big/genel-fotograflar-567c0.jpg",
+        "https://beltomhotel.com/Upload/beltom/tr/fotograf-galeri/genel-fotograflar/img_gallery/img/big/genel-fotograflar-a782e.jpg",
+        "https://beltomhotel.com/Upload/beltom/tr/fotograf-galeri/genel-fotograflar/img_gallery/img/big/genel-fotograflar-28184.jpg",
+        "https://beltomhotel.com/Upload/beltom/tr/fotograf-galeri/genel-fotograflar/img_gallery/img/big/genel-fotograflar-77af7.jpg",
+        "https://beltomhotel.com/Upload/beltom/tr/fotograf-galeri/genel-fotograflar/img_gallery/img/big/genel-fotograflar-a3cf7.jpg",
+        "https://beltomhotel.com/Upload/beltom/tr/fotograf-galeri/genel-fotograflar/img_gallery/img/big/genel-fotograflar-7a666.jpg",
+        "https://beltomhotel.com/Upload/beltom/tr/fotograf-galeri/genel-fotograflar/img_gallery/img/big/genel-fotograflar-692c4.jpg",
+        "https://beltomhotel.com/Upload/beltom/tr/fotograf-galeri/genel-fotograflar/img_gallery/img/big/genel-fotograflar-c538d.jpg",
+        "https://beltomhotel.com/Upload/beltom/tr/fotograf-galeri/genel-fotograflar/img_gallery/img/big/genel-fotograflar-b5523.jpg",
+        "https://beltomhotel.com/Upload/beltom/tr/fotograf-galeri/genel-fotograflar/img_gallery/img/big/genel-fotograflar-ec88b.jpg",
+        "https://beltomhotel.com/Upload/beltom/tr/fotograf-galeri/genel-fotograflar/img_gallery/img/big/genel-fotograflar-23d28.jpg",
+        "https://beltomhotel.com/Upload/beltom/tr/fotograf-galeri/genel-fotograflar/img_gallery/img/big/genel-fotograflar-d8035.jpg",
+        "https://beltomhotel.com/Upload/beltom/tr/fotograf-galeri/genel-fotograflar/img_gallery/img/big/genel-fotograflar-28a02.jpg",
+        "https://beltomhotel.com/Upload/beltom/tr/fotograf-galeri/genel-fotograflar/img_gallery/img/big/genel-fotograflar-6cca8.jpg",
+        "https://beltomhotel.com/Upload/beltom/tr/fotograf-galeri/genel-fotograflar/img_gallery/img/big/genel-fotograflar-9d145.jpg",
+        "https://beltomhotel.com/Upload/beltom/tr/fotograf-galeri/genel-fotograflar/img_gallery/img/big/genel-fotograflar-d580f.jpg",
+        "https://beltomhotel.com/Upload/beltom/tr/fotograf-galeri/genel-fotograflar/img_gallery/img/big/genel-fotograflar-55c26.jpg"
+      ],
+      "rooms": [
+        {
+          "id": "standart-oda",
+          "name": "Standart Oda",
+          "boardType": "Yarım Pansiyon",
+          "image": "https://www.beltomhotel.com/Upload/beltom/tr/odalar/standart-oda/img_gallery/img/big/deluxe-havuz-manzara-1d6d4.jpg",
+          "features": ["Balkon", "Emanet kasa", "Mini bar", "Saç kurutma makinesi", "Split klima", "Telefon", "Wi-Fi", "Özel banyo"]
+        },
+        {
+          "id": "ranzali-aile-odasi",
+          "name": "Ranzalı Aile Odası",
+          "boardType": "Yarım Pansiyon",
+          "image": "https://www.beltomhotel.com/Upload/beltom/tr/odalar/ranzali-aile-odasi/img_gallery/img/big/deniz-manzarali-standart-genis-oda-cf0f2.jpg",
+          "features": ["Ranza", "Balkon", "Emanet kasa", "Mini bar", "Saç kurutma makinesi", "Split klima", "Telefon", "Wi-Fi", "Özel banyo"]
+        },
+        {
+          "id": "ara-kapili-aile-suit",
+          "name": "Ara Kapılı Aile Suit",
+          "boardType": "Yarım Pansiyon",
+          "image": "https://www.beltomhotel.com/Upload/beltom/tr/odalar/ara-kapili-aile-suit/img_gallery/img/big/deniz-manzarali-aile-odasi-17f34.png",
+          "features": ["Ara kapılı oda", "Balkon", "Emanet kasa", "Mini bar", "Saç kurutma makinesi", "Split klima", "Telefon", "Wi-Fi", "Özel banyo"]
+        },
+        {
+          "id": "king-suit",
+          "name": "King Suit",
+          "boardType": "Yarım Pansiyon",
+          "image": "https://www.beltomhotel.com/Upload/beltom/tr/odalar/king-suit/img_gallery/img/big/kara-manzarali-aile-odasi-7b4cd.png",
+          "features": ["Geniş yaşam alanı", "Oturma alanı", "Mini bar", "Split klima", "Wi-Fi", "Özel banyo", "Doğa manzarası"]
+        }
+      ],
+      "sourceFacts": {
+        "tourismApplicationDocument": "G_20696",
+        "beachDistanceMeters": 400,
+        "antalyaCenterDistanceKm": 93,
+        "antalyaAirportDistanceKm": 109,
+        "antalyaBusTerminalDistanceKm": 93.8,
+        "mealPlan": "Yarım Pansiyon",
+        "breakfastHours": "08:00-10:00",
+        "dinnerHours": "19:00-21:00",
+        "verifiedAt": "2026-07-20"
+      }
+    }
+  ]
+}
