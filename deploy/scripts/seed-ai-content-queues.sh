@@ -55,8 +55,8 @@ FROM inserted GROUP BY category_code ORDER BY category_code;
 
 -- Kesilmiş deploy/API isteğinden kalan blog işleri tekrar çalıştırılabilir olsun.
 UPDATE ai_geo_blog_batches
-SET status = 'pending', error = NULL, updated_at = now()
-WHERE status = 'running' AND updated_at < now() - interval '45 minutes';
+SET status = 'pending', job_id = NULL
+WHERE status = 'running';
 
 UPDATE ai_place_blog_batches
 SET status = 'pending', error = NULL, updated_at = now()
