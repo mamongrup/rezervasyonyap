@@ -34,10 +34,8 @@ EnvironmentFile=/etc/rezervasyonyap/frontend.env
 Environment=NODE_ENV=production
 Environment=PORT=3000
 
-# Next production server — server.mjs (TRAVEL_DEFER_CSS varsayılan kapalı).
-# CSS defer LCP’yi bozduğu için açma; gerekirse EnvironmentFile’da TRAVEL_DEFER_CSS=1
-Environment=HOSTNAME=127.0.0.1
-ExecStart=/usr/bin/node ./server.mjs
+# Next production server (standart next start — CSS defer kapalı; LCP güvenli)
+ExecStart=/usr/bin/node ./node_modules/next/dist/bin/next start -H 127.0.0.1 -p 3000
 
 Restart=always
 RestartSec=5
