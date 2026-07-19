@@ -362,6 +362,11 @@ main() {
   fi
 
   step "Servis restart"
+  if [[ -f "$APP_ROOT/deploy/systemd/travel-web.service" ]]; then
+    cp "$APP_ROOT/deploy/systemd/travel-web.service" /etc/systemd/system/travel-web.service \
+      && ok "travel-web.service unit senkron (server.mjs CSS defer)" \
+      || warn "travel-web.service kopyalanamadı"
+  fi
   systemctl daemon-reload
   if [[ "$RESTART_API" == "1" ]]; then
     systemctl restart travel-api.service

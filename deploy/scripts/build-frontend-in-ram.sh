@@ -95,9 +95,26 @@ if [[ -e "$FRONTEND_DIR/.next" ]]; then
 fi
 mv "$STAGE_DIR" "$FRONTEND_DIR/.next"
 
+# CSS defer için server.mjs + güncel unit (eski next start kalmasın)
+if [[ -f "$APP_ROOT/deploy/systemd/travel-web.service" ]]; then
+  cp "$APP_ROOT/deploy/systemd/travel-web.service" /etc/systemd/system/travel-web.service
+  systemctl daemon-reload
+fi
+
 systemctl restart "$WEB_SERVICE"
 sleep 8
 curl -fsS --max-time 30 -o /dev/null http://127.0.0.1:3000/ \
   || fail "$WEB_SERVICE yeniden basladi ancak :3000 yanit vermedi"
+
+# CSS defer smoke: belge HTML'inde blocking stylesheet yerine preload beklenir
+html_smoke="$(curl -fsS --max-time 30 -H 'Accept: text/html' http://127.0.0.1:3000/tr 2>/dev/null || true)"
+if [[ -n "$html_smoke" ]]; then
+  if grep -q 'id="critical-vitrin"' <<<"$html_smoke" \
+    && grep -q 'rel="preload"[^>]*as="style"' <<<"$html_smoke"; then
+    echo "[OK] CSS defer smoke: critical + preload stil linki var"
+  else
+    echo "[WARN] CSS defer smoke: critical/preload bulunamadi (unit hâlâ next start olabilir)" >&2
+  fi
+fi
 
 echo "[OK] Webpack RAM build basarili. Onceki build: $BACKUP_DIR"

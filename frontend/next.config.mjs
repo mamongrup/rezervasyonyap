@@ -165,8 +165,10 @@ const nextConfig = {
      * - `optimizeCss` (beasties): streaming ile UYUMSUZ → canlıda etki etmez.
      * - `inlineCss`: stylesheet yerine `<style>` basar AMA Tailwind'i hem HTML
      *   hem RSC flight'a gömer (~550 KB × 2 → HTML ~1.7 MB, TTFB/Speed Index bozulur).
-     * Bu yüzden ikisi de KAPALI. Harici ~63 KiB CSS + HTTP/2 kabul edilir;
-     * Perf için HTML küçültme + LCP AVIF + GTM lazy daha etkili.
+     * Bu yüzden ikisi de KAPALI.
+     * Render-blocking CSS: `frontend/server.mjs` belge HTML’inde
+     * `/_next/static/css/*.css` linklerini preload+onload yapar + critical CSS enjekte eder.
+     * Vitrin CSS’i `manage` kaynaklarını taramaz (`@source not`); panel `manage.css`.
      */
     /** Tek CPU ile derle — bozuk diskte worker fırtınasını keser. */
     ...(lowIoBuild ? { cpus: 1 } : {}),
