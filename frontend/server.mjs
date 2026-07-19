@@ -6,7 +6,8 @@
  * - `experimental.inlineCss` HTML’i ~550KB×2 şişirir → kullanmıyoruz.
  * - `optimizeCss`/beasties streaming ile uyumsuz.
  * - Bu sunucu, belge HTML yanıtlarında `/_next/static/css/*.css`
- *   stylesheet linklerini preload+onload’a çevirir ve küçük critical CSS enjekte eder.
+ *   stylesheet linklerini preload + `/defer-css.js` (çift rAF) ile etkinleştirir;
+ *   küçük critical CSS enjekte eder. Inline onload kullanılmaz (PSI forced reflow).
  *
  * RSC / prefetch / statik asset isteklerine dokunulmaz.
  * `TRAVEL_DEFER_CSS=0` ile kapatılabilir.
@@ -45,21 +46,29 @@ function transformDocumentHtml(html) {
     const precedence = tag.match(/\bdata-precedence=["'][^"']*["']/i)?.[0] || ''
     const extra = precedence ? ` ${precedence}` : ''
     return (
-      `<link rel="preload" href="${href}" as="style" onload="this.onload=null;this.rel='stylesheet'"${extra}/>` +
+      `<link rel="preload" href="${href}" as="style" data-travel-defer-css${extra}/>` +
       `<noscript><link rel="stylesheet" href="${href}"${extra}/></noscript>`
     )
   })
 
+  const headExtras = []
   if (criticalCss && !out.includes('id="critical-vitrin"')) {
-    const styleTag = `<style id="critical-vitrin">${criticalCss}</style>`
+    headExtras.push(`<style id="critical-vitrin">${criticalCss}</style>`)
+  }
+  // Inline onload yerine dış script: çift rAF ile stil uygulama → forced reflow azalır
+  if (
+    /data-travel-defer-css/i.test(out) &&
+    !out.includes('src="/defer-css.js"') &&
+    !out.includes("src='/defer-css.js'")
+  ) {
+    headExtras.push(`<script src="/defer-css.js" defer></script>`)
+  }
+  if (headExtras.length > 0) {
+    const block = headExtras.join('')
     if (out.includes('</head>')) {
-      out = out.replace('</head>', `${styleTag}</head>`)
-    } else if (/rel="preload"[^>]*as="style"/i.test(out)) {
-      // </head> henüz gelmediyse preload’dan hemen sonra enjekte et
-      out = out.replace(
-        /(<link rel="preload"[^>]*as="style"[^>]*\/?>)/i,
-        `$1${styleTag}`,
-      )
+      out = out.replace('</head>', `${block}</head>`)
+    } else if (/data-travel-defer-css/i.test(out)) {
+      out = out.replace(/(<link[^>]*data-travel-defer-css[^>]*\/?>)/i, `$1${block}`)
     }
   }
 

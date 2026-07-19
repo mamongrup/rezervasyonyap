@@ -36,12 +36,16 @@ function readStoredTheme(): Theme {
 /**
  * React 19, `next-themes` içindeki `<script>` enjeksiyonunu reddediyor.
  * Başlangıç teması `useState` lazy initializer ile localStorage'dan okunur;
- * ayrıca mount sırasında `<html>` sınıfı güncellenir (FOUC minimumdur).
+ * `<html>` SSR’de `light` sınıfı taşır — mount’ta gereksiz classList churn yok.
  */
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [theme, setThemeState] = React.useState<Theme>(readStoredTheme)
 
   React.useEffect(() => {
+    const root = document.documentElement
+    if (root.classList.contains(theme) && !root.classList.contains(theme === 'light' ? 'dark' : 'light')) {
+      return
+    }
     applyDomTheme(theme)
   }, [theme])
 

@@ -118,7 +118,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       lang={themeDirection === 'rtl' ? 'ar' : 'en'}
       dir={themeDirection}
       suppressHydrationWarning
-      className={cn('min-w-0 overflow-x-hidden font-sans')}
+      className={cn('light min-w-0 overflow-x-hidden font-sans')}
     >
       <body className="min-w-0 overflow-x-hidden bg-white text-neutral-900 dark:bg-neutral-900 dark:text-neutral-100">
         <ThemeProvider>

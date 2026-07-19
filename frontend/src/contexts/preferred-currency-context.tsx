@@ -5,7 +5,7 @@ import { resolveCheckoutPaymentAmount } from '@/lib/checkout-payment-currency'
 import { formatMoneyIntl, parseListingPriceString } from '@/lib/parse-listing-price'
 import type { PublicCurrencyRateRow } from '@/lib/travel-api'
 import { getPublicCurrencyRates } from '@/lib/travel-api'
-import { createContext, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react'
 
 export const PREFERRED_CURRENCY_STORAGE_KEY = 'preferred_currency'
 
@@ -39,16 +39,17 @@ export function PreferredCurrencyProvider({
   /** Sunucu (layout) tarafında çekilen kurlar — ilk boyamada dönüşüm için */
   initialRates?: PublicCurrencyRateRow[]
 }) {
-  // useState initializer ile ilk render'da localStorage'tan okur → useLayoutEffect race ortadan kalkar
+  // useState initializer ile ilk render'da localStorage'tan okur
   const [preferredCode, setPreferredCode] = useState(readSavedCurrency)
   const [rates, setRates] = useState<PublicCurrencyRateRow[]>(initialRates)
 
-  useLayoutEffect(() => {
+  useEffect(() => {
     // SSR'de window yokken TRY ile gelen state'i, istemcide localStorage ile hizala
+    // useLayoutEffect değil: commit turunda layout okuma/yazma yarışı yok (PSI forced reflow)
     setPreferredCode(readSavedCurrency())
   }, [])
 
-  useLayoutEffect(() => {
+  useEffect(() => {
     const onStorage = (e: StorageEvent) => {
       if (e.key === PREFERRED_CURRENCY_STORAGE_KEY && e.newValue?.trim()) {
         setPreferredCode(e.newValue.trim().toUpperCase())

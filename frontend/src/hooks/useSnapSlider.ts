@@ -43,7 +43,7 @@ export default function useSnapSlider({ sliderRef }: { sliderRef: React.RefObjec
       }
     }
 
-    const scheduleReadFromScroll = () => {
+    const scheduleRead = () => {
       if (rafIdRef.current != null) return
       rafIdRef.current = window.requestAnimationFrame(() => {
         rafIdRef.current = null
@@ -51,15 +51,32 @@ export default function useSnapSlider({ sliderRef }: { sliderRef: React.RefObjec
       })
     }
 
-    slider.addEventListener('scroll', scheduleReadFromScroll, { passive: true })
-    readAndSetBounds()
+    /**
+     * Mount’ta senkron clientWidth okumak, ertelenmiş CSS uygulanınca PSI
+     * “zorunlu yeniden düzenleme” üretir. Çift rAF + ResizeObserver ile ayır.
+     */
+    let bootRaf2 = 0
+    const bootRaf1 = window.requestAnimationFrame(() => {
+      bootRaf2 = window.requestAnimationFrame(scheduleRead)
+    })
+
+    slider.addEventListener('scroll', scheduleRead, { passive: true })
+
+    let ro: ResizeObserver | null = null
+    if (typeof ResizeObserver !== 'undefined') {
+      ro = new ResizeObserver(() => scheduleRead())
+      ro.observe(slider)
+    }
 
     return () => {
-      slider.removeEventListener('scroll', scheduleReadFromScroll)
+      slider.removeEventListener('scroll', scheduleRead)
+      window.cancelAnimationFrame(bootRaf1)
+      if (bootRaf2) window.cancelAnimationFrame(bootRaf2)
       if (rafIdRef.current != null) {
         window.cancelAnimationFrame(rafIdRef.current)
         rafIdRef.current = null
       }
+      ro?.disconnect()
     }
   }, [sliderRef])
 
