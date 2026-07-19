@@ -125,8 +125,11 @@ async function upsertPriceRules(pg, listingId, seasonal = [], minStayNights = 5)
 
 async function upsertLocaleTranslations(pg, listingId, pkg) {
   const locales = await pg.query(`SELECT id, code FROM locales WHERE is_active = true ORDER BY code`)
+  const translationRows = Array.isArray(pkg.translations)
+    ? pkg.translations
+    : Object.entries(pkg.translations || {}).map(([locale, value]) => ({ locale, ...value }))
   const byCode = new Map(
-    (pkg.translations || []).map((t) => [String(t.locale || t.code || '').toLowerCase(), t]),
+    translationRows.map((t) => [String(t.locale || t.code || '').toLowerCase(), t]),
   )
   const trFallback = {
     locale: 'tr',
@@ -202,7 +205,7 @@ export async function upsertManualHolidayHome(pg, ctx, pkg, opts = {}) {
           slug,
           status,
           pkg.currency || 'EUR',
-          pkg.minStayNights || 5,
+          pkg.minStayNights ?? null,
           pkg.mapLat || null,
           pkg.mapLng || null,
           pkg.locationName || '',
@@ -235,7 +238,7 @@ export async function upsertManualHolidayHome(pg, ctx, pkg, opts = {}) {
           slug,
           status,
           pkg.currency || 'EUR',
-          pkg.minStayNights || 5,
+          pkg.minStayNights ?? null,
           pkg.mapLat || null,
           pkg.mapLng || null,
           pkg.locationName || '',
@@ -297,6 +300,9 @@ export async function upsertManualHolidayHome(pg, ctx, pkg, opts = {}) {
           imported_at: new Date().toISOString(),
           currency: pkg.currency || 'EUR',
           price_note: pkg.priceNote || null,
+          provider_gallery_count: pkg.meta?.provider_gallery_count ?? null,
+          imported_gallery_count: pkg.meta?.imported_gallery_count ?? null,
+          media_incomplete: pkg.meta?.media_incomplete ?? null,
         }),
       ],
     )
