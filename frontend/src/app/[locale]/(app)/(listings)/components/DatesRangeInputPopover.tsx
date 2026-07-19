@@ -200,7 +200,13 @@ const DatesRangeInputPopover: FC<Props> = ({
                       <DatePickerCustomHeaderTwoMonth {...p} monthLocale={intlLocale} monthsShown={monthsShown} />
                     )}
                     renderDayContents={(day, date) =>
-                      renderListingCalendarDayContents(day, date, byYmd, formatLocalYmd)
+                      renderListingCalendarDayContents(
+                        day,
+                        date,
+                        byYmd,
+                        formatLocalYmd,
+                        formatLocalYmd(effectiveMinDate),
+                      )
                     }
                   />
                 </div>

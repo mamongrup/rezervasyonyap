@@ -144,7 +144,13 @@ function SectionDateRangeCalendar({
             <DatePickerCustomHeaderTwoMonth {...props} monthLocale={monthLocale} monthsShown={monthsShown} />
           )}
           renderDayContents={(day, date) =>
-            renderListingCalendarDayContents(day, date, byYmd, formatLocalYmd)
+            renderListingCalendarDayContents(
+              day,
+              date,
+              byYmd,
+              formatLocalYmd,
+              formatLocalYmd(effectiveMinDate),
+            )
           }
         />
         </div>

@@ -241,7 +241,8 @@
 }
 
 .datepickerScope :global(.listing-availability-calendar .react-datepicker__day--disabled) {
-  color: rgb(26 43 72);
+  /* Geçmiş / kapalı günler — seçilemez ve gri (siyah “açık” gibi görünmesin) */
+  color: rgb(163 163 163);
   opacity: 1;
 }
 
