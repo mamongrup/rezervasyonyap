@@ -77,7 +77,7 @@ const VILLAS = [
       ['11-01', '11-30', 480, 'Kasım'],
       ['12-01', '12-31', 415, 'Aralık'],
     ]),
-    cleaningFee: 150,
+    shortStayFee: 150,
     damageDeposit: 500,
     translations: {
       tr: {
@@ -111,7 +111,7 @@ const VILLAS = [
             items: [
               'Giriş 16:00, çıkış 10:00',
               'Fiyata elektrik, su, tüpgaz, giriş temizliği, havuz-bahçe bakımı ve Wi‑Fi dahildir',
-              'Temizlik ücreti 150 €; hasar depozitosu 500 €',
+              'Kısa konaklama ücreti 150 €; hasar depozitosu 500 €',
               'Sezon fiyatları Euro cinsindendir; %15 komisyon dahildir, KDV ayrıca uygulanabilir',
               'Evcil hayvan kabul edilmez; parti ve yüksek ses yasaktır',
             ],
@@ -149,7 +149,7 @@ const VILLAS = [
             items: [
               'Check-in 16:00, check-out 10:00',
               'Electricity, water, gas, arrival cleaning, pool/garden care and Wi‑Fi are included',
-              'Cleaning fee €150; damage deposit €500',
+              'Short-stay fee €150; damage deposit €500',
               'Seasonal rates are in euros; 15% commission included, VAT may apply separately',
               'No pets; parties and loud noise are not allowed',
             ],
@@ -187,7 +187,7 @@ const VILLAS = [
             items: [
               'Check-in 16:00, Check-out 10:00',
               'Strom, Wasser, Gas, Ankunftsreinigung, Pool-/Gartenpflege und WLAN inklusive',
-              'Reinigungsgebühr 150 €; Kaution 500 €',
+              'Kurzaufenthaltsgebühr 150 €; Kaution 500 €',
               'Saisonpreise in Euro; 15 % Provision inklusive, MwSt. ggf. zusätzlich',
               'Keine Haustiere; Partys und laute Musik nicht erlaubt',
             ],
@@ -332,7 +332,7 @@ const VILLAS = [
       ['11-01', '11-30', 500, 'Kasım'],
       ['12-01', '12-31', 485, 'Aralık'],
     ]),
-    cleaningFee: 150,
+    shortStayFee: 150,
     damageDeposit: 500,
     translations: {
       tr: {
@@ -366,7 +366,7 @@ const VILLAS = [
             items: [
               'Giriş 16:00, çıkış 10:00',
               'Fiyata elektrik, su, tüpgaz, giriş temizliği, havuz-bahçe bakımı ve Wi‑Fi dahildir',
-              'Temizlik ücreti 150 €; hasar depozitosu 500 €',
+              'Kısa konaklama ücreti 150 €; hasar depozitosu 500 €',
               'Sezon fiyatları Euro cinsindendir; %15 komisyon dahildir, KDV ayrıca uygulanabilir',
               'Evcil hayvan kabul edilmez; parti ve yüksek ses yasaktır',
             ],
@@ -404,7 +404,7 @@ const VILLAS = [
             items: [
               'Check-in 16:00, check-out 10:00',
               'Electricity, water, gas, arrival cleaning, pool/garden care and Wi‑Fi are included',
-              'Cleaning fee €150; damage deposit €500',
+              'Short-stay fee €150; damage deposit €500',
               'Seasonal rates are in euros; 15% commission included, VAT may apply separately',
               'No pets; parties and loud noise are not allowed',
             ],
@@ -442,7 +442,7 @@ const VILLAS = [
             items: [
               'Check-in 16:00, Check-out 10:00',
               'Strom, Wasser, Gas, Ankunftsreinigung, Pool-/Gartenpflege und WLAN inklusive',
-              'Reinigungsgebühr 150 €; Kaution 500 €',
+              'Kurzaufenthaltsgebühr 150 €; Kaution 500 €',
               'Saisonpreise in Euro; 15 % Provision inklusive, MwSt. ggf. zusätzlich',
               'Keine Haustiere; Partys und laute Musik nicht erlaubt',
             ],
@@ -632,7 +632,7 @@ for (const villa of VILLAS) {
     currency: 'EUR',
     seasonalPrices: villa.seasonalPrices,
     vitrinPrice: minPrice,
-    cleaningFee: villa.cleaningFee,
+    shortStayFee: villa.shortStayFee,
     damageDeposit: villa.damageDeposit,
     minStayNights: 5,
     galleryUrls,

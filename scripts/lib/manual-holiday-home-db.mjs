@@ -5,7 +5,10 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { createPgClient } from './pg-client.mjs'
 import { resolveImportContext } from './gtc-listing-db.mjs'
-import { applyBravoHolidayHomeVitrinFields } from './bravo-holiday-home-map.mjs'
+import {
+  applyBravoHolidayHomeVitrinFields,
+  withVillaShortStayFeeMeta,
+} from './bravo-holiday-home-map.mjs'
 import { applyListingPropertyType } from './bravo-property-type.mjs'
 import { buildSeasonalRuleJson } from './bravo-seasonal-prices.mjs'
 import { downloadGalleryImages } from './wtatil-image-download.mjs'
@@ -213,7 +216,7 @@ export async function upsertManualHolidayHome(pg, ctx, pkg, opts = {}) {
           externalRef,
           pkg.vitrinPrice || null,
           pkg.damageDeposit || null,
-          pkg.cleaningFee || null,
+          null,
           pkg.supplierPaymentNote || null,
         ],
       )
@@ -246,7 +249,7 @@ export async function upsertManualHolidayHome(pg, ctx, pkg, opts = {}) {
           externalRef,
           pkg.vitrinPrice || null,
           pkg.damageDeposit || null,
-          pkg.cleaningFee || null,
+          null,
           pkg.supplierPaymentNote || null,
         ],
       )
@@ -256,7 +259,7 @@ export async function upsertManualHolidayHome(pg, ctx, pkg, opts = {}) {
     await upsertLocaleTranslations(pg, listingId, pkg)
 
     await applyBravoHolidayHomeVitrinFields(pg, listingId, {
-      meta: pkg.meta,
+      meta: withVillaShortStayFeeMeta(pkg.meta, pkg),
       pools: pkg.pools,
       ownerContact: null,
       poolSizeLabel: pkg.poolSizeLabel || '',

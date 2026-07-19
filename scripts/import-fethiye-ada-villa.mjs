@@ -75,7 +75,7 @@ const TRANSLATIONS = [
         type: 'ul',
         items: [
           'Giriş 16:00, çıkış 10:00',
-          'Temizlik ücreti 100 €; hasar depozitosu 100 €',
+          'Kısa konaklama ücreti 100 €; hasar depozitosu 100 €',
           'Sezon fiyatları Euro cinsindendir; %15 komisyon dahildir, KDV ayrıca uygulanabilir',
           'Haziran–Kasım dönemi takvimde müsait olarak işaretlenmiştir',
           'Evcil hayvan kabul edilmez',
@@ -114,7 +114,7 @@ const TRANSLATIONS = [
         type: 'ul',
         items: [
           'Check-in 16:00, check-out 10:00',
-          'Cleaning fee €100; damage deposit €100',
+          'Short-stay fee €100; damage deposit €100',
           'Seasonal rates in euros; 15% commission included, VAT may apply separately',
           'June–November dates are marked available on the calendar',
           'No pets',
@@ -153,7 +153,7 @@ const TRANSLATIONS = [
         type: 'ul',
         items: [
           'Check-in 16:00, Check-out 10:00',
-          'Reinigungsgebühr 100 €; Kaution 100 €',
+          'Kurzaufenthaltsgebühr 100 €; Kaution 100 €',
           'Saisonpreise in Euro; 15 % Provision inklusive, MwSt. ggf. zusätzlich',
           'Juni–November im Kalender als verfügbar markiert',
           'Keine Haustiere',
@@ -297,7 +297,7 @@ const pkg = {
   seasonalPrices,
   calendarDays,
   vitrinPrice: minPrice,
-  cleaningFee: CLEANING,
+  shortStayFee: CLEANING,
   damageDeposit: DEPOSIT,
   minStayNights: MIN_STAY,
   galleryUrls: scraped.galleryUrls || [],

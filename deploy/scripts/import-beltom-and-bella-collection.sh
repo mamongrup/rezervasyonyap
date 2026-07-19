@@ -8,6 +8,7 @@ cd "$APP_ROOT"
 
 "$APP_ROOT/deploy/scripts/import-adrasan-beltom-hotel.sh"
 node "$APP_ROOT/scripts/import-villa-bella-collection.mjs" "$@"
+"$APP_ROOT/deploy/scripts/migrate-villa-cleaning-fees-to-short-stay.sh"
 
 # shellcheck source=deploy/scripts/lib/psql-env.sh
 source "$APP_ROOT/deploy/scripts/lib/psql-env.sh"

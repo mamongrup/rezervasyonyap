@@ -498,6 +498,24 @@ export async function applyBravoHolidayHomeVitrinFields(
   }
 }
 
+/**
+ * Villa sağlayıcılarının "temizlik ücreti" olarak verdiği tutar sistemde
+ * kısa konaklama ücreti olarak gösterilir. Yeni paketler shortStayFee alanını,
+ * eski paketler geriye dönük uyumluluk için cleaningFee alanını kullanabilir.
+ */
+export function withVillaShortStayFeeMeta(meta, pkg = {}) {
+  const result = { ...(meta || {}) }
+  const fee = pkg.shortStayFee ?? pkg.cleaningFee
+  if (fee == null || fee === '') return result
+
+  result.short_stay_fee = String(fee)
+  const threshold = pkg.minShortStayNights
+  if (threshold != null && threshold !== '') {
+    result.min_short_stay_nights = String(threshold)
+  }
+  return result
+}
+
 /** Tek Bravo space + terms → vitrin paketi. */
 export function buildBravoHolidayHomeVitrinPackage(space, existingMeta = {}, terms = []) {
   const meta = mergeBravoListingMeta(space, existingMeta, terms)
