@@ -21,9 +21,13 @@ export function addDaysYmd(ymd, n) {
 
 /**
  * Ardışık günler + aynı fiyat → dönem bantları.
+ * Aynı fiyatta gün atlanırsa (rezervasyon / müsait değil) bandı BÖLMEZ —
+ * sezon satırı fiyat değişene kadar devam eder.
  * @param {{ day: unknown, price: unknown }[]} rows — tarih sıralı
+ * @param {{ splitOnGaps?: boolean }} [opts] — splitOnGaps:true eski davranış (gap’te böl)
  */
-export function compressBravoDateBands(rows) {
+export function compressBravoDateBands(rows, opts = {}) {
+  const splitOnGaps = opts.splitOnGaps === true
   const bands = []
   /** @type {{ price: number, from: string, to: string } | null} */
   let cur = null
@@ -33,15 +37,16 @@ export function compressBravoDateBands(rows) {
     if (!Number.isFinite(price) || price <= 0) continue
     const day = toYmd(row.day)
 
-    if (
-      !cur ||
-      cur.price !== price ||
-      addDaysYmd(cur.to, 1) !== day
-    ) {
+    const priceChanged = !cur || cur.price !== price
+    const gapBreak =
+      splitOnGaps && cur && addDaysYmd(cur.to, 1) !== day
+
+    if (!cur || priceChanged || gapBreak) {
       if (cur) bands.push(cur)
       cur = { price, from: day, to: day }
     } else {
-      cur.to = day
+      // Aynı fiyat: gap olsa bile to’yu ileri al (rezervasyon ara satır açmaz)
+      if (day > cur.to) cur.to = day
     }
   }
   if (cur) bands.push(cur)

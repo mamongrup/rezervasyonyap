@@ -768,10 +768,8 @@ export function extractTravelrobotSeasonalPriceRules(hotel, currency = 'TRY') {
   for (let i = 1; i < days.length; i++) {
     const d = days[i]
     const p = byDay.get(d)
-    const prevDay = days[i - 1]
-    const consecutive =
-      new Date(`${prevDay}T12:00:00Z`).getTime() + 86400000 === new Date(`${d}T12:00:00Z`).getTime()
-    if (consecutive && p === price) {
+    // Aynı fiyat: rezervasyon/gap olsa bile dönemi bölme (fiyat değişince yeni bant)
+    if (p === price) {
       end = d
       continue
     }

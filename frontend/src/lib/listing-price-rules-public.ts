@@ -203,6 +203,66 @@ function resolveCompareAtNightly(
   return null
 }
 
+/** Satış fiyatı imzası — aynı imza = vitrinde tek dönem satırı */
+function salePriceSignature(parsed: ParsedPriceRuleJson): string {
+  const baseN = parseAmount(parsed.base)
+  const roN = parseAmount(parsed.roomOnly)
+  const miN = parseAmount(parsed.mealsIncluded)
+  const nightly = baseN ?? roN ?? miN
+  if (nightly == null) return ''
+  const round = (n: number | null) => (n == null ? '' : String(Math.round(n * 100) / 100))
+  return [round(nightly), round(roN), round(miN)].join('|')
+}
+
+function minIsoDate(a: string | null, b: string | null): string | null {
+  if (!a) return b
+  if (!b) return a
+  return a <= b ? a : b
+}
+
+function maxIsoDate(a: string | null, b: string | null): string | null {
+  if (!a) return b
+  if (!b) return a
+  return a >= b ? a : b
+}
+
+/**
+ * Rezervasyon / müsaitlik boşluklarıyla parçalanmış aynı fiyatlı kuralları
+ * tek döneme birleştir (sıralı valid_from; fiyat değişince yeni satır).
+ */
+export function mergeSamePriceSeasonRules(rules: ListingPriceRuleRow[]): ListingPriceRuleRow[] {
+  if (rules.length <= 1) return rules
+
+  const sorted = [...rules].sort((a, b) => {
+    const af = a.valid_from || ''
+    const bf = b.valid_from || ''
+    if (af !== bf) return af.localeCompare(bf)
+    return (a.valid_to || '').localeCompare(b.valid_to || '')
+  })
+
+  const out: ListingPriceRuleRow[] = []
+  for (const r of sorted) {
+    const parsed = parseListingPriceRuleJson(r.rule_json)
+    const sig = salePriceSignature(parsed)
+    const prev = out[out.length - 1]
+    if (!prev || !sig) {
+      out.push({ ...r })
+      continue
+    }
+    const prevSig = salePriceSignature(parseListingPriceRuleJson(prev.rule_json))
+    if (prevSig && prevSig === sig) {
+      out[out.length - 1] = {
+        ...prev,
+        valid_from: minIsoDate(prev.valid_from, r.valid_from),
+        valid_to: maxIsoDate(prev.valid_to, r.valid_to),
+      }
+      continue
+    }
+    out.push({ ...r })
+  }
+  return out
+}
+
 /** Panel özet tablosu — gecelik için üstü çizili liste fiyatı */
 export function listingRuleCompareAtNightly(
   saleNightly: number,
@@ -222,8 +282,9 @@ export function buildSeasonalPricingTableRows(
   const code = currencyCode.trim().toUpperCase() || 'TRY'
   const preferDual = options?.preferDualMealColumns === true
   const out: SeasonalPricingRowModel[] = []
+  const mergedRules = mergeSamePriceSeasonRules(rules)
 
-  for (const r of rules) {
+  for (const r of mergedRules) {
     const parsed = parseListingPriceRuleJson(r.rule_json)
     const baseN = parseAmount(parsed.base)
     const roN = parseAmount(parsed.roomOnly)
