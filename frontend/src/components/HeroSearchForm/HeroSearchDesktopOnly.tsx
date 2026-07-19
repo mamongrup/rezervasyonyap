@@ -1,8 +1,15 @@
 'use client'
 
 import type { ListingType } from '@/type'
-import HeroSearchForm from './HeroSearchForm'
+import dynamic from 'next/dynamic'
+import { useEffect, useState } from 'react'
+import { HeroSearchFormSkeleton } from './HeroSearchFormSkeleton'
 import type { StaySearchPrefill } from './StaySearchForm'
+
+const HeroSearchForm = dynamic(() => import('./HeroSearchForm'), {
+  ssr: false,
+  loading: () => <HeroSearchFormSkeleton />,
+})
 
 /**
  * `HeroSectionWithSearchForm1` (`topSpacing="minimal"`) hero aramasını `hidden lg:block`
@@ -30,6 +37,18 @@ export default function HeroSearchDesktopOnly({
   staySearchTargetPath?: string
   staySearchPrefill?: StaySearchPrefill
 }) {
+  const [isDesktop, setIsDesktop] = useState(false)
+
+  useEffect(() => {
+    const query = window.matchMedia('(min-width: 1024px)')
+    const sync = () => setIsDesktop(query.matches)
+    sync()
+    query.addEventListener('change', sync)
+    return () => query.removeEventListener('change', sync)
+  }, [])
+
+  if (!isDesktop) return null
+
   return (
     <HeroSearchForm
       initTab={initTab}
