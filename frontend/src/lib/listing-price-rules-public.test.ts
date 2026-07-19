@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   buildSeasonalPricingTableRows,
+  expandSeasonRulesToMonthBounds,
   mergeSamePriceSeasonRules,
 } from './listing-price-rules-public'
 
@@ -43,20 +44,49 @@ describe('mergeSamePriceSeasonRules', () => {
   })
 })
 
+describe('expandSeasonRulesToMonthBounds', () => {
+  it('expands to 1st–last of month including booked lead-in days', () => {
+    const expanded = expandSeasonRulesToMonthBounds(
+      mergeSamePriceSeasonRules([
+        rule('1', '2026-07-20', '2026-07-31', 59148),
+        rule('2', '2026-08-06', '2026-08-31', 67045),
+      ]),
+    )
+    expect(expanded[0].valid_from).toBe('2026-07-01')
+    expect(expanded[0].valid_to).toBe('2026-07-31')
+    expect(expanded[1].valid_from).toBe('2026-08-01')
+    expect(expanded[1].valid_to).toBe('2026-08-31')
+  })
+
+  it('keeps mid-month price change split', () => {
+    const expanded = expandSeasonRulesToMonthBounds([
+      rule('1', '2026-09-01', '2026-09-15', 54855),
+      rule('2', '2026-09-16', '2026-09-30', 48760),
+    ])
+    expect(expanded[0].valid_from).toBe('2026-09-01')
+    expect(expanded[0].valid_to).toBe('2026-09-15')
+    expect(expanded[1].valid_from).toBe('2026-09-16')
+    expect(expanded[1].valid_to).toBe('2026-09-30')
+  })
+})
+
 describe('buildSeasonalPricingTableRows', () => {
-  it('shows one row per merged price season', () => {
+  it('shows full-month label for partial available season', () => {
     const rows = buildSeasonalPricingTableRows(
       [
-        rule('1', '2026-08-06', '2026-08-09', 67045),
-        rule('2', '2026-08-29', '2026-08-31', 67045),
+        rule('1', '2026-07-20', '2026-07-31', 59148),
+        rule('2', '2026-08-06', '2026-08-09', 67045),
+        rule('3', '2026-08-29', '2026-08-31', 67045),
       ],
       'tr',
       'TRY',
       msg,
     )
-    expect(rows).toHaveLength(1)
-    expect(rows[0].nightlyAmount).toBe(67045)
-    expect(rows[0].periodLabel).toContain('6')
-    expect(rows[0].periodLabel).toContain('31')
+    expect(rows).toHaveLength(2)
+    expect(rows[0].periodLabel).toMatch(/1\s+Temmuz/)
+    expect(rows[0].periodLabel).toMatch(/31\s+Temmuz/)
+    expect(rows[1].periodLabel).toMatch(/1\s+Ağustos/)
+    expect(rows[1].periodLabel).toMatch(/31\s+Ağustos/)
+    expect(rows[1].nightlyAmount).toBe(67045)
   })
 })

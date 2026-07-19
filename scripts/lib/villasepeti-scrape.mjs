@@ -172,18 +172,50 @@ export async function scrapeVillasepetiListing(pageUrl) {
       }))
       .filter((d) => Number.isFinite(d.price) && d.price > 0)
 
-    const from = dayRows[0].day
-    const to = dayRows[dayRows.length - 1].day
+    const fromAvail = dayRows[0].day
+    const toAvail = dayRows[dayRows.length - 1].day
+    // Ay başına/sonuna genişlet — rezervasyonlu günler de sezon fiyatına dahil
+    const from = `${fromAvail.slice(0, 8)}01`
+    const toY = Number(toAvail.slice(0, 4))
+    const toM = Number(toAvail.slice(5, 7))
+    const toLast = new Date(Date.UTC(toY, toM, 0)).getUTCDate()
+    const to = `${toAvail.slice(0, 8)}${String(toLast).padStart(2, '0')}`
     const byDay = new Map(dayRows.map((d) => [d.day, d]))
 
-    const calendarDays = []
-    for (const day of iterateDays(from, to)) {
-      const hit = byDay.get(day)
-      if (hit) calendarDays.push({ day, is_available: true, price_override: hit.price })
-      else calendarDays.push({ day, is_available: false, price_override: null })
+    /** Boş (rezervasyon) gün: aynı ay içindeki en yakın fiyatlı güne bak */
+    function priceForGapDay(day) {
+      const month = day.slice(0, 7)
+      let best = null
+      let bestDist = Infinity
+      for (const row of dayRows) {
+        if (row.day.slice(0, 7) !== month) continue
+        const dist = Math.abs(
+          (new Date(`${day}T12:00:00Z`).getTime() - new Date(`${row.day}T12:00:00Z`).getTime()) /
+            86400000,
+        )
+        if (dist < bestDist) {
+          bestDist = dist
+          best = row.price
+        }
+      }
+      return best
     }
 
-    const bands = compressBravoDateBands(dayRows).map((b) => ({
+    const calendarDays = []
+    const pricedForBands = []
+    for (const day of iterateDays(from, to)) {
+      const hit = byDay.get(day)
+      if (hit) {
+        calendarDays.push({ day, is_available: true, price_override: hit.price })
+        pricedForBands.push({ day, price: hit.price })
+      } else {
+        const filled = priceForGapDay(day)
+        calendarDays.push({ day, is_available: false, price_override: filled })
+        if (filled != null) pricedForBands.push({ day, price: filled })
+      }
+    }
+
+    const bands = compressBravoDateBands(pricedForBands).map((b) => ({
       from: b.from,
       to: b.to,
       baseNightly: b.price,

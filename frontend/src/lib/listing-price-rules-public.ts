@@ -263,6 +263,64 @@ export function mergeSamePriceSeasonRules(rules: ListingPriceRuleRow[]): Listing
   return out
 }
 
+function ymdAddDays(ymd: string, delta: number): string {
+  const d = new Date(`${ymd}T12:00:00`)
+  d.setDate(d.getDate() + delta)
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
+}
+
+function ymdMonthStart(ymd: string): string {
+  return `${ymd.slice(0, 8)}01`
+}
+
+function ymdMonthEnd(ymd: string): string {
+  const y = Number(ymd.slice(0, 4))
+  const m = Number(ymd.slice(5, 7))
+  const last = new Date(y, m, 0).getDate()
+  return `${String(y).padStart(4, '0')}-${String(m).padStart(2, '0')}-${String(last).padStart(2, '0')}`
+}
+
+/**
+ * Dönemi ay başına/sonuna genişlet — rezervasyonlu günler de satırda yer alır.
+ * Örn. 20–31 Temmuz → 1–31 Temmuz; 6–31 Ağustos → 1–31 Ağustos.
+ * Aynı ayda fiyat değişirse (1–15 / 16–30 Eylül) komşu kurala taşmaz.
+ */
+export function expandSeasonRulesToMonthBounds(rules: ListingPriceRuleRow[]): ListingPriceRuleRow[] {
+  if (rules.length === 0) return rules
+  return rules.map((r, i) => {
+    const from0 = r.valid_from
+    const to0 = r.valid_to
+    if (!from0 || !to0) return r
+
+    let from = from0
+    let to = to0
+    const prev = rules[i - 1]
+    const next = rules[i + 1]
+
+    const monthStart = ymdMonthStart(from0)
+    if (!prev?.valid_to || prev.valid_to < monthStart) {
+      from = monthStart
+    } else {
+      const dayAfterPrev = ymdAddDays(prev.valid_to, 1)
+      if (dayAfterPrev < from) from = dayAfterPrev
+    }
+
+    const monthEnd = ymdMonthEnd(to0)
+    if (!next?.valid_from || next.valid_from > monthEnd) {
+      to = monthEnd
+    } else {
+      const dayBeforeNext = ymdAddDays(next.valid_from, -1)
+      if (dayBeforeNext > to) to = dayBeforeNext
+    }
+
+    if (from === from0 && to === to0) return r
+    return { ...r, valid_from: from, valid_to: to }
+  })
+}
+
 /** Panel özet tablosu — gecelik için üstü çizili liste fiyatı */
 export function listingRuleCompareAtNightly(
   saleNightly: number,
@@ -282,7 +340,7 @@ export function buildSeasonalPricingTableRows(
   const code = currencyCode.trim().toUpperCase() || 'TRY'
   const preferDual = options?.preferDualMealColumns === true
   const out: SeasonalPricingRowModel[] = []
-  const mergedRules = mergeSamePriceSeasonRules(rules)
+  const mergedRules = expandSeasonRulesToMonthBounds(mergeSamePriceSeasonRules(rules))
 
   for (const r of mergedRules) {
     const parsed = parseListingPriceRuleJson(r.rule_json)
