@@ -106,22 +106,22 @@ sleep 8
 curl -fsS --max-time 30 -o /dev/null http://127.0.0.1:3000/ \
   || fail "$WEB_SERVICE yeniden basladi ancak :3000 yanit vermedi"
 
-# CSS defer smoke: belge HTML'inde blocking stylesheet yerine preload beklenir
-# Not: `curl -I` (HEAD) gövde görmez → Link başlığı da set edilmez; GET + -D kullan.
+# CSS defer smoke — yalnızca TRAVEL_DEFER_CSS=1 iken preload beklenir (varsayılan kapalı).
 html_hdrs="$(mktemp)"
 html_smoke="$(curl -fsS --max-time 30 -D "$html_hdrs" -H 'Accept: text/html' http://127.0.0.1:3000/tr 2>/dev/null || true)"
 if [[ -n "$html_smoke" ]]; then
-  if grep -q 'id="critical-vitrin"' <<<"$html_smoke" \
-    && grep -q 'rel="preload"[^>]*as="style"' <<<"$html_smoke"; then
-    echo "[OK] CSS defer smoke: critical + preload stil linki var"
+  if grep -q 'data-travel-defer-css' <<<"$html_smoke"; then
+    if grep -q 'id="critical-vitrin"' <<<"$html_smoke" \
+      && grep -q 'rel="preload"[^>]*as="style"' <<<"$html_smoke"; then
+      echo "[OK] CSS defer smoke: critical + preload stil linki var"
+    else
+      echo "[WARN] CSS defer açık ama critical/preload eksik" >&2
+    fi
+    if grep -qi '^link:.*rel=preload' "$html_hdrs"; then
+      echo "[OK] CSS defer smoke: Link preload yanıt başlığı var"
+    fi
   else
-    echo "[WARN] CSS defer smoke: critical/preload bulunamadi (unit hâlâ next start olabilir)" >&2
-  fi
-  if grep -qi '^link:.*rel=preload' "$html_hdrs"; then
-    echo "[OK] CSS defer smoke: Link preload yanıt başlığı var"
-    grep -i '^link:' "$html_hdrs" || true
-  else
-    echo "[WARN] CSS defer smoke: Link preload başlığı yok (GET ile kontrol edilmeli; curl -I HEAD atlar)" >&2
+    echo "[OK] CSS defer kapalı (varsayılan) — render-blocking stylesheet (LCP güvenli)"
   fi
 fi
 rm -f "$html_hdrs"

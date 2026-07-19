@@ -1,17 +1,13 @@
 /**
- * Ertelemeli CSS etkinleştirici — inline onload yerine (PSI "[unattributed]" forced reflow).
- * Preload bitince çift rAF ile stylesheet yapar: stil yazımı ile hydration layout
- * okumaları aynı görev turunda çarpışmaz.
+ * Opsiyonel CSS defer (TRAVEL_DEFER_CSS=1). Varsayılan kapalı —
+ * çift rAF / DOMContentLoaded gecikmesi LCP’yi bozuyordu.
+ * Açıkken: preload bitince hemen stylesheet yap (ek frame bekleme yok).
  */
 ;(function () {
   function activate(link) {
     if (!link || link.getAttribute('data-travel-css-on') === '1') return
     link.setAttribute('data-travel-css-on', '1')
-    requestAnimationFrame(function () {
-      requestAnimationFrame(function () {
-        if (link.rel !== 'stylesheet') link.rel = 'stylesheet'
-      })
-    })
+    if (link.rel !== 'stylesheet') link.rel = 'stylesheet'
   }
 
   function watch(link) {
@@ -23,14 +19,12 @@
       activate(link)
     }
     link.addEventListener('load', onLoad)
-    // Önbellekten gelmiş olabilir
     try {
       if (link.sheet) onLoad()
     } catch (_) {
-      /* cross-origin sheet erişimi */
+      /* ignore */
     }
-    // load kaçarsa yedek
-    setTimeout(onLoad, 2500)
+    setTimeout(onLoad, 1500)
   }
 
   function boot() {
@@ -38,9 +32,5 @@
     for (var i = 0; i < links.length; i++) watch(links[i])
   }
 
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', boot)
-  } else {
-    boot()
-  }
+  boot()
 })()

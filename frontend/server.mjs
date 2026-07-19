@@ -10,8 +10,11 @@
  * - `Link: rel=preload` yanıt başlığı: CSS indirmesi HTML gövdesi bitmeden başlar
  *   (kritik yol gecikmesi kısalır). Aynı origin için preconnect gerekmez.
  *
+ * Varsayılan: KAPALI. `preload`+geç etkinleştirme LCP’yi (özellikle hero)
+ * 6s+ geciktirebiliyor; render-blocking ~64KiB CSS LCP için daha güvenli.
+ * Açmak için: TRAVEL_DEFER_CSS=1
+ *
  * RSC / prefetch / statik asset isteklerine dokunulmaz.
- * `TRAVEL_DEFER_CSS=0` ile kapatılabilir.
  */
 import { createServer } from 'node:http'
 import { readFileSync } from 'node:fs'
@@ -22,7 +25,8 @@ import next from 'next'
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const port = Number.parseInt(process.env.PORT || '3000', 10)
 const hostname = process.env.HOSTNAME || '127.0.0.1'
-const deferCss = process.env.TRAVEL_DEFER_CSS !== '0'
+const deferCss =
+  process.env.TRAVEL_DEFER_CSS === '1' || process.env.TRAVEL_DEFER_CSS === 'true'
 
 let criticalCss = ''
 try {
