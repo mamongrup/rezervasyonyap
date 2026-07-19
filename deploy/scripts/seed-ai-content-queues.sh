@@ -15,6 +15,15 @@ if ! [[ "$SEED_LIMIT" =~ ^[0-9]+$ ]] || (( SEED_LIMIT < 1 || SEED_LIMIT > 500 ))
 fi
 
 psql_travel -v ON_ERROR_STOP=1 -v seed_limit="$SEED_LIMIT" <<'SQL'
+-- Kesilmiş deploy/API isteğinden kalan blog işleri tekrar çalıştırılabilir olsun.
+UPDATE ai_geo_blog_batches
+SET status = 'pending', error = NULL, updated_at = now()
+WHERE status = 'running' AND updated_at < now() - interval '45 minutes';
+
+UPDATE ai_place_blog_batches
+SET status = 'pending', error = NULL, updated_at = now()
+WHERE status = 'running' AND updated_at < now() - interval '45 minutes';
+
 -- Bölge tanıtımı + genel gezi blogları.
 WITH candidates AS (
   SELECT lp.id
@@ -113,4 +122,3 @@ WITH candidates AS (
 )
 SELECT 'district_ideas_queued' AS queue, count(*) AS queued FROM inserted;
 SQL
-
