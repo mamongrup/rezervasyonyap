@@ -1,13 +1,14 @@
 /**
  * Production Next.js sunucusu — App Router’da render-blocking CSS’i
- * kritik yoldan uzaklaştırır (PSI “Oluşturma engelleme istekleri”).
+ * kritik yoldan uzaklaştırır (PSI “Oluşturma engelleme istekleri” /
+ * “Ağ bağımlılık ağacı” kritik zinciri).
  *
  * Strateji:
  * - `experimental.inlineCss` HTML’i ~550KB×2 şişirir → kullanmıyoruz.
  * - `optimizeCss`/beasties streaming ile uyumsuz.
- * - Bu sunucu, belge HTML yanıtlarında `/_next/static/css/*.css`
- *   stylesheet linklerini preload + `/defer-css.js` (çift rAF) ile etkinleştirir;
- *   küçük critical CSS enjekte eder. Inline onload kullanılmaz (PSI forced reflow).
+ * - Stylesheet → preload (render-blocking değil) + `/defer-css.js` (çift rAF).
+ * - `Link: rel=preload` yanıt başlığı: CSS indirmesi HTML gövdesi bitmeden başlar
+ *   (kritik yol gecikmesi kısalır). Aynı origin için preconnect gerekmez.
  *
  * RSC / prefetch / statik asset isteklerine dokunulmaz.
  * `TRAVEL_DEFER_CSS=0` ile kapatılabilir.
@@ -36,43 +37,86 @@ try {
 const app = next({ dev: false, hostname, port, dir: __dirname })
 const handle = app.getRequestHandler()
 
-/** @param {string} html */
+/**
+ * @param {string} html
+ * @returns {{ html: string, cssHrefs: string[] }}
+ */
 function transformDocumentHtml(html) {
+  /** @type {string[]} */
+  const cssHrefs = []
+
   let out = html.replace(/<link\b[^>]*>/gi, (tag) => {
     if (!/\brel=["']stylesheet["']/i.test(tag)) return tag
     const hrefMatch = tag.match(/\bhref=["'](\/_next\/static\/css\/[^"']+\.css)["']/i)
     if (!hrefMatch) return tag
     const href = hrefMatch[1]
+    if (!cssHrefs.includes(href)) cssHrefs.push(href)
     const precedence = tag.match(/\bdata-precedence=["'][^"']*["']/i)?.[0] || ''
     const extra = precedence ? ` ${precedence}` : ''
+    // Placeholder — head başına taşınacak
     return (
-      `<link rel="preload" href="${href}" as="style" data-travel-defer-css${extra}/>` +
+      `<!--travel-defer-css:${href}-->` +
       `<noscript><link rel="stylesheet" href="${href}"${extra}/></noscript>`
     )
   })
 
-  const headExtras = []
-  if (criticalCss && !out.includes('id="critical-vitrin"')) {
-    headExtras.push(`<style id="critical-vitrin">${criticalCss}</style>`)
+  /** @type {string[]} */
+  const early = []
+  for (const href of cssHrefs) {
+    early.push(`<link rel="preload" href="${href}" as="style" data-travel-defer-css/>`)
   }
-  // Inline onload yerine dış script: çift rAF ile stil uygulama → forced reflow azalır
+  if (criticalCss && !out.includes('id="critical-vitrin"')) {
+    early.push(`<style id="critical-vitrin">${criticalCss}</style>`)
+  }
   if (
-    /data-travel-defer-css/i.test(out) &&
+    cssHrefs.length > 0 &&
     !out.includes('src="/defer-css.js"') &&
     !out.includes("src='/defer-css.js'")
   ) {
-    headExtras.push(`<script src="/defer-css.js" defer></script>`)
+    early.push(`<script src="/defer-css.js" defer></script>`)
   }
-  if (headExtras.length > 0) {
-    const block = headExtras.join('')
-    if (out.includes('</head>')) {
+
+  // Placeholder’ları temizle (noscript kaldı)
+  out = out.replace(/<!--travel-defer-css:[^>]+-->/g, '')
+
+  if (early.length > 0) {
+    const block = early.join('')
+    if (/<head[^>]*>/i.test(out)) {
+      // Kritik zincir: CSS preload’u <head> içinde mümkün olan en erken keşfet
+      out = out.replace(/<head([^>]*)>/i, `<head$1>${block}`)
+    } else if (out.includes('</head>')) {
       out = out.replace('</head>', `${block}</head>`)
-    } else if (/data-travel-defer-css/i.test(out)) {
-      out = out.replace(/(<link[^>]*data-travel-defer-css[^>]*\/?>)/i, `$1${block}`)
+    } else {
+      out = block + out
     }
   }
 
-  return out
+  return { html: out, cssHrefs }
+}
+
+/**
+ * HTML gövdesi inmeden CSS/script indirmesini başlat (HTTP Link preload).
+ * @param {import('node:http').ServerResponse} res
+ * @param {string[]} cssHrefs
+ */
+function applyEarlyLinkHeader(res, cssHrefs) {
+  if (cssHrefs.length === 0) return
+  const parts = cssHrefs.map((h) => `<${h}>; rel=preload; as=style`)
+  parts.push('</defer-css.js>; rel=preload; as=script')
+  const next = parts.join(', ')
+  try {
+    const prev = res.getHeader('Link')
+    if (!prev) {
+      res.setHeader('Link', next)
+    } else {
+      const prevStr = Array.isArray(prev) ? prev.join(', ') : String(prev)
+      if (!prevStr.includes('/_next/static/css/')) {
+        res.setHeader('Link', `${prevStr}, ${next}`)
+      }
+    }
+  } catch {
+    /* headers already sent */
+  }
 }
 
 /**
@@ -83,6 +127,7 @@ function wrapHtmlResponse(res) {
   const originalEnd = res.end.bind(res)
   const originalSetHeader = res.setHeader.bind(res)
   const originalRemoveHeader = res.removeHeader.bind(res)
+  const originalWriteHead = res.writeHead.bind(res)
 
   /** @type {Buffer[]} */
   const pending = []
@@ -91,6 +136,8 @@ function wrapHtmlResponse(res) {
   let mode = 'detect'
   let isHtml = false
   let lengthStripped = false
+  /** @type {null | { status: number, args: unknown[] }} */
+  let deferredWriteHead = null
 
   const stripLength = () => {
     if (lengthStripped) return
@@ -118,16 +165,32 @@ function wrapHtmlResponse(res) {
     return originalSetHeader(name, value)
   }
 
+  // Next writeHead’i erken çağırırsa Link preload ekleyemeyiz — ertele.
+  res.writeHead = (statusCode, ...args) => {
+    if (mode === 'buffer' || mode === 'detect') {
+      deferredWriteHead = { status: statusCode, args }
+      return res
+    }
+    return originalWriteHead(statusCode, ...args)
+  }
+
   const flushBuffer = (transform) => {
-    if (pending.length === 0) return
-    let buf = Buffer.concat(pending, pendingLen)
+    if (pending.length === 0 && !deferredWriteHead) return
+    let buf = pending.length ? Buffer.concat(pending, pendingLen) : Buffer.alloc(0)
     pending.length = 0
     pendingLen = 0
-    if (transform) {
-      buf = Buffer.from(transformDocumentHtml(buf.toString('utf8')), 'utf8')
+    if (transform && buf.length > 0) {
+      const { html, cssHrefs } = transformDocumentHtml(buf.toString('utf8'))
+      applyEarlyLinkHeader(res, cssHrefs)
+      buf = Buffer.from(html, 'utf8')
       stripLength()
     }
-    originalWrite(buf)
+    if (deferredWriteHead) {
+      const { status, args } = deferredWriteHead
+      deferredWriteHead = null
+      originalWriteHead(status, ...args)
+    }
+    if (buf.length > 0) originalWrite(buf)
   }
 
   res.write = (chunk, encoding, cb) => {
@@ -145,6 +208,11 @@ function wrapHtmlResponse(res) {
       isHtml = ct.toLowerCase().includes('text/html')
       if (!isHtml) {
         mode = 'passthrough'
+        if (deferredWriteHead) {
+          const { status, args } = deferredWriteHead
+          deferredWriteHead = null
+          originalWriteHead(status, ...args)
+        }
         return originalWrite(chunk, encoding, cb)
       }
       stripLength()
