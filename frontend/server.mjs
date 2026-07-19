@@ -272,7 +272,12 @@ createServer((req, res) => {
     typeof req.headers['next-router-segment-prefetch'] === 'string'
   const wantsHtml = accept.includes('text/html')
 
-  if (deferCss && wantsHtml && !isRsc && req.method === 'GET') {
+  if (
+    deferCss &&
+    wantsHtml &&
+    !isRsc &&
+    (req.method === 'GET' || req.method === 'HEAD')
+  ) {
     // Next’in yanıtı gzip’lemesin; nginx kenarda sıkıştırır.
     delete req.headers['accept-encoding']
     wrapHtmlResponse(res)

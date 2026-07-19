@@ -107,7 +107,9 @@ curl -fsS --max-time 30 -o /dev/null http://127.0.0.1:3000/ \
   || fail "$WEB_SERVICE yeniden basladi ancak :3000 yanit vermedi"
 
 # CSS defer smoke: belge HTML'inde blocking stylesheet yerine preload beklenir
-html_smoke="$(curl -fsS --max-time 30 -H 'Accept: text/html' http://127.0.0.1:3000/tr 2>/dev/null || true)"
+# Not: `curl -I` (HEAD) gövde görmez → Link başlığı da set edilmez; GET + -D kullan.
+html_hdrs="$(mktemp)"
+html_smoke="$(curl -fsS --max-time 30 -D "$html_hdrs" -H 'Accept: text/html' http://127.0.0.1:3000/tr 2>/dev/null || true)"
 if [[ -n "$html_smoke" ]]; then
   if grep -q 'id="critical-vitrin"' <<<"$html_smoke" \
     && grep -q 'rel="preload"[^>]*as="style"' <<<"$html_smoke"; then
@@ -115,6 +117,13 @@ if [[ -n "$html_smoke" ]]; then
   else
     echo "[WARN] CSS defer smoke: critical/preload bulunamadi (unit hâlâ next start olabilir)" >&2
   fi
+  if grep -qi '^link:.*rel=preload' "$html_hdrs"; then
+    echo "[OK] CSS defer smoke: Link preload yanıt başlığı var"
+    grep -i '^link:' "$html_hdrs" || true
+  else
+    echo "[WARN] CSS defer smoke: Link preload başlığı yok (GET ile kontrol edilmeli; curl -I HEAD atlar)" >&2
+  fi
 fi
+rm -f "$html_hdrs"
 
 echo "[OK] Webpack RAM build basarili. Onceki build: $BACKUP_DIR"
