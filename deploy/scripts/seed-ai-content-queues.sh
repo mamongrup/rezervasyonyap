@@ -16,11 +16,11 @@ fi
 
 psql_travel -v ON_ERROR_STOP=1 -v seed_limit="$SEED_LIMIT" <<'SQL'
 -- Öncelikli vitrinler genel ilan kuyruğunun boşalmasını beklemesin.
--- Eski hatalar tekrar denenir; her kategori ayrı limitlenerek yatların tatil
--- evi hacmi altında ezilmesi önlenir.
+-- Eski hatalar tekrar denenir; her kategori ayrı limitlenerek yat, aktivite ve
+-- feribot kayıtlarının tatil evi hacmi altında ezilmesi önlenir.
 UPDATE ai_listing_content_batches
 SET status = 'pending', error = NULL, updated_at = now()
-WHERE category_code IN ('holiday_home', 'yacht_charter')
+WHERE category_code IN ('holiday_home', 'yacht_charter', 'activity', 'ferry')
   AND status = 'failed'
   AND updated_at < now() - interval '6 hours';
 
@@ -29,7 +29,7 @@ WITH ranked AS (
          row_number() OVER (PARTITION BY pc.code ORDER BY l.updated_at DESC) AS rn
   FROM listings l
   JOIN product_categories pc ON pc.id = l.category_id
-  WHERE pc.code IN ('holiday_home', 'yacht_charter')
+  WHERE pc.code IN ('holiday_home', 'yacht_charter', 'activity', 'ferry')
     AND l.status IN ('draft', 'published')
     AND NOT EXISTS (
       SELECT 1 FROM ai_listing_content_batches b

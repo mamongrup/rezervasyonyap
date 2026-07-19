@@ -79,6 +79,10 @@ fi
 
 if [[ "$code" =~ ^2 ]]; then
   echo "[OK] ai-worker-run-steps HTTP ${code}"
+  RECONCILE_SCRIPT="$SCRIPT_DIR/reconcile-core-listings.sh"
+  if [[ "${CORE_LISTING_RECONCILE:-1}" != "0" && -f "$RECONCILE_SCRIPT" ]]; then
+    /bin/bash "$RECONCILE_SCRIPT" || echo "[WARN] Çekirdek ilan kalite/yayın uzlaştırması çalışmadı" >&2
+  fi
   exit 0
 fi
 
