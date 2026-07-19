@@ -15,6 +15,44 @@ if ! [[ "$SEED_LIMIT" =~ ^[0-9]+$ ]] || (( SEED_LIMIT < 1 || SEED_LIMIT > 500 ))
 fi
 
 psql_travel -v ON_ERROR_STOP=1 -v seed_limit="$SEED_LIMIT" <<'SQL'
+-- Öncelikli vitrinler genel ilan kuyruğunun boşalmasını beklemesin.
+-- Eski hatalar tekrar denenir; her kategori ayrı limitlenerek yatların tatil
+-- evi hacmi altında ezilmesi önlenir.
+UPDATE ai_listing_content_batches
+SET status = 'pending', error = NULL, updated_at = now()
+WHERE category_code IN ('holiday_home', 'yacht_charter')
+  AND status = 'failed'
+  AND updated_at < now() - interval '6 hours';
+
+WITH ranked AS (
+  SELECT l.id AS listing_id, pc.code AS category_code,
+         row_number() OVER (PARTITION BY pc.code ORDER BY l.updated_at DESC) AS rn
+  FROM listings l
+  JOIN product_categories pc ON pc.id = l.category_id
+  WHERE pc.code IN ('holiday_home', 'yacht_charter')
+    AND l.status IN ('draft', 'published')
+    AND NOT EXISTS (
+      SELECT 1 FROM ai_listing_content_batches b
+      WHERE b.listing_id = l.id
+        AND b.status IN ('pending', 'running', 'done')
+    )
+    AND NOT EXISTS (
+      SELECT 1 FROM ai_listing_content_batches b
+      WHERE b.listing_id = l.id
+        AND b.status = 'failed'
+        AND b.updated_at >= now() - interval '6 hours'
+    )
+), inserted AS (
+  INSERT INTO ai_listing_content_batches
+    (listing_id, category_code, phase, status, overwrite)
+  SELECT listing_id, category_code, 'tr_description', 'pending', false
+  FROM ranked
+  WHERE rn <= :seed_limit
+  RETURNING category_code
+)
+SELECT 'priority_listing_queued' AS queue, category_code, count(*) AS queued
+FROM inserted GROUP BY category_code ORDER BY category_code;
+
 -- Kesilmiş deploy/API isteğinden kalan blog işleri tekrar çalıştırılabilir olsun.
 UPDATE ai_geo_blog_batches
 SET status = 'pending', error = NULL, updated_at = now()
