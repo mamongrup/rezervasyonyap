@@ -160,11 +160,12 @@ const nextConfig = {
     ]
   },
   experimental: {
+    /**
      * CSS stratejisi (App Router / Next 16):
-     * - `optimizeCss` / `inlineCss`: streaming veya HTML şişmesi → kapalı.
-     * - CSS defer (`TRAVEL_DEFER_CSS=1`): render-blocking’i kaldırır ama LCP’yi
-     *   bozabiliyor (lab’de ~6s+). Varsayılan KAPALI; harici CSS blocking kalır.
-     * - Vitrin CSS’i `manage` kaynaklarını taramaz (`manage.css` ayrı).
+     * - optimizeCss / inlineCss: streaming veya HTML şişmesi → kapalı.
+     * - CSS defer (TRAVEL_DEFER_CSS=1): render-blocking'i kaldırır ama LCP'yi
+     *   bozabiliyor (lab'de ~6s+). Varsayılan KAPALI; harici CSS blocking kalır.
+     * - Vitrin CSS'i manage kaynaklarını taramaz (manage.css ayrı).
      */
     /** Tek CPU ile derle — bozuk diskte worker fırtınasını keser. */
     ...(lowIoBuild ? { cpus: 1 } : {}),
