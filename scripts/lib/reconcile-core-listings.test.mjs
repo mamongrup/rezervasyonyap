@@ -28,6 +28,8 @@ test('publishes only rows that pass every quality gate', () => {
 })
 
 test('processes the oldest pending work without starving a category', () => {
-  assert.match(worker, /order by updated_at, created_at, case phase/)
+  assert.match(worker, /category_turn as/)
+  assert.match(worker, /group by category_code order by max\(updated_at\), category_code/)
+  assert.match(worker, /join category_turn c on c\.category_code = b\.category_code/)
   assert.doesNotMatch(worker, /order by case category_code when 'holiday_home'/)
 })

@@ -1693,9 +1693,12 @@ pub fn worker_try_listing_content(ctx: Context) -> Result(Bool, String) {
     "with reset_stale as ("
     <> "update ai_listing_content_batches set status = 'pending', error = null, updated_at = now() "
     <> "where status = 'running' and updated_at < now() - interval '20 minutes' returning id"
+    <> "), category_turn as ("
+    <> "select category_code from ai_listing_content_batches where status = 'pending' "
+    <> "group by category_code order by max(updated_at), category_code limit 1"
     <> ") update ai_listing_content_batches set status = 'running', updated_at = now() "
-    <> "where id = (select id from ai_listing_content_batches where status = 'pending' "
-    <> "order by updated_at, created_at, case phase when 'tr_description' then 0 when 'translations' then 1 when 'seo' then 2 else 3 end limit 1) "
+    <> "where id = (select b.id from ai_listing_content_batches b join category_turn c on c.category_code = b.category_code "
+    <> "where b.status = 'pending' order by b.updated_at, b.created_at, case b.phase when 'tr_description' then 0 when 'translations' then 1 when 'seo' then 2 else 3 end limit 1) "
     <> "returning id::text, listing_id::text, category_code, phase, overwrite"
   case
     pog.query(pick_sql)
