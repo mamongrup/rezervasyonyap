@@ -140,8 +140,16 @@
           "note": "İşletme tarafından bildirilen oda + kahvaltı gecelik fiyatı: 5.000 TL. Etstur sayfası Cloudflare ile engellendiği için oda tipi ayrımı buradan doğrulanamadı; fiyat Standart Oda’ya yazıldı."
         },
         "verifiedAt": "2026-07-20",
-        "imageSource": "oykun.aegeanhotels.net"
-      }
+        "imageSource": "oykun.aegeanhotels.net",
+        "coordinates": {
+          "lat": 36.6624085,
+          "lng": 29.111434,
+          "source": "bookeder/geo meta"
+        }
+      },
+      "provinceCity": "Muğla",
+      "lat": 36.6624085,
+      "lng": 29.111434
     }
   ]
 }

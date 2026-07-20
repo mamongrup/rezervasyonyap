@@ -17,6 +17,30 @@ TATILBUDUR_LISTING_STATUS="${TATILBUDUR_LISTING_STATUS:-published}" \
 source "$APP_ROOT/deploy/scripts/lib/psql-env.sh"
 
 psql_travel -v ON_ERROR_STOP=1 <<'SQL'
+UPDATE listings l
+SET
+  location_name = 'Çalış, Fethiye, Muğla',
+  map_lat = 36.6624085,
+  map_lng = 29.111434,
+  updated_at = now()
+WHERE l.external_provider_code = 'tatilbudur'
+  AND l.external_listing_ref = 'oykun-otel';
+
+INSERT INTO listing_attributes (listing_id, group_code, key, value_json)
+SELECT l.id, 'listing_meta', 'v1', jsonb_build_object(
+  'district_label', 'Çalış',
+  'city', 'Fethiye',
+  'province_city', 'Muğla',
+  'address', 'Foça Mahallesi, 1314. Sokak, 48300 Fethiye/Muğla',
+  'lat', '36.6624085',
+  'lng', '29.111434'
+)
+FROM listings l
+WHERE l.external_provider_code = 'tatilbudur'
+  AND l.external_listing_ref = 'oykun-otel'
+ON CONFLICT (listing_id, group_code, key) DO UPDATE SET
+  value_json = listing_attributes.value_json || EXCLUDED.value_json;
+
 UPDATE listing_hotel_details d
 SET etstur_property_ref = 'https://www.etstur.com/Oykun-Otel'
 WHERE d.listing_id = (
@@ -68,6 +92,9 @@ SELECT
   l.slug,
   l.status,
   l.vitrin_price::text,
+  l.location_name,
+  l.map_lat::text,
+  l.map_lng::text,
   d.etstur_property_ref,
   count(DISTINCT lt.locale_id) AS language_count,
   count(DISTINCT li.id) AS gallery_image_count,
@@ -80,7 +107,7 @@ LEFT JOIN listing_images li ON li.listing_id = l.id
 LEFT JOIN hotel_rooms hr ON hr.listing_id = l.id
 WHERE l.external_provider_code = 'tatilbudur'
   AND l.external_listing_ref = 'oykun-otel'
-GROUP BY l.id, l.slug, l.status, l.vitrin_price, d.etstur_property_ref;
+GROUP BY l.id, l.slug, l.status, l.vitrin_price, l.location_name, l.map_lat, l.map_lng, d.etstur_property_ref;
 SQL
 
 echo "[OK] Oykun Otel eklendi (oda + kahvaltı 5.000 TL)."

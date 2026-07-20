@@ -2,7 +2,10 @@
 
 import { Footer2TrustBadge } from '@/components/Footer2TrustBadge'
 import { pickI18nWithLegacy } from '@/lib/i18n-field'
+import { getSitePublicConfig } from '@/lib/site-public-config'
+import Logo, { type BrandingConfig } from '@/shared/Logo'
 import type { FooterSiteConfig } from '@/types/footer-site-config'
+import { getMessages } from '@/utils/getT'
 
 /**
  * Panel «Footer yönetimi» canlı önizleme — önyüz `Footer2` ile aynı düzen/sınıflar.
@@ -11,15 +14,26 @@ import type { FooterSiteConfig } from '@/types/footer-site-config'
 export function Footer2ManagePreview({
   cfg,
   locale = 'tr',
+  branding,
 }: {
   cfg: FooterSiteConfig
   locale?: string
+  branding?: Record<string, unknown> | null
 }) {
   const year = new Date().getFullYear()
+  const site = getSitePublicConfig()
   const tagline =
     pickI18nWithLegacy({ tr: cfg.taglineTr, en: cfg.taglineEn }, cfg.tagline_i18n, locale, '') ||
+    site.tagline ||
     cfg.taglineTr ||
     cfg.taglineEn
+  const logoSrc = typeof branding?.logo_url === 'string' && branding.logo_url ? branding.logo_url : undefined
+  const logoDarkSrc =
+    typeof branding?.logo_url_dark === 'string' && branding.logo_url_dark ? branding.logo_url_dark : undefined
+  const logoAlt =
+    (typeof branding?.site_name === 'string' && branding.site_name) || site.orgName || 'Logo'
+  const copyName = site.orgLegalName || site.orgName || logoAlt
+  const rights = getMessages(locale).site.footer.rights
   const linkCls =
     'text-sm/6 text-gray-600 transition-colors hover:text-neutral-800 dark:text-neutral-400 dark:hover:text-neutral-200'
   const headingCls = 'text-sm font-semibold uppercase tracking-wider text-gray-900 dark:text-neutral-200'
@@ -29,7 +43,12 @@ export function Footer2ManagePreview({
       <div className="container min-w-0 pt-16 pb-8 sm:pt-20 sm:pb-10">
         <div className="grid min-w-0 grid-cols-1 gap-10 lg:grid-cols-[minmax(0,280px)_minmax(0,1fr)]">
           <div className="min-w-0 space-y-6">
-            <div className="text-lg font-bold text-neutral-900 dark:text-white">Rezervasyon Yap</div>
+            <Logo
+              src={logoSrc}
+              darkSrc={logoDarkSrc}
+              alt={logoAlt}
+              initialBranding={(branding ?? {}) as BrandingConfig}
+            />
             <p className="break-words text-sm/6 text-balance text-gray-600 dark:text-neutral-400">{tagline}</p>
             <div className="grid grid-cols-1 gap-3 pt-2">
               {cfg.trustBadges.map((badge, i) => (
@@ -72,7 +91,7 @@ export function Footer2ManagePreview({
 
         <div className="mt-16 flex min-w-0 flex-col items-start gap-4 border-t border-gray-900/10 pt-8 sm:mt-20 sm:flex-row sm:items-center sm:justify-between lg:mt-24 dark:border-gray-700">
           <p className="min-w-0 max-w-full break-words text-sm/6 text-gray-500 dark:text-neutral-400">
-            &copy; {year} Rezervasyon Yap. Tüm hakları saklıdır.
+            &copy; {year} {copyName}. {rights}
           </p>
           <div className="flex min-w-0 max-w-full flex-wrap gap-x-6 gap-y-2 sm:justify-end">
             {cfg.legalLinks.map((item, i) => {

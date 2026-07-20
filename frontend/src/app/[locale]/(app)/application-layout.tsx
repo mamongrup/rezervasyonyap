@@ -4,6 +4,7 @@ import { DeferredFooterWidgets } from '@/components/DeferredFooterWidgets'
 import Header from '@/components/Header/Header'
 import MobileFixedTopBar from '@/components/MobileFixedTopBar'
 import MobileLayoutSpacer from '@/components/MobileLayoutSpacer'
+import SiteHeaderChrome from '@/components/SiteHeaderChrome'
 import Aside from '@/components/aside'
 import PageContentSkeleton from '@/components/PageContentSkeleton'
 import type { ReactNode } from 'react'
@@ -19,13 +20,10 @@ interface Props {
 export async function ApplicationLayout({ children, header, locale = 'tr' }: Props) {
   return (
     <Aside.Provider>
-      {/* Desktop — normal akış (sayfayla birlikte kayar); harita rotaları kendi layout'ında sticky Header3 kullanır.
-          z-50: Header kendi stacking context'i oluşturur ve içerideki dropdown panel'leri (Popover z-40)
-          her zaman sayfa içeriğindeki z-30 hero/arama formu blokları üzerinde kalır. */}
-      <div className="relative z-50 hidden lg:block bg-white dark:bg-neutral-900">{header ? header : <Header locale={locale} />}</div>
-      {/* Mobil arama — viewport’ta sabit. html/body `overflow-x-hidden` sticky’nin kaydırma atasını bozar → fixed + spacer.
-          z-[60]: hero mozaik / kart katmanları (z-30) üstüne binmesin; iOS Safari’de dokunma hedefi kaybolmasın.
-          touch-manipulation: 300ms tıklama gecikmesini kaldırır. */}
+      {/* Desktop: tam Header. Yönetim/personel: mobilde de aynı Header (SiteHeaderChrome).
+          z-50: Header stacking context — dropdown’lar (Popover z-40) hero/arama (z-30) üstünde kalır. */}
+      <SiteHeaderChrome>{header ? header : <Header locale={locale} />}</SiteHeaderChrome>
+      {/* Mobil arama üst barı — /manage ve /staff’ta gizlenir (önyüz Header kullanılır). */}
       <MobileFixedTopBar locale={locale} />
       <MobileLayoutSpacer />
       {/* Sayfa gövdesi Suspense ile sarıldı: rota geçişinde header kalır, içerik

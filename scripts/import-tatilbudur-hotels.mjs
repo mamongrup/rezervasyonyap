@@ -144,15 +144,28 @@ function normalizeHotel(raw) {
   })
   const allRates = rooms.flatMap((room) => room.rates)
   const minPrice = allRates.reduce((min, rate) => min == null || rate.nightlyPrice < min ? rate.nightlyPrice : min, null)
+  const city = String(raw?.city ?? raw?.region ?? raw?.location?.city ?? '').trim()
+  const district = String(raw?.district ?? raw?.location?.district ?? '').trim()
+  const provinceCity = String(
+    raw?.provinceCity ?? raw?.province_city ?? raw?.province ?? raw?.location?.province ?? '',
+  ).trim()
+  const address = String(raw?.address ?? raw?.location?.address ?? '').trim()
+  const lat = num(raw?.lat ?? raw?.latitude ?? raw?.mapLat ?? raw?.map_lat ?? raw?.location?.lat)
+  const lng = num(raw?.lng ?? raw?.longitude ?? raw?.mapLng ?? raw?.map_lng ?? raw?.location?.lng)
+  const locationName = [district, city, provinceCity].filter(Boolean).join(', ') || city || district || ''
   return {
     externalId,
     slug: hotelListingSlug(name, externalId, raw?.slug),
     name,
     description: String(raw?.description ?? raw?.content ?? '').trim(),
     url: String(raw?.url ?? raw?.sourceUrl ?? raw?.source_url ?? '').trim(),
-    city: String(raw?.city ?? raw?.region ?? raw?.location?.city ?? '').trim(),
-    district: String(raw?.district ?? raw?.location?.district ?? '').trim(),
-    address: String(raw?.address ?? raw?.location?.address ?? '').trim(),
+    city,
+    district,
+    provinceCity,
+    address,
+    lat,
+    lng,
+    locationName,
     countryCode: String(raw?.countryCode ?? raw?.country_code ?? 'TR').trim().toUpperCase(),
     starRating: num(raw?.starRating ?? raw?.star_rating ?? raw?.stars),
     guestScore: num(raw?.guestScore ?? raw?.guest_score ?? raw?.rating),
@@ -218,17 +231,22 @@ async function upsertHotel(pg, ctx, hotel) {
       // Mevcut yayın URL'sini koru — yeniden import kısa slug'ı ezmesin
       await pg.query(
         `UPDATE listings SET status=CASE WHEN status='published' THEN status ELSE $2 END,
-         currency_code=$3, location_name=$4, listing_source='api', last_synced_at=now(), updated_at=now()
+         currency_code=$3, location_name=$4,
+         map_lat=coalesce($5::numeric, map_lat), map_lng=coalesce($6::numeric, map_lng),
+         listing_source='api', last_synced_at=now(), updated_at=now()
          WHERE id=$1::uuid`,
-        [listingId, LISTING_STATUS, hotel.currency, hotel.city || hotel.district || null],
+        [listingId, LISTING_STATUS, hotel.currency,
+          hotel.locationName || hotel.city || hotel.district || null,
+          hotel.lat, hotel.lng],
       )
     } else {
       const inserted = await pg.query(
         `INSERT INTO listings (organization_id, category_id, slug, status, currency_code, location_name,
-         listing_source, external_provider_code, external_listing_ref, last_synced_at)
-         VALUES ($1::uuid,$2::smallint,$3,$4,$5,$6,'api',$7,$8,now()) RETURNING id::text`,
+         map_lat, map_lng, listing_source, external_provider_code, external_listing_ref, last_synced_at)
+         VALUES ($1::uuid,$2::smallint,$3,$4,$5,$6,$7,$8,'api',$9,$10,now()) RETURNING id::text`,
         [ctx.orgId, ctx.categoryId, hotel.slug, LISTING_STATUS, hotel.currency,
-          hotel.city || hotel.district || null, PROVIDER, hotel.externalId],
+          hotel.locationName || hotel.city || hotel.district || null,
+          hotel.lat, hotel.lng, PROVIDER, hotel.externalId],
       )
       listingId = inserted.rows[0].id
     }
@@ -275,6 +293,22 @@ async function upsertHotel(pg, ctx, hotel) {
         check_out: hotel.checkOut, guest_score: hotel.guestScore, review_count: hotel.reviewCount,
         address: hotel.address, district: hotel.district })],
     )
+    if (hotel.district || hotel.city || hotel.provinceCity || hotel.address || hotel.lat != null) {
+      const meta = {
+        district_label: hotel.district || '',
+        city: hotel.city || '',
+        province_city: hotel.provinceCity || '',
+        address: hotel.address || '',
+      }
+      if (hotel.lat != null) meta.lat = String(hotel.lat)
+      if (hotel.lng != null) meta.lng = String(hotel.lng)
+      await pg.query(
+        `INSERT INTO listing_attributes (listing_id,group_code,key,value_json)
+         VALUES ($1::uuid,'listing_meta','v1',$2::jsonb) ON CONFLICT (listing_id,group_code,key)
+         DO UPDATE SET value_json=listing_attributes.value_json || excluded.value_json`,
+        [listingId, JSON.stringify(meta)],
+      )
+    }
     if (hotel.rooms.length) {
       await pg.query(`DELETE FROM hotel_rooms WHERE listing_id=$1::uuid`, [listingId])
       for (const room of hotel.rooms) {

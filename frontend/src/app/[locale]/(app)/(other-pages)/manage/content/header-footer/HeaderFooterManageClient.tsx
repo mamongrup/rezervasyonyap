@@ -5,6 +5,7 @@ import type { FooterSiteColumn, FooterSiteConfig, FooterSiteLink, FooterTrustBad
 import I18nFieldEditor from '@/components/manage/i18n/I18nFieldEditor'
 import { Footer2ManagePreview } from '@/components/manage/Footer2ManagePreview'
 import { compactI18nField, pickI18nWithLegacy, type I18nFieldMap } from '@/lib/i18n-field'
+import { getSitePublicConfig as fetchSitePublicConfig } from '@/lib/travel-api'
 import clsx from 'clsx'
 import {
   ArrowDown,
@@ -168,6 +169,7 @@ function TrustBadgeEditor({
 
 export default function HeaderFooterManageClient() {
   const [cfg, setCfg] = useState<FooterSiteConfig>(() => JSON.parse(JSON.stringify(DEFAULT_FOOTER_SITE_CONFIG)))
+  const [branding, setBranding] = useState<Record<string, unknown> | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
@@ -194,6 +196,20 @@ export default function HeaderFooterManageClient() {
   useEffect(() => {
     void load()
   }, [load])
+
+  useEffect(() => {
+    let cancelled = false
+    void fetchSitePublicConfig(undefined)
+      .then((pub) => {
+        if (!cancelled) setBranding((pub.branding as Record<string, unknown>) ?? null)
+      })
+      .catch(() => {
+        if (!cancelled) setBranding(null)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   const updateBadge = (i: number, b: FooterTrustBadge) => {
     setCfg((c) => {
@@ -320,7 +336,7 @@ export default function HeaderFooterManageClient() {
           <div className="border-b border-neutral-100 bg-neutral-50 px-4 py-2.5 text-xs font-medium text-neutral-500 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-400">
             Canlı önizleme (önyüz footer ile aynı)
           </div>
-          <Footer2ManagePreview cfg={cfg} locale="tr" />
+          <Footer2ManagePreview cfg={cfg} locale="tr" branding={branding} />
         </section>
 
         {/* Tagline */}

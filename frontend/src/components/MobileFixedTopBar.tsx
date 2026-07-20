@@ -2,11 +2,14 @@
 
 import MobileSiteTopBar from '@/components/MobileSiteTopBar'
 import { useAside } from '@/components/aside'
+import { usePathname } from 'next/navigation'
 
 /** Mobil üst arama — hamburger menü açıkken gizlenir (menü tam ekran çekmece). */
 export default function MobileFixedTopBar({ locale }: { locale: string }) {
   const { type } = useAside()
-  if (type === 'sidebar-navigation') return null
+  const pathname = usePathname()
+  const hideOnManage = Boolean(pathname?.includes('/manage') || pathname?.includes('/staff'))
+  if (hideOnManage || type === 'sidebar-navigation') return null
 
   return (
     <div className="pointer-events-auto fixed inset-x-0 top-0 isolate z-[60] touch-manipulation bg-white pt-safe shadow-xs lg:hidden dark:bg-neutral-900">
