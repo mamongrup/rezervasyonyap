@@ -765,8 +765,6 @@ export default function CatalogNewListingClient({
   const [icalExportRotateBusy, setIcalExportRotateBusy] = useState(false)
   /** Otel yıldızı (1–5) — sadece hotel kategorisinde */
   const [starRating, setStarRating] = useState('')
-  const [hotelEtRef, setHotelEtRef] = useState('')
-  const [hotelTcRef, setHotelTcRef] = useState('')
 
   // ── İlan sahibi ──
   const [ownerName, setOwnerName] = useState('')
@@ -1363,8 +1361,6 @@ export default function CatalogNewListingClient({
             const hd = await getManageHotelDetails(token, lid, orgParam)
             if (!cancelled) {
               if (hd.star_rating?.trim()) setStarRating(hd.star_rating.trim())
-              setHotelEtRef(hd.etstur_property_ref?.trim() ?? '')
-              setHotelTcRef(hd.tatilcom_property_ref?.trim() ?? '')
             }
           } catch {
             /* ignore */
@@ -2962,9 +2958,9 @@ export default function CatalogNewListingClient({
         }
       }
 
-      // Otel detayları — yıldız + entegrasyon referansları
+      // Otel detayları — yıldız
       if (categoryCode === 'hotel') {
-        if (starRating.trim() || hotelEtRef.trim() || hotelTcRef.trim()) {
+        if (starRating.trim()) {
           await saveRequiredStep(
             'Otel detayları kaydı',
             patchManageHotelDetails(
@@ -2972,8 +2968,6 @@ export default function CatalogNewListingClient({
               lid,
               {
                 star_rating: starRating.trim() || undefined,
-                etstur_property_ref: hotelEtRef.trim() || undefined,
-                tatilcom_property_ref: hotelTcRef.trim() || undefined,
               },
               orgParam,
             ),
@@ -3509,26 +3503,6 @@ export default function CatalogNewListingClient({
           hotelStar={starRating}
           setHotelStar={setStarRating}
         />
-        {editListingId ? (
-          <Grid2 className="mt-5">
-            <Field className="block">
-              <Label>Etstur tesis referansı</Label>
-              <Input
-                className="mt-1 font-mono text-sm"
-                value={hotelEtRef}
-                onChange={(e) => setHotelEtRef(e.target.value)}
-              />
-            </Field>
-            <Field className="block">
-              <Label>Tatil.com tesis referansı</Label>
-              <Input
-                className="mt-1 font-mono text-sm"
-                value={hotelTcRef}
-                onChange={(e) => setHotelTcRef(e.target.value)}
-              />
-            </Field>
-          </Grid2>
-        ) : null}
         <div className="mt-5 grid gap-3 md:grid-cols-3">
           {[
             ['Tesis Özellikleri', 'Wi‑Fi, spa, otopark — 2. adımdaki özniteliklerden işaretleyin.'],

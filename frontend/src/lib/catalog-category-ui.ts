@@ -105,7 +105,7 @@ export const CATEGORY_VERTICAL_FIELD_LINES: Record<string, readonly string[]> = 
   yacht_charter: ['length_meters', 'cabin_count', 'port_lat', 'port_lng'],
   car_rental: ['vehicle_class', 'transmission', 'fuel_type', 'yolcu360_product_ref'],
   transfer: ['(çekirdek boş) + transfer_zones: zone_role, location_label, merkez lat/lng, price_per_vehicle_class'],
-  hotel: ['star_rating', 'etstur_property_ref', 'tatilcom_property_ref', 'hotel_rooms: name, capacity, board_type'],
+  hotel: ['star_rating', 'hotel_rooms: name, capacity, board_type'],
   flight: ['turna_route_ref', 'flight_legs: mode (flight|bus), from_stop, to_stop'],
   tour: ['wtatil_package_ref', 'is_manual', 'program_days_json'],
   activity: ['session_based', 'full_day'],
