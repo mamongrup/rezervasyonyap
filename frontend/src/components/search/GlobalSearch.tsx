@@ -68,9 +68,7 @@ export function SearchModal({ onClose, locale }: { onClose: () => void; locale: 
       }
 
       setLoading(true)
-      // Klavye akışını bir araya getirirken kullanıcıya hissedilir bir bekleme
-      // ekleme. Devam eden istek yukarıda iptal edildiği için kısa gecikme API'yi
-      // gereksiz eski sorgulardan korumaya devam eder.
+      // 250ms: tuş başına ağır katalog sorgusunu birleştirir (40ms neredeyse her harfte istek atıyordu).
       debounceRef.current = setTimeout(async () => {
         const controller = new AbortController()
         abortRef.current = controller
@@ -92,7 +90,7 @@ export function SearchModal({ onClose, locale }: { onClose: () => void; locale: 
         } finally {
           if (latestQueryRef.current === q) setLoading(false)
         }
-      }, 40)
+      }, 250)
     },
     [locale]
   )

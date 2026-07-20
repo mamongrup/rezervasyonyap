@@ -869,7 +869,7 @@ fn normalize_location_search_q(raw: String) -> String {
 }
 
 const listing_search_match_sql: String =
-  "translate(lower(coalesce((select lt2.title from listing_translations lt2 join locales lo2 on lo2.id = lt2.locale_id where lt2.listing_id = l.id order by case when lower(lo2.code) = 'tr' then 0 else 1 end limit 1), l.slug) || ' ' || replace(l.slug, '-', ' ')), 'üğışöç', 'ugisoc')"
+  "translate(lower(coalesce((select lt2.title from listing_translations lt2 join locales lo2 on lo2.id = lt2.locale_id where lt2.listing_id = l.id order by case when lower(lo2.code) = 'tr' then 0 else 1 end limit 1), l.slug) || ' ' || replace(l.slug, '-', ' ') || ' ' || coalesce(l.location_name, '') || ' ' || coalesce(lm.meta->>'address', '') || ' ' || coalesce(lm.meta->>'province_city', '') || ' ' || coalesce(lm.meta->>'city', '') || ' ' || coalesce(lm.meta->>'district_label', '') || ' ' || coalesce(lm.meta->>'region_display', '') || ' ' || coalesce(lm.meta->>'property_type', '')), 'üğışöç', 'ugisoc')"
 
 /// `location` vitrin parametresi — konum meta + tur başlığı + wtatil ülke adları.
 const location_search_match_sql: String =
@@ -1015,6 +1015,14 @@ fn search_listings_impl(
     list.key_find(qs, "listing_ids")
     |> result.unwrap("")
     |> string.trim
+
+  // Autocomplete (?suggest=1): tam sayım yok; görsel/fiyat kapısı yok → daha hızlı + eksik ilanlar görünür.
+  let suggest_raw =
+    list.key_find(qs, "suggest")
+    |> result.unwrap("")
+    |> string.trim
+    |> string.lowercase
+  let suggest_mode = suggest_raw == "1" || suggest_raw == "true" || suggest_raw == "yes"
 
   let q_normalized = normalize_listing_search_q(q_raw)
   let q_param = case q_normalized == "" {
@@ -1226,7 +1234,30 @@ fn search_listings_impl(
         <> "desc nulls last, l.created_at desc "
     "recommended" | "rating" ->
       "order by l.review_avg desc nulls last, l.created_at desc "
-    _ -> "order by l.created_at desc "
+    _ ->
+      case suggest_mode {
+        // Öneri: başlık/slug eşleşmesini konum eşleşmesinin önüne al.
+        True ->
+          "order by case when "
+            <> listing_search_match_sql
+            <> " ilike '%' || split_part(trim(coalesce($1::text, '')), ' ', 1) || '%' then 0 else 1 end, l.created_at desc "
+        False -> "order by l.created_at desc "
+      }
+  }
+
+  // Suggest: kapıları kapat (detay zaten açılıyor; autocomplete bulsun).
+  // Normal vitrin: görsel + otel/tur fiyat kapısı.
+  let browse_image_gate_sql = case suggest_mode {
+    True -> ""
+    False -> public_listing_must_have_image_sql()
+  }
+  let browse_tour_price_gate_sql = case suggest_mode {
+    True -> ""
+    False -> tour_public_must_have_price_sql()
+  }
+  let browse_hotel_price_gate_sql = case suggest_mode {
+    True -> ""
+    False -> hotel_public_must_have_price_sql()
   }
 
   // Faz F: Esnek tarih arama. start_date / end_date verilirse müsaitlik filtresi uygulanır.
@@ -1362,7 +1393,7 @@ fn search_listings_impl(
     <> "left join lateral (select la.value_json from listing_attributes la where la.listing_id = l.id and la.group_code = 'wtatil' and la.key = 'snapshot' limit 1) wtatil_snap on true "
     <> "left join listing_cruise_details cruise_det on cruise_det.listing_id = l.id "
     <> "where l.status = 'published' "
-    <> public_listing_must_have_image_sql()
+    <> browse_image_gate_sql
     <> "and ($1::text is null or trim($1) = '' or (select coalesce(bool_and("
     <> listing_search_match_sql
     <> " ilike '%' || trim(tok) || '%'), true) from unnest(string_to_array(trim($1), ' ')) as u(tok) where trim(tok) <> '')) "
@@ -1441,8 +1472,8 @@ fn search_listings_impl(
     <> tour_duration_days_sql
     <> ", 0) >= 8) "
     <> ")) "
-    <> tour_public_must_have_price_sql()
-    <> hotel_public_must_have_price_sql()
+    <> browse_tour_price_gate_sql
+    <> browse_hotel_price_gate_sql
     <> "and ($22::uuid is null or not exists (select 1 from agency_category_grants g where g.agency_organization_id = $22::uuid) "
     <> "or exists (select 1 from agency_category_grants g2 where g2.agency_organization_id = $22::uuid and g2.approved = true and g2.category_code = pc.code)) "
     <> "and ($23::text is null or pc.code not in ('holiday_home', 'yacht_charter') or lower(trim(coalesce(lm.meta->>'property_type', ''))) = $23) "
@@ -1708,33 +1739,36 @@ fn search_listings_impl(
     && tour_region_raw == ""
     && hotel_scope_raw == ""
   let exact_count_needed =
-    is_agent_search
-    || q_normalized != ""
-    || loc_raw != ""
-    || ids_raw != ""
-    || theme_raw != ""
-    || attrs_raw != ""
-    || price_min_raw != ""
-    || price_max_raw != ""
-    || hotel_type_raw != ""
-    || hotel_theme_raw != ""
-    || hotel_accommodation_raw != ""
-    || hotel_stars_raw != ""
-    || tour_travel_type_raw != ""
-    || tour_accommodation_raw != ""
-    || tour_duration_raw != ""
-    || tour_departure_raw != ""
-    || cruise_line_raw != ""
-    || cruise_route_raw != ""
-    || tour_region_raw != ""
-    || hotel_scope_raw != ""
-    || property_type_raw != ""
-    || string.trim(beds_raw) != ""
-    || string.trim(bedrooms_raw) != ""
-    || string.trim(bathrooms_raw) != ""
-    || start_raw != ""
-    || end_raw != ""
-    || sort_raw != ""
+    !suggest_mode
+    && {
+      is_agent_search
+      || q_normalized != ""
+      || loc_raw != ""
+      || ids_raw != ""
+      || theme_raw != ""
+      || attrs_raw != ""
+      || price_min_raw != ""
+      || price_max_raw != ""
+      || hotel_type_raw != ""
+      || hotel_theme_raw != ""
+      || hotel_accommodation_raw != ""
+      || hotel_stars_raw != ""
+      || tour_travel_type_raw != ""
+      || tour_accommodation_raw != ""
+      || tour_duration_raw != ""
+      || tour_departure_raw != ""
+      || cruise_line_raw != ""
+      || cruise_route_raw != ""
+      || tour_region_raw != ""
+      || hotel_scope_raw != ""
+      || property_type_raw != ""
+      || string.trim(beds_raw) != ""
+      || string.trim(bedrooms_raw) != ""
+      || string.trim(bathrooms_raw) != ""
+      || start_raw != ""
+      || end_raw != ""
+      || sort_raw != ""
+    }
   let page_sql = case fast_page_allowed {
     True -> fast_category_page_sql
     False -> deferred_page_sql
