@@ -1,0 +1,119 @@
+{
+  "hotels": [
+    {
+      "id": "ng-phaselis-bay",
+      "name": "NG Phaselis Bay",
+      "sourceUrl": "https://www.etstur.com/NG-Phaselis-Bay",
+      "bookeder": "https://asel-kemer.bookeder.com/",
+      "city": "Kemer",
+      "district": "Göynük",
+      "provinceCity": "Antalya",
+      "address": "Göynük / Kemer, Antalya",
+      "lat": 36.643093,
+      "lng": 30.556439,
+      "boardType": "Her Şey Dahil",
+      "starRating": 5
+    },
+    {
+      "id": "ng-enjoy",
+      "name": "NG Enjoy",
+      "sourceUrl": "https://www.etstur.com/Ng-Enjoy",
+      "bookeder": "https://ng-sapanca-enjoy-sakarya-marmara.bookeder.com/",
+      "city": "Sapanca",
+      "district": "Kırkpınar",
+      "provinceCity": "Sakarya",
+      "address": "Tepebaşı Mh. Şehit Cevdet Koç Cd. No:69 Kırkpınar - Sapanca, 54600",
+      "lat": 40.689984,
+      "lng": 30.216715,
+      "boardType": "Her Şey Dahil",
+      "starRating": 5
+    },
+    {
+      "id": "ng-sapanca",
+      "name": "NG Sapanca Wellness & Convention",
+      "sourceUrl": "https://www.etstur.com/Ng-Sapanca",
+      "bookeder": "https://ng-sapanca-wellness-convention-hotel.bookeder.com/",
+      "city": "Sapanca",
+      "district": "Sapanca",
+      "provinceCity": "Sakarya",
+      "address": "Sapanca, Sakarya",
+      "lat": 40.690861,
+      "lng": 30.215144,
+      "boardType": "Her Şey Dahil",
+      "starRating": 5
+    },
+    {
+      "id": "ng-afyon-wellness-convention",
+      "name": "NG Afyon Wellness & Convention",
+      "sourceUrl": "https://www.etstur.com/NG-Afyon-Wellness-Convention",
+      "aegean": "https://ng-afyon-wellness-convention.aegeanhotels.net/tr/",
+      "bookeder": "https://ng-hotels-afyon.bookeder.com/",
+      "city": "Afyonkarahisar",
+      "district": "Merkez",
+      "provinceCity": "Afyonkarahisar",
+      "address": "İzmir Ankara Karayolu 7. Km, Afyonkarahisar",
+      "lat": 38.784728,
+      "lng": 30.477748,
+      "boardType": "Her Şey Dahil",
+      "starRating": 5
+    },
+    {
+      "id": "ng-sign-bodrum",
+      "name": "NG Sign Bodrum",
+      "sourceUrl": "https://tr.hotels.com/ho3910122720/ng-sign-bodrum/",
+      "aegean": "https://ng-sign.aegeanhotels.net/tr/",
+      "bookeder": "https://ng-sign-bodrum.bookeder.com/",
+      "city": "Bodrum",
+      "district": "Ortakent",
+      "provinceCity": "Muğla",
+      "address": "Yahşi Koyu, Kargı Cd. No:118 Ortakent, Bodrum, Muğla",
+      "lat": 37.009044,
+      "lng": 27.326831,
+      "boardType": "Her Şey Dahil",
+      "starRating": 5,
+      "priceOverrideUsd": 760,
+      "priceOverrideNote": "Bookeder fiyat aralığı boş (yeni açılış). VIP Travellers Infinity Villa ~700 EUR ≈ 760 USD/gece.",
+      "defaultRooms": [
+        {
+          "id": "infinity-villa",
+          "name": "Infinity Villa (2 Yatak Odalı)",
+          "capacity": 5,
+          "nightlyUsd": 760,
+          "note": "290 m² — VIP Travellers ~700 EUR/gece"
+        },
+        {
+          "id": "queen-villa",
+          "name": "Queen Villa (3 Yatak Odalı)",
+          "capacity": 5,
+          "nightlyUsd": 1300,
+          "note": "350 m² — VIP Travellers ~1200 EUR/gece"
+        },
+        {
+          "id": "king-villa",
+          "name": "King Villa (3 Yatak Odalı)",
+          "capacity": 6,
+          "note": "ngsign.com villa listesi; ayrı fiyat yayımlanmadı"
+        },
+        {
+          "id": "owner-villa",
+          "name": "Owner Villa (4 Yatak Odalı)",
+          "capacity": 8,
+          "note": "ngsign.com villa listesi; ayrı fiyat yayımlanmadı"
+        },
+        {
+          "id": "presidential-villa",
+          "name": "Presidential Villa (5 Yatak Odalı)",
+          "capacity": 10,
+          "nightlyUsd": 6500,
+          "note": "610 m² — VIP Travellers ~6000 EUR/gece"
+        },
+        {
+          "id": "sign-villa",
+          "name": "Sign Villa (6 Yatak Odalı)",
+          "capacity": 12,
+          "note": "ngsign.com villa listesi; ayrı fiyat yayımlanmadı"
+        }
+      ]
+    }
+  ]
+}
