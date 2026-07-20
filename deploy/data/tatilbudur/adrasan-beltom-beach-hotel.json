@@ -10,6 +10,7 @@
       "city": "Antalya",
       "district": "Kumluca / Adrasan",
       "address": "Adrasan Mah. Semt 130 Sokak No: 22, Çavuşköy, 07370 Kumluca/Antalya",
+      "currency": "TRY",
       "description": "<section><h2>Adrasan’da doğa ve denizle iç içe konaklama</h2><p>Adrasan Beltom Beach Hotel, Antalya’nın Kumluca ilçesine bağlı Adrasan’da, sakin bir kıyı atmosferinde konaklama sunar. Tesis; aileler, çocuklu misafirler ve deniz tatilini doğayla birleştirmek isteyen konuklar için uygun olanaklara sahiptir.</p><h2>Plaj ve havuz olanakları</h2><p>Tesise ait kum plaj yaklaşık 400 metre mesafededir. Plajdaki şezlong ve şemsiyeler ücretsizdir; plajda tesise ait yiyecek-içecek servisi bulunmaz.</p><ul><li>Özel kum plaj</li><li>Açık yüzme havuzu ve çocuk havuzu</li><li>Tek bantlı su kaydırağı</li><li>Çocuk oyun alanı</li></ul><h2>Yeme ve içme</h2><p>Yarım pansiyon konseptinde açık büfe kahvaltı ve akşam yemeği sunulur. Havuz bar ve restoran bar hizmetleri ücretlidir. Konsept dışında alınan yiyecek ve içecekler ayrıca ücretlendirilir.</p><h2>Konum</h2><p>Otel; Antalya şehir merkezine yaklaşık 93 km, Antalya Havalimanı’na 109 km ve Antalya Otogarı’na 93,8 km uzaklıktadır.</p>",
       "amenities": [
         "Özel kum plaj",
@@ -68,48 +69,99 @@
         {
           "id": "standart-oda",
           "name": "Standart Oda",
+          "capacity": 3,
           "boardType": "Yarım Pansiyon",
-          "image": "https://www.beltomhotel.com/Upload/beltom/tr/odalar/standart-oda/img_gallery/img/big/deluxe-havuz-manzara-1d6d4.jpg",
+          "image": "https://www.beltomhotel.com/Upload/beltom/tr/odalar/standart-oda/img/big/standart-oda-37a91.jpg",
           "images": [
+            "https://www.beltomhotel.com/Upload/beltom/tr/odalar/standart-oda/img/big/standart-oda-37a91.jpg",
             "https://www.beltomhotel.com/Upload/beltom/tr/odalar/standart-oda/img_gallery/img/big/deluxe-havuz-manzara-1d6d4.jpg",
             "https://www.beltomhotel.com/Upload/beltom/tr/odalar/standart-oda/img_gallery/img/big/deluxe-havuz-manzara-d2cb1.jpg"
           ],
-          "features": ["Balkon", "Emanet kasa", "Mini bar", "Saç kurutma makinesi", "Split klima", "Telefon", "Wi-Fi", "Özel banyo"]
+          "features": [
+            "Balkon",
+            "Emanet kasa",
+            "Mini bar",
+            "Saç kurutma makinesi",
+            "Split klima",
+            "Telefon",
+            "Wi-Fi",
+            "Özel banyo"
+          ],
+          "rates": [
+            {
+              "validFrom": "2026-07-01",
+              "validTo": "2026-09-15",
+              "nightlyPrice": 6000,
+              "currency": "TRY",
+              "boardType": "Yarım Pansiyon"
+            }
+          ]
         },
         {
           "id": "ranzali-aile-odasi",
           "name": "Ranzalı Aile Odası",
+          "capacity": 4,
           "boardType": "Yarım Pansiyon",
-          "image": "https://www.beltomhotel.com/Upload/beltom/tr/odalar/ranzali-aile-odasi/img_gallery/img/big/deniz-manzarali-standart-genis-oda-cf0f2.jpg",
+          "image": "https://www.beltomhotel.com/Upload/beltom/tr/odalar/ranzali-aile-odasi/img/big/ranzali-aile-odasi-ec6d2.jpg",
           "images": [
-            "https://www.beltomhotel.com/Upload/beltom/tr/odalar/ranzali-aile-odasi/img_gallery/img/big/deniz-manzarali-standart-genis-oda-40d99.jpg",
+            "https://www.beltomhotel.com/Upload/beltom/tr/odalar/ranzali-aile-odasi/img/big/ranzali-aile-odasi-ec6d2.jpg",
             "https://www.beltomhotel.com/Upload/beltom/tr/odalar/ranzali-aile-odasi/img_gallery/img/big/deniz-manzarali-standart-genis-oda-cf0f2.jpg"
           ],
-          "features": ["Ranza", "Balkon", "Emanet kasa", "Mini bar", "Saç kurutma makinesi", "Split klima", "Telefon", "Wi-Fi", "Özel banyo"]
+          "features": [
+            "Ranza",
+            "Balkon",
+            "Emanet kasa",
+            "Mini bar",
+            "Saç kurutma makinesi",
+            "Split klima",
+            "Telefon",
+            "Wi-Fi",
+            "Özel banyo"
+          ]
         },
         {
           "id": "ara-kapili-aile-suit",
           "name": "Ara Kapılı Aile Suit",
+          "capacity": 5,
           "boardType": "Yarım Pansiyon",
-          "image": "https://www.beltomhotel.com/Upload/beltom/tr/odalar/ara-kapili-aile-suit/img_gallery/img/big/deniz-manzarali-aile-odasi-17f34.png",
+          "image": "https://www.beltomhotel.com/Upload/beltom/tr/odalar/ara-kapili-aile-suit/img/big/ara-kapili-aile-suit-48f20.png",
           "images": [
-            "https://www.beltomhotel.com/Upload/beltom/tr/odalar/ara-kapili-aile-suit/img_gallery/img/big/deniz-manzarali-aile-odasi-17f34.png",
-            "https://www.beltomhotel.com/Upload/beltom/tr/odalar/ara-kapili-aile-suit/img_gallery/img/big/deniz-manzarali-aile-odasi-cc6c3.png"
+            "https://www.beltomhotel.com/Upload/beltom/tr/odalar/ara-kapili-aile-suit/img/big/ara-kapili-aile-suit-48f20.png",
+            "https://www.beltomhotel.com/Upload/beltom/tr/odalar/ara-kapili-aile-suit/img_gallery/img/big/deniz-manzarali-aile-odasi-17f34.png"
           ],
-          "features": ["Ara kapılı oda", "Balkon", "Emanet kasa", "Mini bar", "Saç kurutma makinesi", "Split klima", "Telefon", "Wi-Fi", "Özel banyo"]
+          "features": [
+            "Ara kapılı oda",
+            "Balkon",
+            "Emanet kasa",
+            "Mini bar",
+            "Saç kurutma makinesi",
+            "Split klima",
+            "Telefon",
+            "Wi-Fi",
+            "Özel banyo"
+          ]
         },
         {
           "id": "king-suit",
           "name": "King Suit",
+          "capacity": 4,
           "boardType": "Yarım Pansiyon",
-          "image": "https://www.beltomhotel.com/Upload/beltom/tr/odalar/king-suit/img_gallery/img/big/kara-manzarali-aile-odasi-7b4cd.png",
+          "image": "https://www.beltomhotel.com/Upload/beltom/tr/odalar/king-suit/img/big/king-suit-ef100.png",
           "images": [
-            "https://www.beltomhotel.com/Upload/beltom/tr/odalar/king-suit/img_gallery/img/big/kara-manzarali-aile-odasi-65f11.png",
+            "https://www.beltomhotel.com/Upload/beltom/tr/odalar/king-suit/img/big/king-suit-ef100.png",
             "https://www.beltomhotel.com/Upload/beltom/tr/odalar/king-suit/img_gallery/img/big/kara-manzarali-aile-odasi-7b4cd.png",
             "https://www.beltomhotel.com/Upload/beltom/tr/odalar/king-suit/img_gallery/img/big/kara-manzarali-aile-odasi-1dc24.png",
             "https://www.beltomhotel.com/Upload/beltom/tr/odalar/king-suit/img_gallery/img/big/kara-manzarali-aile-odasi-9a198.png"
           ],
-          "features": ["Geniş yaşam alanı", "Oturma alanı", "Mini bar", "Split klima", "Wi-Fi", "Özel banyo", "Doğa manzarası"]
+          "features": [
+            "Geniş yaşam alanı",
+            "Oturma alanı",
+            "Mini bar",
+            "Split klima",
+            "Wi-Fi",
+            "Özel banyo",
+            "Doğa manzarası"
+          ]
         }
       ],
       "sourceFacts": {
@@ -121,6 +173,17 @@
         "mealPlan": "Yarım Pansiyon",
         "breakfastHours": "08:00-10:00",
         "dinnerHours": "19:00-21:00",
+        "priceSource": "tatilbudur",
+        "priceQuote": {
+          "checkIn": "2026-07-20",
+          "checkOut": "2026-07-25",
+          "nights": 5,
+          "adults": 2,
+          "boardType": "Yarım Pansiyon",
+          "totalTry": 30000,
+          "nightlyTry": 6000,
+          "note": "TatilBudur Adrasan oteller listesi (20–25 Temmuz 2026, 2 yetişkin, 5 gece, 30.000 TL toplam) afiş fiyatından gecelik 6.000 TL. Oda tipi ayrımı yayınlanmadığı için fiyat yalnızca Standart Oda’ya yazıldı; diğer oda tiplerinde yalnızca görseller güncellendi."
+        },
         "verifiedAt": "2026-07-20"
       }
     }
