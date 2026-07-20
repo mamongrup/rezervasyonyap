@@ -310,6 +310,7 @@ main() {
     step "Sosyal paylaşım worker timer kurulumu"
     cp "$APP_ROOT/deploy/systemd/travel-social-worker.service" /etc/systemd/system/travel-social-worker.service \
       && cp "$APP_ROOT/deploy/systemd/travel-social-worker.timer" /etc/systemd/system/travel-social-worker.timer \
+      && chmod +x "$APP_ROOT/deploy/scripts/social-process-pending.sh" \
       && systemctl daemon-reload \
       && systemctl enable --now travel-social-worker.timer \
       && ok "travel-social-worker.timer etkin" \
@@ -412,6 +413,17 @@ main() {
   elif [[ -f "$APP_ROOT/deploy/scripts/warm-cache.sh" ]]; then
     step "Vitrin önbellek ısıtma (deploy sonrası)"
     WARM_ROUNDS="${WARM_ROUNDS:-2}" bash "$APP_ROOT/deploy/scripts/warm-cache.sh" || warn "warm-cache tamamlanamadı (deploy etkilenmez); elle: ./deploy/scripts/warm-cache.sh"
+  fi
+
+  # Servisler ayağa kalktıktan sonra AI + sosyal worker'ı hemen tetikle
+  # (timer yalnız 10 dk'da bir çalışır; secret yoksa script açık [WARN] basar).
+  if [[ "${SKIP_AI_SOCIAL_KICK:-0}" == "1" ]]; then
+    warn "SKIP_AI_SOCIAL_KICK=1 — AI/sosyal anlık tetik atlandı."
+  elif [[ -f "$APP_ROOT/deploy/scripts/ensure-ai-social-workers.sh" ]]; then
+    step "AI + sosyal medya worker (timer + anlık tetik)"
+    chmod +x "$APP_ROOT/deploy/scripts/ensure-ai-social-workers.sh"
+    bash "$APP_ROOT/deploy/scripts/ensure-ai-social-workers.sh" \
+      || warn "AI/sosyal worker tetik tamamlanamadı; elle: ./deploy/scripts/ensure-ai-social-workers.sh"
   fi
 }
 
