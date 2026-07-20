@@ -35,7 +35,6 @@ import {
   getListingAvailabilityCalendar,
   getManageHotelDetails,
   listListingPriceRules,
-  patchManageHotelDetails,
   putListingMeta,
   putListingOwnerContact,
   putListingAvailabilityCalendar,
@@ -3309,7 +3308,6 @@ export default function CatalogListingDetailClient({
             </div>
           </div>
 
-          {/* (rakiip/entegrasyon referans alanları kaldırıldı) */}
 
           <div className="rounded-xl border border-neutral-200 p-5 dark:border-neutral-700">
             <h2 className="text-base font-semibold text-neutral-900 dark:text-white">Otel sözleşmesi</h2>
