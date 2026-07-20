@@ -144,6 +144,8 @@ export default function HotelRoomAvailabilityEditor({
       )
       setRows(buildMonthRows(monthRange.from, monthRange.to, res.days ?? [], maxUnits))
     } catch (e) {
+      // Yükleme başarısızken varsayılan dolu hücrelerle yanıltıcı gösterme
+      setRows([])
       setCalErr(
         e instanceof Error ? formatManageApiError(e.message) : formatManageApiError('availability_load_failed'),
       )
@@ -239,6 +241,8 @@ export default function HotelRoomAvailabilityEditor({
     )
   }
 
+  const calendarReady = rows.length > 0 && !calLoading
+
   return (
     <div className="space-y-4">
       <p className="max-w-2xl text-sm text-neutral-600 dark:text-neutral-400">
@@ -325,6 +329,14 @@ export default function HotelRoomAvailabilityEditor({
       </div>
 
       <div className="overflow-x-auto rounded-xl border border-neutral-200 dark:border-neutral-700">
+        {calLoading ? (
+          <p className="px-4 py-8 text-center text-sm text-neutral-400">Takvim yükleniyor…</p>
+        ) : !calendarReady ? (
+          <p className="px-4 py-8 text-center text-sm text-neutral-500">
+            {calErr ?? 'Takvim henüz yüklenmedi. Yenile’ye basın.'}
+          </p>
+        ) : (
+          <>
         <div className="grid min-w-[320px] grid-cols-7 border-b border-neutral-100 bg-neutral-50 text-center text-xs font-medium text-neutral-500 dark:border-neutral-800 dark:bg-neutral-800/50">
           {WEEKDAY_TR.map((w) => (
             <div key={w} className="py-2">
@@ -375,10 +387,12 @@ export default function HotelRoomAvailabilityEditor({
             )
           })}
         </div>
+          </>
+        )}
       </div>
 
       <div className="flex flex-wrap items-center gap-3">
-        <ButtonPrimary type="button" onClick={() => void saveCalendar()} disabled={calSaving || calLoading}>
+        <ButtonPrimary type="button" onClick={() => void saveCalendar()} disabled={calSaving || calLoading || !calendarReady}>
           {calSaving ? 'Kaydediliyor…' : 'Oda müsaitliğini kaydet'}
         </ButtonPrimary>
         {calOk ? <span className="text-sm text-emerald-600 dark:text-emerald-400">{calOk}</span> : null}
