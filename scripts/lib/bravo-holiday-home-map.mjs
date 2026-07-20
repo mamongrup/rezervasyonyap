@@ -26,6 +26,8 @@ export const HOLIDAY_HOME_RULE_CODE_TO_ACCOMMODATION_ID = {
   no_pets: 'hh-rule-no-pets',
   pets_allowed: 'hh-rule-pets-allowed',
   events_allowed: 'hh-rule-events-allowed',
+  no_smoking: 'hh-rule-no-smoking',
+  no_parties: 'hh-rule-no-parties',
 }
 
 export function buildBravoHolidayHomeRuleCodes(terms = []) {

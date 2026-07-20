@@ -7,8 +7,13 @@
  *   node scripts/import-villa-bella-collection.mjs --skip-images
  */
 import { runManualHolidayHomeImport } from './lib/manual-holiday-home-db.mjs'
+import {
+  birvillasCalendarDays,
+  fetchBirvillasListingPage,
+} from './lib/birvillas-listing-page.mjs'
 
 const SKIP_IMAGES = process.argv.includes('--skip-images')
+const DRY_RUN = process.argv.includes('--dry-run')
 const MAP_LAT = '36.300408'
 const MAP_LNG = '29.410383'
 const AMENITIES = [
@@ -16,6 +21,72 @@ const AMENITIES = [
   'Çamaşır makinesi', 'Tam donanımlı mutfak', 'Barbekü alanı', 'Teras',
 ]
 const THEMES = ['pool', 'jacuzzi', 'nature', 'conservative', 'family']
+
+const AMENITY_TR = {
+  'air-conditioning': 'Klima', 'bbq-grill': 'Barbekü', bedding: 'Nevresim',
+  'blackout-curtains': 'Karartma perdesi', blender: 'Blender', 'coffee-machine': 'Kahve makinesi',
+  cookware: 'Pişirme gereçleri', crib: 'Bebek yatağı', cutlery: 'Çatal bıçak takımı',
+  'dining-table': 'Yemek masası', dinnerware: 'Yemek takımı', dishwasher: 'Bulaşık makinesi',
+  dryer: 'Kurutma makinesi', ensuite: 'Ebeveyn banyosu', 'fire-extinguisher': 'Yangın söndürücü',
+  fireplace: 'Şömine', 'first-aid-kit': 'İlk yardım seti', 'free-parking': 'Ücretsiz otopark',
+  'fully-furnished': 'Tam mobilyalı', garden: 'Bahçe', glassware: 'Bardak takımı',
+  'hair-dryer': 'Saç kurutma makinesi', 'high-chair': 'Mama sandalyesi', 'hot-water': 'Sıcak su',
+  iron: 'Ütü', jacuzzi: 'Jakuzi', kettle: 'Su ısıtıcısı', microwave: 'Mikrodalga',
+  'no-smoking': 'İç mekânda sigara içilmez', 'outdoor-furniture': 'Bahçe mobilyası', oven: 'Fırın',
+  patio: 'Veranda', 'pool-maintenance': 'Havuz ve bahçe bakımı', refrigerator: 'Buzdolabı',
+  'shower-cabin': 'Duşakabin', 'smart-tv': 'Akıllı TV', 'smoke-detector': 'Duman dedektörü',
+  stove: 'Ocak', 'sun-loungers': 'Şezlong', sunbeds: 'Güneşlenme yatağı', swing: 'Salıncak',
+  terrace: 'Teras', towels: 'Havlu', tv: 'TV', wardrobe: 'Gardırop', washer: 'Çamaşır makinesi',
+  wifi: 'Wi-Fi',
+}
+
+function amenityLabels(codes = []) {
+  return [...new Set(codes.map((code) => AMENITY_TR[code] || String(code).replaceAll('-', ' ')))]
+}
+
+function escapeHtml(value) {
+  return String(value ?? '')
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#39;')
+}
+
+function semanticSourceDescription(locale, text, live) {
+  const clean = String(text || '').trim()
+  if (!clean) return ''
+  const facts = locale === 'tr'
+    ? ['Konaklama özellikleri', `${live.maxGuests} misafir`, `${live.bedrooms} yatak odası`, `${live.bathrooms} banyo`]
+    : locale === 'de'
+      ? ['Ausstattung', `${live.maxGuests} Gäste`, `${live.bedrooms} Schlafzimmer`, `${live.bathrooms} Badezimmer`]
+      : ['Accommodation features', `${live.maxGuests} guests`, `${live.bedrooms} bedrooms`, `${live.bathrooms} bathrooms`]
+  const overview = locale === 'tr' ? 'Genel Bakış' : locale === 'de' ? 'Überblick' : 'Overview'
+  return `<section><h2>${escapeHtml(overview)}</h2>${clean.split(/\n\s*\n/).filter(Boolean).map((p) => `<p>${escapeHtml(p)}</p>`).join('')}<h2>${escapeHtml(facts[0])}</h2><ul>${facts.slice(1).map((x) => `<li>${escapeHtml(x)}</li>`).join('')}</ul></section>`
+}
+
+function liveRuleCodes(live) {
+  const hay = (live.rules || []).map((r) => `${r.name || ''} ${r.description || ''}`).join(' ').toLowerCase()
+  const out = []
+  if (/no pets|pets are not allowed/.test(hay)) out.push('no_pets')
+  if (/no smoking|smoking is not allowed/.test(hay)) out.push('no_smoking')
+  if (/no parties|events are not allowed/.test(hay)) out.push('no_parties')
+  return out
+}
+
+function livePools(live, fallback) {
+  const row = (live.pools || []).find((p) => p.type === 'outdoor')
+  if (!row) return pools(fallback)
+  return {
+    open_pool: {
+      enabled: true,
+      length: String(row.dimensions?.length || ''), width: String(row.dimensions?.width || ''),
+      depth: String(row.dimensions?.depth || ''), description: 'Özel açık yüzme havuzu', heating_fee_per_day: '',
+    },
+    heated_pool: { enabled: Boolean(row.heated), length: '', width: '', depth: '', description: '', heating_fee_per_day: '' },
+    children_pool: { enabled: false, length: '', width: '', depth: '', description: '', heating_fee_per_day: '' },
+  }
+}
 
 function html(villa) {
   const bedrooms = villa.bedrooms === 1 ? '1 yatak odası' : `${villa.bedrooms} yatak odası`
@@ -120,42 +191,79 @@ function pools(villa) {
 
 const results = []
 for (const villa of VILLAS) {
-  const description = html(villa)
+  let live = null
+  try {
+    live = await fetchBirvillasListingPage(villa.sourceUrl, villa.externalRef)
+  } catch (error) {
+    console.warn(`[WARN] ${villa.title} canlı ayrıntısı alınamadı: ${error.message}`)
+  }
+  const description = live?.description?.tr
+    ? semanticSourceDescription('tr', live.description.tr, live)
+    : html(villa)
+  const translations = live
+    ? Object.entries(live.title || {}).flatMap(([locale, title]) => {
+        const translated = live.description?.[locale]
+        return translated ? [{ locale, title, description: semanticSourceDescription(locale, translated, live) }] : []
+      })
+    : [{ locale: 'tr', title: villa.title, description }]
+  const galleryUrls = live?.images?.length
+    ? [...live.images].sort((a, b) => Number(a.order || 0) - Number(b.order || 0)).map((row) => row.url).filter(Boolean)
+    : villa.images
+  const seasonalPrices = live ? (live.dynamicPricing || []).flatMap((row) => (
+    row.startDate && row.endDate && Number(row.price) > 0
+      ? [{ from: row.startDate, to: row.endDate, baseNightly: Number(row.price), label: row.name || '' }]
+      : []
+  )) : undefined
+  const shortStayThreshold = Math.max(0, ...(live?.dynamicPricing || []).map((row) => Number(row.minimumStayForCleaning) || 0)) || null
+  const livePool = live?.pools?.find((p) => p.type === 'outdoor')
+  const poolSizeLabel = livePool
+    ? [livePool.dimensions?.length, livePool.dimensions?.width, livePool.dimensions?.depth].filter(Boolean).join(' × ') + ' m'
+    : villa.poolSize
   const result = await runManualHolidayHomeImport({
     provider: 'birvillas',
     slug: villa.slug,
     externalRef: villa.externalRef,
     sourceUrl: villa.sourceUrl,
-    title: villa.title,
+    title: live?.title?.tr || villa.title,
     description,
-    translations: [{ locale: 'tr', title: villa.title, description }],
-    currency: 'TRY',
-    seasonalPrices: [],
-    vitrinPrice: null,
-    minStayNights: null,
-    galleryUrls: villa.images,
-    amenities: AMENITIES,
-    themeCodes: THEMES,
-    ruleCodes: [],
-    pools: pools(villa),
-    poolSizeLabel: villa.poolSize,
+    translations,
+    currency: live?.currency || 'TRY',
+    seasonalPrices,
+    vitrinPrice: Number(live?.price) > 0 ? Number(live.price) : null,
+    minStayNights: Number(live?.minDays) > 0 ? Number(live.minDays) : null,
+    galleryUrls,
+    amenities: live ? amenityLabels(live.amenities) : AMENITIES,
+    themeCodes: live?.features?.length ? live.features : THEMES,
+    ruleCodes: live ? liveRuleCodes(live) : [],
+    pools: live ? livePools(live, villa) : pools(villa),
+    poolSizeLabel,
     locationName: 'İslamlar, Kaş, Antalya',
-    mapLat: MAP_LAT,
-    mapLng: MAP_LNG,
+    mapLat: live?.coordinates?.latitude || MAP_LAT,
+    mapLng: live?.coordinates?.longitude || MAP_LNG,
     tourismCertNo: villa.license,
-    priceNote: 'Fiyat ve müsaitlik canlı kaynaktan doğrulanmalıdır.',
+    damageDeposit: Number(live?.fees?.damageDeposit) > 0 ? Number(live.fees.damageDeposit) : null,
+    shortStayFee: Number(live?.fees?.cleaningFee) > 0 ? Number(live.fees.cleaningFee) : null,
+    minShortStayNights: shortStayThreshold,
+    calendarDays: live ? birvillasCalendarDays(live) : undefined,
+    priceNote: live ? 'Fiyat ve müsaitlik Birvillas canlı ilan verisinden alınmıştır.' : 'Fiyat ve müsaitlik canlı kaynaktan doğrulanmalıdır.',
     meta: {
       city: 'Kaş', province_city: 'Antalya', district_label: 'İslamlar',
       region_display: 'İslamlar, Kaş', address: 'İslamlar, Kaş, Antalya, Türkiye',
-      bed_count: String(villa.bedrooms), bath_count: String(villa.bathrooms),
-      room_count: String(villa.bedrooms), max_guests: String(villa.guests),
+      bed_count: String(live?.beds || villa.bedrooms), bath_count: String(live?.bathrooms || villa.bathrooms),
+      room_count: String(live?.bedrooms || villa.bedrooms), max_guests: String(live?.maxGuests || villa.guests),
       property_type: 'villa', pool_type: 'Özel açık havuz',
+      check_in_time: live?.checkInTime || '16:00', check_out_time: live?.checkOutTime || '10:00',
+      min_advance_booking_days: String(live?.minimumAdvanceBooking || ''),
+      short_stay_fee: String(live?.fees?.cleaningFee || ''),
+      min_short_stay_nights: String(shortStayThreshold || ''),
+      damage_deposit: String(live?.fees?.damageDeposit || ''),
       ministry_license_ref: villa.license, source_url: villa.sourceUrl,
-      provider_gallery_count: String(villa.sourceGalleryCount), imported_gallery_count: String(villa.images.length),
-      media_incomplete: villa.images.length < villa.sourceGalleryCount,
+      bedrooms: live?.bedroomsData || [], services: live?.services || [],
+      provider_gallery_count: String(live?.images?.length || villa.sourceGalleryCount), imported_gallery_count: String(galleryUrls.length),
+      media_incomplete: galleryUrls.length < (live?.images?.length || villa.sourceGalleryCount),
     },
-  }, { status: 'draft', skipImages: SKIP_IMAGES })
-  results.push({ ...result, sourceGalleryCount: villa.sourceGalleryCount })
+  }, { status: 'draft', skipImages: SKIP_IMAGES, dryRun: DRY_RUN })
+  results.push({ ...result, sourceGalleryCount: live?.images?.length || villa.sourceGalleryCount, live: Boolean(live) })
   console.log(JSON.stringify(results.at(-1), null, 2))
 }
 

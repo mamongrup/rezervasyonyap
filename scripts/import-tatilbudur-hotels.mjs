@@ -125,6 +125,7 @@ function normalizeHotel(raw) {
       unitCount: Math.max(1, Math.round(num(room?.unitCount ?? room?.unit_count) || 1)),
       boardType: String(room?.boardType ?? room?.board_type ?? '').trim(),
       image: String(room?.image ?? room?.imageUrl ?? room?.image_url ?? '').trim(),
+      images: textList(room?.images ?? room?.gallery ?? room?.photos),
       features: textList(room?.features ?? room?.amenities),
       rates,
     }
@@ -268,7 +269,8 @@ async function upsertHotel(pg, ctx, hotel) {
           `INSERT INTO hotel_rooms (listing_id,name,capacity,board_type,meta_json,unit_count)
            VALUES ($1::uuid,$2,$3,$4,$5::jsonb,$6)`,
           [listingId, room.name, room.capacity, room.boardType || null,
-            JSON.stringify({ tatilbudur_room_type_id: room.id, image: room.image,
+            JSON.stringify({ tatilbudur_room_type_id: room.id, image: room.image || room.images[0] || '',
+              images: room.images.length ? room.images : room.image ? [room.image] : [],
               features: room.features, seasonal_prices: room.rates }), room.unitCount],
         )
       }

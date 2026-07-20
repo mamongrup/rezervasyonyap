@@ -23,13 +23,13 @@ WITH targets AS (
      ))
 ), queued AS (
   INSERT INTO ai_listing_content_batches (listing_id, category_code, phase, status, overwrite)
-  SELECT t.id, pc.code, 'tr_description', 'pending', false
+  SELECT t.id, pc.code, 'tr_description', 'pending', true
   FROM targets t
   JOIN listings l ON l.id = t.id
   JOIN product_categories pc ON pc.id = l.category_id
   WHERE NOT EXISTS (
     SELECT 1 FROM ai_listing_content_batches b
-    WHERE b.listing_id = t.id AND b.status IN ('pending', 'running', 'done')
+    WHERE b.listing_id = t.id AND b.status IN ('pending', 'running')
   )
   RETURNING listing_id
 )

@@ -198,9 +198,10 @@ export async function upsertManualHolidayHome(pg, ctx, pkg, opts = {}) {
            min_stay_nights = $5, map_lat = $6, map_lng = $7,
            location_name = $8, external_provider_code = $9,
            external_listing_ref = $10, listing_source = 'api',
-           vitrin_price = $11, first_charge_amount = $12,
-           cleaning_fee_amount = $13, share_to_social = true,
-           supplier_payment_note = $14,
+           vitrin_price = COALESCE($11, vitrin_price),
+           first_charge_amount = COALESCE($12, first_charge_amount),
+           cleaning_fee_amount = NULL, share_to_social = true,
+           supplier_payment_note = $13,
            updated_at = now()
          WHERE id = $1::uuid`,
         [
@@ -216,7 +217,6 @@ export async function upsertManualHolidayHome(pg, ctx, pkg, opts = {}) {
           externalRef,
           pkg.vitrinPrice || null,
           pkg.damageDeposit || null,
-          null,
           pkg.supplierPaymentNote || null,
         ],
       )
@@ -232,8 +232,8 @@ export async function upsertManualHolidayHome(pg, ctx, pkg, opts = {}) {
            $1::uuid, $2, $3, $4, $5,
            $6, $7, $8, $9,
            $10, $11, 'api',
-           $12, $13, $14, true,
-           $15
+           $12, $13, NULL, true,
+           $14
          ) RETURNING id::text`,
         [
           ctx.orgId,
@@ -249,7 +249,6 @@ export async function upsertManualHolidayHome(pg, ctx, pkg, opts = {}) {
           externalRef,
           pkg.vitrinPrice || null,
           pkg.damageDeposit || null,
-          null,
           pkg.supplierPaymentNote || null,
         ],
       )
@@ -280,7 +279,9 @@ export async function upsertManualHolidayHome(pg, ctx, pkg, opts = {}) {
 
     await upsertThemes(pg, listingId, themeCodes)
     await upsertAmenities(pg, listingId, pkg.amenities)
-    await upsertPriceRules(pg, listingId, pkg.seasonalPrices || [], pkg.minStayNights || 5)
+    if (pkg.seasonalPrices !== undefined) {
+      await upsertPriceRules(pg, listingId, pkg.seasonalPrices || [], pkg.minStayNights || 5)
+    }
 
     if (pkg.tourismCertNo) {
       await pg.query(`UPDATE listings SET ministry_license_ref = $2, updated_at = now() WHERE id = $1::uuid`, [
@@ -311,7 +312,9 @@ export async function upsertManualHolidayHome(pg, ctx, pkg, opts = {}) {
     )
 
     const imageCount = await upsertImages(pg, listingId, slug, pkg.galleryUrls, { skipImages })
-    const calendar = await upsertAvailabilityCalendar(pg, listingId, pkg.calendarDays || [])
+    const calendar = pkg.calendarDays === undefined
+      ? { days: 0, blocked: 0, preserved: true }
+      : await upsertAvailabilityCalendar(pg, listingId, pkg.calendarDays || [])
 
     await pg.query('COMMIT')
 

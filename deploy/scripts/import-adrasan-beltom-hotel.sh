@@ -26,13 +26,13 @@ WITH target AS (
 ), queued AS (
   INSERT INTO ai_listing_content_batches
     (listing_id, category_code, phase, status, overwrite)
-  SELECT t.id, 'hotel', 'tr_description', 'pending', false
+  SELECT t.id, 'hotel', 'tr_description', 'pending', true
   FROM target t
   WHERE NOT EXISTS (
     SELECT 1
     FROM ai_listing_content_batches b
     WHERE b.listing_id = t.id
-      AND b.status IN ('pending', 'running', 'done')
+      AND b.status IN ('pending', 'running')
   )
   RETURNING listing_id
 )

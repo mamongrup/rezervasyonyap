@@ -70,6 +70,10 @@
           "name": "Standart Oda",
           "boardType": "Yarım Pansiyon",
           "image": "https://www.beltomhotel.com/Upload/beltom/tr/odalar/standart-oda/img_gallery/img/big/deluxe-havuz-manzara-1d6d4.jpg",
+          "images": [
+            "https://www.beltomhotel.com/Upload/beltom/tr/odalar/standart-oda/img_gallery/img/big/deluxe-havuz-manzara-1d6d4.jpg",
+            "https://www.beltomhotel.com/Upload/beltom/tr/odalar/standart-oda/img_gallery/img/big/deluxe-havuz-manzara-d2cb1.jpg"
+          ],
           "features": ["Balkon", "Emanet kasa", "Mini bar", "Saç kurutma makinesi", "Split klima", "Telefon", "Wi-Fi", "Özel banyo"]
         },
         {
@@ -77,6 +81,10 @@
           "name": "Ranzalı Aile Odası",
           "boardType": "Yarım Pansiyon",
           "image": "https://www.beltomhotel.com/Upload/beltom/tr/odalar/ranzali-aile-odasi/img_gallery/img/big/deniz-manzarali-standart-genis-oda-cf0f2.jpg",
+          "images": [
+            "https://www.beltomhotel.com/Upload/beltom/tr/odalar/ranzali-aile-odasi/img_gallery/img/big/deniz-manzarali-standart-genis-oda-40d99.jpg",
+            "https://www.beltomhotel.com/Upload/beltom/tr/odalar/ranzali-aile-odasi/img_gallery/img/big/deniz-manzarali-standart-genis-oda-cf0f2.jpg"
+          ],
           "features": ["Ranza", "Balkon", "Emanet kasa", "Mini bar", "Saç kurutma makinesi", "Split klima", "Telefon", "Wi-Fi", "Özel banyo"]
         },
         {
@@ -84,6 +92,10 @@
           "name": "Ara Kapılı Aile Suit",
           "boardType": "Yarım Pansiyon",
           "image": "https://www.beltomhotel.com/Upload/beltom/tr/odalar/ara-kapili-aile-suit/img_gallery/img/big/deniz-manzarali-aile-odasi-17f34.png",
+          "images": [
+            "https://www.beltomhotel.com/Upload/beltom/tr/odalar/ara-kapili-aile-suit/img_gallery/img/big/deniz-manzarali-aile-odasi-17f34.png",
+            "https://www.beltomhotel.com/Upload/beltom/tr/odalar/ara-kapili-aile-suit/img_gallery/img/big/deniz-manzarali-aile-odasi-cc6c3.png"
+          ],
           "features": ["Ara kapılı oda", "Balkon", "Emanet kasa", "Mini bar", "Saç kurutma makinesi", "Split klima", "Telefon", "Wi-Fi", "Özel banyo"]
         },
         {
@@ -91,6 +103,12 @@
           "name": "King Suit",
           "boardType": "Yarım Pansiyon",
           "image": "https://www.beltomhotel.com/Upload/beltom/tr/odalar/king-suit/img_gallery/img/big/kara-manzarali-aile-odasi-7b4cd.png",
+          "images": [
+            "https://www.beltomhotel.com/Upload/beltom/tr/odalar/king-suit/img_gallery/img/big/kara-manzarali-aile-odasi-65f11.png",
+            "https://www.beltomhotel.com/Upload/beltom/tr/odalar/king-suit/img_gallery/img/big/kara-manzarali-aile-odasi-7b4cd.png",
+            "https://www.beltomhotel.com/Upload/beltom/tr/odalar/king-suit/img_gallery/img/big/kara-manzarali-aile-odasi-1dc24.png",
+            "https://www.beltomhotel.com/Upload/beltom/tr/odalar/king-suit/img_gallery/img/big/kara-manzarali-aile-odasi-9a198.png"
+          ],
           "features": ["Geniş yaşam alanı", "Oturma alanı", "Mini bar", "Split klima", "Wi-Fi", "Özel banyo", "Doğa manzarası"]
         }
       ],
