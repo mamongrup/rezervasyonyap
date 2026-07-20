@@ -119,7 +119,8 @@ async function buildMaskedSocialPhotoDataUrl(
       input = Buffer.from(await res.arrayBuffer())
     }
 
-    const resized = await sharp(input)
+    const resized = await sharp(input, { failOn: 'none', limitInputPixels: false })
+      .rotate()
       .resize({ width: coverW, height: coverH, fit: 'cover' })
       .png()
       .toBuffer()
