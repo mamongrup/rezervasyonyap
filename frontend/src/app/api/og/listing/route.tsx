@@ -257,7 +257,9 @@ async function imageDataUrlForOg(
     const res = await fetchWithTimeout(fetchUrl, 3500)
     if (!res.ok) return null
     const input = Buffer.from(await res.arrayBuffer())
-    const output = await sharp(input)
+    // Satori yalnızca png/jpeg/gif destekler — avif/webp burada PNG'ye çevrilir.
+    const output = await sharp(input, { failOn: 'none', limitInputPixels: false })
+      .rotate()
       .resize({
         width: opts.width,
         height: opts.height,
@@ -271,6 +273,25 @@ async function imageDataUrlForOg(
   } catch {
     return null
   }
+}
+
+/** Satori dinamik font indirme (₺ vb.) 400 veriyor — ASCII/para birimi metnine indir. */
+function sanitizeOgText(value: string): string {
+  return value
+    .replaceAll('₺', 'TL')
+    .replaceAll('€', 'EUR')
+    .replaceAll('£', 'GBP')
+    .replaceAll('¥', 'JPY')
+    .replaceAll('₽', 'RUB')
+    .replace(/[\u200B-\u200D\uFEFF]/g, '')
+    .trim()
+}
+
+function sanitizeOgRows(rows: { label: string; value: string }[]): { label: string; value: string }[] {
+  return rows.map((row) => ({
+    label: sanitizeOgText(row.label),
+    value: sanitizeOgText(row.value),
+  }))
 }
 
 async function listingImageUrlsFromId(base: string, listingId: string | null): Promise<string[]> {
@@ -359,7 +380,7 @@ async function socialListingImage({
   const templateUrl = await pngFileDataUrl(SOCIAL_TEMPLATE_FILE)
   const frameUrl = await socialFrameDataUrl()
   const maskedPhotoUrl = bgUrl ? await buildMaskedSocialPhotoDataUrl(bgUrl, pageBase) : null
-  const displayTitle = truncate(title.trim(), 52)
+  const displayTitle = truncate(sanitizeOgText(title.trim()), 52)
   const installmentText = 'Kredi kartına 12 Taksit'
   const [guestsIcon, bedroomsIcon, bathroomsIcon, locationIcon] =
     await Promise.all(
@@ -376,10 +397,12 @@ async function socialListingImage({
     if (/banyo|bath/.test(l)) return 3
     return 9
   }
-  const detailRows = rows
-    .filter((r) => !/fiyat|price/i.test(r.label))
-    .sort((a, b) => rowPriority(a.label) - rowPriority(b.label))
-    .slice(0, 4)
+  const detailRows = sanitizeOgRows(
+    rows
+      .filter((r) => !/fiyat|price/i.test(r.label))
+      .sort((a, b) => rowPriority(a.label) - rowPriority(b.label))
+      .slice(0, 4),
+  )
   const locationRow = detailRows.find((row) => rowPriority(row.label) === 0)
   const featureRows = detailRows.filter((row) => row !== locationRow).slice(0, 3)
   const featureIcon = (label: string) => {
@@ -714,7 +737,7 @@ export async function GET(req: NextRequest) {
     )
 
     const rawImg = listing.featuredImage || listing.galleryImgs?.[0]
-    const bgUrl = rawImg ? toAbsoluteAssetUrl(base, rawImg) ?? rawImg : null
+    const bgUrlRaw = rawImg ? toAbsoluteAssetUrl(base, rawImg) ?? rawImg : null
     const badge =
       vertical === 'holiday_home'
         ? locale.startsWith('en')
@@ -730,14 +753,21 @@ export async function GET(req: NextRequest) {
 
     if (variant === 'social') {
       return socialListingImage({
-        bgUrl,
+        bgUrl: bgUrlRaw,
         title: listing.title,
-        rows,
-        themes: socialThemeLabels(listing.themeCodes, locale),
+        rows: sanitizeOgRows(rows),
+        themes: socialThemeLabels(listing.themeCodes, locale).map(sanitizeOgText),
         pageBase: base,
         branding,
       })
     }
+
+    const bgUrl = await imageDataUrlForOg(
+      bgUrlRaw,
+      { width: OG_W, height: OG_H, fit: 'cover' },
+      base,
+    )
+    const ogRows = sanitizeOgRows(rows)
 
     return new ImageResponse(
       (
@@ -812,10 +842,10 @@ export async function GET(req: NextRequest) {
                 textShadow: '0 2px 24px rgba(0,0,0,0.5)',
               }}
             >
-              {truncate(listing.title, 90)}
+              {truncate(sanitizeOgText(listing.title), 90)}
             </div>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>
-              {rows.map((row, i) => (
+              {ogRows.map((row, i) => (
                 <div
                   key={`r-${i}-${row.label}`}
                   style={{
@@ -835,7 +865,9 @@ export async function GET(req: NextRequest) {
                 </div>
               ))}
             </div>
-            <div style={{ color: 'rgba(255,255,255,0.55)', fontSize: 15 }}>{branding.logoTextLine1}</div>
+            <div style={{ color: 'rgba(255,255,255,0.55)', fontSize: 15 }}>
+              {sanitizeOgText(branding.logoTextLine1)}
+            </div>
           </div>
         </div>
       ),
@@ -865,7 +897,7 @@ export async function GET(req: NextRequest) {
   )
 
   const rawImg = listing.featuredImage || listing.galleryImgs?.[0]
-  const bgUrl = rawImg ? toAbsoluteAssetUrl(base, rawImg) ?? rawImg : null
+  const bgUrlRaw = rawImg ? toAbsoluteAssetUrl(base, rawImg) ?? rawImg : null
 
   const v = normalizeCatalogVertical(listing.listingVertical)
   const badge =
@@ -879,14 +911,21 @@ export async function GET(req: NextRequest) {
 
   if (variant === 'social') {
     return socialListingImage({
-      bgUrl,
+      bgUrl: bgUrlRaw,
       title: listing.title,
-      rows,
+      rows: sanitizeOgRows(rows),
       themes: [],
       pageBase: base,
       branding,
     })
   }
+
+  const bgUrl = await imageDataUrlForOg(
+    bgUrlRaw,
+    { width: OG_W, height: OG_H, fit: 'cover' },
+    base,
+  )
+  const ogRows = sanitizeOgRows(rows)
 
   return new ImageResponse(
     (
@@ -960,10 +999,10 @@ export async function GET(req: NextRequest) {
               textShadow: '0 2px 24px rgba(0,0,0,0.5)',
             }}
           >
-            {truncate(listing.title, 90)}
+            {truncate(sanitizeOgText(listing.title), 90)}
           </div>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>
-            {rows.map((row, i) => (
+            {ogRows.map((row, i) => (
               <div
                 key={`r-${i}-${row.label}`}
                 style={{
@@ -983,7 +1022,9 @@ export async function GET(req: NextRequest) {
               </div>
             ))}
           </div>
-          <div style={{ color: 'rgba(255,255,255,0.55)', fontSize: 15 }}>{branding.logoTextLine1}</div>
+          <div style={{ color: 'rgba(255,255,255,0.55)', fontSize: 15 }}>
+            {sanitizeOgText(branding.logoTextLine1)}
+          </div>
         </div>
       </div>
     ),
