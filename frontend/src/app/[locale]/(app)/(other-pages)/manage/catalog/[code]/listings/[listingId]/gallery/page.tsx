@@ -4,6 +4,8 @@ import { notFound } from 'next/navigation'
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 
+const GALLERY_MANAGE_CATEGORIES = new Set(['holiday_home', 'yacht_charter', 'hotel'])
+
 export default async function HolidayListingGalleryPage({
   params,
 }: {
@@ -12,13 +14,9 @@ export default async function HolidayListingGalleryPage({
   const { code, listingId } = await params
   const normalized = parseCatalogCategoryCodeParam(code)
   const id = decodeURIComponent(listingId).trim()
-  if (
-    !normalized ||
-    (normalized !== 'holiday_home' && normalized !== 'yacht_charter') ||
-    !UUID_RE.test(id)
-  ) {
+  if (!normalized || !GALLERY_MANAGE_CATEGORIES.has(normalized) || !UUID_RE.test(id)) {
     return notFound()
   }
 
-  return <HolidayListingGalleryManageClient listingId={id} />
+  return <HolidayListingGalleryManageClient listingId={id} categoryCode={normalized} />
 }

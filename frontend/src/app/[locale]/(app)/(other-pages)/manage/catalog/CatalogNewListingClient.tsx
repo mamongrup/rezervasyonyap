@@ -814,6 +814,8 @@ export default function CatalogNewListingClient({
   const isHotel = categoryCode === 'hotel'
   const isYacht = categoryCode === 'yacht_charter'
   const isStayRentalWizard = isStayRentalCategory(categoryCode)
+  /** Tatil evi / yat / otel — tesis galerisi aynı listing_images kaynağından */
+  const usesFacilityGallery = isStayRentalWizard || isHotel
   const catalogVertical = normalizeCatalogVertical(categoryCode)
   const listingPreviewBase = managePublicDetailPathForVertical(catalogVertical)
   const isTour = categoryCode === 'tour'
@@ -822,13 +824,16 @@ export default function CatalogNewListingClient({
   const gallerySubPath = listingImageSubPath(categoryCode, gallerySlugBase)
 
   const isStayRentalEdit = isStayRentalWizard && Boolean(editListingId)
-  const galleryTotalCount = isStayRentalEdit ? listingGalleryUrls.length : pendingGalleryKeys.length
+  const isFacilityGalleryEdit = usesFacilityGallery && Boolean(editListingId)
+  const galleryTotalCount = isFacilityGalleryEdit
+    ? listingGalleryUrls.length + pendingGalleryKeys.filter((k) => !listingGalleryUrls.includes(k)).length
+    : pendingGalleryKeys.length
 
   const galleryImagesForHero = useMemo((): ListingImage[] => {
-    if (!isStayRentalWizard) return []
-    if (isStayRentalEdit) return listingGalleryImages
+    if (!usesFacilityGallery) return []
+    if (isFacilityGalleryEdit) return listingGalleryImages
     return listingImagesFromPendingKeys(pendingGalleryKeys)
-  }, [isStayRentalWizard, isStayRentalEdit, listingGalleryImages, pendingGalleryKeys])
+  }, [usesFacilityGallery, isFacilityGalleryEdit, listingGalleryImages, pendingGalleryKeys])
 
   const galleryHasSceneTags = useMemo(
     () => galleryImagesForHero.some((im) => imageHasMeaningfulScene(im.scene_code)),
@@ -836,17 +841,33 @@ export default function CatalogNewListingClient({
   )
 
   const heroPreviewFiveKeys = useMemo(() => {
-    if (!isStayRentalWizard) return []
+    if (!usesFacilityGallery) return []
     if (galleryHasSceneTags) return pickHeroKeysFromTaggedImages(galleryImagesForHero)
+    if (isHotel) {
+      if (isFacilityGalleryEdit) {
+        const pendingExtra = pendingGalleryKeys.filter((k) => !listingGalleryUrls.includes(k))
+        return [...listingGalleryUrls, ...pendingExtra].slice(0, 5)
+      }
+      return pendingGalleryKeys.slice(0, 5)
+    }
     const valid = new Set(galleryImagesForHero.map((im) => im.storage_key))
     return heroManualStorageKeys.map((k) => {
       const t = k.trim()
       return t && valid.has(t) ? t : ''
     })
-  }, [categoryCode, galleryHasSceneTags, galleryImagesForHero, heroManualStorageKeys])
+  }, [
+    usesFacilityGallery,
+    isHotel,
+    isFacilityGalleryEdit,
+    galleryHasSceneTags,
+    galleryImagesForHero,
+    heroManualStorageKeys,
+    listingGalleryUrls,
+    pendingGalleryKeys,
+  ])
 
   const galleryManageHref =
-    isStayRentalEdit && editListingId
+    isFacilityGalleryEdit && editListingId
       ? vitrinPath(
           `/manage/catalog/${encodeURIComponent(categoryCode)}/listings/${encodeURIComponent(editListingId)}/gallery`,
         )
@@ -1817,7 +1838,7 @@ export default function CatalogNewListingClient({
 
   /** Galeri alt sayfasından dönünce önizlemeyi güncelle */
   useEffect(() => {
-    if (!isStayRentalWizard || !editListingId) return
+    if (!usesFacilityGallery || !editListingId) return
     const reloadPreview = () => {
       const token = getStoredAuthToken()
       if (!token) return
@@ -1842,7 +1863,7 @@ export default function CatalogNewListingClient({
       window.removeEventListener('focus', reloadPreview)
       document.removeEventListener('visibilitychange', onVis)
     }
-  }, [isStayRentalWizard, categoryCode, editListingId, needOrg, orgId])
+  }, [usesFacilityGallery, categoryCode, editListingId, needOrg, orgId])
 
   /** Etiketsiz galeri: boş slotları sırayla doldur; geçersiz anahtarları temizle */
   useEffect(() => {
@@ -4011,10 +4032,12 @@ export default function CatalogNewListingClient({
             <Section
               title="Galeri"
               subtitle={
-                isStayRentalEdit
-                  ? 'Özet görünüm: sahne etiketli görseller varsa sıra otomatik belirlenir; etiket yoksa kutucuklara tıklayarak seçim yapılır (Kaydet ile saklanır). Tam yükleme ve sıralama galeri sayfasında.'
-                  : isStayRentalWizard
-                    ? 'Yeni ilanda görseller önce depoya yüklenir; kayıttan sonra düzenleme için galeri sayfasına gidilir. Özet kutuları etiketsizken tıklanarak seçilir.'
+                isFacilityGalleryEdit
+                  ? isHotel
+                    ? 'Tesis görselleri özeti. Tam yükleme, sıralama ve silme için galeri sayfasını kullanın; buradan da yeni görsel ekleyebilirsiniz.'
+                    : 'Özet görünüm: sahne etiketli görseller varsa sıra otomatik belirlenir; etiket yoksa kutucuklara tıklayarak seçim yapılır (Kaydet ile saklanır). Tam yükleme ve sıralama galeri sayfasında.'
+                  : usesFacilityGallery
+                    ? 'Yeni ilanda görseller önce depoya yüklenir; kayıttan sonra düzenleme için galeri sayfasasına gidilir. Özet kutuları etiketsizken tıklanarak seçilir.'
                     : 'Görseller önce depoya yüklenir; ilanı kaydedince ilana bağlanır.'
               }
             >
@@ -4028,12 +4051,12 @@ export default function CatalogNewListingClient({
 
               <div className="mt-4 max-w-4xl">
                 <ManageListingGalleryHeroPreview
-                  urls={isStayRentalWizard ? heroPreviewFiveKeys : pendingGalleryKeys}
-                  totalCount={isStayRentalWizard ? galleryTotalCount : pendingGalleryKeys.length}
+                  urls={usesFacilityGallery ? heroPreviewFiveKeys : pendingGalleryKeys}
+                  totalCount={usesFacilityGallery ? galleryTotalCount : pendingGalleryKeys.length}
                   manageHref={galleryManageHref}
                   manageLabel="Galeriyi düzenle"
                   emptyHint={
-                    isStayRentalEdit
+                    isFacilityGalleryEdit
                       ? 'Henüz görsel yok — galeri sayfasından ekleyin.'
                       : 'Henüz görsel yok — aşağıdan yükleyin.'
                   }
@@ -4049,36 +4072,57 @@ export default function CatalogNewListingClient({
                       ? (i) => setHeroPickerSlot(i)
                       : undefined
                   }
-                  slotHints={HERO_SLOT_LABELS}
+                  slotHints={isHotel ? undefined : HERO_SLOT_LABELS}
                   footerHint={
-                    isStayRentalWizard ? (
+                    usesFacilityGallery ? (
                       <>
-                        <p>
-                          {galleryHasSceneTags ? (
-                            <>
-                              Sahne etiketleri vitrin özetine göre kullanılır (deniz manzarası, havuz, yaşam
-                              alanı, yatak, banyo). Deniz manzarası yoksa ilk iki kutu havuz görselleriyle
-                              doldurulabilir.
-                            </>
-                          ) : (
-                            <>
-                              Sahne etiketi atanmamış görseller için kutucuklara tıklayıp kapak sırasını seçin.
-                              Kayıtta bu sıra{' '}
-                              {isYacht ? 'yat ilanı ek verisinde' : 'tatil evi ek verisinde'} saklanır.
-                            </>
-                          )}
-                        </p>
-                        <p className="mt-1 text-neutral-500 dark:text-neutral-500">
-                          Toplu sahne için{' '}
-                          <strong className="font-medium text-neutral-600 dark:text-neutral-400">
-                            Galeri
-                          </strong>{' '}
-                          sayfasında &quot;Etiketsizlere AI öner&quot; veya kart üzerindeki yıldız ikonunu
-                          kullanın (sunucuda{' '}
-                          <code className="font-mono text-[11px]">DEEPSEEK_API_KEY</code>
-                          ; yoksa <code className="font-mono text-[11px]">OPENAI_API_KEY</code>
-                          ).
-                        </p>
+                        {isHotel ? (
+                          <p>
+                            Tesis galerisi vitrin detayında gösterilir. Oda görselleri oda kartlarından yönetilir.
+                            {galleryManageHref ? (
+                              <>
+                                {' '}
+                                Sıralama / silme için{' '}
+                                <Link
+                                  href={galleryManageHref}
+                                  className="font-medium text-primary-700 underline-offset-2 hover:underline dark:text-primary-300"
+                                >
+                                  Galeriyi düzenle
+                                </Link>
+                                .
+                              </>
+                            ) : null}
+                          </p>
+                        ) : (
+                          <>
+                            <p>
+                              {galleryHasSceneTags ? (
+                                <>
+                                  Sahne etiketleri vitrin özetine göre kullanılır (deniz manzarası, havuz, yaşam
+                                  alanı, yatak, banyo). Deniz manzarası yoksa ilk iki kutu havuz görselleriyle
+                                  doldurulabilir.
+                                </>
+                              ) : (
+                                <>
+                                  Sahne etiketi atanmamış görseller için kutucuklara tıklayıp kapak sırasını seçin.
+                                  Kayıtta bu sıra{' '}
+                                  {isYacht ? 'yat ilanı ek verisinde' : 'tatil evi ek verisinde'} saklanır.
+                                </>
+                              )}
+                            </p>
+                            <p className="mt-1 text-neutral-500 dark:text-neutral-500">
+                              Toplu sahne için{' '}
+                              <strong className="font-medium text-neutral-600 dark:text-neutral-400">
+                                Galeri
+                              </strong>{' '}
+                              sayfasında &quot;Etiketsizlere AI öner&quot; veya kart üzerindeki yıldız ikonunu
+                              kullanın (sunucuda{' '}
+                              <code className="font-mono text-[11px]">DEEPSEEK_API_KEY</code>
+                              ; yoksa <code className="font-mono text-[11px]">OPENAI_API_KEY</code>
+                              ).
+                            </p>
+                          </>
+                        )}
                         {galleryTotalCount > 5 ? (
                           <p className="mt-2 border-t border-neutral-200 pt-2 dark:border-neutral-700">
                             Önizlemede ilk 5 görsel gösteriliyor · toplam {galleryTotalCount} görsel
@@ -4146,6 +4190,7 @@ export default function CatalogNewListingClient({
                 </div>
               ) : null}
 
+              {/* Tatil evi/yat: düzenlemede galeri sayfası; otelde hem sayfa hem hızlı yükleme */}
               {!isStayRentalEdit ? (
                 <Field className="mt-6">
                   <Label>Yeni görsel ekle</Label>
@@ -4157,16 +4202,32 @@ export default function CatalogNewListingClient({
                       folder="listings"
                       subPath={gallerySubPath}
                       prefix={gallerySlugBase}
-                      imageIndex={pendingGalleryKeys.length + 1}
+                      imageIndex={
+                        (isFacilityGalleryEdit ? listingGalleryUrls.length : 0) +
+                        pendingGalleryKeys.length +
+                        1
+                      }
                       aspectRatio="4/3"
                       multiple
                       onBatchComplete={onPendingGalleryBatchUploaded}
-                      placeholder={`${gallerySlugBase}-${pendingGalleryKeys.length + 1}.avif — çoklu seçim veya sürükleyip bırakın`}
+                      placeholder={`${gallerySlugBase}-${(isFacilityGalleryEdit ? listingGalleryUrls.length : 0) + pendingGalleryKeys.length + 1}.avif — çoklu seçim veya sürükleyip bırakın`}
                     />
                   </div>
                   <p className="mt-1 text-xs text-neutral-400">
-                    Toplu yüklemede dosya adları sırayla {gallerySlugBase}-{pendingGalleryKeys.length + 1},{' '}
-                    {gallerySlugBase}-{pendingGalleryKeys.length + 2}, … olarak atanır.
+                    Toplu yüklemede dosya adları sırayla atanır. Kaydet ile ilana bağlanır.
+                    {isHotel && galleryManageHref ? (
+                      <>
+                        {' '}
+                        Sıralama için{' '}
+                        <Link
+                          href={galleryManageHref}
+                          className="font-medium text-primary-700 underline-offset-2 hover:underline dark:text-primary-300"
+                        >
+                          galeri sayfası
+                        </Link>
+                        .
+                      </>
+                    ) : null}
                   </p>
                 </Field>
               ) : null}

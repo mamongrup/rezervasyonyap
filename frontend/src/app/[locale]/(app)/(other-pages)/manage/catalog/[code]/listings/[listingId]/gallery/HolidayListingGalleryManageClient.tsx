@@ -17,9 +17,13 @@ import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import { useEffect, useState } from 'react'
 
-const CATEGORY = 'holiday_home' as const
-
-export default function HolidayListingGalleryManageClient({ listingId }: { listingId: string }) {
+export default function HolidayListingGalleryManageClient({
+  listingId,
+  categoryCode,
+}: {
+  listingId: string
+  categoryCode: string
+}) {
   const params = useParams()
   const locale = typeof params?.locale === 'string' ? params.locale : 'tr'
   const vitrinPath = useVitrinHref()
@@ -31,7 +35,7 @@ export default function HolidayListingGalleryManageClient({ listingId }: { listi
   const [slugErr, setSlugErr] = useState<string | null>(null)
 
   const backHref = vitrinPath(
-    `/manage/catalog/${encodeURIComponent(CATEGORY)}/listings/${encodeURIComponent(listingId)}`,
+    `/manage/catalog/${encodeURIComponent(categoryCode)}/listings/${encodeURIComponent(listingId)}`,
   )
 
   useEffect(() => {
@@ -67,7 +71,7 @@ export default function HolidayListingGalleryManageClient({ listingId }: { listi
     setSlugErr(null)
     const orgParam = needOrg && orgId.trim() ? { organizationId: orgId.trim() } : undefined
     void listManageCatalogListings(token, {
-      categoryCode: CATEGORY,
+      categoryCode,
       search: listingId,
       organizationId: orgParam?.organizationId,
       titleLocale: locale,
@@ -80,7 +84,7 @@ export default function HolidayListingGalleryManageClient({ listingId }: { listi
         setSlugErr(e instanceof Error ? formatManageApiError(e.message) : 'İlan bilgisi alınamadı.')
       })
       .finally(() => setSlugLoading(false))
-  }, [listingId, locale, needOrg, orgId])
+  }, [listingId, locale, needOrg, orgId, categoryCode])
 
   const orgForSection = needOrg && orgId.trim() ? orgId.trim() : undefined
 
@@ -96,7 +100,11 @@ export default function HolidayListingGalleryManageClient({ listingId }: { listi
 
       <ManageFormPageHeader
         title="Galeri"
-        subtitle="Görselleri yükleyin, sıralayın veya silin. Değişiklikler kaydedilir; ana ilan formunda yalnızca önizleme görünür."
+        subtitle={
+          categoryCode === 'hotel'
+            ? 'Tesis görsellerini yükleyin, sıralayın veya silin. Oda görselleri oda kartlarından yönetilir.'
+            : 'Görselleri yükleyin, sıralayın veya silin. Değişiklikler kaydedilir; ana ilan formunda yalnızca önizleme görünür.'
+        }
       />
 
       {slugErr ? <p className="mb-4 text-sm text-red-600 dark:text-red-400">{slugErr}</p> : null}
@@ -109,7 +117,7 @@ export default function HolidayListingGalleryManageClient({ listingId }: { listi
       ) : (
         <ListingImagesSection
           listingId={listingId}
-          categoryCode={CATEGORY}
+          categoryCode={categoryCode}
           listingSlug={listingSlug}
           organizationId={orgForSection}
         />
