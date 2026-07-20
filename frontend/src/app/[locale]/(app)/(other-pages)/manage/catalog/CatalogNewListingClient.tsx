@@ -804,6 +804,8 @@ export default function CatalogNewListingClient({
   const [busy, setBusy] = useState(false)
   const slugRef = useRef<HTMLInputElement>(null)
   const galleryKeysAtHydrateRef = useRef<Set<string>>(new Set())
+  /** Düzenlemede slug değiştiyse Kaydet → patchListingSlug */
+  const slugAtHydrateRef = useRef('')
   /** Adım 1 kaydı, POI listesi yüklenmeden DB'yi boşaltmasın. */
   const nearbyPoisHydratedRef = useRef(false)
   /** Tatil evi düzenlemede yeni iCal URL’si yalnızca hydrate’de olmayan adres için eklenir (çift kayıt önlenir). */
@@ -1347,6 +1349,7 @@ export default function CatalogNewListingClient({
         if (row?.slug) {
           setSlug(row.slug)
           setSlugManual(true)
+          slugAtHydrateRef.current = row.slug
         }
         if (row?.currency_code?.trim()) setCurrency(row.currency_code.trim().toUpperCase())
         if (row?.category_contract_id?.trim()) {
@@ -2672,6 +2675,16 @@ export default function CatalogNewListingClient({
       let lid: string
       if (editListingId) {
         lid = editListingId
+        const nextSlug = slugifyListingSlug(slug.trim())
+        if (nextSlug && nextSlug !== slugAtHydrateRef.current) {
+          const r = await saveRequiredStep(
+            'Slug güncelleme',
+            patchListingSlug(token, lid, { slug: nextSlug }, orgParam),
+          )
+          slugAtHydrateRef.current = r.slug
+          setSlug(r.slug)
+          setHeaderSlugDraft(r.slug)
+        }
         if (contractId.trim()) {
           await saveRequiredStep(
             'Kategori sözleşmesi',
@@ -3885,11 +3898,10 @@ export default function CatalogNewListingClient({
                     placeholder="bodrum-deniz-manzarali-villa"
                     className="mt-1 font-mono text-sm"
                     required
-                    disabled={Boolean(editListingId)}
                   />
                   <HintText>
                     {editListingId
-                      ? 'Yayın adresi (slug) güvenlik nedeniyle buradan değiştirilemez.'
+                      ? 'Yayın adresini kısaltabilirsiniz (ör. adrasan-beltom-beach-hotel). Kaydet ile uygulanır; kurum içinde benzersiz olmalı.'
                       : 'Yalnız küçük harf, tire ve rakam. Başlıktan otomatik üretilir.'}
                   </HintText>
                 </Field>

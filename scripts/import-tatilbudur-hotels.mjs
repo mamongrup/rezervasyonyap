@@ -68,6 +68,18 @@ function slugify(value) {
     .slice(0, 88)
 }
 
+/** Ad + dış id'den kısa slug. id zaten ada eşitse `-tb-{id}` ekleme (çift uzunluk önlenir). */
+function hotelListingSlug(name, externalId, rawSlug) {
+  const base = slugify(rawSlug || name) || `otel-${slugify(externalId) || 'x'}`
+  const idPart = slugify(externalId)
+  if (!idPart || idPart === base || base.includes(idPart) || idPart.includes(base)) {
+    return base.slice(0, 96)
+  }
+  const suffix = `-tb-${idPart}`
+  const maxBase = Math.max(8, 96 - suffix.length)
+  return `${base.slice(0, maxBase)}${suffix}`
+}
+
 function num(value) {
   if (typeof value === 'number') return Number.isFinite(value) ? value : null
   const raw = String(value ?? '').trim().replace(/\s/g, '')
@@ -134,7 +146,7 @@ function normalizeHotel(raw) {
   const minPrice = allRates.reduce((min, rate) => min == null || rate.nightlyPrice < min ? rate.nightlyPrice : min, null)
   return {
     externalId,
-    slug: `${slugify(raw?.slug || name)}-tb-${slugify(externalId)}`,
+    slug: hotelListingSlug(name, externalId, raw?.slug),
     name,
     description: String(raw?.description ?? raw?.content ?? '').trim(),
     url: String(raw?.url ?? raw?.sourceUrl ?? raw?.source_url ?? '').trim(),
@@ -203,11 +215,12 @@ async function upsertHotel(pg, ctx, hotel) {
     let listingId = existing.rows[0]?.id
     const created = !listingId
     if (listingId) {
+      // Mevcut yayın URL'sini koru — yeniden import kısa slug'ı ezmesin
       await pg.query(
-        `UPDATE listings SET slug=$2, status=CASE WHEN status='published' THEN status ELSE $3 END,
-         currency_code=$4, location_name=$5, listing_source='api', last_synced_at=now(), updated_at=now()
+        `UPDATE listings SET status=CASE WHEN status='published' THEN status ELSE $2 END,
+         currency_code=$3, location_name=$4, listing_source='api', last_synced_at=now(), updated_at=now()
          WHERE id=$1::uuid`,
-        [listingId, hotel.slug, LISTING_STATUS, hotel.currency, hotel.city || hotel.district || null],
+        [listingId, LISTING_STATUS, hotel.currency, hotel.city || hotel.district || null],
       )
     } else {
       const inserted = await pg.query(
