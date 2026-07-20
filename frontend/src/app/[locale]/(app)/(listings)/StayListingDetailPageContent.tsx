@@ -363,7 +363,7 @@ export default async function StayListingDetailPageContent({
       : vertical === 'yacht_charter'
         ? 'yat-kiralama'
         : 'oteller'
-  const relatedListingsPerPage = isStayRentalVertical ? 36 : 20
+  const relatedListingsPerPage = isStayRentalVertical ? 12 : 8
   const reviewsPromise = getListingReviews(handle)
   const similarResPromise = fetchCategoryListings(
     categorySlugForRelated,

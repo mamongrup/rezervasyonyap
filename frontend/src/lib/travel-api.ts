@@ -10149,6 +10149,9 @@ export async function resolvePublicListingIdBySlug(
 /**
  * Konaklama vitrin URL'sindeki handle (slug veya UUID) için yayında ilan id'si.
  * Mock stay verisindeki sahte id'ler yerine API UUID kullanılır; yemek planları vitrinde görünür.
+ *
+ * Sıra: önce by-slug (hafif, kapısız) → sonra gerekirse arama. Hyphenli slug'larda
+ * `q=handle` ILIKE çoğu zaman kaçırır; by-slug önce olmalı.
  */
 export async function resolvePublishedListingIdForStayPage(
   handle: string,
@@ -10160,6 +10163,10 @@ export async function resolvePublishedListingIdForStayPage(
   if (STAY_PAGE_LISTING_UUID_RE.test(h)) return h
 
   const expectedCategory = expectedCategoryCode?.trim()
+
+  const byExactSlug = await resolvePublicListingIdBySlug(h, expectedCategory)
+  if (byExactSlug) return byExactSlug
+
   if (expectedCategory) {
     const scoped = await searchPublicListings({
       q: h,
@@ -10172,9 +10179,6 @@ export async function resolvePublishedListingIdForStayPage(
     )
     if (exact) return exact.id
   }
-
-  const byExactSlug = await resolvePublicListingIdBySlug(h, expectedCategory)
-  if (byExactSlug) return byExactSlug
 
   const res = await searchPublicListings({
     q: h,

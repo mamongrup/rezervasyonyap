@@ -1,7 +1,8 @@
 /**
  * /api/listing-search?q=balayı+villa&locale=tr&limit=8
  *
- * İlan başlığına + koleksiyonlara göre autocomplete sonuçları döner.
+ * İlan başlığı + konum + koleksiyon autocomplete.
+ * Backend `suggest=1`: tam sayım yok, görsel/fiyat kapısı yok → hızlı öneri.
  */
 import { apiOriginForFetch } from '@/lib/api-origin'
 import {
@@ -23,6 +24,38 @@ export interface SearchSuggestion {
   href: string
 }
 
+type CollectionRow = {
+  id: string
+  slug: string
+  title: string
+  description: string | null
+  hero_image_url: string | null
+}
+
+/** Koleksiyon listesi nadiren değişir — process içinde cache (her tuşta 200 satır çekme). */
+let collectionsCache: { at: number; rows: CollectionRow[] } | null = null
+const COLLECTIONS_TTL_MS = 5 * 60 * 1000
+
+async function loadCollections(apiBase: string, signal?: AbortSignal): Promise<CollectionRow[]> {
+  const now = Date.now()
+  if (collectionsCache && now - collectionsCache.at < COLLECTIONS_TTL_MS) {
+    return collectionsCache.rows
+  }
+  try {
+    const res = await fetch(`${apiBase}/api/v1/collections`, {
+      signal,
+      next: { revalidate: 300 },
+    })
+    if (!res.ok) return collectionsCache?.rows ?? []
+    const data = (await res.json()) as { collections?: CollectionRow[] }
+    const rows = data.collections ?? []
+    collectionsCache = { at: now, rows }
+    return rows
+  } catch {
+    return collectionsCache?.rows ?? []
+  }
+}
+
 export async function GET(req: NextRequest) {
   const q = (req.nextUrl.searchParams.get('q') ?? '').trim()
   const locale = (req.nextUrl.searchParams.get('locale') ?? 'tr').trim()
@@ -39,61 +72,69 @@ export async function GET(req: NextRequest) {
     apiOriginForFetch() || (process.env.API_URL ?? '').replace(/\/$/, '')
 
   const suggestions: SearchSuggestion[] = []
+  const signal = req.signal
 
   if (apiBase) {
-    await Promise.allSettled([
-      // İlan araması
-      fetch(
-        `${apiBase}/api/v1/catalog/public/listings?q=${encodeURIComponent(q)}&locale=${locale}&limit=${limit}`,
-        { next: { revalidate: 300 } },
-      )
-        .then((r) => r.json())
-        .then((data: { listings?: PublicListingItem[] }) => {
-          const deduped = dedupeSearchListings(data.listings ?? [])
-          for (const item of deduped) {
-            const catLabel = categoryLabelForSearch(item.category_code, categoryLabels)
-            suggestions.push({
-              type: 'listing',
-              id: item.id,
-              slug: item.slug,
-              title: item.title,
-              subtitle: [catLabel, item.location].filter(Boolean).join(' · ') || undefined,
-              image: item.featured_image_url ?? item.thumbnail_url ?? undefined,
-              href: publicListingDetailPath(item.category_code, item.slug),
-            })
-          }
-        })
-        .catch(() => undefined),
+    const listingsUrl =
+      `${apiBase}/api/v1/catalog/public/listings` +
+      `?q=${encodeURIComponent(q)}&locale=${encodeURIComponent(locale)}` +
+      `&limit=${limit}&suggest=1`
 
-      // Koleksiyon araması
-      fetch(`${apiBase}/api/v1/collections`, { next: { revalidate: 300 } })
-        .then((r) => r.json())
-        .then((data: { collections?: { id: string; slug: string; title: string; description: string | null; hero_image_url: string | null }[] }) => {
-          const qLow = q.toLowerCase()
-          for (const col of data.collections ?? []) {
-            if (col.title.toLowerCase().includes(qLow) || (col.description ?? '').toLowerCase().includes(qLow)) {
-              suggestions.push({
-                type: 'collection',
-                id: col.id,
-                slug: col.slug,
-                title: col.title,
-                subtitle: col.description?.slice(0, 60) ?? 'Koleksiyon',
-                image: col.hero_image_url ?? undefined,
-                href: `/kesfet/${col.slug}`,
-              })
-            }
-          }
+    const [listingsSettled, collections] = await Promise.all([
+      fetch(listingsUrl, { signal, next: { revalidate: 30 } })
+        .then(async (r) => {
+          if (!r.ok) return [] as PublicListingItem[]
+          const data = (await r.json()) as { listings?: PublicListingItem[] }
+          return data.listings ?? []
         })
-        .catch(() => undefined),
+        .catch(() => [] as PublicListingItem[]),
+      loadCollections(apiBase, signal),
     ])
+
+    const deduped = dedupeSearchListings(listingsSettled)
+    for (const item of deduped) {
+      const catLabel = categoryLabelForSearch(item.category_code, categoryLabels)
+      suggestions.push({
+        type: 'listing',
+        id: item.id,
+        slug: item.slug,
+        title: item.title,
+        subtitle: [catLabel, item.location].filter(Boolean).join(' · ') || undefined,
+        image: item.featured_image_url ?? item.thumbnail_url ?? undefined,
+        href: publicListingDetailPath(item.category_code, item.slug),
+      })
+    }
+
+    const qLow = q.toLowerCase()
+    for (const col of collections) {
+      if (
+        col.title.toLowerCase().includes(qLow) ||
+        (col.description ?? '').toLowerCase().includes(qLow)
+      ) {
+        suggestions.push({
+          type: 'collection',
+          id: col.id,
+          slug: col.slug,
+          title: col.title,
+          subtitle: col.description?.slice(0, 60) ?? 'Koleksiyon',
+          image: col.hero_image_url ?? undefined,
+          href: `/kesfet/${col.slug}`,
+        })
+      }
+    }
   }
+
+  // İlanları koleksiyonların önüne al (önce ürün, sonra keşfet).
+  suggestions.sort((a, b) => {
+    if (a.type === b.type) return 0
+    return a.type === 'listing' ? -1 : 1
+  })
 
   return NextResponse.json(
     { suggestions: suggestions.slice(0, limit) },
     {
       headers: {
-        // Aynı popüler sorguları her kullanıcı için yeniden ağır katalog aramasına sokma.
-        'Cache-Control': 'public, s-maxage=30, stale-while-revalidate=300',
+        'Cache-Control': 'public, s-maxage=45, stale-while-revalidate=300',
       },
     },
   )

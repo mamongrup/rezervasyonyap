@@ -84,8 +84,9 @@ fn tour_listing_vitrin_price_numeric_lateral_sql() -> String {
 /// Vitrinde fiyatsız turlar listelenmesin. vitrin_price; wtatil fiyat senkronu +
 /// refresh_listing_vitrin_prices() ile dolar — fiyatı olmayan tur vitrinde görünmez.
 /// Günlük sync-wtatil-auto + vitrin timer sonrası fiyatı gelen turlar otomatik görünür.
+/// `$6` (listing_ids) doluysa atlanır: detay/checkout hydrate vitrin kapısından geçmez.
 fn tour_public_must_have_price_sql() -> String {
-  "and (pc.code != 'tour' or coalesce(l.vitrin_price, l.first_charge_amount, 0) > 0) "
+  "and ($6::text is not null or pc.code != 'tour' or coalesce(l.vitrin_price, l.first_charge_amount, 0) > 0) "
 }
 
 /// Vitrinde fiyatsız oteller listelenmesin (KPlus/Travelrobot import'ta fiyatı
@@ -93,8 +94,9 @@ fn tour_public_must_have_price_sql() -> String {
 /// kapsar (342 nolu migration) → kartta fiyat görünen otel asla gizlenmez,
 /// yalnızca hiçbir kaynakta fiyatı olmayan otel gizlenir.
 /// refresh_listing_vitrin_prices() import sonrası ve periyodik çalışmalıdır.
+/// `$6` (listing_ids) doluysa atlanır: detay sayfası hydrate için fiyat kapısı uygulanmaz.
 fn hotel_public_must_have_price_sql() -> String {
-  "and (pc.code != 'hotel' or coalesce(l.vitrin_price, l.first_charge_amount, 0) > 0) "
+  "and ($6::text is not null or pc.code != 'hotel' or coalesce(l.vitrin_price, l.first_charge_amount, 0) > 0) "
 }
 
 /// Tatil evi / yat / araç — arama tarihlerinde konaklama geceleri (çıkış hariç) yarım gün müsaitliği.
@@ -117,15 +119,33 @@ fn strip_vitrin_price_cache_sql(sql: String) -> String {
   sql
   |> string.replace(tour_public_must_have_price_sql(), "")
   |> string.replace(hotel_public_must_have_price_sql(), "")
+  |> string.replace(
+    "and (pc.code != 'tour' or coalesce(l.vitrin_price, l.first_charge_amount, 0) > 0) ",
+    "",
+  )
+  |> string.replace(
+    "and (pc.code != 'hotel' or coalesce(l.vitrin_price, l.first_charge_amount, 0) > 0) ",
+    "",
+  )
+  |> string.replace("nullif(l.vitrin_price::text, ''), ", "")
   |> string.replace("coalesce(l.vitrin_price, l.first_charge_amount)", "l.first_charge_amount")
   |> string.replace("coalesce(l.vitrin_price, 0)", "coalesce(l.first_charge_amount, 0)")
+  |> string.replace(
+    ") price_rule on (pc.code in ('holiday_home', 'yacht_charter') or l.vitrin_price is null) ",
+    ") price_rule on true ",
+  )
+  |> string.replace(
+    ") meal_vitrin on (l.vitrin_price is null) ",
+    ") meal_vitrin on true ",
+  )
 }
 
 /// Vitrin liste sayımı ile aynı filtreler (görsel + tur/otel fiyat kapısı).
+/// Stats sorgusunda `$6` bağlanmaz → browse (kapılı) varyantları kullanılır.
 fn public_category_stats_filter_sql() -> String {
-  public_listing_must_have_image_sql()
-  <> tour_public_must_have_price_sql()
-  <> hotel_public_must_have_price_sql()
+  public_listing_must_have_image_browse_sql()
+  <> "and (pc.code != 'tour' or coalesce(l.vitrin_price, l.first_charge_amount, 0) > 0) "
+  <> "and (pc.code != 'hotel' or coalesce(l.vitrin_price, l.first_charge_amount, 0) > 0) "
 }
 
 fn public_category_stats_query_sql(filter: String) -> String {
@@ -191,7 +211,18 @@ fn run_listing_count_sql(
 /// (category-stats'ta "flight" hiç görünmüyordu, /uçak-bileti listesi boştu).
 /// `pc` alias'ının her çağrı noktasında join edilmiş olması garanti olmadığından
 /// (ör. get_public_listing_id_by_slug) `l.category_id` üzerinden alt sorgu kullanılır.
+///
+/// `$6` (listing_ids) doluysa kapı atlanır — detay/checkout hydrate görselsiz yayında
+/// ilanı da açabilsin; kategori listesi/istatistik hâlâ görsel ister.
 fn public_listing_must_have_image_sql() -> String {
+  "and ($6::text is not null or l.category_id in (select id from product_categories where code = 'flight') "
+  <> "or coalesce(trim(l.featured_image_url), '') <> '' "
+  <> "or coalesce(trim(l.thumbnail_url), '') <> '' "
+  <> "or exists (select 1 from listing_images li_img where li_img.listing_id = l.id and trim(coalesce(li_img.storage_key, '')) <> '' limit 1)) "
+}
+
+/// Kategori vitrin/istatistik — listing_ids yok; görsel kapısı her zaman uygulanır.
+fn public_listing_must_have_image_browse_sql() -> String {
   "and (l.category_id in (select id from product_categories where code = 'flight') "
   <> "or coalesce(trim(l.featured_image_url), '') <> '' "
   <> "or coalesce(trim(l.thumbnail_url), '') <> '' "
@@ -231,12 +262,13 @@ fn activity_listing_vitrin_price_numeric_lateral_sql() -> String {
 }
 
 /// Konaklama vitrin fiyatı — tek lateral tarama (SELECT içinde 3 correlated subquery yerine).
-fn listing_meal_plan_vitrin_lateral_sql() -> String {
+/// vitrin_price doluyken meal_plans taramasını atla (price_from cache'ten gelir).
+fn listing_meal_plan_vitrin_lateral_sql_conditional() -> String {
   "left join lateral (select "
   <> "nullif((array_agg(m.price_per_night order by m.sort_order asc) filter (where m.plan_code = 'room_only'))[1]::text, '') as room_only_price, "
   <> "nullif(min(m.price_per_night) filter (where l.first_charge_amount is null or m.price_per_night is distinct from l.first_charge_amount)::text, '') as min_other_price, "
   <> "nullif(case when l.first_charge_amount is null then min(m.price_per_night)::text else null end, '') as min_fallback_price "
-  <> "from listing_meal_plans m where m.listing_id = l.id and m.is_active = true) meal_vitrin on true "
+  <> "from listing_meal_plans m where m.listing_id = l.id and m.is_active = true) meal_vitrin on (l.vitrin_price is null) "
 }
 
 // ─── Tatil evi arama sonucu — tarih aralığı TOPLAM fiyatı ────────────────────
@@ -837,7 +869,7 @@ fn normalize_location_search_q(raw: String) -> String {
 }
 
 const listing_search_match_sql: String =
-  "translate(lower(coalesce((select lt2.title from listing_translations lt2 join locales lo2 on lo2.id = lt2.locale_id where lt2.listing_id = l.id order by case when lower(lo2.code) = 'tr' then 0 else 1 end limit 1), l.slug) || ' ' || replace(l.slug, '-', ' ')), 'üğışöç', 'ugisoc')"
+  "translate(lower(coalesce((select lt2.title from listing_translations lt2 join locales lo2 on lo2.id = lt2.locale_id where lt2.listing_id = l.id order by case when lower(lo2.code) = 'tr' then 0 else 1 end limit 1), l.slug) || ' ' || replace(l.slug, '-', ' ') || ' ' || coalesce(l.location_name, '') || ' ' || coalesce(lm.meta->>'address', '') || ' ' || coalesce(lm.meta->>'province_city', '') || ' ' || coalesce(lm.meta->>'city', '') || ' ' || coalesce(lm.meta->>'district_label', '') || ' ' || coalesce(lm.meta->>'region_display', '') || ' ' || coalesce(lm.meta->>'property_type', '')), 'üğışöç', 'ugisoc')"
 
 /// `location` vitrin parametresi — konum meta + tur başlığı + wtatil ülke adları.
 const location_search_match_sql: String =
@@ -872,6 +904,7 @@ fn listing_id_only_row() -> decode.Decoder(String) {
 }
 
 /// GET /api/v1/catalog/public/listings/by-slug/:slug — vitrin detay URL slug → yayın ilan id
+/// Görsel/fiyat kapısı YOK: detay sayfası resolve için; liste kapıları search'te kalır.
 pub fn get_public_listing_id_by_slug(req: Request, ctx: Context, slug: String) -> Response {
   use <- wisp.require_method(req, http.Get)
   let s = string.trim(slug)
@@ -891,7 +924,6 @@ pub fn get_public_listing_id_by_slug(req: Request, ctx: Context, slug: String) -
           "select l.id::text from listings l "
             <> "inner join product_categories pc on pc.id = l.category_id "
             <> "where l.status = 'published' "
-            <> public_listing_must_have_image_sql()
             <> "and lower(l.slug) = lower($1) "
             <> "and ($2 = '' or lower(pc.code) = lower($2)) "
             <> "order by l.updated_at desc, l.id limit 1",
@@ -983,6 +1015,14 @@ fn search_listings_impl(
     list.key_find(qs, "listing_ids")
     |> result.unwrap("")
     |> string.trim
+
+  // Autocomplete (?suggest=1): tam sayım yok; görsel/fiyat kapısı yok → daha hızlı + eksik ilanlar görünür.
+  let suggest_raw =
+    list.key_find(qs, "suggest")
+    |> result.unwrap("")
+    |> string.trim
+    |> string.lowercase
+  let suggest_mode = suggest_raw == "1" || suggest_raw == "true" || suggest_raw == "yes"
 
   let q_normalized = normalize_listing_search_q(q_raw)
   let q_param = case q_normalized == "" {
@@ -1172,7 +1212,8 @@ fn search_listings_impl(
     |> string.trim
     |> string.lowercase
   // Sıralama/fiyat filtresi önbellek sütununu kullanır (canlı lateral değil) — fast ve
-  // deferred yollar aynı kaynağı kullansın diye. Ekrandaki price_from hâlâ canlı hesaplanır.
+  // deferred yollar aynı kaynağı kullansın diye.
+  // Kart price_from: önce vitrin_price (CPU); yoksa canlı lateral fallback.
   let vitrin_price_sql = "coalesce(l.vitrin_price, l.first_charge_amount) "
   let location_search_sql = location_search_match_sql
   let tour_duration_days_sql =
@@ -1193,7 +1234,30 @@ fn search_listings_impl(
         <> "desc nulls last, l.created_at desc "
     "recommended" | "rating" ->
       "order by l.review_avg desc nulls last, l.created_at desc "
-    _ -> "order by l.created_at desc "
+    _ ->
+      case suggest_mode {
+        // Öneri: başlık/slug eşleşmesini konum eşleşmesinin önüne al.
+        True ->
+          "order by case when "
+            <> listing_search_match_sql
+            <> " ilike '%' || split_part(trim(coalesce($1::text, '')), ' ', 1) || '%' then 0 else 1 end, l.created_at desc "
+        False -> "order by l.created_at desc "
+      }
+  }
+
+  // Suggest: kapıları kapat (detay zaten açılıyor; autocomplete bulsun).
+  // Normal vitrin: görsel + otel/tur fiyat kapısı.
+  let browse_image_gate_sql = case suggest_mode {
+    True -> ""
+    False -> public_listing_must_have_image_sql()
+  }
+  let browse_tour_price_gate_sql = case suggest_mode {
+    True -> ""
+    False -> tour_public_must_have_price_sql()
+  }
+  let browse_hotel_price_gate_sql = case suggest_mode {
+    True -> ""
+    False -> hotel_public_must_have_price_sql()
   }
 
   // Faz F: Esnek tarih arama. start_date / end_date verilirse müsaitlik filtresi uygulanır.
@@ -1236,8 +1300,9 @@ fn search_listings_impl(
     <> "coalesce((select lt.title from listing_translations lt join locales lo on lo.id = lt.locale_id where lt.listing_id = l.id and lower(lo.code) = lower($4) limit 1), l.slug), "
     <> "coalesce(pc.code::text, ''), "
     <> "coalesce(case when trim(coalesce(l.featured_image_url, '')) = '' then null when trim(l.featured_image_url) ilike 'http%' then trim(l.featured_image_url) when trim(l.featured_image_url) like '/%' then trim(l.featured_image_url) else '/' || trim(l.featured_image_url) end, case when trim(coalesce(l.thumbnail_url, '')) = '' then null when trim(l.thumbnail_url) ilike 'http%' then trim(l.thumbnail_url) when trim(l.thumbnail_url) like '/%' then trim(l.thumbnail_url) else '/' || trim(l.thumbnail_url) end, (select case when trim(li.storage_key) is null or trim(li.storage_key) = '' then null when trim(li.storage_key) ilike 'http%' then trim(li.storage_key) when trim(li.storage_key) like '/%' then trim(li.storage_key) else '/' || trim(li.storage_key) end from listing_images li where li.listing_id = l.id order by li.sort_order asc, li.created_at asc limit 1), ''), "
-    // Vitrin fiyat: tur → wtatil; aktivite → seans yetişkin ücreti; konaklama → kurallar + yemek planları.
-    <> "coalesce(case when pc.code = 'tour' then "
+    // Vitrin fiyat: önce önbellek (vitrin_price) — canlı lateral yalnızca cache boşsa.
+    // Cache doluyken price_rule/meal lateralları yine join edilir ama price_from kısa yol alır.
+    <> "coalesce(nullif(l.vitrin_price::text, ''), case when pc.code = 'tour' then "
     <> tour_listing_vitrin_price_sql()
     <> " else null end, case when pc.code = 'activity' then "
     <> activity_listing_vitrin_price_sql()
@@ -1315,8 +1380,10 @@ fn search_listings_impl(
     <> "left join listing_tour_details tour_det on tour_det.listing_id = l.id "
     <> "left join lateral (select min(u.v) as min_price, max(u.v) as max_price from listing_price_rules r cross join lateral "
     <> listing_price_rule_nightly_lateral_values_sql()
-    <> " as u(v) where r.listing_id = l.id and u.v is not null) price_rule on true "
-    <> listing_meal_plan_vitrin_lateral_sql()
+    <> " as u(v) where r.listing_id = l.id and u.v is not null) price_rule on ("
+    // Cache doluyken otel/tur için price_rule taraması gereksiz; tatil evi min/max için gerekir.
+    <> "pc.code in ('holiday_home', 'yacht_charter') or l.vitrin_price is null) "
+    <> listing_meal_plan_vitrin_lateral_sql_conditional()
     <> "left join lateral (select la.value_json as meta from listing_attributes la where la.listing_id = l.id and la.group_code = 'listing_meta' and la.key = 'v1' limit 1) lm on true "
     <> holiday_home_range_quote_lateral_sql()
     <> "left join lateral (select la.value_json from listing_attributes la where la.listing_id = l.id and la.group_code = 'hotel' and la.key = 'hotel_type_code' limit 1) hotel_attr on true "
@@ -1326,7 +1393,7 @@ fn search_listings_impl(
     <> "left join lateral (select la.value_json from listing_attributes la where la.listing_id = l.id and la.group_code = 'wtatil' and la.key = 'snapshot' limit 1) wtatil_snap on true "
     <> "left join listing_cruise_details cruise_det on cruise_det.listing_id = l.id "
     <> "where l.status = 'published' "
-    <> public_listing_must_have_image_sql()
+    <> browse_image_gate_sql
     <> "and ($1::text is null or trim($1) = '' or (select coalesce(bool_and("
     <> listing_search_match_sql
     <> " ilike '%' || trim(tok) || '%'), true) from unnest(string_to_array(trim($1), ' ')) as u(tok) where trim(tok) <> '')) "
@@ -1405,8 +1472,8 @@ fn search_listings_impl(
     <> tour_duration_days_sql
     <> ", 0) >= 8) "
     <> ")) "
-    <> tour_public_must_have_price_sql()
-    <> hotel_public_must_have_price_sql()
+    <> browse_tour_price_gate_sql
+    <> browse_hotel_price_gate_sql
     <> "and ($22::uuid is null or not exists (select 1 from agency_category_grants g where g.agency_organization_id = $22::uuid) "
     <> "or exists (select 1 from agency_category_grants g2 where g2.agency_organization_id = $22::uuid and g2.approved = true and g2.category_code = pc.code)) "
     <> "and ($23::text is null or pc.code not in ('holiday_home', 'yacht_charter') or lower(trim(coalesce(lm.meta->>'property_type', ''))) = $23) "
@@ -1463,13 +1530,16 @@ fn search_listings_impl(
   let sql_core = sql <> order_sql
 
   // Count: ORDER BY is removed (prevents expensive per-row subqueries like EXISTS on listing_images).
-  // price_rule lateral is also made conditional: when no price filter params ($12/$13) are passed,
-  // skip the per-row listing_price_rules scan entirely — the lateral result is unused anyway.
+  // price_rule / meal_vitrin sayımda kullanılmaz (fiyat filtresi vitrin_price); kapat.
   let count_from_conditional =
     string.replace(
       listing_search_from_where_sql,
-      ") price_rule on true ",
-      ") price_rule on ($12::text is not null or $13::text is not null) ",
+      ") price_rule on (pc.code in ('holiday_home', 'yacht_charter') or l.vitrin_price is null) ",
+      ") price_rule on (false) ",
+    )
+    |> string.replace(
+      ") meal_vitrin on (l.vitrin_price is null) ",
+      ") meal_vitrin on (false) ",
     )
     // Sayım için tarih aralığı toplamı gerekmiyor — ağır generate_series lateral'ı kapat.
     |> string.replace(
@@ -1500,6 +1570,8 @@ fn search_listings_impl(
       "from page_ids __pids join listings l on l.id = __pids.id ",
     )
   // page_ids ve fast-path sayımının paylaştığı filtre gövdesi (FROM + WHERE).
+  // Görsel kapısı browse varyantı: fast path'te $6 her zaman null (ids_raw==""),
+  // ama EXISTS listing_images maliyeti aynı; browse SQL aynı semantik.
   let fast_filter_body =
     "from listings l "
     <> "join product_categories pc on pc.id = l.category_id "
@@ -1509,7 +1581,7 @@ fn search_listings_impl(
     <> "left join lateral (select la.value_json from listing_attributes la where la.listing_id = l.id and la.group_code = 'vertical_tour' and la.key = 'v1' limit 1) tour_attr on true "
     <> "left join listing_cruise_details cruise_det on cruise_det.listing_id = l.id "
     <> "where l.status = 'published' "
-    <> public_listing_must_have_image_sql()
+    <> public_listing_must_have_image_browse_sql()
     <> "and ($2::text is null or pc.code = $2) "
     <> "and ($3::text is null or trim($3) = '' or (select coalesce(bool_and("
     <> location_search_sql
@@ -1559,8 +1631,8 @@ fn search_listings_impl(
     // satır-başı fiyat lateral'ı gerekmez → fast path fiyat/sıralamayı index ile karşılar.
     <> "and ($12::text is null or coalesce(l.vitrin_price, l.first_charge_amount) >= nullif($12::text, '')::numeric) "
     <> "and ($13::text is null or coalesce(l.vitrin_price, l.first_charge_amount) <= nullif($13::text, '')::numeric) "
-    <> tour_public_must_have_price_sql()
-    <> hotel_public_must_have_price_sql()
+    <> "and (pc.code != 'tour' or coalesce(l.vitrin_price, l.first_charge_amount, 0) > 0) "
+    <> "and (pc.code != 'hotel' or coalesce(l.vitrin_price, l.first_charge_amount, 0) > 0) "
   let fast_category_page_sql =
     "with page_ids as materialized (select l.id "
     <> fast_filter_body
@@ -1577,14 +1649,21 @@ fn search_listings_impl(
     <> ") _cnt cross join (select $1::text as a1, $4::text as a4, $5::int as a5, $6::text as a6, $7::text as a7, $11::text as a11, $12::text as a12, $13::text as a13, $14::text as a14, $15::text as a15, $16::text as a16, $17::text as a17, $18::text as a18, $19::text as a19, $20::text as a20, $21::int as a21, $22::uuid as a22, $24::text as a24, $28::text as a28, $29::text as a29, $30::text as a30, $31::text as a31) __allp"
   // Filtreli (fast olmayan) aramalar da deferred-projeksiyon kullanır: page_ids tüm filtreleri
   // + sıralamayı yalnız l.id üzerinde uygular; pahalı projeksiyon (galeri, çeviri, pansiyon)
-  // yalnızca sayfadaki ~24 satır için çalışır. WHERE/ORDER lateral'ları (fiyat, attr) zaten gerekli.
-  // range_quote (tarih aralığı toplamı) burada gerekmez — sıralama onu kullanmaz; ağır
-  // generate_series hesaplaması yalnızca aşağıdaki fast_main_sql'de (sayfalanmış satırlarda) çalışsın.
+  // yalnızca sayfadaki ~24 satır için çalışır.
+  // page_ids CTE'sinde price_rule/meal_vitrin/range_quote gerekmez — filtre vitrin_price kullanır.
   let deferred_page_from_where_sql =
     string.replace(
       listing_search_from_where_sql,
       ") range_quote on (" <> holiday_home_range_quote_join_condition_sql() <> ") ",
       ") range_quote on (false) ",
+    )
+    |> string.replace(
+      ") price_rule on (pc.code in ('holiday_home', 'yacht_charter') or l.vitrin_price is null) ",
+      ") price_rule on (false) ",
+    )
+    |> string.replace(
+      ") meal_vitrin on (l.vitrin_price is null) ",
+      ") meal_vitrin on (false) ",
     )
   let deferred_page_sql =
     "with page_ids as materialized (select l.id "
@@ -1660,33 +1739,36 @@ fn search_listings_impl(
     && tour_region_raw == ""
     && hotel_scope_raw == ""
   let exact_count_needed =
-    is_agent_search
-    || q_normalized != ""
-    || loc_raw != ""
-    || ids_raw != ""
-    || theme_raw != ""
-    || attrs_raw != ""
-    || price_min_raw != ""
-    || price_max_raw != ""
-    || hotel_type_raw != ""
-    || hotel_theme_raw != ""
-    || hotel_accommodation_raw != ""
-    || hotel_stars_raw != ""
-    || tour_travel_type_raw != ""
-    || tour_accommodation_raw != ""
-    || tour_duration_raw != ""
-    || tour_departure_raw != ""
-    || cruise_line_raw != ""
-    || cruise_route_raw != ""
-    || tour_region_raw != ""
-    || hotel_scope_raw != ""
-    || property_type_raw != ""
-    || string.trim(beds_raw) != ""
-    || string.trim(bedrooms_raw) != ""
-    || string.trim(bathrooms_raw) != ""
-    || start_raw != ""
-    || end_raw != ""
-    || sort_raw != ""
+    !suggest_mode
+    && {
+      is_agent_search
+      || q_normalized != ""
+      || loc_raw != ""
+      || ids_raw != ""
+      || theme_raw != ""
+      || attrs_raw != ""
+      || price_min_raw != ""
+      || price_max_raw != ""
+      || hotel_type_raw != ""
+      || hotel_theme_raw != ""
+      || hotel_accommodation_raw != ""
+      || hotel_stars_raw != ""
+      || tour_travel_type_raw != ""
+      || tour_accommodation_raw != ""
+      || tour_duration_raw != ""
+      || tour_departure_raw != ""
+      || cruise_line_raw != ""
+      || cruise_route_raw != ""
+      || tour_region_raw != ""
+      || hotel_scope_raw != ""
+      || property_type_raw != ""
+      || string.trim(beds_raw) != ""
+      || string.trim(bedrooms_raw) != ""
+      || string.trim(bathrooms_raw) != ""
+      || start_raw != ""
+      || end_raw != ""
+      || sort_raw != ""
+    }
   let page_sql = case fast_page_allowed {
     True -> fast_category_page_sql
     False -> deferred_page_sql
@@ -2315,7 +2397,7 @@ pub fn search_bridge_listings(req: Request, ctx: Context) -> Response {
     <> "left join lateral (select la.value_json as meta from listing_attributes la "
     <> "where la.listing_id = l.id and la.group_code = 'listing_meta' and la.key = 'v1' limit 1) lm on true "
     <> "where l.status = 'published' "
-    <> public_listing_must_have_image_sql()
+    <> public_listing_must_have_image_browse_sql()
     <> "and ($2::text is null or pc.code = $2) "
     <> "order by l.created_at desc "
     <> "offset $3 limit $4"
@@ -2383,7 +2465,7 @@ pub fn public_category_stats(req: Request, ctx: Context) -> Response {
       public_category_stats_filter_sql(),
     ))
   let image_only_sql =
-    public_category_stats_query_sql(public_listing_must_have_image_sql())
+    public_category_stats_query_sql(public_listing_must_have_image_browse_sql())
   let run_stats = fn(q: String) {
     pog.query(q)
     |> pog.returning(cat_stats_row())
@@ -2520,7 +2602,7 @@ fn region_stats_domestic_district_sql() -> String {
   <> "  left join listing_attributes lm on lm.listing_id = l.id "
   <> "    and lm.group_code = 'listing_meta' and lm.key = 'v1' "
   <> "  where l.status = 'published' and pc.code = $2 "
-  <> public_listing_must_have_image_sql()
+  <> public_listing_must_have_image_browse_sql()
   <> "    and ($3::text is null or lower(trim(coalesce(lm.value_json->>'property_type', ''))) = $3) "
   <> "), matched as ( "
   <> "  select distinct on (b.id) "
@@ -2580,7 +2662,7 @@ fn region_stats_tour_sql() -> String {
   <> "  left join listing_attributes w on w.listing_id = l.id "
   <> "    and w.group_code = 'wtatil' and w.key = 'snapshot' "
   <> "  where l.status = 'published' and pc.code = 'tour' "
-  <> public_listing_must_have_image_sql()
+  <> public_listing_must_have_image_browse_sql()
   <> "    and tour_price_row.tour_vitrin_price is not null and tour_price_row.tour_vitrin_price > 0 "
   <> "), tour_dest as ( "
   <> "  select distinct on (tb.id) "
@@ -2943,7 +3025,7 @@ fn public_cruise_hub_stats_sql() -> String {
   <> "left join listing_attributes vc on vc.listing_id = l.id "
   <> "  and vc.group_code = 'vertical_cruise' and vc.key = 'v1' "
   <> "where l.status = 'published' "
-  <> public_listing_must_have_image_sql()
+  <> public_listing_must_have_image_browse_sql()
   <> "group by 1, 2, 3 "
   <> "order by cnt desc"
 }
@@ -3005,7 +3087,7 @@ fn public_tour_kultur_hub_stats_sql() -> String {
   <> "join listing_attributes tour_attr on tour_attr.listing_id = l.id "
   <> "  and tour_attr.group_code = 'vertical_tour' and tour_attr.key = 'v1' "
   <> "where l.status = 'published' "
-  <> public_listing_must_have_image_sql()
+  <> public_listing_must_have_image_browse_sql()
   <> "and coalesce(l.vitrin_price, l.first_charge_amount, 0) > 0 "
   <> "and trim(coalesce(tour_attr.value_json->'data'->>'tour_region', tour_attr.value_json->>'tour_region', '')) <> '' "
   <> "group by 1 "
