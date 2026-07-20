@@ -1,269 +1,40 @@
 #!/usr/bin/env node
 /**
  * Birvillas Villa Bella 1-5 koleksiyonunu taslak olarak ekler.
- * Fiyat ve müsaitlik yalnızca yetkili canlı entegrasyondan alınmalıdır.
  *
  *   node scripts/import-villa-bella-collection.mjs
  *   node scripts/import-villa-bella-collection.mjs --skip-images
+ *   node scripts/import-villa-bella-collection.mjs --dry-run
  */
 import { runManualHolidayHomeImport } from './lib/manual-holiday-home-db.mjs'
-import {
-  birvillasCalendarDays,
-  fetchBirvillasListingPage,
-} from './lib/birvillas-listing-page.mjs'
+import { BELLA_VILLAS, buildBellaVillaPackage } from './lib/villa-bella-collection.mjs'
 
 const SKIP_IMAGES = process.argv.includes('--skip-images')
 const DRY_RUN = process.argv.includes('--dry-run')
-const MAP_LAT = '36.300408'
-const MAP_LNG = '29.410383'
-const AMENITIES = [
-  'Özel yüzme havuzu', 'Jakuzi', 'Wi-Fi', 'TV', 'Klima', 'Ücretsiz otopark',
-  'Çamaşır makinesi', 'Tam donanımlı mutfak', 'Barbekü alanı', 'Teras',
-]
-const THEMES = ['pool', 'jacuzzi', 'nature', 'conservative', 'family']
-
-const AMENITY_TR = {
-  'air-conditioning': 'Klima', 'bbq-grill': 'Barbekü', bedding: 'Nevresim',
-  'blackout-curtains': 'Karartma perdesi', blender: 'Blender', 'coffee-machine': 'Kahve makinesi',
-  cookware: 'Pişirme gereçleri', crib: 'Bebek yatağı', cutlery: 'Çatal bıçak takımı',
-  'dining-table': 'Yemek masası', dinnerware: 'Yemek takımı', dishwasher: 'Bulaşık makinesi',
-  dryer: 'Kurutma makinesi', ensuite: 'Ebeveyn banyosu', 'fire-extinguisher': 'Yangın söndürücü',
-  fireplace: 'Şömine', 'first-aid-kit': 'İlk yardım seti', 'free-parking': 'Ücretsiz otopark',
-  'fully-furnished': 'Tam mobilyalı', garden: 'Bahçe', glassware: 'Bardak takımı',
-  'hair-dryer': 'Saç kurutma makinesi', 'high-chair': 'Mama sandalyesi', 'hot-water': 'Sıcak su',
-  iron: 'Ütü', jacuzzi: 'Jakuzi', kettle: 'Su ısıtıcısı', microwave: 'Mikrodalga',
-  'no-smoking': 'İç mekânda sigara içilmez', 'outdoor-furniture': 'Bahçe mobilyası', oven: 'Fırın',
-  patio: 'Veranda', 'pool-maintenance': 'Havuz ve bahçe bakımı', refrigerator: 'Buzdolabı',
-  'shower-cabin': 'Duşakabin', 'smart-tv': 'Akıllı TV', 'smoke-detector': 'Duman dedektörü',
-  stove: 'Ocak', 'sun-loungers': 'Şezlong', sunbeds: 'Güneşlenme yatağı', swing: 'Salıncak',
-  terrace: 'Teras', towels: 'Havlu', tv: 'TV', wardrobe: 'Gardırop', washer: 'Çamaşır makinesi',
-  wifi: 'Wi-Fi',
-}
-
-function amenityLabels(codes = []) {
-  return [...new Set(codes.map((code) => AMENITY_TR[code] || String(code).replaceAll('-', ' ')))]
-}
-
-function escapeHtml(value) {
-  return String(value ?? '')
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
-    .replaceAll('"', '&quot;')
-    .replaceAll("'", '&#39;')
-}
-
-function semanticSourceDescription(locale, text, live) {
-  const clean = String(text || '').trim()
-  if (!clean) return ''
-  const facts = locale === 'tr'
-    ? ['Konaklama özellikleri', `${live.maxGuests} misafir`, `${live.bedrooms} yatak odası`, `${live.bathrooms} banyo`]
-    : locale === 'de'
-      ? ['Ausstattung', `${live.maxGuests} Gäste`, `${live.bedrooms} Schlafzimmer`, `${live.bathrooms} Badezimmer`]
-      : ['Accommodation features', `${live.maxGuests} guests`, `${live.bedrooms} bedrooms`, `${live.bathrooms} bathrooms`]
-  const overview = locale === 'tr' ? 'Genel Bakış' : locale === 'de' ? 'Überblick' : 'Overview'
-  return `<section><h2>${escapeHtml(overview)}</h2>${clean.split(/\n\s*\n/).filter(Boolean).map((p) => `<p>${escapeHtml(p)}</p>`).join('')}<h2>${escapeHtml(facts[0])}</h2><ul>${facts.slice(1).map((x) => `<li>${escapeHtml(x)}</li>`).join('')}</ul></section>`
-}
-
-function liveRuleCodes(live) {
-  const hay = (live.rules || []).map((r) => `${r.name || ''} ${r.description || ''}`).join(' ').toLowerCase()
-  const out = []
-  if (/no pets|pets are not allowed/.test(hay)) out.push('no_pets')
-  if (/no smoking|smoking is not allowed/.test(hay)) out.push('no_smoking')
-  if (/no parties|events are not allowed/.test(hay)) out.push('no_parties')
-  return out
-}
-
-function livePools(live, fallback) {
-  const row = (live.pools || []).find((p) => p.type === 'outdoor')
-  if (!row) return pools(fallback)
-  return {
-    open_pool: {
-      enabled: true,
-      length: String(row.dimensions?.length || ''), width: String(row.dimensions?.width || ''),
-      depth: String(row.dimensions?.depth || ''), description: 'Özel açık yüzme havuzu', heating_fee_per_day: '',
-    },
-    heated_pool: { enabled: Boolean(row.heated), length: '', width: '', depth: '', description: '', heating_fee_per_day: '' },
-    children_pool: { enabled: false, length: '', width: '', depth: '', description: '', heating_fee_per_day: '' },
-  }
-}
-
-function html(villa) {
-  const bedrooms = villa.bedrooms === 1 ? '1 yatak odası' : `${villa.bedrooms} yatak odası`
-  return [
-    `<section><h2>${villa.title}: İslamlar’da özel havuzlu villa</h2>`,
-    `<p>${villa.title}, Kaş’ın İslamlar bölgesinde deniz ve doğa manzarasına yakın, sakin bir konaklama ortamı sunar. ${villa.guests} kişilik kapasiteye sahip villa; ${bedrooms}, ${villa.bathrooms} banyo ve yalnızca misafirlerin kullanımındaki özel havuzuyla aileler veya çiftler için düzenlenmiştir.</p>`,
-    '<h2>Konaklama ve yaşam alanları</h2>',
-    `<ul>${villa.beds.map((bed) => `<li>${bed}</li>`).join('')}<li>Klimalı yaşam alanı ve Wi-Fi</li><li>Tam donanımlı mutfak</li><li>Özel otopark ve barbekü alanı</li></ul>`,
-    '<h2>Havuz ve dış alan</h2>',
-    `<p>${villa.poolText} Havuz ve villa ortak kullanıma açık değildir. Kırsal konum nedeniyle araç kullanımı önerilir; Kalkan merkezi araçla yaklaşık 10 dakika, en yakın market ve restoranlar yaklaşık 5 dakika mesafededir.</p>`,
-    '<h2>Önemli bilgiler</h2>',
-    `<ul><li>Kültür ve Turizm Bakanlığı belge numarası: ${villa.license}</li><li>Kesin fiyat, müsaitlik, depozito ve iptal koşulları rezervasyon tarihine göre doğrulanmalıdır.</li><li>İslamlar kırsal bir bölge olduğundan mevsimsel böceklenme görülebilir.</li></ul></section>`,
-  ].join('')
-}
-
-const VILLAS = [
-  {
-    title: 'Villa Bella 1 – Orkide', slug: 'villa-bella-1-orkide-islamlar',
-    externalRef: 'tc97shkNcDvOfEPCKSVs', license: '07-9339', guests: 2, bedrooms: 1, bathrooms: 1,
-    sourceUrl: 'https://www.birvillas.com/listing/tc97shkNcDvOfEPCKSVs/villa-bella-1-islamlar',
-    sourceGalleryCount: 25, poolSize: '7,3 × 3,5 × 1,5 m',
-    poolText: 'Korunaklı açık havuz 7,3 × 3,5 metre ölçülerinde ve 1,5 metre derinliğindedir.',
-    beds: ['Jakuzili ve özel banyolu bir çift kişilik yatak odası'],
-    images: [
-      'https://d3ozpcfkjcdvth.cloudfront.net/listings/tc97shkNcDvOfEPCKSVs/original_1767918282644_0_enhanced_0_1767918282457.webp',
-      'https://d3ozpcfkjcdvth.cloudfront.net/listings/tc97shkNcDvOfEPCKSVs/original_1767918303778_0_enhanced_1_1767918303606.webp',
-      'https://d3ozpcfkjcdvth.cloudfront.net/listings/tc97shkNcDvOfEPCKSVs/original_1767918316321_0_enhanced_2_1767918316151.webp',
-      'https://d3ozpcfkjcdvth.cloudfront.net/listings/tc97shkNcDvOfEPCKSVs/original_1767918364616_0_enhanced_3_1767918364426.webp',
-      'https://d3ozpcfkjcdvth.cloudfront.net/listings/tc97shkNcDvOfEPCKSVs/original_1767918393198_0_enhanced_4_1767918392993.webp',
-    ],
-  },
-  {
-    title: 'Villa Bella 2 – Sardunya', slug: 'villa-bella-2-sardunya-islamlar',
-    externalRef: '40N1KtxyzUcj1AjNmo8e', license: '07-9338', guests: 4, bedrooms: 2, bathrooms: 2,
-    sourceUrl: 'https://www.birvillas.com/listing/40N1KtxyzUcj1AjNmo8e/villa-bella-2-sardunya-islamlar',
-    sourceGalleryCount: 26, poolSize: '7,3 × 3,5 × 1,5 m',
-    poolText: 'Korunaklı açık havuz 7,3 × 3,5 metre ölçülerinde ve 1,5 metre derinliğindedir.',
-    beds: ['Jakuzili bir çift kişilik yatak odası', 'İki tek kişilik yatak bulunan ikinci yatak odası'],
-    images: [
-      'https://d3ozpcfkjcdvth.cloudfront.net/listings/40N1KtxyzUcj1AjNmo8e/original_1784111109145_0_Villa_Bella_2__1_.webp',
-      'https://d3ozpcfkjcdvth.cloudfront.net/listings/40N1KtxyzUcj1AjNmo8e/original_1784111109150_1_Villa_Bella_2__2_.webp',
-      'https://d3ozpcfkjcdvth.cloudfront.net/listings/40N1KtxyzUcj1AjNmo8e/original_1784111109150_2_Villa_Bella_2__3_.webp',
-      'https://d3ozpcfkjcdvth.cloudfront.net/listings/40N1KtxyzUcj1AjNmo8e/original_1784111109150_3_Villa_Bella_2__4_.webp',
-      'https://d3ozpcfkjcdvth.cloudfront.net/listings/40N1KtxyzUcj1AjNmo8e/original_1784111109150_4_Villa_Bella_2__5_.webp',
-    ],
-  },
-  {
-    title: 'Villa Bella 3 – Lale', slug: 'villa-bella-3-lale-islamlar',
-    externalRef: 'Ohr7zRG8TXYfaJm2sBIg', license: '07-9337', guests: 4, bedrooms: 2, bathrooms: 2,
-    sourceUrl: 'https://www.birvillas.com/listing/Ohr7zRG8TXYfaJm2sBIg/villa-bella-3-lale-islamlar',
-    sourceGalleryCount: 27, poolSize: '7,3 × 3,5 × 1,5 m',
-    poolText: 'Özel açık havuz 7,3 × 3,5 metre ölçülerinde ve 1,5 metre derinliğindedir.',
-    beds: ['Özel banyolu iki yatak odası', 'Toplam dört kişilik konaklama düzeni ve jakuzi'],
-    images: [
-      'https://d3ozpcfkjcdvth.cloudfront.net/listings/Ohr7zRG8TXYfaJm2sBIg/original_1767938081090_0_enhanced_0_1767938080900.webp',
-      'https://d3ozpcfkjcdvth.cloudfront.net/listings/Ohr7zRG8TXYfaJm2sBIg/original_1767938089588_0_enhanced_1_1767938089357.webp',
-      'https://d3ozpcfkjcdvth.cloudfront.net/listings/Ohr7zRG8TXYfaJm2sBIg/original_1767938097860_0_enhanced_2_1767938097632.webp',
-      'https://d3ozpcfkjcdvth.cloudfront.net/listings/Ohr7zRG8TXYfaJm2sBIg/original_1767938106367_0_enhanced_3_1767938106142.webp',
-      'https://d3ozpcfkjcdvth.cloudfront.net/listings/Ohr7zRG8TXYfaJm2sBIg/original_1767938115699_0_enhanced_4_1767938115486.webp',
-    ],
-  },
-  {
-    title: 'Villa Bella 4 – Leylak', slug: 'villa-bella-4-leylak-islamlar',
-    externalRef: 'p32t5PQB7oycOmJ6jEXW', license: '07-9336', guests: 2, bedrooms: 1, bathrooms: 1,
-    sourceUrl: 'https://www.birvillas.com/listing/p32t5PQB7oycOmJ6jEXW/villa-bella-4-leylak-islamlar',
-    sourceGalleryCount: 23, poolSize: '',
-    poolText: 'Villa, dışarıdan görünürlüğü azaltılmış özel açık havuz ve jakuzi olanağı sunar.',
-    beds: ['Bir çift kişilik yatak bulunan yatak odası', 'Özel banyo ve jakuzi'],
-    images: [
-      'https://d3ozpcfkjcdvth.cloudfront.net/listings/p32t5PQB7oycOmJ6jEXW/original_1767966818560_0_enhanced_0_1767966818070.webp',
-      'https://d3ozpcfkjcdvth.cloudfront.net/listings/p32t5PQB7oycOmJ6jEXW/original_1767966827269_0_enhanced_1_1767966826859.webp',
-      'https://d3ozpcfkjcdvth.cloudfront.net/listings/p32t5PQB7oycOmJ6jEXW/original_1767966839597_0_enhanced_2_1767966839297.webp',
-      'https://d3ozpcfkjcdvth.cloudfront.net/listings/p32t5PQB7oycOmJ6jEXW/original_1767966852215_0_enhanced_3_1767966852037.webp',
-      'https://d3ozpcfkjcdvth.cloudfront.net/listings/p32t5PQB7oycOmJ6jEXW/original_1767966861752_0_enhanced_4_1767966861583.webp',
-    ],
-  },
-  {
-    title: 'Villa Bella 5 – Kartal Yuvası', slug: 'villa-bella-5-kartal-yuvasi-islamlar',
-    externalRef: 'pfosunWEj7iQaf36WVbT', license: '07-9335', guests: 6, bedrooms: 3, bathrooms: 3,
-    sourceUrl: 'https://www.birvillas.com/listing/pfosunWEj7iQaf36WVbT/villa-bella-5-islamlar',
-    sourceGalleryCount: 38, poolSize: '11 × 4 × 1,5 m',
-    poolText: 'Özel açık havuz 11 × 4 metre ölçülerinde ve 1,5 metre derinliğindedir.',
-    beds: ['Üç çift kişilik yatak odası', 'Her yatak odasında özel banyo', 'Yatak odalarından birinde jakuzi'],
-    images: [
-      'https://d3ozpcfkjcdvth.cloudfront.net/listings/pfosunWEj7iQaf36WVbT/original_1767967979519_0_enhanced_0_1767967979054.webp',
-      'https://d3ozpcfkjcdvth.cloudfront.net/listings/pfosunWEj7iQaf36WVbT/original_1767967987608_0_enhanced_1_1767967987248.webp',
-      'https://d3ozpcfkjcdvth.cloudfront.net/listings/pfosunWEj7iQaf36WVbT/original_1767967996900_0_enhanced_2_1767967996551.webp',
-      'https://d3ozpcfkjcdvth.cloudfront.net/listings/pfosunWEj7iQaf36WVbT/original_1767968006589_0_enhanced_3_1767968006314.webp',
-      'https://d3ozpcfkjcdvth.cloudfront.net/listings/pfosunWEj7iQaf36WVbT/original_1767968016344_0_enhanced_4_1767968016159.webp',
-    ],
-  },
-]
-
-function pools(villa) {
-  const [length = '', width = '', depth = ''] = villa.poolSize.replace(/ m$/, '').split(' × ').map((x) => x.replace(',', '.'))
-  return {
-    open_pool: { enabled: true, length, width, depth, description: 'Özel açık yüzme havuzu', heating_fee_per_day: '' },
-    heated_pool: { enabled: false, length: '', width: '', depth: '', description: '', heating_fee_per_day: '' },
-    children_pool: { enabled: false, length: '', width: '', depth: '', description: '', heating_fee_per_day: '' },
-  }
-}
+const ALLOW_OFFLINE = process.argv.includes('--allow-offline')
 
 const results = []
-for (const villa of VILLAS) {
-  let live = null
-  try {
-    live = await fetchBirvillasListingPage(villa.sourceUrl, villa.externalRef)
-  } catch (error) {
-    console.warn(`[WARN] ${villa.title} canlı ayrıntısı alınamadı: ${error.message}`)
+for (const villa of BELLA_VILLAS) {
+  const built = await buildBellaVillaPackage(villa, {
+    requireLive: !ALLOW_OFFLINE,
+    resolveAmenities: !DRY_RUN,
+  })
+  if (!built.live && !ALLOW_OFFLINE) {
+    throw new Error(`live_required:${villa.slug}`)
   }
-  const description = live?.description?.tr
-    ? semanticSourceDescription('tr', live.description.tr, live)
-    : html(villa)
-  const translations = live
-    ? Object.entries(live.title || {}).flatMap(([locale, title]) => {
-        const translated = live.description?.[locale]
-        return translated ? [{ locale, title, description: semanticSourceDescription(locale, translated, live) }] : []
-      })
-    : [{ locale: 'tr', title: villa.title, description }]
-  const galleryUrls = live?.images?.length
-    ? [...live.images].sort((a, b) => Number(a.order || 0) - Number(b.order || 0)).map((row) => row.url).filter(Boolean)
-    : villa.images
-  const seasonalPrices = live ? (live.dynamicPricing || []).flatMap((row) => (
-    row.startDate && row.endDate && Number(row.price) > 0
-      ? [{ from: row.startDate, to: row.endDate, baseNightly: Number(row.price), label: row.name || '' }]
-      : []
-  )) : undefined
-  const shortStayThreshold = Math.max(0, ...(live?.dynamicPricing || []).map((row) => Number(row.minimumStayForCleaning) || 0)) || null
-  const livePool = live?.pools?.find((p) => p.type === 'outdoor')
-  const poolSizeLabel = livePool
-    ? [livePool.dimensions?.length, livePool.dimensions?.width, livePool.dimensions?.depth].filter(Boolean).join(' × ') + ' m'
-    : villa.poolSize
-  const result = await runManualHolidayHomeImport({
-    provider: 'birvillas',
-    slug: villa.slug,
-    externalRef: villa.externalRef,
-    sourceUrl: villa.sourceUrl,
-    title: live?.title?.tr || villa.title,
-    description,
-    translations,
-    currency: live?.currency || 'TRY',
-    seasonalPrices,
-    vitrinPrice: Number(live?.price) > 0 ? Number(live.price) : null,
-    minStayNights: Number(live?.minDays) > 0 ? Number(live.minDays) : null,
-    galleryUrls,
-    amenities: live ? amenityLabels(live.amenities) : AMENITIES,
-    themeCodes: live?.features?.length ? live.features : THEMES,
-    ruleCodes: live ? liveRuleCodes(live) : [],
-    pools: live ? livePools(live, villa) : pools(villa),
-    poolSizeLabel,
-    locationName: 'İslamlar, Kaş, Antalya',
-    mapLat: live?.coordinates?.latitude || MAP_LAT,
-    mapLng: live?.coordinates?.longitude || MAP_LNG,
-    tourismCertNo: villa.license,
-    damageDeposit: Number(live?.fees?.damageDeposit) > 0 ? Number(live.fees.damageDeposit) : null,
-    shortStayFee: Number(live?.fees?.cleaningFee) > 0 ? Number(live.fees.cleaningFee) : null,
-    minShortStayNights: shortStayThreshold,
-    calendarDays: live ? birvillasCalendarDays(live) : undefined,
-    priceNote: live ? 'Fiyat ve müsaitlik Birvillas canlı ilan verisinden alınmıştır.' : 'Fiyat ve müsaitlik canlı kaynaktan doğrulanmalıdır.',
-    meta: {
-      city: 'Kaş', province_city: 'Antalya', district_label: 'İslamlar',
-      region_display: 'İslamlar, Kaş', address: 'İslamlar, Kaş, Antalya, Türkiye',
-      bed_count: String(live?.beds || villa.bedrooms), bath_count: String(live?.bathrooms || villa.bathrooms),
-      room_count: String(live?.bedrooms || villa.bedrooms), max_guests: String(live?.maxGuests || villa.guests),
-      property_type: 'villa', pool_type: 'Özel açık havuz',
-      check_in_time: live?.checkInTime || '16:00', check_out_time: live?.checkOutTime || '10:00',
-      min_advance_booking_days: String(live?.minimumAdvanceBooking || ''),
-      short_stay_fee: String(live?.fees?.cleaningFee || ''),
-      min_short_stay_nights: String(shortStayThreshold || ''),
-      damage_deposit: String(live?.fees?.damageDeposit || ''),
-      ministry_license_ref: villa.license, source_url: villa.sourceUrl,
-      bedrooms: live?.bedroomsData || [], services: live?.services || [],
-      provider_gallery_count: String(live?.images?.length || villa.sourceGalleryCount), imported_gallery_count: String(galleryUrls.length),
-      media_incomplete: galleryUrls.length < (live?.images?.length || villa.sourceGalleryCount),
-    },
-  }, { status: 'draft', skipImages: SKIP_IMAGES, dryRun: DRY_RUN })
-  results.push({ ...result, sourceGalleryCount: live?.images?.length || villa.sourceGalleryCount, live: Boolean(live) })
+  const result = await runManualHolidayHomeImport(built.pkg, {
+    status: 'draft',
+    skipImages: SKIP_IMAGES,
+    dryRun: DRY_RUN,
+  })
+  results.push({
+    ...result,
+    sourceGalleryCount: built.sourceGalleryCount,
+    live: built.live,
+    themeCodes: built.pkg.themeCodes,
+    amenityCount: built.pkg.amenityRows?.length || built.pkg.amenities?.length || 0,
+    priceBands: built.pkg.seasonalPrices?.length || 0,
+  })
   console.log(JSON.stringify(results.at(-1), null, 2))
 }
 

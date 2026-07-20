@@ -37,6 +37,22 @@ function balancedObjectAt(text, start) {
   return ''
 }
 
+/** Soft/client redirect hedefleri (HTTP 200 + meta refresh / NEXT_REDIRECT). */
+export function extractBirvillasClientRedirect(html) {
+  const nextRedirect = String(html || '').match(
+    /NEXT_REDIRECT;replace;(https?:\/\/[^;]+);/i,
+  )
+  if (nextRedirect?.[1]) return nextRedirect[1].trim()
+  const meta = String(html || '').match(
+    /http-equiv=["']refresh["'][^>]*content=["'][^"']*url=([^"']+)["']/i,
+  )
+  if (meta?.[1]) return meta[1].trim()
+  const canonical = String(html || '').match(
+    /rel=["']canonical["'][^>]*href=["']([^"']+)["']/i,
+  )
+  return canonical?.[1]?.trim() || null
+}
+
 export function parseBirvillasListingPage(html, listingId) {
   const decoded = nextFlightText(html)
   const needle = `"listing":{"id":"${listingId}"`
@@ -53,15 +69,28 @@ export function parseBirvillasListingPage(html, listingId) {
   }
 }
 
-export async function fetchBirvillasListingPage(url, listingId) {
+async function fetchHtml(url) {
   const response = await fetch(url, {
     headers: { Accept: 'text/html', 'User-Agent': 'Mozilla/5.0 (compatible; RezervasyonYapImport/1.0)' },
+    redirect: 'follow',
     signal: AbortSignal.timeout(45_000),
   })
-  if (!response.ok) throw new Error(`birvillas_http_${response.status}:${listingId}`)
-  const listing = parseBirvillasListingPage(await response.text(), listingId)
-  if (!listing) throw new Error(`birvillas_embedded_listing_missing:${listingId}`)
-  return listing
+  if (!response.ok) throw new Error(`birvillas_http_${response.status}`)
+  return { url: response.url, html: await response.text() }
+}
+
+export async function fetchBirvillasListingPage(url, listingId) {
+  let current = url
+  let listing = null
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const { url: finalUrl, html } = await fetchHtml(current)
+    listing = parseBirvillasListingPage(html, listingId)
+    if (listing) return listing
+    const redirected = extractBirvillasClientRedirect(html)
+    if (!redirected || redirected === current || redirected === finalUrl) break
+    current = redirected
+  }
+  throw new Error(`birvillas_embedded_listing_missing:${listingId}`)
 }
 
 export function birvillasCalendarDays(listing) {
@@ -79,4 +108,3 @@ export function birvillasCalendarDays(listing) {
   }
   return rows
 }
-

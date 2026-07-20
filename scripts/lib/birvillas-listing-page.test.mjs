@@ -1,8 +1,13 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import fs from 'node:fs'
-import { birvillasCalendarDays, parseBirvillasListingPage } from './birvillas-listing-page.mjs'
+import {
+  birvillasCalendarDays,
+  extractBirvillasClientRedirect,
+  parseBirvillasListingPage,
+} from './birvillas-listing-page.mjs'
 import { HOLIDAY_HOME_RULE_CODE_TO_ACCOMMODATION_ID } from './bravo-holiday-home-map.mjs'
+import { systemThemeCodesFromBirvillas } from './birvillas-amenity-map.mjs'
 
 test('extracts a balanced listing object from Next flight data', () => {
   const payload = ['x', 'node:{"listing":{"id":"abc","name":"Villa","images":[{"url":"x"}]},"tail":true}']
@@ -10,6 +15,14 @@ test('extracts a balanced listing object from Next flight data', () => {
   assert.deepEqual(parseBirvillasListingPage(html, 'abc'), {
     id: 'abc', name: 'Villa', images: [{ url: 'x' }],
   })
+})
+
+test('follows Next soft-redirect targets when the short slug page has no listing payload', () => {
+  const html = '<script>self.__next_f.push([1,"1f:E{\\"digest\\":\\"NEXT_REDIRECT;replace;https://www.birvillas.com/listing/abc/full-slug;308;\\"}\\n"])</script>'
+  assert.equal(
+    extractBirvillasClientRedirect(html),
+    'https://www.birvillas.com/listing/abc/full-slug',
+  )
 })
 
 test('builds priced availability and preserves blocked dates', () => {
@@ -28,6 +41,17 @@ test('maps every Birvillas restrictive rule to the platform rule set', () => {
   assert.equal(HOLIDAY_HOME_RULE_CODE_TO_ACCOMMODATION_ID.no_pets, 'hh-rule-no-pets')
   assert.equal(HOLIDAY_HOME_RULE_CODE_TO_ACCOMMODATION_ID.no_smoking, 'hh-rule-no-smoking')
   assert.equal(HOLIDAY_HOME_RULE_CODE_TO_ACCOMMODATION_ID.no_parties, 'hh-rule-no-parties')
+})
+
+test('maps Birvillas features only to system holiday_home theme codes', () => {
+  assert.deepEqual(
+    systemThemeCodesFromBirvillas({
+      features: ['honeymoon', 'luxury', 'modern', 'sea-view', 'sheltered', 'family-friendly'],
+      amenities: ['jacuzzi', 'wifi'],
+      pools: [{ type: 'outdoor' }],
+    }),
+    ['sea_view', 'conservative', 'luxury', 'honeymoon', 'family', 'pool', 'jacuzzi'],
+  )
 })
 
 test('does not erase live price or calendar when the provider page is temporarily incomplete', () => {

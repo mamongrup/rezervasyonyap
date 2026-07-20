@@ -85,20 +85,44 @@ function amenityKeyFromName(name) {
     .slice(0, 80)
 }
 
-async function upsertAmenities(pg, listingId, amenities = []) {
-  for (const name of amenities) {
-    const key = amenityKeyFromName(name)
-    if (!key) continue
+async function upsertAmenities(pg, listingId, amenities = [], amenityRows = null) {
+  const rows = Array.isArray(amenityRows) && amenityRows.length
+    ? amenityRows
+    : amenities.map((name) => {
+        const key = amenityKeyFromName(name)
+        return key
+          ? {
+              group_code: 'imported_amenity',
+              key,
+              value_json: { label: name, enabled: true },
+            }
+          : null
+      }).filter(Boolean)
+
+  if (!rows.length) return
+
+  await pg.query(
+    `DELETE FROM listing_attributes
+     WHERE listing_id = $1::uuid
+       AND group_code IN ('imported_amenity', 'ic_mekan', 'dis_mekan')`,
+    [listingId],
+  )
+
+  for (const row of rows) {
     await pg.query(
       `INSERT INTO listing_attributes (listing_id, group_code, key, value_json)
-       VALUES ($1::uuid, 'imported_amenity', $2, $3::jsonb)
+       VALUES ($1::uuid, $2, $3, $4::jsonb)
        ON CONFLICT (listing_id, group_code, key) DO UPDATE SET value_json = excluded.value_json`,
-      [listingId, key, JSON.stringify({ label: name, enabled: true })],
+      [listingId, row.group_code, row.key, JSON.stringify(row.value_json)],
     )
   }
 }
 
 async function upsertThemes(pg, listingId, themeCodes = []) {
+  await pg.query(
+    `DELETE FROM listing_attributes WHERE listing_id = $1::uuid AND group_code = 'tema'`,
+    [listingId],
+  )
   for (const code of themeCodes) {
     await pg.query(
       `INSERT INTO listing_attributes (listing_id, group_code, key, value_json)
@@ -114,9 +138,12 @@ async function upsertPriceRules(pg, listingId, seasonal = [], minStayNights = 5)
   let i = 0
   for (const band of seasonal) {
     i += 1
+    const bandMin = Number(band.minNights) > 0
+      ? Number(band.minNights)
+      : (i === 1 ? minStayNights : null)
     const ruleJson = buildSeasonalRuleJson(
       { price: band.baseNightly, from: band.from, to: band.to },
-      { minNights: i === 1 ? String(minStayNights) : '', label: band.label || '' },
+      { minNights: bandMin ? String(bandMin) : '', label: band.label || '' },
     )
     await pg.query(
       `INSERT INTO listing_price_rules (listing_id, rule_json, valid_from, valid_to)
@@ -164,6 +191,7 @@ export async function upsertManualHolidayHome(pg, ctx, pkg, opts = {}) {
     dryRun = false,
     skipImages = false,
     updateExisting = true,
+    preserveStatus = false,
   } = opts
   const provider = pkg.provider || 'manual'
   const slug = pkg.slug
@@ -171,6 +199,12 @@ export async function upsertManualHolidayHome(pg, ctx, pkg, opts = {}) {
   const themeCodes = [...new Set((pkg.themeCodes || []).map((c) => String(c).trim()).filter(Boolean))]
   let listingId = await findListingId(pg, provider, externalRef, slug)
   const isNew = !listingId
+
+  let effectiveStatus = status
+  if (!isNew && preserveStatus) {
+    const st = await pg.query(`SELECT status FROM listings WHERE id = $1::uuid`, [listingId])
+    if (st.rows[0]?.status) effectiveStatus = st.rows[0].status
+  }
 
   if (!isNew && !updateExisting) {
     return { action: 'skipped', listingId, slug, externalRef }
@@ -185,7 +219,10 @@ export async function upsertManualHolidayHome(pg, ctx, pkg, opts = {}) {
       priceBands: pkg.seasonalPrices?.length || 0,
       currency: pkg.currency || 'EUR',
       vitrinPrice: pkg.vitrinPrice,
+      themeCodes,
+      amenityCount: pkg.amenityRows?.length || pkg.amenities?.length || 0,
       dryRun: true,
+      status: effectiveStatus,
     }
   }
 
@@ -207,7 +244,7 @@ export async function upsertManualHolidayHome(pg, ctx, pkg, opts = {}) {
         [
           listingId,
           slug,
-          status,
+          effectiveStatus,
           pkg.currency || 'EUR',
           pkg.minStayNights ?? null,
           pkg.mapLat || null,
@@ -239,7 +276,7 @@ export async function upsertManualHolidayHome(pg, ctx, pkg, opts = {}) {
           ctx.orgId,
           ctx.categoryId,
           slug,
-          status,
+          effectiveStatus,
           pkg.currency || 'EUR',
           pkg.minStayNights ?? null,
           pkg.mapLat || null,
@@ -278,7 +315,7 @@ export async function upsertManualHolidayHome(pg, ctx, pkg, opts = {}) {
     )
 
     await upsertThemes(pg, listingId, themeCodes)
-    await upsertAmenities(pg, listingId, pkg.amenities)
+    await upsertAmenities(pg, listingId, pkg.amenities, pkg.amenityRows)
     if (pkg.seasonalPrices !== undefined) {
       await upsertPriceRules(pg, listingId, pkg.seasonalPrices || [], pkg.minStayNights || 5)
     }
