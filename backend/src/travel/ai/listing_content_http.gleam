@@ -1695,7 +1695,7 @@ pub fn worker_try_listing_content(ctx: Context) -> Result(Bool, String) {
     <> "where status = 'running' and updated_at < now() - interval '20 minutes' returning id"
     <> ") update ai_listing_content_batches set status = 'running', updated_at = now() "
     <> "where id = (select id from ai_listing_content_batches where status = 'pending' "
-    <> "order by case category_code when 'holiday_home' then 0 when 'yacht_charter' then 1 when 'hotel' then 2 else 3 end, created_at, case phase when 'tr_description' then 0 when 'translations' then 1 when 'seo' then 2 else 3 end limit 1) "
+    <> "order by updated_at, created_at, case phase when 'tr_description' then 0 when 'translations' then 1 when 'seo' then 2 else 3 end limit 1) "
     <> "returning id::text, listing_id::text, category_code, phase, overwrite"
   case
     pog.query(pick_sql)
