@@ -6312,46 +6312,6 @@ export default function CatalogNewListingClient({
               </div>
             )}
 
-            {!isVilla && currentStep === 6 ? (
-              <Section
-                title="Yayın Durumu"
-                subtitle="İlanın kaydedildikten sonra vitrinde nasıl görüneceğini seçin."
-              >
-                <div className="grid gap-3 sm:grid-cols-3">
-                  {[
-                    { value: 'published', label: 'Yayında', hint: 'Vitrinde görünür.' },
-                    { value: 'draft', label: 'Taslak', hint: 'Hazırlık aşamasında kalır.' },
-                    { value: 'archived', label: 'Arşivlenmiş', hint: 'Vitrinden gizlenir.' },
-                  ].map((item) => (
-                    <label
-                      key={item.value}
-                      className={clsx(
-                        'cursor-pointer rounded-xl border px-4 py-3 transition-colors',
-                        status === item.value
-                          ? 'border-primary-300 bg-primary-50 text-primary-900 dark:border-primary-800 dark:bg-primary-950/30 dark:text-primary-100'
-                          : 'border-neutral-200 bg-white text-neutral-700 hover:border-neutral-300 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-200',
-                      )}
-                    >
-                      <span className="flex items-center gap-2">
-                        <input
-                          type="radio"
-                          name="status"
-                          value={item.value}
-                          checked={status === item.value}
-                          onChange={() => setStatus(item.value as 'draft' | 'published' | 'archived')}
-                          className="h-4 w-4 accent-primary-600"
-                        />
-                        <span className="text-sm font-semibold">{item.label}</span>
-                      </span>
-                      <span className="mt-1 block text-xs text-neutral-500 dark:text-neutral-400">
-                        {item.hint}
-                      </span>
-                    </label>
-                  ))}
-                </div>
-              </Section>
-            ) : null}
-
           </div>
 
         </div>
