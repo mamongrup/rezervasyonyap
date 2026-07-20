@@ -2709,7 +2709,7 @@ export default function CatalogNewListingClient({
 
       // 4. Temel ilan alanları
       const basicsBody: Parameters<typeof patchListingBasics>[2] = { status }
-      const msn = basicsIntField(minStayNights)
+      const msn = !isHotel ? basicsIntField(minStayNights) : null
       if (msn) basicsBody.min_stay_nights = msn
       const cleaning = basicsDecimalField(cleaningFee)
       if (cleaning) basicsBody.cleaning_fee_amount = cleaning
@@ -2762,11 +2762,11 @@ export default function CatalogNewListingClient({
       const metaBody: Record<string, string> = {}
       if (checkInTime.trim()) metaBody.check_in_time = checkInTime.trim()
       if (checkOutTime.trim()) metaBody.check_out_time = checkOutTime.trim()
-      if (bedCount.trim()) metaBody.bed_count = bedCount.trim()
-      if (bathCount.trim()) metaBody.bath_count = bathCount.trim()
-      if (maxGuests.trim()) metaBody.max_guests = maxGuests.trim()
-      if (minAdvanceBookingDays.trim()) metaBody.min_advance_booking_days = minAdvanceBookingDays.trim()
-      if (roomCount.trim()) metaBody.room_count = roomCount.trim()
+      if (!isHotel && bedCount.trim()) metaBody.bed_count = bedCount.trim()
+      if (!isHotel && bathCount.trim()) metaBody.bath_count = bathCount.trim()
+      if (!isHotel && maxGuests.trim()) metaBody.max_guests = maxGuests.trim()
+      if (!isHotel && minAdvanceBookingDays.trim()) metaBody.min_advance_booking_days = minAdvanceBookingDays.trim()
+      if (!isHotel && roomCount.trim()) metaBody.room_count = roomCount.trim()
       if (isVilla && propertyType.trim()) metaBody.property_type = propertyType.trim()
       if (youtubeUrl.trim()) metaBody.youtube_url = youtubeUrl.trim()
       metaBody.source_reference_url = sourceReferenceUrl.trim()
@@ -2784,7 +2784,7 @@ export default function CatalogNewListingClient({
       if (lng.trim()) metaBody.lng = lng.trim()
       if (shortStayMinNights.trim()) metaBody.min_short_stay_nights = shortStayMinNights.trim()
       if (shortStayFee.trim()) metaBody.short_stay_fee = shortStayFee.trim()
-      if (squareMeters.trim()) metaBody.square_meters = squareMeters.trim()
+      if (!isHotel && squareMeters.trim()) metaBody.square_meters = squareMeters.trim()
       if (isVilla && ownerTcNo.trim()) metaBody.owner_tc_no = ownerTcNo.trim()
       if (isVilla && ownerBankName.trim()) metaBody.owner_bank_name = ownerBankName.trim()
       if (isVilla && ownerIban.trim()) metaBody.owner_iban = ownerIban.replace(/\s/g, '').trim()
@@ -4176,7 +4176,8 @@ export default function CatalogNewListingClient({
             {/* ── ADIM 2: Özellikler ── */}
             {currentStep === 2 && (
             <>
-            {/* Fazladan Bilgi — villa: önceden rezervasyon, kişi/oda/banyo; diğer: yatak, alan… */}
+            {/* Fazladan Bilgi — tatil evi vb.; otelde yatak/kapasite oda seviyesinde */}
+            {!isHotel && (
             <Section
               title="Fazladan Bilgi"
               subtitle={
@@ -4349,6 +4350,7 @@ export default function CatalogNewListingClient({
                 </Grid3>
               )}
             </Section>
+            )}
 
             {hotelProfileSection}
 
