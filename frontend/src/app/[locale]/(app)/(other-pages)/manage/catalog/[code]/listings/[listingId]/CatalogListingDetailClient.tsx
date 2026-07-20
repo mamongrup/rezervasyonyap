@@ -3520,7 +3520,7 @@ export default function CatalogListingDetailClient({
                   {/* Dahil Öğünler */}
                   {mpCode !== 'room_only' && (
                     <div className="sm:col-span-2">
-                      <Label className="mb-2 block text-sm font-medium">{ui.mealPlans.includedMeals}</Label>
+                      <p className="mb-2 block text-sm font-medium">{ui.mealPlans.includedMeals}</p>
                       <div className="flex flex-wrap gap-2">
                         {MEAL_OPTIONS.map((opt) => (
                           <label key={opt.value} className="flex cursor-pointer items-center gap-1.5 rounded-full border px-3 py-1 text-sm transition select-none
@@ -3545,7 +3545,7 @@ export default function CatalogListingDetailClient({
                   {/* Dahil İkramlar */}
                   {mpCode !== 'room_only' && (
                     <div className="sm:col-span-2">
-                      <Label className="mb-2 block text-sm font-medium">{ui.mealPlans.includedExtras}</Label>
+                      <p className="mb-2 block text-sm font-medium">{ui.mealPlans.includedExtras}</p>
                       <div className="flex flex-wrap gap-2">
                         {MEAL_EXTRAS_OPTIONS.map((opt) => (
                           <label key={opt.value} className="flex cursor-pointer items-center gap-1.5 rounded-full border px-3 py-1 text-sm transition select-none

@@ -5408,7 +5408,7 @@ export default function CatalogNewListingClient({
                         </Field>
                         {mpCode !== 'room_only' && (
                           <div className="sm:col-span-2">
-                            <Label className="mb-2 block text-sm font-medium">Dahil Öğünler</Label>
+                            <p className="mb-2 block text-sm font-medium">Dahil Öğünler</p>
                             <div className="flex flex-wrap gap-2">
                               {MEAL_OPTIONS.map((opt) => (
                                 <label key={opt.value} className={`flex cursor-pointer items-center gap-1.5 rounded-full border px-3 py-1 text-sm transition select-none ${mpMeals.includes(opt.value) ? 'border-emerald-500 bg-emerald-50 text-emerald-700 dark:border-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-300' : 'border-neutral-200 bg-white dark:border-neutral-700 dark:bg-neutral-900'}`}>
@@ -5420,7 +5420,7 @@ export default function CatalogNewListingClient({
                           </div>
                         )}
                         <div className="sm:col-span-2">
-                          <Label className="mb-2 block text-sm font-medium">Dahil İkramlar</Label>
+                          <p className="mb-2 block text-sm font-medium">Dahil İkramlar</p>
                           <div className="flex flex-wrap gap-2">
                             {MEAL_EXTRAS_OPTIONS.map((opt) => (
                               <label key={opt.value} className={`flex cursor-pointer items-center gap-1.5 rounded-full border px-3 py-1 text-sm transition select-none ${mpExtras.includes(opt.value) ? 'border-blue-400 bg-blue-50 text-blue-700 dark:border-blue-600 dark:bg-blue-900/30 dark:text-blue-300' : 'border-neutral-200 bg-white dark:border-neutral-700 dark:bg-neutral-900'}`}>
