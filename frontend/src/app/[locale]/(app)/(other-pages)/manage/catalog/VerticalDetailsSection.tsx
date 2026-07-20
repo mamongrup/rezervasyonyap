@@ -101,8 +101,11 @@ function useLoadMeta<T>(
 ) {
   const [loading, setLoading] = useState(true)
   useEffect(() => {
-    getVerticalMeta<T>(listingId, category)
-      .then(onLoad)
+    getVerticalMeta<unknown>(listingId, category)
+      .then((res) => {
+        const payload = unwrapVerticalMetaPayload(res) as T
+        onLoad(payload)
+      })
       .catch(() => {})
       .finally(() => setLoading(false))
   }, [listingId, category]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -2013,6 +2016,366 @@ function CinemaSection({ listingId }: { listingId: string }) {
   )
 }
 
+// ─── Kruvaziyer / Mavi Yolculuk (cruise) ───────────────────────────────────────
+function CruiseSection({ listingId }: { listingId: string }) {
+  const [form, setForm] = useState({
+    ship_name: '',
+    departure_port: '',
+    arrival_port: '',
+    duration_nights: '',
+    cabin_types: '',
+    ports_of_call: '',
+    includes: '',
+    cancellation_policy: '',
+  })
+  const [busy, setBusy] = useState(false)
+  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null)
+  const save = useSave('cruise', listingId)
+
+  const loading = useLoadMeta<typeof form>(listingId, 'cruise', (d) => {
+    setForm({
+      ship_name: d.ship_name ?? '',
+      departure_port: d.departure_port ?? '',
+      arrival_port: d.arrival_port ?? '',
+      duration_nights: d.duration_nights ?? '',
+      cabin_types: d.cabin_types ?? '',
+      ports_of_call: d.ports_of_call ?? '',
+      includes: d.includes ?? '',
+      cancellation_policy: d.cancellation_policy ?? '',
+    })
+  })
+
+  const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) =>
+    setForm((prev) => ({ ...prev, [k]: e.target.value }))
+
+  async function handleSave() {
+    setBusy(true); setMsg(null)
+    try {
+      await save(form)
+      setMsg({ ok: true, text: 'Kruvaziyer detayları kaydedildi.' })
+    } catch (e) {
+      setMsg({ ok: false, text: e instanceof Error ? formatManageApiError(e.message) : formatManageApiError('save_failed') })
+    } finally { setBusy(false) }
+  }
+
+  if (loading) return <p className="text-sm text-neutral-400">Yükleniyor…</p>
+
+  return (
+    <div className="space-y-6">
+      <SectionTitle>Kruvaziyer / Rota Bilgileri</SectionTitle>
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Field className="block">
+          <Label>Gemi / Rota Adı</Label>
+          <Input className="mt-1" value={form.ship_name} onChange={set('ship_name')} placeholder="ör: Costa Fortuna / Mavi Tur Rota 1" />
+        </Field>
+        <Field className="block">
+          <Label>Gece Sayısı</Label>
+          <Input type="number" min="1" className="mt-1" value={form.duration_nights} onChange={set('duration_nights')} placeholder="7" />
+        </Field>
+        <Field className="block">
+          <Label>Kalkış Limanı</Label>
+          <Input className="mt-1" value={form.departure_port} onChange={set('departure_port')} placeholder="ör: İstanbul / Bodrum" />
+        </Field>
+        <Field className="block">
+          <Label>Varış / Dönüş Limanı</Label>
+          <Input className="mt-1" value={form.arrival_port} onChange={set('arrival_port')} placeholder="ör: Atina / Fethiye" />
+        </Field>
+        <Field className="block sm:col-span-2">
+          <Label>Kabin Tipleri (Virgülle ayırın)</Label>
+          <Input className="mt-1" value={form.cabin_types} onChange={set('cabin_types')} placeholder="İç Kabin, Dış Kabin, Balkonlu Süit, VIP Kabin" />
+        </Field>
+        <Field className="block sm:col-span-2">
+          <Label>Uğrak Limanları / Duraklar (Virgülle ayırın)</Label>
+          <Input className="mt-1" value={form.ports_of_call} onChange={set('ports_of_call')} placeholder="Mikonos, Santoroni, Rodos, Kuşadası" />
+        </Field>
+        <Field className="block sm:col-span-2">
+          <Label>Dahil Olan Hizmetler</Label>
+          <Input className="mt-1" value={form.includes} onChange={set('includes')} placeholder="Tam pansiyon konaklama, Hoşgeldin kokteyli, Liman vergileri" />
+        </Field>
+        <Field className="block sm:col-span-2">
+          <Label>İptal & Değişiklik Şartları</Label>
+          <Input className="mt-1" value={form.cancellation_policy} onChange={set('cancellation_policy')} placeholder="30 gün kalaya kadar kesintisiz iade" />
+        </Field>
+      </div>
+      <StatusMsg msg={msg} />
+      <ButtonPrimary type="button" disabled={busy} onClick={() => void handleSave()}>
+        {busy ? '…' : 'Kruvaziyer Bilgilerini Kaydet'}
+      </ButtonPrimary>
+    </div>
+  )
+}
+
+// ─── Havalimanı Transferi (transfer) ─────────────────────────────────────────
+function TransferSection({ listingId }: { listingId: string }) {
+  const [form, setForm] = useState({
+    pickup_location: '',
+    dropoff_location: '',
+    vehicle_type: 'vito',
+    max_passengers: '6',
+    max_luggage: '6',
+    has_meet_greet: true,
+    flight_tracking: true,
+    cancellation_hours: '24',
+  })
+  const [busy, setBusy] = useState(false)
+  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null)
+  const save = useSave('transfer', listingId)
+
+  const loading = useLoadMeta<typeof form>(listingId, 'transfer', (d) => {
+    setForm({
+      pickup_location: d.pickup_location ?? '',
+      dropoff_location: d.dropoff_location ?? '',
+      vehicle_type: d.vehicle_type ?? 'vito',
+      max_passengers: d.max_passengers ?? '6',
+      max_luggage: d.max_luggage ?? '6',
+      has_meet_greet: Boolean(d.has_meet_greet ?? true),
+      flight_tracking: Boolean(d.flight_tracking ?? true),
+      cancellation_hours: d.cancellation_hours ?? '24',
+    })
+  })
+
+  const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
+    setForm((prev) => ({ ...prev, [k]: e.target.type === 'checkbox' ? (e.target as HTMLInputElement).checked : e.target.value }))
+
+  async function handleSave() {
+    setBusy(true); setMsg(null)
+    try {
+      await save(form)
+      setMsg({ ok: true, text: 'Transfer bilgileri kaydedildi.' })
+    } catch (e) {
+      setMsg({ ok: false, text: e instanceof Error ? formatManageApiError(e.message) : formatManageApiError('save_failed') })
+    } finally { setBusy(false) }
+  }
+
+  if (loading) return <p className="text-sm text-neutral-400">Yükleniyor…</p>
+
+  return (
+    <div className="space-y-6">
+      <SectionTitle>Transfer & Araç Hizmeti Bilgileri</SectionTitle>
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Field className="block">
+          <Label>Kalkış / Alış Noktası</Label>
+          <Input className="mt-1" value={form.pickup_location} onChange={set('pickup_location')} placeholder="ör: Antalya Havalimanı (AYT)" />
+        </Field>
+        <Field className="block">
+          <Label>Varış / Bırakış Bölgesi</Label>
+          <Input className="mt-1" value={form.dropoff_location} onChange={set('dropoff_location')} placeholder="ör: Belek / Kemer / Alanya Otelleri" />
+        </Field>
+        <Field className="block">
+          <Label>Araç Tipi</Label>
+          <select className={SELECT_CLS} value={form.vehicle_type} onChange={set('vehicle_type')}>
+            <option value="vito">Mercedes Vito / Minibüs (VIP)</option>
+            <option value="sedan">Binek Sedan (1-3 Kişi)</option>
+            <option value="sprinter">Mercedes Sprinter (10-16 Kişi)</option>
+            <option value="bus">Otobüs (20+ Kişi)</option>
+          </select>
+        </Field>
+        <Field className="block">
+          <Label>Maks. Yolcu Sayısı</Label>
+          <Input type="number" min="1" className="mt-1" value={form.max_passengers} onChange={set('max_passengers')} placeholder="6" />
+        </Field>
+        <Field className="block">
+          <Label>Maks. Bagaj Kapasitesi (Adet)</Label>
+          <Input type="number" min="0" className="mt-1" value={form.max_luggage} onChange={set('max_luggage')} placeholder="6" />
+        </Field>
+        <Field className="block">
+          <Label>Ücretsiz İptal Süresi (Saat)</Label>
+          <Input type="number" min="0" className="mt-1" value={form.cancellation_hours} onChange={set('cancellation_hours')} placeholder="24" />
+        </Field>
+        <Field className="block sm:col-span-2">
+          <div className="flex flex-wrap gap-6 pt-2">
+            <label className="flex items-center gap-2 text-sm font-medium cursor-pointer">
+              <input type="checkbox" checked={form.has_meet_greet} onChange={set('has_meet_greet')} className="h-4 w-4 rounded accent-primary-600" />
+              İsimli Karşılama Hizmeti Dahil
+            </label>
+            <label className="flex items-center gap-2 text-sm font-medium cursor-pointer">
+              <input type="checkbox" checked={form.flight_tracking} onChange={set('flight_tracking')} className="h-4 w-4 rounded accent-primary-600" />
+              Uçuş Rötar Takibi Yapılır
+            </label>
+          </div>
+        </Field>
+      </div>
+      <StatusMsg msg={msg} />
+      <ButtonPrimary type="button" disabled={busy} onClick={() => void handleSave()}>
+        {busy ? '…' : 'Transfer Bilgilerini Kaydet'}
+      </ButtonPrimary>
+    </div>
+  )
+}
+
+// ─── Feribot Bileti (ferry) ───────────────────────────────────────────────────
+function FerrySection({ listingId }: { listingId: string }) {
+  const [form, setForm] = useState({
+    departure_port: '',
+    arrival_port: '',
+    operator_name: '',
+    ferry_type: 'catamaran',
+    vehicle_allowed: false,
+    duration_text: '',
+  })
+  const [busy, setBusy] = useState(false)
+  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null)
+  const save = useSave('ferry', listingId)
+
+  const loading = useLoadMeta<typeof form>(listingId, 'ferry', (d) => {
+    setForm({
+      departure_port: d.departure_port ?? '',
+      arrival_port: d.arrival_port ?? '',
+      operator_name: d.operator_name ?? '',
+      ferry_type: d.ferry_type ?? 'catamaran',
+      vehicle_allowed: Boolean(d.vehicle_allowed),
+      duration_text: d.duration_text ?? '',
+    })
+  })
+
+  const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
+    setForm((prev) => ({ ...prev, [k]: e.target.type === 'checkbox' ? (e.target as HTMLInputElement).checked : e.target.value }))
+
+  async function handleSave() {
+    setBusy(true); setMsg(null)
+    try {
+      await save(form)
+      setMsg({ ok: true, text: 'Feribot bilgileri kaydedildi.' })
+    } catch (e) {
+      setMsg({ ok: false, text: e instanceof Error ? formatManageApiError(e.message) : formatManageApiError('save_failed') })
+    } finally { setBusy(false) }
+  }
+
+  if (loading) return <p className="text-sm text-neutral-400">Yükleniyor…</p>
+
+  return (
+    <div className="space-y-6">
+      <SectionTitle>Feribot & Deniz Ulaşım Bilgileri</SectionTitle>
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Field className="block">
+          <Label>Kalkış Limanı</Label>
+          <Input className="mt-1" value={form.departure_port} onChange={set('departure_port')} placeholder="ör: Bodrum / Marmaris" />
+        </Field>
+        <Field className="block">
+          <Label>Varış Limanı</Label>
+          <Input className="mt-1" value={form.arrival_port} onChange={set('arrival_port')} placeholder="ör: Kos / Rodos" />
+        </Field>
+        <Field className="block">
+          <Label>Operatör / Donatan Firma</Label>
+          <Input className="mt-1" value={form.operator_name} onChange={set('operator_name')} placeholder="ör: Dentur / Makri Travel" />
+        </Field>
+        <Field className="block">
+          <Label>Gemi / Feribot Tipi</Label>
+          <select className={SELECT_CLS} value={form.ferry_type} onChange={set('ferry_type')}>
+            <option value="catamaran">Hızlı Katamaran</option>
+            <option value="car_ferry">Araba Feribotu</option>
+            <option value="passenger_ferry">Yolcu Gemisi / Motor</option>
+          </select>
+        </Field>
+        <Field className="block">
+          <Label>Sefer Süresi</Label>
+          <Input className="mt-1" value={form.duration_text} onChange={set('duration_text')} placeholder="ör: 45 Dakika / 1 Saat 30 Dk" />
+        </Field>
+        <Field className="block sm:col-span-2 pt-2">
+          <label className="flex items-center gap-2 text-sm font-medium cursor-pointer">
+            <input type="checkbox" checked={form.vehicle_allowed} onChange={set('vehicle_allowed')} className="h-4 w-4 rounded accent-primary-600" />
+            Araç Geçişine Uygundur (Araba/Motosiklet Taşınabilir)
+          </label>
+        </Field>
+      </div>
+      <StatusMsg msg={msg} />
+      <ButtonPrimary type="button" disabled={busy} onClick={() => void handleSave()}>
+        {busy ? '…' : 'Feribot Bilgilerini Kaydet'}
+      </ButtonPrimary>
+    </div>
+  )
+}
+
+// ─── Uçak Bileti / Uçuş Paketi (flight) ───────────────────────────────────────
+function FlightSection({ listingId }: { listingId: string }) {
+  const [form, setForm] = useState({
+    airline_name: '',
+    flight_number: '',
+    departure_airport: '',
+    arrival_airport: '',
+    cabin_class: 'economy',
+    baggage_allowance_kg: '20',
+    is_direct: true,
+  })
+  const [busy, setBusy] = useState(false)
+  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null)
+  const save = useSave('flight', listingId)
+
+  const loading = useLoadMeta<typeof form>(listingId, 'flight', (d) => {
+    setForm({
+      airline_name: d.airline_name ?? '',
+      flight_number: d.flight_number ?? '',
+      departure_airport: d.departure_airport ?? '',
+      arrival_airport: d.arrival_airport ?? '',
+      cabin_class: d.cabin_class ?? 'economy',
+      baggage_allowance_kg: d.baggage_allowance_kg ?? '20',
+      is_direct: Boolean(d.is_direct ?? true),
+    })
+  })
+
+  const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
+    setForm((prev) => ({ ...prev, [k]: e.target.type === 'checkbox' ? (e.target as HTMLInputElement).checked : e.target.value }))
+
+  async function handleSave() {
+    setBusy(true); setMsg(null)
+    try {
+      await save(form)
+      setMsg({ ok: true, text: 'Uçuş bilgileri kaydedildi.' })
+    } catch (e) {
+      setMsg({ ok: false, text: e instanceof Error ? formatManageApiError(e.message) : formatManageApiError('save_failed') })
+    } finally { setBusy(false) }
+  }
+
+  if (loading) return <p className="text-sm text-neutral-400">Yükleniyor…</p>
+
+  return (
+    <div className="space-y-6">
+      <SectionTitle>Uçak & Uçuş Paketi Bilgileri</SectionTitle>
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Field className="block">
+          <Label>Havayolu Şirketi</Label>
+          <Input className="mt-1" value={form.airline_name} onChange={set('airline_name')} placeholder="ör: Turkish Airlines / Pegasus" />
+        </Field>
+        <Field className="block">
+          <Label>Uçuş Kodu / No</Label>
+          <Input className="mt-1" value={form.flight_number} onChange={set('flight_number')} placeholder="ör: TK 2410" />
+        </Field>
+        <Field className="block">
+          <Label>Kalkış Havalimanı (Kod)</Label>
+          <Input className="mt-1" value={form.departure_airport} onChange={set('departure_airport')} placeholder="ör: IST / SAW / ADB" />
+        </Field>
+        <Field className="block">
+          <Label>Varış Havalimanı (Kod)</Label>
+          <Input className="mt-1" value={form.arrival_airport} onChange={set('arrival_airport')} placeholder="ör: AYT / DLM / BJV" />
+        </Field>
+        <Field className="block">
+          <Label>Kabin Sınıfı</Label>
+          <select className={SELECT_CLS} value={form.cabin_class} onChange={set('cabin_class')}>
+            <option value="economy">Economy Class</option>
+            <option value="premium_economy">Premium Economy</option>
+            <option value="business">Business Class</option>
+            <option value="first">First Class</option>
+          </select>
+        </Field>
+        <Field className="block">
+          <Label>Bagaj Hakkı (kg)</Label>
+          <Input type="number" min="0" className="mt-1" value={form.baggage_allowance_kg} onChange={set('baggage_allowance_kg')} placeholder="20" />
+        </Field>
+        <Field className="block sm:col-span-2 pt-2">
+          <label className="flex items-center gap-2 text-sm font-medium cursor-pointer">
+            <input type="checkbox" checked={form.is_direct} onChange={set('is_direct')} className="h-4 w-4 rounded accent-primary-600" />
+            Direkt Uçuş (Aktarmasız)
+          </label>
+        </Field>
+      </div>
+      <StatusMsg msg={msg} />
+      <ButtonPrimary type="button" disabled={busy} onClick={() => void handleSave()}>
+        {busy ? '…' : 'Uçuş Bilgilerini Kaydet'}
+      </ButtonPrimary>
+    </div>
+  )
+}
+
 // ─── Dışa aktarılan ana bileşen ───────────────────────────────────────────────
 export function VerticalDetailsSection({
   categoryCode,
@@ -2054,6 +2417,14 @@ export function VerticalDetailsSection({
       return <HajjSection listingId={listingId} />
     case 'cinema_ticket':
       return <CinemaSection listingId={listingId} />
+    case 'cruise':
+      return <CruiseSection listingId={listingId} />
+    case 'transfer':
+      return <TransferSection listingId={listingId} />
+    case 'ferry':
+      return <FerrySection listingId={listingId} />
+    case 'flight':
+      return <FlightSection listingId={listingId} />
     default:
       return (
         <p className="text-sm text-neutral-500 dark:text-neutral-400">

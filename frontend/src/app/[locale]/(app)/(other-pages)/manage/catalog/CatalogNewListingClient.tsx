@@ -5049,7 +5049,7 @@ export default function CatalogNewListingClient({
                 </p>
               </div>
             )}
-            {isVilla && currentStep === 0 && (
+            {currentStep === 0 && (
                 <Section title="Fiyatlandırma">
                   <Field className="block max-w-md">
                     <Label>

@@ -9809,7 +9809,14 @@ export async function getVerticalMeta<T = Record<string, unknown>>(
     typeof window === 'undefined' ? { next: { revalidate: 120 } } : undefined,
   )
   if (!res.ok) throw new Error(`vertical_meta_${res.status}`)
-  return json(res) as Promise<T>
+  const raw = await json(res)
+  if (raw != null && typeof raw === 'object' && !Array.isArray(raw)) {
+    const root = raw as Record<string, unknown>
+    if (root.data != null && typeof root.data === 'object' && !Array.isArray(root.data)) {
+      return root.data as T
+    }
+  }
+  return raw as T
 }
 
 export async function putVerticalMeta<T = Record<string, unknown>>(
