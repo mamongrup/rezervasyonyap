@@ -14,7 +14,11 @@
  *   results: { id: string; distanceM: number; distanceText: string; durationText: string }[]
  * }
  */
-import { resolveGoogleMapsApiKey } from '@/lib/google-maps-api-key'
+import {
+  formatGooglePlacesServerError,
+  resolveGoogleMapsServerApiKey,
+  GOOGLE_MAPS_SERVER_KEY_HELP,
+} from '@/lib/google-maps-api-key'
 import { NextRequest, NextResponse } from 'next/server'
 
 interface DistanceElement {
@@ -34,19 +38,18 @@ export async function POST(req: NextRequest) {
     const body = await req.json() as {
       origin: { lat: number; lng: number }
       destinations: { id: string; lat: number; lng: number }[]
-      apiKey?: string
       language?: string
     }
 
-    const { origin, destinations, apiKey, language = 'tr' } = body
+    const { origin, destinations, language = 'tr' } = body
 
     if (!origin?.lat || !origin?.lng || !destinations?.length) {
       return NextResponse.json({ error: 'origin ve destinations zorunludur.' }, { status: 400 })
     }
 
-    const key = await resolveGoogleMapsApiKey(apiKey)
+    const key = resolveGoogleMapsServerApiKey()
     if (!key) {
-      return NextResponse.json({ error: 'Google Maps API anahtarı bulunamadı. Yönetim → Ayarlar → Google sekmesinden tanımlayın.' }, { status: 400 })
+      return NextResponse.json({ error: GOOGLE_MAPS_SERVER_KEY_HELP }, { status: 400 })
     }
 
     const originStr = `${origin.lat},${origin.lng}`
@@ -68,7 +71,7 @@ export async function POST(req: NextRequest) {
 
     if (data.status !== 'OK') {
       return NextResponse.json(
-        { error: `Distance Matrix hatası: ${data.status} — ${data.error_message ?? ''}` },
+        { error: formatGooglePlacesServerError(data.status, data.error_message) },
         { status: 502 },
       )
     }

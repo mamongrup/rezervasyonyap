@@ -1682,83 +1682,52 @@ export default function CatalogNewListingClient({
         distance_km: Math.round(p.distanceKm * 10) / 10,
       })
 
-      // API anahtarını yükle (state → site ayarları → public maps-config)
-      let apiKey = mapsApiKey.trim()
-      if (!apiKey) {
-        try {
-          const s = await listSiteSettings(token, { scope: 'platform', key: 'maps' })
-          const raw = s.settings?.[0]?.value_json ?? ''
-          if (raw) {
-            const parsed = JSON.parse(raw) as Record<string, unknown>
-            apiKey = typeof parsed.google_maps_api_key === 'string' ? parsed.google_maps_api_key.trim() : ''
-            if (apiKey) setMapsApiKey(apiKey)
-          }
-        } catch {
-          /* ignore */
-        }
-      }
-      if (!apiKey) {
-        try {
-          const cfgRes = await fetch('/api/maps-config')
-          if (cfgRes.ok) {
-            const cfg = (await cfgRes.json()) as { apiKey?: string }
-            apiKey = cfg.apiKey?.trim() ?? ''
-            if (apiKey) setMapsApiKey(apiKey)
-          }
-        } catch {
-          /* ignore */
-        }
-      }
-
+      // Places Nearby sunucu anahtarı kullanır (GOOGLE_MAPS_SERVER_API_KEY).
+      // Tarayıcı / panel Maps JS anahtarını gövdeye göndermeyin — referrer kısıtı REQUEST_DENIED üretir.
       let next: NearbyPoi[] = []
       let googleError: string | null = null
+      let usedGooglePlaces = false
 
-      // Google Places — birden fazla tip (bölge düzenleme ile aynı mantık)
-      if (apiKey) {
-        const googleTypes = ['tourist_attraction', 'park', 'natural_feature', 'museum']
-        const byPlaceId = new Map<string, PlaceRow>()
-        for (const googleType of googleTypes) {
-          try {
-            const placesRes = await fetch('/api/places-nearby', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                lat: latNum,
-                lng: lngNum,
-                googleType,
-                radiusM: 20_000,
-                maxCount: 8,
-                language: locale || 'tr',
-                apiKey,
-              }),
-            })
-            const pd = (await placesRes.json().catch(() => ({}))) as {
-              places?: PlaceRow[]
-              error?: string
-            }
-            if (!placesRes.ok) {
-              googleError = pd.error ?? `Google Places HTTP ${placesRes.status}`
-              break
-            }
-            for (const p of pd.places ?? []) {
-              const prev = byPlaceId.get(p.placeId)
-              if (!prev || p.distanceKm < prev.distanceKm) byPlaceId.set(p.placeId, p)
-            }
-            await new Promise((r) => setTimeout(r, 280))
-          } catch (e) {
-            googleError = e instanceof Error ? e.message : 'Google Places isteği başarısız'
+      const googleTypes = ['tourist_attraction', 'park', 'natural_feature', 'museum']
+      const byPlaceId = new Map<string, PlaceRow>()
+      for (const googleType of googleTypes) {
+        try {
+          const placesRes = await fetch('/api/places-nearby', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              lat: latNum,
+              lng: lngNum,
+              googleType,
+              radiusM: 20_000,
+              maxCount: 8,
+              language: locale || 'tr',
+            }),
+          })
+          const pd = (await placesRes.json().catch(() => ({}))) as {
+            places?: PlaceRow[]
+            error?: string
+          }
+          if (!placesRes.ok) {
+            googleError = pd.error ?? `Google Places HTTP ${placesRes.status}`
             break
           }
+          usedGooglePlaces = true
+          for (const p of pd.places ?? []) {
+            const prev = byPlaceId.get(p.placeId)
+            if (!prev || p.distanceKm < prev.distanceKm) byPlaceId.set(p.placeId, p)
+          }
+          await new Promise((r) => setTimeout(r, 280))
+        } catch (e) {
+          googleError = e instanceof Error ? e.message : 'Google Places isteği başarısız'
+          break
         }
-        if (!googleError && byPlaceId.size > 0) {
-          next = [...byPlaceId.values()]
-            .sort((a, b) => a.distanceKm - b.distanceKm)
-            .slice(0, 20)
-            .map((p) => placeRowToPoi(p))
-        }
-      } else {
-        googleError =
-          'Google Maps API anahtarı yok. Yönetim → Ayarlar → Google sekmesinden anahtar ekleyin.'
+      }
+      if (!googleError && byPlaceId.size > 0) {
+        next = [...byPlaceId.values()]
+          .sort((a, b) => a.distanceKm - b.distanceKm)
+          .slice(0, 20)
+          .map((p) => placeRowToPoi(p))
       }
 
       // Yedek: bölge/ilçe travel_ideas — önce form koordinatlarını DB'ye yaz
@@ -1787,7 +1756,7 @@ export default function CatalogNewListingClient({
         await patchListingNearbyPois(token, editListingId, next).catch(() => {})
         setNearbyPois(next)
         nearbyPoisHydratedRef.current = true
-        const via = apiKey && !googleError ? 'Google Places' : 'bölge verisi'
+        const via = usedGooglePlaces && !googleError ? 'Google Places' : 'bölge verisi'
         setNearbyPoisMsg({ ok: true, text: `${next.length} mekan eklendi (${via}).` })
       } else {
         setNearbyPois(next)

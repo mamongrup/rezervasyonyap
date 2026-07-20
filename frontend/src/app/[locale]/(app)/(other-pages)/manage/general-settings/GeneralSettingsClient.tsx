@@ -1796,15 +1796,23 @@ export default function GeneralSettingsClient({ embedded = false }: GeneralSetti
               <span className="text-2xl">🗺️</span>
               <div>
                 <h2 className="text-base font-semibold">Google Maps</h2>
-                <p className="text-sm text-neutral-500">Harita bileşeni, pin seçici ve bölge yakın mekan arama.</p>
+                <p className="text-sm text-neutral-500">Harita bileşeni ve pin seçici (tarayıcı anahtarı). Yakın mekan araması sunucu anahtarı ister.</p>
               </div>
             </div>
             <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
               <Field className="block sm:col-span-2">
-                <Label>API Anahtarı <span className="text-xs font-normal text-neutral-400">(istemci veya kısıtlı anahtar)</span></Label>
+                <Label>API Anahtarı <span className="text-xs font-normal text-neutral-400">(Maps JavaScript — tarayıcı)</span></Label>
                 <Input type="password" className="mt-1 font-mono" value={mapsKey} onChange={(e) => setMapsKey(e.target.value)} autoComplete="off" placeholder="AIzaSy…" />
                 <p className="mt-1 text-xs text-neutral-400">
-                  <a href="https://console.cloud.google.com/apis/credentials" target="_blank" rel="noopener noreferrer" className="text-primary-600 underline">Google Cloud Console</a>&apos;dan alın. Maps JavaScript API + Places API etkin olmalı.
+                  <a href="https://console.cloud.google.com/apis/credentials" target="_blank" rel="noopener noreferrer" className="text-primary-600 underline">Google Cloud Console</a>&apos;dan alın. Maps JavaScript API etkin olmalı; Application restriction: HTTP referrers (
+                  <code className="font-mono">https://rezervasyonyap.tr/*</code>).
+                </p>
+                <p className="mt-2 text-xs text-amber-700 dark:text-amber-500">
+                  Yakın mekan / Places / Geocoding sunucu tarafında çalışır. Referrer kısıtlı bu anahtar orada{' '}
+                  <code className="font-mono">REQUEST_DENIED</code> verir. Ayrı bir sunucu anahtarı ekleyin:{' '}
+                  <code className="font-mono">GOOGLE_MAPS_SERVER_API_KEY</code> →{' '}
+                  <code className="font-mono">/etc/rezervasyonyap/frontend.env</code> (Places API + Geocoding; restriction: None veya sunucu IP), sonra{' '}
+                  <code className="font-mono">travel-web</code> restart.
                 </p>
               </Field>
               <Field className="block">

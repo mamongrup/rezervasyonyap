@@ -1,4 +1,7 @@
-import { resolveGoogleMapsApiKey } from '@/lib/google-maps-api-key'
+import {
+  resolveGoogleMapsServerApiKey,
+  GOOGLE_MAPS_SERVER_KEY_HELP,
+} from '@/lib/google-maps-api-key'
 import { NextRequest, NextResponse } from 'next/server'
 
 export const dynamic = 'force-dynamic'
@@ -18,9 +21,9 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'invalid_photo_reference' }, { status: 400 })
   }
 
-  const key = await resolveGoogleMapsApiKey()
+  const key = resolveGoogleMapsServerApiKey()
   if (!key) {
-    return NextResponse.json({ error: 'google_maps_api_key_missing' }, { status: 400 })
+    return NextResponse.json({ error: 'google_maps_server_api_key_missing', message: GOOGLE_MAPS_SERVER_KEY_HELP }, { status: 400 })
   }
 
   const url = new URL('https://maps.googleapis.com/maps/api/place/photo')
