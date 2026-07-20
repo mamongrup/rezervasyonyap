@@ -3,6 +3,7 @@ import { formatManageApiCatch } from '@/lib/manage-api-error-tr'
 import { DEFAULT_FOOTER_SITE_CONFIG } from '@/lib/footer-site-defaults'
 import type { FooterSiteColumn, FooterSiteConfig, FooterSiteLink, FooterTrustBadge } from '@/types/footer-site-config'
 import I18nFieldEditor from '@/components/manage/i18n/I18nFieldEditor'
+import { Footer2ManagePreview } from '@/components/manage/Footer2ManagePreview'
 import { compactI18nField, pickI18nWithLegacy, type I18nFieldMap } from '@/lib/i18n-field'
 import clsx from 'clsx'
 import {
@@ -286,8 +287,9 @@ export default function HeaderFooterManageClient() {
               </div>
               <h1 className="text-2xl font-bold tracking-tight text-neutral-900 dark:text-white">Footer yönetimi</h1>
               <p className="mt-1 max-w-xl text-sm text-neutral-500 dark:text-neutral-400">
-                Sol blok (tagline, güven rozetleri) ve beş sütunlu bağlantı alanlarını buradan düzenleyin. Kayıt{' '}
-                <code className="rounded bg-neutral-100 px-1 text-xs dark:bg-neutral-800">public/site-data/footer.json</code> dosyasına yazılır.
+                Önyüzdeki site alt bilgisi (`Footer2`) ile aynı içerik. Kayıt{' '}
+                <code className="rounded bg-neutral-100 px-1 text-xs dark:bg-neutral-800">public/site-data/footer.json</code>{' '}
+                dosyasına yazılır; canlı önizleme aşağıda.
               </p>
             </div>
             <div className="flex flex-wrap gap-2">
@@ -313,6 +315,14 @@ export default function HeaderFooterManageClient() {
       </div>
 
       <div className="mx-auto max-w-6xl space-y-8 px-4 py-8 sm:px-6 lg:px-8">
+        {/* Canlı önizleme — önyüz Footer2 ile aynı düzen */}
+        <section className="overflow-hidden rounded-2xl border border-neutral-200/80 shadow-lg shadow-neutral-200/40 dark:border-neutral-700 dark:shadow-none">
+          <div className="border-b border-neutral-100 bg-neutral-50 px-4 py-2.5 text-xs font-medium text-neutral-500 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-400">
+            Canlı önizleme (önyüz footer ile aynı)
+          </div>
+          <Footer2ManagePreview cfg={cfg} locale="tr" />
+        </section>
+
         {/* Tagline */}
         <section className="overflow-hidden rounded-2xl border border-neutral-200/80 bg-white shadow-lg shadow-neutral-200/40 dark:border-neutral-700 dark:bg-neutral-900 dark:shadow-none">
           <div className="border-b border-neutral-100 bg-gradient-to-r from-violet-500/10 via-transparent to-cyan-500/10 px-6 py-4 dark:border-neutral-800">

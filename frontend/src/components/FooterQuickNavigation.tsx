@@ -38,7 +38,8 @@ function FooterBarIcon({
 
 const FooterQuickNavigation = () => {
   const pathname = usePathname()
-  const { locale } = stripLocalePrefix(pathname)
+  const hideOnManage = Boolean(pathname?.includes('/manage') || pathname?.includes('/staff'))
+  const { locale } = stripLocalePrefix(pathname ?? '/')
   const loc = locale ?? defaultLocale
   const m = getMessages(loc)
   const bn = m.mobile.bottomNav
@@ -49,6 +50,7 @@ const FooterQuickNavigation = () => {
   const [accountPath, setAccountPath] = useState(DEFAULT_ACCOUNT_PATH)
 
   useEffect(() => {
+    if (hideOnManage) return
     let cancelled = false
     void fetchSitePreviewLinks()
       .then((d) => {
@@ -61,7 +63,10 @@ const FooterQuickNavigation = () => {
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [hideOnManage])
+
+  // Yönetim / personel: vitrin mobil alt barı yok — panelde yalnızca site Footer2.
+  if (hideOnManage) return null
 
   function openSupportMenu() {
     setSupportOpen(true)

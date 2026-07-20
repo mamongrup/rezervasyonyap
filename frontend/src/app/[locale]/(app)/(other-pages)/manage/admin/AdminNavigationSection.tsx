@@ -612,8 +612,12 @@ export default function AdminNavigationSection() {
               <p>
                 Her menünün bir <strong>kodu</strong> vardır. Üst şerit:{' '}
                 <code className="bg-blue-100 dark:bg-blue-900/40 px-1 rounded text-xs">header</code> →{' '}
-                <strong>GET …/navigation/public/menus/header/items</strong>. Alt bilgi / ekstra bloklar için{' '}
-                <code className="bg-blue-100 dark:bg-blue-900/40 px-1 rounded text-xs">footer</code>, hero arama için{' '}
+                <strong>GET …/navigation/public/menus/header/items</strong>. Site alt bilgi (footer sütunları) için{' '}
+                <strong>İçerik → Site footer (alt bilgi)</strong> sayfasını kullanın (
+                <code className="bg-blue-100 dark:bg-blue-900/40 px-1 rounded text-xs">footer.json</code>
+                ). Navigasyon kodu{' '}
+                <code className="bg-blue-100 dark:bg-blue-900/40 px-1 rounded text-xs">footer</code> artık vitrin alt
+                bilgisine bağlanmaz; hero arama için{' '}
                 <code className="bg-blue-100 dark:bg-blue-900/40 px-1 rounded text-xs">hero_search</code>,{' '}
                 <code className="bg-blue-100 dark:bg-blue-900/40 px-1 rounded text-xs">main</code> /{' '}
                 <code className="bg-blue-100 dark:bg-blue-900/40 px-1 rounded text-xs">mobile</code> şablon uyumluluğu içindir.

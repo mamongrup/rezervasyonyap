@@ -41,7 +41,7 @@ const PATH_LABELS: Record<string, string> = {
   pages: 'Sayfalar',
   sliders: 'Slider & Banner',
   popups: 'Popuplar',
-  'header-footer': 'Header & Footer',
+  'header-footer': 'Site footer',
   'mega-menu': 'Mega Menü',
   'catalog-menu': 'Katalog menüsü',
   media: 'Medya',
