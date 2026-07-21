@@ -172,6 +172,21 @@ function normalizeHotel(raw) {
   const lat = num(raw?.lat ?? raw?.latitude ?? raw?.mapLat ?? raw?.map_lat ?? raw?.location?.lat)
   const lng = num(raw?.lng ?? raw?.longitude ?? raw?.mapLng ?? raw?.map_lng ?? raw?.location?.lng)
   const locationName = [district, city, provinceCity].filter(Boolean).join(', ') || city || district || ''
+  const sourceFacts = raw?.sourceFacts && typeof raw.sourceFacts === 'object' ? raw.sourceFacts : {}
+  const themeCode = String(
+    raw?.themeCode ?? raw?.theme_code ?? sourceFacts.themeCode ?? sourceFacts.theme_code ?? '',
+  ).trim()
+  const themeTags = [...new Set(
+    textList(raw?.themeTags ?? raw?.theme_tags ?? sourceFacts.themeTags ?? sourceFacts.theme_tags)
+      .map((x) => x.toLowerCase()),
+  )]
+  if (themeCode && !themeTags.includes(themeCode.toLowerCase())) themeTags.unshift(themeCode.toLowerCase())
+  const hotelType = String(
+    raw?.hotelType ?? raw?.hotel_type ?? sourceFacts.hotelType ?? sourceFacts.hotel_type ?? '',
+  ).trim()
+  const adultsOnly = Boolean(
+    raw?.adultsOnly ?? raw?.adults_only ?? sourceFacts.adultsOnly ?? sourceFacts.adults_only,
+  )
   return {
     externalId,
     slug: hotelListingSlug(name, externalId, raw?.slug),
@@ -196,6 +211,10 @@ function normalizeHotel(raw) {
     rooms,
     minPrice,
     currency: String(raw?.currency ?? allRates[0]?.currency ?? 'TRY').toUpperCase(),
+    themeCode,
+    themeTags,
+    hotelType,
+    adultsOnly,
     raw,
   }
 }
@@ -321,11 +340,30 @@ async function upsertHotel(pg, ctx, hotel) {
       }
       if (hotel.lat != null) meta.lat = String(hotel.lat)
       if (hotel.lng != null) meta.lng = String(hotel.lng)
+      if (hotel.themeTags?.length) meta.theme_tags = hotel.themeTags
+      if (hotel.adultsOnly) meta.adults_only = true
+      if (hotel.url) meta.source_url = hotel.url
       await pg.query(
         `INSERT INTO listing_attributes (listing_id,group_code,key,value_json)
          VALUES ($1::uuid,'listing_meta','v1',$2::jsonb) ON CONFLICT (listing_id,group_code,key)
          DO UPDATE SET value_json=listing_attributes.value_json || excluded.value_json`,
         [listingId, JSON.stringify(meta)],
+      )
+    }
+    if (hotel.themeCode) {
+      await pg.query(
+        `INSERT INTO listing_attributes (listing_id,group_code,key,value_json)
+         VALUES ($1::uuid,'hotel','theme_code',$2::jsonb)
+         ON CONFLICT (listing_id,group_code,key) DO UPDATE SET value_json=excluded.value_json`,
+        [listingId, JSON.stringify(String(hotel.themeCode))],
+      )
+    }
+    if (hotel.hotelType) {
+      await pg.query(
+        `INSERT INTO listing_attributes (listing_id,group_code,key,value_json)
+         VALUES ($1::uuid,'hotel','hotel_type_code',$2::jsonb)
+         ON CONFLICT (listing_id,group_code,key) DO UPDATE SET value_json=excluded.value_json`,
+        [listingId, JSON.stringify(String(hotel.hotelType))],
       )
     }
     if (hotel.rooms.length) {
