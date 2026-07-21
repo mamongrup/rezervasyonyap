@@ -66,7 +66,12 @@ SELECT
     'property_type', 'villa',
     'check_in_time', '16:00',
     'check_out_time', '08:00',
-    'pool_type', 'Özel yüzme havuzu'
+    'pool_type', 'Özel yüzme havuzu',
+    -- Kart: "N misafir · M oda · B banyo" — listing_meta (StayCard2)
+    'max_guests', '6',
+    'room_count', '2',
+    'bed_count', '2',
+    'bath_count', '2'
   )
 FROM tmp_silence_target t
 ON CONFLICT (listing_id, group_code, key) DO UPDATE SET
@@ -75,7 +80,11 @@ ON CONFLICT (listing_id, group_code, key) DO UPDATE SET
       'district_label', 'Kargı',
       'region_display', 'Kargı, Fethiye',
       'address', 'Kargı Mahallesi Zafer Sokak No:39/A, Fethiye/Muğla',
-      'property_type', 'villa'
+      'property_type', 'villa',
+      'max_guests', '6',
+      'room_count', '2',
+      'bed_count', '2',
+      'bath_count', '2'
     );
 
 UPDATE listing_translations lt
@@ -119,6 +128,9 @@ SELECT
   l.vitrin_price::text AS vitrin,
   la.value_json->>'district_label' AS district,
   la.value_json->>'property_type' AS property_type,
+  la.value_json->>'max_guests' AS max_guests,
+  la.value_json->>'room_count' AS room_count,
+  la.value_json->>'bath_count' AS bath_count,
   EXISTS (SELECT 1 FROM listing_holiday_home_details h WHERE h.listing_id = l.id) AS hh_details
 FROM listings l
 JOIN product_categories pc ON pc.id = l.category_id

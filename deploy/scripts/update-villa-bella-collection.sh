@@ -6,6 +6,10 @@
 # Hızlı SQL (anlık snapshot; apply-sql ile):
 #   ./deploy/apply-sql.sh deploy/scripts/sql/update-villa-bella-live.sql
 #   ./deploy/scripts/update-villa-bella-collection.sh --sql-only
+# Snapshot yenileme (repo):
+#   node scripts/generate-villa-bella-live-sql.mjs
+# Silence + Bella birlikte:
+#   ./deploy/scripts/apply-silence-capacity-and-bella-prices.sh
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
