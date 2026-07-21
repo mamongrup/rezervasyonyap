@@ -38,6 +38,9 @@ SELECT
   l.location_name AS konum,
   la.value_json->>'district_label' AS ilce,
   la.value_json->>'property_type' AS tip,
+  la.value_json->>'max_guests' AS misafir,
+  la.value_json->>'room_count' AS oda,
+  la.value_json->>'bath_count' AS banyo,
   l.slug
 FROM listings l
 JOIN product_categories pc ON pc.id = l.category_id
@@ -62,7 +65,8 @@ curl -sS -o /dev/null -w "otel-eski:%{http_code}\n" \
   "${WEB_ORIGIN:-http://127.0.0.1:3000}/otel/silence-villas" || true
 
 echo ""
-echo "[OK] Silence Villas → Villa + Kargı."
+echo "[OK] Silence Villas → Villa + Kargı + kapasite (6/2/2)."
 echo "     Kart: Villa | Konum: Kargı, Fethiye | URL: /tatil-evi/silence-villas"
 echo "     Tarayıcıda Ctrl+F5 ile yenileyin."
 echo "[INFO] AI: ./deploy/scripts/ensure-ai-social-workers.sh"
+echo "[INFO] Bella fiyat için: ./deploy/scripts/apply-silence-capacity-and-bella-prices.sh"
