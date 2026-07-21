@@ -18,5 +18,6 @@ export function mysqlConfigFromArgv(argv = process.argv) {
     user: process.env.MYSQL_USER || 'root',
     password: process.env.MYSQL_PASSWORD ?? '',
     database: database || 'rezervasyonyap',
+    charset: 'utf8mb4',
   }
 }
