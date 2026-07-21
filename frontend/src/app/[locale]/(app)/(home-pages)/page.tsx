@@ -33,6 +33,7 @@ import { preload } from 'react-dom'
 import { getMessages } from '@/utils/getT'
 import { Metadata } from 'next'
 import type { PageBuilderModule, TListingBase } from '@/types/listing-types'
+import { getPublicSiteUrl, shareOgImageMeta } from '@/lib/site-branding-seo'
 
 export async function generateMetadata({
   params,
@@ -41,9 +42,23 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { locale } = await params
   const m = getMessages(locale)
+  const title = m.homePage.meta.title
+  const description = m.homePage.meta.description
+  const shareImage = shareOgImageMeta(getPublicSiteUrl(), null, title)
   return {
-    title: m.homePage.meta.title,
-    description: m.homePage.meta.description,
+    title,
+    description,
+    openGraph: {
+      title,
+      description,
+      ...(shareImage && { images: [shareImage] }),
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title,
+      description,
+      ...(shareImage && { images: [shareImage.url] }),
+    },
   }
 }
 

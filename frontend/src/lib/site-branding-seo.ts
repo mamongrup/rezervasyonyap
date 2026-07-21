@@ -4,6 +4,14 @@ import type { SitePublicConfig } from '@/lib/travel-api'
 export const DEFAULT_FAVICON_PATH = '/favicon.svg'
 
 /**
+ * WhatsApp / Facebook / Telegram paylaşım önizlemesi için varsayılan OG görseli.
+ * JPEG 1200×630 — AVIF/SVG logo crawler'larda thumbnail üretmez.
+ */
+export const DEFAULT_OG_IMAGE_PATH = '/og-default.jpg'
+export const DEFAULT_OG_IMAGE_WIDTH = 1200
+export const DEFAULT_OG_IMAGE_HEIGHT = 630
+
+/**
  * Canonical, Open Graph, Twitter ve `metadataBase` için site kökü (sonda `/` yok).
  * - Öncelik: `NEXT_PUBLIC_SITE_URL`
  * - Vercel: `VERCEL_URL` → `https://…`
@@ -79,6 +87,52 @@ export function toAbsoluteSiteUrl(baseNoTrailingSlash: string, path: string): st
   if (p.startsWith('http://') || p.startsWith('https://')) return p
   if (!baseNoTrailingSlash) return undefined
   return `${baseNoTrailingSlash}${p.startsWith('/') ? '' : '/'}${p}`
+}
+
+/**
+ * WhatsApp / Facebook Sharing Debugger JPEG veya PNG ister.
+ * AVIF / SVG / WebP çoğu crawler'da önizleme görseli üretmez.
+ */
+export function isCrawlerSafeOgImageUrl(url: string): boolean {
+  const u = url.trim().toLowerCase().split('?')[0] || ''
+  if (!u) return false
+  if (/\.(avif|svg|webp)$/i.test(u)) return false
+  return /\.(jpe?g|png|gif)$/i.test(u) || u.includes('/og-default')
+}
+
+/**
+ * Paylaşım kartı görseli: `branding.og_image_url` → güvenli logo → `/og-default.jpg`.
+ */
+export function resolveShareOgImageUrl(
+  baseNoTrailingSlash: string,
+  pub: SitePublicConfig | null,
+): string | undefined {
+  const candidates = [
+    brandingAssetPath(pub, 'og_image_url'),
+    brandingAssetPath(pub, 'share_image_url'),
+    brandingAssetPath(pub, 'logo_url'),
+    DEFAULT_OG_IMAGE_PATH,
+  ]
+  for (const path of candidates) {
+    const abs = toAbsoluteSiteUrl(baseNoTrailingSlash, path)
+    if (abs && isCrawlerSafeOgImageUrl(abs)) return abs
+  }
+  return toAbsoluteSiteUrl(baseNoTrailingSlash, DEFAULT_OG_IMAGE_PATH)
+}
+
+export function shareOgImageMeta(
+  baseNoTrailingSlash: string,
+  pub: SitePublicConfig | null,
+  alt: string,
+): { url: string; alt: string; width: number; height: number } | undefined {
+  const url = resolveShareOgImageUrl(baseNoTrailingSlash, pub)
+  if (!url) return undefined
+  return {
+    url,
+    alt,
+    width: DEFAULT_OG_IMAGE_WIDTH,
+    height: DEFAULT_OG_IMAGE_HEIGHT,
+  }
 }
 
 /** Open Graph `locale` alanı. */

@@ -11,6 +11,7 @@ import {
   getPublicSiteUrl,
   metaSiteDescription,
   ogLocaleForSite,
+  shareOgImageMeta,
   toAbsoluteSiteUrl,
 } from '@/lib/site-branding-seo'
 import { getCachedSiteConfig } from '@/lib/site-config-cache'
@@ -38,9 +39,8 @@ export async function generateMetadata(): Promise<Metadata> {
   const base = getPublicSiteUrl()
   const verification: Metadata['verification'] = scVerification ? { google: scVerification } : undefined
 
-  const logoPath = brandingAssetPath(pub, 'logo_url')
   const faviconPath = brandingAssetPath(pub, 'favicon_url')
-  const ogImageUrl = toAbsoluteSiteUrl(base, logoPath)
+  const shareImage = shareOgImageMeta(base, pub, siteName)
   const faviconRel = faviconPath.trim() ? faviconPath : DEFAULT_FAVICON_PATH
   const faviconNormalized = faviconRel.startsWith('/') ? faviconRel : `/${faviconRel}`
   const faviconUrl = toAbsoluteSiteUrl(base, faviconNormalized)
@@ -59,16 +59,14 @@ export async function generateMetadata(): Promise<Metadata> {
     description,
     locale: ogLocaleForSite(defaultLocale),
     ...(hrefForDefault && { url: hrefForDefault }),
-    ...(ogImageUrl && {
-      images: [{ url: ogImageUrl, alt: siteName, width: 1200, height: 630 }],
-    }),
+    ...(shareImage && { images: [shareImage] }),
   }
 
   const twitter: Metadata['twitter'] = {
-    card: ogImageUrl ? 'summary_large_image' : 'summary',
+    card: shareImage ? 'summary_large_image' : 'summary',
     title: siteName,
     description,
-    ...(ogImageUrl && { images: [ogImageUrl] }),
+    ...(shareImage && { images: [shareImage.url] }),
   }
 
   const icons: Metadata['icons'] = base
