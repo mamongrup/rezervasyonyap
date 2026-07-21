@@ -1,47 +1,53 @@
 -- Silence Villas: otel → tatil evi (villa) + bölge Kayaköy → Kargı
--- Adres kaynağı: Bookeder / Kargı Mahallesi Zafer Sokak No:39/A
+-- CTE yerine TEMP TABLE (psql -f çoklu ifade kapsamı).
 
 BEGIN;
 
-WITH target AS (
-  SELECT l.id
-  FROM listings l
-  WHERE (
-      (l.external_provider_code = 'tatilbudur' AND l.external_listing_ref = 'silence-villas')
-      OR l.slug = 'silence-villas'
-    )
-  LIMIT 1
-),
-hh_cat AS (
-  SELECT id FROM product_categories WHERE code = 'holiday_home' LIMIT 1
-),
-default_contract AS (
-  SELECT cc.id
-  FROM category_contracts cc
-  JOIN product_categories pc ON pc.id = cc.category_id
-  WHERE pc.code = 'holiday_home'
-    AND cc.code = 'default'
-    AND cc.is_active = true
-    AND cc.contract_scope = 'category'
-    AND cc.organization_id IS NULL
-  ORDER BY cc.version DESC, cc.sort_order, cc.updated_at DESC
-  LIMIT 1
-)
+CREATE TEMP TABLE tmp_silence_target ON COMMIT DROP AS
+SELECT l.id
+FROM listings l
+WHERE (
+    (l.external_provider_code = 'tatilbudur' AND l.external_listing_ref = 'silence-villas')
+    OR l.slug = 'silence-villas'
+  )
+LIMIT 1;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM tmp_silence_target) THEN
+    RAISE EXCEPTION 'silence_villas listing not found';
+  END IF;
+END $$;
+
 UPDATE listings l
 SET
-  category_id = (SELECT id FROM hh_cat),
-  category_contract_id = COALESCE(l.category_contract_id, (SELECT id FROM default_contract)),
+  category_id = (SELECT id FROM product_categories WHERE code = 'holiday_home' LIMIT 1),
+  category_contract_id = COALESCE(
+    l.category_contract_id,
+    (
+      SELECT cc.id
+      FROM category_contracts cc
+      JOIN product_categories pc ON pc.id = cc.category_id
+      WHERE pc.code = 'holiday_home'
+        AND cc.code = 'default'
+        AND cc.is_active = true
+        AND cc.contract_scope = 'category'
+        AND cc.organization_id IS NULL
+      ORDER BY cc.version DESC, cc.sort_order, cc.updated_at DESC
+      LIMIT 1
+    )
+  ),
   location_name = 'Kargı, Fethiye, Muğla',
   map_lat = COALESCE(l.map_lat, 36.685849),
   map_lng = COALESCE(l.map_lng, 29.081465),
   status = 'published',
   updated_at = now()
-FROM target t
+FROM tmp_silence_target t
 WHERE l.id = t.id;
 
 INSERT INTO listing_holiday_home_details (listing_id, theme_codes, rule_codes, ical_managed)
 SELECT t.id, '{}'::text[], '{}'::text[], false
-FROM target t
+FROM tmp_silence_target t
 ON CONFLICT (listing_id) DO NOTHING;
 
 INSERT INTO listing_attributes (listing_id, group_code, key, value_json)
@@ -62,7 +68,7 @@ SELECT
     'check_out_time', '08:00',
     'pool_type', 'Özel yüzme havuzu'
   )
-FROM target t
+FROM tmp_silence_target t
 ON CONFLICT (listing_id, group_code, key) DO UPDATE SET
   value_json = listing_attributes.value_json || EXCLUDED.value_json
     || jsonb_build_object(
@@ -72,7 +78,6 @@ ON CONFLICT (listing_id, group_code, key) DO UPDATE SET
       'property_type', 'villa'
     );
 
--- TR açıklamadaki yanlış bölge adı
 UPDATE listing_translations lt
 SET
   description = replace(
@@ -81,7 +86,7 @@ SET
     'Kargı'
   ),
   updated_at = now()
-FROM target t
+FROM tmp_silence_target t
 WHERE lt.listing_id = t.id
   AND (
     lt.description ILIKE '%Kayaköy%'
@@ -89,12 +94,11 @@ WHERE lt.listing_id = t.id
     OR lt.description ~ 'Kargi'
   );
 
--- AI kuyruğu: villa içerik (tr_description); kategori holiday_home
 WITH queued AS (
   INSERT INTO ai_listing_content_batches
     (listing_id, category_code, phase, status, overwrite)
   SELECT t.id, 'holiday_home', 'tr_description', 'pending', true
-  FROM target t
+  FROM tmp_silence_target t
   WHERE NOT EXISTS (
     SELECT 1
     FROM ai_listing_content_batches b
