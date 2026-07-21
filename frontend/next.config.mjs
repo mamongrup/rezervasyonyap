@@ -247,6 +247,12 @@ const nextConfig = {
       },
       {
         protocol: 'https',
+        hostname: 'fairystonetravel.com',
+        port: '',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
         hostname: '**.aegeanhotels.net',
         port: '',
         pathname: '/**',
