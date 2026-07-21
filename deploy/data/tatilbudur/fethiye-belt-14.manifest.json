@@ -170,10 +170,13 @@
       "aegean": "https://silence-villas.aegeanhotels.net/tr/",
       "bookeder": "https://silence-villas-fethiye.bookeder.com/",
       "city": "Fethiye",
-      "district": "Kayaköy",
+      "district": "Kargı",
       "provinceCity": "Muğla",
       "boardType": "Oda Kahvaltı",
-      "starRating": 5
+      "starRating": 5,
+      "address": "Kargı Mahallesi Zafer Sokak No:39/A, Fethiye/Muğla",
+      "intendedCategory": "holiday_home",
+      "propertyType": "villa"
     }
   ]
 }

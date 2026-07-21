@@ -4140,16 +4140,16 @@
       "officialUrl": "https://silence-villas.aegeanhotels.net/tr/",
       "countryCode": "TR",
       "city": "Fethiye",
-      "district": "Kayaköy",
+      "district": "Kargı",
       "provinceCity": "Muğla",
-      "address": "Kargi Mahallesi Zafer Sokak No:39/A Fethiye/Mugla, Fethiye, Muğla",
+      "address": "Kargı Mahallesi Zafer Sokak No:39/A, Fethiye/Muğla",
       "lat": 36.685849,
       "lng": 29.081465,
       "currency": "TRY",
       "starRating": 5,
       "checkIn": "16:00",
       "checkOut": "08:00",
-      "description": "<section><h2>Silence Villas</h2><p>Silence Villas - Özel yüzme havuzu, veranda, bahçe gibi olanaklar sunan Silence Villas, Kizil Adasi'den 4 km uzaklıkta bulunmaktadır. Silence Villas villasında buhar odası, sauna, kapalı havuz mevcuttur.</p><h2>Konum</h2><p>Kayaköy, Fethiye, Muğla — Kargi Mahallesi Zafer Sokak No:39/A Fethiye/Mugla, Fethiye, Muğla.</p><h2>Konaklama</h2><p>Konaklama Oda Kahvaltı konseptiyle sunulur. Giriş 16:00, çıkış 08:00.</p><h2>Olanaklar</h2><ul><li>Sigara içilmeyen odalar</li><li>Wi-Fi</li><li>Otopark</li><li>Emanet kasası</li><li>VİP check-in/ -out</li><li>Danışma masası</li><li>Evcil hayvan yasaktır</li><li>24 saat güvenlik</li><li>Bagaj depolama</li><li>Duman dedektörleri</li><li>Yangın söndürücü</li><li>Anahtar erişimi</li></ul></section>",
+      "description": "<section><h2>Silence Villas</h2><p>Silence Villas - Özel yüzme havuzu, veranda, bahçe gibi olanaklar sunan Silence Villas, Kizil Adasi'den 4 km uzaklıkta bulunmaktadır. Silence Villas villasında buhar odası, sauna, kapalı havuz mevcuttur.</p><h2>Konum</h2><p>Kargı, Fethiye, Muğla — Kargı Mahallesi Zafer Sokak No:39/A, Fethiye/Muğla.</p><h2>Konaklama</h2><p>Konaklama Oda Kahvaltı konseptiyle sunulur. Giriş 16:00, çıkış 08:00.</p><h2>Olanaklar</h2><ul><li>Sigara içilmeyen odalar</li><li>Wi-Fi</li><li>Otopark</li><li>Emanet kasası</li><li>VİP check-in/ -out</li><li>Danışma masası</li><li>Evcil hayvan yasaktır</li><li>24 saat güvenlik</li><li>Bagaj depolama</li><li>Duman dedektörleri</li><li>Yangın söndürücü</li><li>Anahtar erişimi</li></ul></section>",
       "amenities": [
         "Oda Kahvaltı",
         "Açık yüzme havuzu",
@@ -4363,7 +4363,8 @@
           "packageAdjusted": false,
           "note": "Bookeder USD taban × 40 TRY (yaklaşık)."
         },
-        "verifiedAt": "2026-07-20"
+        "verifiedAt": "2026-07-20",
+        "note": "Villa (holiday_home) — otel kategorisinde değil; import sonrası fix-silence-villas-to-villa.sh çalıştırın."
       }
     }
   ],

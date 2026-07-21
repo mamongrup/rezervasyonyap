@@ -71,8 +71,8 @@ WITH feed(ref, location_name, district, city, province, address, lat, lng, sourc
     ('akra-fethiye-the-residence-tui-blue-sensatori', 'Karaçulha, Fethiye, Muğla', 'Karaçulha', 'Fethiye', 'Muğla',
       'Karaçulha, Fethiye', 36.68335, 29.07366,
       'https://www.etstur.com/Akra-Fethiye-The-Residence-Tui-Blue-Sensatori---Adults-Only', 'all_inclusive', 'Her Şey Dahil', 'All Inclusive'),
-    ('silence-villas', 'Kayaköy, Fethiye, Muğla', 'Kayaköy', 'Fethiye', 'Muğla',
-      'Kayaköy, Fethiye', 36.685849, 29.081465,
+    ('silence-villas', 'Kargı, Fethiye, Muğla', 'Kargı', 'Fethiye', 'Muğla',
+      'Kargı Mahallesi Zafer Sokak No:39/A, Fethiye/Muğla', 36.685849, 29.081465,
       'https://www.etstur.com/Silence-Villas', 'bed_breakfast', 'Oda Kahvaltı', 'Bed & Breakfast')
 ),
 targets AS (
@@ -203,5 +203,7 @@ ORDER BY l.external_listing_ref;
 SQL
 
 echo "[OK] Fethiye kuşağı 14 otel içe aktarıldı."
+echo "[INFO] Silence Villas villa olmalı — sonra çalıştırın:"
+echo "       ./deploy/scripts/fix-silence-villas-to-villa.sh"
 echo "[INFO] Çok dilli içerik: systemctl start --no-block travel-ai-worker.service"
 echo "[INFO] veya: ./deploy/scripts/ensure-ai-social-workers.sh"
