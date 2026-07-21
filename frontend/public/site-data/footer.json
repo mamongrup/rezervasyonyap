@@ -114,17 +114,17 @@
         {
           "nameTr": "Ege Turları",
           "nameEn": "Aegean Tours",
-          "href": "/turlar/ege"
+          "href": "/turlar/ege-akdeniz-turlari"
         },
         {
           "nameTr": "Akdeniz Turları",
           "nameEn": "Mediterranean Tours",
-          "href": "/turlar/akdeniz"
+          "href": "/turlar/ege-akdeniz-turlari"
         },
         {
           "nameTr": "Avrupa Turları",
           "nameEn": "European Tours",
-          "href": "/turlar/avrupa"
+          "href": "/turlar/avrupa-turlari"
         }
       ]
     },
@@ -145,7 +145,7 @@
         {
           "nameTr": "Nasıl Çalışır?",
           "nameEn": "How It Works",
-          "href": "/about#nasil-calisir"
+          "href": "/ilan-ver#nasil-calisir"
         },
         {
           "nameTr": "İptal ve İade",
@@ -207,12 +207,12 @@
         {
           "nameTr": "Tedarikçi Girişi",
           "nameEn": "Supplier Login",
-          "href": "/manage"
+          "href": "/manage/supplier"
         },
         {
           "nameTr": "Tedarikçi Faydaları",
           "nameEn": "Supplier Benefits",
-          "href": "/tedarikci-ol#faydalar"
+          "href": "/tedarikci-ol"
         },
         {
           "nameTr": "Acente Olun",
@@ -222,7 +222,7 @@
         {
           "nameTr": "Acente Girişi",
           "nameEn": "Agency Login",
-          "href": "/manage"
+          "href": "/manage/agency"
         },
         {
           "nameTr": "API Entegrasyonu",
@@ -232,7 +232,7 @@
         {
           "nameTr": "Geliştirici Dokümantasyonu",
           "nameEn": "Developer Docs",
-          "href": "/developer#docs"
+          "href": "/developer#endpoints"
         }
       ]
     }
@@ -259,5 +259,5 @@
       "href": "/legal/cookies"
     }
   ],
-  "updatedAt": "2026-04-13T20:21:08.185Z"
+  "updatedAt": "2026-07-21T21:03:48.507Z"
 }
