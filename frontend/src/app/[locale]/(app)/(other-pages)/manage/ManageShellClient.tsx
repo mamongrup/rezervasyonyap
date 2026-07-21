@@ -9,7 +9,8 @@ import ManagePanelTopBar from './ManagePanelTopBar'
 import { ManageSubnav } from './ManageSubnav'
 
 /**
- * Site geneli `ApplicationLayout` ile aynı Header / Footer korunur; burada yalnızca panel yan menüsü + içerik alanı var.
+ * Site geneli `ApplicationLayout` Header’ı korunur; vitrin Footer2 /manage ve /staff’ta gizlenir.
+ * Burada yalnızca panel yan menüsü + içerik alanı var.
  * İkinci savunma katmanı: middleware geçmişse de burada token/rol kontrolü yapılır.
  */
 export default function ManageShellClient({ children }: { children: React.ReactNode }) {
@@ -88,7 +89,7 @@ export default function ManageShellClient({ children }: { children: React.ReactN
   const menuLabel = en ? 'Panel menu' : 'Panel menüsü'
 
   return (
-    <div className="manage-shell flex items-start bg-[color:var(--manage-page-bg)] text-[color:var(--manage-text)] transition-colors duration-200">
+    <div className="manage-shell flex min-h-[calc(100dvh-5rem)] items-start bg-[color:var(--manage-page-bg)] text-[color:var(--manage-text)] transition-colors duration-200">
       {mobileOpen ? (
         <button
           type="button"
