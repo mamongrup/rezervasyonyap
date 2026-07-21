@@ -28,6 +28,7 @@ import {
 import Image from 'next/image'
 import { useEffect, useMemo, useState } from 'react'
 import clsx from 'clsx'
+import { preferListingGalleryFullAsset } from '@/lib/listing-gallery-display-url'
 import { SectionHeading, SectionSubheading } from './components/SectionHeading'
 import { useOptionalHotelStayBooking } from './hotel-stay-booking-context'
 import HotelRoomCalendarModal from './HotelRoomCalendarModal'
@@ -67,9 +68,9 @@ function RoomPreviewRow({ icon, children }: { icon: React.ReactNode; children: R
 }
 
 function roomImages(room: HotelRoomShowcaseItem): string[] {
-  const fromList = (room.images ?? []).filter(Boolean)
+  const fromList = (room.images ?? []).filter(Boolean).map(preferListingGalleryFullAsset)
   if (fromList.length > 0) return fromList
-  return room.image?.trim() ? [room.image.trim()] : []
+  return room.image?.trim() ? [preferListingGalleryFullAsset(room.image.trim())] : []
 }
 
 function useRoomRangeQuote(
