@@ -7,10 +7,13 @@
       "aegean": "https://oyster-residences.aegeanhotels.net/tr/",
       "bookeder": "https://oyster-residence-hotel-dalaman.bookeder.com/",
       "city": "Fethiye",
-      "district": "Çalış",
+      "district": "Ölüdeniz",
       "provinceCity": "Muğla",
       "boardType": "Her Şey Dahil",
-      "starRating": 5
+      "starRating": 5,
+      "address": "1. Sokak, Ölüdeniz, Fethiye/Muğla",
+      "lat": 36.546885,
+      "lng": 29.122292
     },
     {
       "id": "jade-residence",
@@ -23,7 +26,10 @@
       "provinceCity": "Muğla",
       "boardType": "Her Şey Dahil",
       "starRating": 5,
-      "adultsOnly": true
+      "adultsOnly": true,
+      "address": "224. Sokak No:3, Ölüdeniz, Fethiye/Muğla",
+      "lat": 36.547251,
+      "lng": 29.122074
     },
     {
       "id": "lissiya-hotel",
@@ -32,10 +38,13 @@
       "aegean": "https://lissiya.aegeanhotels.net/tr/",
       "bookeder": "https://lissiya-hotel-fethiye.bookeder.com/",
       "city": "Fethiye",
-      "district": "Ölüdeniz",
+      "district": "Faralya",
       "provinceCity": "Muğla",
       "boardType": "Her Şey Dahil",
-      "starRating": 5
+      "starRating": 5,
+      "address": "Uzunyurt Koyu Kabak No:16, Faralya, Ölüdeniz/Fethiye",
+      "lat": 36.470342,
+      "lng": 29.128278
     },
     {
       "id": "jiva-beach-resort",
@@ -47,7 +56,10 @@
       "district": "Çalış",
       "provinceCity": "Muğla",
       "boardType": "Her Şey Dahil",
-      "starRating": 5
+      "starRating": 5,
+      "address": "Karagedik Mah. 1112. Sok. No:14, Çalış, Fethiye/Muğla",
+      "lat": 36.673877,
+      "lng": 29.101852
     },
     {
       "id": "liberty-fabay",
@@ -56,10 +68,13 @@
       "aegean": "https://liberty-fabay.aegeanhotels.net/tr/",
       "bookeder": "https://liberty-fabay-fethiye.bookeder.com/",
       "city": "Fethiye",
-      "district": "Ölüdeniz",
+      "district": "Kargı",
       "provinceCity": "Muğla",
       "boardType": "Her Şey Dahil",
-      "starRating": 5
+      "starRating": 5,
+      "address": "Kargı Mahallesi 202 Manolya Sokak No:4/2, Fethiye/Muğla",
+      "lat": 36.6822,
+      "lng": 29.078262
     },
     {
       "id": "sundia-exclusive-by-liberty-fethiye",
@@ -68,13 +83,16 @@
       "aegean": "https://sundia-exclusive-by-liberty-adults-only.aegeanhotels.net/tr/",
       "bookeder": "https://sundia-by-liberty-fethiye.bookeder.com/",
       "city": "Fethiye",
-      "district": "Ölüdeniz",
+      "district": "Çalış",
       "provinceCity": "Muğla",
       "boardType": "Her Şey Dahil",
       "starRating": 5,
       "adultsOnly": true,
       "priceOverrideUsd": 450,
-      "priceOverrideNote": "Bookeder title 3389 USD paket/hatalı taban; harici kaynaklar ~450 USD/gece (HotelBest/ToHotel)."
+      "priceOverrideNote": "Bookeder title 3389 USD paket/hatalı taban; harici kaynaklar ~450 USD/gece (HotelBest/ToHotel).",
+      "address": "Foça Mahallesi 1085. Sokak, Çalış, Fethiye/Muğla",
+      "lat": 36.665517,
+      "lng": 29.107713
     },
     {
       "id": "lykia-botanika-beach-fun-club",
@@ -87,7 +105,10 @@
       "district": "Yanıklar",
       "provinceCity": "Muğla",
       "boardType": "Her Şey Dahil",
-      "starRating": 5
+      "starRating": 5,
+      "address": "Yanıklar Mahallesi, Yanıklar, Fethiye/Muğla",
+      "lat": 36.690653,
+      "lng": 29.049906
     },
     {
       "id": "liberty-signa",
@@ -96,10 +117,13 @@
       "aegean": "https://liberty-signa.aegeanhotels.net/tr/",
       "bookeder": "https://liberty-signa-oludeniz.bookeder.com/",
       "city": "Fethiye",
-      "district": "Ölüdeniz",
+      "district": "Kargı",
       "provinceCity": "Muğla",
       "boardType": "Her Şey Dahil",
-      "starRating": 5
+      "starRating": 5,
+      "address": "Kargı Mahallesi 202 Manolya Sokak No:4/3, Fethiye/Muğla",
+      "lat": 36.682583,
+      "lng": 29.080148
     },
     {
       "id": "akra-fethiye-tui-blue-sensatori",
@@ -108,10 +132,13 @@
       "aegean": "https://akra-tui-blue-sensatori-48300.aegeanhotels.net/tr/",
       "bookeder": "https://barut-sensatori-fethiye-tr.bookeder.com/",
       "city": "Fethiye",
-      "district": "Karaçulha",
+      "district": "Kargı",
       "provinceCity": "Muğla",
       "boardType": "Her Şey Dahil",
-      "starRating": 5
+      "starRating": 5,
+      "address": "Kargı Mahallesi 202 Manolya Sokak No:4/1, Fethiye/Muğla",
+      "lat": 36.683679,
+      "lng": 29.075203
     },
     {
       "id": "orka-cove-hotel-penthouse-suites",
@@ -124,7 +151,10 @@
       "provinceCity": "Muğla",
       "boardType": "Her Şey Dahil",
       "starRating": 5,
-      "adultsOnly": true
+      "adultsOnly": true,
+      "address": "Ölüdeniz Mah. İmar Ağartan Cad. No:4/1, Ocakköy, Fethiye/Muğla",
+      "lat": 36.590401,
+      "lng": 29.146622
     },
     {
       "id": "exelans-hotel-spa",
@@ -133,10 +163,13 @@
       "aegean": "https://exelans.aegeanhotels.net/tr/",
       "bookeder": "https://exelans-hotel-tasyaka-mah-246-sok-no-6-oludeniz.bookeder.com/",
       "city": "Fethiye",
-      "district": "Ölüdeniz",
+      "district": "Taşyaka",
       "provinceCity": "Muğla",
       "boardType": "Her Şey Dahil",
-      "starRating": 5
+      "starRating": 5,
+      "address": "Taşyaka Mah. 246. Sokak No:6, Ölüdeniz/Fethiye",
+      "lat": 36.623793,
+      "lng": 29.129629
     },
     {
       "id": "xo-cape-arnna-fethiye",
@@ -145,10 +178,13 @@
       "aegean": "https://xo-cape-arnna.aegeanhotels.net/tr/",
       "bookeder": "https://xo-cape-arnna-fethiye.bookeder.com/",
       "city": "Fethiye",
-      "district": "Ölüdeniz",
+      "district": "Kargı",
       "provinceCity": "Muğla",
       "boardType": "Her Şey Dahil",
-      "starRating": 5
+      "starRating": 5,
+      "address": "Kargı Mahallesi Manolya Sokak No:4/4, Fethiye/Muğla",
+      "lat": 36.682095,
+      "lng": 29.081783
     },
     {
       "id": "akra-fethiye-the-residence-tui-blue-sensatori",
@@ -157,11 +193,14 @@
       "aegean": "https://akra-the-residence-tui-blue-sensatori-adults-only-1.aegeanhotels.net/tr/",
       "bookeder": "https://the-residence-at-tui-sensatori-barut-fethiye-tr-1.bookeder.com/",
       "city": "Fethiye",
-      "district": "Karaçulha",
+      "district": "Kargı",
       "provinceCity": "Muğla",
       "boardType": "Her Şey Dahil",
       "starRating": 5,
-      "adultsOnly": true
+      "adultsOnly": true,
+      "address": "Kargı Mahallesi 202 Manolya Sokak No:4/1, Fethiye/Muğla",
+      "lat": 36.68335,
+      "lng": 29.07366
     },
     {
       "id": "silence-villas",
@@ -176,7 +215,9 @@
       "starRating": 5,
       "address": "Kargı Mahallesi Zafer Sokak No:39/A, Fethiye/Muğla",
       "intendedCategory": "holiday_home",
-      "propertyType": "villa"
+      "propertyType": "villa",
+      "lat": 36.685849,
+      "lng": 29.081465
     }
   ]
 }
