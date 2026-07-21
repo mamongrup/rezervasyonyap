@@ -19,4 +19,7 @@ export const HOTEL_THEME_OPTIONS: { code: string; label: string }[] = [
   { code: 'nature', label: 'Doğa içinde' },
   { code: 'ski', label: 'Kayak' },
   { code: 'spa', label: 'Spa & wellness' },
+  { code: 'adults_only', label: 'Yetişkinlere özel' },
+  { code: 'conservative', label: 'Muhafazakâr / helal' },
+  { code: 'boutique', label: 'Butik konsept' },
 ]

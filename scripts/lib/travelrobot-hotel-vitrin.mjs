@@ -99,10 +99,13 @@ const ACCOMMODATION_PRIORITY = {
 }
 
 const THEME_RULES = [
+  { code: 'adults_only', patterns: [/adults?\s*only/i, /adult\s*only/i, /yeti[sş]kin/i, /\b16\+\b/i] },
+  { code: 'conservative', patterns: [/halal/i, /helal/i, /muhafaza/i, /conservative/i, /islamic/i] },
   { code: 'beachfront', patterns: [/beachfront/i, /denize\s*s[iı]f[iı]r/i, /private beach/i, /plaj/i] },
   { code: 'sea_view', patterns: [/sea view/i, /ocean view/i, /water view/i, /deniz manzara/i] },
   { code: 'spa', patterns: [/\bspa\b/i, /wellness/i, /sauna/i, /hamam/i, /massage/i] },
   { code: 'luxury', patterns: [/luxury/i, /l[üu]ks/i, /premium/i] },
+  { code: 'boutique', patterns: [/boutique/i, /butik/i] },
   { code: 'family', patterns: [/family/i, /aile/i, /kids club/i, /children/i, /cocuk/i] },
   { code: 'honeymoon', patterns: [/honeymoon/i, /balay/i, /romantic/i] },
   { code: 'ski', patterns: [/\bski\b/i, /kayak/i, /snow/i] },

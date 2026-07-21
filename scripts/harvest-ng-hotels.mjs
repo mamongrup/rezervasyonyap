@@ -488,6 +488,14 @@ async function harvestOne(hotel) {
 
   const rooms = buildRooms(hotel, images, nightly, board, meta.rooms || [])
 
+  const themeCode = String(hotel.themeCode || hotel.theme_code || '').trim() || null
+  const themeTags = Array.isArray(hotel.themeTags)
+    ? [...new Set(hotel.themeTags.map((t) => String(t || '').trim()).filter(Boolean))]
+    : themeCode
+      ? [themeCode]
+      : []
+  const hotelType = String(hotel.hotelType || hotel.hotel_type || '').trim() || null
+
   return {
     id: hotel.id,
     name: hotel.name,
@@ -509,12 +517,19 @@ async function harvestOne(hotel) {
     amenities: amenitiesFor(hotel, meta.amenities),
     images,
     rooms,
+    themeCode,
+    themeTags,
+    hotelType,
+    adultsOnly: Boolean(hotel.adultsOnly),
     sourceFacts: {
       sourceUrl: hotel.sourceUrl,
       imageSource: hotel.aegean || hotel.obilet || hotel.bookeder,
       geoSource: hotel.bookeder,
       mealPlan: board,
       adultsOnly: Boolean(hotel.adultsOnly),
+      themeCode,
+      themeTags,
+      hotelType,
       roomCountApprox: meta.roomCount,
       priceSource: nightly
         ? meta.priceMeta?.source || 'bookeder_usd_floor'
