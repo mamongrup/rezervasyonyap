@@ -239,6 +239,18 @@ const nextConfig = {
         port: '',
         pathname: '/**',
       },
+      {
+        protocol: 'https',
+        hostname: 'bookeder.com',
+        port: '',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: '**.aegeanhotels.net',
+        port: '',
+        pathname: '/**',
+      },
       ...extraImageHost,
     ],
   },

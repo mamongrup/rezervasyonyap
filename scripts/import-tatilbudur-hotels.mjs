@@ -102,6 +102,23 @@ function textList(value) {
     .map((x) => String(x).trim()).filter(Boolean))]
 }
 
+/** AegeanHotels CDN hotlink 403 → Bookeder Photos/Big aynası */
+function rewriteAegeanToBookeder(url) {
+  const s = String(url || '').trim()
+  if (!s) return s
+  try {
+    const u = new URL(s)
+    if (!/\.aegeanhotels\.net$/i.test(u.hostname)) return s
+    const m = u.pathname.match(
+      /^\/data\/Imgs\/(?:1920x1080w|OriginalPhoto)\/(\d+\/\d+\/\d+\/[^/]+\.jpe?g)$/i,
+    )
+    if (!m) return s
+    return `https://bookeder.com/data/Photos/Big/${m[1]}`
+  } catch {
+    return s
+  }
+}
+
 function normalizeRate(rate, room) {
   const price = num(rate?.nightlyPrice ?? rate?.nightly_price ?? rate?.price ?? rate?.amount)
   if (price == null || price <= 0) return null
@@ -121,8 +138,10 @@ function normalizeHotel(raw) {
   if (!externalId) throw new Error('hotel_id_missing')
   const name = String(raw?.name ?? raw?.hotelName ?? raw?.title ?? '').trim()
   if (!name) throw new Error(`hotel_name_missing:${externalId}`)
-  const images = textList(raw?.gallery ?? raw?.images ?? raw?.photos)
-  const featured = String(raw?.featuredImage ?? raw?.featured_image ?? raw?.image ?? images[0] ?? '').trim()
+  const images = textList(raw?.gallery ?? raw?.images ?? raw?.photos).map(rewriteAegeanToBookeder)
+  const featured = rewriteAegeanToBookeder(
+    String(raw?.featuredImage ?? raw?.featured_image ?? raw?.image ?? images[0] ?? '').trim(),
+  )
   if (featured && !images.includes(featured)) images.unshift(featured)
   const rooms = arr(raw?.rooms ?? raw?.roomTypes ?? raw?.room_types).map((room, index) => {
     const rates = arr(room?.rates ?? room?.prices ?? room?.ratePlans ?? room?.rate_plans)
@@ -136,8 +155,8 @@ function normalizeHotel(raw) {
       })(),
       unitCount: Math.max(1, Math.round(num(room?.unitCount ?? room?.unit_count) || 1)),
       boardType: String(room?.boardType ?? room?.board_type ?? '').trim(),
-      image: String(room?.image ?? room?.imageUrl ?? room?.image_url ?? '').trim(),
-      images: textList(room?.images ?? room?.gallery ?? room?.photos),
+      image: rewriteAegeanToBookeder(String(room?.image ?? room?.imageUrl ?? room?.image_url ?? '').trim()),
+      images: textList(room?.images ?? room?.gallery ?? room?.photos).map(rewriteAegeanToBookeder),
       features: textList(room?.features ?? room?.amenities),
       rates,
     }

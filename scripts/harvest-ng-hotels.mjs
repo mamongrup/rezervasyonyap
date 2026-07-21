@@ -51,12 +51,25 @@ function slugify(value) {
     .slice(0, 64)
 }
 
-function extractAegeanImages(html, baseUrl) {
-  const origin = new URL(baseUrl).origin
-  const paths = uniq(
-    [...html.matchAll(/\/data\/Imgs\/1920x1080w\/\d+\/\d+\/\d+\/[^"' <>]+\.JPEG/gi)].map((m) => m[0]),
+/**
+ * AegeanHotels CDN (`*.aegeanhotels.net`) tarayıcıdan sık 403 verir.
+ * Aynı path Bookeder Photos/Big aynasında açık — galeri URL'lerini oraya yaz.
+ */
+function aegeanPathToBookeder(path) {
+  const m = String(path).match(
+    /^\/data\/Imgs\/(?:1920x1080w|OriginalPhoto)\/(\d+\/\d+\/\d+\/[^"' <>]+\.jpe?g)$/i,
   )
-  return paths.map((p) => `${origin}${p}`)
+  if (!m) return null
+  return `https://bookeder.com/data/Photos/Big/${m[1]}`
+}
+
+function extractAegeanImages(html, _baseUrl) {
+  const paths = uniq(
+    [...html.matchAll(/\/data\/Imgs\/(?:1920x1080w|OriginalPhoto)\/\d+\/\d+\/\d+\/[^"' <>]+\.JPEG/gi)].map(
+      (m) => m[0],
+    ),
+  )
+  return paths.map((p) => aegeanPathToBookeder(p)).filter(Boolean)
 }
 
 function parseJsonLdBlocks(html) {
