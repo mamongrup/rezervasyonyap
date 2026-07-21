@@ -1,0 +1,818 @@
+{
+  "generatedAt": "2026-07-21",
+  "note": "Fethiye/Ölüdeniz/Faralya/Göcek/Kayaköy — Etstur + TatilBudur kaynak listesi. Görseller/odalar Bookeder + AegeanHotels aynaları (kaynak siteler Cloudflare). Oda görselleri Room/Suite/Interior filename; Restaurant/Lobby/Exterior elenir. Helal = theme conservative.",
+  "groups": {
+    "beachfront": "Denize sıfır / plaj",
+    "adults_only": "Yetişkinlere özel",
+    "conservative": "Muhafazakâr / helal",
+    "spa": "Spa & wellness",
+    "luxury": "Lüks",
+    "boutique": "Butik",
+    "family": "Aile",
+    "sea_view": "Deniz manzaralı"
+  },
+  "pending": [],
+  "hotels": [
+    {
+      "id": "z-exclusive-hotel-and-villas",
+      "name": "Z Exclusive Hotel And Villas",
+      "sourceUrl": "https://www.etstur.com/Z-Exclusive-Hotel-And-Villas",
+      "bookeder": "https://z-exclusive-hotel-and-villas-oludeniz.bookeder.com/",
+      "city": "Fethiye",
+      "district": "Ölüdeniz",
+      "provinceCity": "Muğla",
+      "boardType": "Oda Kahvaltı",
+      "starRating": 4,
+      "themeCode": "boutique",
+      "themeTags": [
+        "boutique",
+        "luxury",
+        "sea_view"
+      ],
+      "hotelType": "boutique",
+      "address": "Belcekız Mah. 239 Sok. No:4, Ölüdeniz, Fethiye/Muğla",
+      "lat": 36.55406,
+      "lng": 29.128252
+    },
+    {
+      "id": "perdue-hotel",
+      "name": "Perdue Hotel",
+      "sourceUrl": "https://www.etstur.com/Perdue-Hotel",
+      "bookeder": "https://perdue-hotel-fethiye.bookeder.com/",
+      "city": "Fethiye",
+      "district": "Faralya",
+      "provinceCity": "Muğla",
+      "boardType": "Oda Kahvaltı",
+      "starRating": 4,
+      "themeCode": "boutique",
+      "themeTags": [
+        "boutique",
+        "luxury",
+        "sea_view"
+      ],
+      "hotelType": "boutique",
+      "address": "Uzunyurt Kızılcıkaya Mevkii, Faralya, Fethiye/Muğla",
+      "lat": 36.481027,
+      "lng": 29.108432
+    },
+    {
+      "id": "zakros-hotel-lykia",
+      "name": "Zakros Hotel Lykia",
+      "sourceUrl": "https://www.tatilbudur.com/zakros-hotel-lykia",
+      "aegean": "https://zakros-lykia-adults-only.aegeanhotels.net/tr/",
+      "city": "Fethiye",
+      "district": "Faralya",
+      "provinceCity": "Muğla",
+      "boardType": "Oda Kahvaltı",
+      "starRating": 4,
+      "adultsOnly": true,
+      "themeCode": "adults_only",
+      "themeTags": [
+        "adults_only",
+        "boutique",
+        "sea_view",
+        "spa"
+      ],
+      "hotelType": "boutique",
+      "priceOverrideUsd": 220,
+      "priceOverrideNote": "Bookeder aynası yok; Aegean galeri + piyasa gecelik tabanı (~220 USD).",
+      "address": "Uzunyurt Koyu Kızılcakaya Mevkii, Faralya, Fethiye/Muğla",
+      "lat": 36.4755,
+      "lng": 29.1258,
+      "defaultRooms": [
+        {
+          "id": "deniz-manzarali-oda",
+          "name": "Deniz Manzaralı Oda",
+          "capacity": 2
+        },
+        {
+          "id": "deniz-manzarali-suit",
+          "name": "Deniz Manzaralı Süit",
+          "capacity": 3
+        },
+        {
+          "id": "ozel-havuzlu-suit",
+          "name": "Özel Havuzlu Süit",
+          "capacity": 3
+        }
+      ]
+    },
+    {
+      "id": "seaview-faralya-otel",
+      "name": "Seaview Faralya Otel Adults Only +18",
+      "sourceUrl": "https://www.tatilbudur.com/seaview-faralya-otel-adult-only-18",
+      "bookeder": "https://seaview-faralya-villa.bookeder.com/",
+      "city": "Fethiye",
+      "district": "Faralya",
+      "provinceCity": "Muğla",
+      "boardType": "Oda Kahvaltı",
+      "starRating": 4,
+      "adultsOnly": true,
+      "themeCode": "adults_only",
+      "themeTags": [
+        "adults_only",
+        "boutique",
+        "sea_view"
+      ],
+      "hotelType": "boutique",
+      "address": "Uzunyurt Mahallesi Kızılcakaya Sok. No:106, Faralya, Fethiye/Muğla",
+      "lat": 36.481042,
+      "lng": 29.112402
+    },
+    {
+      "id": "bubo-faralya-suite-hotel",
+      "name": "Bubo Faralya Suite Hotel Halal Concept",
+      "sourceUrl": "https://www.tatilbudur.com/bubo-faralya-suite-hotel-halal-consept",
+      "bookeder": "https://faralya-tuz-apart-hotel-faralya.bookeder.com/",
+      "city": "Fethiye",
+      "district": "Faralya",
+      "provinceCity": "Muğla",
+      "boardType": "Helal Oda Kahvaltı",
+      "starRating": 4,
+      "themeCode": "conservative",
+      "themeTags": [
+        "conservative",
+        "boutique",
+        "sea_view"
+      ],
+      "hotelType": "boutique",
+      "address": "Faralya Mahallesi Kızılcakaya Sokak No:160, Faralya, Fethiye/Muğla",
+      "lat": 36.485743,
+      "lng": 29.120504
+    },
+    {
+      "id": "casa-margot-hotel",
+      "name": "Casa Margot Hotel Adults Only",
+      "sourceUrl": "https://www.tatilbudur.com/casa-margot-hotel-14-adult-only",
+      "bookeder": "https://casa-margot-hotel-fethiye.bookeder.com/",
+      "aegean": "https://casa-margot-adults-only.aegeanhotels.net/tr/",
+      "city": "Fethiye",
+      "district": "Karagözler",
+      "provinceCity": "Muğla",
+      "boardType": "Oda Kahvaltı",
+      "starRating": 3,
+      "adultsOnly": true,
+      "themeCode": "adults_only",
+      "themeTags": [
+        "adults_only",
+        "boutique"
+      ],
+      "hotelType": "boutique",
+      "address": "Abdi İpekçi Cad. Karagözler Mevkii No:23, Fethiye/Muğla",
+      "lat": 36.621438,
+      "lng": 29.104235
+    },
+    {
+      "id": "sugar-beach-club",
+      "name": "Sugar Beach Club",
+      "sourceUrl": "https://www.tatilbudur.com/sugar-beach-club",
+      "bookeder": "https://sugar-beach-club-villa-oludeniz.bookeder.com/",
+      "aegean": "https://sugar-beach-club.aegeanhotels.net/tr/",
+      "city": "Fethiye",
+      "district": "Ölüdeniz",
+      "provinceCity": "Muğla",
+      "boardType": "Her Şey Dahil",
+      "starRating": 3,
+      "themeCode": "beachfront",
+      "themeTags": [
+        "beachfront",
+        "family"
+      ],
+      "hotelType": "hotel",
+      "address": "Ölüdeniz Beldesi Ölüdeniz Cad. No:63, Ölüdeniz, Fethiye/Muğla",
+      "lat": 36.552849,
+      "lng": 29.115819
+    },
+    {
+      "id": "hillside-beach-club",
+      "name": "Hillside Beach Club",
+      "sourceUrl": "https://www.tatilbudur.com/hillside-beach-club",
+      "bookeder": "https://hillside-beach-club-hotel-fethiye.bookeder.com/",
+      "aegean": "https://hillside-beach-club.aegeanhotels.net/tr/",
+      "city": "Fethiye",
+      "district": "Kayaköy",
+      "provinceCity": "Muğla",
+      "boardType": "Her Şey Dahil",
+      "starRating": 5,
+      "themeCode": "luxury",
+      "themeTags": [
+        "luxury",
+        "beachfront",
+        "spa",
+        "family"
+      ],
+      "hotelType": "resort",
+      "address": "Belen Mah. Belen Cad. No:132, Kayaköy, Fethiye/Muğla",
+      "lat": 36.614292,
+      "lng": 29.075726
+    },
+    {
+      "id": "mavruka-hotel",
+      "name": "Mavruka Hotel",
+      "sourceUrl": "https://www.tatilbudur.com/mavruka-hotel",
+      "bookeder": "https://mavruka-hotel-fethiye.bookeder.com/",
+      "aegean": "https://mavruka.aegeanhotels.net/tr/",
+      "city": "Fethiye",
+      "district": "Ölüdeniz",
+      "provinceCity": "Muğla",
+      "boardType": "Her Şey Dahil",
+      "starRating": 4,
+      "themeCode": "beachfront",
+      "themeTags": [
+        "beachfront",
+        "family"
+      ],
+      "hotelType": "hotel",
+      "priceOverrideUsd": 95,
+      "priceOverrideNote": "Bookeder 29 USD tabanı hatalı düşük; Ölüdeniz 4* AI piyasa ~95 USD.",
+      "address": "Belcekız Mah. 228 Sok. No:1, Ölüdeniz, Fethiye/Muğla",
+      "lat": 36.547341,
+      "lng": 29.125359
+    },
+    {
+      "id": "zehra-hotel-fethiye",
+      "name": "Zehra Hotel Fethiye Halal Concept",
+      "sourceUrl": "https://www.tatilbudur.com/zehra-hotel-fethiye-halal-concept",
+      "aegean": "https://zehra.aegeanhotels.net/tr/",
+      "city": "Fethiye",
+      "district": "Hisarönü",
+      "provinceCity": "Muğla",
+      "boardType": "Helal Her Şey Dahil",
+      "starRating": 4,
+      "themeCode": "conservative",
+      "themeTags": [
+        "conservative",
+        "family",
+        "spa"
+      ],
+      "hotelType": "hotel",
+      "priceOverrideUsd": 110,
+      "priceOverrideNote": "Bookeder aynası yok; Aegean galeri + helal AI piyasa tabanı.",
+      "address": "Hisarönü Mah. 194. Sok. No:8/A, Ölüdeniz, Fethiye/Muğla",
+      "lat": 36.5725,
+      "lng": 29.135,
+      "defaultRooms": [
+        {
+          "id": "standart-oda",
+          "name": "Standart Oda",
+          "capacity": 2
+        },
+        {
+          "id": "aile-odasi",
+          "name": "Aile Odası",
+          "capacity": 4
+        },
+        {
+          "id": "deniz-manzarali-oda",
+          "name": "Deniz Manzaralı Oda",
+          "capacity": 2
+        }
+      ]
+    },
+    {
+      "id": "enso-inn-hotel",
+      "name": "Enso Inn Hotel",
+      "sourceUrl": "https://www.tatilbudur.com/enso-inn-hotel",
+      "bookeder": "https://enso-inn-fethiye.bookeder.com/",
+      "aegean": "https://ensoinn.aegeanhotels.net/tr/",
+      "city": "Fethiye",
+      "district": "Kayaköy",
+      "provinceCity": "Muğla",
+      "boardType": "Oda Kahvaltı",
+      "starRating": 3,
+      "themeCode": "boutique",
+      "themeTags": [
+        "boutique"
+      ],
+      "hotelType": "boutique",
+      "address": "Kayaköy Mah. Belen (Kuyubaşı) Sk. No:29, Kayaköy, Fethiye/Muğla",
+      "lat": 36.574983,
+      "lng": 29.091094
+    },
+    {
+      "id": "yazz-collective",
+      "name": "Yazz Collective",
+      "sourceUrl": "https://www.etstur.com/Yazz-Collective",
+      "bookeder": "https://yazz-collective-belen-fethiye.bookeder.com/",
+      "city": "Fethiye",
+      "district": "Belen",
+      "provinceCity": "Muğla",
+      "boardType": "Oda Kahvaltı",
+      "starRating": 5,
+      "themeCode": "luxury",
+      "themeTags": [
+        "luxury",
+        "boutique",
+        "beachfront",
+        "spa"
+      ],
+      "hotelType": "boutique",
+      "priceOverrideUsd": 480,
+      "priceOverrideNote": "Bookeder 1594 USD paket/hatalı taban; lüks butik gecelik ~480 USD.",
+      "address": "Pınaraltı (Turunç Pınarı) Koyu, Belen, Fethiye/Muğla",
+      "lat": 36.612698,
+      "lng": 29.052949
+    },
+    {
+      "id": "mossa-afkule-kayakoy",
+      "name": "Mossa Afkule Kayaköy Adults Only +12",
+      "sourceUrl": "https://www.etstur.com/Mossa-Afkule-Kayakoy--12-Yetiskin-Oteli",
+      "bookeder": "https://mossa-afkule-kayakoy-fethiye.bookeder.com/",
+      "city": "Fethiye",
+      "district": "Kayaköy",
+      "provinceCity": "Muğla",
+      "boardType": "Oda Kahvaltı",
+      "starRating": 4,
+      "adultsOnly": true,
+      "themeCode": "adults_only",
+      "themeTags": [
+        "adults_only",
+        "boutique",
+        "sea_view"
+      ],
+      "hotelType": "boutique",
+      "address": "Kayaköy Mahallesi Gemiler Caddesi No:193, Kayaköy, Fethiye/Muğla",
+      "lat": 36.577843,
+      "lng": 29.053951,
+      "defaultRooms": [
+        {
+          "id": "standart-oda",
+          "name": "Standart Oda",
+          "capacity": 2
+        },
+        {
+          "id": "deniz-manzarali-oda",
+          "name": "Deniz Manzaralı Oda",
+          "capacity": 2
+        },
+        {
+          "id": "suit",
+          "name": "Süit",
+          "capacity": 3
+        }
+      ]
+    },
+    {
+      "id": "skopea-inn-exclusive-hotel",
+      "name": "Skopea Inn Exclusive Hotel",
+      "sourceUrl": "https://www.etstur.com/Skopea-Inn-Exclusive-Hotel",
+      "bookeder": "https://skopea-inn-exclusive-hotel-fethiye.bookeder.com/",
+      "city": "Fethiye",
+      "district": "Göcek",
+      "provinceCity": "Muğla",
+      "boardType": "Oda Kahvaltı",
+      "starRating": 4,
+      "themeCode": "luxury",
+      "themeTags": [
+        "luxury",
+        "boutique"
+      ],
+      "hotelType": "boutique",
+      "address": "Göcek Mahallesi Turgut Özal Cad. No:1, Göcek, Fethiye/Muğla",
+      "lat": 36.75522,
+      "lng": 28.939541
+    },
+    {
+      "id": "dedeminn-marina-hotel",
+      "name": "Dedeminn Marina Hotel",
+      "sourceUrl": "https://www.etstur.com/Dedeminn-Marina-Hotel",
+      "bookeder": "https://dedeminn-hotel-fethiye.bookeder.com/",
+      "aegean": "https://dedeminn-marina-gocek.aegeanhotels.net/tr/",
+      "city": "Fethiye",
+      "district": "Göcek",
+      "provinceCity": "Muğla",
+      "boardType": "Oda Kahvaltı",
+      "starRating": 3,
+      "themeCode": "boutique",
+      "themeTags": [
+        "boutique",
+        "sea_view"
+      ],
+      "hotelType": "boutique",
+      "address": "Cumhuriyet Mahallesi Çarşıyolu Cad. No:63, Göcek, Fethiye/Muğla",
+      "lat": 36.755076,
+      "lng": 28.939976
+    },
+    {
+      "id": "kayakoy-piramit-butik-otel",
+      "name": "Kayaköy Piramit Butik Otel",
+      "sourceUrl": "https://www.etstur.com/Kayakoy-Piramit-Butik-Otel",
+      "bookeder": "https://pyramid-boutique-hotel-kayakoy.bookeder.com/",
+      "aegean": "https://pyramid-boutique.aegeanhotels.net/tr/",
+      "city": "Fethiye",
+      "district": "Kayaköy",
+      "provinceCity": "Muğla",
+      "boardType": "Oda Kahvaltı",
+      "starRating": 3,
+      "themeCode": "boutique",
+      "themeTags": [
+        "boutique"
+      ],
+      "hotelType": "boutique",
+      "address": "Kayaköy Mah. Gemiler Cad. (Kuyubaşı) No:55, Kayaköy, Fethiye/Muğla",
+      "lat": 36.578299,
+      "lng": 29.084091
+    },
+    {
+      "id": "yediburunlar-lighthouse",
+      "name": "Yediburunlar Lighthouse Boutique Hotel & Restaurant",
+      "sourceUrl": "https://www.etstur.com/Yediburunlar-Lighthouse-Boutique-Hotel-Restaurant",
+      "bookeder": "https://yediburunlar-lighthouse-guest-house-faralya.bookeder.com/",
+      "aegean": "https://yediburunlar-lighthouse-boutique-and-restaurant.aegeanhotels.net/tr/",
+      "city": "Fethiye",
+      "district": "Yediburunlar",
+      "provinceCity": "Muğla",
+      "boardType": "Oda Kahvaltı",
+      "starRating": 4,
+      "adultsOnly": true,
+      "themeCode": "boutique",
+      "themeTags": [
+        "boutique",
+        "luxury",
+        "sea_view",
+        "adults_only"
+      ],
+      "hotelType": "boutique",
+      "address": "Yediburunlar Mah. Boğaziçi Koyu, Esen, Faralya, Fethiye/Muğla",
+      "lat": 36.404977,
+      "lng": 29.130517
+    },
+    {
+      "id": "mercan-exclusive",
+      "name": "Mercan Exclusive",
+      "sourceUrl": "https://www.etstur.com/Mercan-Exclusive",
+      "bookeder": "https://mercan-exclusive-fethiye.bookeder.com/",
+      "aegean": "https://mercan-exclusive.aegeanhotels.net/tr/",
+      "city": "Fethiye",
+      "district": "Ölüdeniz",
+      "provinceCity": "Muğla",
+      "boardType": "Oda Kahvaltı",
+      "starRating": 4,
+      "themeCode": "boutique",
+      "themeTags": [
+        "boutique",
+        "sea_view"
+      ],
+      "hotelType": "boutique",
+      "address": "Asar Cad. No:15, Ölüdeniz, Fethiye/Muğla",
+      "lat": 36.572411,
+      "lng": 29.13576
+    },
+    {
+      "id": "yacht-classic-hotel",
+      "name": "Yacht Classic Hotel",
+      "sourceUrl": "https://www.etstur.com/Yacht-Classic-Hotel",
+      "bookeder": "https://yacht-classic-fethiye-hotel.bookeder.com/",
+      "aegean": "https://yacht-classic-boutique-class.aegeanhotels.net/tr/",
+      "city": "Fethiye",
+      "district": "Karagözler",
+      "provinceCity": "Muğla",
+      "boardType": "Oda Kahvaltı",
+      "starRating": 4,
+      "themeCode": "boutique",
+      "themeTags": [
+        "boutique",
+        "luxury",
+        "sea_view"
+      ],
+      "hotelType": "boutique",
+      "address": "1. Karagözler No:24, Fethiye/Muğla",
+      "lat": 36.621683,
+      "lng": 29.099755
+    },
+    {
+      "id": "aes-club",
+      "name": "Aes Club",
+      "sourceUrl": "https://www.etstur.com/Aes-Club",
+      "bookeder": "https://aes-club-hotel-oludeniz.bookeder.com/",
+      "aegean": "https://aes-club.aegeanhotels.net/tr/",
+      "city": "Fethiye",
+      "district": "Ovacık",
+      "provinceCity": "Muğla",
+      "boardType": "Her Şey Dahil",
+      "starRating": 4,
+      "themeCode": "family",
+      "themeTags": [
+        "family",
+        "spa"
+      ],
+      "hotelType": "resort",
+      "address": "Ovacık Mevkii 59. Sok. No:1, Ölüdeniz, Fethiye/Muğla",
+      "lat": 36.577802,
+      "lng": 29.146903,
+      "defaultRooms": [
+        {
+          "id": "standart-oda",
+          "name": "Standart Oda",
+          "capacity": 2
+        },
+        {
+          "id": "aile-odasi",
+          "name": "Aile Odası",
+          "capacity": 4
+        },
+        {
+          "id": "deniz-manzarali-oda",
+          "name": "Deniz Manzaralı Oda",
+          "capacity": 2
+        }
+      ]
+    },
+    {
+      "id": "blue-pearl-hotel",
+      "name": "Blue Pearl Hotel",
+      "sourceUrl": "https://www.etstur.com/Blue-Pearl-Hotel",
+      "aegean": "https://blue-pearl-ovacik.aegeanhotels.net/tr/",
+      "city": "Fethiye",
+      "district": "Ovacık",
+      "provinceCity": "Muğla",
+      "boardType": "Oda Kahvaltı",
+      "starRating": 3,
+      "themeCode": "boutique",
+      "themeTags": [
+        "boutique",
+        "family"
+      ],
+      "hotelType": "hotel",
+      "priceOverrideUsd": 75,
+      "priceOverrideNote": "Bookeder aynası yok; Aegean galeri + Ovacık 3* BB piyasa.",
+      "address": "Ölüdeniz Mahallesi Makmara Caddesi No:10, Ovacık, Fethiye/Muğla",
+      "lat": 36.575,
+      "lng": 29.14,
+      "defaultRooms": [
+        {
+          "id": "standart-oda",
+          "name": "Standart Oda",
+          "capacity": 2
+        },
+        {
+          "id": "aile-suit",
+          "name": "Aile Süiti",
+          "capacity": 4
+        }
+      ]
+    },
+    {
+      "id": "nicholas-park-otel",
+      "name": "Nicholas Park Otel",
+      "sourceUrl": "https://www.etstur.com/Nicholas-Park-Otel",
+      "bookeder": "https://nicholas-park-hotel-oludeniz.bookeder.com/",
+      "aegean": "https://nicholas-park.aegeanhotels.net/tr/",
+      "city": "Fethiye",
+      "district": "Hisarönü",
+      "provinceCity": "Muğla",
+      "boardType": "Her Şey Dahil",
+      "starRating": 4,
+      "themeCode": "family",
+      "themeTags": [
+        "family"
+      ],
+      "hotelType": "hotel",
+      "address": "Hisarönü Mahallesi, Ölüdeniz, Fethiye/Muğla",
+      "lat": 36.566077,
+      "lng": 29.133067,
+      "priceOverrideUsd": 75,
+      "priceOverrideNote": "Bookeder fiyat çıkarımı boş; Hisarönü 4* AI ~75 USD.",
+      "defaultRooms": [
+        {
+          "id": "standart-oda",
+          "name": "Standart Oda",
+          "capacity": 2
+        },
+        {
+          "id": "aile-odasi",
+          "name": "Aile Odası",
+          "capacity": 4
+        },
+        {
+          "id": "deniz-manzarali-oda",
+          "name": "Deniz Manzaralı Oda",
+          "capacity": 2
+        }
+      ]
+    },
+    {
+      "id": "sahra-su-holiday-village-spa",
+      "name": "Sahra Su Holiday Village & Spa",
+      "sourceUrl": "https://www.etstur.com/Sahra-Su-Holiday-Village-Spa",
+      "bookeder": "https://sahra-su-holiday-village-spa-oludeniz.bookeder.com/",
+      "aegean": "https://sahra-su-holiday-village-spa.aegeanhotels.net/tr/",
+      "city": "Fethiye",
+      "district": "Ovacık",
+      "provinceCity": "Muğla",
+      "boardType": "Her Şey Dahil",
+      "starRating": 4,
+      "themeCode": "spa",
+      "themeTags": [
+        "spa",
+        "family"
+      ],
+      "hotelType": "resort",
+      "address": "Ovacık Mah. Ocakköy Mevkii Gızelen Cad. No:9/1, Ölüdeniz, Fethiye/Muğla",
+      "lat": 36.585212,
+      "lng": 29.144052,
+      "priceOverrideUsd": 85,
+      "priceOverrideNote": "Bookeder fiyat çıkarımı boş; title 67 USD, AI resort ~85 USD."
+    },
+    {
+      "id": "club-hotel-letoonia",
+      "name": "Club Hotel Letoonia",
+      "sourceUrl": "https://www.etstur.com/Club-Hotel-Letoonia",
+      "bookeder": "https://club-hotel-letoonia-fethiye.bookeder.com/",
+      "aegean": "https://club-letoonia.aegeanhotels.net/tr/",
+      "city": "Fethiye",
+      "district": "Karagözler",
+      "provinceCity": "Muğla",
+      "boardType": "Her Şey Dahil",
+      "starRating": 5,
+      "themeCode": "beachfront",
+      "themeTags": [
+        "beachfront",
+        "family",
+        "spa"
+      ],
+      "hotelType": "resort",
+      "address": "Karagözler Mahallesi No:82, Fethiye/Muğla",
+      "lat": 36.636,
+      "lng": 29.09689
+    },
+    {
+      "id": "manaspark-deluxe-hotel",
+      "name": "Manaspark Deluxe Hotel",
+      "sourceUrl": "https://www.etstur.com/Manaspark-Deluxe-Hotel",
+      "bookeder": "https://manaspark-oludeniz-hotel.bookeder.com/",
+      "aegean": "https://manaspark-deluxe.aegeanhotels.net/tr/",
+      "city": "Fethiye",
+      "district": "Ölüdeniz",
+      "provinceCity": "Muğla",
+      "boardType": "Ultra Her Şey Dahil",
+      "starRating": 4,
+      "themeCode": "beachfront",
+      "themeTags": [
+        "beachfront",
+        "family",
+        "sea_view"
+      ],
+      "hotelType": "resort",
+      "address": "Belcekız Mah. 240. Sok. No:1, Ölüdeniz, Fethiye/Muğla",
+      "lat": 36.556573,
+      "lng": 29.12818,
+      "priceOverrideUsd": 95,
+      "priceOverrideNote": "Bookeder fiyat çıkarımı boş; title 55 USD düşük, Ölüdeniz ultra AI ~95 USD.",
+      "defaultRooms": [
+        {
+          "id": "standart-oda",
+          "name": "Standart Oda",
+          "capacity": 2
+        },
+        {
+          "id": "deniz-manzarali-oda",
+          "name": "Deniz Manzaralı Oda",
+          "capacity": 2
+        },
+        {
+          "id": "aile-odasi",
+          "name": "Aile Odası",
+          "capacity": 4
+        },
+        {
+          "id": "suit",
+          "name": "Süit",
+          "capacity": 3
+        }
+      ]
+    },
+    {
+      "id": "katranci-park-hotel",
+      "name": "Katranci Park Hotel",
+      "sourceUrl": "https://www.etstur.com/Katranci-Park-Hotel",
+      "aegean": "https://katranci-park.aegeanhotels.net/tr/",
+      "city": "Fethiye",
+      "district": "Yanıklar",
+      "provinceCity": "Muğla",
+      "boardType": "Her Şey Dahil",
+      "starRating": 4,
+      "themeCode": "family",
+      "themeTags": [
+        "family",
+        "spa"
+      ],
+      "hotelType": "resort",
+      "priceOverrideUsd": 90,
+      "priceOverrideNote": "Bookeder aynası yok; Aegean galeri + Yanıklar resort piyasa.",
+      "address": "Yanıklar Mahallesi Zeytinbahçe Mevkii, Yanıklar, Fethiye/Muğla",
+      "lat": 36.695,
+      "lng": 29.04,
+      "defaultRooms": [
+        {
+          "id": "standart-oda",
+          "name": "Standart Oda",
+          "capacity": 2
+        },
+        {
+          "id": "aile-odasi",
+          "name": "Aile Odası",
+          "capacity": 4
+        },
+        {
+          "id": "deniz-manzarali-oda",
+          "name": "Deniz Manzaralı Oda",
+          "capacity": 2
+        }
+      ]
+    },
+    {
+      "id": "green-forest-holiday-village",
+      "name": "Green Forest Holiday Village",
+      "sourceUrl": "https://www.etstur.com/Green-Forest-Holiday-Village",
+      "bookeder": "https://green-forest-holiday-village-fethiye.bookeder.com/",
+      "aegean": "https://green-forest-holiday-village.aegeanhotels.net/tr/",
+      "city": "Fethiye",
+      "district": "Ölüdeniz",
+      "provinceCity": "Muğla",
+      "boardType": "Her Şey Dahil",
+      "starRating": 5,
+      "themeCode": "family",
+      "themeTags": [
+        "family",
+        "spa"
+      ],
+      "hotelType": "resort",
+      "address": "Ölüdeniz Cumhuriyet Cad. No:74, Ölüdeniz, Fethiye/Muğla",
+      "lat": 36.571924,
+      "lng": 29.127889
+    },
+    {
+      "id": "orka-sunlife-resort",
+      "name": "Orka Sunlife Resort Hotel & Aquapark",
+      "sourceUrl": "https://www.etstur.com/Orka-Sunlife-Resort-Hotel-Aquapark",
+      "bookeder": "https://orka-sunlife-resort-spa-oludeniz.bookeder.com/",
+      "city": "Fethiye",
+      "district": "Ölüdeniz",
+      "provinceCity": "Muğla",
+      "boardType": "Ultra Her Şey Dahil",
+      "starRating": 5,
+      "themeCode": "family",
+      "themeTags": [
+        "family",
+        "spa",
+        "luxury"
+      ],
+      "hotelType": "resort",
+      "address": "Güzgülü Mevkii 7/4, Ölüdeniz, Fethiye/Muğla",
+      "lat": 36.56349182,
+      "lng": 29.13293076
+    },
+    {
+      "id": "belcekiz-beach-club",
+      "name": "Belcekiz Beach Club",
+      "sourceUrl": "https://www.etstur.com/Belcekiz-Beach-Club",
+      "bookeder": "https://belcekiz-beach-club-hotel-oludeniz.bookeder.com/",
+      "aegean": "https://belcekiz-beach-club.aegeanhotels.net/tr/",
+      "city": "Fethiye",
+      "district": "Ölüdeniz",
+      "provinceCity": "Muğla",
+      "boardType": "Her Şey Dahil",
+      "starRating": 5,
+      "themeCode": "beachfront",
+      "themeTags": [
+        "beachfront",
+        "family",
+        "spa"
+      ],
+      "hotelType": "resort",
+      "address": "Belceğiz Mahallesi 227. Sokak No:2, Ölüdeniz, Fethiye/Muğla",
+      "lat": 36.546322,
+      "lng": 29.125298
+    },
+    {
+      "id": "liberty-hotels-lykia",
+      "name": "Liberty Hotels Lykia",
+      "sourceUrl": "https://www.etstur.com/Liberty-Hotels-Lykia",
+      "bookeder": "https://liberty-hotels-lykia-oludeniz.bookeder.com/",
+      "aegean": "https://liberty-lykia.aegeanhotels.net/tr/",
+      "city": "Fethiye",
+      "district": "Ölüdeniz",
+      "provinceCity": "Muğla",
+      "boardType": "Ultra Her Şey Dahil",
+      "starRating": 5,
+      "themeCode": "luxury",
+      "themeTags": [
+        "luxury",
+        "beachfront",
+        "spa",
+        "family"
+      ],
+      "hotelType": "resort",
+      "priceOverrideUsd": 420,
+      "priceOverrideNote": "Bookeder 660 USD yüksek/paket riski; 5* ultra AI Kıdrak plaj ~420 USD gecelik taban.",
+      "address": "Kıdrak Mevkii, Ölüdeniz, Fethiye/Muğla",
+      "lat": 36.525017,
+      "lng": 29.130077
+    }
+  ],
+  "notes": [
+    "30/30 harvest OK. Galeri zengin; 5 otelde Bookeder/Aegean dosya adında Room/Suite etiketi yok → oda görseli boş bırakıldı (yanlış lobiyi odaya bağlamamak için): zakros, zehra, skopea, blue-pearl, katranci. Tesis galerisi yine dolu.",
+    "Fiyat override: mavruka, yazz, liberty, nicholas, sahra-su, manaspark, zakros, zehra, blue-pearl, katranci."
+  ]
+}
