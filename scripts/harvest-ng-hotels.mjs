@@ -321,7 +321,7 @@ function amenitiesFor(hotel, metaAmenities) {
 
 function buildRooms(hotel, images, nightly, board, ldRooms) {
   const defaults = Array.isArray(hotel.defaultRooms) ? hotel.defaultRooms : []
-  const list = ldRooms.length
+  let list = ldRooms.length
     ? ldRooms
     : defaults.length
       ? defaults.map((r) => ({
@@ -333,6 +333,24 @@ function buildRooms(hotel, images, nightly, board, ldRooms) {
           nightlyUsd: r.nightlyUsd,
         }))
       : [{ id: 'standart-oda', name: 'Standart Oda', capacity: 2, bedNote: null }]
+
+  // Bookeder bazen tek oda döner — manifest defaultRooms ile zenginleştir
+  if (list.length < 3 && defaults.length > 0) {
+    const seen = new Set(list.map((r) => r.id || slugify(r.name)))
+    for (const r of defaults) {
+      const id = r.id || slugify(r.name)
+      if (seen.has(id)) continue
+      seen.add(id)
+      list.push({
+        id,
+        name: r.name,
+        capacity: r.capacity || 2,
+        bedNote: r.bedNote || r.note || null,
+        nightlyTry: r.nightlyTry,
+        nightlyUsd: r.nightlyUsd,
+      })
+    }
+  }
 
   // Prefer a "standart / iki kişilik / infinity" room for the priced floor; others share gallery only.
   const pricedIdx = Math.max(
@@ -411,7 +429,10 @@ async function harvestOne(hotel) {
     try {
       const html = await fetchText(hotel.bookeder)
       meta = { ...meta, ...extractBookeder(html) }
-      images = uniq([...images, ...extractBookederBigImages(html)])
+      // Bookeder Photos/Big çoğu zaman Room/Suite etiketli — Aegean sayısal img-*
+      // listesinin önüne koy ki slice(0,120) oda görsellerini düşürmesin.
+      const bookederImgs = extractBookederBigImages(html)
+      images = uniq([...bookederImgs, ...images])
       console.log(
         `  bookeder age rooms=${meta.rooms?.length || 0} lat=${meta.lat} lng=${meta.lng} minPrice=${meta.minPrice} images=${images.length}`,
       )
@@ -461,8 +482,12 @@ async function harvestOne(hotel) {
     throw new Error(`media_incomplete:${hotel.id}:images=${images.length}`)
   }
 
-  // Cap gallery for feed size while keeping rich media
-  images = images.slice(0, 120)
+  // Cap gallery: Room/Suite/Interior etiketlileri öne al (oda görseli eşlemesi için)
+  images = [
+    ...images.filter((u) => /(?:^|[-_])(?:rooms?|suites?|bedrooms?|interior|oda)(?:[-_.]|$)/i.test(String(u).split('/').pop() || '')),
+    ...images.filter((u) => !/(?:^|[-_])(?:rooms?|suites?|bedrooms?|interior|oda)(?:[-_.]|$)/i.test(String(u).split('/').pop() || '')),
+  ]
+  images = uniq(images).slice(0, 120)
 
   const nightly = meta.minPrice && meta.minPrice >= 1000 ? meta.minPrice : null
   const board = hotel.boardType || 'Her Şey Dahil'
