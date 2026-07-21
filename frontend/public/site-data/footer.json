@@ -112,14 +112,14 @@
           "href": "/oteller/kapadokya"
         },
         {
-          "nameTr": "Ege Turları",
-          "nameEn": "Aegean Tours",
+          "nameTr": "Ege & Akdeniz Turları",
+          "nameEn": "Aegean & Mediterranean Tours",
           "href": "/turlar/ege-akdeniz-turlari"
         },
         {
-          "nameTr": "Akdeniz Turları",
-          "nameEn": "Mediterranean Tours",
-          "href": "/turlar/ege-akdeniz-turlari"
+          "nameTr": "Kültür Turları",
+          "nameEn": "Cultural Tours",
+          "href": "/turlar/kultur-turlari"
         },
         {
           "nameTr": "Avrupa Turları",
@@ -259,5 +259,5 @@
       "href": "/legal/cookies"
     }
   ],
-  "updatedAt": "2026-07-21T21:03:48.507Z"
+  "updatedAt": "2026-07-21T21:04:10.895Z"
 }
