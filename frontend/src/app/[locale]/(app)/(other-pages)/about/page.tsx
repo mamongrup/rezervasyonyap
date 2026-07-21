@@ -54,15 +54,57 @@ export default async function PageAbout() {
 
         <SectionStatistic />
 
+        <section id="kariyer" className="scroll-mt-28 rounded-3xl border border-neutral-200 bg-white p-8 dark:border-neutral-700 dark:bg-neutral-900 sm:p-10">
+          <h2 className="text-2xl font-semibold text-neutral-900 dark:text-white">Kariyer</h2>
+          <p className="mt-3 max-w-3xl text-neutral-600 dark:text-neutral-300">
+            Seyahat teknolojisi ve operasyon ekiplerimize katılmak ister misiniz? Açık pozisyonlar ve
+            başvurular için bizimle iletişime geçin.
+          </p>
+          <a
+            href="/contact"
+            className="mt-5 inline-flex text-sm font-semibold text-primary-600 hover:text-primary-700 dark:text-primary-400"
+          >
+            İletişim →
+          </a>
+        </section>
+
+        <section id="basin" className="scroll-mt-28 rounded-3xl border border-neutral-200 bg-white p-8 dark:border-neutral-700 dark:bg-neutral-900 sm:p-10">
+          <h2 className="text-2xl font-semibold text-neutral-900 dark:text-white">Basın</h2>
+          <p className="mt-3 max-w-3xl text-neutral-600 dark:text-neutral-300">
+            Medya kitleri, marka varlıkları ve basın soruları için iletişim formumuz üzerinden bize
+            ulaşabilirsiniz. Güncel içerikler için blogumuzu da takip edin.
+          </p>
+          <div className="mt-5 flex flex-wrap gap-4 text-sm font-semibold">
+            <a href="/contact" className="text-primary-600 hover:text-primary-700 dark:text-primary-400">
+              Basın iletişimi →
+            </a>
+            <a href="/blog" className="text-primary-600 hover:text-primary-700 dark:text-primary-400">
+              Blog →
+            </a>
+          </div>
+        </section>
+
+        <section
+          id="surdurulebilirlik"
+          className="scroll-mt-28 rounded-3xl border border-neutral-200 bg-white p-8 dark:border-neutral-700 dark:bg-neutral-900 sm:p-10"
+        >
+          <h2 className="text-2xl font-semibold text-neutral-900 dark:text-white">Sürdürülebilirlik</h2>
+          <p className="mt-3 max-w-3xl text-neutral-600 dark:text-neutral-300">
+            Yerel işletmeleri destekleyen, şeffaf fiyatlı ve sorumlu turizm ilkelerine uygun bir
+            platform inşa ediyoruz. Tesis ve tur ortaklarımızın yasal belgelerini doğrulayarak güvenli
+            seyahati önceiyoruz.
+          </p>
+        </section>
+
         <BecomeProviderModule
           config={{
             heading: 'Siz de Aramıza Katılın',
             subheading:
               'Otel, tatil evi, tur, yat, araç kiralama — her türlü seyahat hizmetinizi platformumuza ekleyin ve milyonlarca gezgine ulaşın.',
             ctaText: 'İlan Oluştur',
-            ctaHref: '/manage',
+            ctaHref: '/tedarikci-ol',
             secondaryCtaText: 'Daha Fazla Bilgi',
-            secondaryCtaHref: '#',
+            secondaryCtaHref: '/ilan-ver#nasil-calisir',
             bgVariant: 'gradient',
           }}
         />
