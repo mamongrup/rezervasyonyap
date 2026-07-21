@@ -34,7 +34,7 @@ const FAQ: FaqItem[] = [
   },
   {
     q: 'İptal ve iade nasıl çalışır?',
-    a: 'Her ürünün kendi iptal koşulları vardır ve rezervasyon sırasında gösterilir. Genel çerçeve için İptal ve İade sayfamıza bakın. Özel durumlar için müşteri hizmetlerimizle iletişime geçin.',
+    a: 'Her ürünün kendi iptal koşulları vardır ve rezervasyon sırasında gösterilir. Paket turlarda genelde başlangıca 30 gün kala kesintisiz iade; otellerde check-in’e kalan süreye göre kademeli kesinti uygulanır. Ayrıntılı tablo ve mücbir sebep kuralları için İptal ve İade Şartları sayfamıza bakın.',
   },
   {
     q: 'Rezervasyonumu değiştirebilir miyim?',
