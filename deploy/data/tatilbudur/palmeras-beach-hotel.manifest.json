@@ -1,0 +1,23 @@
+{
+  "generatedAt": "2026-07-21",
+  "note": "Hotels.com Cloudflare 429/403 — Bookeder Ultra All Inclusive (Konaklı) aynası. Kaynak: https://tr.hotels.com/ho3269002816/palmeras-beach-hotel-antalya-turkiye/",
+  "hotels": [
+    {
+      "id": "palmeras-beach-hotel",
+      "name": "Palmeras Beach Hotel",
+      "sourceUrl": "https://tr.hotels.com/ho3269002816/palmeras-beach-hotel-antalya-turkiye/",
+      "bookeder": "https://club-insula-hotel-alanya.bookeder.com/",
+      "officialUrl": "https://www.palmerasbeachhotel.com/",
+      "city": "Alanya",
+      "district": "Konaklı",
+      "provinceCity": "Antalya",
+      "address": "Konaklı Mah. İskele Cad. No:7/A, 07490 Alanya/Antalya",
+      "lat": 36.587147,
+      "lng": 31.864332,
+      "starRating": 5,
+      "boardType": "Ultra Her Şey Dahil",
+      "priceOverrideUsd": 108,
+      "priceOverrideNote": "Bookeder listede 108 USD ve üzeri — ×40 TRY gecelik taban."
+    }
+  ]
+}

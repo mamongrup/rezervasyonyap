@@ -12,8 +12,18 @@ import { fileURLToPath } from 'node:url'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const ROOT = path.join(__dirname, '..')
-const MANIFEST = path.join(ROOT, 'deploy/data/tatilbudur/ng-hotels-5.manifest.json')
-const OUT = path.join(ROOT, 'deploy/data/tatilbudur/ng-hotels-5.json')
+function argValue(flag) {
+  const i = process.argv.indexOf(flag)
+  return i >= 0 ? String(process.argv[i + 1] || '').trim() : ''
+}
+const MANIFEST = path.resolve(
+  ROOT,
+  argValue('--manifest') || 'deploy/data/tatilbudur/ng-hotels-5.manifest.json',
+)
+const OUT = path.resolve(
+  ROOT,
+  argValue('--out') || 'deploy/data/tatilbudur/ng-hotels-5.json',
+)
 const UA =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
 const TRY_PER_USD = Number(process.env.HARVEST_TRY_PER_USD || 40)
