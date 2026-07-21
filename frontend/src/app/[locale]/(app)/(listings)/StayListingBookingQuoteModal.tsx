@@ -150,6 +150,9 @@ export default function StayListingBookingQuoteModal(props: Props) {
       : 0,
     locale,
     bookingUnitCount: hotelBookingUnitCount,
+    childAges: hotelGuests?.childAges,
+    infantCount: hotelGuests?.guestInfants ?? 0,
+    childPolicy: bookingCtx?.childPolicy ?? null,
   })
 
   const boardLabels = buildBoardTypeLabelsFromMessages(
@@ -200,6 +203,9 @@ export default function StayListingBookingQuoteModal(props: Props) {
           mealPlanId: props.selectedMealPlanId ?? bookingCtx?.selectedMealPlanId,
           mealPlanLabel: checkoutBoardLabel ?? undefined,
           hotelRoomQuantity: isSyntheticHotelRoomId(hotelRoom.id) ? undefined : hotelBookingUnitCount,
+          askChildAges: true,
+          adultsOnly: bookingCtx?.adultsOnly,
+          freeChildMaxAge: bookingCtx?.childPolicy.freeMaxAge,
         }),
       )
     } else {
@@ -292,6 +298,19 @@ export default function StayListingBookingQuoteModal(props: Props) {
                     </DescriptionTerm>
                     <DescriptionDetails className="text-sm text-neutral-800 sm:text-right dark:text-neutral-200">
                       {formatConverted(hotelQuote.mealPlanSupplement, currencyCode)}
+                    </DescriptionDetails>
+                  </>
+                ) : null}
+                {isHotel && hotelQuote.childSurchargeTotal > 0 ? (
+                  <>
+                    <DescriptionTerm className="text-sm text-neutral-600 dark:text-neutral-400">
+                      Çocuk ücreti
+                      {hotelQuote.childBreakdown?.chargedChildren
+                        ? ` (${hotelQuote.childBreakdown.chargedChildren} çocuk)`
+                        : ''}
+                    </DescriptionTerm>
+                    <DescriptionDetails className="text-sm text-neutral-800 sm:text-right dark:text-neutral-200">
+                      {formatConverted(hotelQuote.childSurchargeTotal, currencyCode)}
                     </DescriptionDetails>
                   </>
                 ) : null}

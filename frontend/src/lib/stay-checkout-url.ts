@@ -35,6 +35,12 @@ export function appendCheckoutGuestParams(u: URLSearchParams, guests: GuestsObje
   u.set('guestAdults', String(guests.guestAdults ?? 2))
   u.set('guestChildren', String(guests.guestChildren ?? 0))
   u.set('guestInfants', String(guests.guestInfants ?? 0))
+  const ages = Array.isArray(guests.childAges) ? guests.childAges : []
+  if (ages.length > 0) {
+    u.set('childAges', ages.map((a) => String(Math.round(a))).join(','))
+  } else {
+    u.delete('childAges')
+  }
 }
 
 export function parseCheckoutGuestsFromSearchParams(searchParams: URLSearchParams): GuestsObject {
@@ -44,10 +50,20 @@ export function parseCheckoutGuestsFromSearchParams(searchParams: URLSearchParam
     const v = parseInt(raw, 10)
     return Number.isFinite(v) && v >= min ? v : fallback
   }
+  const guestChildren = read('guestChildren', 0)
+  const agesRaw = searchParams.get('childAges')?.trim() || ''
+  const childAges = agesRaw
+    ? agesRaw
+        .split(',')
+        .map((s) => parseInt(s.trim(), 10))
+        .filter((n) => Number.isFinite(n) && n >= 0 && n <= 17)
+        .slice(0, guestChildren || 8)
+    : undefined
   return {
     guestAdults: read('guestAdults', 2, 1),
-    guestChildren: read('guestChildren', 0),
+    guestChildren,
     guestInfants: read('guestInfants', 0),
+    ...(childAges && childAges.length > 0 ? { childAges } : {}),
   }
 }
 
@@ -105,6 +121,9 @@ export function buildStayCheckoutUrl(
     poolHeatingSelected?: boolean
     /** Toplam havuz ısıtma ücreti (gece × günlük) */
     poolHeatingFee?: number
+    adultsOnly?: boolean
+    freeChildMaxAge?: number | null
+    askChildAges?: boolean
   },
 ): string {
   const extra: ListingCheckoutExtraParams = {
@@ -121,6 +140,11 @@ export function buildStayCheckoutUrl(
   if (params.poolHeatingSelected && params.poolHeatingFee != null && params.poolHeatingFee > 0) {
     extra.pool_heating = '1'
     extra.poolHeatingFee = params.poolHeatingFee.toFixed(2)
+  }
+  if (params.askChildAges) extra.askChildAges = '1'
+  if (params.adultsOnly) extra.adultsOnly = '1'
+  if (params.freeChildMaxAge != null && Number.isFinite(params.freeChildMaxAge)) {
+    extra.freeChildMaxAge = String(params.freeChildMaxAge)
   }
   return buildListingCheckoutUrl(checkoutPath, {
     listingId: params.listingId,

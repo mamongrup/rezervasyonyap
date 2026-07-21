@@ -4,12 +4,13 @@ import DatesRangeInputPopover from '@/app/[locale]/(app)/(listings)/components/D
 import GuestsInputPopover from '@/app/[locale]/(app)/(listings)/components/GuestsInputPopover'
 import { checkoutT, formatCheckoutDate } from '@/lib/checkout-i18n'
 import { DEFAULT_GUESTS_STAY, formatStayGuestSummary, mergeGuestDefaults } from '@/lib/guest-search-defaults'
+import { syncChildAges } from '@/lib/hotel-child-policy'
 import { getMessages } from '@/utils/getT'
 import { GuestsObject } from '@/type'
 import converSelectedDateToString from '@/utils/converSelectedDateToString'
 import { PencilEdit02Icon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
-import { checkoutDateYmd, parseCheckoutTripDate } from '@/lib/stay-checkout-url'
+import { appendCheckoutGuestParams, checkoutDateYmd, parseCheckoutTripDate } from '@/lib/stay-checkout-url'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { useEffect, useMemo, useState } from 'react'
 
@@ -41,11 +42,23 @@ function parseGuestInt(sp: URLSearchParams, ...keys: string[]): number | undefin
   return undefined
 }
 
+function parseChildAges(sp: URLSearchParams, guestChildren: number): number[] | undefined {
+  const raw = sp.get('childAges')?.trim()
+  if (!raw) return guestChildren > 0 ? syncChildAges({ guestChildren }) : undefined
+  const ages = raw
+    .split(',')
+    .map((s) => Number.parseInt(s.trim(), 10))
+    .filter((n) => Number.isFinite(n) && n >= 0 && n <= 17)
+  return syncChildAges({ guestChildren, childAges: ages })
+}
+
 function guestsFromSearchParams(sp: URLSearchParams): GuestsObject {
+  const guestChildren = parseGuestInt(sp, 'children', 'guestChildren') ?? 0
   return mergeGuestDefaults({
     guestAdults: parseGuestInt(sp, 'adults', 'guestAdults', 'guests'),
-    guestChildren: parseGuestInt(sp, 'children', 'guestChildren'),
+    guestChildren,
     guestInfants: parseGuestInt(sp, 'infants', 'guestInfants'),
+    childAges: parseChildAges(sp, guestChildren),
   })
 }
 
@@ -63,6 +76,20 @@ const YourTrip = ({ locale, onGuestsChange }: Props) => {
   const [startDate, setStartDate] = useState<Date | null>(() => tripDateFromSearchParams(searchParams).start)
   const [endDate, setEndDate] = useState<Date | null>(() => tripDateFromSearchParams(searchParams).end)
   const [guests, setGuests] = useState<GuestsObject>(() => guestsFromSearchParams(searchParams))
+
+  const isHotelCheckout =
+    Boolean(searchParams.get('hotelRoomId')?.trim()) ||
+    searchParams.get('askChildAges') === '1' ||
+    searchParams.get('category') === 'hotel'
+  const adultsOnly =
+    searchParams.get('adultsOnly') === '1' || searchParams.get('adultsOnly') === 'true'
+  const freeChildMaxAgeRaw = searchParams.get('freeChildMaxAge')
+  const freeChildMaxAge =
+    freeChildMaxAgeRaw == null || freeChildMaxAgeRaw === ''
+      ? 6
+      : Number.isFinite(Number(freeChildMaxAgeRaw))
+        ? Number(freeChildMaxAgeRaw)
+        : 6
 
   useEffect(() => {
     const { start, end } = tripDateFromSearchParams(searchParams)
@@ -94,6 +121,14 @@ const YourTrip = ({ locale, onGuestsChange }: Props) => {
 
   const checkoutTriggerClass =
     'flex w-full flex-1 justify-between gap-x-5 p-5 hover:bg-neutral-50 focus-visible:outline-hidden dark:hover:bg-neutral-800'
+
+  const replaceGuestParams = (next: GuestsObject) => {
+    setGuests(next)
+    const params = new URLSearchParams(searchParams.toString())
+    appendCheckoutGuestParams(params, next)
+    const qs = params.toString()
+    router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false })
+  }
 
   return (
     <div>
@@ -150,8 +185,11 @@ const YourTrip = ({ locale, onGuestsChange }: Props) => {
           className="relative flex min-w-0 flex-1"
           locale={locale}
           value={guests}
-          onChange={setGuests}
+          onChange={replaceGuestParams}
           guestDefaults={DEFAULT_GUESTS_STAY}
+          adultsOnly={adultsOnly}
+          askChildAges={isHotelCheckout && !adultsOnly}
+          freeChildMaxAge={adultsOnly ? null : freeChildMaxAge}
           renderTrigger={() => (
             <span className={checkoutTriggerClass}>
               <span className="flex flex-col">
@@ -173,6 +211,7 @@ const YourTrip = ({ locale, onGuestsChange }: Props) => {
       <input type="hidden" name="guestAdults" value={guests.guestAdults} />
       <input type="hidden" name="guestChildren" value={guests.guestChildren} />
       <input type="hidden" name="guestInfants" value={guests.guestInfants} />
+      <input type="hidden" name="childAges" value={(guests.childAges ?? []).join(',')} />
     </div>
   )
 }

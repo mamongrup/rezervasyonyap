@@ -1,4 +1,10 @@
 import { diffStayNights } from '@/hooks/use-stay-listing-quote'
+import {
+  computeChildOccupancySurcharge,
+  DEFAULT_HOTEL_CHILD_POLICY,
+  type ChildOccupancyBreakdown,
+  type HotelChildPolicy,
+} from '@/lib/hotel-child-policy'
 import { computeHotelRoomStayQuote, computeHotelRoomStayQuoteFromRaw } from '@/lib/hotel-room-range-quote'
 import type { HotelRoomAvailabilityDay, ListingAvailabilityDay, MealPlanItem } from '@/lib/travel-api'
 
@@ -64,6 +70,8 @@ export type HotelStayQuoteTotals = {
   nights: number
   lodgingSubtotal: number
   mealPlanSupplement: number
+  childSurchargeTotal: number
+  childBreakdown: ChildOccupancyBreakdown | null
   grandTotal: number
   available: boolean
   selectedPlan: MealPlanItem | null
@@ -82,6 +90,9 @@ export function computeHotelStayQuoteTotals(input: {
   bookingUnitCount?: number
   rawAvailabilityDays?: readonly HotelRoomAvailabilityDay[]
   inventoryDefault?: number
+  childAges?: number[]
+  infantCount?: number
+  childPolicy?: HotelChildPolicy | null
 }): HotelStayQuoteTotals {
   const nights = diffStayNights(input.rangeStart, input.rangeEnd)
   const activePlans = pickActiveMealPlans(input.mealPlans)
@@ -114,15 +125,32 @@ export function computeHotelStayQuoteTotals(input: {
   const lodgingSubtotal = roomQuote.total * units
   const activity = input.activitySurchargesTotal ?? 0
   const perRoomLodgingMeal = roomQuote.total + mealPlanSupplement
+  const nightlyForChild =
+    roomQuote.nights > 0 && roomQuote.total > 0
+      ? roomQuote.total / roomQuote.nights
+      : Math.max(0, input.fallbackNightly)
+  const policy = input.childPolicy ?? DEFAULT_HOTEL_CHILD_POLICY
+  const childBreakdown = computeChildOccupancySurcharge({
+    nightlyRoomRate: nightlyForChild,
+    nights: roomQuote.nights,
+    childAges: input.childAges ?? [],
+    infantCount: input.infantCount ?? 0,
+    policy,
+    units,
+  })
+  const childSurchargeTotal =
+    perRoomLodgingMeal > 0 && roomQuote.available ? childBreakdown.childSurchargeTotal : 0
   const grandTotal =
     perRoomLodgingMeal > 0 && roomQuote.available
-      ? perRoomLodgingMeal * units + activity
+      ? perRoomLodgingMeal * units + activity + childSurchargeTotal
       : 0
 
   return {
     nights: roomQuote.nights,
     lodgingSubtotal,
     mealPlanSupplement: mealPlanSupplement * units,
+    childSurchargeTotal,
+    childBreakdown: childSurchargeTotal > 0 || (input.childAges?.length ?? 0) > 0 ? childBreakdown : null,
     grandTotal,
     available: roomQuote.available,
     selectedPlan,
@@ -130,7 +158,7 @@ export function computeHotelStayQuoteTotals(input: {
   }
 }
 
-/** Sepet satırı — oda başına konaklama + pansiyon; etkinlik ücreti oda sayısına bölünür. */
+/** Sepet satırı — oda başına konaklama + pansiyon + çocuk; etkinlik ücreti oda sayısına bölünür. */
 export function hotelPerRoomCartUnitPrice(
   totals: HotelStayQuoteTotals,
   bookingUnitCount: number,
@@ -138,7 +166,7 @@ export function hotelPerRoomCartUnitPrice(
 ): number {
   const units = Math.max(1, bookingUnitCount)
   if (totals.nights <= 0) return 0
-  const lodgingMeal = totals.lodgingSubtotal + totals.mealPlanSupplement
+  const lodgingMeal = totals.lodgingSubtotal + totals.mealPlanSupplement + (totals.childSurchargeTotal ?? 0)
   if (lodgingMeal <= 0) return 0
   return lodgingMeal / units + Math.max(0, activitySurchargesTotal) / units
 }

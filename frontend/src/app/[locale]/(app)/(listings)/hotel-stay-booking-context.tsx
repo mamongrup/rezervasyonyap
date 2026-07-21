@@ -8,6 +8,12 @@ import type { HotelListingActivity } from '@/lib/travel-api'
 import type { HotelRoomBookingOption } from '@/lib/hotel-room-availability-public'
 import { DEFAULT_GUESTS_STAY } from '@/lib/guest-search-defaults'
 import {
+  normalizeGuestsWithChildAges,
+  type HotelChildPolicy,
+  DEFAULT_HOTEL_CHILD_POLICY,
+  ADULTS_ONLY_CHILD_POLICY,
+} from '@/lib/hotel-child-policy'
+import {
   parseStayListingDatesFromSearchParams,
   parseStayListingGuestsFromSearchParams,
 } from '@/lib/stay-listing-booking-init'
@@ -30,6 +36,7 @@ export type HotelStayBookingQuoteProps = {
   damageDepositAmount?: number
   ruleFallbackNightly?: number
   ruleNightlyRange?: { min: number; max: number }
+  childPolicy?: HotelChildPolicy
 }
 
 type HotelStayBookingContextValue = {
@@ -54,6 +61,8 @@ type HotelStayBookingContextValue = {
   scrollToReservation: () => void
   fallbackNightly: number
   currencyCode: string
+  childPolicy: HotelChildPolicy
+  adultsOnly: boolean
 }
 
 const HotelStayBookingContext = createContext<HotelStayBookingContextValue | null>(null)
@@ -76,8 +85,27 @@ export function HotelStayBookingProvider({
   const searchParams = useSearchParams()
   const [rangeStart, setRangeStart] = useState<Date | null>(null)
   const [rangeEnd, setRangeEnd] = useState<Date | null>(null)
-  const [guests, setGuests] = useState<GuestsObject>(DEFAULT_GUESTS_STAY)
+  const [guests, setGuestsState] = useState<GuestsObject>(DEFAULT_GUESTS_STAY)
   const [urlHydrated, setUrlHydrated] = useState(false)
+
+  const childPolicy = quoteProps.childPolicy ?? DEFAULT_HOTEL_CHILD_POLICY
+  const adultsOnly = !childPolicy.childrenAllowed
+
+  const setGuests = useCallback(
+    (next: GuestsObject) => {
+      if (adultsOnly) {
+        setGuestsState({
+          guestAdults: next.guestAdults ?? 2,
+          guestChildren: 0,
+          guestInfants: 0,
+          childAges: [],
+        })
+        return
+      }
+      setGuestsState(normalizeGuestsWithChildAges(next))
+    },
+    [adultsOnly],
+  )
 
   useEffect(() => {
     if (urlHydrated) return
@@ -86,9 +114,23 @@ export function HotelStayBookingProvider({
       setRangeStart(start)
       setRangeEnd(end)
     }
-    setGuests(parseStayListingGuestsFromSearchParams(searchParams))
+    const fromUrl = parseStayListingGuestsFromSearchParams(searchParams)
+    setGuestsState(
+      adultsOnly
+        ? { guestAdults: fromUrl.guestAdults ?? 2, guestChildren: 0, guestInfants: 0, childAges: [] }
+        : normalizeGuestsWithChildAges(fromUrl),
+    )
     setUrlHydrated(true)
-  }, [searchParams, urlHydrated])
+  }, [searchParams, urlHydrated, adultsOnly])
+
+  useEffect(() => {
+    if (!adultsOnly) return
+    setGuestsState((prev) =>
+      prev.guestChildren || prev.guestInfants || (prev.childAges?.length ?? 0)
+        ? { guestAdults: prev.guestAdults ?? 2, guestChildren: 0, guestInfants: 0, childAges: [] }
+        : prev,
+    )
+  }, [adultsOnly])
   const [selectedRoomId, setSelectedRoomId] = useState('')
   const setSelectedRoomIdStable = useCallback((id: string) => setSelectedRoomId(id), [])
   const [selectedMealPlanId, setSelectedMealPlanId] = useState('')
@@ -206,6 +248,8 @@ export function HotelStayBookingProvider({
       scrollToReservation,
       fallbackNightly,
       currencyCode,
+      childPolicy: adultsOnly ? ADULTS_ONLY_CHILD_POLICY : childPolicy,
+      adultsOnly,
     }),
     [
       listingId,
@@ -216,6 +260,7 @@ export function HotelStayBookingProvider({
       rangeEnd,
       setRange,
       guests,
+      setGuests,
       selectedRoomId,
       selectedRoom,
       selectedMealPlanId,
@@ -227,6 +272,8 @@ export function HotelStayBookingProvider({
       scrollToReservation,
       fallbackNightly,
       currencyCode,
+      childPolicy,
+      adultsOnly,
     ],
   )
 

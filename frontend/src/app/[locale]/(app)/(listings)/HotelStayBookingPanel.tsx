@@ -171,6 +171,8 @@ function buildHotelCheckoutUrl(
     selectedPlanLabel: string | null
     selectedMealPlanId: string
     guests: import('@/type').GuestsObject
+    adultsOnly?: boolean
+    freeChildMaxAge?: number | null
   },
 ) {
   // Sentetik "Standart Oda" (gerçek hotel_rooms kaydı yok) → checkout ILAN BAZLI:
@@ -189,6 +191,9 @@ function buildHotelCheckoutUrl(
     mealPlanId: params.selectedMealPlanId || undefined,
     mealPlanLabel: params.selectedPlanLabel ?? undefined,
     hotelRoomQuantity: synthetic ? undefined : params.roomQuantity,
+    askChildAges: true,
+    adultsOnly: params.adultsOnly,
+    freeChildMaxAge: params.freeChildMaxAge,
   })
 }
 
@@ -235,6 +240,9 @@ export function HotelStayBookingSidebar(props: SharedProps) {
     activitySurchargesTotal: booking.activitySurchargesTotal,
     locale,
     bookingUnitCount: roomChosen ? bookingUnitCount : 1,
+    childAges: booking.guests.childAges,
+    infantCount: booking.guests.guestInfants ?? 0,
+    childPolicy: booking.childPolicy,
   })
 
   const boardLabels = buildBoardTypeLabelsFromMessages(
@@ -273,6 +281,8 @@ export function HotelStayBookingSidebar(props: SharedProps) {
         selectedPlanLabel: checkoutBoardLabel,
         selectedMealPlanId: booking.selectedMealPlanId,
         guests: booking.guests,
+        adultsOnly: booking.adultsOnly,
+        freeChildMaxAge: booking.childPolicy.freeMaxAge,
       }),
     )
   }
@@ -338,6 +348,9 @@ export function HotelStayBookingSidebar(props: SharedProps) {
                 className="flex-1"
                 value={booking.guests}
                 onChange={booking.setGuests}
+                adultsOnly={booking.adultsOnly}
+                askChildAges={!booking.adultsOnly}
+                freeChildMaxAge={booking.childPolicy.freeMaxAge}
               />
             </>
           ) : null}
@@ -366,6 +379,19 @@ export function HotelStayBookingSidebar(props: SharedProps) {
                 </DescriptionTerm>
                 <DescriptionDetails className="text-sm sm:text-right">
                   {quote.formatConverted(quote.mealPlanSupplement, quote.currencyCode)}
+                </DescriptionDetails>
+              </DescriptionList>
+            ) : null}
+            {quote.childSurchargeTotal > 0 ? (
+              <DescriptionList>
+                <DescriptionTerm className="text-sm text-neutral-600 dark:text-neutral-400">
+                  Çocuk ücreti
+                  {quote.childBreakdown?.chargedChildren
+                    ? ` (${quote.childBreakdown.chargedChildren} çocuk)`
+                    : ''}
+                </DescriptionTerm>
+                <DescriptionDetails className="text-sm sm:text-right">
+                  {quote.formatConverted(quote.childSurchargeTotal, quote.currencyCode)}
                 </DescriptionDetails>
               </DescriptionList>
             ) : null}
