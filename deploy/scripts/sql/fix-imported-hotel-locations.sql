@@ -107,8 +107,7 @@ SET
     ),
     'Ölüdeniz, Fethiye, Muğla — Foça',
     'Çalış, Fethiye, Muğla — Foça'
-  ),
-  updated_at = now()
+  )
 FROM tmp_loc_targets t
 WHERE lt.listing_id = t.listing_id
   AND lt.description IS NOT NULL;

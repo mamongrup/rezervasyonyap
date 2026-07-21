@@ -84,8 +84,7 @@ SET
     replace(replace(lt.description, 'Kayaköy', 'Kargı'), 'Kayakoy', 'Kargı'),
     'Kargi',
     'Kargı'
-  ),
-  updated_at = now()
+  )
 FROM tmp_silence_target t
 WHERE lt.listing_id = t.id
   AND (
