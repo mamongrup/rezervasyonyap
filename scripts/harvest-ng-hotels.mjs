@@ -10,6 +10,8 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
+import { roomImagesFromGallery } from './lib/hotel-room-gallery.mjs'
+
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const ROOT = path.join(__dirname, '..')
 function argValue(flag) {
@@ -293,19 +295,6 @@ function extractBookederBigImages(html) {
   return paths.map((p) => `https://bookeder.com${p.replace('/OriginalPhoto/', '/Big/')}`)
 }
 
-function roomImagesFromGallery(images, roomName) {
-  const token = slugify(roomName).split('-').filter((t) => t.length > 3).slice(0, 3)
-  const roomish = images.filter((u) => {
-    const f = u.toLowerCase()
-    return (
-      /room|beds|suite|oda|bedroom|interior|villa|penthouse/i.test(f) ||
-      token.some((t) => f.includes(t))
-    )
-  })
-  const pick = (roomish.length >= 3 ? roomish : images).slice(0, 8)
-  return pick.length ? pick : images.slice(0, 4)
-}
-
 function editorialDescription(hotel, meta) {
   const adults = hotel.adultsOnly ? ' Yetişkinlere özel (16+) konsepti sunar.' : ''
   const loc = [hotel.district, hotel.city, hotel.provinceCity].filter(Boolean).join(', ')
@@ -356,7 +345,7 @@ function buildRooms(hotel, images, nightly, board, ldRooms) {
   )
 
   return list.map((r, i) => {
-    const imgs = roomImagesFromGallery(images, r.name)
+    const imgs = roomImagesFromGallery(images, r.name, i)
     const features = ['Klima', 'Televizyon', 'Wi-Fi', 'Özel banyo', 'Duş']
     if (r.bedNote) features.unshift(r.bedNote)
     let roomNightly = null
@@ -382,7 +371,7 @@ function buildRooms(hotel, images, nightly, board, ldRooms) {
       name: r.name,
       capacity: r.capacity || 2,
       boardType: board,
-      image: imgs[0],
+      image: imgs[0] || '',
       images: imgs,
       features,
       rates,

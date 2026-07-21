@@ -1,0 +1,867 @@
+{
+  "generatedAt": "2026-07-21",
+  "note": "Alanya/Side/Manavgat Hotels.com batch-2. Room images: Room/Suite filename only (no Restaurant/Lobby). Rebrands kept with Hotels.com display name.",
+  "groups": {
+    "beachfront": "Denize sıfır",
+    "adults_only": "Yetişkinlere özel",
+    "spa": "Spa & wellness",
+    "luxury": "Lüks",
+    "boutique": "Butik",
+    "family": "Aile",
+    "sea_view": "Deniz manzaralı"
+  },
+  "pending": [
+    {
+      "id": "ramira-city-hotel",
+      "sourceUrl": "https://tr.hotels.com/ho735619904/ramira-city-hotel-yetiskin-oteli-alanya-turkiye/",
+      "name": "Ramira City Hotel",
+      "reason": "bookeder_mirror_not_found"
+    },
+    {
+      "id": "cooks-club-alanya",
+      "sourceUrl": "https://tr.hotels.com/ho494885/cook-s-club-alanya-16-yetiskin-oteli-alanya-turkiye/",
+      "name": "Cook's Club Alanya",
+      "reason": "bookeder_mirror_not_found"
+    },
+    {
+      "id": "mariva-city-beach",
+      "sourceUrl": "https://tr.hotels.com/ho4065215008/mariva-city-beach-otel/",
+      "name": "Mariva City Beach Otel",
+      "reason": "bookeder_mirror_not_found"
+    },
+    {
+      "id": "quattro-city-seaport",
+      "sourceUrl": "https://tr.hotels.com/ho386958/quattro-city-seaport-hotel-alanya-turkiye/",
+      "name": "Quattro City Seaport Hotel",
+      "reason": "bookeder_mirror_not_found"
+    },
+    {
+      "id": "scylax-family-club",
+      "sourceUrl": "https://tr.hotels.com/ho1550586304/scylax-family-club-alanya-turkiye/",
+      "name": "Scylax Family Club",
+      "reason": "bookeder_mirror_not_found"
+    },
+    {
+      "id": "konakhan-residence",
+      "sourceUrl": "https://tr.hotels.com/ho3765199008/konakhan-residence/",
+      "name": "Konakhan Residence",
+      "reason": "bookeder_mirror_not_found"
+    },
+    {
+      "id": "club-robinhood",
+      "sourceUrl": "https://tr.hotels.com/ho3745724224/club-robinhood-hotel/",
+      "name": "Club Robinhood Hotel",
+      "reason": "bookeder_mirror_not_found"
+    },
+    {
+      "id": "kleopatra-ikiz",
+      "sourceUrl": "https://tr.hotels.com/ho558969/kleopatra-ikiz-otel-alanya-turkiye/",
+      "name": "Kleopatra İkiz Otel",
+      "reason": "bookeder_redirects_to_different_property_bebek"
+    },
+    {
+      "id": "respect-apart-ghana",
+      "sourceUrl": "https://tr.hotels.com/ho2640354048/respect-apart-hotel-dixcove-gana/",
+      "name": "Respect Apart Hotel",
+      "reason": "wrong_country_ghana_skipped"
+    },
+    {
+      "id": "side-elis-hotel",
+      "sourceUrl": "https://tr.hotels.com/ho677607488/side-elis-hotel-side-turkiye/",
+      "name": "Side Elis Hotel",
+      "reason": "bookeder_mirror_not_found"
+    },
+    {
+      "id": "side-tuana-butik",
+      "sourceUrl": "https://tr.hotels.com/ho798656320/side-tuana-butik-hotel-side-turkiye/",
+      "name": "Side Tuana Butik Hotel",
+      "reason": "bookeder_mirror_not_found"
+    },
+    {
+      "id": "akra-sorgun-sensatori",
+      "sourceUrl": "https://tr.hotels.com/ho560510496/akra-sorgun-tui-blue-sensatori-manavgat-turkiye/",
+      "name": "Akra Sorgun TUI Blue Sensatori",
+      "reason": "bookeder_mirror_not_found"
+    },
+    {
+      "id": "mavi-cennet-camping",
+      "sourceUrl": "https://tr.hotels.com/ho659686752/mavi-cennet-camping-pansiyon-manavgat-turkiye/",
+      "name": "Mavi Cennet Camping Pansiyon",
+      "reason": "bookeder_mirror_not_found"
+    },
+    {
+      "id": "meryam-suit-delux",
+      "sourceUrl": "https://tr.hotels.com/ho3102215328/meryam-suit-delux-hotel-manavgat-turkiye/",
+      "name": "Meryam Suit Delux Hotel",
+      "reason": "bookeder_mirror_not_found"
+    },
+    {
+      "id": "club-aperion-beach",
+      "sourceUrl": "https://tr.hotels.com/ho4140798656/club-aperion-beach-hotel/",
+      "name": "Club Aperion Beach Hotel",
+      "reason": "bookeder_mirror_not_found"
+    },
+    {
+      "id": "ho473448544",
+      "sourceUrl": "https://tr.hotels.com/ho473448544/",
+      "name": null,
+      "reason": "hotels_com_slug_missing"
+    },
+    {
+      "id": "ho3667162624",
+      "sourceUrl": "https://tr.hotels.com/ho3667162624/",
+      "name": null,
+      "reason": "hotels_com_slug_missing"
+    },
+    {
+      "id": "ho3968963872",
+      "sourceUrl": "https://tr.hotels.com/ho3968963872/",
+      "name": null,
+      "reason": "hotels_com_slug_missing"
+    },
+    {
+      "id": "ho3641958944",
+      "sourceUrl": "https://tr.hotels.com/ho3641958944/",
+      "name": null,
+      "reason": "hotels_com_slug_missing"
+    }
+  ],
+  "hotels": [
+    {
+      "name": "Infinity Beach Hotel",
+      "id": "infinity-beach-hotel",
+      "sourceUrl": "https://tr.hotels.com/ho4192741472/infinity-beach-hotel-konakl-alanya/",
+      "bookeder": "https://infinity-beach-hotel-alanya.bookeder.com/",
+      "city": "Alanya",
+      "district": "Konaklı / Payallar",
+      "provinceCity": "Antalya",
+      "starRating": 4,
+      "boardType": "Her Şey Dahil",
+      "themeCode": "beachfront",
+      "themeTags": [
+        "beachfront",
+        "family"
+      ],
+      "hotelType": "resort",
+      "priceOverrideUsd": 90
+    },
+    {
+      "name": "Alanya Sunway Hotel",
+      "id": "alanya-sunway-hotel",
+      "sourceUrl": "https://tr.hotels.com/ho1065030272/alanya-sunway-hotel-alanya-turkiye/",
+      "bookeder": "https://sunway-apart-hotel-alanya.bookeder.com/",
+      "city": "Alanya",
+      "district": "Alanya",
+      "provinceCity": "Antalya",
+      "starRating": 4,
+      "boardType": "Oda Kahvaltı",
+      "themeCode": "sea_view",
+      "themeTags": [
+        "sea_view",
+        "family"
+      ],
+      "hotelType": "apart_hotel",
+      "priceOverrideUsd": 40
+    },
+    {
+      "name": "Anjel Q Downtown Hotel",
+      "id": "anjeliq-downtown",
+      "sourceUrl": "https://tr.hotels.com/ho1059492448/anjel-q-downtown-hotel-alanya-turkiye/",
+      "bookeder": "https://anjeliq-downtown-hotel-alanya.bookeder.com/",
+      "city": "Alanya",
+      "district": "Alanya",
+      "provinceCity": "Antalya",
+      "starRating": 3,
+      "boardType": "Oda Kahvaltı",
+      "themeCode": "boutique",
+      "themeTags": [
+        "boutique",
+        "sea_view"
+      ],
+      "hotelType": "boutique",
+      "priceOverrideTry": 3000
+    },
+    {
+      "name": "Riviera Zen Hotel",
+      "id": "riviera-zen-hotel",
+      "sourceUrl": "https://tr.hotels.com/ho973038944/riviera-zen-hotel-alanya-turkiye/",
+      "bookeder": "https://sara-hotel-alanya.bookeder.com/",
+      "city": "Alanya",
+      "district": "Alanya",
+      "provinceCity": "Antalya",
+      "starRating": 4,
+      "boardType": "Her Şey Dahil",
+      "adultsOnly": true,
+      "themeCode": "adults_only",
+      "themeTags": [
+        "adults_only",
+        "beachfront"
+      ],
+      "hotelType": "hotel",
+      "priceOverrideUsd": 99
+    },
+    {
+      "name": "Azak Beach Hotel",
+      "id": "azak-beach-hotel",
+      "sourceUrl": "https://tr.hotels.com/ho566251/azak-beach-hotel-alanya-turkiye/",
+      "bookeder": "https://azak-beach-hotel-alanya.bookeder.com/",
+      "city": "Alanya",
+      "district": "Alanya",
+      "provinceCity": "Antalya",
+      "starRating": 3,
+      "boardType": "Her Şey Dahil",
+      "themeCode": "beachfront",
+      "themeTags": [
+        "beachfront",
+        "family"
+      ],
+      "hotelType": "hotel",
+      "priceOverrideUsd": 97
+    },
+    {
+      "name": "Xperia Saray Beach Hotel",
+      "id": "xperia-saray-beach",
+      "sourceUrl": "https://tr.hotels.com/ho402505/xperia-saray-beach-hotel-all-inclusive-alanya-turkiye/",
+      "bookeder": "https://xperia-saray-beach-hotel-alanya.bookeder.com/",
+      "city": "Alanya",
+      "district": "Alanya",
+      "provinceCity": "Antalya",
+      "starRating": 4,
+      "boardType": "Her Şey Dahil",
+      "themeCode": "beachfront",
+      "themeTags": [
+        "beachfront",
+        "family"
+      ],
+      "hotelType": "resort",
+      "priceOverrideUsd": 85
+    },
+    {
+      "name": "Monte Carlo Hotel",
+      "id": "monte-carlo-hotel",
+      "sourceUrl": "https://tr.hotels.com/ho564861/monte-carlo-hotel-all-inclusive-alanya-turkiye/",
+      "bookeder": "https://monte-carlo-hotel-alanya.bookeder.com/",
+      "city": "Alanya",
+      "district": "Alanya",
+      "provinceCity": "Antalya",
+      "starRating": 4,
+      "boardType": "Her Şey Dahil",
+      "themeCode": "beachfront",
+      "themeTags": [
+        "beachfront",
+        "family"
+      ],
+      "hotelType": "hotel",
+      "priceOverrideUsd": 120
+    },
+    {
+      "name": "HMA Hotel & Suites",
+      "id": "hma-hotel-suites",
+      "sourceUrl": "https://tr.hotels.com/ho647510688/hma-hotel-suites-alanya-turkiye/",
+      "bookeder": "https://hma-apart-hotel-alanya.bookeder.com/",
+      "city": "Alanya",
+      "district": "Alanya",
+      "provinceCity": "Antalya",
+      "starRating": 4,
+      "boardType": "Oda Kahvaltı",
+      "themeCode": "boutique",
+      "themeTags": [
+        "boutique",
+        "sea_view"
+      ],
+      "hotelType": "apart_hotel",
+      "priceOverrideTry": 2500
+    },
+    {
+      "name": "Castle Boutique Hotel Alanya",
+      "id": "castle-boutique-hotel",
+      "sourceUrl": "https://tr.hotels.com/ho2454285216/castle-boutique-hotel-alanya-alanya-turkiye/",
+      "bookeder": "https://castle-boutique-hotel-alanya.bookeder.com/",
+      "city": "Alanya",
+      "district": "Alanya",
+      "provinceCity": "Antalya",
+      "starRating": 5,
+      "boardType": "Oda Kahvaltı",
+      "themeCode": "boutique",
+      "themeTags": [
+        "boutique",
+        "luxury",
+        "sea_view"
+      ],
+      "hotelType": "boutique",
+      "priceOverrideUsd": 120
+    },
+    {
+      "name": "Sun Hotel by En Vie Beach",
+      "id": "sun-hotel-en-vie",
+      "sourceUrl": "https://tr.hotels.com/ho574684/sun-hotel-by-en-vie-beach-yetiskinlere-ozel-alanya-turkiye/",
+      "bookeder": "https://sun-hotel-alanya.bookeder.com/",
+      "city": "Alanya",
+      "district": "Alanya",
+      "provinceCity": "Antalya",
+      "starRating": 2,
+      "boardType": "Oda Kahvaltı",
+      "adultsOnly": true,
+      "themeCode": "adults_only",
+      "themeTags": [
+        "adults_only",
+        "beachfront"
+      ],
+      "hotelType": "hotel",
+      "priceOverrideUsd": 70
+    },
+    {
+      "name": "White Gold Hotel & Spa",
+      "id": "white-gold-hotel-spa",
+      "sourceUrl": "https://tr.hotels.com/ho526239/white-gold-hotel-spa-alanya-turkiye/",
+      "bookeder": "https://white-gold-hotel-spa-alanya.bookeder.com/",
+      "city": "Alanya",
+      "district": "Alanya",
+      "provinceCity": "Antalya",
+      "starRating": 5,
+      "boardType": "Her Şey Dahil",
+      "themeCode": "spa",
+      "themeTags": [
+        "spa",
+        "luxury",
+        "beachfront"
+      ],
+      "hotelType": "resort",
+      "priceOverrideUsd": 150
+    },
+    {
+      "name": "Kleopatra Balık Hotel",
+      "id": "kleopatra-balik",
+      "sourceUrl": "https://tr.hotels.com/ho625039/kleopatra-balik-hotel-alanya-turkiye/",
+      "bookeder": "https://kleopatra-balik-hotel-alanya.bookeder.com/",
+      "city": "Alanya",
+      "district": "Kleopatra",
+      "provinceCity": "Antalya",
+      "starRating": 3,
+      "boardType": "Oda Kahvaltı",
+      "themeCode": "beachfront",
+      "themeTags": [
+        "beachfront",
+        "family"
+      ],
+      "hotelType": "hotel",
+      "priceOverrideUsd": 45
+    },
+    {
+      "name": "Kleopatra Blue Hawaii Hotel",
+      "id": "kleopatra-blue-hawaii",
+      "sourceUrl": "https://tr.hotels.com/ho557969/kleopatra-blue-hawaii-hotel-alanya-turkiye/",
+      "bookeder": "https://kleopatra-euro-hotel-alanya.bookeder.com/",
+      "city": "Alanya",
+      "district": "Kleopatra",
+      "provinceCity": "Antalya",
+      "starRating": 3,
+      "boardType": "Oda Kahvaltı",
+      "themeCode": "beachfront",
+      "themeTags": [
+        "beachfront",
+        "family"
+      ],
+      "hotelType": "hotel",
+      "priceOverrideUsd": 40
+    },
+    {
+      "name": "Alin Hotel",
+      "id": "alin-hotel",
+      "sourceUrl": "https://tr.hotels.com/ho653040/alin-hotel-alanya-turkiye/",
+      "bookeder": "https://alin-hotel-alanya.bookeder.com/",
+      "city": "Alanya",
+      "district": "Alanya",
+      "provinceCity": "Antalya",
+      "starRating": 3,
+      "boardType": "Oda Kahvaltı",
+      "themeCode": "sea_view",
+      "themeTags": [
+        "sea_view",
+        "family"
+      ],
+      "hotelType": "hotel",
+      "priceOverrideUsd": 35
+    },
+    {
+      "name": "Kleopatra Celine Hotel",
+      "id": "kleopatra-celine",
+      "sourceUrl": "https://tr.hotels.com/ho625587/kleopatra-celine-hotel-alanya-turkiye/",
+      "bookeder": "https://kleopatra-celine-hotel-alanya.bookeder.com/",
+      "city": "Alanya",
+      "district": "Kleopatra",
+      "provinceCity": "Antalya",
+      "starRating": 3,
+      "boardType": "Oda Kahvaltı",
+      "themeCode": "beachfront",
+      "themeTags": [
+        "beachfront",
+        "family"
+      ],
+      "hotelType": "hotel",
+      "priceOverrideUsd": 55
+    },
+    {
+      "name": "Riviera Hotel & Spa",
+      "id": "riviera-hotel-spa",
+      "sourceUrl": "https://tr.hotels.com/ho254073/riviera-hotel-spa-alanya-turkiye/",
+      "bookeder": "https://riviera-hotel-alanya.bookeder.com/",
+      "city": "Alanya",
+      "district": "Alanya",
+      "provinceCity": "Antalya",
+      "starRating": 4,
+      "boardType": "Her Şey Dahil",
+      "themeCode": "spa",
+      "themeTags": [
+        "spa",
+        "beachfront",
+        "family"
+      ],
+      "hotelType": "hotel",
+      "priceOverrideUsd": 110
+    },
+    {
+      "name": "Sun Fire Beach Hotel by Julitat",
+      "id": "sun-fire-beach",
+      "sourceUrl": "https://tr.hotels.com/ho2243990560/sun-fire-beach-hotel-by-julitat-her-sey-dahil-alanya-turkiye/",
+      "bookeder": "https://sun-fire-beach-hotel-alanya.bookeder.com/",
+      "city": "Alanya",
+      "district": "Alanya",
+      "provinceCity": "Antalya",
+      "starRating": 4,
+      "boardType": "Her Şey Dahil",
+      "themeCode": "beachfront",
+      "themeTags": [
+        "beachfront",
+        "family"
+      ],
+      "hotelType": "resort",
+      "priceOverrideUsd": 80
+    },
+    {
+      "name": "Park Hotel Alanya",
+      "id": "park-hotel-alanya",
+      "sourceUrl": "https://tr.hotels.com/ho534629/park-hotel-alanya-turkiye/",
+      "bookeder": "https://park-hotel-alanya.bookeder.com/",
+      "city": "Alanya",
+      "district": "Alanya",
+      "provinceCity": "Antalya",
+      "starRating": 2,
+      "boardType": "Oda Kahvaltı",
+      "adultsOnly": true,
+      "themeCode": "adults_only",
+      "themeTags": [
+        "adults_only"
+      ],
+      "hotelType": "hotel",
+      "priceOverrideUsd": 50
+    },
+    {
+      "name": "Çimen Otel / Heritage by Cimen",
+      "id": "cimen-otel",
+      "sourceUrl": "https://tr.hotels.com/ho1052291456/cimen-otel-alanya-turkiye/",
+      "bookeder": "https://cimen-hotel-alanya.bookeder.com/",
+      "city": "Alanya",
+      "district": "Alanya",
+      "provinceCity": "Antalya",
+      "starRating": 3,
+      "boardType": "Oda Kahvaltı",
+      "themeCode": "sea_view",
+      "themeTags": [
+        "sea_view",
+        "family"
+      ],
+      "hotelType": "hotel",
+      "priceOverrideUsd": 40
+    },
+    {
+      "name": "Gallion Hotel",
+      "id": "gallion-hotel",
+      "sourceUrl": "https://tr.hotels.com/ho647647/gallion-hotel-alanya-turkiye/",
+      "bookeder": "https://gallion-hotel-alanya.bookeder.com/",
+      "city": "Alanya",
+      "district": "Alanya",
+      "provinceCity": "Antalya",
+      "starRating": 2,
+      "boardType": "Oda Kahvaltı",
+      "themeCode": "sea_view",
+      "themeTags": [
+        "sea_view",
+        "family"
+      ],
+      "hotelType": "hotel",
+      "priceOverrideUsd": 35
+    },
+    {
+      "name": "Kleopatra Micador Hotel",
+      "id": "kleopatra-micador",
+      "sourceUrl": "https://tr.hotels.com/ho614648/kleopatra-micador-hotel-alanya-turkiye/",
+      "bookeder": "https://kleopatra-micador-hotel-alanya.bookeder.com/",
+      "city": "Alanya",
+      "district": "Kleopatra",
+      "provinceCity": "Antalya",
+      "starRating": 4,
+      "boardType": "Oda Kahvaltı",
+      "themeCode": "beachfront",
+      "themeTags": [
+        "beachfront",
+        "family"
+      ],
+      "hotelType": "hotel",
+      "priceOverrideUsd": 55
+    },
+    {
+      "name": "Remi Hotel",
+      "id": "remi-hotel",
+      "sourceUrl": "https://tr.hotels.com/ho397257/remi-hotel-alanya-turkiye/",
+      "bookeder": "https://remi-hotel-alanya.bookeder.com/",
+      "city": "Alanya",
+      "district": "Alanya",
+      "provinceCity": "Antalya",
+      "starRating": 4,
+      "boardType": "Her Şey Dahil",
+      "themeCode": "beachfront",
+      "themeTags": [
+        "beachfront",
+        "family"
+      ],
+      "hotelType": "hotel",
+      "priceOverrideUsd": 90
+    },
+    {
+      "name": "Muz Hotel",
+      "id": "muz-hotel",
+      "sourceUrl": "https://tr.hotels.com/ho693390/muz-hotel-all-inclusive-alanya-turkiye/",
+      "bookeder": "https://muz-hotel-alanya.bookeder.com/",
+      "city": "Alanya",
+      "district": "Alanya",
+      "provinceCity": "Antalya",
+      "starRating": 3,
+      "boardType": "Her Şey Dahil",
+      "themeCode": "beachfront",
+      "themeTags": [
+        "beachfront",
+        "family"
+      ],
+      "hotelType": "hotel",
+      "priceOverrideUsd": 70
+    },
+    {
+      "name": "Aslan Kleopatra Beste Hotel",
+      "id": "aslan-kleopatra-beste",
+      "sourceUrl": "https://tr.hotels.com/ho460219/aslan-kleopatra-beste-hotel-alanya-turkiye/",
+      "bookeder": "https://aska-hotels-kleopatra-beste-alanya.bookeder.com/",
+      "city": "Alanya",
+      "district": "Kleopatra",
+      "provinceCity": "Antalya",
+      "starRating": 4,
+      "boardType": "Oda Kahvaltı",
+      "themeCode": "beachfront",
+      "themeTags": [
+        "beachfront",
+        "family"
+      ],
+      "hotelType": "hotel",
+      "priceOverrideUsd": 45
+    },
+    {
+      "name": "Yaman Life Hotel",
+      "id": "yaman-life-hotel",
+      "sourceUrl": "https://tr.hotels.com/ho1551720480/yaman-life-hotel-alanya-turkiye/",
+      "bookeder": "https://yamanlife-hotel-alanya.bookeder.com/",
+      "city": "Alanya",
+      "district": "Alanya",
+      "provinceCity": "Antalya",
+      "starRating": 3,
+      "boardType": "Oda Kahvaltı",
+      "themeCode": "sea_view",
+      "themeTags": [
+        "sea_view",
+        "family"
+      ],
+      "hotelType": "hotel",
+      "priceOverrideUsd": 55
+    },
+    {
+      "name": "Kleopatra Smile Hotel",
+      "id": "kleopatra-smile",
+      "sourceUrl": "https://tr.hotels.com/ho2163839424/kleopatra-smile-hotel-alanya-turkiye/",
+      "bookeder": "https://kleopatra-smile-hotel-alanya.bookeder.com/",
+      "city": "Alanya",
+      "district": "Kleopatra",
+      "provinceCity": "Antalya",
+      "starRating": 3,
+      "boardType": "Oda Kahvaltı",
+      "themeCode": "beachfront",
+      "themeTags": [
+        "beachfront",
+        "family"
+      ],
+      "hotelType": "hotel",
+      "priceOverrideUsd": 45
+    },
+    {
+      "name": "Grand Horizon Apart Hotel",
+      "id": "grand-horizon-apart",
+      "sourceUrl": "https://tr.hotels.com/ho652631/grand-horizon-apart-hotel-alanya-turkiye/",
+      "bookeder": "https://grand-horizon-apart-hotel-alanya.bookeder.com/",
+      "city": "Alanya",
+      "district": "Alanya",
+      "provinceCity": "Antalya",
+      "starRating": 3,
+      "boardType": "Oda Kahvaltı",
+      "themeCode": "sea_view",
+      "themeTags": [
+        "sea_view",
+        "family"
+      ],
+      "hotelType": "apart_hotel",
+      "priceOverrideUsd": 45
+    },
+    {
+      "name": "Rosella Hotel",
+      "id": "rosella-hotel",
+      "sourceUrl": "https://tr.hotels.com/ho531417/rosella-hotels-alanya-turkiye/",
+      "bookeder": "https://rosella-hotel-alanya.bookeder.com/",
+      "city": "Alanya",
+      "district": "Alanya",
+      "provinceCity": "Antalya",
+      "starRating": 3,
+      "boardType": "Oda Kahvaltı",
+      "themeCode": "sea_view",
+      "themeTags": [
+        "sea_view",
+        "family"
+      ],
+      "hotelType": "hotel",
+      "priceOverrideUsd": 45
+    },
+    {
+      "name": "Azak Hotel",
+      "id": "azak-hotel",
+      "sourceUrl": "https://tr.hotels.com/ho2919160192/azak-hotel-alanya-turkiye/",
+      "bookeder": "https://azak-hotel-alanya.bookeder.com/",
+      "city": "Alanya",
+      "district": "Alanya",
+      "provinceCity": "Antalya",
+      "starRating": 3,
+      "boardType": "Oda Kahvaltı",
+      "themeCode": "sea_view",
+      "themeTags": [
+        "sea_view",
+        "family"
+      ],
+      "hotelType": "hotel",
+      "priceOverrideUsd": 40
+    },
+    {
+      "name": "Cleopatra Golden Beach Hotel",
+      "id": "cleopatra-golden-beach",
+      "sourceUrl": "https://tr.hotels.com/ho863599776/cleopatra-golden-beach-hotel-alanya-turkiye/",
+      "bookeder": "https://cleopatra-golden-beach-hotel-alanya.bookeder.com/",
+      "city": "Alanya",
+      "district": "Kleopatra",
+      "provinceCity": "Antalya",
+      "starRating": 4,
+      "boardType": "Her Şey Dahil",
+      "themeCode": "beachfront",
+      "themeTags": [
+        "beachfront",
+        "family"
+      ],
+      "hotelType": "hotel",
+      "priceOverrideUsd": 70
+    },
+    {
+      "name": "Side Erenler Hotel",
+      "id": "side-erenler-hotel",
+      "sourceUrl": "https://tr.hotels.com/ho1182696576/side-erenler-hotel-side-turkiye/",
+      "bookeder": "https://side-erenler-hotel.bookeder.com/",
+      "city": "Side",
+      "district": "Side",
+      "provinceCity": "Antalya",
+      "starRating": 2,
+      "boardType": "Oda Kahvaltı",
+      "themeCode": "sea_view",
+      "themeTags": [
+        "sea_view",
+        "family"
+      ],
+      "hotelType": "hotel",
+      "priceOverrideUsd": 45
+    },
+    {
+      "name": "Otium Family Eco Club / Marvida Family Eco",
+      "id": "otium-family-eco",
+      "sourceUrl": "https://tr.hotels.com/ho430424/otium-family-eco-club-her-sey-dahil-side-turkiye/",
+      "bookeder": "https://otium-eco-club-side-hotel.bookeder.com/",
+      "city": "Side",
+      "district": "Side",
+      "provinceCity": "Antalya",
+      "starRating": 5,
+      "boardType": "Her Şey Dahil",
+      "themeCode": "family",
+      "themeTags": [
+        "family",
+        "beachfront",
+        "luxury"
+      ],
+      "hotelType": "resort",
+      "priceOverrideUsd": 200,
+      "rebrandNote": "Bookeder: Marvida Family Eco Side"
+    },
+    {
+      "name": "Delphin Apart Hotel Side",
+      "id": "delphin-apart-side",
+      "sourceUrl": "https://tr.hotels.com/ho622796320/delphin-apart-hotel-side-turkiye/",
+      "bookeder": "https://delphin-apart-hotel-side.bookeder.com/",
+      "city": "Side",
+      "district": "Side",
+      "provinceCity": "Antalya",
+      "starRating": 3,
+      "boardType": "Oda Kahvaltı",
+      "themeCode": "sea_view",
+      "themeTags": [
+        "sea_view",
+        "family"
+      ],
+      "hotelType": "apart_hotel",
+      "priceOverrideUsd": 40
+    },
+    {
+      "name": "Irem Garden Hotel & Apartments",
+      "id": "irem-garden-side",
+      "sourceUrl": "https://tr.hotels.com/ho536078/irem-garden-hotel-apartments-side-turkiye/",
+      "bookeder": "https://irem-garden-hotel-apartments-side.bookeder.com/",
+      "city": "Side",
+      "district": "Side",
+      "provinceCity": "Antalya",
+      "starRating": 3,
+      "boardType": "Oda Kahvaltı",
+      "themeCode": "family",
+      "themeTags": [
+        "family",
+        "sea_view"
+      ],
+      "hotelType": "apart_hotel",
+      "priceOverrideUsd": 70
+    },
+    {
+      "name": "Silence Beach Resort / Selectum Family Resort Side",
+      "id": "silence-beach-resort",
+      "sourceUrl": "https://tr.hotels.com/ho39317184/silence-beach-resort-manavgat-turkiye/",
+      "bookeder": "https://silence-beach-resort-antalya.bookeder.com/",
+      "city": "Side",
+      "district": "Kızılağaç",
+      "provinceCity": "Antalya",
+      "starRating": 5,
+      "boardType": "Her Şey Dahil",
+      "themeCode": "family",
+      "themeTags": [
+        "family",
+        "beachfront",
+        "luxury",
+        "spa"
+      ],
+      "hotelType": "resort",
+      "priceOverrideUsd": 220,
+      "rebrandNote": "Bookeder: Selectum Family Resort Side"
+    },
+    {
+      "name": "Heaven Beach Resort & Spa / Asteria Bloom Side",
+      "id": "heaven-beach-resort",
+      "sourceUrl": "https://tr.hotels.com/ho498638/heaven-beach-resort-spa-yetiskin-oteli-manavgat-turkiye/",
+      "bookeder": "https://heaven-beach-resort-spa-kizilagac.bookeder.com/",
+      "city": "Side",
+      "district": "Kızılağaç",
+      "provinceCity": "Antalya",
+      "starRating": 5,
+      "boardType": "Her Şey Dahil",
+      "adultsOnly": true,
+      "themeCode": "adults_only",
+      "themeTags": [
+        "adults_only",
+        "beachfront",
+        "spa",
+        "luxury"
+      ],
+      "hotelType": "resort",
+      "priceOverrideUsd": 150,
+      "rebrandNote": "Bookeder: Asteria Bloom Side Adults Only"
+    },
+    {
+      "name": "6 Rooms by Azumare",
+      "id": "six-rooms-azumare",
+      "sourceUrl": "https://tr.hotels.com/ho3044859360/6-rooms-by-azumare-antalya-turkiye/",
+      "bookeder": "https://6-rooms-by-azumare-side.bookeder.com/",
+      "city": "Side",
+      "district": "Side",
+      "provinceCity": "Antalya",
+      "starRating": 4,
+      "boardType": "Oda Kahvaltı",
+      "themeCode": "boutique",
+      "themeTags": [
+        "boutique",
+        "sea_view"
+      ],
+      "hotelType": "boutique",
+      "priceOverrideUsd": 100,
+      "rebrandNote": "Bookeder: 6 Rooms By Zula"
+    },
+    {
+      "name": "Side Amour Hotel",
+      "id": "side-amour-hotel",
+      "sourceUrl": "https://tr.hotels.com/ho2165883456/side-amour-hotel-her-sey-dahil-side-turkiye/",
+      "bookeder": "https://side-amour-hotel.bookeder.com/",
+      "city": "Side",
+      "district": "Side",
+      "provinceCity": "Antalya",
+      "starRating": 4,
+      "boardType": "Her Şey Dahil",
+      "themeCode": "beachfront",
+      "themeTags": [
+        "beachfront",
+        "family"
+      ],
+      "hotelType": "hotel",
+      "priceOverrideUsd": 110
+    },
+    {
+      "name": "UN Side Hotel",
+      "id": "un-side-hotel",
+      "sourceUrl": "https://tr.hotels.com/ho1854709888/un-side-hotel-side-turkiye/",
+      "bookeder": "https://unside-hotel.bookeder.com/",
+      "city": "Side",
+      "district": "Side",
+      "provinceCity": "Antalya",
+      "starRating": 2,
+      "boardType": "Oda Kahvaltı",
+      "themeCode": "sea_view",
+      "themeTags": [
+        "sea_view",
+        "family"
+      ],
+      "hotelType": "apart_hotel",
+      "priceOverrideTry": 2700
+    },
+    {
+      "name": "Raymar Resort & Aqua",
+      "id": "raymar-resort-aqua",
+      "sourceUrl": "https://tr.hotels.com/ho4282294176/raymar-resort-aqua/",
+      "bookeder": "https://raymar-resort-aqua-manavgat.bookeder.com/",
+      "city": "Manavgat",
+      "district": "Manavgat",
+      "provinceCity": "Antalya",
+      "starRating": 5,
+      "boardType": "Ultra Her Şey Dahil",
+      "themeCode": "family",
+      "themeTags": [
+        "family",
+        "beachfront",
+        "luxury"
+      ],
+      "hotelType": "resort",
+      "priceOverrideUsd": 250
+    }
+  ]
+}

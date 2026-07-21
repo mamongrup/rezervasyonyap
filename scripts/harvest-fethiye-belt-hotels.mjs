@@ -9,6 +9,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { roomImagesFromGallery } from './lib/hotel-room-gallery.mjs'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const ROOT = path.join(__dirname, '..')
@@ -271,19 +272,6 @@ function extractBookederBigImages(html) {
     ),
   )
   return paths.map((p) => `https://bookeder.com${p.replace('/OriginalPhoto/', '/Big/')}`)
-}
-
-function roomImagesFromGallery(images, roomName) {
-  const token = slugify(roomName).split('-').filter((t) => t.length > 3).slice(0, 3)
-  const roomish = images.filter((u) => {
-    const f = u.toLowerCase()
-    return (
-      /room|beds|suite|oda|bedroom|interior|villa|penthouse/i.test(f) ||
-      token.some((t) => f.includes(t))
-    )
-  })
-  const pick = (roomish.length >= 3 ? roomish : images).slice(0, 8)
-  return pick.length ? pick : images.slice(0, 4)
 }
 
 function editorialDescription(hotel, meta) {

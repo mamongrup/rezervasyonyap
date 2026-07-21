@@ -71,12 +71,8 @@
           "name": "Standart Oda",
           "capacity": 3,
           "boardType": "Yarım Pansiyon",
-          "image": "https://www.beltomhotel.com/Upload/beltom/tr/odalar/standart-oda/img/big/standart-oda-37a91.jpg",
-          "images": [
-            "https://www.beltomhotel.com/Upload/beltom/tr/odalar/standart-oda/img/big/standart-oda-37a91.jpg",
-            "https://www.beltomhotel.com/Upload/beltom/tr/odalar/standart-oda/img_gallery/img/big/deluxe-havuz-manzara-1d6d4.jpg",
-            "https://www.beltomhotel.com/Upload/beltom/tr/odalar/standart-oda/img_gallery/img/big/deluxe-havuz-manzara-d2cb1.jpg"
-          ],
+          "image": "",
+          "images": [],
           "features": [
             "Balkon",
             "Emanet kasa",
@@ -102,11 +98,8 @@
           "name": "Ranzalı Aile Odası",
           "capacity": 4,
           "boardType": "Yarım Pansiyon",
-          "image": "https://www.beltomhotel.com/Upload/beltom/tr/odalar/ranzali-aile-odasi/img/big/ranzali-aile-odasi-ec6d2.jpg",
-          "images": [
-            "https://www.beltomhotel.com/Upload/beltom/tr/odalar/ranzali-aile-odasi/img/big/ranzali-aile-odasi-ec6d2.jpg",
-            "https://www.beltomhotel.com/Upload/beltom/tr/odalar/ranzali-aile-odasi/img_gallery/img/big/deniz-manzarali-standart-genis-oda-cf0f2.jpg"
-          ],
+          "image": "",
+          "images": [],
           "features": [
             "Ranza",
             "Balkon",
@@ -124,11 +117,8 @@
           "name": "Ara Kapılı Aile Suit",
           "capacity": 5,
           "boardType": "Yarım Pansiyon",
-          "image": "https://www.beltomhotel.com/Upload/beltom/tr/odalar/ara-kapili-aile-suit/img/big/ara-kapili-aile-suit-48f20.png",
-          "images": [
-            "https://www.beltomhotel.com/Upload/beltom/tr/odalar/ara-kapili-aile-suit/img/big/ara-kapili-aile-suit-48f20.png",
-            "https://www.beltomhotel.com/Upload/beltom/tr/odalar/ara-kapili-aile-suit/img_gallery/img/big/deniz-manzarali-aile-odasi-17f34.png"
-          ],
+          "image": "",
+          "images": [],
           "features": [
             "Ara kapılı oda",
             "Balkon",
@@ -146,13 +136,8 @@
           "name": "King Suit",
           "capacity": 4,
           "boardType": "Yarım Pansiyon",
-          "image": "https://www.beltomhotel.com/Upload/beltom/tr/odalar/king-suit/img/big/king-suit-ef100.png",
-          "images": [
-            "https://www.beltomhotel.com/Upload/beltom/tr/odalar/king-suit/img/big/king-suit-ef100.png",
-            "https://www.beltomhotel.com/Upload/beltom/tr/odalar/king-suit/img_gallery/img/big/kara-manzarali-aile-odasi-7b4cd.png",
-            "https://www.beltomhotel.com/Upload/beltom/tr/odalar/king-suit/img_gallery/img/big/kara-manzarali-aile-odasi-1dc24.png",
-            "https://www.beltomhotel.com/Upload/beltom/tr/odalar/king-suit/img_gallery/img/big/kara-manzarali-aile-odasi-9a198.png"
-          ],
+          "image": "",
+          "images": [],
           "features": [
             "Geniş yaşam alanı",
             "Oturma alanı",
@@ -187,5 +172,6 @@
         "verifiedAt": "2026-07-20"
       }
     }
-  ]
+  ],
+  "roomImagesFixedAt": "2026-07-21T12:35:43.044Z"
 }
