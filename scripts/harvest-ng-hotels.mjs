@@ -457,6 +457,14 @@ async function harvestOne(hotel) {
     }
   }
 
+  if (Array.isArray(hotel.galleryUrls) && hotel.galleryUrls.length > 0) {
+    const extra = hotel.galleryUrls
+      .map((u) => String(u || '').trim())
+      .filter((u) => /^https?:\/\//i.test(u))
+    images = uniq([...images, ...extra])
+    console.log(`  galleryUrls+=${extra.length} total=${images.length}`)
+  }
+
   // Manifest override (ör. Bookeder paket tutarını gecelik sanması)
   if (hotel.priceOverrideTry != null && Number(hotel.priceOverrideTry) > 0) {
     meta.minPrice = Math.round(Number(hotel.priceOverrideTry))
