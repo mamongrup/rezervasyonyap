@@ -81,7 +81,7 @@ export async function GET(req: NextRequest) {
       `&limit=${limit}&suggest=1`
 
     const [listingsSettled, collections] = await Promise.all([
-      fetch(listingsUrl, { signal, next: { revalidate: 30 } })
+      fetch(listingsUrl, { signal, next: { revalidate: 60 } })
         .then(async (r) => {
           if (!r.ok) return [] as PublicListingItem[]
           const data = (await r.json()) as { listings?: PublicListingItem[] }
@@ -134,7 +134,8 @@ export async function GET(req: NextRequest) {
     { suggestions: suggestions.slice(0, limit) },
     {
       headers: {
-        'Cache-Control': 'public, s-maxage=45, stale-while-revalidate=300',
+        // Suggest sonuçları kısa süre CDN/edge cache — tuş başına API yükünü keser.
+        'Cache-Control': 'public, s-maxage=90, stale-while-revalidate=300',
       },
     },
   )

@@ -26,6 +26,9 @@ import wisp.{type Request, type Response}
 /// kalır ki sunucu tarafı sorgu da aynı pencerede iptal edilsin.
 const vitrin_query_timeout_ms = 12_000
 
+/// Autocomplete (`?suggest=1`) — kısa timeout; ağır browse pipeline kullanılmaz.
+const suggest_query_timeout_ms = 4000
+
 fn json_err(status: Int, msg: String) -> Response {
   wisp.json_response(
     json.object([#("error", json.string(msg))]) |> json.to_string,
@@ -871,6 +874,94 @@ fn normalize_location_search_q(raw: String) -> String {
 const listing_search_match_sql: String =
   "translate(lower(coalesce((select lt2.title from listing_translations lt2 join locales lo2 on lo2.id = lt2.locale_id where lt2.listing_id = l.id order by case when lower(lo2.code) = 'tr' then 0 else 1 end limit 1), l.slug) || ' ' || replace(l.slug, '-', ' ') || ' ' || coalesce(l.location_name, '') || ' ' || coalesce(lm.meta->>'address', '') || ' ' || coalesce(lm.meta->>'province_city', '') || ' ' || coalesce(lm.meta->>'city', '') || ' ' || coalesce(lm.meta->>'district_label', '') || ' ' || coalesce(lm.meta->>'region_display', '') || ' ' || coalesce(lm.meta->>'property_type', '')), 'üğışöç', 'ugisoc')"
 
+/// Autocomplete eşleşmesi — kısa token’da kelime öneki (mam → Mamon, Mama;
+/// Pachamama / Imamoglu gibi ortadaki "mam" elenir). ≥4 karakterde infix de açılır.
+const listing_suggest_slug_ascii_sql: String = "lower(replace(l.slug, '-', ' '))"
+
+const listing_suggest_token_match_sql: String =
+  "("
+  // Kelime öneki: başlar veya boşluktan sonra
+  <> listing_suggest_slug_ascii_sql
+  <> " ilike trim(tok) || '%' "
+  <> "or "
+  <> listing_suggest_slug_ascii_sql
+  <> " ilike '% ' || trim(tok) || '%' "
+  <> "or lower(coalesce(l.location_name, '')) ilike trim(tok) || '%' "
+  <> "or lower(coalesce(l.location_name, '')) ilike '% ' || trim(tok) || '%' "
+  <> "or exists ("
+  <> "  select 1 from listing_translations lt "
+  <> "  where lt.listing_id = l.id and ("
+  <> "    translate(lower(lt.title), 'üğışöç', 'ugisoc') ilike trim(tok) || '%' "
+  <> "    or translate(lower(lt.title), 'üğışöç', 'ugisoc') ilike '% ' || trim(tok) || '%'"
+  <> "  )"
+  <> ") "
+  // Uzun token: içeride geçen eşleşme (luxury → Mamon Luxury…)
+  <> "or ("
+  <> "  char_length(trim(tok)) >= 4 and ("
+  <> "    "
+  <> listing_suggest_slug_ascii_sql
+  <> " ilike '%' || trim(tok) || '%' "
+  <> "    or lower(coalesce(l.location_name, '')) ilike '%' || trim(tok) || '%' "
+  <> "    or exists ("
+  <> "      select 1 from listing_translations lt "
+  <> "      where lt.listing_id = l.id "
+  <> "        and translate(lower(lt.title), 'üğışöç', 'ugisoc') ilike '%' || trim(tok) || '%'"
+  <> "    )"
+  <> "  )"
+  <> ")"
+  <> ")"
+
+/// Sıra: başlık/slug öneki → kelime öneki → trgm word_similarity → created_at.
+/// Böylece "mam" için Mamon/Mama üste gelir; rastgele yeni oteller değil.
+const listing_suggest_order_sql: String =
+  "order by "
+  <> "case "
+  <> "when exists ("
+  <> "  select 1 from listing_translations lt where lt.listing_id = l.id "
+  <> "    and translate(lower(lt.title), 'üğışöç', 'ugisoc') "
+  <> "      ilike split_part(trim(coalesce($1::text, '')), ' ', 1) || '%'"
+  <> ") then 0 "
+  <> "when "
+  <> listing_suggest_slug_ascii_sql
+  <> " ilike split_part(trim(coalesce($1::text, '')), ' ', 1) || '%' then 0 "
+  <> "when exists ("
+  <> "  select 1 from listing_translations lt where lt.listing_id = l.id "
+  <> "    and translate(lower(lt.title), 'üğışöç', 'ugisoc') "
+  <> "      ilike '% ' || split_part(trim(coalesce($1::text, '')), ' ', 1) || '%'"
+  <> ") then 1 "
+  <> "when "
+  <> listing_suggest_slug_ascii_sql
+  <> " ilike '% ' || split_part(trim(coalesce($1::text, '')), ' ', 1) || '%' then 1 "
+  <> "else 2 end asc, "
+  <> "greatest("
+  <> "  coalesce(("
+  <> "    select max(word_similarity("
+  <> "      nullif(split_part(trim(coalesce($1::text, '')), ' ', 1), ''),"
+  <> "      translate(lower(lt.title), 'üğışöç', 'ugisoc')"
+  <> "    )) from listing_translations lt where lt.listing_id = l.id"
+  <> "  ), 0),"
+  <> "  coalesce(word_similarity("
+  <> "    nullif(split_part(trim(coalesce($1::text, '')), ' ', 1), ''),"
+  <> "    "
+  <> listing_suggest_slug_ascii_sql
+  <> "  ), 0),"
+  <> "  coalesce(word_similarity("
+  <> "    nullif(split_part(trim(coalesce($1::text, '')), ' ', 1), ''),"
+  <> "    lower(coalesce(l.location_name, ''))"
+  <> "  ), 0)"
+  <> ") desc, "
+  <> "l.created_at desc "
+
+/// Suggest SELECT: autocomplete’in ihtiyaç duyduğu alanlar + decoder için boş pad (54 kolon).
+const listing_suggest_select_sql: String =
+  "l.id::text, l.slug, "
+  <> "coalesce((select lt.title from listing_translations lt join locales lo on lo.id = lt.locale_id where lt.listing_id = l.id and lower(lo.code) = lower($4) limit 1), l.slug), "
+  <> "coalesce(pc.code::text, ''), "
+  <> "coalesce(case when trim(coalesce(l.featured_image_url, '')) = '' then null when trim(l.featured_image_url) ilike 'http%' then trim(l.featured_image_url) when trim(l.featured_image_url) like '/%' then trim(l.featured_image_url) else '/' || trim(l.featured_image_url) end, case when trim(coalesce(l.thumbnail_url, '')) = '' then null when trim(l.thumbnail_url) ilike 'http%' then trim(l.thumbnail_url) when trim(l.thumbnail_url) like '/%' then trim(l.thumbnail_url) else '/' || trim(l.thumbnail_url) end, ''), "
+  <> "coalesce(nullif(l.vitrin_price::text, ''), nullif(l.first_charge_amount::text, ''), ''), "
+  <> "coalesce(nullif(trim(l.location_name), ''), ''), "
+  <> "'', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '' "
+
 /// `location` vitrin parametresi — konum meta + tur başlığı + wtatil ülke adları.
 const location_search_match_sql: String =
   "translate(lower(coalesce(l.location_name, '') || ' ' || coalesce(lm.meta->>'address', '') || ' ' || coalesce(lm.meta->>'province_city', '') || ' ' || coalesce(lm.meta->>'city', '') || ' ' || coalesce(lm.meta->>'district_label', '') || ' ' || coalesce(lm.meta->>'region_display', '') || ' ' || coalesce((select lt2.title from listing_translations lt2 join locales lo2 on lo2.id = lt2.locale_id where lt2.listing_id = l.id order by case when lower(lo2.code) = 'tr' then 0 else 1 end limit 1), '') || ' ' || coalesce((select string_agg(coalesce(c.elem->>'name', ''), ' ') from listing_attributes wa cross join lateral jsonb_array_elements(case jsonb_typeof(wa.value_json->'countries') when 'array' then wa.value_json->'countries' else '[]'::jsonb end) c(elem) where wa.listing_id = l.id and wa.group_code = 'wtatil' and wa.key = 'snapshot'), '')), 'üğışöç', 'ugisoc')"
@@ -1674,6 +1765,27 @@ fn search_listings_impl(
     <> fast_main_sql
     <> order_sql
 
+  // Autocomplete: trgm-uyumlu eşleşme + ince SELECT (browse lateralları yok).
+  let suggest_page_sql =
+    "with page_ids as materialized (select l.id "
+    <> "from listings l "
+    <> "join product_categories pc on pc.id = l.category_id "
+    <> "where l.status = 'published' "
+    <> "and ($1::text is null or trim($1) = '' or (select coalesce(bool_and("
+    <> listing_suggest_token_match_sql
+    <> "), true) from unnest(string_to_array(trim($1), ' ')) as u(tok) where trim(tok) <> '')) "
+    <> "and ($2::text is null or pc.code = $2) "
+    <> listing_suggest_order_sql
+    <> "offset $21 limit $5"
+    <> ") "
+    <> "select "
+    <> listing_suggest_select_sql
+    <> "from page_ids __pids "
+    <> "join listings l on l.id = __pids.id "
+    <> "join product_categories pc on pc.id = l.category_id "
+    <> "cross join (select $3::text as a3, $6::text as a6, $7::text as a7, $8::text as a8, $9::text as a9, $10::text as a10, $11::text as a11, $12::text as a12, $13::text as a13, $14::text as a14, $15::text as a15, $16::text as a16, $17::text as a17, $18::text as a18, $19::text as a19, $20::text as a20, $22::uuid as a22, $23::text as a23, $24::text as a24, $25::text as a25, $26::text as a26, $27::text as a27, $28::text as a28, $29::text as a29, $30::text as a30, $31::text as a31) __bind "
+    <> listing_suggest_order_sql
+
   let agency_param = case agency_org_opt {
     None -> pog.null()
     Some(id) -> pog.text(id)
@@ -1769,14 +1881,22 @@ fn search_listings_impl(
       || end_raw != ""
       || sort_raw != ""
     }
-  let page_sql = case fast_page_allowed {
-    True -> fast_category_page_sql
-    False -> deferred_page_sql
+  let page_sql = case suggest_mode {
+    True -> suggest_page_sql
+    False ->
+      case fast_page_allowed {
+        True -> fast_category_page_sql
+        False -> deferred_page_sql
+      }
+  }
+  let query_timeout_ms = case suggest_mode {
+    True -> suggest_query_timeout_ms
+    False -> vitrin_query_timeout_ms
   }
 
   case
     pog.query(page_sql)
-    |> pog.timeout(vitrin_query_timeout_ms)
+    |> pog.timeout(query_timeout_ms)
     |> run_params
     |> pog.returning(pub_listing_row())
     |> db_exec.execute(ctx.db)
@@ -1818,12 +1938,17 @@ fn search_listings_impl(
         run_listing_count_sql(ctx, count_q, run_params, fallback_total, True)
       }
       // Fast-path: ucuz gerçek sayım. Karmaşık (fast olmayan) aramalar: tam count_sql.
-      let total_count = case fast_page_allowed {
-        True -> run_count(fast_count_sql)
+      // Suggest: sayım yok — total ≈ dönen satır (autocomplete UI kullanmaz).
+      let total_count = case suggest_mode {
+        True -> fallback_total
         False ->
-          case exact_count_needed {
-            True -> run_count(count_sql)
-            False -> fallback_total
+          case fast_page_allowed {
+            True -> run_count(fast_count_sql)
+            False ->
+              case exact_count_needed {
+                True -> run_count(count_sql)
+                False -> fallback_total
+              }
           }
       }
       let arr = list.map(ret.rows, pub_listing_json)
