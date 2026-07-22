@@ -171,7 +171,9 @@ check_next_static_chunk() {
   local wd sample url status rel url_path chunk_base attempts si j
   wd="$(systemctl show "$WEB_SERVICE" -p WorkingDirectory --value)"
   [[ -d "$wd/.next/static/chunks" ]] || fail "Missing $wd/.next/static/chunks - build or run wrong directory"
-  sample="$(find "$wd/.next/static/chunks" -maxdepth 1 -type f -name '*.js' | sort | head -1)"
+  # Avoid `find | sort | head` here. With `set -o pipefail`, `head` can close
+  # the pipe early and make the verifier exit silently on SIGPIPE.
+  sample="$(find "$wd/.next/static/chunks" -maxdepth 1 -type f -name '*.js' -print -quit)"
   [[ -n "$sample" ]] || fail "No *.js in $wd/.next/static/chunks"
   chunk_base="$(basename "$sample")"
   url="$WEB_ORIGIN/_next/static/chunks/$chunk_base"
@@ -197,7 +199,7 @@ check_next_static_chunk() {
     warn "VERIFY_SKIP_APP_LAYOUT_CHUNK=1 — app layout chunk testi atlandi"
     return 0
   fi
-  sample="$(find "$wd/.next/static/chunks/app" -type f -name 'layout-*.js' 2>/dev/null | sort | head -1 || true)"
+  sample="$(find "$wd/.next/static/chunks/app" -type f -name 'layout-*.js' -print -quit 2>/dev/null || true)"
   if [[ -n "${sample:-}" ]]; then
     command -v python3 >/dev/null 2>&1 || {
       warn "python3 yok; app layout chunk URL testi atlandi"
