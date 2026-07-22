@@ -133,20 +133,46 @@ function aggregateRating(listing: ListingDetailFields): Record<string, unknown> 
 }
 
 function geo(listing: ListingDetailFields): Record<string, unknown> | undefined {
-  if (!listing.map?.lat || !listing.map?.lng) return undefined
+  const coords = normalizeGeoCoords(listing.map?.lat, listing.map?.lng)
+  if (!coords) return undefined
   return {
     '@type': 'GeoCoordinates',
-    latitude: listing.map.lat,
-    longitude: listing.map.lng,
+    latitude: coords.lat,
+    longitude: coords.lng,
   }
 }
 
+/** Google VacationRental: en az 5 ondalık hassasiyet. */
+function normalizeGeoCoords(
+  lat: number | string | null | undefined,
+  lng: number | string | null | undefined,
+): { lat: number; lng: number } | null {
+  const la = typeof lat === 'number' ? lat : lat != null && String(lat).trim() !== '' ? Number(lat) : NaN
+  const ln = typeof lng === 'number' ? lng : lng != null && String(lng).trim() !== '' ? Number(lng) : NaN
+  if (!Number.isFinite(la) || !Number.isFinite(ln)) return null
+  if (Math.abs(la) > 90 || Math.abs(ln) > 180) return null
+  // 0,0 genelde “yok” placeholder’ı
+  if (la === 0 && ln === 0) return null
+  const round5 = (n: number) => Math.round(n * 1e5) / 1e5
+  let outLat = round5(la)
+  let outLng = round5(ln)
+  // String'e çevirip 5 hane yoksa doldur (ör. 36.57 → 36.57000)
+  const ensurePrecision = (n: number) => {
+    const s = n.toFixed(5)
+    return Number(s)
+  }
+  outLat = ensurePrecision(outLat)
+  outLng = ensurePrecision(outLng)
+  return { lat: outLat, lng: outLng }
+}
+
 function postalAddress(listing: ListingDetailFields): Record<string, unknown> | undefined {
-  if (!listing.address?.trim()) return undefined
+  if (!listing.address?.trim() && !listing.city?.trim()) return undefined
   const a: Record<string, unknown> = {
     '@type': 'PostalAddress',
-    streetAddress: listing.address.trim(),
+    addressCountry: 'TR',
   }
+  if (listing.address?.trim()) a.streetAddress = listing.address.trim()
   if (listing.city?.trim()) a.addressLocality = listing.city.trim()
   return a
 }
@@ -365,10 +391,23 @@ export async function buildStayListingDetailJsonLd(opts: {
   const images = imagesForSchema(base, listing)
   const offer = offerFromListing(pageUrl, listing, organizationName)
   const rating = aggregateRating(listing)
-  const g = geo(listing)
+  const coords = normalizeGeoCoords(listing.map?.lat, listing.map?.lng)
+  const g = coords
+    ? {
+        '@type': 'GeoCoordinates',
+        latitude: coords.lat,
+        longitude: coords.lng,
+      }
+    : undefined
   const addr = postalAddress(listing)
 
-  const schemaType = schemaTypeForStay(vertical)
+  let schemaType = schemaTypeForStay(vertical)
+  // Google “Kiralık yer” zengin sonucu VacationRental için geo zorunlu.
+  // Koordinat yoksa geçersiz VacationRental üretme.
+  if (schemaType === 'VacationRental' && !coords) {
+    schemaType = 'LodgingBusiness'
+  }
+
   const main: Record<string, unknown> = withId(
     {
       '@type': schemaType,
@@ -379,8 +418,17 @@ export async function buildStayListingDetailJsonLd(opts: {
     pageUrl,
   )
 
+  if (listing.id?.trim()) {
+    main.identifier = listing.id.trim()
+  }
+
   if (addr) main.address = addr
-  if (g) main.geo = g
+  if (g) {
+    main.geo = g
+    // Google docs: latitude/longitude top-level veya geo.* — ikisini de yaz.
+    main.latitude = coords!.lat
+    main.longitude = coords!.lng
+  }
   if (rating) main.aggregateRating = rating
   if (offer) main.offers = offer
 
@@ -392,13 +440,43 @@ export async function buildStayListingDetailJsonLd(opts: {
   }
 
   if (schemaType === 'VacationRental') {
-    if (typeof listing.maxGuests === 'number') {
+    const occupancyValue =
+      typeof listing.maxGuests === 'number' && listing.maxGuests > 0 ? listing.maxGuests : undefined
+    if (occupancyValue != null) {
       main.occupancy = {
         '@type': 'QuantitativeValue',
-        maxValue: listing.maxGuests,
+        maxValue: occupancyValue,
       }
     }
-    if (typeof listing.bedrooms === 'number') main.numberOfRooms = listing.bedrooms
+    if (typeof listing.bedrooms === 'number' && listing.bedrooms > 0) {
+      main.numberOfRooms = listing.bedrooms
+      main.numberOfBedrooms = listing.bedrooms
+    }
+    if (typeof listing.bathrooms === 'number' && listing.bathrooms > 0) {
+      main.numberOfBathroomsTotal = listing.bathrooms
+    }
+    // Zorunlu: containsPlace → Accommodation
+    const accommodation: Record<string, unknown> = {
+      '@type': 'Accommodation',
+      name: listing.title,
+    }
+    if (occupancyValue != null) {
+      accommodation.occupancy = {
+        '@type': 'QuantitativeValue',
+        value: occupancyValue,
+      }
+    }
+    if (typeof listing.bedrooms === 'number' && listing.bedrooms > 0) {
+      accommodation.numberOfBedrooms = listing.bedrooms
+      accommodation.numberOfRooms = listing.bedrooms
+    }
+    if (typeof listing.bathrooms === 'number' && listing.bathrooms > 0) {
+      accommodation.numberOfBathroomsTotal = listing.bathrooms
+    }
+    if (typeof listing.beds === 'number' && listing.beds > 0) {
+      accommodation.numberOfBeds = listing.beds
+    }
+    main.containsPlace = accommodation
   }
 
   if (schemaType === 'Boat') {

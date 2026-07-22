@@ -75,17 +75,31 @@ function listItemAggregateRating(listing: TListingBase): Record<string, unknown>
   }
 }
 
-/** Product rich-result kurallarına uymayan tipleri düşürür / tamamlar. */
+/** Product / VacationRental rich-result kurallarına uymayan tipleri düşürür / tamamlar. */
 export function finalizeSchemaOrgItemType(
   schemaType: string,
   itemUrl: string,
-  listing: Pick<TListingBase, 'price' | 'priceAmount' | 'priceCurrency' | 'reviewStart' | 'reviewCount'>,
+  listing: Pick<
+    TListingBase,
+    'price' | 'priceAmount' | 'priceCurrency' | 'reviewStart' | 'reviewCount' | 'map'
+  >,
 ): { type: string; offers?: Record<string, unknown>; aggregateRating?: Record<string, unknown> } {
   const offer = listItemOffer(itemUrl, listing as TListingBase)
   const rating = listItemAggregateRating(listing as TListingBase)
-  if (schemaType === 'Product') {
+  const hasGeo =
+    typeof listing.map?.lat === 'number' &&
+    typeof listing.map?.lng === 'number' &&
+    Number.isFinite(listing.map.lat) &&
+    Number.isFinite(listing.map.lng) &&
+    !(listing.map.lat === 0 && listing.map.lng === 0)
+
+  let type = schemaType
+  // Google VacationRental için geo zorunlu — listede koordinatsız VR üretme.
+  if (type === 'VacationRental' && !hasGeo) {
+    type = 'LodgingBusiness'
+  }
+  if (type === 'Product') {
     if (!offer && !rating) {
-      // Geçersiz Product snippet üretme — detay sayfasında tam şema tercih edilir.
       return { type: 'Thing' }
     }
     return {
@@ -95,7 +109,7 @@ export function finalizeSchemaOrgItemType(
     }
   }
   return {
-    type: schemaType,
+    type,
     ...(offer ? { offers: offer } : {}),
     ...(rating ? { aggregateRating: rating } : {}),
   }

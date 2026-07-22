@@ -1048,6 +1048,8 @@ export default async function StayListingDetailPageContent({
         bathrooms,
         beds,
         price,
+        priceAmount,
+        priceCurrency,
         reviewCount,
         reviewStart,
         host,
