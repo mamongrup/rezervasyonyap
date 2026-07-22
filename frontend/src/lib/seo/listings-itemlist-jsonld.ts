@@ -2,6 +2,10 @@
  * Kategori liste sayfaları için schema.org ItemList (+ ListItem) JSON-LD.
  * Google host carousel / zengin sonuç uygunluğu için özet sayfada geçerli detay URL’leri ve görseller.
  * @see https://developers.google.com/search/docs/appearance/structured-data/carousel
+ *
+ * Not: `@type: Product` için Google “offers | review | aggregateRating” zorunlu tutar.
+ * Eksik Product’lar Search Console “Ürün snippet’leri”nde geçersiz sayılır — bu yüzden
+ * fiyat/puan yoksa Product yerine Thing kullanılır; varsa Offer / AggregateRating eklenir.
  */
 
 import type { CategoryRegistryEntry, ListingType } from '@/data/category-registry'
@@ -35,6 +39,68 @@ function schemaTypeForListing(listingType: ListingType): string {
   return map[listingType] ?? 'Product'
 }
 
+function listItemOffer(
+  itemUrl: string,
+  listing: TListingBase,
+): Record<string, unknown> | undefined {
+  let value: string | undefined
+  if (typeof listing.priceAmount === 'number' && Number.isFinite(listing.priceAmount) && listing.priceAmount > 0) {
+    value = String(Math.round(listing.priceAmount * 100) / 100)
+  } else if (listing.price) {
+    const digits = listing.price.replace(/[^\d.,]/g, '').replace(',', '.')
+    const n = parseFloat(digits)
+    if (!Number.isNaN(n) && n > 0) value = String(Math.round(n * 100) / 100)
+  }
+  if (!value) return undefined
+  const cur = (listing.priceCurrency || 'TRY').trim().toUpperCase()
+  return {
+    '@type': 'Offer',
+    url: itemUrl,
+    priceCurrency: cur.length === 3 ? cur : 'TRY',
+    price: value,
+    availability: 'https://schema.org/InStock',
+  }
+}
+
+function listItemAggregateRating(listing: TListingBase): Record<string, unknown> | undefined {
+  const c = listing.reviewCount
+  const r = listing.reviewStart
+  if (typeof c !== 'number' || c < 1 || typeof r !== 'number' || !Number.isFinite(r)) return undefined
+  return {
+    '@type': 'AggregateRating',
+    ratingValue: Math.min(5, Math.max(1, r)),
+    reviewCount: c,
+    bestRating: 5,
+    worstRating: 1,
+  }
+}
+
+/** Product rich-result kurallarına uymayan tipleri düşürür / tamamlar. */
+export function finalizeSchemaOrgItemType(
+  schemaType: string,
+  itemUrl: string,
+  listing: Pick<TListingBase, 'price' | 'priceAmount' | 'priceCurrency' | 'reviewStart' | 'reviewCount'>,
+): { type: string; offers?: Record<string, unknown>; aggregateRating?: Record<string, unknown> } {
+  const offer = listItemOffer(itemUrl, listing as TListingBase)
+  const rating = listItemAggregateRating(listing as TListingBase)
+  if (schemaType === 'Product') {
+    if (!offer && !rating) {
+      // Geçersiz Product snippet üretme — detay sayfasında tam şema tercih edilir.
+      return { type: 'Thing' }
+    }
+    return {
+      type: 'Product',
+      ...(offer ? { offers: offer } : {}),
+      ...(rating ? { aggregateRating: rating } : {}),
+    }
+  }
+  return {
+    type: schemaType,
+    ...(offer ? { offers: offer } : {}),
+    ...(rating ? { aggregateRating: rating } : {}),
+  }
+}
+
 export async function buildListingsItemListJsonLd(opts: {
   category: CategoryRegistryEntry
   listings: TListingBase[]
@@ -61,12 +127,14 @@ export async function buildListingsItemListJsonLd(opts: {
     const rawImg = l.featuredImage || l.galleryImgs?.[0]
     const imageAbs = rawImg ? toAbsoluteSiteUrl(base, rawImg) ?? rawImg : undefined
 
-    const schemaType = l.listingVertical
+    const rawType = l.listingVertical
       ? schemaOrgTypeForCatalogVertical(l.listingVertical)
       : schemaTypeForListing(category.listingType)
 
+    const finalized = finalizeSchemaOrgItemType(rawType, itemUrl, l)
+
     const item: Record<string, unknown> = {
-      '@type': schemaType,
+      '@type': finalized.type,
       name: l.title,
       url: itemUrl,
     }
@@ -74,6 +142,8 @@ export async function buildListingsItemListJsonLd(opts: {
     if (l.description && l.description.trim()) {
       item.description = l.description.trim().slice(0, 5000)
     }
+    if (finalized.offers) item.offers = finalized.offers
+    if (finalized.aggregateRating) item.aggregateRating = finalized.aggregateRating
 
     return {
       '@type': 'ListItem',

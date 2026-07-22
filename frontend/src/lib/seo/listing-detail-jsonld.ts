@@ -454,7 +454,11 @@ export async function buildExperienceListingDetailJsonLd(opts: {
   const g = geo(listing)
   const addr = postalAddress(listing)
 
-  const schemaType = schemaOrgMainTypeForExperienceListing(listing)
+  let schemaType = schemaOrgMainTypeForExperienceListing(listing)
+  // Google Product snippet: offers | review | aggregateRating zorunlu.
+  if (schemaType === 'Product' && !offer && !rating) {
+    schemaType = 'Service'
+  }
   const main: Record<string, unknown> = withId(
     {
       '@type': schemaType,
