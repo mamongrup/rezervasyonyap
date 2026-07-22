@@ -1,5 +1,7 @@
 import BgGlassmorphism from '@/components/BgGlassmorphism'
 import { HeroLastSearchRow } from '@/components/HeroLastSearchRow'
+import HomeBelowFoldSkeleton from '@/components/HomeBelowFoldSkeleton'
+import HomePageBuilderSection from '@/components/HomePageBuilderSection'
 import {
   heroHeadingLinkClassName,
   heroSubheadingLinkClassName,
@@ -11,13 +13,8 @@ import {
   heroMosaicShellClassName,
 } from '@/components/hero-sections/hero-below-header-classes'
 import HeroSearchDesktopOnly from '@/components/HeroSearchForm/HeroSearchDesktopOnly'
-import PageBuilderRenderer from '@/components/page-builder/PageBuilderRenderer'
-import { getAuthors } from '@/data/authors'
 import { CATEGORY_REGISTRY } from '@/data/category-registry'
-import { getFeaturedRegionConfig, getHomepageConfig } from '@/data/page-builder-config'
-import { normalizeCatalogVertical } from '@/lib/catalog-listing-vertical'
-import { slimListingForVitrinCard } from '@/lib/featured-listings-utils'
-import { fetchCategoryListings } from '@/lib/listings-fetcher'
+import { getHomepageConfig } from '@/data/page-builder-config'
 import { getHomepageDefaultModules } from '@/lib/page-builder-default-modules'
 import { panelImagesToFreeformUrls } from '@/lib/hero-gallery-slots'
 import { resolveHeroLcpImageUrl } from '@/lib/hero-lcp-url'
@@ -36,9 +33,10 @@ import heroRightStay from '@/images/hero-right.avif'
 import ButtonPrimary from '@/shared/ButtonPrimary'
 import Link from 'next/link'
 import { preload } from 'react-dom'
+import { Suspense } from 'react'
 import { getMessages } from '@/utils/getT'
 import { Metadata } from 'next'
-import type { PageBuilderModule, TListingBase } from '@/types/listing-types'
+import type { PageBuilderModule } from '@/types/listing-types'
 
 export async function generateMetadata({
   params,
@@ -69,7 +67,7 @@ export async function generateMetadata({
 // ISR: anasayfa cache (CDN/Next). Fetch revalidate (listings ~300 sn) efektif üst sınırdır.
 export const revalidate = 3600
 
-// Anasayfa için sahte bir "category" — PageBuilderRenderer bağlamı için
+// Anasayfa için sahte bir "category" — hero CTA vitrin yolu
 const HOME_CATEGORY = CATEGORY_REGISTRY.find((c) => c.slug === 'oteller')!
 
 export default async function Page({ params }: { params: Promise<{ locale: string }> }) {
@@ -77,8 +75,8 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
   const m = getMessages(locale)
 
   /**
-   * LCP: `preload()` daha önce tüm `Promise.all` bittiğinde çalışıyordu → kaynak yükleme gecikmesi ~hundreds ms.
-   * Önce yalnızca hero URL’leri için config alıp preload’ı işaretliyoruz; vitrin/API ile paralel değil, **önce** keşif.
+   * LCP: önce yalnızca hero config + preload — ağır listings fetch hero’yu bloklamaz
+   * (HomePageBuilderSection Suspense ile stream edilir).
    */
   const homepageConfig = await getHomepageConfig()
 
@@ -124,7 +122,6 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
     : [defaultHeroSrc, defaultHeroSrc, defaultHeroSrc]
   const mosaicForRegionHero = preferHeroAvifTriple(panelImagesToFreeformUrls(mosaicGrid))
 
-  /** Freeform’daki gerçek LCP URL’si dizinin ilk elemanı olmayabilir — önce onu preload et. */
   const lcpHeroUrl = resolveHeroLcpImageUrl(DEFAULT_REGION_HERO_FREEFORM, mosaicForRegionHero)
   if (lcpHeroUrl) {
     preload(lcpHeroUrl, {
@@ -133,26 +130,6 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
     })
   }
 
-  const [apiListingsResult, authors, savedRegionConfig] = await Promise.all([
-      // Bölge vitrini için yeterli; tam 100 satır RSC'yi şişiriyordu.
-      fetchCategoryListings('oteller', {}, { perPage: 36 }, locale),
-      getAuthors(),
-      getFeaturedRegionConfig('homepage'),
-    ])
-
-  const featuredListings: TListingBase[] = (apiListingsResult.listings.length > 0
-    ? apiListingsResult.listings
-    : []
-  ).map((l) =>
-    slimListingForVitrinCard({
-      ...l,
-      listingVertical: normalizeCatalogVertical(l.listingVertical),
-    }),
-  )
-
-  // Hero config — page-builder hero modülü > homepageConfig > varsayılan mesaj
-  // Page-builder hero editörü metinleri çoklu-dilli ({ tr, en, … }) saklar;
-  // «Ana Sayfa Düzenleyici» düz string yazar → `pickLocalized` ikisini de okur.
   const heroModule = modules.find((mod) => mod.type === 'hero' && mod.enabled)
   const heroModuleCfg = heroModule?.config as Record<string, unknown> | undefined
   const heroHeading =
@@ -167,17 +144,8 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
     pickLocalized(heroModuleCfg?.ctaText as LocalizedText | string | undefined, locale).trim() ||
     homepageConfig?.heroCtaText ||
     m.homePage.heroDefaults.cta
-  /** Anasayfa hero CTA linki — hero modülünde özel link varsa onu kullan, yoksa kategori vitrin */
   const categoryPageHref = await vitrinHref(locale, `${HOME_CATEGORY.categoryRoute}/all`)
   const heroCtaHref = (heroModuleCfg?.ctaHref as string | undefined)?.trim() || categoryPageHref
-
-  // featured_by_region modülü varsa savedRegionConfig ile override et
-  const modulesWithRegion = modules.map((mod) => {
-    if (mod.type === 'featured_by_region' && savedRegionConfig) {
-      return { ...mod, config: { ...((mod.config as object) ?? {}), ...savedRegionConfig } }
-    }
-    return mod
-  })
 
   const searchForm = (
     <HeroSearchDesktopOnly
@@ -196,7 +164,6 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
 
   const heroDescription = (
     <>
-      {/* neutral-600 (≥4.5:1) — PSI Acc contrast; dark:neutral-300 okunabilir */}
       <p className="max-w-xl text-base text-neutral-600 sm:text-xl dark:text-neutral-300">
         <Link href={categoryPageHref} className={heroSubheadingLinkClassName}>
           {heroSubheading}
@@ -215,7 +182,6 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
     <main className="relative isolate min-w-0 overflow-x-hidden">
       <BgGlassmorphism />
 
-      {/* Hero — PageBuilderRenderer dışında, tam genişlik */}
       <div
         className={`${heroMosaicShellClassName} container mb-6 ${heroContainerBelowHeaderClassName}`}
       >
@@ -234,23 +200,13 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
       </div>
 
       <div className={`${heroBelowContentClassName} overflow-x-hidden`}>
-        {/* Son aramalar */}
         <div className="container mb-10 flex justify-center px-4 sm:px-0">
           <HeroLastSearchRow locale={locale} />
         </div>
 
-        <PageBuilderRenderer
-          rootAs="section"
-          modules={modulesWithRegion.filter((m) => m.type !== 'hero')}
-          category={HOME_CATEGORY}
-          locale={locale}
-          searchFormNode={searchForm}
-          allListings={featuredListings}
-          listingLinkBase="/otel"
-          priceUnit="/gece"
-          authors={authors}
-          pageKey="homepage"
-        />
+        <Suspense fallback={<HomeBelowFoldSkeleton />}>
+          <HomePageBuilderSection locale={locale} modules={modules} searchFormNode={searchForm} />
+        </Suspense>
       </div>
     </main>
   )
