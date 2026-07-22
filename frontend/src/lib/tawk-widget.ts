@@ -9,6 +9,15 @@ declare global {
       hideWidget?: () => void
       onLoad?: () => void
       onChatMinimized?: () => void
+      setAttributes?: (
+        attributes: Record<string, string>,
+        callback?: (error?: unknown) => void,
+      ) => void
+      addEvent?: (
+        eventName: string,
+        metadata?: Record<string, string> | ((error?: unknown) => void),
+        callback?: (error?: unknown) => void,
+      ) => void
     }
     Tawk_LoadStart?: Date
   }
@@ -22,6 +31,8 @@ export type TawkRuntimeConfig = {
 let runtimeConfig: TawkRuntimeConfig | null = null
 let loadPromise: Promise<void> | null = null
 let openRequested = false
+let tawkReady = false
+let hideTimer: ReturnType<typeof setTimeout> | undefined
 
 function envTawkConfig(): TawkRuntimeConfig {
   return {
@@ -42,6 +53,7 @@ export function setTawkRuntimeConfig(branding: Record<string, unknown> | null | 
   runtimeConfig = next.propertyId ? next : null
   if (prev.propertyId !== next.propertyId || prev.widgetId !== next.widgetId) {
     loadPromise = null
+    tawkReady = false
     document.getElementById('tawk-embed-script')?.remove()
   }
 }
@@ -81,10 +93,67 @@ function setTawkOpenClass(open: boolean): void {
   document.documentElement.classList.toggle('tawk-open', open)
 }
 
+function sanitizeTawkAttrValue(raw: string): string {
+  const t = raw.trim()
+  if (!t) return '-'
+  return t.length > 255 ? t.slice(0, 255) : t
+}
+
+/**
+ * Monitoring / ziyaretçi kartında görünen sayfa bilgisi.
+ * Next App Router soft navigate’te Tawk URL’yi otomatik güncellemez —
+ * her rota değişiminde attribute + event gönderilir.
+ */
+export function syncTawkCurrentPage(): void {
+  if (typeof window === 'undefined') return
+  const api = window.Tawk_API
+  if (!api || (!api.setAttributes && !api.addEvent)) return
+
+  const href = sanitizeTawkAttrValue(window.location.href)
+  const path = sanitizeTawkAttrValue(window.location.pathname + window.location.search)
+  const title = sanitizeTawkAttrValue(document.title || path)
+
+  api.setAttributes?.(
+    {
+      'page-url': href,
+      'page-path': path,
+      'page-title': title,
+    },
+    () => {},
+  )
+
+  if (typeof api.addEvent === 'function') {
+    try {
+      api.addEvent(
+        'page-view',
+        {
+          'page-url': href,
+          'page-path': path,
+          'page-title': title,
+        },
+        () => {},
+      )
+    } catch {
+      /* ignore */
+    }
+  }
+}
+
+function scheduleHiddenMode(): void {
+  if (hideTimer) clearTimeout(hideTimer)
+  // İlk sayfa ping’inin Monitoring’e düşmesi için hideWidget’ı biraz geciktir.
+  hideTimer = setTimeout(() => {
+    if (openRequested) return
+    setTawkOpenClass(false)
+    window.Tawk_API?.hideWidget?.()
+  }, 1500)
+}
+
 /** Tawk.to widget'ını aç / büyüt */
 export function openTawkWidget(): void {
   if (typeof window === 'undefined') return
   openRequested = true
+  if (hideTimer) clearTimeout(hideTimer)
   setTawkOpenClass(true)
   const api = window.Tawk_API
   api?.showWidget?.()
@@ -114,7 +183,8 @@ export function ensureTawkScriptLoaded(): Promise<void> {
   if (!propertyId) return Promise.resolve()
 
   if (document.getElementById('tawk-embed-script')) {
-    return Promise.resolve()
+    if (tawkReady) syncTawkCurrentPage()
+    return loadPromise ?? Promise.resolve()
   }
 
   if (loadPromise) return loadPromise
@@ -124,15 +194,25 @@ export function ensureTawkScriptLoaded(): Promise<void> {
 
   loadPromise = new Promise((resolve) => {
     window.Tawk_API = window.Tawk_API || {}
+    const prevOnLoad = window.Tawk_API.onLoad
     window.Tawk_API.onLoad = () => {
+      tawkReady = true
+      // Socket hazır olmadan setAttributes sessizce düşebiliyor — kısa gecikme.
+      window.setTimeout(() => syncTawkCurrentPage(), 400)
+      window.setTimeout(() => syncTawkCurrentPage(), 2000)
       if (openRequested) {
         setTawkOpenClass(true)
         window.Tawk_API?.showWidget?.()
         window.Tawk_API?.maximize?.()
       } else {
-        // Gizli yüklendi: balon görünmesin, yalnız ziyaretçi izleme aktif olsun.
-        setTawkOpenClass(false)
-        window.Tawk_API?.hideWidget?.()
+        scheduleHiddenMode()
+      }
+      if (typeof prevOnLoad === 'function') {
+        try {
+          prevOnLoad()
+        } catch {
+          /* ignore */
+        }
       }
     }
     window.Tawk_API.onChatMinimized = () => {

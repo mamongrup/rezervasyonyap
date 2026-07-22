@@ -8,6 +8,7 @@ import {
   isTawkConfigured,
   openTawkWidget,
   setTawkRuntimeConfig,
+  syncTawkCurrentPage,
 } from '@/lib/tawk-widget'
 import { getSitePublicConfig as fetchSitePublicConfig } from '@/lib/travel-api'
 import { Headset, MessageCircle, Sparkles, X } from 'lucide-react'
@@ -33,7 +34,7 @@ export default function CustomerSupportFloatMenu() {
     // Tawk script'ini sayfa açılışında GİZLİ yükle → Tawk panelinde ziyaretçi
     // izleme (kaç kişi sitede / yeni / ayrılan) yeniden çalışır. Balon gizli
     // kalır; ziyaretçi "Canlı Destek"e basınca açılır. LCP'yi bozmamak için
-    // ilk boya sonrasına ertelenir.
+    // ilk boya sonrasına ertelenir (~1.5s — sayfa verisi için 4s çok geçti).
     let warmTimer: ReturnType<typeof setTimeout> | undefined
     void fetchSitePublicConfig(undefined)
       .then((pub) => {
@@ -46,7 +47,7 @@ export default function CustomerSupportFloatMenu() {
           warmTimer = setTimeout(() => {
             // openRequested=false → onLoad balonu gizler; yalnız izleme aktif olur.
             void ensureTawkScriptLoaded()
-          }, 4000)
+          }, 1500)
         }
       })
       .catch(() => {})
@@ -55,6 +56,35 @@ export default function CustomerSupportFloatMenu() {
       if (warmTimer) clearTimeout(warmTimer)
     }
   }, [hideOnManage])
+
+  // App Router soft navigate: Monitoring’de page-url / page-title güncelle.
+  useEffect(() => {
+    if (hideOnManage || !tawkReady) return
+    let cancelled = false
+    let attempts = 0
+    const tick = () => {
+      if (cancelled) return
+      if (typeof window !== 'undefined' && window.Tawk_API?.setAttributes) {
+        syncTawkCurrentPage()
+        return
+      }
+      attempts += 1
+      if (attempts < 24) {
+        window.setTimeout(tick, 250)
+      }
+    }
+    void ensureTawkScriptLoaded().then(() => {
+      if (!cancelled) tick()
+    })
+    // document.title RSC sonrası geç gelebilir
+    const titleTimer = window.setTimeout(() => {
+      if (!cancelled) syncTawkCurrentPage()
+    }, 800)
+    return () => {
+      cancelled = true
+      window.clearTimeout(titleTimer)
+    }
+  }, [pathname, hideOnManage, tawkReady])
 
   // Galeri, rezervasyon tarih/misafir seçicileri ve diğer ikincil ekranlar
   // açıldığında destek düğmesi içerik üzerinde kalmasın. Registry kullanmayan
