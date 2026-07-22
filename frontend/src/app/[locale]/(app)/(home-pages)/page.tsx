@@ -25,6 +25,12 @@ import { preferHeroAvifTriple } from '@/lib/prefer-hero-avif'
 import { DEFAULT_REGION_HERO_FREEFORM } from '@/lib/region-hero-freeform-defaults'
 import { sanitizeHeroInlineHtml } from '@/lib/sanitize-cms-html'
 import { pickLocalized, type LocalizedText } from '@/lib/localized-text'
+import {
+  brandingSiteName,
+  metaSiteDescription,
+  rawSiteDescription,
+} from '@/lib/site-branding-seo'
+import { getCachedSiteConfig } from '@/lib/site-config-cache'
 import { vitrinHref } from '@/lib/vitrin-href'
 import heroRightStay from '@/images/hero-right.avif'
 import ButtonPrimary from '@/shared/ButtonPrimary'
@@ -41,9 +47,22 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { locale } = await params
   const m = getMessages(locale)
+  const pub = await getCachedSiteConfig()
+  const siteName = brandingSiteName(pub)
+  const description = rawSiteDescription(pub) ?? m.homePage.meta.description ?? metaSiteDescription(pub)
+  const title = m.homePage.meta.title?.trim() || siteName
   return {
-    title: m.homePage.meta.title,
-    description: m.homePage.meta.description,
+    title,
+    description,
+    openGraph: {
+      title: `${title} | ${siteName}`,
+      description,
+      type: 'website',
+    },
+    twitter: {
+      title: `${title} | ${siteName}`,
+      description,
+    },
   }
 }
 

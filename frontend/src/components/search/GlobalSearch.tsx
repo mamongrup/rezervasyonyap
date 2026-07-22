@@ -132,6 +132,7 @@ export function SearchModal({ onClose, locale }: { onClose: () => void; locale: 
                   search(e.target.value)
                 }}
                 onKeyDown={handleKeyDown}
+                aria-label="İlan, yer veya özellik ara"
                 placeholder="İlan adı, yer, özellik ara… (ör: balayı villası, 5 kabinli yat)"
                 className="w-full border-0 bg-transparent py-4 pr-12 pl-12 text-base font-medium text-neutral-900 ring-0 outline-none placeholder:font-normal placeholder:text-neutral-400 focus:border-0 focus:ring-0 focus:outline-none focus-visible:outline-none sm:text-lg dark:text-white"
               />
@@ -202,7 +203,7 @@ export function SearchModal({ onClose, locale }: { onClose: () => void; locale: 
                       {s.image ? (
                         <img
                           src={s.image}
-                          alt=""
+                          alt={s.title}
                           className="size-14 flex-shrink-0 rounded-2xl object-cover shadow-sm ring-1 ring-black/5"
                         />
                       ) : (

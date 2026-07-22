@@ -39,7 +39,7 @@ const CardAuthorBox: FC<CardAuthorBoxProps> = ({ className = '', author, index }
         </span>
       )}
 
-      <Avatar className="size-20" src={avatarUrl} />
+      <Avatar className="size-20" src={avatarUrl} alt={displayName} />
 
       <div className="mt-3">
         <h2 className="text-base font-medium">

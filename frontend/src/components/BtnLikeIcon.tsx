@@ -34,7 +34,10 @@ const BtnLikeIcon: FC<BtnLikeIconProps> = ({
   }
 
   return (
-    <div
+    <button
+      type="button"
+      aria-label={liked ? 'Favorilerden çıkar' : 'Favorilere ekle'}
+      aria-pressed={liked}
       className={clsx(
         'flex cursor-pointer items-center justify-center rounded-full transition-colors',
         className,
@@ -45,11 +48,11 @@ const BtnLikeIcon: FC<BtnLikeIconProps> = ({
       onClick={handleClick}
     >
       {liked ? (
-        <HugeiconsIcon icon={FavouriteIcon} className="size-5" strokeWidth={2} />
+        <HugeiconsIcon icon={FavouriteIcon} className="size-5" strokeWidth={2} aria-hidden />
       ) : (
-        <HugeiconsIcon icon={FavouriteIcon} className="size-5" strokeWidth={1.75} />
+        <HugeiconsIcon icon={FavouriteIcon} className="size-5" strokeWidth={1.75} aria-hidden />
       )}
-    </div>
+    </button>
   )
 }
 
