@@ -1,5 +1,8 @@
 import { listBlogCategories, listBlogPosts, type BlogPost } from '@/lib/travel-api'
 import { vitrinHref } from '@/lib/vitrin-href'
+import { LOCALIZED_ROUTES_STATIC_FALLBACK } from '@/data/localized-routes-fallback'
+import { prefixLocale } from '@/lib/i18n-config'
+import { buildLocalizedRouteIndexes, localizeAppPathWithHash } from '@/lib/localized-path-shared'
 import Image from 'next/image'
 import Link from 'next/link'
 import { Calendar, Clock, ArrowRight, Compass, MapPin, Waves, TreePine, type LucideIcon } from 'lucide-react'
@@ -27,6 +30,11 @@ const PLACEHOLDER_ITEMS: { icon: LucideIcon; color: string; title: string; desc:
 ]
 
 const CATEGORY_SLUG = 'gezi-onerileri'
+const STATIC_ROUTE_INDEXES = buildLocalizedRouteIndexes(LOCALIZED_ROUTES_STATIC_FALLBACK)
+
+function staticVitrinHref(locale: string, internalPath: string): string {
+  return prefixLocale(locale, localizeAppPathWithHash(internalPath, locale, STATIC_ROUTE_INDEXES))
+}
 
 function fmtDate(iso: string) {
   return new Date(iso).toLocaleDateString('tr-TR', { day: '2-digit', month: 'long', year: 'numeric' })
@@ -52,7 +60,10 @@ export default async function SectionGeziOnerileri({
   className = '',
   staticOnly = false,
 }: Props) {
-  const categoryHref = await vitrinHref(locale, `/blog/category/${CATEGORY_SLUG}`)
+  const categoryPath = `/blog/category/${CATEGORY_SLUG}`
+  const categoryHref = staticOnly
+    ? staticVitrinHref(locale, categoryPath)
+    : await vitrinHref(locale, categoryPath)
 
   let posts: BlogPost[] = []
   let categoryId: string | null = null
