@@ -1,4 +1,4 @@
-import { Fragment, type CSSProperties, type ReactNode } from 'react'
+import { Fragment, Suspense, type CSSProperties, type ReactNode } from 'react'
 import type { FeaturedByRegionConfig, PageBuilderModule, TListingBase } from '@/types/listing-types'
 import type { CategoryRegistryEntry } from '@/data/category-registry'
 import type { TAuthor } from '@/data/authors'
@@ -565,11 +565,13 @@ export default async function PageBuilderRenderer({
           case 'region_slider': {
             const cfg = module.config
             return (
-              <RegionSliderModule
-                key={module.id}
-                config={cfg}
-                locale={locale}
-              />
+              // Keep slow stats/API work from holding the whole page-builder fallback.
+              <Suspense key={module.id} fallback={null}>
+                <RegionSliderModule
+                  config={cfg}
+                  locale={locale}
+                />
+              </Suspense>
             )
           }
 
@@ -586,11 +588,14 @@ export default async function PageBuilderRenderer({
           case 'featured_places': {
             const cfg = module.config
             return (
-              <FeaturedPlacesModule
-                key={module.id}
-                config={cfg}
-                locale={locale}
-              />
+              // Each storefront streams independently; five category pools must not
+              // keep the already-ready homepage modules behind one skeleton.
+              <Suspense key={module.id} fallback={null}>
+                <FeaturedPlacesModule
+                  config={cfg}
+                  locale={locale}
+                />
+              </Suspense>
             )
           }
 
