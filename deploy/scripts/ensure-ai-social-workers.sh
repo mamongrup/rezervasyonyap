@@ -103,12 +103,13 @@ else
 fi
 
 log "Sosyal worker anlık tetik"
-if systemctl start travel-social-worker.service; then
-  ok "travel-social-worker.service başlatıldı"
+if systemctl start --no-block travel-social-worker.service; then
+  ok "travel-social-worker.service kuyruğa alındı (deploy beklemez)"
 else
   # systemd yoksa veya unit henüz yoksa doğrudan script
-  SOCIAL_WORKER_ROTATE="${SOCIAL_WORKER_ROTATE:-1}" \
-    bash "$APP_ROOT/deploy/scripts/social-process-pending.sh" \
+  LOOP_UNTIL_EMPTY=0 SOCIAL_WORKER_ROTATE="${SOCIAL_WORKER_ROTATE:-1}" \
+    timeout "${SOCIAL_WORKER_FALLBACK_TIMEOUT:-180}" \
+      bash "$APP_ROOT/deploy/scripts/social-process-pending.sh" \
     || warn "sosyal worker tetik uyarısı — journalctl -u travel-social-worker.service -n 40"
 fi
 

@@ -21,6 +21,9 @@ EnvironmentFile=-/etc/rezervasyonyap/frontend.env
 Environment=WEB_ORIGIN=http://127.0.0.1:3000
 Environment=SOCIAL_WORKER_REQUEST_LIMIT=3
 Environment=SOCIAL_WORKER_ROTATE=1
+Environment=LOOP_UNTIL_EMPTY=0
+Environment=SOCIAL_WORKER_CURL_MAX_TIME=120
+TimeoutStartSec=180
 ExecStart=/bin/bash /var/www/vhosts/rezervasyonyap.tr/httpdocs/deploy/scripts/social-process-pending.sh
 
 [Install]
