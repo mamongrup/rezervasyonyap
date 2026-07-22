@@ -50,16 +50,26 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const base = (process.env.NEXT_PUBLIC_SITE_URL ?? '').replace(/\/$/, '')
   if (!base) return []
 
+  const localeCodes = await fetchActiveLocaleCodes()
+  const out: MetadataRoute.Sitemap = []
+
+  // Anasayfa her dil için (API sitemap’inde olmayabilir).
+  for (const loc of localeCodes) {
+    out.push({
+      url: `${base}${await vitrinHref(loc, '/')}`,
+      changeFrequency: 'daily',
+      priority: 1,
+    })
+  }
+
   let entries: SitemapEntry[] = []
   try {
     const r = await getSeoSitemapEntries()
     entries = r.entries
   } catch {
-    return []
+    return out
   }
 
-  const localeCodes = await fetchActiveLocaleCodes()
-  const out: MetadataRoute.Sitemap = []
   for (const e of entries) {
     const path = pathForEntry(e)
     const images = e.kind === 'listing' ? absoluteSitemapImages(base, e.images) : []

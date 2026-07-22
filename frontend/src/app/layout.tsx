@@ -2,7 +2,7 @@ import { LocaleHtmlAttributes } from '@/components/LocaleHtmlAttributes'
 import { ThemeProvider } from '@/components/theme-provider'
 import { DirectionProvider } from '@/components/ui/direction'
 import { FavoritesProvider } from '@/context/FavoritesContext'
-import { defaultLocale } from '@/lib/i18n-config'
+import { defaultLocale, isAppLocale } from '@/lib/i18n-config'
 import {
   brandingAssetPath,
   brandingKeywords,
@@ -18,6 +18,7 @@ import { cn } from '@/lib/utils'
 import '@/styles/tailwind.css'
 import type { Metadata, Viewport } from 'next'
 import type { SitePublicConfig } from '@/lib/travel-api'
+import { headers } from 'next/headers'
 
 const themeDirection =
   process.env.NEXT_PUBLIC_THEME_DIR === 'rtl' ? ('rtl' as const) : ('ltr' as const)
@@ -112,11 +113,16 @@ export const viewport: Viewport = {
   ],
 }
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  const h = await headers()
+  const fromProxy = (h.get('x-html-lang') ?? '').trim().toLowerCase()
+  const lang = fromProxy && isAppLocale(fromProxy) ? fromProxy : defaultLocale
+  const dir = themeDirection === 'rtl' ? ('rtl' as const) : ('ltr' as const)
+
   return (
     <html
-      lang={themeDirection === 'rtl' ? 'ar' : 'en'}
-      dir={themeDirection}
+      lang={lang}
+      dir={dir}
       suppressHydrationWarning
       className={cn('light min-w-0 overflow-x-hidden font-sans')}
     >

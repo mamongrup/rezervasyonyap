@@ -90,7 +90,7 @@ export default async function SectionGeziOnerileri({ locale, className = '' }: P
             <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
           </div>
         ) : (
-          <Image src={rightImgAvif} alt="" sizes="(max-width: 1024px) 100vw, 50vw" />
+          <Image src={rightImgAvif} alt="Gezi önerileri" sizes="(max-width: 1024px) 100vw, 50vw" />
         )}
       </div>
 
@@ -117,7 +117,7 @@ export default async function SectionGeziOnerileri({ locale, className = '' }: P
                       <div className="relative h-20 w-24 shrink-0 overflow-hidden rounded-xl">
                         <Image
                           src={img}
-                          alt=""
+                          alt={post.title ?? post.slug ?? 'Gezi önerisi'}
                           fill
                           sizes="96px"
                           className="object-cover group-hover:scale-105 transition-transform duration-300"
@@ -132,7 +132,7 @@ export default async function SectionGeziOnerileri({ locale, className = '' }: P
                       <h3 className="line-clamp-2 text-sm font-semibold text-neutral-900 group-hover:text-primary-600 dark:text-white dark:group-hover:text-neutral-200 transition-colors">
                         {post.title ?? post.slug}
                       </h3>
-                      <div className="mt-1.5 flex items-center gap-3 text-xs text-neutral-400">
+                      <div className="mt-1.5 flex items-center gap-3 text-xs text-neutral-600 dark:text-neutral-400">
                         <span className="flex items-center gap-1">
                           <Calendar className="h-3 w-3" />
                           {fmtDate(post.published_at ?? post.created_at)}

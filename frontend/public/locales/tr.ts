@@ -167,8 +167,9 @@ export const tr = {
   homePage: {
     ...en.homePage,
     meta: {
-      title: 'Ana Sayfa',
-      description: 'Chisfis konaklama ve seyahat ana sayfası',
+      title: 'Otel, tur ve tatil rezervasyonu',
+      description:
+        'Otel, tatil evi, yat kiralama, tur ve aktivite rezervasyonu. Anında onay ve güvenli ödeme.',
     },
     heroAlt: 'Hero görseli',
     heroDefaults: {

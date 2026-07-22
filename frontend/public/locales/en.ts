@@ -386,8 +386,9 @@ export const en = {
       button: 'Start your search',
     },
     meta: {
-      title: 'Home',
-      description: 'Home page of the Stay application',
+      title: 'Hotel, tour and holiday booking',
+      description:
+        'Book hotels, holiday homes, yacht charters, tours and activities with instant confirmation and secure payment.',
     },
     heroAlt: 'Hero',
     heroDefaults: {
