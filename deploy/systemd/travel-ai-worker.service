@@ -18,10 +18,11 @@ Wants=network-online.target
 Type=oneshot
 EnvironmentFile=-/etc/rezervasyonyap/backend.env
 Environment=API_ORIGIN=http://127.0.0.1:8080
-Environment=WORKER_LOOPS=10
+Environment=WORKER_LOOPS=12
 Environment=WORKER_CURL_MAX_TIME=1800
 Environment=AI_CONTENT_AUTO_SEED=1
-Environment=AI_CONTENT_SEED_LIMIT=50
+Environment=AI_CONTENT_SEED_LIMIT=100
+Environment=CORE_LISTING_RECONCILE=1
 TimeoutStartSec=1900
 Nice=10
 IOSchedulingClass=idle

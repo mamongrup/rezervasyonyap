@@ -117,3 +117,4 @@ systemctl list-timers 'travel-ai-worker.timer' 'travel-social-worker.timer' --no
 log "Son AI log: journalctl -u travel-ai-worker.service -n 20 --no-pager"
 log "Son sosyal log: journalctl -u travel-social-worker.service -n 20 --no-pager"
 log "Panel: Yönetim → Yapay zeka (DeepSeek/OpenAI) + Pazarlama → Sosyal Medya API"
+log "Yat+villa i18n/SEO+Reels: ./deploy/scripts/start-yacht-holiday-i18n-seo-social.sh"
