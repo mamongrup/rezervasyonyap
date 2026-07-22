@@ -17,7 +17,7 @@ export type ResilientPublicListingsResult = {
   source: ResilientPublicListingsSource
 }
 
-const DEFAULT_TIMEOUT_MS = 4500
+const DEFAULT_TIMEOUT_MS = 10_000
 const DEFAULT_SNAPSHOT_MAX_AGE_MS = 1000 * 60 * 60 * 24 * 3
 
 async function importNodeModule<T>(specifier: string): Promise<T> {
