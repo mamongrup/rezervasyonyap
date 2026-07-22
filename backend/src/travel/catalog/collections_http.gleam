@@ -27,7 +27,7 @@ import wisp.{type Request, type Response}
 const vitrin_query_timeout_ms = 12_000
 
 /// Autocomplete (`?suggest=1`) — kısa timeout; ağır browse pipeline kullanılmaz.
-const suggest_query_timeout_ms = 8000
+const suggest_query_timeout_ms = 3000
 
 fn json_err(status: Int, msg: String) -> Response {
   wisp.json_response(
@@ -911,47 +911,6 @@ const listing_suggest_token_match_sql: String =
   <> ")"
   <> ")"
 
-/// Sıra: (1) TR vitrin / villa-yat-tur (2) başlık/slug öneki (3) created_at.
-/// `word_similarity` yok — bazı ortamlarda hata/timeout → search_failed.
-/// Mama Shelter (LA otel) holiday_home/TR boost ile Mamon villanın altında kalır.
-const listing_suggest_order_sql: String =
-  "order by "
-  <> "case "
-  <> "when pc.code in ('holiday_home', 'yacht_charter', 'tour', 'activity') then 0 "
-  <> "when lower(translate(coalesce(l.location_name, ''), 'üğışöçÜĞİŞÖÇ', 'ugisocUGISOC')) "
-  <> "  ~ '(fethiye|mugla|antalya|bodrum|istanbul|izmir|marmaris|kas|gocek|dalaman|alanya|turkey|turkiye|tr$)' "
-  <> "  then 0 "
-  <> "else 1 end asc, "
-  <> "case "
-  <> "when exists ("
-  <> "  select 1 from listing_translations lt where lt.listing_id = l.id "
-  <> "    and translate(lower(lt.title), 'üğışöç', 'ugisoc') "
-  <> "      ilike split_part(trim(coalesce($1::text, '')), ' ', 1) || '%'"
-  <> ") then 0 "
-  <> "when "
-  <> listing_suggest_slug_ascii_sql
-  <> " ilike split_part(trim(coalesce($1::text, '')), ' ', 1) || '%' then 0 "
-  <> "when exists ("
-  <> "  select 1 from listing_translations lt where lt.listing_id = l.id "
-  <> "    and translate(lower(lt.title), 'üğışöç', 'ugisoc') "
-  <> "      ilike '% ' || split_part(trim(coalesce($1::text, '')), ' ', 1) || '%'"
-  <> ") then 1 "
-  <> "when "
-  <> listing_suggest_slug_ascii_sql
-  <> " ilike '% ' || split_part(trim(coalesce($1::text, '')), ' ', 1) || '%' then 1 "
-  <> "else 2 end asc, "
-  <> "l.created_at desc "
-
-/// Suggest SELECT: autocomplete’in ihtiyaç duyduğu alanlar + decoder için boş pad (54 kolon).
-const listing_suggest_select_sql: String =
-  "l.id::text, l.slug, "
-  <> "coalesce((select lt.title from listing_translations lt join locales lo on lo.id = lt.locale_id where lt.listing_id = l.id and lower(lo.code) = lower($4) limit 1), l.slug), "
-  <> "coalesce(pc.code::text, ''), "
-  <> "coalesce(case when trim(coalesce(l.featured_image_url, '')) = '' then null when trim(l.featured_image_url) ilike 'http%' then trim(l.featured_image_url) when trim(l.featured_image_url) like '/%' then trim(l.featured_image_url) else '/' || trim(l.featured_image_url) end, case when trim(coalesce(l.thumbnail_url, '')) = '' then null when trim(l.thumbnail_url) ilike 'http%' then trim(l.thumbnail_url) when trim(l.thumbnail_url) like '/%' then trim(l.thumbnail_url) else '/' || trim(l.thumbnail_url) end, ''), "
-  <> "coalesce(nullif(l.vitrin_price::text, ''), nullif(l.first_charge_amount::text, ''), ''), "
-  <> "coalesce(nullif(trim(l.location_name), ''), ''), "
-  <> "'', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '' "
-
 /// `location` vitrin parametresi — konum meta + tur başlığı + wtatil ülke adları.
 const location_search_match_sql: String =
   "translate(lower(coalesce(l.location_name, '') || ' ' || coalesce(lm.meta->>'address', '') || ' ' || coalesce(lm.meta->>'province_city', '') || ' ' || coalesce(lm.meta->>'city', '') || ' ' || coalesce(lm.meta->>'district_label', '') || ' ' || coalesce(lm.meta->>'region_display', '') || ' ' || coalesce((select lt2.title from listing_translations lt2 join locales lo2 on lo2.id = lt2.locale_id where lt2.listing_id = l.id order by case when lower(lo2.code) = 'tr' then 0 else 1 end limit 1), '') || ' ' || coalesce((select string_agg(coalesce(c.elem->>'name', ''), ' ') from listing_attributes wa cross join lateral jsonb_array_elements(case jsonb_typeof(wa.value_json->'countries') when 'array' then wa.value_json->'countries' else '[]'::jsonb end) c(elem) where wa.listing_id = l.id and wa.group_code = 'wtatil' and wa.key = 'snapshot'), '')), 'üğışöç', 'ugisoc')"
@@ -1755,7 +1714,8 @@ fn search_listings_impl(
     <> fast_main_sql
     <> order_sql
 
-  // Autocomplete: trgm-uyumlu eşleşme + ince SELECT (browse lateralları yok).
+  // Autocomplete: yalnızca $1=q $2=cat $3=locale $4=limit $5=offset — dummy $22::uuid yok
+  // (pog.null()→uuid cast prod’da search_failed üretebiliyordu).
   let suggest_page_sql =
     "with page_ids as materialized (select l.id "
     <> "from listings l "
@@ -1765,16 +1725,39 @@ fn search_listings_impl(
     <> listing_suggest_token_match_sql
     <> "), true) from unnest(string_to_array(trim($1), ' ')) as u(tok) where trim(tok) <> '')) "
     <> "and ($2::text is null or pc.code = $2) "
-    <> listing_suggest_order_sql
-    <> "offset $21 limit $5"
+    <> "order by "
+    <> "case when pc.code in ('holiday_home', 'yacht_charter', 'tour', 'activity') then 0 else 1 end asc, "
+    <> "case "
+    <> "when exists ("
+    <> "  select 1 from listing_translations lt where lt.listing_id = l.id "
+    <> "    and translate(lower(lt.title), 'üğışöç', 'ugisoc') ilike split_part(trim(coalesce($1::text, '')), ' ', 1) || '%'"
+    <> ") then 0 "
+    <> "when lower(replace(l.slug, '-', ' ')) ilike split_part(trim(coalesce($1::text, '')), ' ', 1) || '%' then 0 "
+    <> "else 1 end asc, "
+    <> "l.created_at desc "
+    <> "offset $5 limit $4"
     <> ") "
     <> "select "
-    <> listing_suggest_select_sql
+    <> "l.id::text, l.slug, "
+    <> "coalesce((select lt.title from listing_translations lt join locales lo on lo.id = lt.locale_id where lt.listing_id = l.id and lower(lo.code) = lower($3) limit 1), l.slug), "
+    <> "coalesce(pc.code::text, ''), "
+    <> "coalesce(case when trim(coalesce(l.featured_image_url, '')) = '' then null when trim(l.featured_image_url) ilike 'http%' then trim(l.featured_image_url) when trim(l.featured_image_url) like '/%' then trim(l.featured_image_url) else '/' || trim(l.featured_image_url) end, case when trim(coalesce(l.thumbnail_url, '')) = '' then null when trim(l.thumbnail_url) ilike 'http%' then trim(l.thumbnail_url) when trim(l.thumbnail_url) like '/%' then trim(l.thumbnail_url) else '/' || trim(l.thumbnail_url) end, ''), "
+    <> "coalesce(nullif(l.vitrin_price::text, ''), nullif(l.first_charge_amount::text, ''), ''), "
+    <> "coalesce(nullif(trim(l.location_name), ''), ''), "
+    <> "'', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '' "
     <> "from page_ids __pids "
     <> "join listings l on l.id = __pids.id "
     <> "join product_categories pc on pc.id = l.category_id "
-    <> "cross join (select $3::text as a3, $6::text as a6, $7::text as a7, $8::text as a8, $9::text as a9, $10::text as a10, $11::text as a11, $12::text as a12, $13::text as a13, $14::text as a14, $15::text as a15, $16::text as a16, $17::text as a17, $18::text as a18, $19::text as a19, $20::text as a20, $22::uuid as a22, $23::text as a23, $24::text as a24, $25::text as a25, $26::text as a26, $27::text as a27, $28::text as a28, $29::text as a29, $30::text as a30, $31::text as a31) __bind "
-    <> listing_suggest_order_sql
+    <> "order by "
+    <> "case when pc.code in ('holiday_home', 'yacht_charter', 'tour', 'activity') then 0 else 1 end asc, "
+    <> "case "
+    <> "when exists ("
+    <> "  select 1 from listing_translations lt where lt.listing_id = l.id "
+    <> "    and translate(lower(lt.title), 'üğışöç', 'ugisoc') ilike split_part(trim(coalesce($1::text, '')), ' ', 1) || '%'"
+    <> ") then 0 "
+    <> "when lower(replace(l.slug, '-', ' ')) ilike split_part(trim(coalesce($1::text, '')), ' ', 1) || '%' then 0 "
+    <> "else 1 end asc, "
+    <> "l.created_at desc "
 
   let agency_param = case agency_org_opt {
     None -> pog.null()
@@ -1884,55 +1867,95 @@ fn search_listings_impl(
     False -> vitrin_query_timeout_ms
   }
 
-  case
-    pog.query(page_sql)
-    |> pog.timeout(query_timeout_ms)
-    |> run_params
-    |> pog.returning(pub_listing_row())
-    |> db_exec.execute(ctx.db)
-  {
-    Error(e) -> {
-      let _ =
-        io.println(
-          "[catalog.public.listings] "
-            <> pog_errors.query_error_to_string(e),
-        )
-      // Strip fallback yalnızca vitrin_price kolonu eksikse (42703) anlamlıdır.
-      // Timeout/bağlantı hatasında strip edilmiş SQL daha da yavaştır (partial
-      // index eşleşmez) — yeniden çalıştırmak bağlantı fırtınasını büyütür.
-      case pog_errors.is_missing_schema(e) {
-        False -> json_err(500, "search_failed")
-        True -> {
-          let fallback_count_sql = case fast_page_allowed {
-            True -> strip_vitrin_price_cache_sql(fast_count_sql)
-            False -> strip_vitrin_price_cache_sql(count_sql)
-          }
-          // Eski sql_paged tüm eşleşen satırlarda projeksiyon çalıştırır (dakikalar + DB tükenmesi).
-          // vitrin_price hatasında aynı fast/deferred planı strip ile yeniden dene.
-          search_listings_paged_response(
-            ctx,
-            strip_vitrin_price_cache_sql(page_sql),
-            run_params,
-            offset,
-            lim,
-            None,
-            Some(fallback_count_sql),
-          )
+  let empty_suggest = fn() {
+    let body =
+      json.object([
+        #("listings", json.array(from: [], of: fn(x) { x })),
+        #("total", json.int(0)),
+      ])
+      |> json.to_string
+    wisp.json_response(body, 200)
+  }
+
+  case suggest_mode {
+    True -> {
+      case
+        pog.query(suggest_page_sql)
+        |> pog.timeout(suggest_query_timeout_ms)
+        |> pog.parameter(q_param)
+        |> pog.parameter(cat_param)
+        |> pog.parameter(pog.text(locale))
+        |> pog.parameter(pog.int(lim))
+        |> pog.parameter(pog.int(offset))
+        |> pog.returning(pub_listing_row())
+        |> db_exec.execute(ctx.db)
+      {
+        Error(e) -> {
+          let _ =
+            io.println(
+              "[catalog.public.listings.suggest] "
+                <> pog_errors.query_error_to_string(e),
+            )
+          // Autocomplete siteyi düşürmesin — boş öneri, 500 yok.
+          empty_suggest()
+        }
+        Ok(ret) -> {
+          let arr = list.map(ret.rows, pub_listing_json)
+          let body =
+            json.object([
+              #("listings", json.array(from: arr, of: fn(x) { x })),
+              #("total", json.int(list.length(ret.rows))),
+            ])
+            |> json.to_string
+          wisp.json_response(body, 200)
         }
       }
     }
-    Ok(ret) -> {
-      let fallback_total =
-        approximate_public_listing_total(offset, lim, list.length(ret.rows))
-      let run_count = fn(count_q: String) -> Int {
-        run_listing_count_sql(ctx, count_q, run_params, fallback_total, True)
-      }
-      // Fast-path: ucuz gerçek sayım. Karmaşık (fast olmayan) aramalar: tam count_sql.
-      // Suggest: sayım yok — total ≈ dönen satır (autocomplete UI kullanmaz).
-      let total_count = case suggest_mode {
-        True -> fallback_total
-        False ->
-          case fast_page_allowed {
+    False ->
+      case
+        pog.query(page_sql)
+        |> pog.timeout(query_timeout_ms)
+        |> run_params
+        |> pog.returning(pub_listing_row())
+        |> db_exec.execute(ctx.db)
+      {
+        Error(e) -> {
+          let _ =
+            io.println(
+              "[catalog.public.listings] "
+                <> pog_errors.query_error_to_string(e),
+            )
+          // Strip fallback yalnızca vitrin_price kolonu eksikse (42703) anlamlıdır.
+          // Timeout/bağlantı hatasında strip edilmiş SQL daha da yavaştır (partial
+          // index eşleşmez) — yeniden çalıştırmak bağlantı fırtınasını büyütür.
+          case pog_errors.is_missing_schema(e) {
+            False -> json_err(500, "search_failed")
+            True -> {
+              let fallback_count_sql = case fast_page_allowed {
+                True -> strip_vitrin_price_cache_sql(fast_count_sql)
+                False -> strip_vitrin_price_cache_sql(count_sql)
+              }
+              // Eski sql_paged tüm eşleşen satırlarda projeksiyon çalıştırır (dakikalar + DB tükenmesi).
+              // vitrin_price hatasında aynı fast/deferred planı strip ile yeniden dene.
+              search_listings_paged_response(
+                ctx,
+                strip_vitrin_price_cache_sql(page_sql),
+                run_params,
+                offset,
+                lim,
+                None,
+                Some(fallback_count_sql),
+              )
+            }
+          }
+        }
+        Ok(ret) -> {
+          let fallback_total =
+            approximate_public_listing_total(offset, lim, list.length(ret.rows))
+          let run_count = fn(count_q: String) -> Int {
+            run_listing_count_sql(ctx, count_q, run_params, fallback_total, True)
+          }
+          let total_count = case fast_page_allowed {
             True -> run_count(fast_count_sql)
             False ->
               case exact_count_needed {
@@ -1940,16 +1963,16 @@ fn search_listings_impl(
                 False -> fallback_total
               }
           }
+          let arr = list.map(ret.rows, pub_listing_json)
+          let body =
+            json.object([
+              #("listings", json.array(from: arr, of: fn(x) { x })),
+              #("total", json.int(total_count)),
+            ])
+            |> json.to_string
+          wisp.json_response(body, 200)
+        }
       }
-      let arr = list.map(ret.rows, pub_listing_json)
-      let body =
-        json.object([
-          #("listings", json.array(from: arr, of: fn(x) { x })),
-          #("total", json.int(total_count)),
-        ])
-        |> json.to_string
-      wisp.json_response(body, 200)
-    }
   }
 }
 
