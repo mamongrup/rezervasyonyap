@@ -23,6 +23,29 @@ function pathForEntry(e: SitemapEntry): string {
   }
 }
 
+/** Göreli `/uploads/...` veya ham storage key → mutlak HTTPS URL. */
+function absoluteSitemapImages(siteBase: string, images: string[] | null | undefined): string[] {
+  if (!images?.length) return []
+  const out: string[] = []
+  const seen = new Set<string>()
+  for (const raw of images) {
+    const u = (raw ?? '').trim()
+    if (!u) continue
+    let abs = u
+    if (!/^https?:\/\//i.test(u)) {
+      const path = u.startsWith('/') ? u : `/${u}`
+      abs = `${siteBase}${path}`
+    } else if (u.startsWith('http://')) {
+      abs = `https://${u.slice('http://'.length)}`
+    }
+    if (seen.has(abs)) continue
+    seen.add(abs)
+    out.push(abs)
+    if (out.length >= 5) break
+  }
+  return out
+}
+
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const base = (process.env.NEXT_PUBLIC_SITE_URL ?? '').replace(/\/$/, '')
   if (!base) return []
@@ -39,9 +62,11 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const out: MetadataRoute.Sitemap = []
   for (const e of entries) {
     const path = pathForEntry(e)
+    const images = e.kind === 'listing' ? absoluteSitemapImages(base, e.images) : []
     for (const loc of localeCodes) {
       out.push({
         url: `${base}${await vitrinHref(loc, path)}`,
+        ...(images.length ? { images } : {}),
       })
     }
   }

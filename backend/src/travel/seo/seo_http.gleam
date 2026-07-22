@@ -562,16 +562,45 @@ pub fn list_not_found_logs(req: Request, ctx: Context) -> Response {
   }
 }
 
+/// Yayınlanmış içerik + ilan kapak/galeri görselleri (JSON dizi metni, en fazla 5).
 fn sitemap_union_sql() -> String {
-  "select 'listing'::text, l.slug::text, l.organization_id::text, coalesce(pc.code, '')::text from listings l join product_categories pc on pc.id = l.category_id where l.status = 'published' union all select 'cms_page'::text, p.slug::text, coalesce(p.organization_id::text, ''), ''::text from cms_pages p where p.is_published = true union all select 'blog_post'::text, b.slug::text, ''::text, ''::text from blog_posts b where b.published_at is not null order by 1, 2 limit 5000"
+  "select 'listing'::text, l.slug::text, l.organization_id::text, coalesce(pc.code, '')::text, coalesce((select json_agg(x.u)::text from (select u from (select 0 as ord, case when trim(coalesce(l.featured_image_url, '')) = '' then null when trim(l.featured_image_url) ilike 'http%' then trim(l.featured_image_url) when left(trim(l.featured_image_url), 1) = '/' then trim(l.featured_image_url) else '/' || trim(l.featured_image_url) end as u union all select 10 + row_number() over (order by li.sort_order asc, li.created_at asc), case when trim(coalesce(li.storage_key, '')) = '' then null when trim(li.storage_key) ilike 'http%' then trim(li.storage_key) when left(trim(li.storage_key), 1) = '/' then trim(li.storage_key) else '/' || trim(li.storage_key) end from listing_images li where li.listing_id = l.id) raw where u is not null and length(trim(u)) > 0 order by ord limit 5) x), '[]') from listings l join product_categories pc on pc.id = l.category_id where l.status = 'published' union all select 'cms_page'::text, p.slug::text, coalesce(p.organization_id::text, ''), ''::text, '[]'::text from cms_pages p where p.is_published = true union all select 'blog_post'::text, b.slug::text, ''::text, ''::text, '[]'::text from blog_posts b where b.published_at is not null order by 1, 2 limit 5000"
 }
 
-fn sitemap_row_decoder() -> decode.Decoder(#(String, String, String, String)) {
+fn sitemap_row_decoder() -> decode.Decoder(
+  #(String, String, String, String, String),
+) {
   use k <- decode.field(0, decode.string)
   use slug <- decode.field(1, decode.string)
   use oid <- decode.field(2, decode.string)
   use cat <- decode.field(3, decode.string)
-  decode.success(#(k, slug, oid, cat))
+  use images_json <- decode.field(4, decode.string)
+  decode.success(#(k, slug, oid, cat, images_json))
+}
+
+fn parse_sitemap_images_json(raw: String) -> List(String) {
+  case json.parse(raw, decode.list(decode.string)) {
+    Ok(xs) ->
+      list.filter(xs, fn(u) { string.trim(u) != "" })
+      |> list.take(5)
+    Error(_) -> []
+  }
+}
+
+fn absolute_sitemap_image(base: String, raw: String) -> String {
+  let u = string.trim(raw)
+  case u {
+    "" -> ""
+    _ ->
+      case string.starts_with(u, "https://") || string.starts_with(u, "http://") {
+        True -> u
+        False ->
+          case string.starts_with(u, "/") {
+            True -> base <> u
+            False -> base <> "/" <> u
+          }
+      }
+  }
 }
 
 /// Next.js App Router ilk segmenti — `frontend/src/lib/listing-detail-routes.ts` ile aynı anahtarlar.
@@ -627,16 +656,20 @@ pub fn sitemap_entries(req: Request, ctx: Context) -> Response {
     Ok(ret) -> {
       let arr =
         list.map(ret.rows, fn(r) {
-          let #(kind, slug, org, cat) = r
+          let #(kind, slug, org, cat, images_json) = r
           let cat_field = case kind == "listing" {
             True -> json.string(cat)
             False -> json.null()
           }
+          let images =
+            parse_sitemap_images_json(images_json)
+            |> list.map(json.string)
           json.object([
             #("kind", json.string(kind)),
             #("slug", json.string(slug)),
             #("organization_id", json.string(org)),
             #("category_code", cat_field),
+            #("images", json.preprocessed_array(images)),
           ])
         })
       let body =
@@ -669,14 +702,30 @@ pub fn sitemap_xml(req: Request, ctx: Context) -> Response {
     Ok(ret) -> {
       let urls =
         list.map(ret.rows, fn(r) {
-          let #(kind, slug, _org, cat) = r
+          let #(kind, slug, _org, cat, images_json) = r
           let path = path_for_sitemap_row(kind, slug, cat)
           let loc = base <> xml_escape_loc(path)
-          "<url><loc>" <> loc <> "</loc></url>"
+          let image_tags =
+            parse_sitemap_images_json(images_json)
+            |> list.map(fn(raw) {
+              let abs = absolute_sitemap_image(base, raw)
+              case abs {
+                "" -> ""
+                u ->
+                  "<image:image><image:loc>"
+                  <> xml_escape_loc(u)
+                  <> "</image:loc></image:image>"
+              }
+            })
+            |> list.filter(fn(t) { t != "" })
+            |> string.join("")
+          "<url><loc>" <> loc <> "</loc>" <> image_tags <> "</url>"
         })
       let inner = string.join(urls, "\n")
       let doc =
-        "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<urlset xmlns=\"http://www.sitemaps.org/schemas/sitemap/0.9\">\n"
+        "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
+        <> "<urlset xmlns=\"http://www.sitemaps.org/schemas/sitemap/0.9\" "
+        <> "xmlns:image=\"http://www.google.com/schemas/sitemap-image/1.1\">\n"
         <> inner
         <> "\n</urlset>"
       wisp.response(200)

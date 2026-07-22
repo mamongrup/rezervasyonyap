@@ -5711,6 +5711,8 @@ export type SitemapEntry = {
   organization_id: string
   /** `product_categories.code` — yalnızca `kind === 'listing'` */
   category_code?: string | null
+  /** Kapak + galeri (göreli veya mutlak URL), en fazla 5 — Google image sitemap */
+  images?: string[] | null
 }
 
 export async function getSeoSitemapEntries(): Promise<{ entries: SitemapEntry[] }> {

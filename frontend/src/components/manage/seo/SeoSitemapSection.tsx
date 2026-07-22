@@ -89,7 +89,12 @@ export default function SeoSitemapSection() {
       {smErr ? <p className="mt-3 text-sm text-red-600 dark:text-red-400">{smErr}</p> : null}
       <p className="mt-2 text-xs text-neutral-500 dark:text-neutral-500">
         Toplam {smEntries.length} kayıt
-        {smEntries.length > SITEMAP_PREVIEW ? ` — ilk ${SITEMAP_PREVIEW} satır aşağıda` : ''}.
+        {smEntries.length > SITEMAP_PREVIEW ? ` — ilk ${SITEMAP_PREVIEW} satır aşağıda` : ''}
+        {(() => {
+          const withImg = smEntries.filter((e) => (e.images?.length ?? 0) > 0).length
+          return withImg > 0 ? ` · ${withImg} kayıtta görsel (image sitemap)` : ''
+        })()}
+        .
       </p>
       <div className="mt-4 overflow-x-auto rounded-lg border border-neutral-200 dark:border-neutral-700">
         <table className="min-w-full border-collapse text-left text-sm">
@@ -97,6 +102,7 @@ export default function SeoSitemapSection() {
             <tr className="border-b border-neutral-200 bg-neutral-50 dark:border-neutral-700 dark:bg-neutral-800/50">
               <th className="px-3 py-2 font-medium">Tür</th>
               <th className="px-3 py-2 font-medium">Slug</th>
+              <th className="px-3 py-2 font-medium">Görsel</th>
               <th className="px-3 py-2 font-medium">Kurum ID</th>
               <th className="px-3 py-2 font-medium">Örnek (tr)</th>
             </tr>
@@ -104,24 +110,28 @@ export default function SeoSitemapSection() {
           <tbody>
             {smLoading && smEntries.length === 0 ? (
               <tr>
-                <td className="px-3 py-4 text-neutral-500" colSpan={4}>
+                <td className="px-3 py-4 text-neutral-500" colSpan={5}>
                   Yükleniyor…
                 </td>
               </tr>
             ) : smEntries.length === 0 ? (
               <tr>
-                <td className="px-3 py-4 text-neutral-500" colSpan={4}>
+                <td className="px-3 py-4 text-neutral-500" colSpan={5}>
                   Kayıt yok veya API yapılandırılmadı.
                 </td>
               </tr>
             ) : (
               smEntries.slice(0, SITEMAP_PREVIEW).map((row, i) => {
                 const hint = pathHintForSitemapEntry(row)
+                const imgN = row.images?.length ?? 0
                 return (
                   <tr key={`${row.kind}-${row.slug}-${i}`} className="border-t border-neutral-100 dark:border-neutral-800">
                     <td className="px-3 py-2 font-mono text-xs">{row.kind}</td>
                     <td className="max-w-[12rem] truncate px-3 py-2 font-mono text-xs" title={row.slug}>
                       {row.slug}
+                    </td>
+                    <td className="px-3 py-2 font-mono text-xs text-neutral-600 dark:text-neutral-400">
+                      {imgN > 0 ? imgN : '—'}
                     </td>
                     <td className="max-w-[10rem] truncate px-3 py-2 font-mono text-xs text-neutral-600 dark:text-neutral-400" title={row.organization_id}>
                       {row.organization_id || '—'}
