@@ -27,7 +27,7 @@ import wisp.{type Request, type Response}
 const vitrin_query_timeout_ms = 12_000
 
 /// Autocomplete (`?suggest=1`) — kısa timeout; ağır browse pipeline kullanılmaz.
-const suggest_query_timeout_ms = 4000
+const suggest_query_timeout_ms = 8000
 
 fn json_err(status: Int, msg: String) -> Response {
   wisp.json_response(
@@ -911,10 +911,17 @@ const listing_suggest_token_match_sql: String =
   <> ")"
   <> ")"
 
-/// Sıra: başlık/slug öneki → kelime öneki → trgm word_similarity → created_at.
-/// Böylece "mam" için Mamon/Mama üste gelir; rastgele yeni oteller değil.
+/// Sıra: (1) TR vitrin / villa-yat-tur (2) başlık/slug öneki (3) created_at.
+/// `word_similarity` yok — bazı ortamlarda hata/timeout → search_failed.
+/// Mama Shelter (LA otel) holiday_home/TR boost ile Mamon villanın altında kalır.
 const listing_suggest_order_sql: String =
   "order by "
+  <> "case "
+  <> "when pc.code in ('holiday_home', 'yacht_charter', 'tour', 'activity') then 0 "
+  <> "when lower(translate(coalesce(l.location_name, ''), 'üğışöçÜĞİŞÖÇ', 'ugisocUGISOC')) "
+  <> "  ~ '(fethiye|mugla|antalya|bodrum|istanbul|izmir|marmaris|kas|gocek|dalaman|alanya|turkey|turkiye|tr$)' "
+  <> "  then 0 "
+  <> "else 1 end asc, "
   <> "case "
   <> "when exists ("
   <> "  select 1 from listing_translations lt where lt.listing_id = l.id "
@@ -933,23 +940,6 @@ const listing_suggest_order_sql: String =
   <> listing_suggest_slug_ascii_sql
   <> " ilike '% ' || split_part(trim(coalesce($1::text, '')), ' ', 1) || '%' then 1 "
   <> "else 2 end asc, "
-  <> "greatest("
-  <> "  coalesce(("
-  <> "    select max(word_similarity("
-  <> "      nullif(split_part(trim(coalesce($1::text, '')), ' ', 1), ''),"
-  <> "      translate(lower(lt.title), 'üğışöç', 'ugisoc')"
-  <> "    )) from listing_translations lt where lt.listing_id = l.id"
-  <> "  ), 0),"
-  <> "  coalesce(word_similarity("
-  <> "    nullif(split_part(trim(coalesce($1::text, '')), ' ', 1), ''),"
-  <> "    "
-  <> listing_suggest_slug_ascii_sql
-  <> "  ), 0),"
-  <> "  coalesce(word_similarity("
-  <> "    nullif(split_part(trim(coalesce($1::text, '')), ' ', 1), ''),"
-  <> "    lower(coalesce(l.location_name, ''))"
-  <> "  ), 0)"
-  <> ") desc, "
   <> "l.created_at desc "
 
 /// Suggest SELECT: autocomplete’in ihtiyaç duyduğu alanlar + decoder için boş pad (54 kolon).
