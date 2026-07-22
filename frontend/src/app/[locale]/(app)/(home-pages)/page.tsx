@@ -30,6 +30,7 @@ import heroRightStay from '@/images/hero-right.avif'
 import ButtonPrimary from '@/shared/ButtonPrimary'
 import Link from 'next/link'
 import { preload } from 'react-dom'
+import { Suspense, type ReactNode } from 'react'
 import { getMessages } from '@/utils/getT'
 import { Metadata } from 'next'
 import type { PageBuilderModule, TListingBase } from '@/types/listing-types'
@@ -52,6 +53,67 @@ export const revalidate = 3600
 
 // Anasayfa için sahte bir "category" — PageBuilderRenderer bağlamı için
 const HOME_CATEGORY = CATEGORY_REGISTRY.find((c) => c.slug === 'oteller')!
+
+function HomepageSectionsFallback() {
+  return (
+    <div className="container py-8" aria-busy="true" aria-label="İçerik yükleniyor">
+      <div className="mb-5 h-8 w-64 animate-pulse rounded-lg bg-neutral-100 dark:bg-neutral-800" />
+      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
+        {Array.from({ length: 4 }).map((_, index) => (
+          <div
+            key={index}
+            className="h-72 animate-pulse rounded-2xl bg-neutral-100 dark:bg-neutral-800"
+          />
+        ))}
+      </div>
+    </div>
+  )
+}
+
+async function HomepageSections({
+  locale,
+  modules,
+  searchForm,
+  savedRegionConfig,
+}: {
+  locale: string
+  modules: PageBuilderModule[]
+  searchForm: ReactNode
+  savedRegionConfig: Awaited<ReturnType<typeof getFeaturedRegionConfig>>
+}) {
+  // İlan API'sini ilk ekranın dışında tut: hero ve arama alanı bu sorguyu beklememeli.
+  const [apiListingsResult, authors] = await Promise.all([
+    fetchCategoryListings('oteller', {}, { perPage: 36 }, locale),
+    getAuthors(),
+  ])
+  const featuredListings: TListingBase[] = apiListingsResult.listings.map((listing) =>
+    slimListingForVitrinCard({
+      ...listing,
+      listingVertical: normalizeCatalogVertical(listing.listingVertical),
+    }),
+  )
+  const modulesWithRegion = modules.map((module) => {
+    if (module.type === 'featured_by_region' && savedRegionConfig) {
+      return { ...module, config: { ...((module.config as object) ?? {}), ...savedRegionConfig } }
+    }
+    return module
+  })
+
+  return (
+    <PageBuilderRenderer
+      rootAs="section"
+      modules={modulesWithRegion.filter((module) => module.type !== 'hero')}
+      category={HOME_CATEGORY}
+      locale={locale}
+      searchFormNode={searchForm}
+      allListings={featuredListings}
+      listingLinkBase="/otel"
+      priceUnit="/gece"
+      authors={authors}
+      pageKey="homepage"
+    />
+  )
+}
 
 export default async function Page({ params }: { params: Promise<{ locale: string }> }) {
   const { locale } = await params
@@ -114,22 +176,7 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
     })
   }
 
-  const [apiListingsResult, authors, savedRegionConfig] = await Promise.all([
-      // Bölge vitrini için yeterli; tam 100 satır RSC'yi şişiriyordu.
-      fetchCategoryListings('oteller', {}, { perPage: 36 }, locale),
-      getAuthors(),
-      getFeaturedRegionConfig('homepage'),
-    ])
-
-  const featuredListings: TListingBase[] = (apiListingsResult.listings.length > 0
-    ? apiListingsResult.listings
-    : []
-  ).map((l) =>
-    slimListingForVitrinCard({
-      ...l,
-      listingVertical: normalizeCatalogVertical(l.listingVertical),
-    }),
-  )
+  const savedRegionConfig = await getFeaturedRegionConfig('homepage')
 
   // Hero config — page-builder hero modülü > homepageConfig > varsayılan mesaj
   // Page-builder hero editörü metinleri çoklu-dilli ({ tr, en, … }) saklar;
@@ -151,14 +198,6 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
   /** Anasayfa hero CTA linki — hero modülünde özel link varsa onu kullan, yoksa kategori vitrin */
   const categoryPageHref = await vitrinHref(locale, `${HOME_CATEGORY.categoryRoute}/all`)
   const heroCtaHref = (heroModuleCfg?.ctaHref as string | undefined)?.trim() || categoryPageHref
-
-  // featured_by_region modülü varsa savedRegionConfig ile override et
-  const modulesWithRegion = modules.map((mod) => {
-    if (mod.type === 'featured_by_region' && savedRegionConfig) {
-      return { ...mod, config: { ...((mod.config as object) ?? {}), ...savedRegionConfig } }
-    }
-    return mod
-  })
 
   const searchForm = (
     <HeroSearchDesktopOnly
@@ -220,18 +259,16 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
           <HeroLastSearchRow locale={locale} />
         </div>
 
-        <PageBuilderRenderer
-          rootAs="section"
-          modules={modulesWithRegion.filter((m) => m.type !== 'hero')}
-          category={HOME_CATEGORY}
-          locale={locale}
-          searchFormNode={searchForm}
-          allListings={featuredListings}
-          listingLinkBase="/otel"
-          priceUnit="/gece"
-          authors={authors}
-          pageKey="homepage"
-        />
+        <div style={{ contentVisibility: 'auto', containIntrinsicSize: '1200px' }}>
+          <Suspense fallback={<HomepageSectionsFallback />}>
+            <HomepageSections
+              locale={locale}
+              modules={modules}
+              searchForm={searchForm}
+              savedRegionConfig={savedRegionConfig}
+            />
+          </Suspense>
+        </div>
       </div>
     </main>
   )

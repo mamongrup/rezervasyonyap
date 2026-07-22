@@ -147,6 +147,15 @@ const nextConfig = {
   async headers() {
     const headers = buildAllSecurityHeaders()
     return [
+      {
+        source: '/uploads/:path*',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'public, max-age=86400, s-maxage=2678400, stale-while-revalidate=604800',
+          },
+        ],
+      },
       /**
        * `/(.*)` ile tüm yollara başlık vermek bazı proxy + Next birleşimlerinde
        * `/_next/static/*.js` çıktısına müdahale izlenimi yaratabiliyor.

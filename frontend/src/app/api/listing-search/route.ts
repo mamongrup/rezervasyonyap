@@ -1,16 +1,10 @@
-/**
- * /api/listing-search?q=balayı+villa&locale=tr&limit=8
- *
- * İlan başlığına + koleksiyonlara göre autocomplete sonuçları döner.
- */
+/** Header ilan adı autocomplete servisi. */
 import { apiOriginForFetch } from '@/lib/api-origin'
 import {
   categoryLabelForSearch,
-  dedupeSearchListings,
   publicListingDetailPath,
   SEARCH_MIN_QUERY_LEN,
 } from '@/lib/search-listings-display'
-import type { PublicListingItem } from '@/lib/travel-api'
 import { NextRequest, NextResponse } from 'next/server'
 
 export interface SearchSuggestion {
@@ -23,10 +17,22 @@ export interface SearchSuggestion {
   href: string
 }
 
+interface ListingSuggestionItem {
+  id: string
+  slug: string
+  title: string
+  category_code: string
+  image: string | null
+  location: string | null
+}
+
 export async function GET(req: NextRequest) {
   const q = (req.nextUrl.searchParams.get('q') ?? '').trim()
   const locale = (req.nextUrl.searchParams.get('locale') ?? 'tr').trim()
-  const limit = Math.min(Number(req.nextUrl.searchParams.get('limit') ?? '8'), 20)
+  const requestedLimit = Number(req.nextUrl.searchParams.get('limit') ?? '8')
+  const limit = Number.isFinite(requestedLimit)
+    ? Math.min(Math.max(Math.trunc(requestedLimit), 1), 20)
+    : 8
 
   if (q.length < SEARCH_MIN_QUERY_LEN) {
     return NextResponse.json({ suggestions: [] })
@@ -34,66 +40,48 @@ export async function GET(req: NextRequest) {
 
   const { getMessages } = await import('@/utils/getT')
   const categoryLabels = getMessages(locale).listing.browseCategory as Record<string, string>
-
-  const apiBase =
-    apiOriginForFetch() || (process.env.API_URL ?? '').replace(/\/$/, '')
-
+  const apiBase = apiOriginForFetch() || (process.env.API_URL ?? '').replace(/\/$/, '')
   const suggestions: SearchSuggestion[] = []
 
   if (apiBase) {
-    await Promise.allSettled([
-      // İlan araması
-      fetch(
-        `${apiBase}/api/v1/catalog/public/listings?q=${encodeURIComponent(q)}&locale=${locale}&limit=${limit}`,
-        { next: { revalidate: 300 } },
-      )
-        .then((r) => r.json())
-        .then((data: { listings?: PublicListingItem[] }) => {
-          const deduped = dedupeSearchListings(data.listings ?? [])
-          for (const item of deduped) {
-            const catLabel = categoryLabelForSearch(item.category_code, categoryLabels)
-            suggestions.push({
-              type: 'listing',
-              id: item.id,
-              slug: item.slug,
-              title: item.title,
-              subtitle: [catLabel, item.location].filter(Boolean).join(' · ') || undefined,
-              image: item.featured_image_url ?? item.thumbnail_url ?? undefined,
-              href: publicListingDetailPath(item.category_code, item.slug),
-            })
-          }
-        })
-        .catch(() => undefined),
+    // Tam katalog endpoint'i fiyat, müsaitlik ve galeri hesapladığından autocomplete
+    // için yalnızca gerekli altı alanı döndüren hafif endpoint'i kullanıyoruz.
+    const response = await fetch(
+      `${apiBase}/api/v1/catalog/public/listing-suggestions?q=${encodeURIComponent(q)}&locale=${encodeURIComponent(locale)}&limit=${limit}`,
+      { next: { revalidate: 300 } },
+    ).catch(() => null)
 
-      // Koleksiyon araması
-      fetch(`${apiBase}/api/v1/collections`, { next: { revalidate: 300 } })
-        .then((r) => r.json())
-        .then((data: { collections?: { id: string; slug: string; title: string; description: string | null; hero_image_url: string | null }[] }) => {
-          const qLow = q.toLowerCase()
-          for (const col of data.collections ?? []) {
-            if (col.title.toLowerCase().includes(qLow) || (col.description ?? '').toLowerCase().includes(qLow)) {
-              suggestions.push({
-                type: 'collection',
-                id: col.id,
-                slug: col.slug,
-                title: col.title,
-                subtitle: col.description?.slice(0, 60) ?? 'Koleksiyon',
-                image: col.hero_image_url ?? undefined,
-                href: `/kesfet/${col.slug}`,
-              })
-            }
-          }
+    if (response?.ok) {
+      const data = (await response.json()) as { listings?: ListingSuggestionItem[] }
+      const seen = new Set<string>()
+      for (const item of data.listings ?? []) {
+        if (seen.has(item.id)) continue
+        seen.add(item.id)
+        const categoryLabel = categoryLabelForSearch(item.category_code, categoryLabels)
+        const rawImage = item.image?.trim()
+        const image = rawImage
+          ? /^https?:\/\//i.test(rawImage) || rawImage.startsWith('/')
+            ? rawImage
+            : `/${rawImage}`
+          : undefined
+        suggestions.push({
+          type: 'listing',
+          id: item.id,
+          slug: item.slug,
+          title: item.title,
+          subtitle: [categoryLabel, item.location].filter(Boolean).join(' · ') || undefined,
+          image,
+          href: publicListingDetailPath(item.category_code, item.slug),
         })
-        .catch(() => undefined),
-    ])
+      }
+    }
   }
 
   return NextResponse.json(
     { suggestions: suggestions.slice(0, limit) },
     {
       headers: {
-        // Aynı popüler sorguları her kullanıcı için yeniden ağır katalog aramasına sokma.
-        'Cache-Control': 'public, s-maxage=30, stale-while-revalidate=300',
+        'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=300',
       },
     },
   )

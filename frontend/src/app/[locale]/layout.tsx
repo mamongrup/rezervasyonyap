@@ -24,6 +24,7 @@ import type { Metadata } from 'next'
 import type { SitePublicConfig } from '@/lib/travel-api'
 import { getPublicCurrencyRates } from '@/lib/travel-api'
 import { notFound } from 'next/navigation'
+import { Suspense } from 'react'
 
 export const dynamicParams = true
 
@@ -176,12 +177,18 @@ export default async function LocaleLayout({
       <LocalizedRoutesProvider routes={localizedRoutes}>
         <LocaleProvider locale={locale}>
           <PreferredCurrencyProvider initialRates={initialCurrencyRates}>
-            <SiteJsonLd locale={locale} />
             <ChunkLoadRecovery />
-            <GoogleScripts />
-            <SiteUiHeaderHtml />
+            {/* SEO/analitik ayarları uzak API'den gelir. Kritik içerik ve LCP
+                bunların yanıtını beklemeden ayrı stream edilir. */}
+            <Suspense fallback={null}>
+              <SiteJsonLd locale={locale} />
+              <GoogleScripts />
+              <SiteUiHeaderHtml />
+            </Suspense>
             {children}
-            <SiteUiFooterHtml />
+            <Suspense fallback={null}>
+              <SiteUiFooterHtml />
+            </Suspense>
           </PreferredCurrencyProvider>
         </LocaleProvider>
       </LocalizedRoutesProvider>

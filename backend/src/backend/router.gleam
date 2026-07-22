@@ -18,8 +18,8 @@ import travel/agent/agent_catalog_http
 import travel/agent/agent_http
 import travel/agent/agent_openapi_http
 import travel/agent/agent_stay_quote
-import travel/ai/ai_http
 import travel/ai/ai_control_center_http
+import travel/ai/ai_http
 import travel/ai/ai_worker_http
 import travel/ai/commerce_agent_center_http
 import travel/ai/content_lifecycle_http
@@ -832,8 +832,9 @@ fn dispatch(req: Request, ctx: Context) -> Response {
     http.Post, ["api", "v1", "support", "chat", "sessions", sid, "followups"] ->
       chat_http.create_followup(req, ctx, sid)
 
-    http.Post, ["api", "v1", "support", "chat", "sessions", sid, "contact-preferences"] ->
-      chat_http.set_contact_preferences(req, ctx, sid)
+    http.Post,
+      ["api", "v1", "support", "chat", "sessions", sid, "contact-preferences"]
+    -> chat_http.set_contact_preferences(req, ctx, sid)
 
     http.Patch, ["api", "v1", "support", "chat", "sessions", sid] ->
       chat_http.close_session(req, ctx, sid)
@@ -1255,6 +1256,9 @@ fn dispatch(req: Request, ctx: Context) -> Response {
 
     http.Get, ["api", "v1", "catalog", "public", "listings"] ->
       collections_http.search_public_listings(req, ctx)
+
+    http.Get, ["api", "v1", "catalog", "public", "listing-suggestions"] ->
+      collections_http.search_public_listing_suggestions(req, ctx)
 
     http.Get, ["api", "v1", "catalog", "public", "theme-items"] ->
       collections_http.list_public_theme_items(req, ctx)
@@ -1812,14 +1816,15 @@ fn dispatch(req: Request, ctx: Context) -> Response {
     http.Get, ["api", "v1", "ai", "control-center", "overview"] ->
       ai_control_center_http.overview(req, ctx)
 
-    http.Get, ["api", "v1", "ai", "content", entity_type, entity_id, "versions"] ->
-      content_lifecycle_http.list_versions(req, ctx, entity_type, entity_id)
+    http.Get, ["api", "v1", "ai", "content", entity_type, entity_id, "versions"]
+    -> content_lifecycle_http.list_versions(req, ctx, entity_type, entity_id)
 
-    http.Post, ["api", "v1", "ai", "content", "versions", version_id, "restore"] ->
-      content_lifecycle_http.restore_version(req, ctx, version_id)
+    http.Post, ["api", "v1", "ai", "content", "versions", version_id, "restore"]
+    -> content_lifecycle_http.restore_version(req, ctx, version_id)
 
-    http.Post, ["api", "v1", "ai", "content", "work-items", work_item_id, "apply"] ->
-      content_lifecycle_http.apply_work_item(req, ctx, work_item_id)
+    http.Post,
+      ["api", "v1", "ai", "content", "work-items", work_item_id, "apply"]
+    -> content_lifecycle_http.apply_work_item(req, ctx, work_item_id)
 
     http.Post, ["api", "v1", "ai", "listings", "intake"] ->
       content_lifecycle_http.submit_listing_intake(req, ctx)

@@ -14,9 +14,9 @@ import gleam/option.{type Option, None, Some}
 import gleam/result
 import gleam/string
 import pog
-import travel/db/resilient_pog as db_exec
 import travel/db/decode_helpers as row_dec
 import travel/db/pog_errors
+import travel/db/resilient_pog as db_exec
 import travel/identity/admin_gate
 import wisp.{type Request, type Response}
 
@@ -117,8 +117,14 @@ fn strip_vitrin_price_cache_sql(sql: String) -> String {
   sql
   |> string.replace(tour_public_must_have_price_sql(), "")
   |> string.replace(hotel_public_must_have_price_sql(), "")
-  |> string.replace("coalesce(l.vitrin_price, l.first_charge_amount)", "l.first_charge_amount")
-  |> string.replace("coalesce(l.vitrin_price, 0)", "coalesce(l.first_charge_amount, 0)")
+  |> string.replace(
+    "coalesce(l.vitrin_price, l.first_charge_amount)",
+    "l.first_charge_amount",
+  )
+  |> string.replace(
+    "coalesce(l.vitrin_price, 0)",
+    "coalesce(l.first_charge_amount, 0)",
+  )
 }
 
 /// Vitrin liste sayımı ile aynı filtreler (görsel + tur/otel fiyat kapısı).
@@ -159,7 +165,7 @@ fn run_listing_count_sql(
       let _ =
         io.println(
           "[catalog.public.listings:count] "
-            <> pog_errors.query_error_to_string(e),
+          <> pog_errors.query_error_to_string(e),
         )
       // Strip fallback yalnızca eksik şema (42703/42P01) içindir; timeout gibi
       // hatalarda daha yavaş legacy SQL'i tekrar çalıştırmak yükü katlar.
@@ -216,9 +222,11 @@ fn activity_listing_vitrin_fare_currency_sql() -> String {
 }
 
 fn safe_int_sql(value_sql: String) -> String {
-  "case when nullif(trim(" <> value_sql <> "), '') ~ '^[0-9]+$' then nullif(trim("
-    <> value_sql
-    <> "), '')::int else null end"
+  "case when nullif(trim("
+  <> value_sql
+  <> "), '') ~ '^[0-9]+$' then nullif(trim("
+  <> value_sql
+  <> "), '')::int else null end"
 }
 
 fn activity_listing_vitrin_price_numeric_lateral_sql() -> String {
@@ -718,11 +726,26 @@ fn pub_listing_json(
     range_total_s,
     range_nights_s,
   ) = row
-  let fij = case fi == "" { True -> json.null()  False -> json.string(fi) }
-  let pj = case price == "" { True -> json.null()  False -> json.string(price) }
-  let lj = case loc == "" { True -> json.null()  False -> json.string(loc) }
-  let rj = case rev == "" { True -> json.null()  False -> json.string(rev) }
-  let mpj = case meal_plan == "" { True -> json.null()  False -> json.string(meal_plan) }
+  let fij = case fi == "" {
+    True -> json.null()
+    False -> json.string(fi)
+  }
+  let pj = case price == "" {
+    True -> json.null()
+    False -> json.string(price)
+  }
+  let lj = case loc == "" {
+    True -> json.null()
+    False -> json.string(loc)
+  }
+  let rj = case rev == "" {
+    True -> json.null()
+    False -> json.string(rev)
+  }
+  let mpj = case meal_plan == "" {
+    True -> json.null()
+    False -> json.string(meal_plan)
+  }
   let lat_j = case map_lat_s == "" {
     True -> json.null()
     False -> json.string(map_lat_s)
@@ -759,7 +782,10 @@ fn pub_listing_json(
     #("prepayment_percent", json_opt_str(prepayment_percent)),
     #("cancellation_policy_text", json_opt_str(cancellation_policy_text)),
     #("min_stay_nights", json_opt_str(min_stay_nights)),
-    #("allow_sub_min_stay_gap_booking", json.string(allow_sub_min_stay_gap_booking)),
+    #(
+      "allow_sub_min_stay_gap_booking",
+      json.string(allow_sub_min_stay_gap_booking),
+    ),
     #("min_advance_booking_days", json_opt_str(min_advance_booking_days)),
     #("min_short_stay_nights", json_opt_str(min_short_stay_nights)),
     #("short_stay_fee", json_opt_str(short_stay_fee)),
@@ -836,12 +862,10 @@ fn normalize_location_search_q(raw: String) -> String {
   |> string.join(with: " ")
 }
 
-const listing_search_match_sql: String =
-  "translate(lower(coalesce((select lt2.title from listing_translations lt2 join locales lo2 on lo2.id = lt2.locale_id where lt2.listing_id = l.id order by case when lower(lo2.code) = 'tr' then 0 else 1 end limit 1), l.slug) || ' ' || replace(l.slug, '-', ' ')), 'üğışöç', 'ugisoc')"
+const listing_search_match_sql: String = "translate(lower(coalesce((select lt2.title from listing_translations lt2 join locales lo2 on lo2.id = lt2.locale_id where lt2.listing_id = l.id order by case when lower(lo2.code) = 'tr' then 0 else 1 end limit 1), l.slug) || ' ' || replace(l.slug, '-', ' ')), 'üğışöç', 'ugisoc')"
 
 /// `location` vitrin parametresi — konum meta + tur başlığı + wtatil ülke adları.
-const location_search_match_sql: String =
-  "translate(lower(coalesce(l.location_name, '') || ' ' || coalesce(lm.meta->>'address', '') || ' ' || coalesce(lm.meta->>'province_city', '') || ' ' || coalesce(lm.meta->>'city', '') || ' ' || coalesce(lm.meta->>'district_label', '') || ' ' || coalesce(lm.meta->>'region_display', '') || ' ' || coalesce((select lt2.title from listing_translations lt2 join locales lo2 on lo2.id = lt2.locale_id where lt2.listing_id = l.id order by case when lower(lo2.code) = 'tr' then 0 else 1 end limit 1), '') || ' ' || coalesce((select string_agg(coalesce(c.elem->>'name', ''), ' ') from listing_attributes wa cross join lateral jsonb_array_elements(case jsonb_typeof(wa.value_json->'countries') when 'array' then wa.value_json->'countries' else '[]'::jsonb end) c(elem) where wa.listing_id = l.id and wa.group_code = 'wtatil' and wa.key = 'snapshot'), '')), 'üğışöç', 'ugisoc')"
+const location_search_match_sql: String = "translate(lower(coalesce(l.location_name, '') || ' ' || coalesce(lm.meta->>'address', '') || ' ' || coalesce(lm.meta->>'province_city', '') || ' ' || coalesce(lm.meta->>'city', '') || ' ' || coalesce(lm.meta->>'district_label', '') || ' ' || coalesce(lm.meta->>'region_display', '') || ' ' || coalesce((select lt2.title from listing_translations lt2 join locales lo2 on lo2.id = lt2.locale_id where lt2.listing_id = l.id order by case when lower(lo2.code) = 'tr' then 0 else 1 end limit 1), '') || ' ' || coalesce((select string_agg(coalesce(c.elem->>'name', ''), ' ') from listing_attributes wa cross join lateral jsonb_array_elements(case jsonb_typeof(wa.value_json->'countries') when 'array' then wa.value_json->'countries' else '[]'::jsonb end) c(elem) where wa.listing_id = l.id and wa.group_code = 'wtatil' and wa.key = 'snapshot'), '')), 'üğışöç', 'ugisoc')"
 
 fn min_count_filter_param(raw: String) -> pog.Value {
   case string.trim(raw) {
@@ -858,7 +882,11 @@ fn min_count_filter_param(raw: String) -> pog.Value {
   }
 }
 
-fn approximate_public_listing_total(offset: Int, limit: Int, row_count: Int) -> Int {
+fn approximate_public_listing_total(
+  offset: Int,
+  limit: Int,
+  row_count: Int,
+) -> Int {
   let seen = offset + row_count
   case row_count == limit {
     True -> seen + 1
@@ -872,7 +900,11 @@ fn listing_id_only_row() -> decode.Decoder(String) {
 }
 
 /// GET /api/v1/catalog/public/listings/by-slug/:slug — vitrin detay URL slug → yayın ilan id
-pub fn get_public_listing_id_by_slug(req: Request, ctx: Context, slug: String) -> Response {
+pub fn get_public_listing_id_by_slug(
+  req: Request,
+  ctx: Context,
+  slug: String,
+) -> Response {
   use <- wisp.require_method(req, http.Get)
   let s = string.trim(slug)
   let qs = case request.get_query(req) {
@@ -889,12 +921,12 @@ pub fn get_public_listing_id_by_slug(req: Request, ctx: Context, slug: String) -
       case
         pog.query(
           "select l.id::text from listings l "
-            <> "inner join product_categories pc on pc.id = l.category_id "
-            <> "where l.status = 'published' "
-            <> public_listing_must_have_image_sql()
-            <> "and lower(l.slug) = lower($1) "
-            <> "and ($2 = '' or lower(pc.code) = lower($2)) "
-            <> "order by l.updated_at desc, l.id limit 1",
+          <> "inner join product_categories pc on pc.id = l.category_id "
+          <> "where l.status = 'published' "
+          <> public_listing_must_have_image_sql()
+          <> "and lower(l.slug) = lower($1) "
+          <> "and ($2 = '' or lower(pc.code) = lower($2)) "
+          <> "order by l.updated_at desc, l.id limit 1",
         )
         |> pog.parameter(pog.text(s))
         |> pog.parameter(pog.text(category_code))
@@ -922,8 +954,108 @@ pub fn search_public_listings(req: Request, ctx: Context) -> Response {
   search_listings_impl(req, ctx, None)
 }
 
+fn public_listing_suggestion_row() -> decode.Decoder(
+  #(String, String, String, String, String, String),
+) {
+  use id <- decode.field(0, decode.string)
+  use slug <- decode.field(1, decode.string)
+  use title <- decode.field(2, decode.string)
+  use category_code <- decode.field(3, decode.string)
+  use image <- decode.field(4, decode.string)
+  use location <- decode.field(5, decode.string)
+  decode.success(#(id, slug, title, category_code, image, location))
+}
+
+/// Header autocomplete için hafif projeksiyon. Tam katalog sorgusundaki fiyat,
+/// müsaitlik, galeri ve toplam sayım hesaplarını çalıştırmaz.
+pub fn search_public_listing_suggestions(
+  req: Request,
+  ctx: Context,
+) -> Response {
+  use <- wisp.require_method(req, http.Get)
+  let qs = case request.get_query(req) {
+    Ok(values) -> values
+    Error(_) -> []
+  }
+  let q =
+    list.key_find(qs, "q")
+    |> result.unwrap("")
+    |> normalize_listing_search_q
+  let locale =
+    list.key_find(qs, "locale")
+    |> result.unwrap("tr")
+    |> string.trim
+    |> string.lowercase
+  let limit = case int.parse(list.key_find(qs, "limit") |> result.unwrap("8")) {
+    Ok(n) ->
+      case n < 1 {
+        True -> 8
+        False ->
+          case n > 20 {
+            True -> 20
+            False -> n
+          }
+      }
+    Error(_) -> 8
+  }
+
+  case string.length(q) < 3 {
+    True -> wisp.json_response("{\"listings\":[]}", 200)
+    False -> {
+      let match_sql = listing_search_match_sql
+      let sql =
+        "select l.id::text, l.slug, "
+        <> "coalesce((select lt.title from listing_translations lt join locales lo on lo.id = lt.locale_id where lt.listing_id = l.id order by case when lower(lo.code) = lower($2) then 0 when lower(lo.code) = 'tr' then 1 else 2 end limit 1), l.slug), "
+        <> "coalesce(pc.code::text, ''), "
+        <> "coalesce(nullif(trim(l.featured_image_url), ''), nullif(trim(l.thumbnail_url), ''), (select nullif(trim(li.storage_key), '') from listing_images li where li.listing_id = l.id order by li.sort_order, li.created_at limit 1), ''), "
+        <> "coalesce(nullif(trim(l.location_name), ''), '') "
+        <> "from listings l join product_categories pc on pc.id = l.category_id "
+        <> "where l.status = 'published' "
+        <> public_listing_must_have_image_sql()
+        <> "and (select coalesce(bool_and("
+        <> match_sql
+        <> " ilike '%' || trim(tok) || '%'), true) from unnest(string_to_array(trim($1), ' ')) as u(tok) where trim(tok) <> '') "
+        <> "order by case when "
+        <> match_sql
+        <> " like trim($1) || '%' then 0 else 1 end, l.updated_at desc limit $3"
+
+      case
+        pog.query(sql)
+        |> pog.parameter(pog.text(q))
+        |> pog.parameter(pog.text(locale))
+        |> pog.parameter(pog.int(limit))
+        |> pog.returning(public_listing_suggestion_row())
+        |> db_exec.execute(ctx.db)
+      {
+        Error(_) -> json_err(500, "listing_suggestions_query_failed")
+        Ok(ret) -> {
+          let rows =
+            list.map(ret.rows, fn(row) {
+              let #(id, slug, title, category_code, image, location) = row
+              json.object([
+                #("id", json.string(id)),
+                #("slug", json.string(slug)),
+                #("title", json.string(title)),
+                #("category_code", json.string(category_code)),
+                #("image", json_opt_str(image)),
+                #("location", json_opt_str(location)),
+              ])
+            })
+          json.object([#("listings", json.array(from: rows, of: fn(x) { x }))])
+          |> json.to_string
+          |> wisp.json_response(200)
+        }
+      }
+    }
+  }
+}
+
 /// GET /api/v1/agent/catalog/search — acente kategori grant filtresi ile aynı arama.
-pub fn search_agent_listings(req: Request, ctx: Context, agency_org_id: String) -> Response {
+pub fn search_agent_listings(
+  req: Request,
+  ctx: Context,
+  agency_org_id: String,
+) -> Response {
   search_listings_impl(req, ctx, Some(agency_org_id))
 }
 
@@ -960,13 +1092,24 @@ fn search_listings_impl(
     |> result.unwrap("tr")
     |> string.trim
     |> string.lowercase
-  let locale = case locale_raw == "" { True -> "tr"  False -> locale_raw }
+  let locale = case locale_raw == "" {
+    True -> "tr"
+    False -> locale_raw
+  }
   let lim_str =
     list.key_find(qs, "limit")
     |> result.unwrap("20")
     |> string.trim
   let lim = case int.parse(lim_str) {
-    Ok(n) -> case n > 100 { True -> 100  False -> case n < 1 { True -> 20  False -> n } }
+    Ok(n) ->
+      case n > 100 {
+        True -> 100
+        False ->
+          case n < 1 {
+            True -> 20
+            False -> n
+          }
+      }
     Error(_) -> 20
   }
   let page_raw =
@@ -974,7 +1117,11 @@ fn search_listings_impl(
     |> result.unwrap("1")
     |> string.trim
   let page_num = case int.parse(page_raw) {
-    Ok(n) -> case n < 1 { True -> 1  False -> n }
+    Ok(n) ->
+      case n < 1 {
+        True -> 1
+        False -> n
+      }
     Error(_) -> 1
   }
   let offset = int.multiply(page_num - 1, lim)
@@ -989,14 +1136,20 @@ fn search_listings_impl(
     True -> pog.null()
     False -> pog.text(q_normalized)
   }
-  let cat_param = case cat_raw == "" { True -> pog.null()  False -> pog.text(cat_raw) }
+  let cat_param = case cat_raw == "" {
+    True -> pog.null()
+    False -> pog.text(cat_raw)
+  }
   let loc_normalized = normalize_location_search_q(loc_raw)
   let loc_param = case loc_normalized == "" {
     True -> pog.null()
     False -> pog.text(loc_normalized)
   }
   // Pass ids as a single comma-separated text; SQL splits via string_to_array
-  let ids_param = case ids_raw == "" { True -> pog.null()  False -> pog.text(ids_raw) }
+  let ids_param = case ids_raw == "" {
+    True -> pog.null()
+    False -> pog.text(ids_raw)
+  }
 
   let theme_raw =
     list.key_find(qs, "theme")
@@ -1176,7 +1329,9 @@ fn search_listings_impl(
   let vitrin_price_sql = "coalesce(l.vitrin_price, l.first_charge_amount) "
   let location_search_sql = location_search_match_sql
   let tour_duration_days_sql =
-    safe_int_sql("coalesce(tour_attr.value_json->'data'->>'duration_days', tour_attr.value_json->>'duration_days', '')")
+    safe_int_sql(
+      "coalesce(tour_attr.value_json->'data'->>'duration_days', tour_attr.value_json->>'duration_days', '')",
+    )
   let meta_bed_count_sql = safe_int_sql("coalesce(lm.meta->>'bed_count', '')")
   let meta_room_count_sql = safe_int_sql("coalesce(lm.meta->>'room_count', '')")
   let meta_bath_count_sql = safe_int_sql("coalesce(lm.meta->>'bath_count', '')")
@@ -1184,13 +1339,9 @@ fn search_listings_impl(
   // Eski davranış (önce yüksek puan): `?sort=recommended` veya `sort=rating`.
   let order_sql = case sort_raw {
     "price_asc" ->
-      "order by "
-        <> vitrin_price_sql
-        <> "asc nulls last, l.created_at desc "
+      "order by " <> vitrin_price_sql <> "asc nulls last, l.created_at desc "
     "price_desc" ->
-      "order by "
-        <> vitrin_price_sql
-        <> "desc nulls last, l.created_at desc "
+      "order by " <> vitrin_price_sql <> "desc nulls last, l.created_at desc "
     "recommended" | "rating" ->
       "order by l.review_avg desc nulls last, l.created_at desc "
     _ -> "order by l.created_at desc "
@@ -1473,7 +1624,9 @@ fn search_listings_impl(
     )
     // Sayım için tarih aralığı toplamı gerekmiyor — ağır generate_series lateral'ı kapat.
     |> string.replace(
-      ") range_quote on (" <> holiday_home_range_quote_join_condition_sql() <> ") ",
+      ") range_quote on ("
+        <> holiday_home_range_quote_join_condition_sql()
+        <> ") ",
       ") range_quote on (false) ",
     )
   let count_sql =
@@ -1583,7 +1736,9 @@ fn search_listings_impl(
   let deferred_page_from_where_sql =
     string.replace(
       listing_search_from_where_sql,
-      ") range_quote on (" <> holiday_home_range_quote_join_condition_sql() <> ") ",
+      ") range_quote on ("
+        <> holiday_home_range_quote_join_condition_sql()
+        <> ") ",
       ") range_quote on (false) ",
     )
   let deferred_page_sql =
@@ -1702,8 +1857,7 @@ fn search_listings_impl(
     Error(e) -> {
       let _ =
         io.println(
-          "[catalog.public.listings] "
-            <> pog_errors.query_error_to_string(e),
+          "[catalog.public.listings] " <> pog_errors.query_error_to_string(e),
         )
       // Strip fallback yalnızca vitrin_price kolonu eksikse (42703) anlamlıdır.
       // Timeout/bağlantı hatasında strip edilmiş SQL daha da yavaştır (partial
@@ -1797,8 +1951,7 @@ fn search_listings_paged_response_impl(
     Error(e) -> {
       let _ =
         io.println(
-          "[catalog.public.listings] "
-            <> pog_errors.query_error_to_string(e),
+          "[catalog.public.listings] " <> pog_errors.query_error_to_string(e),
         )
       case allow_legacy && pog_errors.is_missing_schema(e) {
         False -> json_err(500, "search_failed")
@@ -1829,7 +1982,13 @@ fn search_listings_paged_response_impl(
         None ->
           case count_sql_opt {
             Some(q) ->
-              run_listing_count_sql(ctx, q, run_params, page_fallback, allow_legacy)
+              run_listing_count_sql(
+                ctx,
+                q,
+                run_params,
+                page_fallback,
+                allow_legacy,
+              )
             None -> page_fallback
           }
       }
@@ -1924,7 +2083,9 @@ fn theme_manage_ok_len(s: String, max: Int) -> Bool {
   }
 }
 
-fn create_manage_theme_item_decoder() -> decode.Decoder(#(String, String, String, String)) {
+fn create_manage_theme_item_decoder() -> decode.Decoder(
+  #(String, String, String, String),
+) {
   decode.field("category_code", decode.string, fn(cat) {
     decode.field("code", decode.string, fn(code) {
       decode.field("label", decode.string, fn(label) {
@@ -1996,7 +2157,9 @@ pub fn list_manage_theme_items(req: Request, ctx: Context) -> Response {
                   ])
                 })
               let body =
-                json.object([#("items", json.array(from: rows, of: fn(x) { x }))])
+                json.object([
+                  #("items", json.array(from: rows, of: fn(x) { x })),
+                ])
                 |> json.to_string
               wisp.json_response(body, 200)
             }
@@ -2055,7 +2218,8 @@ pub fn create_manage_theme_item(req: Request, ctx: Context) -> Response {
                             |> pog.parameter(pog.text(label_raw))
                             |> db_exec.execute(ctx.db)
                           {
-                            Error(_) -> json_err(500, "theme_item_translation_failed")
+                            Error(_) ->
+                              json_err(500, "theme_item_translation_failed")
                             Ok(_) ->
                               wisp.json_response(
                                 json.object([
@@ -2063,7 +2227,7 @@ pub fn create_manage_theme_item(req: Request, ctx: Context) -> Response {
                                   #("code", json.string(code)),
                                   #("ok", json.bool(True)),
                                 ])
-                                |> json.to_string,
+                                  |> json.to_string,
                                 201,
                               )
                           }
@@ -2080,7 +2244,11 @@ pub fn create_manage_theme_item(req: Request, ctx: Context) -> Response {
 }
 
 /// PATCH /api/v1/catalog/manage/theme-items/:id
-pub fn patch_manage_theme_item(req: Request, ctx: Context, item_id: String) -> Response {
+pub fn patch_manage_theme_item(
+  req: Request,
+  ctx: Context,
+  item_id: String,
+) -> Response {
   use <- wisp.require_method(req, http.Patch)
   case admin_gate.require_admin_users_read(req, ctx) {
     Error(r) -> r
@@ -2123,13 +2291,19 @@ pub fn patch_manage_theme_item(req: Request, ctx: Context, item_id: String) -> R
 }
 
 /// DELETE /api/v1/catalog/manage/theme-items/:id
-pub fn delete_manage_theme_item(req: Request, ctx: Context, item_id: String) -> Response {
+pub fn delete_manage_theme_item(
+  req: Request,
+  ctx: Context,
+  item_id: String,
+) -> Response {
   use <- wisp.require_method(req, http.Delete)
   case admin_gate.require_admin_users_read(req, ctx) {
     Error(r) -> r
     Ok(_) ->
       case
-        pog.query("delete from category_theme_items where id = $1::uuid returning id::text")
+        pog.query(
+          "delete from category_theme_items where id = $1::uuid returning id::text",
+        )
         |> pog.parameter(pog.text(string.trim(item_id)))
         |> pog.returning(row_dec.col0_string())
         |> db_exec.execute(ctx.db)
@@ -2152,23 +2326,25 @@ pub fn delete_manage_theme_item(req: Request, ctx: Context, item_id: String) -> 
 
 // ─── Travel Bridge (hafif senkron) ───────────────────────────────────────────
 
-fn bridge_listing_row() -> decode.Decoder(#(
-  String,
-  String,
-  String,
-  String,
-  String,
-  String,
-  String,
-  String,
-  String,
-  String,
-  String,
-  String,
-  String,
-  String,
-  String,
-)) {
+fn bridge_listing_row() -> decode.Decoder(
+  #(
+    String,
+    String,
+    String,
+    String,
+    String,
+    String,
+    String,
+    String,
+    String,
+    String,
+    String,
+    String,
+    String,
+    String,
+    String,
+  ),
+) {
   use id <- decode.field(0, decode.string)
   use slug <- decode.field(1, decode.string)
   use title <- decode.field(2, decode.string)
@@ -2275,13 +2451,24 @@ pub fn search_bridge_listings(req: Request, ctx: Context) -> Response {
     |> result.unwrap("tr")
     |> string.trim
     |> string.lowercase
-  let locale = case locale_raw == "" { True -> "tr"  False -> locale_raw }
+  let locale = case locale_raw == "" {
+    True -> "tr"
+    False -> locale_raw
+  }
   let lim_str =
     list.key_find(qs, "limit")
     |> result.unwrap("50")
     |> string.trim
   let lim = case int.parse(lim_str) {
-    Ok(n) -> case n > 100 { True -> 100  False -> case n < 1 { True -> 50  False -> n } }
+    Ok(n) ->
+      case n > 100 {
+        True -> 100
+        False ->
+          case n < 1 {
+            True -> 50
+            False -> n
+          }
+      }
     Error(_) -> 50
   }
   let page_raw =
@@ -2289,11 +2476,18 @@ pub fn search_bridge_listings(req: Request, ctx: Context) -> Response {
     |> result.unwrap("1")
     |> string.trim
   let page_num = case int.parse(page_raw) {
-    Ok(n) -> case n < 1 { True -> 1  False -> n }
+    Ok(n) ->
+      case n < 1 {
+        True -> 1
+        False -> n
+      }
     Error(_) -> 1
   }
   let offset = int.multiply(page_num - 1, lim)
-  let cat_param = case cat_raw == "" { True -> pog.null()  False -> pog.text(cat_raw) }
+  let cat_param = case cat_raw == "" {
+    True -> pog.null()
+    False -> pog.text(cat_raw)
+  }
 
   let sql =
     "select l.id::text, l.slug, "
@@ -2332,8 +2526,7 @@ pub fn search_bridge_listings(req: Request, ctx: Context) -> Response {
     Error(e) -> {
       let _ =
         io.println(
-          "[catalog.bridge.listings] "
-            <> pog_errors.query_error_to_string(e),
+          "[catalog.bridge.listings] " <> pog_errors.query_error_to_string(e),
         )
       json_err(500, "bridge_search_failed")
     }
@@ -2357,7 +2550,7 @@ pub fn search_bridge_listings(req: Request, ctx: Context) -> Response {
 
 fn cat_stats_row() -> decode.Decoder(#(String, Int)) {
   use code <- decode.field(0, decode.string)
-  use cnt  <- decode.field(1, decode.int)
+  use cnt <- decode.field(1, decode.int)
   decode.success(#(code, cnt))
 }
 
@@ -2379,9 +2572,9 @@ pub fn public_category_stats(req: Request, ctx: Context) -> Response {
   use <- wisp.require_method(req, http.Get)
   let sql = public_category_stats_query_sql(public_category_stats_filter_sql())
   let legacy_sql =
-    public_category_stats_query_sql(strip_vitrin_price_cache_sql(
-      public_category_stats_filter_sql(),
-    ))
+    public_category_stats_query_sql(
+      strip_vitrin_price_cache_sql(public_category_stats_filter_sql()),
+    )
   let image_only_sql =
     public_category_stats_query_sql(public_listing_must_have_image_sql())
   let run_stats = fn(q: String) {
@@ -2398,11 +2591,11 @@ pub fn public_category_stats(req: Request, ctx: Context) -> Response {
               let _ =
                 io.println(
                   "[catalog.public.category-stats] "
-                    <> pog_errors.query_error_to_string(e)
-                    <> " | legacy: "
-                    <> pog_errors.query_error_to_string(e2)
-                    <> " | image_only: "
-                    <> pog_errors.query_error_to_string(e3),
+                  <> pog_errors.query_error_to_string(e)
+                  <> " | legacy: "
+                  <> pog_errors.query_error_to_string(e2)
+                  <> " | image_only: "
+                  <> pog_errors.query_error_to_string(e3),
                 )
               cat_stats_response([])
             }
@@ -2417,9 +2610,9 @@ pub fn public_category_stats(req: Request, ctx: Context) -> Response {
 // ─── Public Region Stats ──────────────────────────────────────────────────────
 
 fn region_stats_row() -> decode.Decoder(#(String, String, Int, String)) {
-  use slug      <- decode.field(0, decode.string)
-  use name      <- decode.field(1, decode.string)
-  use cnt       <- decode.field(2, decode.int)
+  use slug <- decode.field(0, decode.string)
+  use name <- decode.field(1, decode.string)
+  use cnt <- decode.field(2, decode.int)
   use thumbnail <- decode.field(3, decode.string)
   decode.success(#(slug, name, cnt, thumbnail))
 }
@@ -2440,7 +2633,11 @@ pub fn public_region_stats(req: Request, ctx: Context) -> Response {
     Ok(n) ->
       case n > 50 {
         True -> 50
-        False -> case n < 1 { True -> 12  False -> n }
+        False ->
+          case n < 1 {
+            True -> 12
+            False -> n
+          }
       }
     Error(_) -> 12
   }
@@ -2656,15 +2853,39 @@ fn collection_row() -> decode.Decoder(
   use filter_rules <- decode.field(5, decode.string)
   use sort_order <- decode.field(6, decode.int)
   use is_active <- decode.field(7, decode.bool)
-  decode.success(#(id, slug, title, description, hero_image_url, filter_rules, sort_order, is_active))
+  decode.success(#(
+    id,
+    slug,
+    title,
+    description,
+    hero_image_url,
+    filter_rules,
+    sort_order,
+    is_active,
+  ))
 }
 
 fn collection_json(
   row: #(String, String, String, String, String, String, Int, Bool),
 ) -> json.Json {
-  let #(id, slug, title, description, hero_image_url, filter_rules, sort_order, is_active) = row
-  let dj = case description == "" { True -> json.null()  False -> json.string(description) }
-  let hij = case hero_image_url == "" { True -> json.null()  False -> json.string(hero_image_url) }
+  let #(
+    id,
+    slug,
+    title,
+    description,
+    hero_image_url,
+    filter_rules,
+    sort_order,
+    is_active,
+  ) = row
+  let dj = case description == "" {
+    True -> json.null()
+    False -> json.string(description)
+  }
+  let hij = case hero_image_url == "" {
+    True -> json.null()
+    False -> json.string(hero_image_url)
+  }
   json.object([
     #("id", json.string(id)),
     #("slug", json.string(slug)),
@@ -2714,7 +2935,11 @@ pub fn list_collections(req: Request, ctx: Context) -> Response {
 }
 
 /// GET /api/v1/collections/:slug
-pub fn get_collection_by_slug(req: Request, ctx: Context, slug: String) -> Response {
+pub fn get_collection_by_slug(
+  req: Request,
+  ctx: Context,
+  slug: String,
+) -> Response {
   use <- wisp.require_method(req, http.Get)
   case
     pog.query(
@@ -2744,13 +2969,34 @@ fn create_collection_decoder() -> decode.Decoder(
 ) {
   decode.field("slug", decode.string, fn(slug) {
     decode.field("title", decode.string, fn(title) {
-      decode.optional_field("description", None, decode.optional(decode.string), fn(desc) {
-        decode.optional_field("hero_image_url", None, decode.optional(decode.string), fn(hero) {
-          decode.optional_field("filter_rules", "{}", decode.string, fn(rules) {
-            decode.success(#(string.trim(slug), string.trim(title), desc, hero, rules))
-          })
-        })
-      })
+      decode.optional_field(
+        "description",
+        None,
+        decode.optional(decode.string),
+        fn(desc) {
+          decode.optional_field(
+            "hero_image_url",
+            None,
+            decode.optional(decode.string),
+            fn(hero) {
+              decode.optional_field(
+                "filter_rules",
+                "{}",
+                decode.string,
+                fn(rules) {
+                  decode.success(#(
+                    string.trim(slug),
+                    string.trim(title),
+                    desc,
+                    hero,
+                    rules,
+                  ))
+                },
+              )
+            },
+          )
+        },
+      )
     })
   })
 }
@@ -2762,68 +3008,116 @@ pub fn create_collection(req: Request, ctx: Context) -> Response {
     Error(r) -> r
     Ok(_) ->
       case read_body_string(req) {
-    Error(_) -> json_err(400, "empty_body")
-    Ok(body) ->
-      case json.parse(body, create_collection_decoder()) {
-        Error(_) -> json_err(400, "invalid_json")
-        Ok(#(slug, title, desc, hero, rules)) ->
-          case slug == "" || title == "" {
-            True -> json_err(400, "slug_and_title_required")
-            False -> {
-              let dp = case desc {
-                None -> pog.null()
-                Some(s) -> pog.text(s)
-              }
-              let hp = case hero {
-                None -> pog.null()
-                Some(s) -> pog.text(s)
-              }
-              case
-                pog.query(
-                  "insert into listing_collections (slug, title, description, hero_image_url, filter_rules) values ($1, $2, $3, $4, ($5::text)::jsonb) returning id::text",
-                )
-                |> pog.parameter(pog.text(slug))
-                |> pog.parameter(pog.text(title))
-                |> pog.parameter(dp)
-                |> pog.parameter(hp)
-                |> pog.parameter(pog.text(rules))
-                |> pog.returning(row_dec.col0_string())
-                |> db_exec.execute(ctx.db)
-              {
-                Error(_) -> json_err(409, "create_failed")
-                Ok(r) ->
-                  case r.rows {
-                    [id] -> wisp.json_response(json.object([#("id", json.string(id))]) |> json.to_string, 201)
-                    _ -> json_err(500, "unexpected")
+        Error(_) -> json_err(400, "empty_body")
+        Ok(body) ->
+          case json.parse(body, create_collection_decoder()) {
+            Error(_) -> json_err(400, "invalid_json")
+            Ok(#(slug, title, desc, hero, rules)) ->
+              case slug == "" || title == "" {
+                True -> json_err(400, "slug_and_title_required")
+                False -> {
+                  let dp = case desc {
+                    None -> pog.null()
+                    Some(s) -> pog.text(s)
                   }
+                  let hp = case hero {
+                    None -> pog.null()
+                    Some(s) -> pog.text(s)
+                  }
+                  case
+                    pog.query(
+                      "insert into listing_collections (slug, title, description, hero_image_url, filter_rules) values ($1, $2, $3, $4, ($5::text)::jsonb) returning id::text",
+                    )
+                    |> pog.parameter(pog.text(slug))
+                    |> pog.parameter(pog.text(title))
+                    |> pog.parameter(dp)
+                    |> pog.parameter(hp)
+                    |> pog.parameter(pog.text(rules))
+                    |> pog.returning(row_dec.col0_string())
+                    |> db_exec.execute(ctx.db)
+                  {
+                    Error(_) -> json_err(409, "create_failed")
+                    Ok(r) ->
+                      case r.rows {
+                        [id] ->
+                          wisp.json_response(
+                            json.object([#("id", json.string(id))])
+                              |> json.to_string,
+                            201,
+                          )
+                        _ -> json_err(500, "unexpected")
+                      }
+                  }
+                }
               }
-            }
           }
       }
-    }
   }
 }
 
 fn patch_collection_decoder() -> decode.Decoder(
   #(
-    Option(String), Option(String), Option(String), Option(String),
-    Option(String), Option(Int), Option(Bool),
+    Option(String),
+    Option(String),
+    Option(String),
+    Option(String),
+    Option(String),
+    Option(Int),
+    Option(Bool),
   ),
 ) {
   decode.optional_field("slug", None, decode.optional(decode.string), fn(slug) {
-    decode.optional_field("title", None, decode.optional(decode.string), fn(title) {
-      decode.optional_field("description", None, decode.optional(decode.string), fn(desc) {
-        decode.optional_field("hero_image_url", None, decode.optional(decode.string), fn(hero) {
-          decode.optional_field("filter_rules", None, decode.optional(decode.string), fn(rules) {
-            decode.optional_field("sort_order", None, decode.optional(decode.int), fn(so) {
-              decode.optional_field("is_active", None, decode.optional(decode.bool), fn(ia) {
-                decode.success(#(slug, title, desc, hero, rules, so, ia))
-              })
-            })
-          })
-        })
-      })
-    })
+    decode.optional_field(
+      "title",
+      None,
+      decode.optional(decode.string),
+      fn(title) {
+        decode.optional_field(
+          "description",
+          None,
+          decode.optional(decode.string),
+          fn(desc) {
+            decode.optional_field(
+              "hero_image_url",
+              None,
+              decode.optional(decode.string),
+              fn(hero) {
+                decode.optional_field(
+                  "filter_rules",
+                  None,
+                  decode.optional(decode.string),
+                  fn(rules) {
+                    decode.optional_field(
+                      "sort_order",
+                      None,
+                      decode.optional(decode.int),
+                      fn(so) {
+                        decode.optional_field(
+                          "is_active",
+                          None,
+                          decode.optional(decode.bool),
+                          fn(ia) {
+                            decode.success(#(
+                              slug,
+                              title,
+                              desc,
+                              hero,
+                              rules,
+                              so,
+                              ia,
+                            ))
+                          },
+                        )
+                      },
+                    )
+                  },
+                )
+              },
+            )
+          },
+        )
+      },
+    )
   })
 }
 
@@ -2839,67 +3133,93 @@ fn opt_text(o: Option(String)) -> pog.Value {
 }
 
 /// PATCH /api/v1/collections/:id — admin
-pub fn patch_collection(req: Request, ctx: Context, col_id: String) -> Response {
+pub fn patch_collection(
+  req: Request,
+  ctx: Context,
+  col_id: String,
+) -> Response {
   use <- wisp.require_method(req, http.Patch)
   case admin_gate.require_admin_users_read(req, ctx) {
     Error(r) -> r
     Ok(_) ->
       case read_body_string(req) {
-    Error(_) -> json_err(400, "empty_body")
-    Ok(body) ->
-      case json.parse(body, patch_collection_decoder()) {
-        Error(_) -> json_err(400, "invalid_json")
-        Ok(#(slug_opt, title_opt, desc_opt, hero_opt, rules_opt, so_opt, ia_opt)) -> {
-          let p_slug = opt_text(slug_opt)
-          let p_title = opt_text(title_opt)
-          let p_desc = opt_text(desc_opt)
-          let p_hero = opt_text(hero_opt)
-          let p_rules = opt_text(rules_opt)
-          let p_so = case so_opt {
-            None -> pog.null()
-            Some(n) -> pog.int(n)
-          }
-          let p_ia = case ia_opt {
-            None -> pog.null()
-            Some(b) -> pog.bool(b)
-          }
-          case
-            pog.query(
-              "update listing_collections set slug = coalesce($2::text, slug), title = coalesce($3::text, title), description = coalesce($4::text, description), hero_image_url = coalesce($5::text, hero_image_url), filter_rules = coalesce(($6::text)::jsonb, filter_rules), sort_order = coalesce($7::int, sort_order), is_active = coalesce($8::boolean, is_active), updated_at = now() where id = $1::uuid returning id::text",
-            )
-            |> pog.parameter(pog.text(string.trim(col_id)))
-            |> pog.parameter(p_slug)
-            |> pog.parameter(p_title)
-            |> pog.parameter(p_desc)
-            |> pog.parameter(p_hero)
-            |> pog.parameter(p_rules)
-            |> pog.parameter(p_so)
-            |> pog.parameter(p_ia)
-            |> pog.returning(row_dec.col0_string())
-            |> db_exec.execute(ctx.db)
-          {
-            Error(_) -> json_err(500, "update_failed")
-            Ok(r) ->
-              case r.rows {
-                [] -> json_err(404, "not_found")
-                [id] -> wisp.json_response(json.object([#("id", json.string(id)), #("ok", json.bool(True))]) |> json.to_string, 200)
-                _ -> json_err(500, "unexpected")
+        Error(_) -> json_err(400, "empty_body")
+        Ok(body) ->
+          case json.parse(body, patch_collection_decoder()) {
+            Error(_) -> json_err(400, "invalid_json")
+            Ok(#(
+              slug_opt,
+              title_opt,
+              desc_opt,
+              hero_opt,
+              rules_opt,
+              so_opt,
+              ia_opt,
+            )) -> {
+              let p_slug = opt_text(slug_opt)
+              let p_title = opt_text(title_opt)
+              let p_desc = opt_text(desc_opt)
+              let p_hero = opt_text(hero_opt)
+              let p_rules = opt_text(rules_opt)
+              let p_so = case so_opt {
+                None -> pog.null()
+                Some(n) -> pog.int(n)
               }
+              let p_ia = case ia_opt {
+                None -> pog.null()
+                Some(b) -> pog.bool(b)
+              }
+              case
+                pog.query(
+                  "update listing_collections set slug = coalesce($2::text, slug), title = coalesce($3::text, title), description = coalesce($4::text, description), hero_image_url = coalesce($5::text, hero_image_url), filter_rules = coalesce(($6::text)::jsonb, filter_rules), sort_order = coalesce($7::int, sort_order), is_active = coalesce($8::boolean, is_active), updated_at = now() where id = $1::uuid returning id::text",
+                )
+                |> pog.parameter(pog.text(string.trim(col_id)))
+                |> pog.parameter(p_slug)
+                |> pog.parameter(p_title)
+                |> pog.parameter(p_desc)
+                |> pog.parameter(p_hero)
+                |> pog.parameter(p_rules)
+                |> pog.parameter(p_so)
+                |> pog.parameter(p_ia)
+                |> pog.returning(row_dec.col0_string())
+                |> db_exec.execute(ctx.db)
+              {
+                Error(_) -> json_err(500, "update_failed")
+                Ok(r) ->
+                  case r.rows {
+                    [] -> json_err(404, "not_found")
+                    [id] ->
+                      wisp.json_response(
+                        json.object([
+                          #("id", json.string(id)),
+                          #("ok", json.bool(True)),
+                        ])
+                          |> json.to_string,
+                        200,
+                      )
+                    _ -> json_err(500, "unexpected")
+                  }
+              }
+            }
           }
-        }
       }
-    }
   }
 }
 
 /// DELETE /api/v1/collections/:id — admin
-pub fn delete_collection(req: Request, ctx: Context, col_id: String) -> Response {
+pub fn delete_collection(
+  req: Request,
+  ctx: Context,
+  col_id: String,
+) -> Response {
   use <- wisp.require_method(req, http.Delete)
   case admin_gate.require_admin_users_read(req, ctx) {
     Error(r) -> r
     Ok(_) ->
       case
-        pog.query("delete from listing_collections where id = $1::uuid returning id::text")
+        pog.query(
+          "delete from listing_collections where id = $1::uuid returning id::text",
+        )
         |> pog.parameter(pog.text(string.trim(col_id)))
         |> pog.returning(row_dec.col0_string())
         |> db_exec.execute(ctx.db)
@@ -2908,7 +3228,11 @@ pub fn delete_collection(req: Request, ctx: Context, col_id: String) -> Response
         Ok(r) ->
           case r.rows {
             [] -> json_err(404, "not_found")
-            [_] -> wisp.json_response(json.object([#("ok", json.bool(True))]) |> json.to_string, 200)
+            [_] ->
+              wisp.json_response(
+                json.object([#("ok", json.bool(True))]) |> json.to_string,
+                200,
+              )
             _ -> json_err(500, "unexpected")
           }
       }
@@ -2961,7 +3285,7 @@ pub fn public_cruise_hub_stats(req: Request, ctx: Context) -> Response {
       let _ =
         io.println(
           "[catalog.public.cruise-hub-stats] "
-            <> pog_errors.query_error_to_string(e),
+          <> pog_errors.query_error_to_string(e),
         )
       let body =
         json.object([#("rows", json.array(from: [], of: fn(x) { x }))])
@@ -3025,7 +3349,7 @@ pub fn public_tour_kultur_hub_stats(req: Request, ctx: Context) -> Response {
       let _ =
         io.println(
           "[catalog.public.tour-kultur-hub-stats] "
-            <> pog_errors.query_error_to_string(e),
+          <> pog_errors.query_error_to_string(e),
         )
       let body =
         json.object([#("rows", json.array(from: [], of: fn(x) { x }))])
@@ -3048,4 +3372,3 @@ pub fn public_tour_kultur_hub_stats(req: Request, ctx: Context) -> Response {
     }
   }
 }
-
