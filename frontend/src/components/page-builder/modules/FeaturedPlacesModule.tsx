@@ -30,6 +30,19 @@ export interface FeaturedPlacesModuleConfig {
   categorySlug?: string
 }
 
+export type FeaturedPlacesModuleData = {
+  listings: TListingBase[]
+  lastMinuteListings: TListingBase[]
+  lastMinuteViewAllHref?: string
+  heading: string
+  subHeading: string
+  viewAllHref: string
+  tabDefs: FeaturedTabDef[]
+  tabIds: ReturnType<typeof pruneFeaturedPlacesForClient>['tabIds']
+  displayCount: number
+  categorySlug: string
+}
+
 function buildFeaturedTabDefs(
   categorySlug: string,
   t: AppMessages,
@@ -56,14 +69,10 @@ function buildFeaturedTabDefs(
   return tabs
 }
 
-export default async function FeaturedPlacesModule({
-  config,
+export async function loadFeaturedPlacesModuleData(
+  categorySlug: string,
   locale = 'tr',
-}: {
-  config: FeaturedPlacesModuleConfig
-  locale?: string
-}) {
-  const categorySlug = config.categorySlug ?? 'oteller'
+): Promise<FeaturedPlacesModuleData | null> {
   const featuredConfig = await getFeaturedListingsConfig(categorySlug)
   const tabIds = featuredConfig?.tabs ?? normalizeFeaturedListingsConfig(null, categorySlug).tabs
   const displayCount = featuredConfig?.displayCount ?? DEFAULT_FEATURED_DISPLAY_COUNT
@@ -96,15 +105,15 @@ export default async function FeaturedPlacesModule({
   const t = getMessages(locale)
   const categoryFeatured = t.homePage.featuredByCategory?.[categorySlug as FeaturedCategoryKey]
 
-  let heading = config.heading ?? categoryFeatured?.heading
+  let heading = categoryFeatured?.heading
   if (!heading) {
     const raw = getCategoryBySlug(categorySlug)
     const resolved = raw ? resolveCategoryDisplay(raw, locale) : null
     heading = resolved?.name ?? t.site.featured.heading
   }
 
-  const subHeading = config.subHeading ?? categoryFeatured?.subHeading ?? ''
-  const viewAllHref = config.viewAllHref ?? `/${categorySlug}/all`
+  const subHeading = categoryFeatured?.subHeading ?? ''
+  const viewAllHref = `/${categorySlug}/all`
   const tabDefs = buildFeaturedTabDefs(categorySlug, t)
 
   // Tam havuz sunucuda kalır; RSC'ye yalnızca sekme başına gösterilecek kartlar gider.
@@ -116,19 +125,44 @@ export default async function FeaturedPlacesModule({
     lastMinuteListings: lastMinuteListingsRaw,
   })
 
+  return {
+    listings: pruned.listings,
+    lastMinuteListings: pruned.lastMinuteListings,
+    lastMinuteViewAllHref,
+    heading,
+    subHeading,
+    viewAllHref,
+    tabDefs,
+    tabIds: pruned.tabIds,
+    displayCount,
+    categorySlug,
+  }
+}
+
+export default async function FeaturedPlacesModule({
+  config,
+  locale = 'tr',
+}: {
+  config: FeaturedPlacesModuleConfig
+  locale?: string
+}) {
+  const categorySlug = config.categorySlug ?? 'oteller'
+  const data = await loadFeaturedPlacesModuleData(categorySlug, locale)
+  if (!data) return null
+
   return (
     <SectionGridFeaturePlaces
-      stayListings={pruned.listings}
+      stayListings={data.listings}
       cardType={(config.cardType as 'card1' | 'card2') ?? 'card2'}
-      heading={heading}
-      subHeading={subHeading}
-      tabDefs={tabDefs}
-      tabListingIds={pruned.tabIds}
-      lastMinuteListings={pruned.lastMinuteListings}
-      lastMinuteViewAllHref={lastMinuteViewAllHref}
-      categorySlug={categorySlug}
-      maxCount={displayCount}
-      rightButtonHref={viewAllHref}
+      heading={config.heading ?? data.heading}
+      subHeading={config.subHeading ?? data.subHeading}
+      tabDefs={data.tabDefs}
+      tabListingIds={data.tabIds}
+      lastMinuteListings={data.lastMinuteListings}
+      lastMinuteViewAllHref={data.lastMinuteViewAllHref}
+      categorySlug={data.categorySlug}
+      maxCount={data.displayCount}
+      rightButtonHref={config.viewAllHref ?? data.viewAllHref}
     />
   )
 }

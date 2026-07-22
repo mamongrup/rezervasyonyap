@@ -35,6 +35,7 @@ import RegionSliderModule from './modules/RegionSliderModule'
 import SlidersBannerModule from './modules/SlidersBannerModule'
 import GeziOnerileriModule from './modules/GeziOnerileriModule'
 import FeaturedPlacesModule from './modules/FeaturedPlacesModule'
+import DeferredFeaturedPlacesModule from './modules/DeferredFeaturedPlacesModule'
 import HowItWorksModule from './modules/HowItWorksModule'
 import CategoryGridModule from './modules/CategoryGridModule'
 import CategoryHubGridModule from './modules/CategoryHubGridModule'
@@ -156,6 +157,8 @@ interface PageBuilderRendererProps {
   listingsBrowseHref?: string
   /** Varsayılan `div` — anasayfada `section` ile ek sarmalayıcı olmadan semantik + daha az DOM */
   rootAs?: 'div' | 'section'
+  /** Ağır ilan vitrinlerini görünür alana yaklaşınca istemcide yükler. */
+  deferFeaturedPlaces?: boolean
   /** Kök öğeye (örn. `contentVisibility` — PSI DOM/style maliyeti) */
   rootStyle?: CSSProperties
   /** Kategori vitrinı | bölge detay vitrinı */
@@ -185,6 +188,7 @@ export default async function PageBuilderRenderer({
   searchContext,
   pageKey,
   rootAs = 'div',
+  deferFeaturedPlaces = false,
   rootStyle,
   layoutVariant = 'category',
   regionSlots,
@@ -587,6 +591,16 @@ export default async function PageBuilderRenderer({
 
           case 'featured_places': {
             const cfg = module.config
+            if (deferFeaturedPlaces) {
+              return (
+                <DeferredFeaturedPlacesModule
+                  key={module.id}
+                  config={cfg}
+                  locale={locale}
+                />
+              )
+            }
+
             return (
               // Each storefront streams independently; five category pools must not
               // keep the already-ready homepage modules behind one skeleton.

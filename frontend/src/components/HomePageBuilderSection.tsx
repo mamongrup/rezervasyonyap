@@ -63,6 +63,7 @@ export default async function HomePageBuilderSection({
   return (
     <PageBuilderRenderer
       rootAs="section"
+      deferFeaturedPlaces
       modules={modulesWithRegion.filter((m) => m.type !== 'hero')}
       category={HOME_CATEGORY}
       locale={locale}
