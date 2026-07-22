@@ -874,28 +874,83 @@ fn normalize_location_search_q(raw: String) -> String {
 const listing_search_match_sql: String =
   "translate(lower(coalesce((select lt2.title from listing_translations lt2 join locales lo2 on lo2.id = lt2.locale_id where lt2.listing_id = l.id order by case when lower(lo2.code) = 'tr' then 0 else 1 end limit 1), l.slug) || ' ' || replace(l.slug, '-', ' ') || ' ' || coalesce(l.location_name, '') || ' ' || coalesce(lm.meta->>'address', '') || ' ' || coalesce(lm.meta->>'province_city', '') || ' ' || coalesce(lm.meta->>'city', '') || ' ' || coalesce(lm.meta->>'district_label', '') || ' ' || coalesce(lm.meta->>'region_display', '') || ' ' || coalesce(lm.meta->>'property_type', '')), 'üğışöç', 'ugisoc')"
 
-/// Autocomplete eşleşmesi — `370`/`371` trgm index ifadeleriyle uyumlu (slug, konum, başlık).
-/// Tam browse `listing_search_match_sql` meta blob + correlated title kullanır → seq scan ~6s.
+/// Autocomplete eşleşmesi — kısa token’da kelime öneki (mam → Mamon, Mama;
+/// Pachamama / Imamoglu gibi ortadaki "mam" elenir). ≥4 karakterde infix de açılır.
+const listing_suggest_slug_ascii_sql: String = "lower(replace(l.slug, '-', ' '))"
+
 const listing_suggest_token_match_sql: String =
   "("
-  <> "lower(replace(l.slug, '-', ' ')) ilike '%' || trim(tok) || '%' "
-  <> "or lower(coalesce(l.location_name, '')) ilike '%' || trim(tok) || '%' "
+  // Kelime öneki: başlar veya boşluktan sonra
+  <> listing_suggest_slug_ascii_sql
+  <> " ilike trim(tok) || '%' "
+  <> "or "
+  <> listing_suggest_slug_ascii_sql
+  <> " ilike '% ' || trim(tok) || '%' "
+  <> "or lower(coalesce(l.location_name, '')) ilike trim(tok) || '%' "
+  <> "or lower(coalesce(l.location_name, '')) ilike '% ' || trim(tok) || '%' "
   <> "or exists ("
   <> "  select 1 from listing_translations lt "
-  <> "  where lt.listing_id = l.id "
-  <> "    and translate(lower(lt.title), 'üğışöç', 'ugisoc') ilike '%' || trim(tok) || '%'"
+  <> "  where lt.listing_id = l.id and ("
+  <> "    translate(lower(lt.title), 'üğışöç', 'ugisoc') ilike trim(tok) || '%' "
+  <> "    or translate(lower(lt.title), 'üğışöç', 'ugisoc') ilike '% ' || trim(tok) || '%'"
+  <> "  )"
+  <> ") "
+  // Uzun token: içeride geçen eşleşme (luxury → Mamon Luxury…)
+  <> "or ("
+  <> "  char_length(trim(tok)) >= 4 and ("
+  <> "    "
+  <> listing_suggest_slug_ascii_sql
+  <> " ilike '%' || trim(tok) || '%' "
+  <> "    or lower(coalesce(l.location_name, '')) ilike '%' || trim(tok) || '%' "
+  <> "    or exists ("
+  <> "      select 1 from listing_translations lt "
+  <> "      where lt.listing_id = l.id "
+  <> "        and translate(lower(lt.title), 'üğışöç', 'ugisoc') ilike '%' || trim(tok) || '%'"
+  <> "    )"
+  <> "  )"
   <> ")"
   <> ")"
 
-const listing_suggest_rank_sql: String =
-  "("
-  <> "lower(replace(l.slug, '-', ' ')) ilike '%' || split_part(trim(coalesce($1::text, '')), ' ', 1) || '%' "
-  <> "or exists ("
-  <> "  select 1 from listing_translations lt "
-  <> "  where lt.listing_id = l.id "
-  <> "    and translate(lower(lt.title), 'üğışöç', 'ugisoc') ilike '%' || split_part(trim(coalesce($1::text, '')), ' ', 1) || '%'"
-  <> ")"
-  <> ")"
+/// Sıra: başlık/slug öneki → kelime öneki → trgm word_similarity → created_at.
+/// Böylece "mam" için Mamon/Mama üste gelir; rastgele yeni oteller değil.
+const listing_suggest_order_sql: String =
+  "order by "
+  <> "case "
+  <> "when exists ("
+  <> "  select 1 from listing_translations lt where lt.listing_id = l.id "
+  <> "    and translate(lower(lt.title), 'üğışöç', 'ugisoc') "
+  <> "      ilike split_part(trim(coalesce($1::text, '')), ' ', 1) || '%'"
+  <> ") then 0 "
+  <> "when "
+  <> listing_suggest_slug_ascii_sql
+  <> " ilike split_part(trim(coalesce($1::text, '')), ' ', 1) || '%' then 0 "
+  <> "when exists ("
+  <> "  select 1 from listing_translations lt where lt.listing_id = l.id "
+  <> "    and translate(lower(lt.title), 'üğışöç', 'ugisoc') "
+  <> "      ilike '% ' || split_part(trim(coalesce($1::text, '')), ' ', 1) || '%'"
+  <> ") then 1 "
+  <> "when "
+  <> listing_suggest_slug_ascii_sql
+  <> " ilike '% ' || split_part(trim(coalesce($1::text, '')), ' ', 1) || '%' then 1 "
+  <> "else 2 end asc, "
+  <> "greatest("
+  <> "  coalesce(("
+  <> "    select max(word_similarity("
+  <> "      nullif(split_part(trim(coalesce($1::text, '')), ' ', 1), ''),"
+  <> "      translate(lower(lt.title), 'üğışöç', 'ugisoc')"
+  <> "    )) from listing_translations lt where lt.listing_id = l.id"
+  <> "  ), 0),"
+  <> "  coalesce(word_similarity("
+  <> "    nullif(split_part(trim(coalesce($1::text, '')), ' ', 1), ''),"
+  <> "    "
+  <> listing_suggest_slug_ascii_sql
+  <> "  ), 0),"
+  <> "  coalesce(word_similarity("
+  <> "    nullif(split_part(trim(coalesce($1::text, '')), ' ', 1), ''),"
+  <> "    lower(coalesce(l.location_name, ''))"
+  <> "  ), 0)"
+  <> ") desc, "
+  <> "l.created_at desc "
 
 /// Suggest SELECT: autocomplete’in ihtiyaç duyduğu alanlar + decoder için boş pad (54 kolon).
 const listing_suggest_select_sql: String =
@@ -1720,9 +1775,7 @@ fn search_listings_impl(
     <> listing_suggest_token_match_sql
     <> "), true) from unnest(string_to_array(trim($1), ' ')) as u(tok) where trim(tok) <> '')) "
     <> "and ($2::text is null or pc.code = $2) "
-    <> "order by case when "
-    <> listing_suggest_rank_sql
-    <> " then 0 else 1 end, l.created_at desc "
+    <> listing_suggest_order_sql
     <> "offset $21 limit $5"
     <> ") "
     <> "select "
@@ -1731,9 +1784,7 @@ fn search_listings_impl(
     <> "join listings l on l.id = __pids.id "
     <> "join product_categories pc on pc.id = l.category_id "
     <> "cross join (select $3::text as a3, $6::text as a6, $7::text as a7, $8::text as a8, $9::text as a9, $10::text as a10, $11::text as a11, $12::text as a12, $13::text as a13, $14::text as a14, $15::text as a15, $16::text as a16, $17::text as a17, $18::text as a18, $19::text as a19, $20::text as a20, $22::uuid as a22, $23::text as a23, $24::text as a24, $25::text as a25, $26::text as a26, $27::text as a27, $28::text as a28, $29::text as a29, $30::text as a30, $31::text as a31) __bind "
-    <> "order by case when "
-    <> listing_suggest_rank_sql
-    <> " then 0 else 1 end, l.created_at desc "
+    <> listing_suggest_order_sql
 
   let agency_param = case agency_org_opt {
     None -> pog.null()
