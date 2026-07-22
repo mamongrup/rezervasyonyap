@@ -44,30 +44,37 @@ function coverImg(post: BlogPost): string | null {
 interface Props {
   locale: string
   className?: string
+  staticOnly?: boolean
 }
 
-export default async function SectionGeziOnerileri({ locale, className = '' }: Props) {
+export default async function SectionGeziOnerileri({
+  locale,
+  className = '',
+  staticOnly = false,
+}: Props) {
   const categoryHref = await vitrinHref(locale, `/blog/category/${CATEGORY_SLUG}`)
 
   let posts: BlogPost[] = []
   let categoryId: string | null = null
 
-  try {
-    const [catsRes, allPostsRes] = await Promise.all([
-      listBlogCategories().catch(() => ({ categories: [] })),
-      listBlogPosts({ published_only: true, limit: 50 }).catch(() => ({ posts: [] })),
-    ])
+  if (!staticOnly) {
+    try {
+      const [catsRes, allPostsRes] = await Promise.all([
+        listBlogCategories().catch(() => ({ categories: [] })),
+        listBlogPosts({ published_only: true, limit: 50 }).catch(() => ({ posts: [] })),
+      ])
 
-    const cat = catsRes.categories.find((c) => c.slug === CATEGORY_SLUG)
-    categoryId = cat?.id ?? null
+      const cat = catsRes.categories.find((c) => c.slug === CATEGORY_SLUG)
+      categoryId = cat?.id ?? null
 
-    if (categoryId) {
-      posts = allPostsRes.posts
-        .filter((p) => p.category_id === categoryId)
-        .slice(0, 3)
+      if (categoryId) {
+        posts = allPostsRes.posts
+          .filter((p) => p.category_id === categoryId)
+          .slice(0, 3)
+      }
+    } catch {
+      // API bağlı değil — boş göster
     }
-  } catch {
-    // API bağlı değil — boş göster
   }
 
   const hasPosts = posts.length > 0

@@ -5,5 +5,5 @@ export interface GeziOnerileriModuleConfig {
 }
 
 export default function GeziOnerileriModule({ config }: { config: GeziOnerileriModuleConfig }) {
-  return <SectionGeziOnerileri locale={config.locale ?? 'tr'} />
+  return <SectionGeziOnerileri locale={config.locale ?? 'tr'} staticOnly />
 }

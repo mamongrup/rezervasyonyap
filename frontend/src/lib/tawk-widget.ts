@@ -226,7 +226,6 @@ export function ensureTawkScriptLoaded(): Promise<void> {
     s.async = true
     s.src = `https://embed.tawk.to/${propertyId}/${widgetId}`
     s.charset = 'UTF-8'
-    s.setAttribute('crossorigin', '*')
     s.onload = () => resolve()
     s.onerror = () => resolve()
     document.body.appendChild(s)
