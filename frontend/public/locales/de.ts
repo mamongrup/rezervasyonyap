@@ -537,6 +537,8 @@ export const de: AppMessages = {
       installmentSubtitle: 'Bis zu {count} zinslose Raten auf alle Kreditkarten.',
       discountBadge: '{percent}% Rabatt',
       validUntil: 'Gültig bis {date}.',
+      nearbyAvailabilityTitle: 'Kurzfristig verfügbar',
+      nearbyAvailabilitySubtitle: 'Für {date} buchbar.',
     },
     yachtSpecs: {
       title: 'Technische Daten',

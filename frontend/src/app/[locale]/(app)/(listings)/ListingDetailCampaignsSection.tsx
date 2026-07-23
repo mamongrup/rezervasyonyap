@@ -4,8 +4,9 @@ import {
   installmentCountFromRules,
   type ListingDetailCampaignItem,
 } from '@/lib/listing-detail-campaigns'
+import type { ListingAvailabilityDay } from '@/lib/travel-api'
 import { Divider } from '@/shared/divider'
-import { CreditCardIcon, Tag01Icon } from '@hugeicons/core-free-icons'
+import { Calendar03Icon, CreditCardIcon, Tag01Icon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
 import clsx from 'clsx'
 import { SectionHeading } from './components/SectionHeading'
@@ -32,12 +33,13 @@ function CampaignCard({
   return (
     <li
       className={clsx(
-        'flex min-w-0 flex-1 items-start gap-3 rounded-2xl border px-4 py-3.5 shadow-sm sm:items-center sm:gap-4 sm:px-5 sm:py-4',
+        'group relative flex min-w-0 items-start gap-3 overflow-hidden rounded-2xl border px-4 py-4 shadow-sm transition duration-300 hover:-translate-y-0.5 hover:shadow-md sm:items-center sm:gap-4 sm:px-5 sm:py-5',
         isInstallment
-          ? 'border-emerald-200/90 bg-gradient-to-br from-emerald-50/90 to-white dark:border-emerald-900/50 dark:from-emerald-950/30 dark:to-neutral-900'
-          : 'border-violet-200/90 bg-gradient-to-br from-violet-50/80 to-white dark:border-violet-900/50 dark:from-violet-950/25 dark:to-neutral-900',
+          ? 'h-full border-emerald-200/90 bg-gradient-to-br from-emerald-50 via-white to-teal-50 dark:border-emerald-900/50 dark:from-emerald-950/40 dark:via-neutral-900 dark:to-teal-950/30'
+          : 'border-violet-200/90 bg-gradient-to-br from-violet-50 via-white to-fuchsia-50 dark:border-violet-900/50 dark:from-violet-950/30 dark:via-neutral-900 dark:to-fuchsia-950/20',
       )}
     >
+      <span className="pointer-events-none absolute -end-8 -top-10 h-28 w-28 rounded-full bg-current opacity-[0.035]" />
       <span
         className={clsx(
           'flex h-11 w-11 shrink-0 items-center justify-center rounded-xl',
@@ -76,22 +78,63 @@ function CampaignCard({
   )
 }
 
+function ymdInIstanbul(date: Date): string {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Europe/Istanbul',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(date)
+}
+
+function nearestAvailableDay(days: ListingAvailabilityDay[]): string | null {
+  const now = new Date()
+  const today = ymdInIstanbul(now)
+  const limitDate = new Date(now)
+  limitDate.setUTCDate(limitDate.getUTCDate() + 7)
+  const limit = ymdInIstanbul(limitDate)
+  return days
+    .filter((day) => {
+      const available =
+        day.am_available === undefined && day.pm_available === undefined
+          ? day.is_available
+          : Boolean(day.am_available || day.pm_available)
+      return available && day.day >= today && day.day <= limit
+    })
+    .sort((a, b) => a.day.localeCompare(b.day))[0]?.day ?? null
+}
+
+function formatAvailabilityDate(day: string, locale: string): string {
+  return new Date(`${day}T12:00:00Z`).toLocaleDateString(locale === 'tr' ? 'tr-TR' : locale, {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+  })
+}
+
 export default function ListingDetailCampaignsSection({
   locale,
   campaigns,
+  availabilityDays,
   title,
   labels,
 }: {
   locale: string
   campaigns: ListingDetailCampaignItem[]
+  availabilityDays: ListingAvailabilityDay[]
   title: string
   labels: {
     installmentSubtitle: (count: number) => string
     discountBadge: (percent: string) => string
     validUntil: (date: string) => string
+    nearbyAvailabilityTitle: string
+    nearbyAvailabilitySubtitle: (date: string) => string
   }
 }) {
-  if (campaigns.length === 0) return null
+  const installment = campaigns.find((item) => item.kind === 'card_installment')
+  const discounts = campaigns.filter((item) => item.kind !== 'card_installment')
+  const availableDay = nearestAvailableDay(availabilityDays)
+  if (!installment && discounts.length === 0 && !availableDay) return null
 
   return (
     <section aria-labelledby="listing-detail-campaigns-heading" className="listingSection__wrap">
@@ -99,11 +142,34 @@ export default function ListingDetailCampaignsSection({
         <SectionHeading id="listing-detail-campaigns-heading">{title}</SectionHeading>
       </div>
       <Divider className="w-14!" />
-      <ul className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
-        {campaigns.map((item) => (
-          <CampaignCard key={item.id} item={item} locale={locale} labels={labels} />
-        ))}
-      </ul>
+      <div className="grid gap-3 md:grid-cols-2">
+        {installment ? (
+          <ul>
+            <CampaignCard item={installment} locale={locale} labels={labels} />
+          </ul>
+        ) : null}
+        <ul className={clsx('grid gap-3', !installment && 'md:col-span-2 md:grid-cols-2')}>
+          {discounts.map((item) => (
+            <CampaignCard key={item.id} item={item} locale={locale} labels={labels} />
+          ))}
+          {availableDay ? (
+            <li className="group relative flex min-w-0 items-center gap-4 overflow-hidden rounded-2xl border border-amber-200/90 bg-gradient-to-br from-amber-50 via-white to-orange-50 px-4 py-4 shadow-sm transition duration-300 hover:-translate-y-0.5 hover:shadow-md dark:border-amber-900/50 dark:from-amber-950/30 dark:via-neutral-900 dark:to-orange-950/20 sm:px-5 sm:py-5">
+              <span className="pointer-events-none absolute -end-8 -top-10 h-28 w-28 rounded-full bg-amber-600 opacity-[0.04]" />
+              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300" aria-hidden>
+                <HugeiconsIcon icon={Calendar03Icon} size={22} strokeWidth={1.75} />
+              </span>
+              <div className="min-w-0">
+                <p className="text-sm font-bold leading-snug text-neutral-900 dark:text-white sm:text-base">
+                  {labels.nearbyAvailabilityTitle}
+                </p>
+                <p className="mt-1 text-xs leading-relaxed text-neutral-600 dark:text-neutral-400 sm:text-sm">
+                  {labels.nearbyAvailabilitySubtitle(formatAvailabilityDate(availableDay, locale))}
+                </p>
+              </div>
+            </li>
+          ) : null}
+        </ul>
+      </div>
     </section>
   )
 }
