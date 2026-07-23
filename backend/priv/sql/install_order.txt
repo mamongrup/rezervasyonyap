@@ -214,6 +214,7 @@ modules/369_perf_listing_detail_and_vitrin_refresh.sql
 modules/370_perf_listing_search_trgm.sql
 modules/371_perf_listing_suggest_title_trgm.sql
 modules/372_listing_region_stats_cache.sql
+modules/373_region_stats_cache_thumbnails.sql
 
 # Kurulum doğrulama (install_order’a dahil değil — elle çalıştırın):
 #   psql -U postgres -d travel -f priv/sql/check_installation.sql

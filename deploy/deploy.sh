@@ -307,6 +307,15 @@ main() {
     warn "372_listing_region_stats_cache.sql bulunamadı"
   fi
 
+  if [[ -f "$APP_ROOT/backend/priv/sql/modules/373_region_stats_cache_thumbnails.sql" ]]; then
+    step "Bölge istatistik thumbnail (region-stats)"
+    bash "$APP_ROOT/deploy/apply-sql.sh" \
+      "$APP_ROOT/backend/priv/sql/modules/373_region_stats_cache_thumbnails.sql" \
+      || warn "373 region-stats thumbnail SQL uygulanamadı — bölge kartları gri kalabilir"
+  else
+    warn "373_region_stats_cache_thumbnails.sql bulunamadı"
+  fi
+
   if [[ "${SKIP_AI_WORKER_TIMER:-0}" == "1" ]]; then
     warn "SKIP_AI_WORKER_TIMER=1 — AI watchdog ve kuyruk worker timer kurulumu atlandı."
   elif [[ -f "$APP_ROOT/deploy/systemd/travel-ai-worker.service" && -f "$APP_ROOT/deploy/systemd/travel-ai-worker.timer" ]]; then
