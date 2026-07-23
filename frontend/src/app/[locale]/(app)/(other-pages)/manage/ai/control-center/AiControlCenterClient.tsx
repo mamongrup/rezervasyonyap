@@ -76,6 +76,28 @@ export default function AiControlCenterClient() {
 
     {error ? <p className="mb-4 rounded-xl bg-red-50 p-3 text-sm text-red-700">{error}</p> : null}
     {data ? <>
+      <div className={`mb-4 rounded-2xl border p-4 ${data.autopilot.enabled ? 'border-violet-200 bg-violet-50 dark:bg-violet-950/20' : 'border-neutral-200 bg-neutral-50 dark:border-neutral-800 dark:bg-neutral-900'}`}>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <p className="font-semibold">
+              Autopilot {data.autopilot.enabled ? 'aktif' : 'kapalı'}
+            </p>
+            <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-300">
+              Eksik işleri kendisi bulur, uzmanlara dağıtır ve doğrulanmış düşük riskli içeriği otomatik uygular.
+            </p>
+          </div>
+          <span className={`rounded-full px-3 py-1 text-xs font-semibold ${data.autopilot.enabled ? 'bg-violet-600 text-white' : 'bg-neutral-200 text-neutral-600'}`}>
+            {data.autopilot.auto_apply_verified_content ? 'Güvenli otomatik uygulama' : 'Yalnızca taslak'}
+          </span>
+        </div>
+        <p className="mt-3 text-xs text-neutral-500">
+          Son tur: {data.autopilot.last_tick_at ? new Date(data.autopilot.last_tick_at).toLocaleString('tr-TR') : 'Henüz çalışmadı'}
+          {' · '}Bulunan: {data.autopilot.last_result.discovered ?? 0}
+          {' · '}Uygulanan: {data.autopilot.last_result.auto_applied ?? 0}
+        </p>
+        {data.autopilot.last_result.error ? <p className="mt-2 text-xs font-medium text-red-600">{data.autopilot.last_result.error}</p> : null}
+      </div>
+
       <div className={`mb-4 rounded-2xl border p-4 ${data.supervisor.requires_attention ? 'border-amber-300 bg-amber-50 dark:bg-amber-950/20' : 'border-emerald-200 bg-emerald-50 dark:bg-emerald-950/20'}`}>
         <p className="font-semibold">{data.supervisor.requires_attention ? 'Operasyon amiri müdahale bekliyor' : 'Operasyon amiri: sistem normal çalışıyor'}</p>
         <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-300">{data.supervisor.degraded_agents} ajan izleniyor, {data.supervisor.critical_incidents} kritik olay var.</p>

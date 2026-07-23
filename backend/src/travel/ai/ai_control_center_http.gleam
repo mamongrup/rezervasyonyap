@@ -33,6 +33,17 @@ const sql = "select jsonb_build_object(
    'usd_30d',coalesce((select round(sum(estimated_cost_usd),4) from ai_jobs where created_at>now()-interval '30 days'),0),
    'tokens_30d',coalesce((select sum(estimated_input_tokens+estimated_output_tokens) from ai_jobs where created_at>now()-interval '30 days'),0)
  ),
+ 'autopilot',coalesce((
+   select jsonb_build_object(
+     'enabled',enabled,
+     'discovery_batch_size',discovery_batch_size,
+     'max_open_work_items',max_open_work_items,
+     'auto_apply_verified_content',auto_apply_verified_content,
+     'last_tick_at',last_tick_at,
+     'last_result',last_result_json
+   )
+   from ai_autopilot_policy where singleton
+ ),'{}'::jsonb),
  'agents',(select coalesce(jsonb_agg(to_jsonb(h) order by h.org_role,h.display_name),'[]'::jsonb) from ai_agent_health h),
  'supervisor',jsonb_build_object(
    'open_incidents',(select count(*) from ai_operations_incidents where status='open'),
