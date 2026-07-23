@@ -8,7 +8,7 @@ import { stripLocalePrefix } from '@/lib/i18n-config'
 import clsx from 'clsx'
 import Form from 'next/form'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
-import { useEffect, useMemo } from 'react'
+import { Suspense, useEffect, useMemo } from 'react'
 import { ButtonSubmit, DateRangeField, GuestNumberField, LocationInputField, VerticalDividerLine } from './ui'
 import FlexDateToggle from './FlexDateToggle'
 
@@ -27,15 +27,35 @@ interface Props {
   searchPrefill?: StaySearchPrefill
 }
 
-export const StaySearchForm = ({
+function mergePrefill(
+  searchPrefill: StaySearchPrefill | undefined,
+  fromUrl: StaySearchPrefill,
+): StaySearchPrefill {
+  return {
+    location: searchPrefill?.location?.trim() || fromUrl.location,
+    checkin: searchPrefill?.checkin?.trim() || fromUrl.checkin,
+    checkout: searchPrefill?.checkout?.trim() || fromUrl.checkout,
+    guests: searchPrefill?.guests?.trim() || fromUrl.guests,
+  }
+}
+
+function guestDefaultsFromPrefill(prefill: StaySearchPrefill) {
+  const raw = prefill.guests
+  if (!raw) return DEFAULT_GUESTS_STAY
+  const n = parseInt(raw, 10)
+  if (!Number.isFinite(n) || n < 1) return DEFAULT_GUESTS_STAY
+  return { ...DEFAULT_GUESTS_STAY, guestAdults: n }
+}
+
+function StaySearchFormFields({
   className,
   formStyle = 'default',
   searchTargetPath: searchTargetPathProp,
   searchPrefill,
-}: Props) => {
+  urlSearch,
+}: Props & { urlSearch: StaySearchPrefill }) {
   const router = useRouter()
   const pathname = usePathname()
-  const urlSearch = useSearchParams()
   const vitrinHref = useVitrinHref()
 
   const searchTargetPath = useMemo(() => {
@@ -44,28 +64,12 @@ export const StaySearchForm = ({
     return staySearchResultsPathFromRestPath(restPath)
   }, [pathname, searchTargetPathProp])
 
-  const prefill = useMemo((): StaySearchPrefill => {
-    const fromUrl: StaySearchPrefill = {
-      location: urlSearch.get('location')?.trim() || undefined,
-      checkin: urlSearch.get('checkin')?.trim() || undefined,
-      checkout: urlSearch.get('checkout')?.trim() || undefined,
-      guests: urlSearch.get('guests')?.trim() || undefined,
-    }
-    return {
-      location: searchPrefill?.location?.trim() || fromUrl.location,
-      checkin: searchPrefill?.checkin?.trim() || fromUrl.checkin,
-      checkout: searchPrefill?.checkout?.trim() || fromUrl.checkout,
-      guests: searchPrefill?.guests?.trim() || fromUrl.guests,
-    }
-  }, [searchPrefill, urlSearch])
+  const prefill = useMemo(
+    () => mergePrefill(searchPrefill, urlSearch),
+    [searchPrefill, urlSearch],
+  )
 
-  const guestDefaults = useMemo(() => {
-    const raw = prefill.guests
-    if (!raw) return DEFAULT_GUESTS_STAY
-    const n = parseInt(raw, 10)
-    if (!Number.isFinite(n) || n < 1) return DEFAULT_GUESTS_STAY
-    return { ...DEFAULT_GUESTS_STAY, guestAdults: n }
-  }, [prefill.guests])
+  const guestDefaults = useMemo(() => guestDefaultsFromPrefill(prefill), [prefill])
 
   useEffect(() => {
     router.prefetch(vitrinHref(searchTargetPath))
@@ -97,7 +101,7 @@ export const StaySearchForm = ({
         className,
         formStyle === 'small' && 'custom-shadow-1',
         formStyle === 'default' &&
-          'shadow-[0_8px_30px_rgba(15,23,42,0.08)] ring-1 ring-black/5 dark:shadow-2xl dark:ring-white/10 pr-[4.25rem] sm:pr-[4.5rem]'
+          'shadow-[0_8px_30px_rgba(15,23,42,0.08)] ring-1 ring-black/5 dark:shadow-2xl dark:ring-white/10 pr-[4.25rem] sm:pr-[4.5rem]',
       )}
       action={handleFormSubmit}
     >
@@ -124,5 +128,37 @@ export const StaySearchForm = ({
       <ButtonSubmit fieldStyle={formStyle} className="z-10" />
       <FlexDateToggle className="absolute -bottom-10 left-1/2 hidden -translate-x-1/2 sm:flex" />
     </Form>
+  )
+}
+
+/** `useSearchParams` — Suspense içinde; fallback gerçek form (gri pulse yok). */
+function StaySearchFormWithUrl(props: Props) {
+  const urlSearchParams = useSearchParams()
+  const fromUrl: StaySearchPrefill = {
+    location: urlSearchParams.get('location')?.trim() || undefined,
+    checkin: urlSearchParams.get('checkin')?.trim() || undefined,
+    checkout: urlSearchParams.get('checkout')?.trim() || undefined,
+    guests: urlSearchParams.get('guests')?.trim() || undefined,
+  }
+  return <StaySearchFormFields {...props} urlSearch={fromUrl} />
+}
+
+export const StaySearchForm = (props: Props) => {
+  return (
+    <Suspense
+      fallback={
+        <StaySearchFormFields
+          {...props}
+          urlSearch={{
+            location: props.searchPrefill?.location,
+            checkin: props.searchPrefill?.checkin,
+            checkout: props.searchPrefill?.checkout,
+            guests: props.searchPrefill?.guests,
+          }}
+        />
+      }
+    >
+      <StaySearchFormWithUrl {...props} />
+    </Suspense>
   )
 }

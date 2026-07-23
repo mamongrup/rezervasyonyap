@@ -2,11 +2,12 @@
 
 import type { ListingType } from '@/type'
 import dynamic from 'next/dynamic'
-import { useEffect, useState } from 'react'
+import { HeroSearchFormHome } from './HeroSearchFormHome'
 import { HeroSearchFormSkeleton } from './HeroSearchFormSkeleton'
 import type { StaySearchPrefill } from './StaySearchForm'
 
-const HeroSearchForm = dynamic(() => import('./HeroSearchForm'), {
+/** Dikey tab’lı form (nadir): Headless UI + sekme panelleri — ayrı chunk */
+const HeroSearchFormWithTabs = dynamic(() => import('./HeroSearchForm'), {
   ssr: false,
   loading: () => <HeroSearchFormSkeleton />,
 })
@@ -15,8 +16,9 @@ const HeroSearchForm = dynamic(() => import('./HeroSearchForm'), {
  * `HeroSectionWithSearchForm1` (`topSpacing="minimal"`) hero aramasını `hidden lg:block`
  * ile gizler (`ApplicationLayout` üst arama çubuğu da `lg` altında).
  *
- * Eski `useLayoutEffect` + matchMedia: mount’ta senkron setState → PSI forced reflow.
- * Görünürlük zaten CSS ile kontrol edildiği için JS breakpoint’e gerek yok.
+ * JS matchMedia kapısı yok: `useEffect` sonrası `null` → skeleton → form zinciri
+ * masaüstünde kısa “takılma” yapıyordu. Görünürlük CSS’te; ana sayfa / oteller
+ * `hideVerticalTabs` ile `HeroSearchFormHome`’u senkron yükler (iskelet yok).
  */
 export default function HeroSearchDesktopOnly({
   initTab = 'Stays',
@@ -37,23 +39,25 @@ export default function HeroSearchDesktopOnly({
   staySearchTargetPath?: string
   staySearchPrefill?: StaySearchPrefill
 }) {
-  const [isDesktop, setIsDesktop] = useState(false)
-
-  useEffect(() => {
-    const query = window.matchMedia('(min-width: 1024px)')
-    const sync = () => setIsDesktop(query.matches)
-    sync()
-    query.addEventListener('change', sync)
-    return () => query.removeEventListener('change', sync)
-  }, [])
-
-  if (!isDesktop) return null
+  if (hideVerticalTabs) {
+    return (
+      <HeroSearchFormHome
+        initTab={initTab}
+        locale={locale}
+        categoryBarLayout={categoryBarLayout}
+        activeSlugs={activeSlugs}
+        collapseOverflowAfterSlug={collapseOverflowAfterSlug}
+        staySearchTargetPath={staySearchTargetPath}
+        staySearchPrefill={staySearchPrefill}
+      />
+    )
+  }
 
   return (
-    <HeroSearchForm
+    <HeroSearchFormWithTabs
       initTab={initTab}
       locale={locale}
-      hideVerticalTabs={hideVerticalTabs}
+      hideVerticalTabs={false}
       categoryBarLayout={categoryBarLayout}
       activeSlugs={activeSlugs}
       collapseOverflowAfterSlug={collapseOverflowAfterSlug}
