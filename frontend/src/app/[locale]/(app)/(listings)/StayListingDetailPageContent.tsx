@@ -1210,7 +1210,11 @@ export default async function StayListingDetailPageContent({
   }
 
   const renderListingDetailCampaignsSection = () => (
-    <ListingDetailCampaignsFromList locale={locale} campaigns={listingDetailCampaigns} />
+    <ListingDetailCampaignsFromList
+      locale={locale}
+      campaigns={listingDetailCampaigns}
+      availabilityDays={availabilityCalendarDays}
+    />
   )
 
   const renderHotelActivitiesSection = () => {

@@ -519,6 +519,8 @@ export const zh: AppMessages = {
       installmentSubtitle: '所有信用卡均可享最多 {count} 期免息分期。',
       discountBadge: '{percent}% 折扣',
       validUntil: '有效期至 {date}。',
+      nearbyAvailabilityTitle: '近期可订',
+      nearbyAvailabilitySubtitle: '{date} 可预订。',
     },
     yachtSpecs: {
       title: '技术参数',

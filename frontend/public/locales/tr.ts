@@ -824,6 +824,8 @@ export const tr = {
       installmentSubtitle: 'Tüm kredi kartlarına vade farksız {count} taksit imkânı.',
       discountBadge: '%{percent} indirim',
       validUntil: '{date} tarihine kadar geçerlidir.',
+      nearbyAvailabilityTitle: 'Yakın tarihte müsait',
+      nearbyAvailabilitySubtitle: '{date} için rezervasyona uygun.',
     },
     faq: {
       title: 'Sıkça sorulan sorular',

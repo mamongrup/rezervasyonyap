@@ -1307,6 +1307,8 @@ export const en = {
       installmentSubtitle: 'Up to {count} interest-free installments on all credit cards.',
       discountBadge: '{percent}% off',
       validUntil: 'Valid until {date}.',
+      nearbyAvailabilityTitle: 'Available soon',
+      nearbyAvailabilitySubtitle: 'Available to book for {date}.',
     },
     /** Auto-generated FAQ block on hotel detail page */
     faq: {
