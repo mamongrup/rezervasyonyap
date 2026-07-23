@@ -93,10 +93,13 @@ function PosterImg({
   candidates,
   alt,
   className,
+  priority = false,
 }: {
   candidates: string[]
   alt: string
   className?: string
+  /** Ana video — lazy yükleme gri kutu bırakmasın */
+  priority?: boolean
 }) {
   const [idx, setIdx] = useState(0)
   const candidateSig = candidates.join('|')
@@ -107,7 +110,7 @@ function PosterImg({
   const src = candidates[idx] ?? ''
 
   if (!src) {
-    return <div className={clsx(className, 'bg-neutral-800')} aria-hidden />
+    return <div className={clsx(className, 'bg-neutral-200 dark:bg-neutral-800')} aria-hidden />
   }
 
   return (
@@ -118,7 +121,8 @@ function PosterImg({
       onError={() => {
         if (idx < candidates.length - 1) setIdx((i) => i + 1)
       }}
-      loading="lazy"
+      loading={priority ? 'eager' : 'lazy'}
+      fetchPriority={priority ? 'high' : 'auto'}
       decoding="async"
     />
   )
@@ -215,6 +219,7 @@ const SectionVideosInner: FC<SectionVideosProps & { videos: VideoType[] }> = ({
               candidates={candidates}
               alt={video.title}
               className="absolute inset-0 h-full w-full object-cover brightness-100 transition-[filter] group-hover:brightness-75"
+              priority
             />
             <div
               onClick={() => canEmbed && setIsPlay(true)}

@@ -2689,19 +2689,27 @@ pub fn public_region_stats(req: Request, ctx: Context) -> Response {
         |> result.unwrap("")
         |> string.trim
         |> string.lowercase
-      let property_type_param = case property_type_raw == "" {
-        True -> pog.null()
-        False -> pog.text(property_type_raw)
-      }
-      let sql = case is_tour {
-        True -> region_stats_tour_sql()
-        False -> region_stats_domestic_district_sql()
+      let use_property = property_type_raw != ""
+      let query = case is_tour {
+        True ->
+          // tour SQL yalnız $1 (limit) kullanır.
+          pog.query(region_stats_tour_sql())
+          |> pog.parameter(pog.int(lim))
+        False ->
+          case use_property {
+            True ->
+              pog.query(region_stats_domestic_with_property_sql())
+              |> pog.parameter(pog.int(lim))
+              |> pog.parameter(pog.text(cat_raw))
+              |> pog.parameter(pog.text(property_type_raw))
+            False ->
+              pog.query(region_stats_domestic_district_sql())
+              |> pog.parameter(pog.int(lim))
+              |> pog.parameter(pog.text(cat_raw))
+          }
       }
       case
-        pog.query(sql)
-        |> pog.parameter(pog.int(lim))
-        |> pog.parameter(pog.text(cat_raw))
-        |> pog.parameter(property_type_param)
+        query
         |> pog.returning(region_stats_row())
         |> pog.timeout(region_stats_query_timeout_ms)
         |> db_exec.execute(ctx.db)
@@ -2743,35 +2751,50 @@ pub fn public_region_stats(req: Request, ctx: Context) -> Response {
   }
 }
 
-/// Bölge slider — ultralight:
-/// - `listing_attributes` join YOK (16k otelde JSON extract timeout kök nedeni)
-/// - yalnız `listings.location_name` ilk segment → aggregate
-/// - districts/regions tarafında name_key bir kez hesaplanır (hash join)
-/// - ilçe yoksa il kartı
+/// Bölge slider — ultralight + güvenli join:
+/// Otel `location_name` çoğu zaman otel adı → binlerce unique place_key.
+/// `OR` ile districts join hash join'i bozup 16k×1000 timeout üretiyordu.
+/// Eşitlik join'leri ayrı UNION kollarında; `$3` yokken attributes yok.
 fn region_stats_domestic_district_sql() -> String {
+  region_stats_domestic_sql(False)
+}
+
+fn region_stats_domestic_with_property_sql() -> String {
+  region_stats_domestic_sql(True)
+}
+
+fn region_stats_domestic_sql(with_property_type: Bool) -> String {
+  let property_filter = case with_property_type {
+    True ->
+      "    and exists ( "
+      <> "      select 1 from listing_attributes lm "
+      <> "      where lm.listing_id = l.id "
+      <> "        and lm.group_code = 'listing_meta' and lm.key = 'v1' "
+      <> "        and lower(trim(coalesce(lm.value_json->>'property_type', ''))) = $3 "
+      <> "    ) "
+    False -> ""
+  }
   "with cat as ( "
   <> "  select id from product_categories where code = $2 limit 1 "
   <> "), agg as ( "
   <> "  select "
-  <> "    translate(lower(trim(split_part(coalesce(nullif(trim(l.location_name), ''), ''), ',', 1))), "
-  <> "      'üğışöç', 'ugisoc') as place_key, "
+  <> "    translate(lower(trim(coalesce( "
+  <> "      nullif(trim(lm.value_json->>'city'), ''), "
+  <> "      nullif(trim(lm.value_json->>'district_label'), ''), "
+  <> "      nullif(trim(split_part(coalesce(l.location_name, ''), ',', 1)), ''), "
+  <> "      '' "
+  <> "    ))), 'üğışöç', 'ugisoc') as place_key, "
   <> "    count(*)::int as cnt "
   <> "  from listings l "
+  <> "  left join listing_attributes lm on lm.listing_id = l.id "
+  <> "    and lm.group_code = 'listing_meta' and lm.key = 'v1' "
   <> "  where l.status = 'published' "
   <> "    and l.category_id = (select id from cat) "
-  <> "    and coalesce(trim(l.featured_image_url), '') <> '' "
-  <> "    and ( "
-  <> "      $3::text is null "
-  <> "      or exists ( "
-  <> "        select 1 from listing_attributes lm "
-  <> "        where lm.listing_id = l.id "
-  <> "          and lm.group_code = 'listing_meta' and lm.key = 'v1' "
-  <> "          and lower(trim(coalesce(lm.value_json->>'property_type', ''))) = $3 "
-  <> "      ) "
-  <> "    ) "
+  <> property_filter
   <> "  group by 1 "
   <> "), place as ( "
-  <> "  select place_key, cnt from agg "
+  <> "  select place_key, replace(place_key, ' ', '-') as place_slug, cnt "
+  <> "  from agg "
   <> "  where place_key <> '' "
   <> "    and place_key not in ('turkey', 'turkiye', 'tr', 'germany', 'deutschland', 'greece', 'cyprus', 'russia') "
   <> "), dkeys as ( "
@@ -2788,26 +2811,48 @@ fn region_stats_domestic_district_sql() -> String {
   <> "    dk.district_id, rk.region_id, rk.region_slug, dk.district_slug, "
   <> "    dk.district_name as display_name, sum(p.cnt)::int as cnt, 1 as is_district "
   <> "  from place p "
-  <> "  join dkeys dk on dk.name_key = p.place_key or dk.district_slug = replace(p.place_key, ' ', '-') "
+  <> "  join dkeys dk on dk.name_key = p.place_key "
   <> "  join rkeys rk on rk.region_id = dk.region_id "
+  <> "  group by dk.district_id, rk.region_id, rk.region_slug, dk.district_slug, dk.district_name "
+  <> "  union all "
+  <> "  select "
+  <> "    dk.district_id, rk.region_id, rk.region_slug, dk.district_slug, "
+  <> "    dk.district_name as display_name, sum(p.cnt)::int as cnt, 1 as is_district "
+  <> "  from place p "
+  <> "  join dkeys dk on dk.district_slug = p.place_slug "
+  <> "  join rkeys rk on rk.region_id = dk.region_id "
+  <> "  where dk.name_key is distinct from p.place_key "
   <> "  group by dk.district_id, rk.region_id, rk.region_slug, dk.district_slug, dk.district_name "
   <> "), region_hit as ( "
   <> "  select "
   <> "    null::int as district_id, rk.region_id, rk.region_slug, rk.region_slug as district_slug, "
   <> "    rk.region_name as display_name, sum(p.cnt)::int as cnt, 0 as is_district "
   <> "  from place p "
-  <> "  join rkeys rk on rk.name_key = p.place_key or rk.region_slug = replace(p.place_key, ' ', '-') "
+  <> "  join rkeys rk on rk.name_key = p.place_key "
   <> "  where not exists ( "
-  <> "    select 1 from district_hit dh "
-  <> "    where dh.display_name is not null "
-  <> "      and (translate(lower(dh.display_name), 'üğışöç', 'ugisoc') = p.place_key "
-  <> "        or dh.district_slug = replace(p.place_key, ' ', '-')) "
+  <> "    select 1 from district_hit dh where dh.region_id = rk.region_id "
   <> "  ) "
   <> "  group by rk.region_id, rk.region_slug, rk.region_name "
-  <> "), matched as ( "
-  <> "  select * from district_hit "
   <> "  union all "
-  <> "  select * from region_hit "
+  <> "  select "
+  <> "    null::int as district_id, rk.region_id, rk.region_slug, rk.region_slug as district_slug, "
+  <> "    rk.region_name as display_name, sum(p.cnt)::int as cnt, 0 as is_district "
+  <> "  from place p "
+  <> "  join rkeys rk on rk.region_slug = p.place_slug "
+  <> "  where rk.name_key is distinct from p.place_key "
+  <> "    and not exists ( "
+  <> "      select 1 from district_hit dh where dh.region_id = rk.region_id "
+  <> "    ) "
+  <> "  group by rk.region_id, rk.region_slug, rk.region_name "
+  <> "), matched as ( "
+  <> "  select district_id, region_id, region_slug, district_slug, display_name, "
+  <> "    sum(cnt)::int as cnt, max(is_district) as is_district "
+  <> "  from ( "
+  <> "    select * from district_hit "
+  <> "    union all "
+  <> "    select * from region_hit "
+  <> "  ) u "
+  <> "  group by district_id, region_id, region_slug, district_slug, display_name "
   <> ") "
   <> "select "
   <> "  case when m.is_district = 1 "
@@ -2818,6 +2863,7 @@ fn region_stats_domestic_district_sql() -> String {
   <> "  m.cnt, "
   <> "  '' as thumbnail "
   <> "from matched m "
+  <> "where m.cnt > 0 "
   <> "order by m.cnt desc, m.display_name asc "
   <> "limit $1"
 }
