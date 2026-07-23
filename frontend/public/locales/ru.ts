@@ -536,6 +536,8 @@ export const ru: AppMessages = {
       installmentSubtitle: 'До {count} беспроцентных рассрочек по всем кредитным картам.',
       discountBadge: 'Скидка {percent}%',
       validUntil: 'Действует до {date}.',
+      nearbyAvailabilityTitle: 'Доступно в ближайшее время',
+      nearbyAvailabilitySubtitle: 'Доступно для бронирования на {date}.',
     },
     yachtSpecs: {
       title: 'Технические характеристики',

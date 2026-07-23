@@ -536,6 +536,8 @@ export const fr: AppMessages = {
       installmentSubtitle: 'Jusqu’à {count} mensualités sans intérêts sur toutes les cartes.',
       discountBadge: '{percent} % de réduction',
       validUntil: 'Valable jusqu’au {date}.',
+      nearbyAvailabilityTitle: 'Disponible prochainement',
+      nearbyAvailabilitySubtitle: 'Réservable pour le {date}.',
     },
     yachtSpecs: {
       title: 'Caractéristiques techniques',
