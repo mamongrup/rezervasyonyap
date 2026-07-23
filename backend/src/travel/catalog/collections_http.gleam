@@ -29,6 +29,10 @@ const vitrin_query_timeout_ms = 12_000
 /// Autocomplete (`?suggest=1`) — kısa timeout; ağır browse pipeline kullanılmaz.
 const suggest_query_timeout_ms = 3000
 
+/// Bölge slider / kategori shell — anasayfa RSC stream'ini 5 sn açık tutmamak için
+/// kısa pog timeout. Ağır LIKE join yerine eşitlik tabanlı SQL ile <300 ms hedef.
+const region_stats_query_timeout_ms = 3000
+
 fn json_err(status: Int, msg: String) -> Response {
   wisp.json_response(
     json.object([#("error", json.string(msg))]) |> json.to_string,
@@ -2699,9 +2703,19 @@ pub fn public_region_stats(req: Request, ctx: Context) -> Response {
         |> pog.parameter(pog.text(cat_raw))
         |> pog.parameter(property_type_param)
         |> pog.returning(region_stats_row())
+        |> pog.timeout(region_stats_query_timeout_ms)
         |> db_exec.execute(ctx.db)
       {
-        Error(_) -> json_err(500, "region_stats_failed")
+        // Fail-soft: 500 yerine boş liste — anasayfa/kategori Suspense stream'i
+        // kapanır; slider gizlenir, geri kalan modüller takılmaz.
+        Error(_) -> {
+          let body =
+            json.object([
+              #("regions", json.array(from: [], of: fn(x) { x })),
+            ])
+            |> json.to_string
+          wisp.json_response(body, 200)
+        }
         Ok(ret) -> {
           let rows =
             list.map(ret.rows, fn(row) {
@@ -2726,15 +2740,18 @@ pub fn public_region_stats(req: Request, ctx: Context) -> Response {
 }
 
 /// TR ilçeleri — listing_meta (district_label, city, property_type) ile eşleşir; slug: TR/{il}/{ilce}
+///
+/// Performans: önce ilanları (ilçe, il) çiftlerine göre topla, sonra districts/regions ile
+/// **eşitlik** join'i yap. Eski sürüm her ilanı tüm ilçelerle `LIKE '%name%'` ile çaprazlıyordu
+/// (otel × ~1000 ilçe) → 5 sn query_timeout → anasayfa RSC stream ~5.5 sn açık kalıyordu.
 fn region_stats_domestic_district_sql() -> String {
   "with base as ( "
   <> "  select l.id, "
-  <> "    lower(coalesce(nullif(trim(l.location_name), ''), '')) as location_name, "
-  <> "    lower(coalesce(lm.value_json->>'province_city', '')) as province_city, "
-  <> "    lower(coalesce(lm.value_json->>'city', '')) as city, "
-  <> "    lower(coalesce(lm.value_json->>'district_label', '')) as district_label, "
-  <> "    lower(coalesce(lm.value_json->>'region_display', '')) as region_display, "
-  <> "    lower(coalesce(lm.value_json->>'address', '')) as address "
+  <> "    lower(trim(coalesce(lm.value_json->>'district_label', ''))) as district_label, "
+  <> "    lower(trim(coalesce(lm.value_json->>'city', ''))) as city, "
+  <> "    lower(trim(coalesce(lm.value_json->>'province_city', ''))) as province_city, "
+  <> "    lower(trim(coalesce(lm.value_json->>'region_display', ''))) as region_display, "
+  <> "    lower(coalesce(nullif(trim(l.location_name), ''), '')) as location_name "
   <> "  from listings l "
   <> "  join product_categories pc on pc.id = l.category_id "
   <> "  left join listing_attributes lm on lm.listing_id = l.id "
@@ -2742,32 +2759,47 @@ fn region_stats_domestic_district_sql() -> String {
   <> "  where l.status = 'published' and pc.code = $2 "
   <> public_listing_must_have_image_browse_sql()
   <> "    and ($3::text is null or lower(trim(coalesce(lm.value_json->>'property_type', ''))) = $3) "
+  <> "), labeled as ( "
+  <> "  select "
+  <> "    id, "
+  <> "    nullif(trim(both from coalesce( "
+  <> "      nullif(district_label, ''), "
+  <> "      nullif(split_part(location_name, ',', 1), ''), "
+  <> "      '' "
+  <> "    )), '') as district_key, "
+  <> "    nullif(trim(both from coalesce( "
+  <> "      nullif(split_part(province_city, '/', 1), ''), "
+  <> "      nullif(city, ''), "
+  <> "      nullif(region_display, ''), "
+  <> "      nullif(trim(split_part(location_name, ',', 2)), ''), "
+  <> "      '' "
+  <> "    )), '') as province_key "
+  <> "  from base "
+  <> "), agg as ( "
+  <> "  select district_key, province_key, count(*)::int as cnt "
+  <> "  from labeled "
+  <> "  where district_key is not null and province_key is not null "
+  <> "  group by 1, 2 "
   <> "), matched as ( "
-  <> "  select distinct on (b.id) "
-  <> "    b.id as listing_id, d.id as district_id, r.slug as region_slug, d.slug as district_slug, d.name as district_name "
-  <> "  from base b "
+  <> "  select "
+  <> "    d.id as district_id, r.slug as region_slug, d.slug as district_slug, d.name as district_name, "
+  <> "    sum(a.cnt)::int as cnt "
+  <> "  from agg a "
   <> "  join districts d on ( "
-  <> "    b.district_label like '%' || lower(d.name) || '%' "
-  <> "    or b.location_name like '%' || lower(d.name) || '%' "
-  <> "    or b.address like '%' || lower(d.name) || '%' "
-  <> "    or replace(b.location_name, ' ', '-') = d.slug "
+  <> "    lower(d.name) = a.district_key "
+  <> "    or d.slug = replace(a.district_key, ' ', '-') "
   <> "  ) "
   <> "  join regions r on r.id = d.region_id and ( "
-  <> "    b.city like '%' || lower(r.name) || '%' "
-  <> "    or b.province_city like '%' || lower(r.name) || '%' "
-  <> "    or b.location_name like '%' || lower(r.name) || '%' "
-  <> "    or b.region_display like '%' || lower(r.name) || '%' "
-  <> "    or b.address like '%' || lower(r.name) || '%' "
-  <> "    or b.district_label like '%' || lower(r.name) || '%' "
-  <> "    or replace(b.city, ' ', '-') = r.slug "
+  <> "    lower(r.name) = a.province_key "
+  <> "    or r.slug = replace(a.province_key, ' ', '-') "
   <> "  ) "
   <> "  join countries c on c.id = r.country_id and c.iso2 = 'TR' "
-  <> "  order by b.id, length(d.name) desc, d.name "
+  <> "  group by d.id, r.slug, d.slug, d.name "
   <> ") "
   <> "select "
   <> "  'TR/' || m.region_slug || '/' || m.district_slug as slug, "
   <> "  m.district_name as name, "
-  <> "  count(*)::int as cnt, "
+  <> "  m.cnt, "
   <> "  coalesce( "
   <> "    max(nullif(lp.cover_image, '')), "
   <> "    max(nullif(lp.featured_image_url, '')), "
@@ -2777,9 +2809,9 @@ fn region_stats_domestic_district_sql() -> String {
   <> "from matched m "
   <> "left join location_pages lp on lp.district_id = m.district_id "
   <> "  and coalesce(lp.region_type, 'district') = 'district' "
-  <> "group by m.district_id, m.region_slug, m.district_slug, m.district_name "
-  <> "having count(*) > 0 "
-  <> "order by count(*) desc, m.district_name asc "
+  <> "group by m.district_id, m.region_slug, m.district_slug, m.district_name, m.cnt "
+  <> "having m.cnt > 0 "
+  <> "order by m.cnt desc, m.district_name asc "
   <> "limit $1"
 }
 
@@ -2830,16 +2862,17 @@ fn region_stats_tour_sql() -> String {
   <> "    end as is_domestic "
   <> "  from tour_base tb "
   <> "  left join lateral jsonb_array_elements( "
-  <> "    case when jsonb_array_length(tb.countries_json) > 0 then tb.countries_json else '[{}]'::jsonb end "
+  <> "    case when jsonb_typeof(tb.countries_json) = 'array' and jsonb_array_length(tb.countries_json) > 0 "
+  <> "      then tb.countries_json else '[{}]'::jsonb end "
   <> "  ) elem on true "
   <> "  left join countries co on co.iso2 is not null and ( "
   <> "    lower(trim(coalesce(elem->>'code', ''))) = lower(co.iso2) "
   <> "    or lower(trim(coalesce(elem->>'name', ''))) = lower(co.name) "
-  <> "    or (trim(coalesce(elem->>'name', '')) <> '' and lower(co.name) like '%' || lower(trim(elem->>'name')) || '%') "
   <> "  ) "
   <> "  left join countries c_tr on c_tr.id = co.id and c_tr.iso2 = 'TR' "
   <> "  order by tb.id, "
-  <> "    case when jsonb_array_length(tb.countries_json) > 0 and elem != '{}'::jsonb then 0 else 1 end, "
+  <> "    case when jsonb_typeof(tb.countries_json) = 'array' and jsonb_array_length(tb.countries_json) > 0 "
+  <> "      and elem != '{}'::jsonb then 0 else 1 end, "
   <> "    length(coalesce(nullif(trim(elem->>'name'), ''), tb.tour_area, '')) desc "
   <> ") "
   <> "select "

@@ -32,6 +32,7 @@ import DestinationCardsModule from './modules/DestinationCardsModule'
 import PartnersModule from './modules/PartnersModule'
 import CategorySliderModule, { type CategorySliderModuleConfig } from './modules/CategorySliderModule'
 import RegionSliderModule from './modules/RegionSliderModule'
+import DeferredRegionSliderModule from './modules/DeferredRegionSliderModule'
 import SlidersBannerModule from './modules/SlidersBannerModule'
 import GeziOnerileriModule from './modules/GeziOnerileriModule'
 import FeaturedPlacesModule from './modules/FeaturedPlacesModule'
@@ -568,6 +569,16 @@ export default async function PageBuilderRenderer({
 
           case 'region_slider': {
             const cfg = module.config
+            // Anasayfa: region-stats RSC stream'ini açık tutmasın (eski SQL ~5 sn).
+            if (deferFeaturedPlaces) {
+              return (
+                <DeferredRegionSliderModule
+                  key={module.id}
+                  config={cfg}
+                  locale={locale}
+                />
+              )
+            }
             return (
               // Keep slow stats/API work from holding the whole page-builder fallback.
               <Suspense key={module.id} fallback={null}>

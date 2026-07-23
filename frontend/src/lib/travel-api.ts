@@ -7093,7 +7093,17 @@ export async function getPublicRegionStats(
     q.set('category_code', categoryCode)
     q.set('limit', String(limit))
     if (opts?.propertyType?.trim()) q.set('property_type', opts.propertyType.trim())
-    const res = await fetch(`${b}/api/v1/catalog/public/region-stats?${q}`, init)
+    // Anasayfa RSC Suspense: API 5 sn timeout'a düşerse stream açık kalır (yükleme çubuğu).
+    // İstemci/SSR üst sınırı — yavaş/eski API olsa bile fail-soft [].
+    const signal =
+      init?.signal ??
+      (typeof AbortSignal !== 'undefined' && 'timeout' in AbortSignal
+        ? AbortSignal.timeout(2800)
+        : undefined)
+    const res = await fetch(`${b}/api/v1/catalog/public/region-stats?${q}`, {
+      ...init,
+      ...(signal ? { signal } : {}),
+    })
     if (!res.ok) return []
     const data = (await json(res)) as {
       regions?: Array<Partial<PublicRegionStatItem>>
