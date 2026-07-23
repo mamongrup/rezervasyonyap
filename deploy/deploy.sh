@@ -77,7 +77,11 @@ sync_erlang_shipment_dir() {
 
 git_sync_ref() {
   local ref="$1"
-  git fetch origin "$ref"
+  # Branch adini (cursor/foo gibi) her zaman refs/remotes/origin/<ref> olarak yaz —
+  # aksi halde show-ref basarisiz olup `checkout --detach cursor/foo` path sanilir.
+  if ! git fetch origin "+refs/heads/${ref}:refs/remotes/origin/${ref}"; then
+    git fetch origin "$ref" || git fetch origin "tag" "$ref" || fail "git fetch origin $ref basarisiz"
+  fi
   # Izlenen dosyadaki commitlenmemis degisiklikler checkout'u durdurur (ornek:
   # `frontend/public/page-builder/homepage.json`). `git clean` bunlari silmez.
   # GIT_SYNC_KEEP_LOCAL=1 ile bu adimi atlayip elle stash/commit yapabilirsiniz.
@@ -104,8 +108,13 @@ git_sync_ref() {
     git checkout -B "$ref" "origin/$ref"
     git reset --hard "origin/$ref"
   else
-    # tag / detached ref fallback
-    git checkout --detach "$ref"
+    # tag / SHA fallback — path gibi gorunen ref adlarini --detach'e verme
+    local sha
+    sha="$(git rev-parse --verify "refs/tags/${ref}^{commit}" 2>/dev/null \
+      || git rev-parse --verify "${ref}^{commit}" 2>/dev/null \
+      || true)"
+    [[ -n "$sha" ]] || fail "ref bulunamadi: $ref (origin/$ref yok)"
+    git checkout --detach "$sha"
   fi
   # Checkout sonrasi kalan izlenmeyen dosyalar (or. test loglari).
   git clean -fd \
