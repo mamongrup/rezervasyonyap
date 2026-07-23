@@ -458,6 +458,10 @@ export const en = {
         heading: 'Featured activities',
         subHeading: 'Experience-filled moments await you',
       },
+      feribot: {
+        heading: 'Featured ferries',
+        subHeading: 'Recommended routes to islands and coastal towns',
+      },
     },
     howItWorks: {
       title: 'How it works',

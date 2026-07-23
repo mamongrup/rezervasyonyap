@@ -6,6 +6,16 @@ import { checkoutZh } from './checkout'
 export const zh: AppMessages = {
   ...en,
   navMenus,
+  homePage: {
+    ...en.homePage,
+    featuredByCategory: {
+      ...en.homePage.featuredByCategory,
+      feribot: {
+        heading: '精选轮渡',
+        subHeading: '前往岛屿与海滨城镇的推荐航线',
+      },
+    },
+  },
   HeroSearchForm: {
     ...en.HeroSearchForm,
     searchingLocations: '搜索中…',

@@ -239,6 +239,10 @@ export const tr = {
         heading: 'Öne çıkan aktiviteler',
         subHeading: 'Deneyim dolu anlar sizi bekliyor',
       },
+      feribot: {
+        heading: 'Öne çıkan feribotlar',
+        subHeading: 'Ada ve sahil hatlarında önerilen seferler',
+      },
     },
     howItWorks: {
       title: 'Nasıl çalışır?',

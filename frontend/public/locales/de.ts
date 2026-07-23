@@ -6,6 +6,16 @@ import { checkoutDe } from './checkout'
 export const de: AppMessages = {
   ...en,
   navMenus,
+  homePage: {
+    ...en.homePage,
+    featuredByCategory: {
+      ...en.homePage.featuredByCategory,
+      feribot: {
+        heading: 'Empfohlene Fähren',
+        subHeading: 'Empfohlene Verbindungen zu Inseln und Küstenorten',
+      },
+    },
+  },
   HeroSearchForm: {
     ...en.HeroSearchForm,
     searchingLocations: 'Suche…',
