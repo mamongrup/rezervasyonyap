@@ -90,6 +90,27 @@ fn query_loops(req: Request) -> Int {
   }
 }
 
+fn run_watchdog_loop(
+  ctx: Context,
+  loops_left: Int,
+  processed: Int,
+  idle: Int,
+  errors: List(String),
+) -> #(Int, Int, List(String)) {
+  case loops_left < 1 {
+    True -> #(processed, idle, errors)
+    False ->
+      case ai_watchdog.worker_try_watchdog(ctx) {
+        Ok(True) ->
+          run_watchdog_loop(ctx, loops_left - 1, processed + 1, idle, errors)
+        Ok(False) ->
+          run_watchdog_loop(ctx, loops_left - 1, processed, idle + 1, errors)
+        Error(e) ->
+          run_watchdog_loop(ctx, loops_left - 1, processed, idle, [e, ..errors])
+      }
+  }
+}
+
 fn run_steps_loop(
   ctx: Context,
   loops_left: Int,
@@ -180,17 +201,11 @@ pub fn post_run_steps(req: Request, ctx: Context) -> Response {
     Error(r) -> r
     Ok(_) -> {
       let loops = query_loops(req)
-      let #(watchdog_processed, watchdog_idle, watchdog_errors) = case
-        query_enabled(req, "workflow")
-      {
-        False -> #(0, 0, [])
-        True ->
-          case ai_watchdog.worker_try_watchdog(ctx) {
-            Ok(True) -> #(1, 0, [])
-            Ok(False) -> #(0, 1, [])
-            Error(e) -> #(0, 0, [e])
-          }
-      }
+      let #(watchdog_processed, watchdog_idle, watchdog_errors) =
+        case query_enabled(req, "workflow") {
+          False -> #(0, 0, [])
+          True -> run_watchdog_loop(ctx, loops, 0, 0, [])
+        }
       let want_district = query_enabled(req, "district")
       let want_region = query_enabled(req, "region")
       let want_place = query_enabled(req, "place")
