@@ -28,6 +28,9 @@ DECLARE
   v_rows int := 0;
   v_n int;
 BEGIN
+  -- Deploy sırasında dolum; HTTP değil — 60 sn izin ver
+  PERFORM set_config('statement_timeout', '60s', true);
+
   FOR v_cat IN
     SELECT c.code
     FROM product_categories c
