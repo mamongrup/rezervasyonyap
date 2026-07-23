@@ -2648,8 +2648,8 @@ fn region_stats_row() -> decode.Decoder(#(String, String, Int, String)) {
   decode.success(#(slug, name, cnt, thumbnail))
 }
 
-/// GET /api/v1/catalog/public/region-stats?category_code=&limit=
-/// Kategoriye göre yayımlı ilanların bulunduğu bölgeler (ilan sayısına göre sıralı).
+/// GET /api/v1/catalog/public/region-stats?category_code=&limit=&property_type=
+/// Önce `listing_region_stats_cache` (anlık); boşsa canlı SQL (kısa timeout, fail-soft).
 pub fn public_region_stats(req: Request, ctx: Context) -> Response {
   use <- wisp.require_method(req, http.Get)
   let qs = case request.get_query(req) {
@@ -2664,7 +2664,10 @@ pub fn public_region_stats(req: Request, ctx: Context) -> Response {
     Ok(n) ->
       case n > 50 {
         True -> 50
-        False -> case n < 1 { True -> 12  False -> n }
+        False -> case n < 1 {
+          True -> 12
+          False -> n
+        }
       }
     Error(_) -> 12
   }
@@ -2674,14 +2677,7 @@ pub fn public_region_stats(req: Request, ctx: Context) -> Response {
     |> string.trim
     |> string.lowercase
   case cat_raw == "" {
-    True -> {
-      let body =
-        json.object([
-          #("regions", json.array(from: [], of: fn(x) { x })),
-        ])
-        |> json.to_string
-      wisp.json_response(body, 200)
-    }
+    True -> region_stats_json_ok([])
     False -> {
       let is_tour = cat_raw == "tour"
       let property_type_raw =
@@ -2689,65 +2685,115 @@ pub fn public_region_stats(req: Request, ctx: Context) -> Response {
         |> result.unwrap("")
         |> string.trim
         |> string.lowercase
-      let use_property = property_type_raw != ""
-      let query = case is_tour {
-        True ->
-          // tour SQL yalnız $1 (limit) kullanır.
-          pog.query(region_stats_tour_sql())
-          |> pog.parameter(pog.int(lim))
+      case is_tour {
+        True -> region_stats_live(ctx, True, cat_raw, property_type_raw, lim)
         False ->
-          case use_property {
-            True ->
-              pog.query(region_stats_domestic_with_property_sql())
-              |> pog.parameter(pog.int(lim))
-              |> pog.parameter(pog.text(cat_raw))
-              |> pog.parameter(pog.text(property_type_raw))
-            False ->
-              pog.query(region_stats_domestic_district_sql())
-              |> pog.parameter(pog.int(lim))
-              |> pog.parameter(pog.text(cat_raw))
+          case region_stats_from_cache(ctx, cat_raw, property_type_raw, lim) {
+            Ok([]) ->
+              region_stats_live(ctx, False, cat_raw, property_type_raw, lim)
+            Ok(rows) -> region_stats_json_ok(rows)
+            Error(_) ->
+              region_stats_live(ctx, False, cat_raw, property_type_raw, lim)
           }
       }
-      case
-        query
-        |> pog.returning(region_stats_row())
-        |> pog.timeout(region_stats_query_timeout_ms)
-        |> db_exec.execute(ctx.db)
-      {
-        // Fail-soft: 500 yerine boş liste — anasayfa/kategori Suspense stream'i
-        // kapanır; slider gizlenir, geri kalan modüller takılmaz.
-        Error(e) -> {
-          io.println(
-            "[catalog.public.region-stats] "
-            <> pog_errors.query_error_to_string(e),
-          )
-          let body =
-            json.object([
-              #("regions", json.array(from: [], of: fn(x) { x })),
-            ])
-            |> json.to_string
-          wisp.json_response(body, 200)
-        }
-        Ok(ret) -> {
-          let rows =
-            list.map(ret.rows, fn(row) {
-              let #(slug, name, cnt, thumbnail) = row
-              json.object([
-                #("slug", json.string(slug)),
-                #("name", json.string(name)),
-                #("count", json.int(cnt)),
-                #("thumbnail", json.string(thumbnail)),
-              ])
-            })
-          let body =
-            json.object([
-              #("regions", json.array(from: rows, of: fn(x) { x })),
-            ])
-            |> json.to_string
-          wisp.json_response(body, 200)
-        }
-      }
     }
+  }
+}
+
+fn region_stats_json_ok(rows: List(#(String, String, Int, String))) -> Response {
+  let body =
+    json.object([
+      #(
+        "regions",
+        json.array(
+          from: list.map(rows, fn(row) {
+            let #(slug, name, cnt, thumbnail) = row
+            json.object([
+              #("slug", json.string(slug)),
+              #("name", json.string(name)),
+              #("count", json.int(cnt)),
+              #("thumbnail", json.string(thumbnail)),
+            ])
+          }),
+          of: fn(x) { x },
+        ),
+      ),
+    ])
+    |> json.to_string
+  wisp.json_response(body, 200)
+}
+
+fn region_stats_from_cache(
+  ctx: Context,
+  cat: String,
+  property_type: String,
+  lim: Int,
+) -> Result(List(#(String, String, Int, String)), Nil) {
+  let sql =
+    "select slug, name, cnt, coalesce(thumbnail, '') "
+    <> "from listing_region_stats_cache "
+    <> "where category_code = $1 and property_type = $2 "
+    <> "order by cnt desc, name asc "
+    <> "limit $3"
+  case
+    pog.query(sql)
+    |> pog.parameter(pog.text(cat))
+    |> pog.parameter(pog.text(property_type))
+    |> pog.parameter(pog.int(lim))
+    |> pog.returning(region_stats_row())
+    |> pog.timeout(1500)
+    |> db_exec.execute(ctx.db)
+  {
+    Ok(ret) -> Ok(ret.rows)
+    Error(e) -> {
+      io.println(
+        "[catalog.public.region-stats.cache] "
+        <> pog_errors.query_error_to_string(e),
+      )
+      Error(Nil)
+    }
+  }
+}
+
+fn region_stats_live(
+  ctx: Context,
+  is_tour: Bool,
+  cat_raw: String,
+  property_type_raw: String,
+  lim: Int,
+) -> Response {
+  let use_property = property_type_raw != ""
+  let query = case is_tour {
+    True ->
+      pog.query(region_stats_tour_sql())
+      |> pog.parameter(pog.int(lim))
+    False ->
+      case use_property {
+        True ->
+          pog.query(region_stats_domestic_with_property_sql())
+          |> pog.parameter(pog.int(lim))
+          |> pog.parameter(pog.text(cat_raw))
+          |> pog.parameter(pog.text(property_type_raw))
+        False ->
+          pog.query(region_stats_domestic_district_sql())
+          |> pog.parameter(pog.int(lim))
+          |> pog.parameter(pog.text(cat_raw))
+      }
+  }
+  case
+    query
+    |> pog.returning(region_stats_row())
+    |> pog.timeout(region_stats_query_timeout_ms)
+    |> db_exec.execute(ctx.db)
+  {
+    Error(e) -> {
+      io.println(
+        "[catalog.public.region-stats] "
+        <> pog_errors.query_error_to_string(e),
+      )
+      region_stats_json_ok([])
+    }
+    Ok(ret) -> region_stats_json_ok(ret.rows)
   }
 }
 

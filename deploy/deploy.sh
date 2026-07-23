@@ -298,6 +298,15 @@ main() {
     fail "Cross-category listing identity repair SQL module is missing."
   fi
 
+  if [[ -f "$APP_ROOT/backend/priv/sql/modules/372_listing_region_stats_cache.sql" ]]; then
+    step "Bölge istatistik önbelleği (region-stats)"
+    bash "$APP_ROOT/deploy/apply-sql.sh" \
+      "$APP_ROOT/backend/priv/sql/modules/372_listing_region_stats_cache.sql" \
+      || warn "372 region-stats cache SQL uygulanamadı — anasayfa bölgeler boş kalabilir"
+  else
+    warn "372_listing_region_stats_cache.sql bulunamadı"
+  fi
+
   if [[ "${SKIP_AI_WORKER_TIMER:-0}" == "1" ]]; then
     warn "SKIP_AI_WORKER_TIMER=1 — AI watchdog ve kuyruk worker timer kurulumu atlandı."
   elif [[ -f "$APP_ROOT/deploy/systemd/travel-ai-worker.service" && -f "$APP_ROOT/deploy/systemd/travel-ai-worker.timer" ]]; then
