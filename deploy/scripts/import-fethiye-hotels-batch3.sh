@@ -68,6 +68,7 @@ function childPolicyFor(h) {
       charge_percent: chargePercent,
       infants_free: infantsFree,
       children_allowed: false,
+      charge_max_age: 12,
     }
   }
   const freeRaw = h.freeChildMaxAge
@@ -80,6 +81,7 @@ function childPolicyFor(h) {
     charge_percent: chargePercent,
     infants_free: infantsFree,
     children_allowed: true,
+    charge_max_age: 12,
   }
 }
 
@@ -103,6 +105,9 @@ for (const h of hotels) {
   }
   if (hotelType) {
     facetRows.push(`SELECT '${id}' AS ref, 'hotel_type_code' AS key, to_jsonb('${hotelType}'::text) AS v`)
+  }
+  if (tags.length > 0) {
+    facetRows.push(`SELECT '${id}' AS ref, 'theme_tags' AS key, '${tagsJson}'::jsonb AS v`)
   }
   metaRows.push(
     `SELECT '${id}' AS ref, jsonb_build_object('theme_tags', '${tagsJson}'::jsonb, 'adults_only', ${adults}, 'source_url', '${src}', 'district_label', '${district}', 'city', '${city}', 'province_city', '${province}', 'address', '${address}') AS patch`,
@@ -261,14 +266,16 @@ policy_src AS (
           'free_max_age', null,
           'charge_percent', 50,
           'infants_free', true,
-          'children_allowed', false
+          'children_allowed', false,
+          'charge_max_age', 12
         )
       ELSE
         jsonb_build_object(
           'free_max_age', 6,
           'charge_percent', 50,
           'infants_free', true,
-          'children_allowed', true
+          'children_allowed', true,
+          'charge_max_age', 12
         )
     END AS policy
   FROM tb

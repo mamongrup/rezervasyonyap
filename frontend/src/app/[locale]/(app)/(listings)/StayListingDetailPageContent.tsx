@@ -1,4 +1,10 @@
 import { Bathtub02Icon, BedSingle01Icon, MeetingRoomIcon } from '@/components/Icons'
+import {
+  formatChildPolicySummaryTr,
+  resolveHotelChildPolicyFromAttributes,
+  resolveHotelThemeTagsFromAttributes,
+} from '@/lib/hotel-child-policy'
+import { HOTEL_THEME_OPTIONS } from '@/lib/hotel-manage-fields'
 import { getListingReviews } from '@/data/data'
 import { getCachedSiteConfig } from '@/lib/site-config-cache'
 import { getStayListingByHandle } from '@/data/listings'
@@ -574,6 +580,15 @@ export default async function StayListingDetailPageContent({
   if (vertical === 'hotel' && handle === HOTEL_DEMO_LISTING_HANDLE && amenityKeys.length === 0) {
     amenityKeys = HOTEL_DEMO_AMENITY_ROWS.map((row) => row.key)
   }
+
+  const hotelChildPolicy =
+    vertical === 'hotel' ? resolveHotelChildPolicyFromAttributes(attrs.values) : null
+  const hotelThemeTags =
+    vertical === 'hotel' ? resolveHotelThemeTagsFromAttributes(attrs.values) : []
+  const hotelThemeLabelMap = new Map(HOTEL_THEME_OPTIONS.map((o) => [o.code, o.label]))
+  const hotelThemeLabels = hotelThemeTags.map(
+    (code) => hotelThemeLabelMap.get(code) ?? code.replace(/_/g, ' '),
+  )
 
   const hotelValidCampaignSplit =
     hotelValidCampaignsPayload != null
@@ -1251,6 +1266,40 @@ export default async function StayListingDetailPageContent({
     )
   }
 
+  const renderHotelThemesAndChildPolicy = () => {
+    if (vertical !== 'hotel') return null
+    if (hotelThemeLabels.length === 0 && !hotelChildPolicy) return null
+    return (
+      <div id="stay-section-hotel-facets" className="listingSection__wrap scroll-mt-28">
+        <SectionHeading>Özellikler ve çocuk politikası</SectionHeading>
+        <Divider className="w-14!" />
+        {hotelThemeLabels.length > 0 ? (
+          <div className="flex flex-wrap gap-2">
+            {hotelThemeLabels.map((label) => (
+              <span
+                key={label}
+                className="rounded-full border border-neutral-200 bg-neutral-50 px-3 py-1 text-sm text-neutral-700 dark:border-neutral-700 dark:bg-neutral-800/60 dark:text-neutral-200"
+              >
+                {label}
+              </span>
+            ))}
+          </div>
+        ) : null}
+        {hotelChildPolicy ? (
+          <p
+            className={
+              hotelThemeLabels.length > 0
+                ? 'mt-4 text-sm leading-relaxed text-neutral-700 dark:text-neutral-300'
+                : 'text-sm leading-relaxed text-neutral-700 dark:text-neutral-300'
+            }
+          >
+            {formatChildPolicySummaryTr(hotelChildPolicy)}
+          </p>
+        ) : null}
+      </div>
+    )
+  }
+
   const renderSectionRoomTypes = () => {
     if (realHotelRooms.length === 0) return null
     const roomTypes = realHotelRooms.map((r) => ({
@@ -1409,6 +1458,7 @@ export default async function StayListingDetailPageContent({
     damageDepositAmount,
     ruleFallbackNightly: ruleFallbackForQuote,
     ruleNightlyRange: ruleNightlyRangeForQuote,
+    childPolicy: hotelChildPolicy ?? undefined,
   }
 
   const renderSidebarPriceAndForm = () =>
@@ -1593,6 +1643,7 @@ export default async function StayListingDetailPageContent({
           {vertical === 'hotel' ? (
             <>
               {renderSectionDescription()}
+              {renderHotelThemesAndChildPolicy()}
               {realHotelRooms.length > 0 ? (
                 <div id="stay-section-rooms" className="scroll-mt-28">
                   <HotelRoomShowcase
@@ -1666,6 +1717,7 @@ export default async function StayListingDetailPageContent({
             />
           ) : null}
           {renderSectionDescription()}
+          {renderHotelThemesAndChildPolicy()}
           {isYachtCharter && yachtCharterSpecs ? (
             <YachtCharterSpecsSection
               locale={locale}

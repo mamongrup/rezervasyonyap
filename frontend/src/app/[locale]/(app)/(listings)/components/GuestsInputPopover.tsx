@@ -2,6 +2,7 @@
 
 import NcInputNumber from '@/components/NcInputNumber'
 import { DEFAULT_GUESTS_STAY, totalGuestCount } from '@/lib/guest-search-defaults'
+import { normalizeGuestsWithChildAges, syncChildAges } from '@/lib/hotel-child-policy'
 import type { GuestsObject } from '@/type'
 import { useAppLocale } from '@/hooks/useAppLocale'
 import { getMessages } from '@/utils/getT'
@@ -22,6 +23,12 @@ interface Props {
   onChange?: (guests: GuestsObject) => void
   panelClassName?: string
   renderTrigger?: (ctx: { open: boolean; summary: string; guests: GuestsObject }) => React.ReactNode
+  /** Yetişkin oteli: çocuk/bebek seçimini gizler */
+  adultsOnly?: boolean
+  /** Otel rezervasyonu: her çocuk için yaş seçici göster */
+  askChildAges?: boolean
+  /** Ücretsiz çocuk üst yaşı (açıklama metni) */
+  freeChildMaxAge?: number | null
 }
 
 const GuestsInputPopover: FC<Props> = ({
@@ -32,55 +39,101 @@ const GuestsInputPopover: FC<Props> = ({
   onChange,
   panelClassName,
   renderTrigger,
+  adultsOnly = false,
+  askChildAges = false,
+  freeChildMaxAge = 6,
 }) => {
   const { locale: routeLocale, messages: routeMessages } = useAppLocale()
   const hf = locale ? getMessages(locale).HeroSearchForm : routeMessages.HeroSearchForm
   const controlled = typeof onChange === 'function'
   const seedGuests = controlled && valueProp ? valueProp : guestDefaults
   const [guestAdultsInputValue, setGuestAdultsInputValue] = useState(seedGuests.guestAdults ?? 2)
-  const [guestChildrenInputValue, setGuestChildrenInputValue] = useState(seedGuests.guestChildren ?? 0)
-  const [guestInfantsInputValue, setGuestInfantsInputValue] = useState(seedGuests.guestInfants ?? 0)
+  const [guestChildrenInputValue, setGuestChildrenInputValue] = useState(
+    adultsOnly ? 0 : (seedGuests.guestChildren ?? 0),
+  )
+  const [guestInfantsInputValue, setGuestInfantsInputValue] = useState(
+    adultsOnly ? 0 : (seedGuests.guestInfants ?? 0),
+  )
+  const [childAges, setChildAges] = useState<number[]>(() =>
+    adultsOnly ? [] : syncChildAges(seedGuests),
+  )
 
   useEffect(() => {
     if (!controlled || !valueProp) return
     setGuestAdultsInputValue(valueProp.guestAdults ?? guestDefaults.guestAdults ?? 2)
+    if (adultsOnly) {
+      setGuestChildrenInputValue(0)
+      setGuestInfantsInputValue(0)
+      setChildAges([])
+      return
+    }
     setGuestChildrenInputValue(valueProp.guestChildren ?? 0)
     setGuestInfantsInputValue(valueProp.guestInfants ?? 0)
-  }, [controlled, valueProp, guestDefaults.guestAdults])
+    setChildAges(syncChildAges(valueProp))
+  }, [controlled, valueProp, guestDefaults.guestAdults, adultsOnly])
 
   const emitGuests = (next: GuestsObject) => {
-    if (controlled) onChange?.(next)
+    if (!controlled) return
+    const normalized = adultsOnly
+      ? { guestAdults: next.guestAdults ?? 2, guestChildren: 0, guestInfants: 0, childAges: [] }
+      : normalizeGuestsWithChildAges(next)
+    onChange?.(normalized)
   }
 
-  const handleChangeData = (value: number, type: keyof GuestsObject) => {
-    let next = {
+  const handleChangeData = (value: number, type: 'guestAdults' | 'guestChildren' | 'guestInfants') => {
+    let nextChildren = guestChildrenInputValue
+    let nextInfants = guestInfantsInputValue
+    let nextAdults = guestAdultsInputValue
+    let nextAges = childAges
+    if (type === 'guestAdults') {
+      setGuestAdultsInputValue(value)
+      nextAdults = value
+    }
+    if (type === 'guestChildren') {
+      if (adultsOnly) return
+      setGuestChildrenInputValue(value)
+      nextChildren = value
+      nextAges = syncChildAges({ guestChildren: value, childAges })
+      setChildAges(nextAges)
+    }
+    if (type === 'guestInfants') {
+      if (adultsOnly) return
+      setGuestInfantsInputValue(value)
+      nextInfants = value
+    }
+    emitGuests({
+      guestAdults: nextAdults,
+      guestChildren: nextChildren,
+      guestInfants: nextInfants,
+      childAges: nextAges,
+    })
+  }
+
+  const handleChildAgeChange = (index: number, age: number) => {
+    const nextAges = [...childAges]
+    nextAges[index] = age
+    setChildAges(nextAges)
+    emitGuests({
       guestAdults: guestAdultsInputValue,
       guestChildren: guestChildrenInputValue,
       guestInfants: guestInfantsInputValue,
-    }
-    if (type === 'guestAdults') {
-      setGuestAdultsInputValue(value)
-      next.guestAdults = value
-    }
-    if (type === 'guestChildren') {
-      setGuestChildrenInputValue(value)
-      next.guestChildren = value
-    }
-    if (type === 'guestInfants') {
-      setGuestInfantsInputValue(value)
-      next.guestInfants = value
-    }
-    emitGuests(next)
+      childAges: nextAges,
+    })
   }
 
   const guests: GuestsObject = {
     guestAdults: guestAdultsInputValue,
-    guestChildren: guestChildrenInputValue,
-    guestInfants: guestInfantsInputValue,
+    guestChildren: adultsOnly ? 0 : guestChildrenInputValue,
+    guestInfants: adultsOnly ? 0 : guestInfantsInputValue,
+    childAges: adultsOnly ? [] : childAges,
   }
 
   const totalGuests = totalGuestCount(guests)
   const guestSummary = formatStayGuestSummary(locale ?? routeLocale, guests)
+  const freeAgeLabel =
+    freeChildMaxAge != null && freeChildMaxAge >= 0
+      ? `${freeChildMaxAge} yaş ve altı ücretsiz`
+      : null
 
   const panelClasses = clsx(
     'absolute end-0 top-full z-[100] mt-3 w-full rounded-3xl bg-white px-4 py-5 shadow-xl ring-1 ring-black/5 transition duration-150 data-closed:translate-y-1 data-closed:opacity-0 sm:min-w-[340px] sm:px-8 sm:py-6 dark:bg-neutral-800 dark:ring-white/10',
@@ -130,31 +183,70 @@ const GuestsInputPopover: FC<Props> = ({
               className="w-full"
               defaultValue={guestAdultsInputValue}
               onChange={(value) => handleChangeData(value, 'guestAdults')}
-              inputName="guestAdults"
               max={10}
               min={1}
               label={hf.Adults}
               description={hf['Ages 13 or above']}
             />
-            <NcInputNumber
-              className="mt-6 w-full"
-              defaultValue={guestChildrenInputValue}
-              onChange={(value) => handleChangeData(value, 'guestChildren')}
-              inputName="guestChildren"
-              max={4}
-              label={hf.Children}
-              description={hf['Ages 2–12']}
-            />
-
-            <NcInputNumber
-              className="mt-6 w-full"
-              defaultValue={guestInfantsInputValue}
-              onChange={(value) => handleChangeData(value, 'guestInfants')}
-              inputName="guestInfants"
-              max={4}
-              label={hf.Infants}
-              description={hf['Ages 0–2']}
-            />
+            {!adultsOnly ? (
+              <>
+                <NcInputNumber
+                  className="mt-6 w-full"
+                  defaultValue={guestChildrenInputValue}
+                  onChange={(value) => handleChangeData(value, 'guestChildren')}
+                  max={4}
+                  label={hf.Children}
+                  description={
+                    freeAgeLabel
+                      ? `${hf['Ages 2–12']} · ${freeAgeLabel}`
+                      : hf['Ages 2–12']
+                  }
+                />
+                {askChildAges && childAges.length > 0 ? (
+                  <div className="mt-4 space-y-3 rounded-2xl bg-neutral-50 p-3 dark:bg-neutral-900/60">
+                    <p className="text-xs font-medium text-neutral-600 dark:text-neutral-300">
+                      Her çocuk için yaş
+                    </p>
+                    {childAges.map((age, idx) => (
+                      <label
+                        key={`child-age-${idx}`}
+                        className="flex items-center justify-between gap-3 text-sm"
+                      >
+                        <span className="text-neutral-700 dark:text-neutral-200">
+                          {idx + 1}. çocuk
+                        </span>
+                        <select
+                          className="rounded-xl border border-neutral-300 bg-white px-3 py-2 text-sm dark:border-neutral-600 dark:bg-neutral-900"
+                          value={age}
+                          onChange={(e) => handleChildAgeChange(idx, Number(e.target.value))}
+                        >
+                          {Array.from({ length: 11 }, (_, i) => i + 2).map((a) => (
+                            <option key={a} value={a}>
+                              {a} yaş
+                              {freeChildMaxAge != null && a <= freeChildMaxAge
+                                ? ' (ücretsiz)'
+                                : ''}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                    ))}
+                  </div>
+                ) : null}
+                <NcInputNumber
+                  className="mt-6 w-full"
+                  defaultValue={guestInfantsInputValue}
+                  onChange={(value) => handleChangeData(value, 'guestInfants')}
+                  max={4}
+                  label={hf.Infants}
+                  description={hf['Ages 0–2']}
+                />
+              </>
+            ) : (
+              <p className="mt-4 text-sm text-neutral-500 dark:text-neutral-400">
+                Bu tesis yalnızca yetişkinlere özeldir; çocuk kabul edilmez.
+              </p>
+            )}
           </PopoverPanel>
         </>
       )}
