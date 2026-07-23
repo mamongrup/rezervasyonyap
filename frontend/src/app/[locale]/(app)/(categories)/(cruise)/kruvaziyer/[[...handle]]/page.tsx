@@ -11,6 +11,7 @@ import { categoryMetadata } from '@/lib/category-page-metadata'
 import { redirectIfExperienceListingHandle } from '@/lib/category-browse-listing-redirect'
 import { Metadata } from 'next'
 import { redirect } from 'next/navigation'
+import { regionLabelFromHandle } from '@/lib/stay-location-display'
 
 export async function generateMetadata({
   params,
@@ -73,7 +74,7 @@ export default async function Page({
     : undefined
   const regionLabel =
     !pathFacetRoute && currentHandle && currentHandle !== 'all'
-      ? currentHandle.replace(/-/g, ' ')
+      ? regionLabelFromHandle(currentHandle)
       : undefined
 
   return (

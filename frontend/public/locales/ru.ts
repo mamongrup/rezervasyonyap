@@ -53,6 +53,7 @@ export const ru: AppMessages = {
   },
   categoryPage: {
     ...en.categoryPage,
+    listingsHeadingFiltered: 'Результаты поиска для {place} — {count}+ объявлений',
     listingFilters: {
       ...en.categoryPage.listingFilters,
       allFilters: 'Все фильтры',

@@ -520,6 +520,7 @@ export default async function RegionDetailPage({ params, searchParams }: Props) 
           <h2 className="text-xl font-semibold text-neutral-900 dark:text-white">
             {interpolate(cat.listingsHeadingFiltered, {
               count: convertNumbThousand(totalListings),
+              place: regionName,
               handle: regionName,
             })}
           </h2>

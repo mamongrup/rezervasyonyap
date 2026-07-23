@@ -282,7 +282,7 @@ export const tr = {
     yachtCharterHeroLead: 'Türkiye ve Akdeniz\'de',
     yachtCharterHeroHighlight: '{count}+ yat',
     listingsHeadingAll: '{count}+ {category} ilanı',
-    listingsHeadingFiltered: '{count}+ "{handle}" sonucu',
+    listingsHeadingFiltered: '{place} için arama sonuçları {count}+ ilan',
     pricesDisclaimer: 'Fiyatlar kişi başı ve {unit} için geçerlidir.',
     activeSearch: 'Aktif arama:',
     badgeRegion: 'Bölge:',

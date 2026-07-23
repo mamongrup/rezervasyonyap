@@ -53,6 +53,7 @@ export const zh: AppMessages = {
   },
   categoryPage: {
     ...en.categoryPage,
+    listingsHeadingFiltered: '{place}的搜索结果 — {count}+个房源',
     listingFilters: {
       ...en.categoryPage.listingFilters,
       allFilters: '所有筛选',

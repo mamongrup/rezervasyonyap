@@ -11,6 +11,7 @@ import { getMessages } from '@/utils/getT'
 import { categoryMetadata } from '@/lib/category-page-metadata'
 import { Metadata } from 'next'
 import { redirect } from 'next/navigation'
+import { regionLabelFromHandle } from '@/lib/stay-location-display'
 
 export async function generateMetadata({
   params,
@@ -49,7 +50,7 @@ export default async function Page({
   )
 
   const regionLabel =
-    currentHandle && currentHandle !== 'all' ? currentHandle.replace(/-/g, ' ') : undefined
+    currentHandle && currentHandle !== 'all' ? regionLabelFromHandle(currentHandle) : undefined
 
   const liveFromRaw = query.from?.trim()
   const liveToRaw = query.to?.trim()

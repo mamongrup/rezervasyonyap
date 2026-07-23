@@ -502,7 +502,7 @@ export const en = {
     yachtCharterHeroLead: 'Across Turkey and the Mediterranean',
     yachtCharterHeroHighlight: '{count}+ yachts',
     listingsHeadingAll: '{count}+ {category} listings',
-    listingsHeadingFiltered: '{count}+ results for "{handle}"',
+    listingsHeadingFiltered: 'Search results for {place} — {count}+ listings',
     pricesDisclaimer: 'Prices are per person and valid per {unit}.',
     activeSearch: 'Active search:',
     badgeRegion: 'Region:',

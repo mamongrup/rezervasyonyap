@@ -12,6 +12,7 @@ import { fetchYolcu360CarListings } from '@/lib/yolcu360-car-search'
 import { getMessages } from '@/utils/getT'
 import { Metadata } from 'next'
 import { redirect } from 'next/navigation'
+import { regionLabelFromHandle } from '@/lib/stay-location-display'
 
 export async function generateMetadata({
   params,
@@ -131,7 +132,7 @@ export default async function Page({
   const total = fromYolcu360 ? yolcu360Cars!.length : dbTotal
 
   const regionLabel =
-    currentHandle && currentHandle !== 'all' ? currentHandle.replace(/-/g, ' ') : undefined
+    currentHandle && currentHandle !== 'all' ? regionLabelFromHandle(currentHandle) : undefined
 
   return (
     <CategoryPageTemplate

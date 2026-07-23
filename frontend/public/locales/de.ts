@@ -53,6 +53,7 @@ export const de: AppMessages = {
   },
   categoryPage: {
     ...en.categoryPage,
+    listingsHeadingFiltered: 'Suchergebnisse für {place} — {count}+ Angebote',
     listingFilters: {
       ...en.categoryPage.listingFilters,
       allFilters: 'Alle Filter',

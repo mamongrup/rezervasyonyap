@@ -24,6 +24,7 @@ import { categoryMetadata } from '@/lib/category-page-metadata'
 import { parseFeaturedVitrinTab } from '@/lib/featured-tab-view-all'
 import type { Metadata } from 'next'
 import { redirect } from 'next/navigation'
+import { regionLabelFromHandle } from '@/lib/stay-location-display'
 
 export async function generateMetadata({
   params,
@@ -102,7 +103,7 @@ export default async function Page({
     !isThemeHandle &&
     currentHandle &&
     currentHandle !== 'all'
-      ? currentHandle.replace(/-/g, ' ')
+      ? regionLabelFromHandle(currentHandle)
       : undefined
 
   function withHolidayThemeChips<L extends TListingBase>(l: L): L {
