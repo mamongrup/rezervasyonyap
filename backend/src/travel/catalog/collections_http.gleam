@@ -998,6 +998,11 @@ pub fn search_public_listings(req: Request, ctx: Context) -> Response {
   search_listings_impl(req, ctx, None)
 }
 
+/// GET /api/v1/catalog/public/listing-suggestions
+pub fn search_public_listing_suggestions(req: Request, ctx: Context) -> Response {
+  search_public_listings(req, ctx)
+}
+
 /// GET /api/v1/agent/catalog/search — acente kategori grant filtresi ile aynı arama.
 pub fn search_agent_listings(req: Request, ctx: Context, agency_org_id: String) -> Response {
   search_listings_impl(req, ctx, Some(agency_org_id))
