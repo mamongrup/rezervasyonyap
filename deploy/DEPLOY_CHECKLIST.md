@@ -95,6 +95,14 @@ tail -f .deploy/travel-deploy.log
 
 **Not:** `Ctrl+C` ile `./deploy/deploy.sh` durdurursaniz yarım build kalabilir; kopan SSH icin `deploy-detached.sh` kullanin.
 
+### Panel anasayfa / önerilenler (CMS JSON)
+
+`frontend/public/page-builder/*.json` ve `featured-listings/*.json` panelden kaydedilir; git’e commit edilmez.
+Deploy `git reset --hard` öncesi bunları `.deploy/cms-json-preserve/` altına yedekler, sync sonrası geri yükler.
+
+- Kapat / repo sürümünü zorla: `CMS_JSON_PRESERVE=0 DEPLOY_REF=main ./deploy/deploy.sh`
+- İzleme logunda `[cms-json] yedek` / `geri yüklendi` satırlarını arayın.
+
 ### Hizli deploy (yalniz API degisti)
 
 Tam `deploy.sh` en cok **frontend** adiminda uzar: `rm -rf node_modules .next && npm ci && npm run build` (genelde 5–15+ dk).
