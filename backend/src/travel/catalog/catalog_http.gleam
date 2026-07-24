@@ -2257,15 +2257,19 @@ fn hotel_room_in_listing(
 ) -> Result(Bool, Nil) {
   case
     pog.query(
-      "select 1 from hotel_rooms where id = $1::uuid and listing_id = $2::uuid limit 1",
+      "select exists(select 1 from hotel_rooms where id = $1::uuid and listing_id = $2::uuid)",
     )
     |> pog.parameter(pog.text(room_id))
     |> pog.parameter(pog.text(listing_id))
-    |> pog.returning(one_string_row())
+    |> pog.returning(pg_bool_row())
     |> db_exec.execute(db)
   {
     Error(_) -> Error(Nil)
-    Ok(ret) -> Ok(ret.rows != [])
+    Ok(ret) ->
+      case ret.rows {
+        [b] -> Ok(b)
+        _ -> Error(Nil)
+      }
   }
 }
 

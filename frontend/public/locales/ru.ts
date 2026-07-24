@@ -6,6 +6,16 @@ import { checkoutRu } from './checkout'
 export const ru: AppMessages = {
   ...en,
   navMenus,
+  homePage: {
+    ...en.homePage,
+    featuredByCategory: {
+      ...en.homePage.featuredByCategory,
+      feribot: {
+        heading: 'Рекомендуемые паромы',
+        subHeading: 'Рекомендуемые маршруты на острова и к побережью',
+      },
+    },
+  },
   HeroSearchForm: {
     ...en.HeroSearchForm,
     searchingLocations: 'Поиск…',
@@ -53,6 +63,7 @@ export const ru: AppMessages = {
   },
   categoryPage: {
     ...en.categoryPage,
+    listingsHeadingFiltered: 'Результаты поиска для {place} — {count}+ объявлений',
     listingFilters: {
       ...en.categoryPage.listingFilters,
       allFilters: 'Все фильтры',

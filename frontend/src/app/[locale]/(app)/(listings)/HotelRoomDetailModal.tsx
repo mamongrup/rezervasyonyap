@@ -15,6 +15,7 @@ import { BedDouble, ChevronLeft, ChevronRight, Ruler, ThumbsUp, Users } from 'lu
 import Image from 'next/image'
 import { useEffect, useState } from 'react'
 import clsx from 'clsx'
+import { preferListingGalleryFullAsset } from '@/lib/listing-gallery-display-url'
 
 const VISIBLE_AMENITY_COUNT = 4
 const ICON_STROKE = 1.5
@@ -201,9 +202,9 @@ export default function HotelRoomDetailModal({
 
   const images =
     (room.images ?? []).filter(Boolean).length > 0
-      ? (room.images ?? []).filter(Boolean)
+      ? (room.images ?? []).filter(Boolean).map(preferListingGalleryFullAsset)
       : room.image?.trim()
-        ? [room.image.trim()]
+        ? [preferListingGalleryFullAsset(room.image.trim())]
         : []
 
   const paidKeys =

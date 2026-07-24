@@ -23,6 +23,7 @@ const MANAGED_CATEGORIES = [
   { slug: 'yat-kiralama', label: 'Yat Kiralama' },
   { slug: 'turlar', label: 'Turlar' },
   { slug: 'aktiviteler', label: 'Aktiviteler' },
+  { slug: 'feribot', label: 'Feribot' },
 ] as const
 
 interface Props {

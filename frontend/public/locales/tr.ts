@@ -167,8 +167,9 @@ export const tr = {
   homePage: {
     ...en.homePage,
     meta: {
-      title: 'Ana Sayfa',
-      description: 'Chisfis konaklama ve seyahat ana sayfası',
+      title: 'Otel, tur ve tatil rezervasyonu',
+      description:
+        'Otel, tatil evi, yat kiralama, tur ve aktivite rezervasyonu. Anında onay ve güvenli ödeme.',
     },
     heroAlt: 'Hero görseli',
     heroDefaults: {
@@ -238,6 +239,10 @@ export const tr = {
         heading: 'Öne çıkan aktiviteler',
         subHeading: 'Deneyim dolu anlar sizi bekliyor',
       },
+      feribot: {
+        heading: 'Öne çıkan feribotlar',
+        subHeading: 'Ada ve sahil hatlarında önerilen seferler',
+      },
     },
     howItWorks: {
       title: 'Nasıl çalışır?',
@@ -281,7 +286,7 @@ export const tr = {
     yachtCharterHeroLead: 'Türkiye ve Akdeniz\'de',
     yachtCharterHeroHighlight: '{count}+ yat',
     listingsHeadingAll: '{count}+ {category} ilanı',
-    listingsHeadingFiltered: '{count}+ "{handle}" sonucu',
+    listingsHeadingFiltered: '{place} için arama sonuçları {count}+ ilan',
     pricesDisclaimer: 'Fiyatlar kişi başı ve {unit} için geçerlidir.',
     activeSearch: 'Aktif arama:',
     badgeRegion: 'Bölge:',

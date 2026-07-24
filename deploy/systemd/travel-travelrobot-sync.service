@@ -7,7 +7,8 @@ Wants=network-online.target
 Type=oneshot
 WorkingDirectory=/var/www/vhosts/rezervasyonyap.tr/httpdocs
 Environment=TRAVEL_DB_ENV=/etc/rezervasyonyap/backend.env
-ExecStart=/var/www/vhosts/rezervasyonyap.tr/httpdocs/deploy/scripts/sync-travelrobot-auto.sh
+# +x eksik olsa bile çalışsın (203/EXEC önlemi)
+ExecStart=/bin/bash /var/www/vhosts/rezervasyonyap.tr/httpdocs/deploy/scripts/sync-travelrobot-auto.sh
 StandardOutput=journal
 StandardError=journal
 

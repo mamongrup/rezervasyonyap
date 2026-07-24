@@ -18,6 +18,7 @@ import { listingStorageKey, listingUploadDir } from './lib/listing-upload-path.m
 import { createPgClient } from './lib/pg-client.mjs'
 import { mysqlConfigFromArgv } from './lib/bravo-mysql-config.mjs'
 import { createBundleMysql, loadBravoCollisionBundle } from './lib/bravo-collision-bundle.mjs'
+import { repairBravoTurkishAscii } from './lib/bravo-turkish-ascii-repair.mjs'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const TRAVEL_ROOT = path.resolve(__dirname, '..')
@@ -153,7 +154,7 @@ async function loadMediaMap(mysqlConn, ids) {
 async function loadLocationName(mysqlConn, locationId) {
   if (!locationId) return ''
   const [rows] = await mysqlConn.query(`SELECT name FROM bravo_locations WHERE id = ? LIMIT 1`, [locationId])
-  return rows[0]?.name?.trim() || ''
+  return repairBravoTurkishAscii(rows[0]?.name?.trim() || '')
 }
 
 async function findExistingListing(pgClient, legacyId) {
@@ -325,6 +326,7 @@ async function importOne(pgClient, mysqlConn, ctx, event, mediaMap, stats) {
   const status = event.status === 'publish' ? 'published' : 'draft'
   const currency = normalizeCurrency(event.currency)
   const locationName = await loadLocationName(mysqlConn, event.location_id)
+  const address = repairBravoTurkishAscii(event.address || '')
   const tickets = parseTicketTypes(event.ticket_types)
   const displayPrice = pickDisplayPrice(event, tickets)
   const durationMinutes = durationToMinutes(event.duration, event.duration_unit)
@@ -336,7 +338,7 @@ async function importOne(pgClient, mysqlConn, ctx, event, mediaMap, stats) {
         : ''
 
   const meta = {
-    address: event.address || '',
+    address,
     lat: event.map_lat || '',
     lng: event.map_lng || '',
     legacy_bravo_event_id: String(legacyId),
@@ -350,7 +352,7 @@ async function importOne(pgClient, mysqlConn, ctx, event, mediaMap, stats) {
     full_day: durationMinutes >= 480,
     duration_hours: durationHours,
     max_participants: tickets.capacity ? String(tickets.capacity) : '',
-    meeting_point: event.address || locationName || '',
+    meeting_point: address || locationName || '',
   }
 
   if (DRY_RUN) {
@@ -379,7 +381,7 @@ async function importOne(pgClient, mysqlConn, ctx, event, mediaMap, stats) {
           currency,
           event.map_lat,
           event.map_lng,
-          locationName || event.address || '',
+          locationName || address || '',
           PROVIDER,
           String(legacyId),
           Boolean(event.is_featured),
@@ -407,7 +409,7 @@ async function importOne(pgClient, mysqlConn, ctx, event, mediaMap, stats) {
           currency,
           event.map_lat,
           event.map_lng,
-          locationName || event.address || '',
+          locationName || address || '',
           PROVIDER,
           String(legacyId),
           Boolean(event.is_featured),
@@ -423,7 +425,7 @@ async function importOne(pgClient, mysqlConn, ctx, event, mediaMap, stats) {
        ON CONFLICT (listing_id, locale_id) DO UPDATE SET
          title = EXCLUDED.title,
          description = EXCLUDED.description`,
-      [listingId, ctx.localeTrId, event.title || slug, event.content || ''],
+      [listingId, ctx.localeTrId, repairBravoTurkishAscii(event.title || slug), repairBravoTurkishAscii(event.content || '')],
     )
 
     await pgClient.query(

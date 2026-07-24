@@ -1,25 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { apiOriginForFetch } from '@/lib/api-origin'
+import {
+  resolveGoogleMapsServerApiKey,
+  GOOGLE_MAPS_SERVER_KEY_HELP,
+} from '@/lib/google-maps-api-key'
 import { requireAdminCookie } from '@/lib/api-require-admin'
 
 export const dynamic = 'force-dynamic'
-
-async function resolveGoogleGeocodeKey(): Promise<string> {
-  const apiBase = apiOriginForFetch() || (process.env.API_URL ?? '').replace(/\/$/, '')
-  if (apiBase) {
-    try {
-      const res = await fetch(`${apiBase}/api/v1/site/public-config`, { next: { revalidate: 60 } })
-      if (res.ok) {
-        const data = (await res.json()) as { maps?: { google_maps_api_key?: string } }
-        const k = data.maps?.google_maps_api_key ?? ''
-        if (k) return k
-      }
-    } catch {
-      /* ignore */
-    }
-  }
-  return process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ?? ''
-}
 
 function readLatLng(loc: unknown): { lat: number; lng: number } | null {
   if (!loc || typeof loc !== 'object') return null
@@ -49,9 +35,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'address_required' }, { status: 400 })
   }
 
-  const key = await resolveGoogleGeocodeKey()
+  const key = resolveGoogleMapsServerApiKey()
   if (!key) {
-    return NextResponse.json({ error: 'maps_key_missing' }, { status: 503 })
+    return NextResponse.json(
+      { error: 'maps_server_key_missing', message: GOOGLE_MAPS_SERVER_KEY_HELP },
+      { status: 503 },
+    )
   }
 
   const u = new URL('https://maps.googleapis.com/maps/api/geocode/json')

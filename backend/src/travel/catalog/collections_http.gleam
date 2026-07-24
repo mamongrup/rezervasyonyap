@@ -14,9 +14,9 @@ import gleam/option.{type Option, None, Some}
 import gleam/result
 import gleam/string
 import pog
+import travel/db/resilient_pog as db_exec
 import travel/db/decode_helpers as row_dec
 import travel/db/pog_errors
-import travel/db/resilient_pog as db_exec
 import travel/identity/admin_gate
 import wisp.{type Request, type Response}
 
@@ -25,6 +25,13 @@ import wisp.{type Request, type Response}
 /// kesmek ziyaretçiye 500 döndürüyordu. PG_STATEMENT_TIMEOUT_MS (15 sn) altında
 /// kalır ki sunucu tarafı sorgu da aynı pencerede iptal edilsin.
 const vitrin_query_timeout_ms = 12_000
+
+/// Autocomplete (`?suggest=1`) — kısa timeout; ağır browse pipeline kullanılmaz.
+const suggest_query_timeout_ms = 3000
+
+/// Bölge slider / kategori shell — anasayfa RSC stream'ini açık tutmamak için
+/// kısa pog timeout. 16k+ otelde EXISTS/LIKE yok; aggregate + eşitlik hedef <500 ms.
+const region_stats_query_timeout_ms = 2500
 
 fn json_err(status: Int, msg: String) -> Response {
   wisp.json_response(
@@ -84,8 +91,9 @@ fn tour_listing_vitrin_price_numeric_lateral_sql() -> String {
 /// Vitrinde fiyatsız turlar listelenmesin. vitrin_price; wtatil fiyat senkronu +
 /// refresh_listing_vitrin_prices() ile dolar — fiyatı olmayan tur vitrinde görünmez.
 /// Günlük sync-wtatil-auto + vitrin timer sonrası fiyatı gelen turlar otomatik görünür.
+/// `$6` (listing_ids) doluysa atlanır: detay/checkout hydrate vitrin kapısından geçmez.
 fn tour_public_must_have_price_sql() -> String {
-  "and (pc.code != 'tour' or coalesce(l.vitrin_price, l.first_charge_amount, 0) > 0) "
+  "and ($6::text is not null or pc.code != 'tour' or coalesce(l.vitrin_price, l.first_charge_amount, 0) > 0) "
 }
 
 /// Vitrinde fiyatsız oteller listelenmesin (KPlus/Travelrobot import'ta fiyatı
@@ -93,8 +101,9 @@ fn tour_public_must_have_price_sql() -> String {
 /// kapsar (342 nolu migration) → kartta fiyat görünen otel asla gizlenmez,
 /// yalnızca hiçbir kaynakta fiyatı olmayan otel gizlenir.
 /// refresh_listing_vitrin_prices() import sonrası ve periyodik çalışmalıdır.
+/// `$6` (listing_ids) doluysa atlanır: detay sayfası hydrate için fiyat kapısı uygulanmaz.
 fn hotel_public_must_have_price_sql() -> String {
-  "and (pc.code != 'hotel' or coalesce(l.vitrin_price, l.first_charge_amount, 0) > 0) "
+  "and ($6::text is not null or pc.code != 'hotel' or coalesce(l.vitrin_price, l.first_charge_amount, 0) > 0) "
 }
 
 /// Tatil evi / yat / araç — arama tarihlerinde konaklama geceleri (çıkış hariç) yarım gün müsaitliği.
@@ -118,20 +127,32 @@ fn strip_vitrin_price_cache_sql(sql: String) -> String {
   |> string.replace(tour_public_must_have_price_sql(), "")
   |> string.replace(hotel_public_must_have_price_sql(), "")
   |> string.replace(
-    "coalesce(l.vitrin_price, l.first_charge_amount)",
-    "l.first_charge_amount",
+    "and (pc.code != 'tour' or coalesce(l.vitrin_price, l.first_charge_amount, 0) > 0) ",
+    "",
   )
   |> string.replace(
-    "coalesce(l.vitrin_price, 0)",
-    "coalesce(l.first_charge_amount, 0)",
+    "and (pc.code != 'hotel' or coalesce(l.vitrin_price, l.first_charge_amount, 0) > 0) ",
+    "",
+  )
+  |> string.replace("nullif(l.vitrin_price::text, ''), ", "")
+  |> string.replace("coalesce(l.vitrin_price, l.first_charge_amount)", "l.first_charge_amount")
+  |> string.replace("coalesce(l.vitrin_price, 0)", "coalesce(l.first_charge_amount, 0)")
+  |> string.replace(
+    ") price_rule on (pc.code in ('holiday_home', 'yacht_charter') or l.vitrin_price is null) ",
+    ") price_rule on true ",
+  )
+  |> string.replace(
+    ") meal_vitrin on (l.vitrin_price is null) ",
+    ") meal_vitrin on true ",
   )
 }
 
 /// Vitrin liste sayımı ile aynı filtreler (görsel + tur/otel fiyat kapısı).
+/// Stats sorgusunda `$6` bağlanmaz → browse (kapılı) varyantları kullanılır.
 fn public_category_stats_filter_sql() -> String {
-  public_listing_must_have_image_sql()
-  <> tour_public_must_have_price_sql()
-  <> hotel_public_must_have_price_sql()
+  public_listing_must_have_image_browse_sql()
+  <> "and (pc.code != 'tour' or coalesce(l.vitrin_price, l.first_charge_amount, 0) > 0) "
+  <> "and (pc.code != 'hotel' or coalesce(l.vitrin_price, l.first_charge_amount, 0) > 0) "
 }
 
 fn public_category_stats_query_sql(filter: String) -> String {
@@ -165,7 +186,7 @@ fn run_listing_count_sql(
       let _ =
         io.println(
           "[catalog.public.listings:count] "
-          <> pog_errors.query_error_to_string(e),
+            <> pog_errors.query_error_to_string(e),
         )
       // Strip fallback yalnızca eksik şema (42703/42P01) içindir; timeout gibi
       // hatalarda daha yavaş legacy SQL'i tekrar çalıştırmak yükü katlar.
@@ -197,7 +218,18 @@ fn run_listing_count_sql(
 /// (category-stats'ta "flight" hiç görünmüyordu, /uçak-bileti listesi boştu).
 /// `pc` alias'ının her çağrı noktasında join edilmiş olması garanti olmadığından
 /// (ör. get_public_listing_id_by_slug) `l.category_id` üzerinden alt sorgu kullanılır.
+///
+/// `$6` (listing_ids) doluysa kapı atlanır — detay/checkout hydrate görselsiz yayında
+/// ilanı da açabilsin; kategori listesi/istatistik hâlâ görsel ister.
 fn public_listing_must_have_image_sql() -> String {
+  "and ($6::text is not null or l.category_id in (select id from product_categories where code = 'flight') "
+  <> "or coalesce(trim(l.featured_image_url), '') <> '' "
+  <> "or coalesce(trim(l.thumbnail_url), '') <> '' "
+  <> "or exists (select 1 from listing_images li_img where li_img.listing_id = l.id and trim(coalesce(li_img.storage_key, '')) <> '' limit 1)) "
+}
+
+/// Kategori vitrin/istatistik — listing_ids yok; görsel kapısı her zaman uygulanır.
+fn public_listing_must_have_image_browse_sql() -> String {
   "and (l.category_id in (select id from product_categories where code = 'flight') "
   <> "or coalesce(trim(l.featured_image_url), '') <> '' "
   <> "or coalesce(trim(l.thumbnail_url), '') <> '' "
@@ -222,11 +254,9 @@ fn activity_listing_vitrin_fare_currency_sql() -> String {
 }
 
 fn safe_int_sql(value_sql: String) -> String {
-  "case when nullif(trim("
-  <> value_sql
-  <> "), '') ~ '^[0-9]+$' then nullif(trim("
-  <> value_sql
-  <> "), '')::int else null end"
+  "case when nullif(trim(" <> value_sql <> "), '') ~ '^[0-9]+$' then nullif(trim("
+    <> value_sql
+    <> "), '')::int else null end"
 }
 
 fn activity_listing_vitrin_price_numeric_lateral_sql() -> String {
@@ -239,12 +269,13 @@ fn activity_listing_vitrin_price_numeric_lateral_sql() -> String {
 }
 
 /// Konaklama vitrin fiyatı — tek lateral tarama (SELECT içinde 3 correlated subquery yerine).
-fn listing_meal_plan_vitrin_lateral_sql() -> String {
+/// vitrin_price doluyken meal_plans taramasını atla (price_from cache'ten gelir).
+fn listing_meal_plan_vitrin_lateral_sql_conditional() -> String {
   "left join lateral (select "
   <> "nullif((array_agg(m.price_per_night order by m.sort_order asc) filter (where m.plan_code = 'room_only'))[1]::text, '') as room_only_price, "
   <> "nullif(min(m.price_per_night) filter (where l.first_charge_amount is null or m.price_per_night is distinct from l.first_charge_amount)::text, '') as min_other_price, "
   <> "nullif(case when l.first_charge_amount is null then min(m.price_per_night)::text else null end, '') as min_fallback_price "
-  <> "from listing_meal_plans m where m.listing_id = l.id and m.is_active = true) meal_vitrin on true "
+  <> "from listing_meal_plans m where m.listing_id = l.id and m.is_active = true) meal_vitrin on (l.vitrin_price is null) "
 }
 
 // ─── Tatil evi arama sonucu — tarih aralığı TOPLAM fiyatı ────────────────────
@@ -726,26 +757,11 @@ fn pub_listing_json(
     range_total_s,
     range_nights_s,
   ) = row
-  let fij = case fi == "" {
-    True -> json.null()
-    False -> json.string(fi)
-  }
-  let pj = case price == "" {
-    True -> json.null()
-    False -> json.string(price)
-  }
-  let lj = case loc == "" {
-    True -> json.null()
-    False -> json.string(loc)
-  }
-  let rj = case rev == "" {
-    True -> json.null()
-    False -> json.string(rev)
-  }
-  let mpj = case meal_plan == "" {
-    True -> json.null()
-    False -> json.string(meal_plan)
-  }
+  let fij = case fi == "" { True -> json.null()  False -> json.string(fi) }
+  let pj = case price == "" { True -> json.null()  False -> json.string(price) }
+  let lj = case loc == "" { True -> json.null()  False -> json.string(loc) }
+  let rj = case rev == "" { True -> json.null()  False -> json.string(rev) }
+  let mpj = case meal_plan == "" { True -> json.null()  False -> json.string(meal_plan) }
   let lat_j = case map_lat_s == "" {
     True -> json.null()
     False -> json.string(map_lat_s)
@@ -782,10 +798,7 @@ fn pub_listing_json(
     #("prepayment_percent", json_opt_str(prepayment_percent)),
     #("cancellation_policy_text", json_opt_str(cancellation_policy_text)),
     #("min_stay_nights", json_opt_str(min_stay_nights)),
-    #(
-      "allow_sub_min_stay_gap_booking",
-      json.string(allow_sub_min_stay_gap_booking),
-    ),
+    #("allow_sub_min_stay_gap_booking", json.string(allow_sub_min_stay_gap_booking)),
     #("min_advance_booking_days", json_opt_str(min_advance_booking_days)),
     #("min_short_stay_nights", json_opt_str(min_short_stay_nights)),
     #("short_stay_fee", json_opt_str(short_stay_fee)),
@@ -862,10 +875,49 @@ fn normalize_location_search_q(raw: String) -> String {
   |> string.join(with: " ")
 }
 
-const listing_search_match_sql: String = "translate(lower(coalesce((select lt2.title from listing_translations lt2 join locales lo2 on lo2.id = lt2.locale_id where lt2.listing_id = l.id order by case when lower(lo2.code) = 'tr' then 0 else 1 end limit 1), l.slug) || ' ' || replace(l.slug, '-', ' ')), 'üğışöç', 'ugisoc')"
+const listing_search_match_sql: String =
+  "translate(lower(coalesce((select lt2.title from listing_translations lt2 join locales lo2 on lo2.id = lt2.locale_id where lt2.listing_id = l.id order by case when lower(lo2.code) = 'tr' then 0 else 1 end limit 1), l.slug) || ' ' || replace(l.slug, '-', ' ') || ' ' || coalesce(l.location_name, '') || ' ' || coalesce(lm.meta->>'address', '') || ' ' || coalesce(lm.meta->>'province_city', '') || ' ' || coalesce(lm.meta->>'city', '') || ' ' || coalesce(lm.meta->>'district_label', '') || ' ' || coalesce(lm.meta->>'region_display', '') || ' ' || coalesce(lm.meta->>'property_type', '')), 'üğışöç', 'ugisoc')"
+
+/// Autocomplete eşleşmesi — kısa token’da kelime öneki (mam → Mamon, Mama;
+/// Pachamama / Imamoglu gibi ortadaki "mam" elenir). ≥4 karakterde infix de açılır.
+const listing_suggest_slug_ascii_sql: String = "lower(replace(l.slug, '-', ' '))"
+
+const listing_suggest_token_match_sql: String =
+  "("
+  // Kelime öneki: başlar veya boşluktan sonra
+  <> listing_suggest_slug_ascii_sql
+  <> " ilike trim(tok) || '%' "
+  <> "or "
+  <> listing_suggest_slug_ascii_sql
+  <> " ilike '% ' || trim(tok) || '%' "
+  <> "or lower(coalesce(l.location_name, '')) ilike trim(tok) || '%' "
+  <> "or lower(coalesce(l.location_name, '')) ilike '% ' || trim(tok) || '%' "
+  <> "or exists ("
+  <> "  select 1 from listing_translations lt "
+  <> "  where lt.listing_id = l.id and ("
+  <> "    translate(lower(lt.title), 'üğışöç', 'ugisoc') ilike trim(tok) || '%' "
+  <> "    or translate(lower(lt.title), 'üğışöç', 'ugisoc') ilike '% ' || trim(tok) || '%'"
+  <> "  )"
+  <> ") "
+  // Uzun token: içeride geçen eşleşme (luxury → Mamon Luxury…)
+  <> "or ("
+  <> "  char_length(trim(tok)) >= 4 and ("
+  <> "    "
+  <> listing_suggest_slug_ascii_sql
+  <> " ilike '%' || trim(tok) || '%' "
+  <> "    or lower(coalesce(l.location_name, '')) ilike '%' || trim(tok) || '%' "
+  <> "    or exists ("
+  <> "      select 1 from listing_translations lt "
+  <> "      where lt.listing_id = l.id "
+  <> "        and translate(lower(lt.title), 'üğışöç', 'ugisoc') ilike '%' || trim(tok) || '%'"
+  <> "    )"
+  <> "  )"
+  <> ")"
+  <> ")"
 
 /// `location` vitrin parametresi — konum meta + tur başlığı + wtatil ülke adları.
-const location_search_match_sql: String = "translate(lower(coalesce(l.location_name, '') || ' ' || coalesce(lm.meta->>'address', '') || ' ' || coalesce(lm.meta->>'province_city', '') || ' ' || coalesce(lm.meta->>'city', '') || ' ' || coalesce(lm.meta->>'district_label', '') || ' ' || coalesce(lm.meta->>'region_display', '') || ' ' || coalesce((select lt2.title from listing_translations lt2 join locales lo2 on lo2.id = lt2.locale_id where lt2.listing_id = l.id order by case when lower(lo2.code) = 'tr' then 0 else 1 end limit 1), '') || ' ' || coalesce((select string_agg(coalesce(c.elem->>'name', ''), ' ') from listing_attributes wa cross join lateral jsonb_array_elements(case jsonb_typeof(wa.value_json->'countries') when 'array' then wa.value_json->'countries' else '[]'::jsonb end) c(elem) where wa.listing_id = l.id and wa.group_code = 'wtatil' and wa.key = 'snapshot'), '')), 'üğışöç', 'ugisoc')"
+const location_search_match_sql: String =
+  "translate(lower(coalesce(l.location_name, '') || ' ' || coalesce(lm.meta->>'address', '') || ' ' || coalesce(lm.meta->>'province_city', '') || ' ' || coalesce(lm.meta->>'city', '') || ' ' || coalesce(lm.meta->>'district_label', '') || ' ' || coalesce(lm.meta->>'region_display', '') || ' ' || coalesce((select lt2.title from listing_translations lt2 join locales lo2 on lo2.id = lt2.locale_id where lt2.listing_id = l.id order by case when lower(lo2.code) = 'tr' then 0 else 1 end limit 1), '') || ' ' || coalesce((select string_agg(coalesce(c.elem->>'name', ''), ' ') from listing_attributes wa cross join lateral jsonb_array_elements(case jsonb_typeof(wa.value_json->'countries') when 'array' then wa.value_json->'countries' else '[]'::jsonb end) c(elem) where wa.listing_id = l.id and wa.group_code = 'wtatil' and wa.key = 'snapshot'), '')), 'üğışöç', 'ugisoc')"
 
 fn min_count_filter_param(raw: String) -> pog.Value {
   case string.trim(raw) {
@@ -882,11 +934,7 @@ fn min_count_filter_param(raw: String) -> pog.Value {
   }
 }
 
-fn approximate_public_listing_total(
-  offset: Int,
-  limit: Int,
-  row_count: Int,
-) -> Int {
+fn approximate_public_listing_total(offset: Int, limit: Int, row_count: Int) -> Int {
   let seen = offset + row_count
   case row_count == limit {
     True -> seen + 1
@@ -900,11 +948,8 @@ fn listing_id_only_row() -> decode.Decoder(String) {
 }
 
 /// GET /api/v1/catalog/public/listings/by-slug/:slug — vitrin detay URL slug → yayın ilan id
-pub fn get_public_listing_id_by_slug(
-  req: Request,
-  ctx: Context,
-  slug: String,
-) -> Response {
+/// Görsel/fiyat kapısı YOK: detay sayfası resolve için; liste kapıları search'te kalır.
+pub fn get_public_listing_id_by_slug(req: Request, ctx: Context, slug: String) -> Response {
   use <- wisp.require_method(req, http.Get)
   let s = string.trim(slug)
   let qs = case request.get_query(req) {
@@ -921,12 +966,11 @@ pub fn get_public_listing_id_by_slug(
       case
         pog.query(
           "select l.id::text from listings l "
-          <> "inner join product_categories pc on pc.id = l.category_id "
-          <> "where l.status = 'published' "
-          <> public_listing_must_have_image_sql()
-          <> "and lower(l.slug) = lower($1) "
-          <> "and ($2 = '' or lower(pc.code) = lower($2)) "
-          <> "order by l.updated_at desc, l.id limit 1",
+            <> "inner join product_categories pc on pc.id = l.category_id "
+            <> "where l.status = 'published' "
+            <> "and lower(l.slug) = lower($1) "
+            <> "and ($2 = '' or lower(pc.code) = lower($2)) "
+            <> "order by l.updated_at desc, l.id limit 1",
         )
         |> pog.parameter(pog.text(s))
         |> pog.parameter(pog.text(category_code))
@@ -954,108 +998,8 @@ pub fn search_public_listings(req: Request, ctx: Context) -> Response {
   search_listings_impl(req, ctx, None)
 }
 
-fn public_listing_suggestion_row() -> decode.Decoder(
-  #(String, String, String, String, String, String),
-) {
-  use id <- decode.field(0, decode.string)
-  use slug <- decode.field(1, decode.string)
-  use title <- decode.field(2, decode.string)
-  use category_code <- decode.field(3, decode.string)
-  use image <- decode.field(4, decode.string)
-  use location <- decode.field(5, decode.string)
-  decode.success(#(id, slug, title, category_code, image, location))
-}
-
-/// Header autocomplete için hafif projeksiyon. Tam katalog sorgusundaki fiyat,
-/// müsaitlik, galeri ve toplam sayım hesaplarını çalıştırmaz.
-pub fn search_public_listing_suggestions(
-  req: Request,
-  ctx: Context,
-) -> Response {
-  use <- wisp.require_method(req, http.Get)
-  let qs = case request.get_query(req) {
-    Ok(values) -> values
-    Error(_) -> []
-  }
-  let q =
-    list.key_find(qs, "q")
-    |> result.unwrap("")
-    |> normalize_listing_search_q
-  let locale =
-    list.key_find(qs, "locale")
-    |> result.unwrap("tr")
-    |> string.trim
-    |> string.lowercase
-  let limit = case int.parse(list.key_find(qs, "limit") |> result.unwrap("8")) {
-    Ok(n) ->
-      case n < 1 {
-        True -> 8
-        False ->
-          case n > 20 {
-            True -> 20
-            False -> n
-          }
-      }
-    Error(_) -> 8
-  }
-
-  case string.length(q) < 3 {
-    True -> wisp.json_response("{\"listings\":[]}", 200)
-    False -> {
-      let match_sql = listing_search_match_sql
-      let sql =
-        "select l.id::text, l.slug, "
-        <> "coalesce((select lt.title from listing_translations lt join locales lo on lo.id = lt.locale_id where lt.listing_id = l.id order by case when lower(lo.code) = lower($2) then 0 when lower(lo.code) = 'tr' then 1 else 2 end limit 1), l.slug), "
-        <> "coalesce(pc.code::text, ''), "
-        <> "coalesce(nullif(trim(l.featured_image_url), ''), nullif(trim(l.thumbnail_url), ''), (select nullif(trim(li.storage_key), '') from listing_images li where li.listing_id = l.id order by li.sort_order, li.created_at limit 1), ''), "
-        <> "coalesce(nullif(trim(l.location_name), ''), '') "
-        <> "from listings l join product_categories pc on pc.id = l.category_id "
-        <> "where l.status = 'published' "
-        <> public_listing_must_have_image_sql()
-        <> "and (select coalesce(bool_and("
-        <> match_sql
-        <> " ilike '%' || trim(tok) || '%'), true) from unnest(string_to_array(trim($1), ' ')) as u(tok) where trim(tok) <> '') "
-        <> "order by case when "
-        <> match_sql
-        <> " like trim($1) || '%' then 0 else 1 end, l.updated_at desc limit $3"
-
-      case
-        pog.query(sql)
-        |> pog.parameter(pog.text(q))
-        |> pog.parameter(pog.text(locale))
-        |> pog.parameter(pog.int(limit))
-        |> pog.returning(public_listing_suggestion_row())
-        |> db_exec.execute(ctx.db)
-      {
-        Error(_) -> json_err(500, "listing_suggestions_query_failed")
-        Ok(ret) -> {
-          let rows =
-            list.map(ret.rows, fn(row) {
-              let #(id, slug, title, category_code, image, location) = row
-              json.object([
-                #("id", json.string(id)),
-                #("slug", json.string(slug)),
-                #("title", json.string(title)),
-                #("category_code", json.string(category_code)),
-                #("image", json_opt_str(image)),
-                #("location", json_opt_str(location)),
-              ])
-            })
-          json.object([#("listings", json.array(from: rows, of: fn(x) { x }))])
-          |> json.to_string
-          |> wisp.json_response(200)
-        }
-      }
-    }
-  }
-}
-
 /// GET /api/v1/agent/catalog/search — acente kategori grant filtresi ile aynı arama.
-pub fn search_agent_listings(
-  req: Request,
-  ctx: Context,
-  agency_org_id: String,
-) -> Response {
+pub fn search_agent_listings(req: Request, ctx: Context, agency_org_id: String) -> Response {
   search_listings_impl(req, ctx, Some(agency_org_id))
 }
 
@@ -1092,24 +1036,13 @@ fn search_listings_impl(
     |> result.unwrap("tr")
     |> string.trim
     |> string.lowercase
-  let locale = case locale_raw == "" {
-    True -> "tr"
-    False -> locale_raw
-  }
+  let locale = case locale_raw == "" { True -> "tr"  False -> locale_raw }
   let lim_str =
     list.key_find(qs, "limit")
     |> result.unwrap("20")
     |> string.trim
   let lim = case int.parse(lim_str) {
-    Ok(n) ->
-      case n > 100 {
-        True -> 100
-        False ->
-          case n < 1 {
-            True -> 20
-            False -> n
-          }
-      }
+    Ok(n) -> case n > 100 { True -> 100  False -> case n < 1 { True -> 20  False -> n } }
     Error(_) -> 20
   }
   let page_raw =
@@ -1117,11 +1050,7 @@ fn search_listings_impl(
     |> result.unwrap("1")
     |> string.trim
   let page_num = case int.parse(page_raw) {
-    Ok(n) ->
-      case n < 1 {
-        True -> 1
-        False -> n
-      }
+    Ok(n) -> case n < 1 { True -> 1  False -> n }
     Error(_) -> 1
   }
   let offset = int.multiply(page_num - 1, lim)
@@ -1131,25 +1060,27 @@ fn search_listings_impl(
     |> result.unwrap("")
     |> string.trim
 
+  // Autocomplete (?suggest=1): tam sayım yok; görsel/fiyat kapısı yok → daha hızlı + eksik ilanlar görünür.
+  let suggest_raw =
+    list.key_find(qs, "suggest")
+    |> result.unwrap("")
+    |> string.trim
+    |> string.lowercase
+  let suggest_mode = suggest_raw == "1" || suggest_raw == "true" || suggest_raw == "yes"
+
   let q_normalized = normalize_listing_search_q(q_raw)
   let q_param = case q_normalized == "" {
     True -> pog.null()
     False -> pog.text(q_normalized)
   }
-  let cat_param = case cat_raw == "" {
-    True -> pog.null()
-    False -> pog.text(cat_raw)
-  }
+  let cat_param = case cat_raw == "" { True -> pog.null()  False -> pog.text(cat_raw) }
   let loc_normalized = normalize_location_search_q(loc_raw)
   let loc_param = case loc_normalized == "" {
     True -> pog.null()
     False -> pog.text(loc_normalized)
   }
   // Pass ids as a single comma-separated text; SQL splits via string_to_array
-  let ids_param = case ids_raw == "" {
-    True -> pog.null()
-    False -> pog.text(ids_raw)
-  }
+  let ids_param = case ids_raw == "" { True -> pog.null()  False -> pog.text(ids_raw) }
 
   let theme_raw =
     list.key_find(qs, "theme")
@@ -1325,13 +1256,12 @@ fn search_listings_impl(
     |> string.trim
     |> string.lowercase
   // Sıralama/fiyat filtresi önbellek sütununu kullanır (canlı lateral değil) — fast ve
-  // deferred yollar aynı kaynağı kullansın diye. Ekrandaki price_from hâlâ canlı hesaplanır.
+  // deferred yollar aynı kaynağı kullansın diye.
+  // Kart price_from: önce vitrin_price (CPU); yoksa canlı lateral fallback.
   let vitrin_price_sql = "coalesce(l.vitrin_price, l.first_charge_amount) "
   let location_search_sql = location_search_match_sql
   let tour_duration_days_sql =
-    safe_int_sql(
-      "coalesce(tour_attr.value_json->'data'->>'duration_days', tour_attr.value_json->>'duration_days', '')",
-    )
+    safe_int_sql("coalesce(tour_attr.value_json->'data'->>'duration_days', tour_attr.value_json->>'duration_days', '')")
   let meta_bed_count_sql = safe_int_sql("coalesce(lm.meta->>'bed_count', '')")
   let meta_room_count_sql = safe_int_sql("coalesce(lm.meta->>'room_count', '')")
   let meta_bath_count_sql = safe_int_sql("coalesce(lm.meta->>'bath_count', '')")
@@ -1339,12 +1269,39 @@ fn search_listings_impl(
   // Eski davranış (önce yüksek puan): `?sort=recommended` veya `sort=rating`.
   let order_sql = case sort_raw {
     "price_asc" ->
-      "order by " <> vitrin_price_sql <> "asc nulls last, l.created_at desc "
+      "order by "
+        <> vitrin_price_sql
+        <> "asc nulls last, l.created_at desc "
     "price_desc" ->
-      "order by " <> vitrin_price_sql <> "desc nulls last, l.created_at desc "
+      "order by "
+        <> vitrin_price_sql
+        <> "desc nulls last, l.created_at desc "
     "recommended" | "rating" ->
       "order by l.review_avg desc nulls last, l.created_at desc "
-    _ -> "order by l.created_at desc "
+    _ ->
+      case suggest_mode {
+        // Öneri: başlık/slug eşleşmesini konum eşleşmesinin önüne al.
+        True ->
+          "order by case when "
+            <> listing_search_match_sql
+            <> " ilike '%' || split_part(trim(coalesce($1::text, '')), ' ', 1) || '%' then 0 else 1 end, l.created_at desc "
+        False -> "order by l.created_at desc "
+      }
+  }
+
+  // Suggest: kapıları kapat (detay zaten açılıyor; autocomplete bulsun).
+  // Normal vitrin: görsel + otel/tur fiyat kapısı.
+  let browse_image_gate_sql = case suggest_mode {
+    True -> ""
+    False -> public_listing_must_have_image_sql()
+  }
+  let browse_tour_price_gate_sql = case suggest_mode {
+    True -> ""
+    False -> tour_public_must_have_price_sql()
+  }
+  let browse_hotel_price_gate_sql = case suggest_mode {
+    True -> ""
+    False -> hotel_public_must_have_price_sql()
   }
 
   // Faz F: Esnek tarih arama. start_date / end_date verilirse müsaitlik filtresi uygulanır.
@@ -1387,8 +1344,9 @@ fn search_listings_impl(
     <> "coalesce((select lt.title from listing_translations lt join locales lo on lo.id = lt.locale_id where lt.listing_id = l.id and lower(lo.code) = lower($4) limit 1), l.slug), "
     <> "coalesce(pc.code::text, ''), "
     <> "coalesce(case when trim(coalesce(l.featured_image_url, '')) = '' then null when trim(l.featured_image_url) ilike 'http%' then trim(l.featured_image_url) when trim(l.featured_image_url) like '/%' then trim(l.featured_image_url) else '/' || trim(l.featured_image_url) end, case when trim(coalesce(l.thumbnail_url, '')) = '' then null when trim(l.thumbnail_url) ilike 'http%' then trim(l.thumbnail_url) when trim(l.thumbnail_url) like '/%' then trim(l.thumbnail_url) else '/' || trim(l.thumbnail_url) end, (select case when trim(li.storage_key) is null or trim(li.storage_key) = '' then null when trim(li.storage_key) ilike 'http%' then trim(li.storage_key) when trim(li.storage_key) like '/%' then trim(li.storage_key) else '/' || trim(li.storage_key) end from listing_images li where li.listing_id = l.id order by li.sort_order asc, li.created_at asc limit 1), ''), "
-    // Vitrin fiyat: tur → wtatil; aktivite → seans yetişkin ücreti; konaklama → kurallar + yemek planları.
-    <> "coalesce(case when pc.code = 'tour' then "
+    // Vitrin fiyat: önce önbellek (vitrin_price) — canlı lateral yalnızca cache boşsa.
+    // Cache doluyken price_rule/meal lateralları yine join edilir ama price_from kısa yol alır.
+    <> "coalesce(nullif(l.vitrin_price::text, ''), case when pc.code = 'tour' then "
     <> tour_listing_vitrin_price_sql()
     <> " else null end, case when pc.code = 'activity' then "
     <> activity_listing_vitrin_price_sql()
@@ -1426,7 +1384,7 @@ fn search_listings_impl(
     <> ", coalesce(price_rule.min_price::text, '') "
     <> ", coalesce(price_rule.max_price::text, '') "
     <> ", coalesce(nullif(hotel.star_rating::text, ''), '') "
-    <> ", coalesce(nullif(trim(hotel_attr.value_json->>'hotel_type_code'), ''), '') "
+    <> ", coalesce(nullif(trim(case jsonb_typeof(hotel_attr.value_json) when 'string' then hotel_attr.value_json#>>'{}' else hotel_attr.value_json->>'hotel_type_code' end), ''), '') "
     <> ", coalesce(nullif(trim(tour_attr.value_json->'data'->>'duration_days'), ''), nullif(trim(tour_attr.value_json->>'duration_days'), ''), '') "
     <> ", coalesce(nullif(trim(tour_attr.value_json->'data'->>'max_people'), ''), nullif(trim(tour_attr.value_json->>'max_people'), ''), '') "
     <> ", coalesce(nullif(trim(tour_attr.value_json->'data'->>'travel_type'), ''), nullif(trim(tour_attr.value_json->>'travel_type'), ''), '') "
@@ -1466,8 +1424,10 @@ fn search_listings_impl(
     <> "left join listing_tour_details tour_det on tour_det.listing_id = l.id "
     <> "left join lateral (select min(u.v) as min_price, max(u.v) as max_price from listing_price_rules r cross join lateral "
     <> listing_price_rule_nightly_lateral_values_sql()
-    <> " as u(v) where r.listing_id = l.id and u.v is not null) price_rule on true "
-    <> listing_meal_plan_vitrin_lateral_sql()
+    <> " as u(v) where r.listing_id = l.id and u.v is not null) price_rule on ("
+    // Cache doluyken otel/tur için price_rule taraması gereksiz; tatil evi min/max için gerekir.
+    <> "pc.code in ('holiday_home', 'yacht_charter') or l.vitrin_price is null) "
+    <> listing_meal_plan_vitrin_lateral_sql_conditional()
     <> "left join lateral (select la.value_json as meta from listing_attributes la where la.listing_id = l.id and la.group_code = 'listing_meta' and la.key = 'v1' limit 1) lm on true "
     <> holiday_home_range_quote_lateral_sql()
     <> "left join lateral (select la.value_json from listing_attributes la where la.listing_id = l.id and la.group_code = 'hotel' and la.key = 'hotel_type_code' limit 1) hotel_attr on true "
@@ -1477,7 +1437,7 @@ fn search_listings_impl(
     <> "left join lateral (select la.value_json from listing_attributes la where la.listing_id = l.id and la.group_code = 'wtatil' and la.key = 'snapshot' limit 1) wtatil_snap on true "
     <> "left join listing_cruise_details cruise_det on cruise_det.listing_id = l.id "
     <> "where l.status = 'published' "
-    <> public_listing_must_have_image_sql()
+    <> browse_image_gate_sql
     <> "and ($1::text is null or trim($1) = '' or (select coalesce(bool_and("
     <> listing_search_match_sql
     <> " ilike '%' || trim(tok) || '%'), true) from unnest(string_to_array(trim($1), ' ')) as u(tok) where trim(tok) <> '')) "
@@ -1531,9 +1491,9 @@ fn search_listings_impl(
     <> ")) "
     <> "and ($12::text is null or coalesce(l.vitrin_price, l.first_charge_amount) >= nullif($12::text, '')::numeric) "
     <> "and ($13::text is null or coalesce(l.vitrin_price, l.first_charge_amount) <= nullif($13::text, '')::numeric) "
-    <> "and ($14::text is null or pc.code != 'hotel' or lower(trim(coalesce(hotel_attr.value_json->>'hotel_type_code', ''))) = any(string_to_array(trim($14), ',')::text[])) "
-    <> "and ($15::text is null or pc.code != 'hotel' or lower(trim(coalesce(hotel_theme_attr.value_json->>'theme_code', ''))) = any(string_to_array(trim($15), ',')::text[])) "
-    <> "and ($16::text is null or pc.code != 'hotel' or lower(trim(coalesce(hotel_acc_attr.value_json->>'accommodation_code', ''))) = any(string_to_array(trim($16), ',')::text[])) "
+    <> "and ($14::text is null or pc.code != 'hotel' or lower(trim(coalesce(case jsonb_typeof(hotel_attr.value_json) when 'string' then hotel_attr.value_json#>>'{}' else hotel_attr.value_json->>'hotel_type_code' end, ''))) = any(string_to_array(trim($14), ',')::text[])) "
+    <> "and ($15::text is null or pc.code != 'hotel' or lower(trim(coalesce(case jsonb_typeof(hotel_theme_attr.value_json) when 'string' then hotel_theme_attr.value_json#>>'{}' else hotel_theme_attr.value_json->>'theme_code' end, ''))) = any(string_to_array(trim($15), ',')::text[])) "
+    <> "and ($16::text is null or pc.code != 'hotel' or lower(trim(coalesce(case jsonb_typeof(hotel_acc_attr.value_json) when 'string' then hotel_acc_attr.value_json#>>'{}' else hotel_acc_attr.value_json->>'accommodation_code' end, ''))) = any(string_to_array(trim($16), ',')::text[])) "
     <> "and ($17::text is null or pc.code != 'hotel' or floor(coalesce(hotel.star_rating, 0))::int::text = any(string_to_array(trim($17), ',')::text[])) "
     <> "and ($31::text is null or pc.code != 'hotel' or ( "
     <> "  ('domestic' = any(string_to_array(trim($31), ',')) and coalesce(hotel_country.iso2, 'TR') = 'TR') "
@@ -1556,8 +1516,8 @@ fn search_listings_impl(
     <> tour_duration_days_sql
     <> ", 0) >= 8) "
     <> ")) "
-    <> tour_public_must_have_price_sql()
-    <> hotel_public_must_have_price_sql()
+    <> browse_tour_price_gate_sql
+    <> browse_hotel_price_gate_sql
     <> "and ($22::uuid is null or not exists (select 1 from agency_category_grants g where g.agency_organization_id = $22::uuid) "
     <> "or exists (select 1 from agency_category_grants g2 where g2.agency_organization_id = $22::uuid and g2.approved = true and g2.category_code = pc.code)) "
     <> "and ($23::text is null or pc.code not in ('holiday_home', 'yacht_charter') or lower(trim(coalesce(lm.meta->>'property_type', ''))) = $23) "
@@ -1614,19 +1574,20 @@ fn search_listings_impl(
   let sql_core = sql <> order_sql
 
   // Count: ORDER BY is removed (prevents expensive per-row subqueries like EXISTS on listing_images).
-  // price_rule lateral is also made conditional: when no price filter params ($12/$13) are passed,
-  // skip the per-row listing_price_rules scan entirely — the lateral result is unused anyway.
+  // price_rule / meal_vitrin sayımda kullanılmaz (fiyat filtresi vitrin_price); kapat.
   let count_from_conditional =
     string.replace(
       listing_search_from_where_sql,
-      ") price_rule on true ",
-      ") price_rule on ($12::text is not null or $13::text is not null) ",
+      ") price_rule on (pc.code in ('holiday_home', 'yacht_charter') or l.vitrin_price is null) ",
+      ") price_rule on (false) ",
+    )
+    |> string.replace(
+      ") meal_vitrin on (l.vitrin_price is null) ",
+      ") meal_vitrin on (false) ",
     )
     // Sayım için tarih aralığı toplamı gerekmiyor — ağır generate_series lateral'ı kapat.
     |> string.replace(
-      ") range_quote on ("
-        <> holiday_home_range_quote_join_condition_sql()
-        <> ") ",
+      ") range_quote on (" <> holiday_home_range_quote_join_condition_sql() <> ") ",
       ") range_quote on (false) ",
     )
   let count_sql =
@@ -1653,6 +1614,8 @@ fn search_listings_impl(
       "from page_ids __pids join listings l on l.id = __pids.id ",
     )
   // page_ids ve fast-path sayımının paylaştığı filtre gövdesi (FROM + WHERE).
+  // Görsel kapısı browse varyantı: fast path'te $6 her zaman null (ids_raw==""),
+  // ama EXISTS listing_images maliyeti aynı; browse SQL aynı semantik.
   let fast_filter_body =
     "from listings l "
     <> "join product_categories pc on pc.id = l.category_id "
@@ -1662,7 +1625,7 @@ fn search_listings_impl(
     <> "left join lateral (select la.value_json from listing_attributes la where la.listing_id = l.id and la.group_code = 'vertical_tour' and la.key = 'v1' limit 1) tour_attr on true "
     <> "left join listing_cruise_details cruise_det on cruise_det.listing_id = l.id "
     <> "where l.status = 'published' "
-    <> public_listing_must_have_image_sql()
+    <> public_listing_must_have_image_browse_sql()
     <> "and ($2::text is null or pc.code = $2) "
     <> "and ($3::text is null or trim($3) = '' or (select coalesce(bool_and("
     <> location_search_sql
@@ -1712,8 +1675,8 @@ fn search_listings_impl(
     // satır-başı fiyat lateral'ı gerekmez → fast path fiyat/sıralamayı index ile karşılar.
     <> "and ($12::text is null or coalesce(l.vitrin_price, l.first_charge_amount) >= nullif($12::text, '')::numeric) "
     <> "and ($13::text is null or coalesce(l.vitrin_price, l.first_charge_amount) <= nullif($13::text, '')::numeric) "
-    <> tour_public_must_have_price_sql()
-    <> hotel_public_must_have_price_sql()
+    <> "and (pc.code != 'tour' or coalesce(l.vitrin_price, l.first_charge_amount, 0) > 0) "
+    <> "and (pc.code != 'hotel' or coalesce(l.vitrin_price, l.first_charge_amount, 0) > 0) "
   let fast_category_page_sql =
     "with page_ids as materialized (select l.id "
     <> fast_filter_body
@@ -1730,16 +1693,21 @@ fn search_listings_impl(
     <> ") _cnt cross join (select $1::text as a1, $4::text as a4, $5::int as a5, $6::text as a6, $7::text as a7, $11::text as a11, $12::text as a12, $13::text as a13, $14::text as a14, $15::text as a15, $16::text as a16, $17::text as a17, $18::text as a18, $19::text as a19, $20::text as a20, $21::int as a21, $22::uuid as a22, $24::text as a24, $28::text as a28, $29::text as a29, $30::text as a30, $31::text as a31) __allp"
   // Filtreli (fast olmayan) aramalar da deferred-projeksiyon kullanır: page_ids tüm filtreleri
   // + sıralamayı yalnız l.id üzerinde uygular; pahalı projeksiyon (galeri, çeviri, pansiyon)
-  // yalnızca sayfadaki ~24 satır için çalışır. WHERE/ORDER lateral'ları (fiyat, attr) zaten gerekli.
-  // range_quote (tarih aralığı toplamı) burada gerekmez — sıralama onu kullanmaz; ağır
-  // generate_series hesaplaması yalnızca aşağıdaki fast_main_sql'de (sayfalanmış satırlarda) çalışsın.
+  // yalnızca sayfadaki ~24 satır için çalışır.
+  // page_ids CTE'sinde price_rule/meal_vitrin/range_quote gerekmez — filtre vitrin_price kullanır.
   let deferred_page_from_where_sql =
     string.replace(
       listing_search_from_where_sql,
-      ") range_quote on ("
-        <> holiday_home_range_quote_join_condition_sql()
-        <> ") ",
+      ") range_quote on (" <> holiday_home_range_quote_join_condition_sql() <> ") ",
       ") range_quote on (false) ",
+    )
+    |> string.replace(
+      ") price_rule on (pc.code in ('holiday_home', 'yacht_charter') or l.vitrin_price is null) ",
+      ") price_rule on (false) ",
+    )
+    |> string.replace(
+      ") meal_vitrin on (l.vitrin_price is null) ",
+      ") meal_vitrin on (false) ",
     )
   let deferred_page_sql =
     "with page_ids as materialized (select l.id "
@@ -1749,6 +1717,51 @@ fn search_listings_impl(
     <> ") "
     <> fast_main_sql
     <> order_sql
+
+  // Autocomplete: yalnızca $1=q $2=cat $3=locale $4=limit $5=offset — dummy $22::uuid yok
+  // (pog.null()→uuid cast prod’da search_failed üretebiliyordu).
+  let suggest_page_sql =
+    "with page_ids as materialized (select l.id "
+    <> "from listings l "
+    <> "join product_categories pc on pc.id = l.category_id "
+    <> "where l.status = 'published' "
+    <> "and ($1::text is null or trim($1) = '' or (select coalesce(bool_and("
+    <> listing_suggest_token_match_sql
+    <> "), true) from unnest(string_to_array(trim($1), ' ')) as u(tok) where trim(tok) <> '')) "
+    <> "and ($2::text is null or pc.code = $2) "
+    <> "order by "
+    <> "case when pc.code in ('holiday_home', 'yacht_charter', 'tour', 'activity') then 0 else 1 end asc, "
+    <> "case "
+    <> "when exists ("
+    <> "  select 1 from listing_translations lt where lt.listing_id = l.id "
+    <> "    and translate(lower(lt.title), 'üğışöç', 'ugisoc') ilike split_part(trim(coalesce($1::text, '')), ' ', 1) || '%'"
+    <> ") then 0 "
+    <> "when lower(replace(l.slug, '-', ' ')) ilike split_part(trim(coalesce($1::text, '')), ' ', 1) || '%' then 0 "
+    <> "else 1 end asc, "
+    <> "l.created_at desc "
+    <> "offset $5 limit $4"
+    <> ") "
+    <> "select "
+    <> "l.id::text, l.slug, "
+    <> "coalesce((select lt.title from listing_translations lt join locales lo on lo.id = lt.locale_id where lt.listing_id = l.id and lower(lo.code) = lower($3) limit 1), l.slug), "
+    <> "coalesce(pc.code::text, ''), "
+    <> "coalesce(case when trim(coalesce(l.featured_image_url, '')) = '' then null when trim(l.featured_image_url) ilike 'http%' then trim(l.featured_image_url) when trim(l.featured_image_url) like '/%' then trim(l.featured_image_url) else '/' || trim(l.featured_image_url) end, case when trim(coalesce(l.thumbnail_url, '')) = '' then null when trim(l.thumbnail_url) ilike 'http%' then trim(l.thumbnail_url) when trim(l.thumbnail_url) like '/%' then trim(l.thumbnail_url) else '/' || trim(l.thumbnail_url) end, ''), "
+    <> "coalesce(nullif(l.vitrin_price::text, ''), nullif(l.first_charge_amount::text, ''), ''), "
+    <> "coalesce(nullif(trim(l.location_name), ''), ''), "
+    <> "'', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '' "
+    <> "from page_ids __pids "
+    <> "join listings l on l.id = __pids.id "
+    <> "join product_categories pc on pc.id = l.category_id "
+    <> "order by "
+    <> "case when pc.code in ('holiday_home', 'yacht_charter', 'tour', 'activity') then 0 else 1 end asc, "
+    <> "case "
+    <> "when exists ("
+    <> "  select 1 from listing_translations lt where lt.listing_id = l.id "
+    <> "    and translate(lower(lt.title), 'üğışöç', 'ugisoc') ilike split_part(trim(coalesce($1::text, '')), ' ', 1) || '%'"
+    <> ") then 0 "
+    <> "when lower(replace(l.slug, '-', ' ')) ilike split_part(trim(coalesce($1::text, '')), ' ', 1) || '%' then 0 "
+    <> "else 1 end asc, "
+    <> "l.created_at desc "
 
   let agency_param = case agency_org_opt {
     None -> pog.null()
@@ -1815,98 +1828,155 @@ fn search_listings_impl(
     && tour_region_raw == ""
     && hotel_scope_raw == ""
   let exact_count_needed =
-    is_agent_search
-    || q_normalized != ""
-    || loc_raw != ""
-    || ids_raw != ""
-    || theme_raw != ""
-    || attrs_raw != ""
-    || price_min_raw != ""
-    || price_max_raw != ""
-    || hotel_type_raw != ""
-    || hotel_theme_raw != ""
-    || hotel_accommodation_raw != ""
-    || hotel_stars_raw != ""
-    || tour_travel_type_raw != ""
-    || tour_accommodation_raw != ""
-    || tour_duration_raw != ""
-    || tour_departure_raw != ""
-    || cruise_line_raw != ""
-    || cruise_route_raw != ""
-    || tour_region_raw != ""
-    || hotel_scope_raw != ""
-    || property_type_raw != ""
-    || string.trim(beds_raw) != ""
-    || string.trim(bedrooms_raw) != ""
-    || string.trim(bathrooms_raw) != ""
-    || start_raw != ""
-    || end_raw != ""
-    || sort_raw != ""
-  let page_sql = case fast_page_allowed {
-    True -> fast_category_page_sql
-    False -> deferred_page_sql
+    !suggest_mode
+    && {
+      is_agent_search
+      || q_normalized != ""
+      || loc_raw != ""
+      || ids_raw != ""
+      || theme_raw != ""
+      || attrs_raw != ""
+      || price_min_raw != ""
+      || price_max_raw != ""
+      || hotel_type_raw != ""
+      || hotel_theme_raw != ""
+      || hotel_accommodation_raw != ""
+      || hotel_stars_raw != ""
+      || tour_travel_type_raw != ""
+      || tour_accommodation_raw != ""
+      || tour_duration_raw != ""
+      || tour_departure_raw != ""
+      || cruise_line_raw != ""
+      || cruise_route_raw != ""
+      || tour_region_raw != ""
+      || hotel_scope_raw != ""
+      || property_type_raw != ""
+      || string.trim(beds_raw) != ""
+      || string.trim(bedrooms_raw) != ""
+      || string.trim(bathrooms_raw) != ""
+      || start_raw != ""
+      || end_raw != ""
+      || sort_raw != ""
+    }
+  let page_sql = case suggest_mode {
+    True -> suggest_page_sql
+    False ->
+      case fast_page_allowed {
+        True -> fast_category_page_sql
+        False -> deferred_page_sql
+      }
+  }
+  let query_timeout_ms = case suggest_mode {
+    True -> suggest_query_timeout_ms
+    False -> vitrin_query_timeout_ms
   }
 
-  case
-    pog.query(page_sql)
-    |> pog.timeout(vitrin_query_timeout_ms)
-    |> run_params
-    |> pog.returning(pub_listing_row())
-    |> db_exec.execute(ctx.db)
-  {
-    Error(e) -> {
-      let _ =
-        io.println(
-          "[catalog.public.listings] " <> pog_errors.query_error_to_string(e),
-        )
-      // Strip fallback yalnızca vitrin_price kolonu eksikse (42703) anlamlıdır.
-      // Timeout/bağlantı hatasında strip edilmiş SQL daha da yavaştır (partial
-      // index eşleşmez) — yeniden çalıştırmak bağlantı fırtınasını büyütür.
-      case pog_errors.is_missing_schema(e) {
-        False -> json_err(500, "search_failed")
-        True -> {
-          let fallback_count_sql = case fast_page_allowed {
-            True -> strip_vitrin_price_cache_sql(fast_count_sql)
-            False -> strip_vitrin_price_cache_sql(count_sql)
-          }
-          // Eski sql_paged tüm eşleşen satırlarda projeksiyon çalıştırır (dakikalar + DB tükenmesi).
-          // vitrin_price hatasında aynı fast/deferred planı strip ile yeniden dene.
-          search_listings_paged_response(
-            ctx,
-            strip_vitrin_price_cache_sql(page_sql),
-            run_params,
-            offset,
-            lim,
-            None,
-            Some(fallback_count_sql),
-          )
+  let empty_suggest = fn() {
+    let body =
+      json.object([
+        #("listings", json.array(from: [], of: fn(x) { x })),
+        #("total", json.int(0)),
+      ])
+      |> json.to_string
+    wisp.json_response(body, 200)
+  }
+
+  case suggest_mode {
+    True -> {
+      case
+        pog.query(suggest_page_sql)
+        |> pog.timeout(suggest_query_timeout_ms)
+        |> pog.parameter(q_param)
+        |> pog.parameter(cat_param)
+        |> pog.parameter(pog.text(locale))
+        |> pog.parameter(pog.int(lim))
+        |> pog.parameter(pog.int(offset))
+        |> pog.returning(pub_listing_row())
+        |> db_exec.execute(ctx.db)
+      {
+        Error(e) -> {
+          let _ =
+            io.println(
+              "[catalog.public.listings.suggest] "
+                <> pog_errors.query_error_to_string(e),
+            )
+          // Autocomplete siteyi düşürmesin — boş öneri, 500 yok.
+          empty_suggest()
+        }
+        Ok(ret) -> {
+          let arr = list.map(ret.rows, pub_listing_json)
+          let body =
+            json.object([
+              #("listings", json.array(from: arr, of: fn(x) { x })),
+              #("total", json.int(list.length(ret.rows))),
+            ])
+            |> json.to_string
+          wisp.json_response(body, 200)
         }
       }
     }
-    Ok(ret) -> {
-      let fallback_total =
-        approximate_public_listing_total(offset, lim, list.length(ret.rows))
-      let run_count = fn(count_q: String) -> Int {
-        run_listing_count_sql(ctx, count_q, run_params, fallback_total, True)
-      }
-      // Fast-path: ucuz gerçek sayım. Karmaşık (fast olmayan) aramalar: tam count_sql.
-      let total_count = case fast_page_allowed {
-        True -> run_count(fast_count_sql)
-        False ->
-          case exact_count_needed {
-            True -> run_count(count_sql)
-            False -> fallback_total
+    False ->
+      case
+        pog.query(page_sql)
+        |> pog.timeout(query_timeout_ms)
+        |> run_params
+        |> pog.returning(pub_listing_row())
+        |> db_exec.execute(ctx.db)
+      {
+        Error(e) -> {
+          let _ =
+            io.println(
+              "[catalog.public.listings] "
+                <> pog_errors.query_error_to_string(e),
+            )
+          // Strip fallback yalnızca vitrin_price kolonu eksikse (42703) anlamlıdır.
+          // Timeout/bağlantı hatasında strip edilmiş SQL daha da yavaştır (partial
+          // index eşleşmez) — yeniden çalıştırmak bağlantı fırtınasını büyütür.
+          case pog_errors.is_missing_schema(e) {
+            False -> json_err(500, "search_failed")
+            True -> {
+              let fallback_count_sql = case fast_page_allowed {
+                True -> strip_vitrin_price_cache_sql(fast_count_sql)
+                False -> strip_vitrin_price_cache_sql(count_sql)
+              }
+              // Eski sql_paged tüm eşleşen satırlarda projeksiyon çalıştırır (dakikalar + DB tükenmesi).
+              // vitrin_price hatasında aynı fast/deferred planı strip ile yeniden dene.
+              search_listings_paged_response(
+                ctx,
+                strip_vitrin_price_cache_sql(page_sql),
+                run_params,
+                offset,
+                lim,
+                None,
+                Some(fallback_count_sql),
+              )
+            }
           }
+        }
+        Ok(ret) -> {
+          let fallback_total =
+            approximate_public_listing_total(offset, lim, list.length(ret.rows))
+          let run_count = fn(count_q: String) -> Int {
+            run_listing_count_sql(ctx, count_q, run_params, fallback_total, True)
+          }
+          let total_count = case fast_page_allowed {
+            True -> run_count(fast_count_sql)
+            False ->
+              case exact_count_needed {
+                True -> run_count(count_sql)
+                False -> fallback_total
+              }
+          }
+          let arr = list.map(ret.rows, pub_listing_json)
+          let body =
+            json.object([
+              #("listings", json.array(from: arr, of: fn(x) { x })),
+              #("total", json.int(total_count)),
+            ])
+            |> json.to_string
+          wisp.json_response(body, 200)
+        }
       }
-      let arr = list.map(ret.rows, pub_listing_json)
-      let body =
-        json.object([
-          #("listings", json.array(from: arr, of: fn(x) { x })),
-          #("total", json.int(total_count)),
-        ])
-        |> json.to_string
-      wisp.json_response(body, 200)
-    }
   }
 }
 
@@ -1951,7 +2021,8 @@ fn search_listings_paged_response_impl(
     Error(e) -> {
       let _ =
         io.println(
-          "[catalog.public.listings] " <> pog_errors.query_error_to_string(e),
+          "[catalog.public.listings] "
+            <> pog_errors.query_error_to_string(e),
         )
       case allow_legacy && pog_errors.is_missing_schema(e) {
         False -> json_err(500, "search_failed")
@@ -1982,13 +2053,7 @@ fn search_listings_paged_response_impl(
         None ->
           case count_sql_opt {
             Some(q) ->
-              run_listing_count_sql(
-                ctx,
-                q,
-                run_params,
-                page_fallback,
-                allow_legacy,
-              )
+              run_listing_count_sql(ctx, q, run_params, page_fallback, allow_legacy)
             None -> page_fallback
           }
       }
@@ -2083,9 +2148,7 @@ fn theme_manage_ok_len(s: String, max: Int) -> Bool {
   }
 }
 
-fn create_manage_theme_item_decoder() -> decode.Decoder(
-  #(String, String, String, String),
-) {
+fn create_manage_theme_item_decoder() -> decode.Decoder(#(String, String, String, String)) {
   decode.field("category_code", decode.string, fn(cat) {
     decode.field("code", decode.string, fn(code) {
       decode.field("label", decode.string, fn(label) {
@@ -2157,9 +2220,7 @@ pub fn list_manage_theme_items(req: Request, ctx: Context) -> Response {
                   ])
                 })
               let body =
-                json.object([
-                  #("items", json.array(from: rows, of: fn(x) { x })),
-                ])
+                json.object([#("items", json.array(from: rows, of: fn(x) { x }))])
                 |> json.to_string
               wisp.json_response(body, 200)
             }
@@ -2218,8 +2279,7 @@ pub fn create_manage_theme_item(req: Request, ctx: Context) -> Response {
                             |> pog.parameter(pog.text(label_raw))
                             |> db_exec.execute(ctx.db)
                           {
-                            Error(_) ->
-                              json_err(500, "theme_item_translation_failed")
+                            Error(_) -> json_err(500, "theme_item_translation_failed")
                             Ok(_) ->
                               wisp.json_response(
                                 json.object([
@@ -2227,7 +2287,7 @@ pub fn create_manage_theme_item(req: Request, ctx: Context) -> Response {
                                   #("code", json.string(code)),
                                   #("ok", json.bool(True)),
                                 ])
-                                  |> json.to_string,
+                                |> json.to_string,
                                 201,
                               )
                           }
@@ -2244,11 +2304,7 @@ pub fn create_manage_theme_item(req: Request, ctx: Context) -> Response {
 }
 
 /// PATCH /api/v1/catalog/manage/theme-items/:id
-pub fn patch_manage_theme_item(
-  req: Request,
-  ctx: Context,
-  item_id: String,
-) -> Response {
+pub fn patch_manage_theme_item(req: Request, ctx: Context, item_id: String) -> Response {
   use <- wisp.require_method(req, http.Patch)
   case admin_gate.require_admin_users_read(req, ctx) {
     Error(r) -> r
@@ -2291,19 +2347,13 @@ pub fn patch_manage_theme_item(
 }
 
 /// DELETE /api/v1/catalog/manage/theme-items/:id
-pub fn delete_manage_theme_item(
-  req: Request,
-  ctx: Context,
-  item_id: String,
-) -> Response {
+pub fn delete_manage_theme_item(req: Request, ctx: Context, item_id: String) -> Response {
   use <- wisp.require_method(req, http.Delete)
   case admin_gate.require_admin_users_read(req, ctx) {
     Error(r) -> r
     Ok(_) ->
       case
-        pog.query(
-          "delete from category_theme_items where id = $1::uuid returning id::text",
-        )
+        pog.query("delete from category_theme_items where id = $1::uuid returning id::text")
         |> pog.parameter(pog.text(string.trim(item_id)))
         |> pog.returning(row_dec.col0_string())
         |> db_exec.execute(ctx.db)
@@ -2326,25 +2376,23 @@ pub fn delete_manage_theme_item(
 
 // ─── Travel Bridge (hafif senkron) ───────────────────────────────────────────
 
-fn bridge_listing_row() -> decode.Decoder(
-  #(
-    String,
-    String,
-    String,
-    String,
-    String,
-    String,
-    String,
-    String,
-    String,
-    String,
-    String,
-    String,
-    String,
-    String,
-    String,
-  ),
-) {
+fn bridge_listing_row() -> decode.Decoder(#(
+  String,
+  String,
+  String,
+  String,
+  String,
+  String,
+  String,
+  String,
+  String,
+  String,
+  String,
+  String,
+  String,
+  String,
+  String,
+)) {
   use id <- decode.field(0, decode.string)
   use slug <- decode.field(1, decode.string)
   use title <- decode.field(2, decode.string)
@@ -2451,24 +2499,13 @@ pub fn search_bridge_listings(req: Request, ctx: Context) -> Response {
     |> result.unwrap("tr")
     |> string.trim
     |> string.lowercase
-  let locale = case locale_raw == "" {
-    True -> "tr"
-    False -> locale_raw
-  }
+  let locale = case locale_raw == "" { True -> "tr"  False -> locale_raw }
   let lim_str =
     list.key_find(qs, "limit")
     |> result.unwrap("50")
     |> string.trim
   let lim = case int.parse(lim_str) {
-    Ok(n) ->
-      case n > 100 {
-        True -> 100
-        False ->
-          case n < 1 {
-            True -> 50
-            False -> n
-          }
-      }
+    Ok(n) -> case n > 100 { True -> 100  False -> case n < 1 { True -> 50  False -> n } }
     Error(_) -> 50
   }
   let page_raw =
@@ -2476,18 +2513,11 @@ pub fn search_bridge_listings(req: Request, ctx: Context) -> Response {
     |> result.unwrap("1")
     |> string.trim
   let page_num = case int.parse(page_raw) {
-    Ok(n) ->
-      case n < 1 {
-        True -> 1
-        False -> n
-      }
+    Ok(n) -> case n < 1 { True -> 1  False -> n }
     Error(_) -> 1
   }
   let offset = int.multiply(page_num - 1, lim)
-  let cat_param = case cat_raw == "" {
-    True -> pog.null()
-    False -> pog.text(cat_raw)
-  }
+  let cat_param = case cat_raw == "" { True -> pog.null()  False -> pog.text(cat_raw) }
 
   let sql =
     "select l.id::text, l.slug, "
@@ -2509,7 +2539,7 @@ pub fn search_bridge_listings(req: Request, ctx: Context) -> Response {
     <> "left join lateral (select la.value_json as meta from listing_attributes la "
     <> "where la.listing_id = l.id and la.group_code = 'listing_meta' and la.key = 'v1' limit 1) lm on true "
     <> "where l.status = 'published' "
-    <> public_listing_must_have_image_sql()
+    <> public_listing_must_have_image_browse_sql()
     <> "and ($2::text is null or pc.code = $2) "
     <> "order by l.created_at desc "
     <> "offset $3 limit $4"
@@ -2526,7 +2556,8 @@ pub fn search_bridge_listings(req: Request, ctx: Context) -> Response {
     Error(e) -> {
       let _ =
         io.println(
-          "[catalog.bridge.listings] " <> pog_errors.query_error_to_string(e),
+          "[catalog.bridge.listings] "
+            <> pog_errors.query_error_to_string(e),
         )
       json_err(500, "bridge_search_failed")
     }
@@ -2550,7 +2581,7 @@ pub fn search_bridge_listings(req: Request, ctx: Context) -> Response {
 
 fn cat_stats_row() -> decode.Decoder(#(String, Int)) {
   use code <- decode.field(0, decode.string)
-  use cnt <- decode.field(1, decode.int)
+  use cnt  <- decode.field(1, decode.int)
   decode.success(#(code, cnt))
 }
 
@@ -2572,11 +2603,11 @@ pub fn public_category_stats(req: Request, ctx: Context) -> Response {
   use <- wisp.require_method(req, http.Get)
   let sql = public_category_stats_query_sql(public_category_stats_filter_sql())
   let legacy_sql =
-    public_category_stats_query_sql(
-      strip_vitrin_price_cache_sql(public_category_stats_filter_sql()),
-    )
+    public_category_stats_query_sql(strip_vitrin_price_cache_sql(
+      public_category_stats_filter_sql(),
+    ))
   let image_only_sql =
-    public_category_stats_query_sql(public_listing_must_have_image_sql())
+    public_category_stats_query_sql(public_listing_must_have_image_browse_sql())
   let run_stats = fn(q: String) {
     pog.query(q)
     |> pog.returning(cat_stats_row())
@@ -2591,11 +2622,11 @@ pub fn public_category_stats(req: Request, ctx: Context) -> Response {
               let _ =
                 io.println(
                   "[catalog.public.category-stats] "
-                  <> pog_errors.query_error_to_string(e)
-                  <> " | legacy: "
-                  <> pog_errors.query_error_to_string(e2)
-                  <> " | image_only: "
-                  <> pog_errors.query_error_to_string(e3),
+                    <> pog_errors.query_error_to_string(e)
+                    <> " | legacy: "
+                    <> pog_errors.query_error_to_string(e2)
+                    <> " | image_only: "
+                    <> pog_errors.query_error_to_string(e3),
                 )
               cat_stats_response([])
             }
@@ -2610,15 +2641,15 @@ pub fn public_category_stats(req: Request, ctx: Context) -> Response {
 // ─── Public Region Stats ──────────────────────────────────────────────────────
 
 fn region_stats_row() -> decode.Decoder(#(String, String, Int, String)) {
-  use slug <- decode.field(0, decode.string)
-  use name <- decode.field(1, decode.string)
-  use cnt <- decode.field(2, decode.int)
+  use slug      <- decode.field(0, decode.string)
+  use name      <- decode.field(1, decode.string)
+  use cnt       <- decode.field(2, decode.int)
   use thumbnail <- decode.field(3, decode.string)
   decode.success(#(slug, name, cnt, thumbnail))
 }
 
-/// GET /api/v1/catalog/public/region-stats?category_code=&limit=
-/// Kategoriye göre yayımlı ilanların bulunduğu bölgeler (ilan sayısına göre sıralı).
+/// GET /api/v1/catalog/public/region-stats?category_code=&limit=&property_type=
+/// Önce `listing_region_stats_cache` (anlık); boşsa canlı SQL (kısa timeout, fail-soft).
 pub fn public_region_stats(req: Request, ctx: Context) -> Response {
   use <- wisp.require_method(req, http.Get)
   let qs = case request.get_query(req) {
@@ -2633,11 +2664,10 @@ pub fn public_region_stats(req: Request, ctx: Context) -> Response {
     Ok(n) ->
       case n > 50 {
         True -> 50
-        False ->
-          case n < 1 {
-            True -> 12
-            False -> n
-          }
+        False -> case n < 1 {
+          True -> 12
+          False -> n
+        }
       }
     Error(_) -> 12
   }
@@ -2647,14 +2677,7 @@ pub fn public_region_stats(req: Request, ctx: Context) -> Response {
     |> string.trim
     |> string.lowercase
   case cat_raw == "" {
-    True -> {
-      let body =
-        json.object([
-          #("regions", json.array(from: [], of: fn(x) { x })),
-        ])
-        |> json.to_string
-      wisp.json_response(body, 200)
-    }
+    True -> region_stats_json_ok([])
     False -> {
       let is_tour = cat_raw == "tour"
       let property_type_raw =
@@ -2662,102 +2685,297 @@ pub fn public_region_stats(req: Request, ctx: Context) -> Response {
         |> result.unwrap("")
         |> string.trim
         |> string.lowercase
-      let property_type_param = case property_type_raw == "" {
-        True -> pog.null()
-        False -> pog.text(property_type_raw)
-      }
-      let sql = case is_tour {
-        True -> region_stats_tour_sql()
-        False -> region_stats_domestic_district_sql()
-      }
-      case
-        pog.query(sql)
-        |> pog.parameter(pog.int(lim))
-        |> pog.parameter(pog.text(cat_raw))
-        |> pog.parameter(property_type_param)
-        |> pog.returning(region_stats_row())
-        |> db_exec.execute(ctx.db)
-      {
-        Error(_) -> json_err(500, "region_stats_failed")
-        Ok(ret) -> {
-          let rows =
-            list.map(ret.rows, fn(row) {
-              let #(slug, name, cnt, thumbnail) = row
-              json.object([
-                #("slug", json.string(slug)),
-                #("name", json.string(name)),
-                #("count", json.int(cnt)),
-                #("thumbnail", json.string(thumbnail)),
-              ])
-            })
-          let body =
-            json.object([
-              #("regions", json.array(from: rows, of: fn(x) { x })),
-            ])
-            |> json.to_string
-          wisp.json_response(body, 200)
-        }
+      case is_tour {
+        True -> region_stats_live(ctx, True, cat_raw, property_type_raw, lim)
+        False ->
+          case region_stats_from_cache(ctx, cat_raw, property_type_raw, lim) {
+            Ok([]) ->
+              region_stats_live(ctx, False, cat_raw, property_type_raw, lim)
+            Ok(rows) -> region_stats_json_ok(rows)
+            Error(_) ->
+              region_stats_live(ctx, False, cat_raw, property_type_raw, lim)
+          }
       }
     }
   }
 }
 
-/// TR ilçeleri — listing_meta (district_label, city, property_type) ile eşleşir; slug: TR/{il}/{ilce}
+fn region_stats_json_ok(rows: List(#(String, String, Int, String))) -> Response {
+  let body =
+    json.object([
+      #(
+        "regions",
+        json.array(
+          from: list.map(rows, fn(row) {
+            let #(slug, name, cnt, thumbnail) = row
+            json.object([
+              #("slug", json.string(slug)),
+              #("name", json.string(name)),
+              #("count", json.int(cnt)),
+              #("thumbnail", json.string(thumbnail)),
+            ])
+          }),
+          of: fn(x) { x },
+        ),
+      ),
+    ])
+    |> json.to_string
+  wisp.json_response(body, 200)
+}
+
+fn region_stats_from_cache(
+  ctx: Context,
+  cat: String,
+  property_type: String,
+  lim: Int,
+) -> Result(List(#(String, String, Int, String)), Nil) {
+  let sql =
+    "select slug, name, cnt, coalesce(thumbnail, '') "
+    <> "from listing_region_stats_cache "
+    <> "where category_code = $1 and property_type = $2 "
+    <> "order by cnt desc, name asc "
+    <> "limit $3"
+  case
+    pog.query(sql)
+    |> pog.parameter(pog.text(cat))
+    |> pog.parameter(pog.text(property_type))
+    |> pog.parameter(pog.int(lim))
+    |> pog.returning(region_stats_row())
+    |> pog.timeout(1500)
+    |> db_exec.execute(ctx.db)
+  {
+    Ok(ret) -> Ok(ret.rows)
+    Error(e) -> {
+      io.println(
+        "[catalog.public.region-stats.cache] "
+        <> pog_errors.query_error_to_string(e),
+      )
+      Error(Nil)
+    }
+  }
+}
+
+fn region_stats_live(
+  ctx: Context,
+  is_tour: Bool,
+  cat_raw: String,
+  property_type_raw: String,
+  lim: Int,
+) -> Response {
+  let use_property = property_type_raw != ""
+  let query = case is_tour {
+    True ->
+      pog.query(region_stats_tour_sql())
+      |> pog.parameter(pog.int(lim))
+    False ->
+      case use_property {
+        True ->
+          pog.query(region_stats_domestic_with_property_sql())
+          |> pog.parameter(pog.int(lim))
+          |> pog.parameter(pog.text(cat_raw))
+          |> pog.parameter(pog.text(property_type_raw))
+        False ->
+          pog.query(region_stats_domestic_district_sql())
+          |> pog.parameter(pog.int(lim))
+          |> pog.parameter(pog.text(cat_raw))
+      }
+  }
+  case
+    query
+    |> pog.returning(region_stats_row())
+    |> pog.timeout(region_stats_query_timeout_ms)
+    |> db_exec.execute(ctx.db)
+  {
+    Error(e) -> {
+      io.println(
+        "[catalog.public.region-stats] "
+        <> pog_errors.query_error_to_string(e),
+      )
+      region_stats_json_ok([])
+    }
+    Ok(ret) -> region_stats_json_ok(ret.rows)
+  }
+}
+
+/// Bölge slider — ultralight + güvenli join:
+/// Otel `location_name` çoğu zaman otel adı → binlerce unique place_key.
+/// `OR` ile districts join hash join'i bozup 16k×1000 timeout üretiyordu.
+/// Eşitlik join'leri ayrı UNION kollarında; `$3` yokken attributes yok.
 fn region_stats_domestic_district_sql() -> String {
-  "with base as ( "
-  <> "  select l.id, "
-  <> "    lower(coalesce(nullif(trim(l.location_name), ''), '')) as location_name, "
-  <> "    lower(coalesce(lm.value_json->>'province_city', '')) as province_city, "
-  <> "    lower(coalesce(lm.value_json->>'city', '')) as city, "
-  <> "    lower(coalesce(lm.value_json->>'district_label', '')) as district_label, "
-  <> "    lower(coalesce(lm.value_json->>'region_display', '')) as region_display, "
-  <> "    lower(coalesce(lm.value_json->>'address', '')) as address "
+  region_stats_domestic_sql(False)
+}
+
+fn region_stats_domestic_with_property_sql() -> String {
+  region_stats_domestic_sql(True)
+}
+
+fn region_stats_domestic_sql(with_property_type: Bool) -> String {
+  let property_filter = case with_property_type {
+    True ->
+      "    and exists ( "
+      <> "      select 1 from listing_attributes lm "
+      <> "      where lm.listing_id = l.id "
+      <> "        and lm.group_code = 'listing_meta' and lm.key = 'v1' "
+      <> "        and lower(trim(coalesce(lm.value_json->>'property_type', ''))) = $3 "
+      <> "    ) "
+    False -> ""
+  }
+  "with cat as ( "
+  <> "  select id from product_categories where code = $2 limit 1 "
+  <> "), agg as ( "
+  <> "  select "
+  <> "    translate(lower(trim(coalesce( "
+  <> "      nullif(trim(lm.value_json->>'city'), ''), "
+  <> "      nullif(trim(lm.value_json->>'district_label'), ''), "
+  <> "      nullif(trim(split_part(coalesce(l.location_name, ''), ',', 1)), ''), "
+  <> "      '' "
+  <> "    ))), 'üğışöç', 'ugisoc') as place_key, "
+  <> "    count(*)::int as cnt "
   <> "  from listings l "
-  <> "  join product_categories pc on pc.id = l.category_id "
   <> "  left join listing_attributes lm on lm.listing_id = l.id "
   <> "    and lm.group_code = 'listing_meta' and lm.key = 'v1' "
-  <> "  where l.status = 'published' and pc.code = $2 "
-  <> public_listing_must_have_image_sql()
-  <> "    and ($3::text is null or lower(trim(coalesce(lm.value_json->>'property_type', ''))) = $3) "
-  <> "), matched as ( "
-  <> "  select distinct on (b.id) "
-  <> "    b.id as listing_id, d.id as district_id, r.slug as region_slug, d.slug as district_slug, d.name as district_name "
-  <> "  from base b "
-  <> "  join districts d on ( "
-  <> "    b.district_label like '%' || lower(d.name) || '%' "
-  <> "    or b.location_name like '%' || lower(d.name) || '%' "
-  <> "    or b.address like '%' || lower(d.name) || '%' "
-  <> "    or replace(b.location_name, ' ', '-') = d.slug "
-  <> "  ) "
-  <> "  join regions r on r.id = d.region_id and ( "
-  <> "    b.city like '%' || lower(r.name) || '%' "
-  <> "    or b.province_city like '%' || lower(r.name) || '%' "
-  <> "    or b.location_name like '%' || lower(r.name) || '%' "
-  <> "    or b.region_display like '%' || lower(r.name) || '%' "
-  <> "    or b.address like '%' || lower(r.name) || '%' "
-  <> "    or b.district_label like '%' || lower(r.name) || '%' "
-  <> "    or replace(b.city, ' ', '-') = r.slug "
-  <> "  ) "
+  <> "  where l.status = 'published' "
+  <> "    and l.category_id = (select id from cat) "
+  <> property_filter
+  <> "  group by 1 "
+  <> "), place as ( "
+  <> "  select place_key, replace(place_key, ' ', '-') as place_slug, cnt "
+  <> "  from agg "
+  <> "  where place_key <> '' "
+  <> "    and place_key not in ('turkey', 'turkiye', 'tr', 'germany', 'deutschland', 'greece', 'cyprus', 'russia') "
+  <> "), dkeys as ( "
+  <> "  select d.id as district_id, d.slug as district_slug, d.name as district_name, "
+  <> "    d.region_id, translate(lower(d.name), 'üğışöç', 'ugisoc') as name_key "
+  <> "  from districts d "
+  <> "), rkeys as ( "
+  <> "  select r.id as region_id, r.slug as region_slug, r.name as region_name, "
+  <> "    translate(lower(r.name), 'üğışöç', 'ugisoc') as name_key "
+  <> "  from regions r "
   <> "  join countries c on c.id = r.country_id and c.iso2 = 'TR' "
-  <> "  order by b.id, length(d.name) desc, d.name "
+  <> "), district_hit as ( "
+  <> "  select "
+  <> "    hit.district_id, hit.region_id, hit.region_slug, hit.district_slug, "
+  <> "    hit.district_name as display_name, sum(p.cnt)::int as cnt, 1 as is_district "
+  <> "  from place p "
+  <> "  join lateral ( "
+  <> "    select dk.district_id, dk.district_slug, dk.district_name, rk.region_id, rk.region_slug "
+  <> "    from dkeys dk "
+  <> "    join rkeys rk on rk.region_id = dk.region_id "
+  <> "    where dk.name_key = p.place_key "
+  <> "    order by case rk.region_slug "
+  <> "      when 'antalya' then 0 when 'mugla' then 1 when 'izmir' then 2 "
+  <> "      when 'aydin' then 3 when 'nevsehir' then 4 when 'istanbul' then 5 "
+  <> "      when 'balikesir' then 6 when 'canakkale' then 7 else 50 end, "
+  <> "      dk.district_id "
+  <> "    limit 1 "
+  <> "  ) hit on true "
+  <> "  group by hit.district_id, hit.region_id, hit.region_slug, hit.district_slug, hit.district_name "
+  <> "  union all "
+  <> "  select "
+  <> "    hit.district_id, hit.region_id, hit.region_slug, hit.district_slug, "
+  <> "    hit.district_name as display_name, sum(p.cnt)::int as cnt, 1 as is_district "
+  <> "  from place p "
+  <> "  join lateral ( "
+  <> "    select dk.district_id, dk.district_slug, dk.district_name, rk.region_id, rk.region_slug "
+  <> "    from dkeys dk "
+  <> "    join rkeys rk on rk.region_id = dk.region_id "
+  <> "    where dk.district_slug = p.place_slug "
+  <> "      and dk.name_key is distinct from p.place_key "
+  <> "    order by case rk.region_slug "
+  <> "      when 'antalya' then 0 when 'mugla' then 1 when 'izmir' then 2 "
+  <> "      when 'aydin' then 3 when 'nevsehir' then 4 when 'istanbul' then 5 "
+  <> "      when 'balikesir' then 6 when 'canakkale' then 7 else 50 end, "
+  <> "      dk.district_id "
+  <> "    limit 1 "
+  <> "  ) hit on true "
+  <> "  group by hit.district_id, hit.region_id, hit.region_slug, hit.district_slug, hit.district_name "
+  <> "), region_hit as ( "
+  <> "  select "
+  <> "    null::int as district_id, rk.region_id, rk.region_slug, rk.region_slug as district_slug, "
+  <> "    rk.region_name as display_name, sum(p.cnt)::int as cnt, 0 as is_district "
+  <> "  from place p "
+  <> "  join rkeys rk on rk.name_key = p.place_key "
+  <> "  where not exists ( "
+  <> "    select 1 from district_hit dh where dh.region_id = rk.region_id "
+  <> "  ) "
+  <> "  group by rk.region_id, rk.region_slug, rk.region_name "
+  <> "  union all "
+  <> "  select "
+  <> "    null::int as district_id, rk.region_id, rk.region_slug, rk.region_slug as district_slug, "
+  <> "    rk.region_name as display_name, sum(p.cnt)::int as cnt, 0 as is_district "
+  <> "  from place p "
+  <> "  join rkeys rk on rk.region_slug = p.place_slug "
+  <> "  where rk.name_key is distinct from p.place_key "
+  <> "    and not exists ( "
+  <> "      select 1 from district_hit dh where dh.region_id = rk.region_id "
+  <> "    ) "
+  <> "  group by rk.region_id, rk.region_slug, rk.region_name "
+  <> "), matched as ( "
+  <> "  select district_id, region_id, region_slug, district_slug, display_name, "
+  <> "    sum(cnt)::int as cnt, max(is_district) as is_district "
+  <> "  from ( "
+  <> "    select * from district_hit "
+  <> "    union all "
+  <> "    select * from region_hit "
+  <> "  ) u "
+  <> "  group by district_id, region_id, region_slug, district_slug, display_name "
+  <> "), ranked as ( "
+  <> "  select slug, name, cnt, district_id, region_id, is_district "
+  <> "  from ( "
+  <> "    select "
+  <> "      case when m.is_district = 1 "
+  <> "        then 'TR/' || m.region_slug || '/' || m.district_slug "
+  <> "        else 'TR/' || m.region_slug "
+  <> "      end as slug, "
+  <> "      m.display_name as name, "
+  <> "      m.cnt, "
+  <> "      m.district_id, "
+  <> "      m.region_id, "
+  <> "      m.is_district, "
+  <> "      row_number() over ( "
+  <> "        partition by translate(lower(m.display_name), 'üğışöç', 'ugisoc') "
+  <> "        order by case m.region_slug "
+  <> "          when 'antalya' then 0 when 'mugla' then 1 when 'izmir' then 2 "
+  <> "          when 'aydin' then 3 when 'nevsehir' then 4 when 'istanbul' then 5 "
+  <> "          when 'balikesir' then 6 when 'canakkale' then 7 else 50 end, "
+  <> "          m.cnt desc, m.display_name asc "
+  <> "      ) as rn "
+  <> "    from matched m "
+  <> "    where m.cnt > 0 "
+  <> "  ) x "
+  <> "  where rn = 1 "
+  <> "  order by cnt desc, name asc "
+  <> "  limit $1 "
   <> ") "
   <> "select "
-  <> "  'TR/' || m.region_slug || '/' || m.district_slug as slug, "
-  <> "  m.district_name as name, "
-  <> "  count(*)::int as cnt, "
+  <> "  r.slug, "
+  <> "  r.name, "
+  <> "  r.cnt, "
   <> "  coalesce( "
-  <> "    max(nullif(lp.cover_image, '')), "
-  <> "    max(nullif(lp.featured_image_url, '')), "
-  <> "    max(nullif(lp.hero_image_url, '')), "
+  <> "    nullif(trim(lp.cover_image), ''), "
+  <> "    nullif(trim(lp.featured_image_url), ''), "
+  <> "    nullif(trim(lp.hero_image_url), ''), "
+  <> "    nullif(trim(lp.travel_ideas_image_url), ''), "
   <> "    '' "
   <> "  ) as thumbnail "
-  <> "from matched m "
-  <> "left join location_pages lp on lp.district_id = m.district_id "
-  <> "  and coalesce(lp.region_type, 'district') = 'district' "
-  <> "group by m.district_id, m.region_slug, m.district_slug, m.district_name "
-  <> "having count(*) > 0 "
-  <> "order by count(*) desc, m.district_name asc "
-  <> "limit $1"
+  <> "from ranked r "
+  <> "left join lateral ( "
+  <> "  select x.cover_image, x.featured_image_url, x.hero_image_url, x.travel_ideas_image_url "
+  <> "  from location_pages x "
+  <> "  where ( "
+  <> "    r.is_district = 1 "
+  <> "    and x.district_id = r.district_id "
+  <> "    and coalesce(x.region_type, 'district') = 'district' "
+  <> "  ) or ( "
+  <> "    r.is_district = 0 "
+  <> "    and x.region_id = r.region_id "
+  <> "    and coalesce(x.region_type, 'province') = 'province' "
+  <> "  ) or lower(x.slug_path) = lower(r.slug) "
+  <> "  order by "
+  <> "    case when lower(x.slug_path) = lower(r.slug) then 0 else 1 end, "
+  <> "    case when nullif(trim(x.cover_image), '') is not null then 0 else 1 end "
+  <> "  limit 1 "
+  <> ") lp on true"
 }
 
 fn region_stats_tour_sql() -> String {
@@ -2777,7 +2995,7 @@ fn region_stats_tour_sql() -> String {
   <> "  left join listing_attributes w on w.listing_id = l.id "
   <> "    and w.group_code = 'wtatil' and w.key = 'snapshot' "
   <> "  where l.status = 'published' and pc.code = 'tour' "
-  <> public_listing_must_have_image_sql()
+  <> public_listing_must_have_image_browse_sql()
   <> "    and tour_price_row.tour_vitrin_price is not null and tour_price_row.tour_vitrin_price > 0 "
   <> "), tour_dest as ( "
   <> "  select distinct on (tb.id) "
@@ -2807,16 +3025,17 @@ fn region_stats_tour_sql() -> String {
   <> "    end as is_domestic "
   <> "  from tour_base tb "
   <> "  left join lateral jsonb_array_elements( "
-  <> "    case when jsonb_array_length(tb.countries_json) > 0 then tb.countries_json else '[{}]'::jsonb end "
+  <> "    case when jsonb_typeof(tb.countries_json) = 'array' and jsonb_array_length(tb.countries_json) > 0 "
+  <> "      then tb.countries_json else '[{}]'::jsonb end "
   <> "  ) elem on true "
   <> "  left join countries co on co.iso2 is not null and ( "
   <> "    lower(trim(coalesce(elem->>'code', ''))) = lower(co.iso2) "
   <> "    or lower(trim(coalesce(elem->>'name', ''))) = lower(co.name) "
-  <> "    or (trim(coalesce(elem->>'name', '')) <> '' and lower(co.name) like '%' || lower(trim(elem->>'name')) || '%') "
   <> "  ) "
   <> "  left join countries c_tr on c_tr.id = co.id and c_tr.iso2 = 'TR' "
   <> "  order by tb.id, "
-  <> "    case when jsonb_array_length(tb.countries_json) > 0 and elem != '{}'::jsonb then 0 else 1 end, "
+  <> "    case when jsonb_typeof(tb.countries_json) = 'array' and jsonb_array_length(tb.countries_json) > 0 "
+  <> "      and elem != '{}'::jsonb then 0 else 1 end, "
   <> "    length(coalesce(nullif(trim(elem->>'name'), ''), tb.tour_area, '')) desc "
   <> ") "
   <> "select "
@@ -2853,39 +3072,15 @@ fn collection_row() -> decode.Decoder(
   use filter_rules <- decode.field(5, decode.string)
   use sort_order <- decode.field(6, decode.int)
   use is_active <- decode.field(7, decode.bool)
-  decode.success(#(
-    id,
-    slug,
-    title,
-    description,
-    hero_image_url,
-    filter_rules,
-    sort_order,
-    is_active,
-  ))
+  decode.success(#(id, slug, title, description, hero_image_url, filter_rules, sort_order, is_active))
 }
 
 fn collection_json(
   row: #(String, String, String, String, String, String, Int, Bool),
 ) -> json.Json {
-  let #(
-    id,
-    slug,
-    title,
-    description,
-    hero_image_url,
-    filter_rules,
-    sort_order,
-    is_active,
-  ) = row
-  let dj = case description == "" {
-    True -> json.null()
-    False -> json.string(description)
-  }
-  let hij = case hero_image_url == "" {
-    True -> json.null()
-    False -> json.string(hero_image_url)
-  }
+  let #(id, slug, title, description, hero_image_url, filter_rules, sort_order, is_active) = row
+  let dj = case description == "" { True -> json.null()  False -> json.string(description) }
+  let hij = case hero_image_url == "" { True -> json.null()  False -> json.string(hero_image_url) }
   json.object([
     #("id", json.string(id)),
     #("slug", json.string(slug)),
@@ -2935,11 +3130,7 @@ pub fn list_collections(req: Request, ctx: Context) -> Response {
 }
 
 /// GET /api/v1/collections/:slug
-pub fn get_collection_by_slug(
-  req: Request,
-  ctx: Context,
-  slug: String,
-) -> Response {
+pub fn get_collection_by_slug(req: Request, ctx: Context, slug: String) -> Response {
   use <- wisp.require_method(req, http.Get)
   case
     pog.query(
@@ -2969,34 +3160,13 @@ fn create_collection_decoder() -> decode.Decoder(
 ) {
   decode.field("slug", decode.string, fn(slug) {
     decode.field("title", decode.string, fn(title) {
-      decode.optional_field(
-        "description",
-        None,
-        decode.optional(decode.string),
-        fn(desc) {
-          decode.optional_field(
-            "hero_image_url",
-            None,
-            decode.optional(decode.string),
-            fn(hero) {
-              decode.optional_field(
-                "filter_rules",
-                "{}",
-                decode.string,
-                fn(rules) {
-                  decode.success(#(
-                    string.trim(slug),
-                    string.trim(title),
-                    desc,
-                    hero,
-                    rules,
-                  ))
-                },
-              )
-            },
-          )
-        },
-      )
+      decode.optional_field("description", None, decode.optional(decode.string), fn(desc) {
+        decode.optional_field("hero_image_url", None, decode.optional(decode.string), fn(hero) {
+          decode.optional_field("filter_rules", "{}", decode.string, fn(rules) {
+            decode.success(#(string.trim(slug), string.trim(title), desc, hero, rules))
+          })
+        })
+      })
     })
   })
 }
@@ -3008,116 +3178,68 @@ pub fn create_collection(req: Request, ctx: Context) -> Response {
     Error(r) -> r
     Ok(_) ->
       case read_body_string(req) {
-        Error(_) -> json_err(400, "empty_body")
-        Ok(body) ->
-          case json.parse(body, create_collection_decoder()) {
-            Error(_) -> json_err(400, "invalid_json")
-            Ok(#(slug, title, desc, hero, rules)) ->
-              case slug == "" || title == "" {
-                True -> json_err(400, "slug_and_title_required")
-                False -> {
-                  let dp = case desc {
-                    None -> pog.null()
-                    Some(s) -> pog.text(s)
-                  }
-                  let hp = case hero {
-                    None -> pog.null()
-                    Some(s) -> pog.text(s)
-                  }
-                  case
-                    pog.query(
-                      "insert into listing_collections (slug, title, description, hero_image_url, filter_rules) values ($1, $2, $3, $4, ($5::text)::jsonb) returning id::text",
-                    )
-                    |> pog.parameter(pog.text(slug))
-                    |> pog.parameter(pog.text(title))
-                    |> pog.parameter(dp)
-                    |> pog.parameter(hp)
-                    |> pog.parameter(pog.text(rules))
-                    |> pog.returning(row_dec.col0_string())
-                    |> db_exec.execute(ctx.db)
-                  {
-                    Error(_) -> json_err(409, "create_failed")
-                    Ok(r) ->
-                      case r.rows {
-                        [id] ->
-                          wisp.json_response(
-                            json.object([#("id", json.string(id))])
-                              |> json.to_string,
-                            201,
-                          )
-                        _ -> json_err(500, "unexpected")
-                      }
-                  }
-                }
+    Error(_) -> json_err(400, "empty_body")
+    Ok(body) ->
+      case json.parse(body, create_collection_decoder()) {
+        Error(_) -> json_err(400, "invalid_json")
+        Ok(#(slug, title, desc, hero, rules)) ->
+          case slug == "" || title == "" {
+            True -> json_err(400, "slug_and_title_required")
+            False -> {
+              let dp = case desc {
+                None -> pog.null()
+                Some(s) -> pog.text(s)
               }
+              let hp = case hero {
+                None -> pog.null()
+                Some(s) -> pog.text(s)
+              }
+              case
+                pog.query(
+                  "insert into listing_collections (slug, title, description, hero_image_url, filter_rules) values ($1, $2, $3, $4, ($5::text)::jsonb) returning id::text",
+                )
+                |> pog.parameter(pog.text(slug))
+                |> pog.parameter(pog.text(title))
+                |> pog.parameter(dp)
+                |> pog.parameter(hp)
+                |> pog.parameter(pog.text(rules))
+                |> pog.returning(row_dec.col0_string())
+                |> db_exec.execute(ctx.db)
+              {
+                Error(_) -> json_err(409, "create_failed")
+                Ok(r) ->
+                  case r.rows {
+                    [id] -> wisp.json_response(json.object([#("id", json.string(id))]) |> json.to_string, 201)
+                    _ -> json_err(500, "unexpected")
+                  }
+              }
+            }
           }
       }
+    }
   }
 }
 
 fn patch_collection_decoder() -> decode.Decoder(
   #(
-    Option(String),
-    Option(String),
-    Option(String),
-    Option(String),
-    Option(String),
-    Option(Int),
-    Option(Bool),
+    Option(String), Option(String), Option(String), Option(String),
+    Option(String), Option(Int), Option(Bool),
   ),
 ) {
   decode.optional_field("slug", None, decode.optional(decode.string), fn(slug) {
-    decode.optional_field(
-      "title",
-      None,
-      decode.optional(decode.string),
-      fn(title) {
-        decode.optional_field(
-          "description",
-          None,
-          decode.optional(decode.string),
-          fn(desc) {
-            decode.optional_field(
-              "hero_image_url",
-              None,
-              decode.optional(decode.string),
-              fn(hero) {
-                decode.optional_field(
-                  "filter_rules",
-                  None,
-                  decode.optional(decode.string),
-                  fn(rules) {
-                    decode.optional_field(
-                      "sort_order",
-                      None,
-                      decode.optional(decode.int),
-                      fn(so) {
-                        decode.optional_field(
-                          "is_active",
-                          None,
-                          decode.optional(decode.bool),
-                          fn(ia) {
-                            decode.success(#(
-                              slug,
-                              title,
-                              desc,
-                              hero,
-                              rules,
-                              so,
-                              ia,
-                            ))
-                          },
-                        )
-                      },
-                    )
-                  },
-                )
-              },
-            )
-          },
-        )
-      },
-    )
+    decode.optional_field("title", None, decode.optional(decode.string), fn(title) {
+      decode.optional_field("description", None, decode.optional(decode.string), fn(desc) {
+        decode.optional_field("hero_image_url", None, decode.optional(decode.string), fn(hero) {
+          decode.optional_field("filter_rules", None, decode.optional(decode.string), fn(rules) {
+            decode.optional_field("sort_order", None, decode.optional(decode.int), fn(so) {
+              decode.optional_field("is_active", None, decode.optional(decode.bool), fn(ia) {
+                decode.success(#(slug, title, desc, hero, rules, so, ia))
+              })
+            })
+          })
+        })
+      })
+    })
   })
 }
 
@@ -3133,93 +3255,67 @@ fn opt_text(o: Option(String)) -> pog.Value {
 }
 
 /// PATCH /api/v1/collections/:id — admin
-pub fn patch_collection(
-  req: Request,
-  ctx: Context,
-  col_id: String,
-) -> Response {
+pub fn patch_collection(req: Request, ctx: Context, col_id: String) -> Response {
   use <- wisp.require_method(req, http.Patch)
   case admin_gate.require_admin_users_read(req, ctx) {
     Error(r) -> r
     Ok(_) ->
       case read_body_string(req) {
-        Error(_) -> json_err(400, "empty_body")
-        Ok(body) ->
-          case json.parse(body, patch_collection_decoder()) {
-            Error(_) -> json_err(400, "invalid_json")
-            Ok(#(
-              slug_opt,
-              title_opt,
-              desc_opt,
-              hero_opt,
-              rules_opt,
-              so_opt,
-              ia_opt,
-            )) -> {
-              let p_slug = opt_text(slug_opt)
-              let p_title = opt_text(title_opt)
-              let p_desc = opt_text(desc_opt)
-              let p_hero = opt_text(hero_opt)
-              let p_rules = opt_text(rules_opt)
-              let p_so = case so_opt {
-                None -> pog.null()
-                Some(n) -> pog.int(n)
-              }
-              let p_ia = case ia_opt {
-                None -> pog.null()
-                Some(b) -> pog.bool(b)
-              }
-              case
-                pog.query(
-                  "update listing_collections set slug = coalesce($2::text, slug), title = coalesce($3::text, title), description = coalesce($4::text, description), hero_image_url = coalesce($5::text, hero_image_url), filter_rules = coalesce(($6::text)::jsonb, filter_rules), sort_order = coalesce($7::int, sort_order), is_active = coalesce($8::boolean, is_active), updated_at = now() where id = $1::uuid returning id::text",
-                )
-                |> pog.parameter(pog.text(string.trim(col_id)))
-                |> pog.parameter(p_slug)
-                |> pog.parameter(p_title)
-                |> pog.parameter(p_desc)
-                |> pog.parameter(p_hero)
-                |> pog.parameter(p_rules)
-                |> pog.parameter(p_so)
-                |> pog.parameter(p_ia)
-                |> pog.returning(row_dec.col0_string())
-                |> db_exec.execute(ctx.db)
-              {
-                Error(_) -> json_err(500, "update_failed")
-                Ok(r) ->
-                  case r.rows {
-                    [] -> json_err(404, "not_found")
-                    [id] ->
-                      wisp.json_response(
-                        json.object([
-                          #("id", json.string(id)),
-                          #("ok", json.bool(True)),
-                        ])
-                          |> json.to_string,
-                        200,
-                      )
-                    _ -> json_err(500, "unexpected")
-                  }
-              }
-            }
+    Error(_) -> json_err(400, "empty_body")
+    Ok(body) ->
+      case json.parse(body, patch_collection_decoder()) {
+        Error(_) -> json_err(400, "invalid_json")
+        Ok(#(slug_opt, title_opt, desc_opt, hero_opt, rules_opt, so_opt, ia_opt)) -> {
+          let p_slug = opt_text(slug_opt)
+          let p_title = opt_text(title_opt)
+          let p_desc = opt_text(desc_opt)
+          let p_hero = opt_text(hero_opt)
+          let p_rules = opt_text(rules_opt)
+          let p_so = case so_opt {
+            None -> pog.null()
+            Some(n) -> pog.int(n)
           }
+          let p_ia = case ia_opt {
+            None -> pog.null()
+            Some(b) -> pog.bool(b)
+          }
+          case
+            pog.query(
+              "update listing_collections set slug = coalesce($2::text, slug), title = coalesce($3::text, title), description = coalesce($4::text, description), hero_image_url = coalesce($5::text, hero_image_url), filter_rules = coalesce(($6::text)::jsonb, filter_rules), sort_order = coalesce($7::int, sort_order), is_active = coalesce($8::boolean, is_active), updated_at = now() where id = $1::uuid returning id::text",
+            )
+            |> pog.parameter(pog.text(string.trim(col_id)))
+            |> pog.parameter(p_slug)
+            |> pog.parameter(p_title)
+            |> pog.parameter(p_desc)
+            |> pog.parameter(p_hero)
+            |> pog.parameter(p_rules)
+            |> pog.parameter(p_so)
+            |> pog.parameter(p_ia)
+            |> pog.returning(row_dec.col0_string())
+            |> db_exec.execute(ctx.db)
+          {
+            Error(_) -> json_err(500, "update_failed")
+            Ok(r) ->
+              case r.rows {
+                [] -> json_err(404, "not_found")
+                [id] -> wisp.json_response(json.object([#("id", json.string(id)), #("ok", json.bool(True))]) |> json.to_string, 200)
+                _ -> json_err(500, "unexpected")
+              }
+          }
+        }
       }
+    }
   }
 }
 
 /// DELETE /api/v1/collections/:id — admin
-pub fn delete_collection(
-  req: Request,
-  ctx: Context,
-  col_id: String,
-) -> Response {
+pub fn delete_collection(req: Request, ctx: Context, col_id: String) -> Response {
   use <- wisp.require_method(req, http.Delete)
   case admin_gate.require_admin_users_read(req, ctx) {
     Error(r) -> r
     Ok(_) ->
       case
-        pog.query(
-          "delete from listing_collections where id = $1::uuid returning id::text",
-        )
+        pog.query("delete from listing_collections where id = $1::uuid returning id::text")
         |> pog.parameter(pog.text(string.trim(col_id)))
         |> pog.returning(row_dec.col0_string())
         |> db_exec.execute(ctx.db)
@@ -3228,11 +3324,7 @@ pub fn delete_collection(
         Ok(r) ->
           case r.rows {
             [] -> json_err(404, "not_found")
-            [_] ->
-              wisp.json_response(
-                json.object([#("ok", json.bool(True))]) |> json.to_string,
-                200,
-              )
+            [_] -> wisp.json_response(json.object([#("ok", json.bool(True))]) |> json.to_string, 200)
             _ -> json_err(500, "unexpected")
           }
       }
@@ -3267,7 +3359,7 @@ fn public_cruise_hub_stats_sql() -> String {
   <> "left join listing_attributes vc on vc.listing_id = l.id "
   <> "  and vc.group_code = 'vertical_cruise' and vc.key = 'v1' "
   <> "where l.status = 'published' "
-  <> public_listing_must_have_image_sql()
+  <> public_listing_must_have_image_browse_sql()
   <> "group by 1, 2, 3 "
   <> "order by cnt desc"
 }
@@ -3285,7 +3377,7 @@ pub fn public_cruise_hub_stats(req: Request, ctx: Context) -> Response {
       let _ =
         io.println(
           "[catalog.public.cruise-hub-stats] "
-          <> pog_errors.query_error_to_string(e),
+            <> pog_errors.query_error_to_string(e),
         )
       let body =
         json.object([#("rows", json.array(from: [], of: fn(x) { x }))])
@@ -3329,7 +3421,7 @@ fn public_tour_kultur_hub_stats_sql() -> String {
   <> "join listing_attributes tour_attr on tour_attr.listing_id = l.id "
   <> "  and tour_attr.group_code = 'vertical_tour' and tour_attr.key = 'v1' "
   <> "where l.status = 'published' "
-  <> public_listing_must_have_image_sql()
+  <> public_listing_must_have_image_browse_sql()
   <> "and coalesce(l.vitrin_price, l.first_charge_amount, 0) > 0 "
   <> "and trim(coalesce(tour_attr.value_json->'data'->>'tour_region', tour_attr.value_json->>'tour_region', '')) <> '' "
   <> "group by 1 "
@@ -3349,7 +3441,7 @@ pub fn public_tour_kultur_hub_stats(req: Request, ctx: Context) -> Response {
       let _ =
         io.println(
           "[catalog.public.tour-kultur-hub-stats] "
-          <> pog_errors.query_error_to_string(e),
+            <> pog_errors.query_error_to_string(e),
         )
       let body =
         json.object([#("rows", json.array(from: [], of: fn(x) { x }))])
@@ -3372,3 +3464,4 @@ pub fn public_tour_kultur_hub_stats(req: Request, ctx: Context) -> Response {
     }
   }
 }
+

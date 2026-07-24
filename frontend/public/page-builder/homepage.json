@@ -102,6 +102,16 @@
       }
     },
     {
+      "id": "homepage-module-ferry",
+      "type": "featured_places",
+      "enabled": true,
+      "order": 5.5,
+      "config": {
+        "categorySlug": "feribot",
+        "viewAllHref": "/feribot/all"
+      }
+    },
+    {
       "id": "homepage-module-5",
       "type": "how_it_works",
       "enabled": true,

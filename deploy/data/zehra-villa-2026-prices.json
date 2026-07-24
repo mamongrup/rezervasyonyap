@@ -1,0 +1,2403 @@
+{
+  "source": "Zehra Villa 2026 Fiyat Listesi.xlsx",
+  "note": "Excel BRÜT = haftalık liste fiyatı (komisyon öncesi). Siteye base_nightly=round(BRÜT/7) yazılır; net kolonları kullanılmaz.",
+  "currency": "TRY",
+  "price_unit": "weekly_brut_to_nightly",
+  "listings": [
+    {
+      "excel_name": "Nokta VIP D (2 HAVUZ VE SAUNA 5+1)",
+      "slug": "nokta-vip-d-villa",
+      "seasons": [
+        {
+          "from": "2026-07-13",
+          "to": "2026-07-31",
+          "label": "13 Temmuz – 31 Temmuz 2026",
+          "weekly_brut": 387000,
+          "base_nightly": 55286,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-08-01",
+          "to": "2026-08-16",
+          "label": "1 Ağustos – 16 Ağustos 2026",
+          "weekly_brut": 405000,
+          "base_nightly": 57857,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-08-17",
+          "to": "2026-09-06",
+          "label": "17 Ağustos – 6 Eylül 2026",
+          "weekly_brut": 375000,
+          "base_nightly": 53571,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-09-07",
+          "to": "2026-09-20",
+          "label": "7 Eylül – 20 Eylül 2026",
+          "weekly_brut": 175000,
+          "base_nightly": 25000,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-09-21",
+          "to": "2026-11-15",
+          "label": "21 Eylül – 15 Kasım 2026",
+          "weekly_brut": 118000,
+          "base_nightly": 16857,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-11-16",
+          "to": "2026-12-31",
+          "label": "16 Kasım – 31 Aralık 2026",
+          "weekly_brut": 100000,
+          "base_nightly": 14286,
+          "min_nights": 7
+        }
+      ],
+      "vitrin_price": 14286
+    },
+    {
+      "excel_name": "Pandora A Villa ( 2 HAVUZ VE SAUNA 5+1)",
+      "slug": "pandora-villa-a",
+      "seasons": [
+        {
+          "from": "2026-07-13",
+          "to": "2026-07-31",
+          "label": "13 Temmuz – 31 Temmuz 2026",
+          "weekly_brut": 387000,
+          "base_nightly": 55286,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-08-01",
+          "to": "2026-08-16",
+          "label": "1 Ağustos – 16 Ağustos 2026",
+          "weekly_brut": 405000,
+          "base_nightly": 57857,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-08-17",
+          "to": "2026-09-06",
+          "label": "17 Ağustos – 6 Eylül 2026",
+          "weekly_brut": 375000,
+          "base_nightly": 53571,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-09-07",
+          "to": "2026-09-20",
+          "label": "7 Eylül – 20 Eylül 2026",
+          "weekly_brut": 175000,
+          "base_nightly": 25000,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-09-21",
+          "to": "2026-11-15",
+          "label": "21 Eylül – 15 Kasım 2026",
+          "weekly_brut": 118000,
+          "base_nightly": 16857,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-11-16",
+          "to": "2026-12-31",
+          "label": "16 Kasım – 31 Aralık 2026",
+          "weekly_brut": 100000,
+          "base_nightly": 14286,
+          "min_nights": 7
+        }
+      ],
+      "vitrin_price": 14286
+    },
+    {
+      "excel_name": "Opal  (4+1)",
+      "slug": "opal-villa",
+      "seasons": [
+        {
+          "from": "2026-07-13",
+          "to": "2026-07-31",
+          "label": "13 Temmuz – 31 Temmuz 2026",
+          "weekly_brut": 355000,
+          "base_nightly": 50714,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-08-01",
+          "to": "2026-08-16",
+          "label": "1 Ağustos – 16 Ağustos 2026",
+          "weekly_brut": 370000,
+          "base_nightly": 52857,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-08-17",
+          "to": "2026-09-06",
+          "label": "17 Ağustos – 6 Eylül 2026",
+          "weekly_brut": 345000,
+          "base_nightly": 49286,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-09-07",
+          "to": "2026-09-20",
+          "label": "7 Eylül – 20 Eylül 2026",
+          "weekly_brut": 170000,
+          "base_nightly": 24286,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-09-21",
+          "to": "2026-11-15",
+          "label": "21 Eylül – 15 Kasım 2026",
+          "weekly_brut": 115000,
+          "base_nightly": 16429,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-11-16",
+          "to": "2026-12-31",
+          "label": "16 Kasım – 31 Aralık 2026",
+          "weekly_brut": 97000,
+          "base_nightly": 13857,
+          "min_nights": 7
+        }
+      ],
+      "vitrin_price": 13857
+    },
+    {
+      "excel_name": "Nisa (4+1)",
+      "slug": "nisa-villa",
+      "seasons": [
+        {
+          "from": "2026-07-13",
+          "to": "2026-07-31",
+          "label": "13 Temmuz – 31 Temmuz 2026",
+          "weekly_brut": 355000,
+          "base_nightly": 50714,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-08-01",
+          "to": "2026-08-16",
+          "label": "1 Ağustos – 16 Ağustos 2026",
+          "weekly_brut": 370000,
+          "base_nightly": 52857,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-08-17",
+          "to": "2026-09-06",
+          "label": "17 Ağustos – 6 Eylül 2026",
+          "weekly_brut": 345000,
+          "base_nightly": 49286,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-09-07",
+          "to": "2026-09-20",
+          "label": "7 Eylül – 20 Eylül 2026",
+          "weekly_brut": 170000,
+          "base_nightly": 24286,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-09-21",
+          "to": "2026-11-15",
+          "label": "21 Eylül – 15 Kasım 2026",
+          "weekly_brut": 115000,
+          "base_nightly": 16429,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-11-16",
+          "to": "2026-12-31",
+          "label": "16 Kasım – 31 Aralık 2026",
+          "weekly_brut": 97000,
+          "base_nightly": 13857,
+          "min_nights": 7
+        }
+      ],
+      "vitrin_price": 13857
+    },
+    {
+      "excel_name": "Star (4+1)",
+      "slug": "star-villa",
+      "seasons": [
+        {
+          "from": "2026-07-13",
+          "to": "2026-07-31",
+          "label": "13 Temmuz – 31 Temmuz 2026",
+          "weekly_brut": 355000,
+          "base_nightly": 50714,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-08-01",
+          "to": "2026-08-16",
+          "label": "1 Ağustos – 16 Ağustos 2026",
+          "weekly_brut": 370000,
+          "base_nightly": 52857,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-08-17",
+          "to": "2026-09-06",
+          "label": "17 Ağustos – 6 Eylül 2026",
+          "weekly_brut": 345000,
+          "base_nightly": 49286,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-09-07",
+          "to": "2026-09-20",
+          "label": "7 Eylül – 20 Eylül 2026",
+          "weekly_brut": 170000,
+          "base_nightly": 24286,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-09-21",
+          "to": "2026-11-15",
+          "label": "21 Eylül – 15 Kasım 2026",
+          "weekly_brut": 115000,
+          "base_nightly": 16429,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-11-16",
+          "to": "2026-12-31",
+          "label": "16 Kasım – 31 Aralık 2026",
+          "weekly_brut": 97000,
+          "base_nightly": 13857,
+          "min_nights": 7
+        }
+      ],
+      "vitrin_price": 13857
+    },
+    {
+      "excel_name": "Prestij1 (Garden) (4+1)",
+      "slug": "prestij-garden-villa",
+      "seasons": [
+        {
+          "from": "2026-07-13",
+          "to": "2026-07-31",
+          "label": "13 Temmuz – 31 Temmuz 2026",
+          "weekly_brut": 355000,
+          "base_nightly": 50714,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-08-01",
+          "to": "2026-08-16",
+          "label": "1 Ağustos – 16 Ağustos 2026",
+          "weekly_brut": 370000,
+          "base_nightly": 52857,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-08-17",
+          "to": "2026-09-06",
+          "label": "17 Ağustos – 6 Eylül 2026",
+          "weekly_brut": 345000,
+          "base_nightly": 49286,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-09-07",
+          "to": "2026-09-20",
+          "label": "7 Eylül – 20 Eylül 2026",
+          "weekly_brut": 170000,
+          "base_nightly": 24286,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-09-21",
+          "to": "2026-11-15",
+          "label": "21 Eylül – 15 Kasım 2026",
+          "weekly_brut": 115000,
+          "base_nightly": 16429,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-11-16",
+          "to": "2026-12-31",
+          "label": "16 Kasım – 31 Aralık 2026",
+          "weekly_brut": 97000,
+          "base_nightly": 13857,
+          "min_nights": 7
+        }
+      ],
+      "vitrin_price": 13857
+    },
+    {
+      "excel_name": "Prestij2 (Makri) (4+1)",
+      "slug": "prestij-makri-villa",
+      "seasons": [
+        {
+          "from": "2026-07-13",
+          "to": "2026-07-31",
+          "label": "13 Temmuz – 31 Temmuz 2026",
+          "weekly_brut": 355000,
+          "base_nightly": 50714,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-08-01",
+          "to": "2026-08-16",
+          "label": "1 Ağustos – 16 Ağustos 2026",
+          "weekly_brut": 370000,
+          "base_nightly": 52857,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-08-17",
+          "to": "2026-09-06",
+          "label": "17 Ağustos – 6 Eylül 2026",
+          "weekly_brut": 345000,
+          "base_nightly": 49286,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-09-07",
+          "to": "2026-09-20",
+          "label": "7 Eylül – 20 Eylül 2026",
+          "weekly_brut": 170000,
+          "base_nightly": 24286,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-09-21",
+          "to": "2026-11-15",
+          "label": "21 Eylül – 15 Kasım 2026",
+          "weekly_brut": 115000,
+          "base_nightly": 16429,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-11-16",
+          "to": "2026-12-31",
+          "label": "16 Kasım – 31 Aralık 2026",
+          "weekly_brut": 97000,
+          "base_nightly": 13857,
+          "min_nights": 7
+        }
+      ],
+      "vitrin_price": 13857
+    },
+    {
+      "excel_name": "Prestij3 (Amintas) (4+1)",
+      "slug": "prestij-amintas-villa",
+      "seasons": [
+        {
+          "from": "2026-07-13",
+          "to": "2026-07-31",
+          "label": "13 Temmuz – 31 Temmuz 2026",
+          "weekly_brut": 355000,
+          "base_nightly": 50714,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-08-01",
+          "to": "2026-08-16",
+          "label": "1 Ağustos – 16 Ağustos 2026",
+          "weekly_brut": 370000,
+          "base_nightly": 52857,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-08-17",
+          "to": "2026-09-06",
+          "label": "17 Ağustos – 6 Eylül 2026",
+          "weekly_brut": 345000,
+          "base_nightly": 49286,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-09-07",
+          "to": "2026-09-20",
+          "label": "7 Eylül – 20 Eylül 2026",
+          "weekly_brut": 170000,
+          "base_nightly": 24286,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-09-21",
+          "to": "2026-11-15",
+          "label": "21 Eylül – 15 Kasım 2026",
+          "weekly_brut": 115000,
+          "base_nightly": 16429,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-11-16",
+          "to": "2026-12-31",
+          "label": "16 Kasım – 31 Aralık 2026",
+          "weekly_brut": 97000,
+          "base_nightly": 13857,
+          "min_nights": 7
+        }
+      ],
+      "vitrin_price": 13857
+    },
+    {
+      "excel_name": "Prestij4 (Letoon) (4+1)",
+      "slug": "prestij-letoon-villa",
+      "seasons": [
+        {
+          "from": "2026-07-13",
+          "to": "2026-07-31",
+          "label": "13 Temmuz – 31 Temmuz 2026",
+          "weekly_brut": 355000,
+          "base_nightly": 50714,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-08-01",
+          "to": "2026-08-16",
+          "label": "1 Ağustos – 16 Ağustos 2026",
+          "weekly_brut": 370000,
+          "base_nightly": 52857,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-08-17",
+          "to": "2026-09-06",
+          "label": "17 Ağustos – 6 Eylül 2026",
+          "weekly_brut": 345000,
+          "base_nightly": 49286,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-09-07",
+          "to": "2026-09-20",
+          "label": "7 Eylül – 20 Eylül 2026",
+          "weekly_brut": 170000,
+          "base_nightly": 24286,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-09-21",
+          "to": "2026-11-15",
+          "label": "21 Eylül – 15 Kasım 2026",
+          "weekly_brut": 115000,
+          "base_nightly": 16429,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-11-16",
+          "to": "2026-12-31",
+          "label": "16 Kasım – 31 Aralık 2026",
+          "weekly_brut": 97000,
+          "base_nightly": 13857,
+          "min_nights": 7
+        }
+      ],
+      "vitrin_price": 13857
+    },
+    {
+      "excel_name": "Tuna 1 (Fethiye) (4+1)",
+      "slug": "fethiye-tuna-villa",
+      "seasons": [
+        {
+          "from": "2026-07-13",
+          "to": "2026-07-31",
+          "label": "13 Temmuz – 31 Temmuz 2026",
+          "weekly_brut": 355000,
+          "base_nightly": 50714,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-08-01",
+          "to": "2026-08-16",
+          "label": "1 Ağustos – 16 Ağustos 2026",
+          "weekly_brut": 370000,
+          "base_nightly": 52857,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-08-17",
+          "to": "2026-09-06",
+          "label": "17 Ağustos – 6 Eylül 2026",
+          "weekly_brut": 345000,
+          "base_nightly": 49286,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-09-07",
+          "to": "2026-09-20",
+          "label": "7 Eylül – 20 Eylül 2026",
+          "weekly_brut": 170000,
+          "base_nightly": 24286,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-09-21",
+          "to": "2026-11-15",
+          "label": "21 Eylül – 15 Kasım 2026",
+          "weekly_brut": 115000,
+          "base_nightly": 16429,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-11-16",
+          "to": "2026-12-31",
+          "label": "16 Kasım – 31 Aralık 2026",
+          "weekly_brut": 97000,
+          "base_nightly": 13857,
+          "min_nights": 7
+        }
+      ],
+      "vitrin_price": 13857
+    },
+    {
+      "excel_name": "Tuna 2 (Ölüdeniz) (4+1)",
+      "slug": "oludeniz-tuna-villa",
+      "seasons": [
+        {
+          "from": "2026-07-13",
+          "to": "2026-07-31",
+          "label": "13 Temmuz – 31 Temmuz 2026",
+          "weekly_brut": 355000,
+          "base_nightly": 50714,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-08-01",
+          "to": "2026-08-16",
+          "label": "1 Ağustos – 16 Ağustos 2026",
+          "weekly_brut": 370000,
+          "base_nightly": 52857,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-08-17",
+          "to": "2026-09-06",
+          "label": "17 Ağustos – 6 Eylül 2026",
+          "weekly_brut": 345000,
+          "base_nightly": 49286,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-09-07",
+          "to": "2026-09-20",
+          "label": "7 Eylül – 20 Eylül 2026",
+          "weekly_brut": 170000,
+          "base_nightly": 24286,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-09-21",
+          "to": "2026-11-15",
+          "label": "21 Eylül – 15 Kasım 2026",
+          "weekly_brut": 115000,
+          "base_nightly": 16429,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-11-16",
+          "to": "2026-12-31",
+          "label": "16 Kasım – 31 Aralık 2026",
+          "weekly_brut": 97000,
+          "base_nightly": 13857,
+          "min_nights": 7
+        }
+      ],
+      "vitrin_price": 13857
+    },
+    {
+      "excel_name": "Tlos1 (Dream) (3+1)",
+      "slug": "tlos-dream-villa",
+      "seasons": [
+        {
+          "from": "2026-07-13",
+          "to": "2026-07-31",
+          "label": "13 Temmuz – 31 Temmuz 2026",
+          "weekly_brut": 310000,
+          "base_nightly": 44286,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-08-01",
+          "to": "2026-08-16",
+          "label": "1 Ağustos – 16 Ağustos 2026",
+          "weekly_brut": 326000,
+          "base_nightly": 46571,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-08-17",
+          "to": "2026-09-06",
+          "label": "17 Ağustos – 6 Eylül 2026",
+          "weekly_brut": 300000,
+          "base_nightly": 42857,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-09-07",
+          "to": "2026-09-20",
+          "label": "7 Eylül – 20 Eylül 2026",
+          "weekly_brut": 165000,
+          "base_nightly": 23571,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-09-21",
+          "to": "2026-11-15",
+          "label": "21 Eylül – 15 Kasım 2026",
+          "weekly_brut": 114000,
+          "base_nightly": 16286,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-11-16",
+          "to": "2026-12-31",
+          "label": "16 Kasım – 31 Aralık 2026",
+          "weekly_brut": 95200,
+          "base_nightly": 13600,
+          "min_nights": 7
+        }
+      ],
+      "vitrin_price": 13600
+    },
+    {
+      "excel_name": "Tlos2 (Plus) (3+1)",
+      "slug": "tlos-plus-villa",
+      "seasons": [
+        {
+          "from": "2026-07-13",
+          "to": "2026-07-31",
+          "label": "13 Temmuz – 31 Temmuz 2026",
+          "weekly_brut": 310000,
+          "base_nightly": 44286,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-08-01",
+          "to": "2026-08-16",
+          "label": "1 Ağustos – 16 Ağustos 2026",
+          "weekly_brut": 326000,
+          "base_nightly": 46571,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-08-17",
+          "to": "2026-09-06",
+          "label": "17 Ağustos – 6 Eylül 2026",
+          "weekly_brut": 300000,
+          "base_nightly": 42857,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-09-07",
+          "to": "2026-09-20",
+          "label": "7 Eylül – 20 Eylül 2026",
+          "weekly_brut": 165000,
+          "base_nightly": 23571,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-09-21",
+          "to": "2026-11-15",
+          "label": "21 Eylül – 15 Kasım 2026",
+          "weekly_brut": 114000,
+          "base_nightly": 16286,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-11-16",
+          "to": "2026-12-31",
+          "label": "16 Kasım – 31 Aralık 2026",
+          "weekly_brut": 95200,
+          "base_nightly": 13600,
+          "min_nights": 7
+        }
+      ],
+      "vitrin_price": 13600
+    },
+    {
+      "excel_name": "Tlos3 (Royal) (3+1)",
+      "slug": "tlos-royal-villa",
+      "seasons": [
+        {
+          "from": "2026-07-13",
+          "to": "2026-07-31",
+          "label": "13 Temmuz – 31 Temmuz 2026",
+          "weekly_brut": 310000,
+          "base_nightly": 44286,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-08-01",
+          "to": "2026-08-16",
+          "label": "1 Ağustos – 16 Ağustos 2026",
+          "weekly_brut": 326000,
+          "base_nightly": 46571,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-08-17",
+          "to": "2026-09-06",
+          "label": "17 Ağustos – 6 Eylül 2026",
+          "weekly_brut": 300000,
+          "base_nightly": 42857,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-09-07",
+          "to": "2026-09-20",
+          "label": "7 Eylül – 20 Eylül 2026",
+          "weekly_brut": 165000,
+          "base_nightly": 23571,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-09-21",
+          "to": "2026-11-15",
+          "label": "21 Eylül – 15 Kasım 2026",
+          "weekly_brut": 114000,
+          "base_nightly": 16286,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-11-16",
+          "to": "2026-12-31",
+          "label": "16 Kasım – 31 Aralık 2026",
+          "weekly_brut": 95200,
+          "base_nightly": 13600,
+          "min_nights": 7
+        }
+      ],
+      "vitrin_price": 13600
+    },
+    {
+      "excel_name": "Tlos4 (Yalı) (3+1)",
+      "slug": "tlos-yali-villa",
+      "seasons": [
+        {
+          "from": "2026-07-13",
+          "to": "2026-07-31",
+          "label": "13 Temmuz – 31 Temmuz 2026",
+          "weekly_brut": 310000,
+          "base_nightly": 44286,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-08-01",
+          "to": "2026-08-16",
+          "label": "1 Ağustos – 16 Ağustos 2026",
+          "weekly_brut": 326000,
+          "base_nightly": 46571,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-08-17",
+          "to": "2026-09-06",
+          "label": "17 Ağustos – 6 Eylül 2026",
+          "weekly_brut": 300000,
+          "base_nightly": 42857,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-09-07",
+          "to": "2026-09-20",
+          "label": "7 Eylül – 20 Eylül 2026",
+          "weekly_brut": 165000,
+          "base_nightly": 23571,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-09-21",
+          "to": "2026-11-15",
+          "label": "21 Eylül – 15 Kasım 2026",
+          "weekly_brut": 114000,
+          "base_nightly": 16286,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-11-16",
+          "to": "2026-12-31",
+          "label": "16 Kasım – 31 Aralık 2026",
+          "weekly_brut": 95200,
+          "base_nightly": 13600,
+          "min_nights": 7
+        }
+      ],
+      "vitrin_price": 13600
+    },
+    {
+      "excel_name": "Tlos5 (Deluxe)  (3+1)",
+      "slug": "tlos-deluxe-villa",
+      "seasons": [
+        {
+          "from": "2026-07-13",
+          "to": "2026-07-31",
+          "label": "13 Temmuz – 31 Temmuz 2026",
+          "weekly_brut": 310000,
+          "base_nightly": 44286,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-08-01",
+          "to": "2026-08-16",
+          "label": "1 Ağustos – 16 Ağustos 2026",
+          "weekly_brut": 326000,
+          "base_nightly": 46571,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-08-17",
+          "to": "2026-09-06",
+          "label": "17 Ağustos – 6 Eylül 2026",
+          "weekly_brut": 300000,
+          "base_nightly": 42857,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-09-07",
+          "to": "2026-09-20",
+          "label": "7 Eylül – 20 Eylül 2026",
+          "weekly_brut": 165000,
+          "base_nightly": 23571,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-09-21",
+          "to": "2026-11-15",
+          "label": "21 Eylül – 15 Kasım 2026",
+          "weekly_brut": 114000,
+          "base_nightly": 16286,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-11-16",
+          "to": "2026-12-31",
+          "label": "16 Kasım – 31 Aralık 2026",
+          "weekly_brut": 95200,
+          "base_nightly": 13600,
+          "min_nights": 7
+        }
+      ],
+      "vitrin_price": 13600
+    },
+    {
+      "excel_name": "Patara1 (Fiesta)   (3+1)",
+      "slug": "patara-fiesta-villa",
+      "seasons": [
+        {
+          "from": "2026-07-13",
+          "to": "2026-07-31",
+          "label": "13 Temmuz – 31 Temmuz 2026",
+          "weekly_brut": 310000,
+          "base_nightly": 44286,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-08-01",
+          "to": "2026-08-16",
+          "label": "1 Ağustos – 16 Ağustos 2026",
+          "weekly_brut": 326000,
+          "base_nightly": 46571,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-08-17",
+          "to": "2026-09-06",
+          "label": "17 Ağustos – 6 Eylül 2026",
+          "weekly_brut": 300000,
+          "base_nightly": 42857,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-09-07",
+          "to": "2026-09-20",
+          "label": "7 Eylül – 20 Eylül 2026",
+          "weekly_brut": 165000,
+          "base_nightly": 23571,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-09-21",
+          "to": "2026-11-15",
+          "label": "21 Eylül – 15 Kasım 2026",
+          "weekly_brut": 114000,
+          "base_nightly": 16286,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-11-16",
+          "to": "2026-12-31",
+          "label": "16 Kasım – 31 Aralık 2026",
+          "weekly_brut": 95200,
+          "base_nightly": 13600,
+          "min_nights": 7
+        }
+      ],
+      "vitrin_price": 13600
+    },
+    {
+      "excel_name": "Patara2 (Titanic)  (3+1)",
+      "slug": "patara-titanic-villa",
+      "seasons": [
+        {
+          "from": "2026-07-13",
+          "to": "2026-07-31",
+          "label": "13 Temmuz – 31 Temmuz 2026",
+          "weekly_brut": 310000,
+          "base_nightly": 44286,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-08-01",
+          "to": "2026-08-16",
+          "label": "1 Ağustos – 16 Ağustos 2026",
+          "weekly_brut": 326000,
+          "base_nightly": 46571,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-08-17",
+          "to": "2026-09-06",
+          "label": "17 Ağustos – 6 Eylül 2026",
+          "weekly_brut": 300000,
+          "base_nightly": 42857,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-09-07",
+          "to": "2026-09-20",
+          "label": "7 Eylül – 20 Eylül 2026",
+          "weekly_brut": 165000,
+          "base_nightly": 23571,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-09-21",
+          "to": "2026-11-15",
+          "label": "21 Eylül – 15 Kasım 2026",
+          "weekly_brut": 114000,
+          "base_nightly": 16286,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-11-16",
+          "to": "2026-12-31",
+          "label": "16 Kasım – 31 Aralık 2026",
+          "weekly_brut": 95200,
+          "base_nightly": 13600,
+          "min_nights": 7
+        }
+      ],
+      "vitrin_price": 13600
+    },
+    {
+      "excel_name": "Patara3 (Tiffany)  (3+1)",
+      "slug": "patara-tiffany-villa",
+      "seasons": [
+        {
+          "from": "2026-07-13",
+          "to": "2026-07-31",
+          "label": "13 Temmuz – 31 Temmuz 2026",
+          "weekly_brut": 310000,
+          "base_nightly": 44286,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-08-01",
+          "to": "2026-08-16",
+          "label": "1 Ağustos – 16 Ağustos 2026",
+          "weekly_brut": 326000,
+          "base_nightly": 46571,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-08-17",
+          "to": "2026-09-06",
+          "label": "17 Ağustos – 6 Eylül 2026",
+          "weekly_brut": 300000,
+          "base_nightly": 42857,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-09-07",
+          "to": "2026-09-20",
+          "label": "7 Eylül – 20 Eylül 2026",
+          "weekly_brut": 165000,
+          "base_nightly": 23571,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-09-21",
+          "to": "2026-11-15",
+          "label": "21 Eylül – 15 Kasım 2026",
+          "weekly_brut": 114000,
+          "base_nightly": 16286,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-11-16",
+          "to": "2026-12-31",
+          "label": "16 Kasım – 31 Aralık 2026",
+          "weekly_brut": 95200,
+          "base_nightly": 13600,
+          "min_nights": 7
+        }
+      ],
+      "vitrin_price": 13600
+    },
+    {
+      "excel_name": "Patara4 (İnfinity)  (3+1)",
+      "slug": "patara-infinity-villa",
+      "seasons": [
+        {
+          "from": "2026-07-13",
+          "to": "2026-07-31",
+          "label": "13 Temmuz – 31 Temmuz 2026",
+          "weekly_brut": 310000,
+          "base_nightly": 44286,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-08-01",
+          "to": "2026-08-16",
+          "label": "1 Ağustos – 16 Ağustos 2026",
+          "weekly_brut": 326000,
+          "base_nightly": 46571,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-08-17",
+          "to": "2026-09-06",
+          "label": "17 Ağustos – 6 Eylül 2026",
+          "weekly_brut": 300000,
+          "base_nightly": 42857,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-09-07",
+          "to": "2026-09-20",
+          "label": "7 Eylül – 20 Eylül 2026",
+          "weekly_brut": 165000,
+          "base_nightly": 23571,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-09-21",
+          "to": "2026-11-15",
+          "label": "21 Eylül – 15 Kasım 2026",
+          "weekly_brut": 114000,
+          "base_nightly": 16286,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-11-16",
+          "to": "2026-12-31",
+          "label": "16 Kasım – 31 Aralık 2026",
+          "weekly_brut": 95200,
+          "base_nightly": 13600,
+          "min_nights": 7
+        }
+      ],
+      "vitrin_price": 13600
+    },
+    {
+      "excel_name": "Patara5 (Serenity)  (3+1)",
+      "slug": "patara-serenity-villa",
+      "seasons": [
+        {
+          "from": "2026-07-13",
+          "to": "2026-07-31",
+          "label": "13 Temmuz – 31 Temmuz 2026",
+          "weekly_brut": 310000,
+          "base_nightly": 44286,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-08-01",
+          "to": "2026-08-16",
+          "label": "1 Ağustos – 16 Ağustos 2026",
+          "weekly_brut": 326000,
+          "base_nightly": 46571,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-08-17",
+          "to": "2026-09-06",
+          "label": "17 Ağustos – 6 Eylül 2026",
+          "weekly_brut": 300000,
+          "base_nightly": 42857,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-09-07",
+          "to": "2026-09-20",
+          "label": "7 Eylül – 20 Eylül 2026",
+          "weekly_brut": 165000,
+          "base_nightly": 23571,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-09-21",
+          "to": "2026-11-15",
+          "label": "21 Eylül – 15 Kasım 2026",
+          "weekly_brut": 114000,
+          "base_nightly": 16286,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-11-16",
+          "to": "2026-12-31",
+          "label": "16 Kasım – 31 Aralık 2026",
+          "weekly_brut": 95200,
+          "base_nightly": 13600,
+          "min_nights": 7
+        }
+      ],
+      "vitrin_price": 13600
+    },
+    {
+      "excel_name": "Patara6 (Deluxe)  (3+1)",
+      "slug": "patara-deluxe-villa",
+      "seasons": [
+        {
+          "from": "2026-07-13",
+          "to": "2026-07-31",
+          "label": "13 Temmuz – 31 Temmuz 2026",
+          "weekly_brut": 310000,
+          "base_nightly": 44286,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-08-01",
+          "to": "2026-08-16",
+          "label": "1 Ağustos – 16 Ağustos 2026",
+          "weekly_brut": 326000,
+          "base_nightly": 46571,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-08-17",
+          "to": "2026-09-06",
+          "label": "17 Ağustos – 6 Eylül 2026",
+          "weekly_brut": 300000,
+          "base_nightly": 42857,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-09-07",
+          "to": "2026-09-20",
+          "label": "7 Eylül – 20 Eylül 2026",
+          "weekly_brut": 165000,
+          "base_nightly": 23571,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-09-21",
+          "to": "2026-11-15",
+          "label": "21 Eylül – 15 Kasım 2026",
+          "weekly_brut": 114000,
+          "base_nightly": 16286,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-11-16",
+          "to": "2026-12-31",
+          "label": "16 Kasım – 31 Aralık 2026",
+          "weekly_brut": 95200,
+          "base_nightly": 13600,
+          "min_nights": 7
+        }
+      ],
+      "vitrin_price": 13600
+    },
+    {
+      "excel_name": "Likya 1 ( Lapis ) (2+1)",
+      "slug": "likya-lapis-villa",
+      "seasons": [
+        {
+          "from": "2026-07-13",
+          "to": "2026-07-31",
+          "label": "13 Temmuz – 31 Temmuz 2026",
+          "weekly_brut": 270000,
+          "base_nightly": 38571,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-08-01",
+          "to": "2026-08-16",
+          "label": "1 Ağustos – 16 Ağustos 2026",
+          "weekly_brut": 295000,
+          "base_nightly": 42143,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-08-17",
+          "to": "2026-09-06",
+          "label": "17 Ağustos – 6 Eylül 2026",
+          "weekly_brut": 270000,
+          "base_nightly": 38571,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-09-07",
+          "to": "2026-09-20",
+          "label": "7 Eylül – 20 Eylül 2026",
+          "weekly_brut": 150000,
+          "base_nightly": 21429,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-09-21",
+          "to": "2026-11-15",
+          "label": "21 Eylül – 15 Kasım 2026",
+          "weekly_brut": 99000,
+          "base_nightly": 14143,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-11-16",
+          "to": "2026-12-31",
+          "label": "16 Kasım – 31 Aralık 2026",
+          "weekly_brut": 90000,
+          "base_nightly": 12857,
+          "min_nights": 7
+        }
+      ],
+      "vitrin_price": 12857
+    },
+    {
+      "excel_name": "Likya 2 ( Amber ) (2+1)",
+      "slug": "likya-amber-villa",
+      "seasons": [
+        {
+          "from": "2026-07-13",
+          "to": "2026-07-31",
+          "label": "13 Temmuz – 31 Temmuz 2026",
+          "weekly_brut": 270000,
+          "base_nightly": 38571,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-08-01",
+          "to": "2026-08-16",
+          "label": "1 Ağustos – 16 Ağustos 2026",
+          "weekly_brut": 295000,
+          "base_nightly": 42143,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-08-17",
+          "to": "2026-09-06",
+          "label": "17 Ağustos – 6 Eylül 2026",
+          "weekly_brut": 270000,
+          "base_nightly": 38571,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-09-07",
+          "to": "2026-09-20",
+          "label": "7 Eylül – 20 Eylül 2026",
+          "weekly_brut": 150000,
+          "base_nightly": 21429,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-09-21",
+          "to": "2026-11-15",
+          "label": "21 Eylül – 15 Kasım 2026",
+          "weekly_brut": 99000,
+          "base_nightly": 14143,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-11-16",
+          "to": "2026-12-31",
+          "label": "16 Kasım – 31 Aralık 2026",
+          "weekly_brut": 90000,
+          "base_nightly": 12857,
+          "min_nights": 7
+        }
+      ],
+      "vitrin_price": 12857
+    },
+    {
+      "excel_name": "Likya 3 ( Ruby ) (2+1)",
+      "slug": "likya-ruby-villa",
+      "seasons": [
+        {
+          "from": "2026-07-13",
+          "to": "2026-07-31",
+          "label": "13 Temmuz – 31 Temmuz 2026",
+          "weekly_brut": 270000,
+          "base_nightly": 38571,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-08-01",
+          "to": "2026-08-16",
+          "label": "1 Ağustos – 16 Ağustos 2026",
+          "weekly_brut": 295000,
+          "base_nightly": 42143,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-08-17",
+          "to": "2026-09-06",
+          "label": "17 Ağustos – 6 Eylül 2026",
+          "weekly_brut": 270000,
+          "base_nightly": 38571,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-09-07",
+          "to": "2026-09-20",
+          "label": "7 Eylül – 20 Eylül 2026",
+          "weekly_brut": 150000,
+          "base_nightly": 21429,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-09-21",
+          "to": "2026-11-15",
+          "label": "21 Eylül – 15 Kasım 2026",
+          "weekly_brut": 99000,
+          "base_nightly": 14143,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-11-16",
+          "to": "2026-12-31",
+          "label": "16 Kasım – 31 Aralık 2026",
+          "weekly_brut": 90000,
+          "base_nightly": 12857,
+          "min_nights": 7
+        }
+      ],
+      "vitrin_price": 12857
+    },
+    {
+      "excel_name": "Likya 4 (Safir )  (2+1)",
+      "slug": "likya-safir-villa",
+      "seasons": [
+        {
+          "from": "2026-07-13",
+          "to": "2026-07-31",
+          "label": "13 Temmuz – 31 Temmuz 2026",
+          "weekly_brut": 270000,
+          "base_nightly": 38571,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-08-01",
+          "to": "2026-08-16",
+          "label": "1 Ağustos – 16 Ağustos 2026",
+          "weekly_brut": 295000,
+          "base_nightly": 42143,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-08-17",
+          "to": "2026-09-06",
+          "label": "17 Ağustos – 6 Eylül 2026",
+          "weekly_brut": 270000,
+          "base_nightly": 38571,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-09-07",
+          "to": "2026-09-20",
+          "label": "7 Eylül – 20 Eylül 2026",
+          "weekly_brut": 150000,
+          "base_nightly": 21429,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-09-21",
+          "to": "2026-11-15",
+          "label": "21 Eylül – 15 Kasım 2026",
+          "weekly_brut": 99000,
+          "base_nightly": 14143,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-11-16",
+          "to": "2026-12-31",
+          "label": "16 Kasım – 31 Aralık 2026",
+          "weekly_brut": 90000,
+          "base_nightly": 12857,
+          "min_nights": 7
+        }
+      ],
+      "vitrin_price": 12857
+    },
+    {
+      "excel_name": "Likya 5 ( Gold ) (2+1)",
+      "slug": "likya-gold-villa",
+      "seasons": [
+        {
+          "from": "2026-07-13",
+          "to": "2026-07-31",
+          "label": "13 Temmuz – 31 Temmuz 2026",
+          "weekly_brut": 270000,
+          "base_nightly": 38571,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-08-01",
+          "to": "2026-08-16",
+          "label": "1 Ağustos – 16 Ağustos 2026",
+          "weekly_brut": 295000,
+          "base_nightly": 42143,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-08-17",
+          "to": "2026-09-06",
+          "label": "17 Ağustos – 6 Eylül 2026",
+          "weekly_brut": 270000,
+          "base_nightly": 38571,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-09-07",
+          "to": "2026-09-20",
+          "label": "7 Eylül – 20 Eylül 2026",
+          "weekly_brut": 150000,
+          "base_nightly": 21429,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-09-21",
+          "to": "2026-11-15",
+          "label": "21 Eylül – 15 Kasım 2026",
+          "weekly_brut": 99000,
+          "base_nightly": 14143,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-11-16",
+          "to": "2026-12-31",
+          "label": "16 Kasım – 31 Aralık 2026",
+          "weekly_brut": 90000,
+          "base_nightly": 12857,
+          "min_nights": 7
+        }
+      ],
+      "vitrin_price": 12857
+    },
+    {
+      "excel_name": "Likya 6 ( Pearl ) (2+1)",
+      "slug": "likya-pearl-villa",
+      "seasons": [
+        {
+          "from": "2026-07-13",
+          "to": "2026-07-31",
+          "label": "13 Temmuz – 31 Temmuz 2026",
+          "weekly_brut": 270000,
+          "base_nightly": 38571,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-08-01",
+          "to": "2026-08-16",
+          "label": "1 Ağustos – 16 Ağustos 2026",
+          "weekly_brut": 295000,
+          "base_nightly": 42143,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-08-17",
+          "to": "2026-09-06",
+          "label": "17 Ağustos – 6 Eylül 2026",
+          "weekly_brut": 270000,
+          "base_nightly": 38571,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-09-07",
+          "to": "2026-09-20",
+          "label": "7 Eylül – 20 Eylül 2026",
+          "weekly_brut": 150000,
+          "base_nightly": 21429,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-09-21",
+          "to": "2026-11-15",
+          "label": "21 Eylül – 15 Kasım 2026",
+          "weekly_brut": 99000,
+          "base_nightly": 14143,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-11-16",
+          "to": "2026-12-31",
+          "label": "16 Kasım – 31 Aralık 2026",
+          "weekly_brut": 90000,
+          "base_nightly": 12857,
+          "min_nights": 7
+        }
+      ],
+      "vitrin_price": 12857
+    },
+    {
+      "excel_name": "Likya 7 ( Garnet ) (2+1)",
+      "slug": "likya-garnet-villa",
+      "seasons": [
+        {
+          "from": "2026-07-13",
+          "to": "2026-07-31",
+          "label": "13 Temmuz – 31 Temmuz 2026",
+          "weekly_brut": 270000,
+          "base_nightly": 38571,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-08-01",
+          "to": "2026-08-16",
+          "label": "1 Ağustos – 16 Ağustos 2026",
+          "weekly_brut": 295000,
+          "base_nightly": 42143,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-08-17",
+          "to": "2026-09-06",
+          "label": "17 Ağustos – 6 Eylül 2026",
+          "weekly_brut": 270000,
+          "base_nightly": 38571,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-09-07",
+          "to": "2026-09-20",
+          "label": "7 Eylül – 20 Eylül 2026",
+          "weekly_brut": 150000,
+          "base_nightly": 21429,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-09-21",
+          "to": "2026-11-15",
+          "label": "21 Eylül – 15 Kasım 2026",
+          "weekly_brut": 99000,
+          "base_nightly": 14143,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-11-16",
+          "to": "2026-12-31",
+          "label": "16 Kasım – 31 Aralık 2026",
+          "weekly_brut": 90000,
+          "base_nightly": 12857,
+          "min_nights": 7
+        }
+      ],
+      "vitrin_price": 12857
+    },
+    {
+      "excel_name": "Likya 8 ( Akik )  (2+1)",
+      "slug": "likya-akik-villa",
+      "seasons": [
+        {
+          "from": "2026-07-13",
+          "to": "2026-07-31",
+          "label": "13 Temmuz – 31 Temmuz 2026",
+          "weekly_brut": 270000,
+          "base_nightly": 38571,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-08-01",
+          "to": "2026-08-16",
+          "label": "1 Ağustos – 16 Ağustos 2026",
+          "weekly_brut": 295000,
+          "base_nightly": 42143,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-08-17",
+          "to": "2026-09-06",
+          "label": "17 Ağustos – 6 Eylül 2026",
+          "weekly_brut": 270000,
+          "base_nightly": 38571,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-09-07",
+          "to": "2026-09-20",
+          "label": "7 Eylül – 20 Eylül 2026",
+          "weekly_brut": 150000,
+          "base_nightly": 21429,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-09-21",
+          "to": "2026-11-15",
+          "label": "21 Eylül – 15 Kasım 2026",
+          "weekly_brut": 99000,
+          "base_nightly": 14143,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-11-16",
+          "to": "2026-12-31",
+          "label": "16 Kasım – 31 Aralık 2026",
+          "weekly_brut": 90000,
+          "base_nightly": 12857,
+          "min_nights": 7
+        }
+      ],
+      "vitrin_price": 12857
+    },
+    {
+      "excel_name": "Likya 9 (Suit A)  (2+1)",
+      "slug": "likya-suit-villa-a",
+      "seasons": [
+        {
+          "from": "2026-07-13",
+          "to": "2026-07-31",
+          "label": "13 Temmuz – 31 Temmuz 2026",
+          "weekly_brut": 270000,
+          "base_nightly": 38571,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-08-01",
+          "to": "2026-08-16",
+          "label": "1 Ağustos – 16 Ağustos 2026",
+          "weekly_brut": 295000,
+          "base_nightly": 42143,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-08-17",
+          "to": "2026-09-06",
+          "label": "17 Ağustos – 6 Eylül 2026",
+          "weekly_brut": 270000,
+          "base_nightly": 38571,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-09-07",
+          "to": "2026-09-20",
+          "label": "7 Eylül – 20 Eylül 2026",
+          "weekly_brut": 150000,
+          "base_nightly": 21429,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-09-21",
+          "to": "2026-11-15",
+          "label": "21 Eylül – 15 Kasım 2026",
+          "weekly_brut": 99000,
+          "base_nightly": 14143,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-11-16",
+          "to": "2026-12-31",
+          "label": "16 Kasım – 31 Aralık 2026",
+          "weekly_brut": 90000,
+          "base_nightly": 12857,
+          "min_nights": 7
+        }
+      ],
+      "vitrin_price": 12857
+    },
+    {
+      "excel_name": "Likya 10  (Suit B)  (2+1)",
+      "slug": "likya-suit-villa-b",
+      "seasons": [
+        {
+          "from": "2026-07-13",
+          "to": "2026-07-31",
+          "label": "13 Temmuz – 31 Temmuz 2026",
+          "weekly_brut": 270000,
+          "base_nightly": 38571,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-08-01",
+          "to": "2026-08-16",
+          "label": "1 Ağustos – 16 Ağustos 2026",
+          "weekly_brut": 295000,
+          "base_nightly": 42143,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-08-17",
+          "to": "2026-09-06",
+          "label": "17 Ağustos – 6 Eylül 2026",
+          "weekly_brut": 270000,
+          "base_nightly": 38571,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-09-07",
+          "to": "2026-09-20",
+          "label": "7 Eylül – 20 Eylül 2026",
+          "weekly_brut": 150000,
+          "base_nightly": 21429,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-09-21",
+          "to": "2026-11-15",
+          "label": "21 Eylül – 15 Kasım 2026",
+          "weekly_brut": 99000,
+          "base_nightly": 14143,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-11-16",
+          "to": "2026-12-31",
+          "label": "16 Kasım – 31 Aralık 2026",
+          "weekly_brut": 90000,
+          "base_nightly": 12857,
+          "min_nights": 7
+        }
+      ],
+      "vitrin_price": 12857
+    },
+    {
+      "excel_name": "Kayapark Villa Jakuzili  (5+1)",
+      "slug": "kayapark-villa",
+      "seasons": [
+        {
+          "from": "2026-07-13",
+          "to": "2026-07-31",
+          "label": "13 Temmuz – 31 Temmuz 2026",
+          "weekly_brut": 285000,
+          "base_nightly": 40714,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-08-01",
+          "to": "2026-08-16",
+          "label": "1 Ağustos – 16 Ağustos 2026",
+          "weekly_brut": 300000,
+          "base_nightly": 42857,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-08-17",
+          "to": "2026-09-06",
+          "label": "17 Ağustos – 6 Eylül 2026",
+          "weekly_brut": 280000,
+          "base_nightly": 40000,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-09-07",
+          "to": "2026-09-20",
+          "label": "7 Eylül – 20 Eylül 2026",
+          "weekly_brut": 175000,
+          "base_nightly": 25000,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-09-21",
+          "to": "2026-11-15",
+          "label": "21 Eylül – 15 Kasım 2026",
+          "weekly_brut": 115000,
+          "base_nightly": 16429,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-11-16",
+          "to": "2026-12-31",
+          "label": "16 Kasım – 31 Aralık 2026",
+          "weekly_brut": 100000,
+          "base_nightly": 14286,
+          "min_nights": 7
+        }
+      ],
+      "vitrin_price": 14286
+    },
+    {
+      "excel_name": "Brookland Paris ( 5+1)",
+      "slug": "brookland-paris-villa",
+      "seasons": [
+        {
+          "from": "2026-07-13",
+          "to": "2026-07-31",
+          "label": "13 Temmuz – 31 Temmuz 2026",
+          "weekly_brut": 255000,
+          "base_nightly": 36429,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-08-01",
+          "to": "2026-08-16",
+          "label": "1 Ağustos – 16 Ağustos 2026",
+          "weekly_brut": 280000,
+          "base_nightly": 40000,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-08-17",
+          "to": "2026-09-06",
+          "label": "17 Ağustos – 6 Eylül 2026",
+          "weekly_brut": 250000,
+          "base_nightly": 35714,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-09-07",
+          "to": "2026-09-20",
+          "label": "7 Eylül – 20 Eylül 2026",
+          "weekly_brut": 150000,
+          "base_nightly": 21429,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-09-21",
+          "to": "2026-11-15",
+          "label": "21 Eylül – 15 Kasım 2026",
+          "weekly_brut": 99000,
+          "base_nightly": 14143,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-11-16",
+          "to": "2026-12-31",
+          "label": "16 Kasım – 31 Aralık 2026",
+          "weekly_brut": 85000,
+          "base_nightly": 12143,
+          "min_nights": 7
+        }
+      ],
+      "vitrin_price": 12143
+    },
+    {
+      "excel_name": "Göcek Marin C (4+1)",
+      "slug": "gocek-marine-villa-c",
+      "seasons": [
+        {
+          "from": "2026-07-13",
+          "to": "2026-07-31",
+          "label": "13 Temmuz – 31 Temmuz 2026",
+          "weekly_brut": 280000,
+          "base_nightly": 40000,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-08-01",
+          "to": "2026-08-16",
+          "label": "1 Ağustos – 16 Ağustos 2026",
+          "weekly_brut": 290000,
+          "base_nightly": 41429,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-08-17",
+          "to": "2026-09-06",
+          "label": "17 Ağustos – 6 Eylül 2026",
+          "weekly_brut": 275000,
+          "base_nightly": 39286,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-09-07",
+          "to": "2026-09-20",
+          "label": "7 Eylül – 20 Eylül 2026",
+          "weekly_brut": 170000,
+          "base_nightly": 24286,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-09-21",
+          "to": "2026-11-15",
+          "label": "21 Eylül – 15 Kasım 2026",
+          "weekly_brut": 115000,
+          "base_nightly": 16429,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-11-16",
+          "to": "2026-12-31",
+          "label": "16 Kasım – 31 Aralık 2026",
+          "weekly_brut": 100000,
+          "base_nightly": 14286,
+          "min_nights": 7
+        }
+      ],
+      "vitrin_price": 14286
+    },
+    {
+      "excel_name": "Pandora G Villa (4+1)",
+      "slug": "pandora-villa-g",
+      "seasons": [
+        {
+          "from": "2026-07-13",
+          "to": "2026-07-31",
+          "label": "13 Temmuz – 31 Temmuz 2026",
+          "weekly_brut": 260000,
+          "base_nightly": 37143,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-08-01",
+          "to": "2026-08-16",
+          "label": "1 Ağustos – 16 Ağustos 2026",
+          "weekly_brut": 285000,
+          "base_nightly": 40714,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-08-17",
+          "to": "2026-09-06",
+          "label": "17 Ağustos – 6 Eylül 2026",
+          "weekly_brut": 260000,
+          "base_nightly": 37143,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-09-07",
+          "to": "2026-09-20",
+          "label": "7 Eylül – 20 Eylül 2026",
+          "weekly_brut": 166000,
+          "base_nightly": 23714,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-09-21",
+          "to": "2026-11-15",
+          "label": "21 Eylül – 15 Kasım 2026",
+          "weekly_brut": 111000,
+          "base_nightly": 15857,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-11-16",
+          "to": "2026-12-31",
+          "label": "16 Kasım – 31 Aralık 2026",
+          "weekly_brut": 97000,
+          "base_nightly": 13857,
+          "min_nights": 7
+        }
+      ],
+      "vitrin_price": 13857
+    },
+    {
+      "excel_name": "Onno Villa (4+1)",
+      "slug": "onno-villa",
+      "seasons": [
+        {
+          "from": "2026-07-13",
+          "to": "2026-07-31",
+          "label": "13 Temmuz – 31 Temmuz 2026",
+          "weekly_brut": 260000,
+          "base_nightly": 37143,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-08-01",
+          "to": "2026-08-16",
+          "label": "1 Ağustos – 16 Ağustos 2026",
+          "weekly_brut": 285000,
+          "base_nightly": 40714,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-08-17",
+          "to": "2026-09-06",
+          "label": "17 Ağustos – 6 Eylül 2026",
+          "weekly_brut": 260000,
+          "base_nightly": 37143,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-09-07",
+          "to": "2026-09-20",
+          "label": "7 Eylül – 20 Eylül 2026",
+          "weekly_brut": 165000,
+          "base_nightly": 23571,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-09-21",
+          "to": "2026-11-15",
+          "label": "21 Eylül – 15 Kasım 2026",
+          "weekly_brut": 111000,
+          "base_nightly": 15857,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-11-16",
+          "to": "2026-12-31",
+          "label": "16 Kasım – 31 Aralık 2026",
+          "weekly_brut": 97000,
+          "base_nightly": 13857,
+          "min_nights": 7
+        }
+      ],
+      "vitrin_price": 13857
+    },
+    {
+      "excel_name": "Silver Sami (4+1)",
+      "slug": "silver-sami-villa",
+      "seasons": [
+        {
+          "from": "2026-07-13",
+          "to": "2026-07-31",
+          "label": "13 Temmuz – 31 Temmuz 2026",
+          "weekly_brut": 260000,
+          "base_nightly": 37143,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-08-01",
+          "to": "2026-08-16",
+          "label": "1 Ağustos – 16 Ağustos 2026",
+          "weekly_brut": 285000,
+          "base_nightly": 40714,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-08-17",
+          "to": "2026-09-06",
+          "label": "17 Ağustos – 6 Eylül 2026",
+          "weekly_brut": 260000,
+          "base_nightly": 37143,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-09-07",
+          "to": "2026-09-20",
+          "label": "7 Eylül – 20 Eylül 2026",
+          "weekly_brut": 165000,
+          "base_nightly": 23571,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-09-21",
+          "to": "2026-11-15",
+          "label": "21 Eylül – 15 Kasım 2026",
+          "weekly_brut": 111000,
+          "base_nightly": 15857,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-11-16",
+          "to": "2026-12-31",
+          "label": "16 Kasım – 31 Aralık 2026",
+          "weekly_brut": 97000,
+          "base_nightly": 13857,
+          "min_nights": 7
+        }
+      ],
+      "vitrin_price": 13857
+    },
+    {
+      "excel_name": "Nokta Life B  (4+1)",
+      "slug": "nokta-life-villa-b",
+      "seasons": [
+        {
+          "from": "2026-07-13",
+          "to": "2026-07-31",
+          "label": "13 Temmuz – 31 Temmuz 2026",
+          "weekly_brut": 260000,
+          "base_nightly": 37143,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-08-01",
+          "to": "2026-08-16",
+          "label": "1 Ağustos – 16 Ağustos 2026",
+          "weekly_brut": 285000,
+          "base_nightly": 40714,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-08-17",
+          "to": "2026-09-06",
+          "label": "17 Ağustos – 6 Eylül 2026",
+          "weekly_brut": 260000,
+          "base_nightly": 37143,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-09-07",
+          "to": "2026-09-20",
+          "label": "7 Eylül – 20 Eylül 2026",
+          "weekly_brut": 165000,
+          "base_nightly": 23571,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-09-21",
+          "to": "2026-11-15",
+          "label": "21 Eylül – 15 Kasım 2026",
+          "weekly_brut": 111000,
+          "base_nightly": 15857,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-11-16",
+          "to": "2026-12-31",
+          "label": "16 Kasım – 31 Aralık 2026",
+          "weekly_brut": 97000,
+          "base_nightly": 13857,
+          "min_nights": 7
+        }
+      ],
+      "vitrin_price": 13857
+    },
+    {
+      "excel_name": "Silver Yunus  (4+1)",
+      "slug": "silver-yunus-villa",
+      "seasons": [
+        {
+          "from": "2026-07-13",
+          "to": "2026-07-31",
+          "label": "13 Temmuz – 31 Temmuz 2026",
+          "weekly_brut": 255000,
+          "base_nightly": 36429,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-08-01",
+          "to": "2026-08-16",
+          "label": "1 Ağustos – 16 Ağustos 2026",
+          "weekly_brut": 270000,
+          "base_nightly": 38571,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-08-17",
+          "to": "2026-09-06",
+          "label": "17 Ağustos – 6 Eylül 2026",
+          "weekly_brut": 245000,
+          "base_nightly": 35000,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-09-07",
+          "to": "2026-09-20",
+          "label": "7 Eylül – 20 Eylül 2026",
+          "weekly_brut": 155000,
+          "base_nightly": 22143,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-09-21",
+          "to": "2026-11-15",
+          "label": "21 Eylül – 15 Kasım 2026",
+          "weekly_brut": 100000,
+          "base_nightly": 14286,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-11-16",
+          "to": "2026-12-31",
+          "label": "16 Kasım – 31 Aralık 2026",
+          "weekly_brut": 85000,
+          "base_nightly": 12143,
+          "min_nights": 7
+        }
+      ],
+      "vitrin_price": 12143
+    },
+    {
+      "excel_name": "Cihan Villa (4+1)",
+      "slug": "cihan-villa",
+      "seasons": [
+        {
+          "from": "2026-07-13",
+          "to": "2026-07-31",
+          "label": "13 Temmuz – 31 Temmuz 2026",
+          "weekly_brut": 255000,
+          "base_nightly": 36429,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-08-01",
+          "to": "2026-08-16",
+          "label": "1 Ağustos – 16 Ağustos 2026",
+          "weekly_brut": 270000,
+          "base_nightly": 38571,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-08-17",
+          "to": "2026-09-06",
+          "label": "17 Ağustos – 6 Eylül 2026",
+          "weekly_brut": 245000,
+          "base_nightly": 35000,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-09-07",
+          "to": "2026-09-20",
+          "label": "7 Eylül – 20 Eylül 2026",
+          "weekly_brut": 155000,
+          "base_nightly": 22143,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-09-21",
+          "to": "2026-11-15",
+          "label": "21 Eylül – 15 Kasım 2026",
+          "weekly_brut": 100000,
+          "base_nightly": 14286,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-11-16",
+          "to": "2026-12-31",
+          "label": "16 Kasım – 31 Aralık 2026",
+          "weekly_brut": 85000,
+          "base_nightly": 12143,
+          "min_nights": 7
+        }
+      ],
+      "vitrin_price": 12143
+    },
+    {
+      "excel_name": "Göcek Marin B (4+1)",
+      "slug": "gocek-marine-villa-b",
+      "seasons": [
+        {
+          "from": "2026-07-13",
+          "to": "2026-07-31",
+          "label": "13 Temmuz – 31 Temmuz 2026",
+          "weekly_brut": 280000,
+          "base_nightly": 40000,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-08-01",
+          "to": "2026-08-16",
+          "label": "1 Ağustos – 16 Ağustos 2026",
+          "weekly_brut": 290000,
+          "base_nightly": 41429,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-08-17",
+          "to": "2026-09-06",
+          "label": "17 Ağustos – 6 Eylül 2026",
+          "weekly_brut": 275000,
+          "base_nightly": 39286,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-09-07",
+          "to": "2026-09-20",
+          "label": "7 Eylül – 20 Eylül 2026",
+          "weekly_brut": 170000,
+          "base_nightly": 24286,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-09-21",
+          "to": "2026-11-15",
+          "label": "21 Eylül – 15 Kasım 2026",
+          "weekly_brut": 115000,
+          "base_nightly": 16429,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-11-16",
+          "to": "2026-12-31",
+          "label": "16 Kasım – 31 Aralık 2026",
+          "weekly_brut": 100000,
+          "base_nightly": 14286,
+          "min_nights": 7
+        }
+      ],
+      "vitrin_price": 14286
+    },
+    {
+      "excel_name": "Hisarpark B (4+1)",
+      "slug": "hisarpark-villa-b",
+      "seasons": [
+        {
+          "from": "2026-07-13",
+          "to": "2026-07-31",
+          "label": "13 Temmuz – 31 Temmuz 2026",
+          "weekly_brut": 260000,
+          "base_nightly": 37143,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-08-01",
+          "to": "2026-08-16",
+          "label": "1 Ağustos – 16 Ağustos 2026",
+          "weekly_brut": 285000,
+          "base_nightly": 40714,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-08-17",
+          "to": "2026-09-06",
+          "label": "17 Ağustos – 6 Eylül 2026",
+          "weekly_brut": 260000,
+          "base_nightly": 37143,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-09-07",
+          "to": "2026-09-20",
+          "label": "7 Eylül – 20 Eylül 2026",
+          "weekly_brut": 165000,
+          "base_nightly": 23571,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-09-21",
+          "to": "2026-11-15",
+          "label": "21 Eylül – 15 Kasım 2026",
+          "weekly_brut": 111000,
+          "base_nightly": 15857,
+          "min_nights": 7
+        },
+        {
+          "from": "2026-11-16",
+          "to": "2026-12-31",
+          "label": "16 Kasım – 31 Aralık 2026",
+          "weekly_brut": 97000,
+          "base_nightly": 13857,
+          "min_nights": 7
+        }
+      ],
+      "vitrin_price": 13857
+    }
+  ],
+  "unmatched_excel_rows": [
+    {
+      "excel_name": "Mina (4+1)",
+      "reason": "sitede güvenli eşleşme yok (mina-villa yok)"
+    },
+    {
+      "excel_name": "Doha Villa (4+1)",
+      "reason": "ilan yok"
+    },
+    {
+      "excel_name": "Nokta Park I (4+1)",
+      "reason": "ilan yok"
+    },
+    {
+      "excel_name": "NoktaPark H (4+1)",
+      "reason": "ilan yok"
+    },
+    {
+      "excel_name": "Nokta Life C (4+1)",
+      "reason": "ilan yok (yalnız B var)"
+    },
+    {
+      "excel_name": "Kelebek Villa (3+1)",
+      "reason": "yalnız Mavi Kelebek var; güvenli eşleştirilmedi"
+    },
+    {
+      "excel_name": "Hisarpark D (4+1)",
+      "reason": "ilan yok (A/B var)"
+    }
+  ]
+}

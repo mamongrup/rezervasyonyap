@@ -46,7 +46,7 @@ export const MODULE_CATALOG: {
   },
   { type: 'region_slider', label: 'Bölge Slider', description: "Bölgeleri API'den çekerek yatay kaydırmalı göster", emoji: '🗾' },
   { type: 'gezi_onerileri', label: 'Gezi Önerileri', description: 'Öne çıkan gezi önerileri bölümü', emoji: '🗺️' },
-  { type: 'featured_places', label: 'Öne Çıkan Yerler', description: 'Popüler destinasyonlar vitrini', emoji: '📌' },
+  { type: 'featured_places', label: 'Öne Çıkan İlanlar', description: 'Kategori vitrini: otel, tur, aktivite, feribot… (Önerilenler / Yeni)', emoji: '📌' },
   { type: 'how_it_works', label: 'Nasıl Çalışır?', description: 'Adım adım platform açıklaması', emoji: '⚙️' },
   { type: 'category_grid', label: 'Kategori Grid (Ana Sayfa)', description: 'Tüm kategorilerin grid görünümü', emoji: '🏠' },
   {

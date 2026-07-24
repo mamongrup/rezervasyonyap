@@ -158,8 +158,27 @@ export const getStayListingByHandle = cache(async (
     searchPublicListings({ listingIds: [catalogId], perPage: 1, locale }),
     getPublicListingVitrine(catalogId, locale),
   ])
-  const item = pub?.listings?.[0]
-  if (!item) return null
+  let item = pub?.listings?.[0]
+  // Liste kapıları (görsel/otel fiyatı) detay hydrate'i artık engellemez; yine de
+  // arama boş dönerse vitrine ile minimal kart üret — yayınlanmış ilan açılsın.
+  if (!item) {
+    if (!vitrine) return null
+    const verticalFallback = expectedCategoryCode ?? 'holiday_home'
+    item = {
+      id: catalogId,
+      slug: handle,
+      title: vitrine.title?.trim() || handle,
+      category_code: verticalFallback,
+      listing_vertical: verticalFallback,
+      featured_image_url: null,
+      thumbnail_url: null,
+      price_from: null,
+      location: vitrine.location_label ?? null,
+      review_avg: null,
+      discount_percent: null,
+      gallery_urls: [],
+    }
+  }
 
   const api = mapPublicListingItemToListingBase(item)
   if (

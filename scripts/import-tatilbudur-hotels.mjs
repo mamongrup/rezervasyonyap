@@ -68,6 +68,18 @@ function slugify(value) {
     .slice(0, 88)
 }
 
+/** Ad + dış id'den kısa slug. id zaten ada eşitse `-tb-{id}` ekleme (çift uzunluk önlenir). */
+function hotelListingSlug(name, externalId, rawSlug) {
+  const base = slugify(rawSlug || name) || `otel-${slugify(externalId) || 'x'}`
+  const idPart = slugify(externalId)
+  if (!idPart || idPart === base || base.includes(idPart) || idPart.includes(base)) {
+    return base.slice(0, 96)
+  }
+  const suffix = `-tb-${idPart}`
+  const maxBase = Math.max(8, 96 - suffix.length)
+  return `${base.slice(0, maxBase)}${suffix}`
+}
+
 function num(value) {
   if (typeof value === 'number') return Number.isFinite(value) ? value : null
   const raw = String(value ?? '').trim().replace(/\s/g, '')
@@ -90,6 +102,23 @@ function textList(value) {
     .map((x) => String(x).trim()).filter(Boolean))]
 }
 
+/** AegeanHotels CDN hotlink 403 → Bookeder Photos/Big aynası */
+function rewriteAegeanToBookeder(url) {
+  const s = String(url || '').trim()
+  if (!s) return s
+  try {
+    const u = new URL(s)
+    if (!/\.aegeanhotels\.net$/i.test(u.hostname)) return s
+    const m = u.pathname.match(
+      /^\/data\/Imgs\/(?:1920x1080w|OriginalPhoto)\/(\d+\/\d+\/\d+\/[^/]+\.jpe?g)$/i,
+    )
+    if (!m) return s
+    return `https://bookeder.com/data/Photos/Big/${m[1]}`
+  } catch {
+    return s
+  }
+}
+
 function normalizeRate(rate, room) {
   const price = num(rate?.nightlyPrice ?? rate?.nightly_price ?? rate?.price ?? rate?.amount)
   if (price == null || price <= 0) return null
@@ -109,8 +138,10 @@ function normalizeHotel(raw) {
   if (!externalId) throw new Error('hotel_id_missing')
   const name = String(raw?.name ?? raw?.hotelName ?? raw?.title ?? '').trim()
   if (!name) throw new Error(`hotel_name_missing:${externalId}`)
-  const images = textList(raw?.gallery ?? raw?.images ?? raw?.photos)
-  const featured = String(raw?.featuredImage ?? raw?.featured_image ?? raw?.image ?? images[0] ?? '').trim()
+  const images = textList(raw?.gallery ?? raw?.images ?? raw?.photos).map(rewriteAegeanToBookeder)
+  const featured = rewriteAegeanToBookeder(
+    String(raw?.featuredImage ?? raw?.featured_image ?? raw?.image ?? images[0] ?? '').trim(),
+  )
   if (featured && !images.includes(featured)) images.unshift(featured)
   const rooms = arr(raw?.rooms ?? raw?.roomTypes ?? raw?.room_types).map((room, index) => {
     const rates = arr(room?.rates ?? room?.prices ?? room?.ratePlans ?? room?.rate_plans)
@@ -124,23 +155,51 @@ function normalizeHotel(raw) {
       })(),
       unitCount: Math.max(1, Math.round(num(room?.unitCount ?? room?.unit_count) || 1)),
       boardType: String(room?.boardType ?? room?.board_type ?? '').trim(),
-      image: String(room?.image ?? room?.imageUrl ?? room?.image_url ?? '').trim(),
-      images: textList(room?.images ?? room?.gallery ?? room?.photos),
+      image: rewriteAegeanToBookeder(String(room?.image ?? room?.imageUrl ?? room?.image_url ?? '').trim()),
+      images: textList(room?.images ?? room?.gallery ?? room?.photos).map(rewriteAegeanToBookeder),
       features: textList(room?.features ?? room?.amenities),
       rates,
     }
   })
   const allRates = rooms.flatMap((room) => room.rates)
   const minPrice = allRates.reduce((min, rate) => min == null || rate.nightlyPrice < min ? rate.nightlyPrice : min, null)
+  const city = String(raw?.city ?? raw?.region ?? raw?.location?.city ?? '').trim()
+  const district = String(raw?.district ?? raw?.location?.district ?? '').trim()
+  const provinceCity = String(
+    raw?.provinceCity ?? raw?.province_city ?? raw?.province ?? raw?.location?.province ?? '',
+  ).trim()
+  const address = String(raw?.address ?? raw?.location?.address ?? '').trim()
+  const lat = num(raw?.lat ?? raw?.latitude ?? raw?.mapLat ?? raw?.map_lat ?? raw?.location?.lat)
+  const lng = num(raw?.lng ?? raw?.longitude ?? raw?.mapLng ?? raw?.map_lng ?? raw?.location?.lng)
+  const locationName = [district, city, provinceCity].filter(Boolean).join(', ') || city || district || ''
+  const sourceFacts = raw?.sourceFacts && typeof raw.sourceFacts === 'object' ? raw.sourceFacts : {}
+  const themeCode = String(
+    raw?.themeCode ?? raw?.theme_code ?? sourceFacts.themeCode ?? sourceFacts.theme_code ?? '',
+  ).trim()
+  const themeTags = [...new Set(
+    textList(raw?.themeTags ?? raw?.theme_tags ?? sourceFacts.themeTags ?? sourceFacts.theme_tags)
+      .map((x) => x.toLowerCase()),
+  )]
+  if (themeCode && !themeTags.includes(themeCode.toLowerCase())) themeTags.unshift(themeCode.toLowerCase())
+  const hotelType = String(
+    raw?.hotelType ?? raw?.hotel_type ?? sourceFacts.hotelType ?? sourceFacts.hotel_type ?? '',
+  ).trim()
+  const adultsOnly = Boolean(
+    raw?.adultsOnly ?? raw?.adults_only ?? sourceFacts.adultsOnly ?? sourceFacts.adults_only,
+  )
   return {
     externalId,
-    slug: `${slugify(raw?.slug || name)}-tb-${slugify(externalId)}`,
+    slug: hotelListingSlug(name, externalId, raw?.slug),
     name,
     description: String(raw?.description ?? raw?.content ?? '').trim(),
     url: String(raw?.url ?? raw?.sourceUrl ?? raw?.source_url ?? '').trim(),
-    city: String(raw?.city ?? raw?.region ?? raw?.location?.city ?? '').trim(),
-    district: String(raw?.district ?? raw?.location?.district ?? '').trim(),
-    address: String(raw?.address ?? raw?.location?.address ?? '').trim(),
+    city,
+    district,
+    provinceCity,
+    address,
+    lat,
+    lng,
+    locationName,
     countryCode: String(raw?.countryCode ?? raw?.country_code ?? 'TR').trim().toUpperCase(),
     starRating: num(raw?.starRating ?? raw?.star_rating ?? raw?.stars),
     guestScore: num(raw?.guestScore ?? raw?.guest_score ?? raw?.rating),
@@ -152,6 +211,10 @@ function normalizeHotel(raw) {
     rooms,
     minPrice,
     currency: String(raw?.currency ?? allRates[0]?.currency ?? 'TRY').toUpperCase(),
+    themeCode,
+    themeTags,
+    hotelType,
+    adultsOnly,
     raw,
   }
 }
@@ -203,19 +266,25 @@ async function upsertHotel(pg, ctx, hotel) {
     let listingId = existing.rows[0]?.id
     const created = !listingId
     if (listingId) {
+      // Mevcut yayın URL'sini koru — yeniden import kısa slug'ı ezmesin
       await pg.query(
-        `UPDATE listings SET slug=$2, status=CASE WHEN status='published' THEN status ELSE $3 END,
-         currency_code=$4, location_name=$5, listing_source='api', last_synced_at=now(), updated_at=now()
+        `UPDATE listings SET status=CASE WHEN status='published' THEN status ELSE $2 END,
+         currency_code=$3, location_name=$4,
+         map_lat=coalesce($5::numeric, map_lat), map_lng=coalesce($6::numeric, map_lng),
+         listing_source='api', last_synced_at=now(), updated_at=now()
          WHERE id=$1::uuid`,
-        [listingId, hotel.slug, LISTING_STATUS, hotel.currency, hotel.city || hotel.district || null],
+        [listingId, LISTING_STATUS, hotel.currency,
+          hotel.locationName || hotel.city || hotel.district || null,
+          hotel.lat, hotel.lng],
       )
     } else {
       const inserted = await pg.query(
         `INSERT INTO listings (organization_id, category_id, slug, status, currency_code, location_name,
-         listing_source, external_provider_code, external_listing_ref, last_synced_at)
-         VALUES ($1::uuid,$2::smallint,$3,$4,$5,$6,'api',$7,$8,now()) RETURNING id::text`,
+         map_lat, map_lng, listing_source, external_provider_code, external_listing_ref, last_synced_at)
+         VALUES ($1::uuid,$2::smallint,$3,$4,$5,$6,$7,$8,'api',$9,$10,now()) RETURNING id::text`,
         [ctx.orgId, ctx.categoryId, hotel.slug, LISTING_STATUS, hotel.currency,
-          hotel.city || hotel.district || null, PROVIDER, hotel.externalId],
+          hotel.locationName || hotel.city || hotel.district || null,
+          hotel.lat, hotel.lng, PROVIDER, hotel.externalId],
       )
       listingId = inserted.rows[0].id
     }
@@ -262,6 +331,41 @@ async function upsertHotel(pg, ctx, hotel) {
         check_out: hotel.checkOut, guest_score: hotel.guestScore, review_count: hotel.reviewCount,
         address: hotel.address, district: hotel.district })],
     )
+    if (hotel.district || hotel.city || hotel.provinceCity || hotel.address || hotel.lat != null) {
+      const meta = {
+        district_label: hotel.district || '',
+        city: hotel.city || '',
+        province_city: hotel.provinceCity || '',
+        address: hotel.address || '',
+      }
+      if (hotel.lat != null) meta.lat = String(hotel.lat)
+      if (hotel.lng != null) meta.lng = String(hotel.lng)
+      if (hotel.themeTags?.length) meta.theme_tags = hotel.themeTags
+      if (hotel.adultsOnly) meta.adults_only = true
+      if (hotel.url) meta.source_url = hotel.url
+      await pg.query(
+        `INSERT INTO listing_attributes (listing_id,group_code,key,value_json)
+         VALUES ($1::uuid,'listing_meta','v1',$2::jsonb) ON CONFLICT (listing_id,group_code,key)
+         DO UPDATE SET value_json=listing_attributes.value_json || excluded.value_json`,
+        [listingId, JSON.stringify(meta)],
+      )
+    }
+    if (hotel.themeCode) {
+      await pg.query(
+        `INSERT INTO listing_attributes (listing_id,group_code,key,value_json)
+         VALUES ($1::uuid,'hotel','theme_code',$2::jsonb)
+         ON CONFLICT (listing_id,group_code,key) DO UPDATE SET value_json=excluded.value_json`,
+        [listingId, JSON.stringify(String(hotel.themeCode))],
+      )
+    }
+    if (hotel.hotelType) {
+      await pg.query(
+        `INSERT INTO listing_attributes (listing_id,group_code,key,value_json)
+         VALUES ($1::uuid,'hotel','hotel_type_code',$2::jsonb)
+         ON CONFLICT (listing_id,group_code,key) DO UPDATE SET value_json=excluded.value_json`,
+        [listingId, JSON.stringify(String(hotel.hotelType))],
+      )
+    }
     if (hotel.rooms.length) {
       await pg.query(`DELETE FROM hotel_rooms WHERE listing_id=$1::uuid`, [listingId])
       for (const room of hotel.rooms) {

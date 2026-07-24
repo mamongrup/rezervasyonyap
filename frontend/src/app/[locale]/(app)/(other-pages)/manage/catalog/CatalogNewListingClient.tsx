@@ -765,8 +765,6 @@ export default function CatalogNewListingClient({
   const [icalExportRotateBusy, setIcalExportRotateBusy] = useState(false)
   /** Otel yıldızı (1–5) — sadece hotel kategorisinde */
   const [starRating, setStarRating] = useState('')
-  const [hotelEtRef, setHotelEtRef] = useState('')
-  const [hotelTcRef, setHotelTcRef] = useState('')
 
   // ── İlan sahibi ──
   const [ownerName, setOwnerName] = useState('')
@@ -804,6 +802,8 @@ export default function CatalogNewListingClient({
   const [busy, setBusy] = useState(false)
   const slugRef = useRef<HTMLInputElement>(null)
   const galleryKeysAtHydrateRef = useRef<Set<string>>(new Set())
+  /** Düzenlemede slug değiştiyse Kaydet → patchListingSlug */
+  const slugAtHydrateRef = useRef('')
   /** Adım 1 kaydı, POI listesi yüklenmeden DB'yi boşaltmasın. */
   const nearbyPoisHydratedRef = useRef(false)
   /** Tatil evi düzenlemede yeni iCal URL’si yalnızca hydrate’de olmayan adres için eklenir (çift kayıt önlenir). */
@@ -814,6 +814,8 @@ export default function CatalogNewListingClient({
   const isHotel = categoryCode === 'hotel'
   const isYacht = categoryCode === 'yacht_charter'
   const isStayRentalWizard = isStayRentalCategory(categoryCode)
+  /** Tatil evi / yat / otel — tesis galerisi aynı listing_images kaynağından */
+  const usesFacilityGallery = isStayRentalWizard || isHotel
   const catalogVertical = normalizeCatalogVertical(categoryCode)
   const listingPreviewBase = managePublicDetailPathForVertical(catalogVertical)
   const isTour = categoryCode === 'tour'
@@ -822,13 +824,16 @@ export default function CatalogNewListingClient({
   const gallerySubPath = listingImageSubPath(categoryCode, gallerySlugBase)
 
   const isStayRentalEdit = isStayRentalWizard && Boolean(editListingId)
-  const galleryTotalCount = isStayRentalEdit ? listingGalleryUrls.length : pendingGalleryKeys.length
+  const isFacilityGalleryEdit = usesFacilityGallery && Boolean(editListingId)
+  const galleryTotalCount = isFacilityGalleryEdit
+    ? listingGalleryUrls.length + pendingGalleryKeys.filter((k) => !listingGalleryUrls.includes(k)).length
+    : pendingGalleryKeys.length
 
   const galleryImagesForHero = useMemo((): ListingImage[] => {
-    if (!isStayRentalWizard) return []
-    if (isStayRentalEdit) return listingGalleryImages
+    if (!usesFacilityGallery) return []
+    if (isFacilityGalleryEdit) return listingGalleryImages
     return listingImagesFromPendingKeys(pendingGalleryKeys)
-  }, [isStayRentalWizard, isStayRentalEdit, listingGalleryImages, pendingGalleryKeys])
+  }, [usesFacilityGallery, isFacilityGalleryEdit, listingGalleryImages, pendingGalleryKeys])
 
   const galleryHasSceneTags = useMemo(
     () => galleryImagesForHero.some((im) => imageHasMeaningfulScene(im.scene_code)),
@@ -836,17 +841,33 @@ export default function CatalogNewListingClient({
   )
 
   const heroPreviewFiveKeys = useMemo(() => {
-    if (!isStayRentalWizard) return []
+    if (!usesFacilityGallery) return []
     if (galleryHasSceneTags) return pickHeroKeysFromTaggedImages(galleryImagesForHero)
+    if (isHotel) {
+      if (isFacilityGalleryEdit) {
+        const pendingExtra = pendingGalleryKeys.filter((k) => !listingGalleryUrls.includes(k))
+        return [...listingGalleryUrls, ...pendingExtra].slice(0, 5)
+      }
+      return pendingGalleryKeys.slice(0, 5)
+    }
     const valid = new Set(galleryImagesForHero.map((im) => im.storage_key))
     return heroManualStorageKeys.map((k) => {
       const t = k.trim()
       return t && valid.has(t) ? t : ''
     })
-  }, [categoryCode, galleryHasSceneTags, galleryImagesForHero, heroManualStorageKeys])
+  }, [
+    usesFacilityGallery,
+    isHotel,
+    isFacilityGalleryEdit,
+    galleryHasSceneTags,
+    galleryImagesForHero,
+    heroManualStorageKeys,
+    listingGalleryUrls,
+    pendingGalleryKeys,
+  ])
 
   const galleryManageHref =
-    isStayRentalEdit && editListingId
+    isFacilityGalleryEdit && editListingId
       ? vitrinPath(
           `/manage/catalog/${encodeURIComponent(categoryCode)}/listings/${encodeURIComponent(editListingId)}/gallery`,
         )
@@ -1326,6 +1347,7 @@ export default function CatalogNewListingClient({
         if (row?.slug) {
           setSlug(row.slug)
           setSlugManual(true)
+          slugAtHydrateRef.current = row.slug
         }
         if (row?.currency_code?.trim()) setCurrency(row.currency_code.trim().toUpperCase())
         if (row?.category_contract_id?.trim()) {
@@ -1339,8 +1361,6 @@ export default function CatalogNewListingClient({
             const hd = await getManageHotelDetails(token, lid, orgParam)
             if (!cancelled) {
               if (hd.star_rating?.trim()) setStarRating(hd.star_rating.trim())
-              setHotelEtRef(hd.etstur_property_ref?.trim() ?? '')
-              setHotelTcRef(hd.tatilcom_property_ref?.trim() ?? '')
             }
           } catch {
             /* ignore */
@@ -1682,83 +1702,52 @@ export default function CatalogNewListingClient({
         distance_km: Math.round(p.distanceKm * 10) / 10,
       })
 
-      // API anahtarını yükle (state → site ayarları → public maps-config)
-      let apiKey = mapsApiKey.trim()
-      if (!apiKey) {
-        try {
-          const s = await listSiteSettings(token, { scope: 'platform', key: 'maps' })
-          const raw = s.settings?.[0]?.value_json ?? ''
-          if (raw) {
-            const parsed = JSON.parse(raw) as Record<string, unknown>
-            apiKey = typeof parsed.google_maps_api_key === 'string' ? parsed.google_maps_api_key.trim() : ''
-            if (apiKey) setMapsApiKey(apiKey)
-          }
-        } catch {
-          /* ignore */
-        }
-      }
-      if (!apiKey) {
-        try {
-          const cfgRes = await fetch('/api/maps-config')
-          if (cfgRes.ok) {
-            const cfg = (await cfgRes.json()) as { apiKey?: string }
-            apiKey = cfg.apiKey?.trim() ?? ''
-            if (apiKey) setMapsApiKey(apiKey)
-          }
-        } catch {
-          /* ignore */
-        }
-      }
-
+      // Places Nearby sunucu anahtarı kullanır (GOOGLE_MAPS_SERVER_API_KEY).
+      // Tarayıcı / panel Maps JS anahtarını gövdeye göndermeyin — referrer kısıtı REQUEST_DENIED üretir.
       let next: NearbyPoi[] = []
       let googleError: string | null = null
+      let usedGooglePlaces = false
 
-      // Google Places — birden fazla tip (bölge düzenleme ile aynı mantık)
-      if (apiKey) {
-        const googleTypes = ['tourist_attraction', 'park', 'natural_feature', 'museum']
-        const byPlaceId = new Map<string, PlaceRow>()
-        for (const googleType of googleTypes) {
-          try {
-            const placesRes = await fetch('/api/places-nearby', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                lat: latNum,
-                lng: lngNum,
-                googleType,
-                radiusM: 20_000,
-                maxCount: 8,
-                language: locale || 'tr',
-                apiKey,
-              }),
-            })
-            const pd = (await placesRes.json().catch(() => ({}))) as {
-              places?: PlaceRow[]
-              error?: string
-            }
-            if (!placesRes.ok) {
-              googleError = pd.error ?? `Google Places HTTP ${placesRes.status}`
-              break
-            }
-            for (const p of pd.places ?? []) {
-              const prev = byPlaceId.get(p.placeId)
-              if (!prev || p.distanceKm < prev.distanceKm) byPlaceId.set(p.placeId, p)
-            }
-            await new Promise((r) => setTimeout(r, 280))
-          } catch (e) {
-            googleError = e instanceof Error ? e.message : 'Google Places isteği başarısız'
+      const googleTypes = ['tourist_attraction', 'park', 'natural_feature', 'museum']
+      const byPlaceId = new Map<string, PlaceRow>()
+      for (const googleType of googleTypes) {
+        try {
+          const placesRes = await fetch('/api/places-nearby', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              lat: latNum,
+              lng: lngNum,
+              googleType,
+              radiusM: 20_000,
+              maxCount: 8,
+              language: locale || 'tr',
+            }),
+          })
+          const pd = (await placesRes.json().catch(() => ({}))) as {
+            places?: PlaceRow[]
+            error?: string
+          }
+          if (!placesRes.ok) {
+            googleError = pd.error ?? `Google Places HTTP ${placesRes.status}`
             break
           }
+          usedGooglePlaces = true
+          for (const p of pd.places ?? []) {
+            const prev = byPlaceId.get(p.placeId)
+            if (!prev || p.distanceKm < prev.distanceKm) byPlaceId.set(p.placeId, p)
+          }
+          await new Promise((r) => setTimeout(r, 280))
+        } catch (e) {
+          googleError = e instanceof Error ? e.message : 'Google Places isteği başarısız'
+          break
         }
-        if (!googleError && byPlaceId.size > 0) {
-          next = [...byPlaceId.values()]
-            .sort((a, b) => a.distanceKm - b.distanceKm)
-            .slice(0, 20)
-            .map((p) => placeRowToPoi(p))
-        }
-      } else {
-        googleError =
-          'Google Maps API anahtarı yok. Yönetim → Ayarlar → Google sekmesinden anahtar ekleyin.'
+      }
+      if (!googleError && byPlaceId.size > 0) {
+        next = [...byPlaceId.values()]
+          .sort((a, b) => a.distanceKm - b.distanceKm)
+          .slice(0, 20)
+          .map((p) => placeRowToPoi(p))
       }
 
       // Yedek: bölge/ilçe travel_ideas — önce form koordinatlarını DB'ye yaz
@@ -1787,7 +1776,7 @@ export default function CatalogNewListingClient({
         await patchListingNearbyPois(token, editListingId, next).catch(() => {})
         setNearbyPois(next)
         nearbyPoisHydratedRef.current = true
-        const via = apiKey && !googleError ? 'Google Places' : 'bölge verisi'
+        const via = usedGooglePlaces && !googleError ? 'Google Places' : 'bölge verisi'
         setNearbyPoisMsg({ ok: true, text: `${next.length} mekan eklendi (${via}).` })
       } else {
         setNearbyPois(next)
@@ -1848,7 +1837,7 @@ export default function CatalogNewListingClient({
 
   /** Galeri alt sayfasından dönünce önizlemeyi güncelle */
   useEffect(() => {
-    if (!isStayRentalWizard || !editListingId) return
+    if (!usesFacilityGallery || !editListingId) return
     const reloadPreview = () => {
       const token = getStoredAuthToken()
       if (!token) return
@@ -1873,7 +1862,7 @@ export default function CatalogNewListingClient({
       window.removeEventListener('focus', reloadPreview)
       document.removeEventListener('visibilitychange', onVis)
     }
-  }, [isStayRentalWizard, categoryCode, editListingId, needOrg, orgId])
+  }, [usesFacilityGallery, categoryCode, editListingId, needOrg, orgId])
 
   /** Etiketsiz galeri: boş slotları sırayla doldur; geçersiz anahtarları temizle */
   useEffect(() => {
@@ -2682,6 +2671,16 @@ export default function CatalogNewListingClient({
       let lid: string
       if (editListingId) {
         lid = editListingId
+        const nextSlug = slugifyListingSlug(slug.trim())
+        if (nextSlug && nextSlug !== slugAtHydrateRef.current) {
+          const r = await saveRequiredStep(
+            'Slug güncelleme',
+            patchListingSlug(token, lid, { slug: nextSlug }, orgParam),
+          )
+          slugAtHydrateRef.current = r.slug
+          setSlug(r.slug)
+          setHeaderSlugDraft(r.slug)
+        }
         if (contractId.trim()) {
           await saveRequiredStep(
             'Kategori sözleşmesi',
@@ -2740,7 +2739,7 @@ export default function CatalogNewListingClient({
 
       // 4. Temel ilan alanları
       const basicsBody: Parameters<typeof patchListingBasics>[2] = { status }
-      const msn = basicsIntField(minStayNights)
+      const msn = !isHotel ? basicsIntField(minStayNights) : null
       if (msn) basicsBody.min_stay_nights = msn
       const cleaning = basicsDecimalField(cleaningFee)
       if (cleaning) basicsBody.cleaning_fee_amount = cleaning
@@ -2793,11 +2792,11 @@ export default function CatalogNewListingClient({
       const metaBody: Record<string, string> = {}
       if (checkInTime.trim()) metaBody.check_in_time = checkInTime.trim()
       if (checkOutTime.trim()) metaBody.check_out_time = checkOutTime.trim()
-      if (bedCount.trim()) metaBody.bed_count = bedCount.trim()
-      if (bathCount.trim()) metaBody.bath_count = bathCount.trim()
-      if (maxGuests.trim()) metaBody.max_guests = maxGuests.trim()
-      if (minAdvanceBookingDays.trim()) metaBody.min_advance_booking_days = minAdvanceBookingDays.trim()
-      if (roomCount.trim()) metaBody.room_count = roomCount.trim()
+      if (!isHotel && bedCount.trim()) metaBody.bed_count = bedCount.trim()
+      if (!isHotel && bathCount.trim()) metaBody.bath_count = bathCount.trim()
+      if (!isHotel && maxGuests.trim()) metaBody.max_guests = maxGuests.trim()
+      if (!isHotel && minAdvanceBookingDays.trim()) metaBody.min_advance_booking_days = minAdvanceBookingDays.trim()
+      if (!isHotel && roomCount.trim()) metaBody.room_count = roomCount.trim()
       if (isVilla && propertyType.trim()) metaBody.property_type = propertyType.trim()
       if (youtubeUrl.trim()) metaBody.youtube_url = youtubeUrl.trim()
       metaBody.source_reference_url = sourceReferenceUrl.trim()
@@ -2815,7 +2814,7 @@ export default function CatalogNewListingClient({
       if (lng.trim()) metaBody.lng = lng.trim()
       if (shortStayMinNights.trim()) metaBody.min_short_stay_nights = shortStayMinNights.trim()
       if (shortStayFee.trim()) metaBody.short_stay_fee = shortStayFee.trim()
-      if (squareMeters.trim()) metaBody.square_meters = squareMeters.trim()
+      if (!isHotel && squareMeters.trim()) metaBody.square_meters = squareMeters.trim()
       if (isVilla && ownerTcNo.trim()) metaBody.owner_tc_no = ownerTcNo.trim()
       if (isVilla && ownerBankName.trim()) metaBody.owner_bank_name = ownerBankName.trim()
       if (isVilla && ownerIban.trim()) metaBody.owner_iban = ownerIban.replace(/\s/g, '').trim()
@@ -2959,9 +2958,9 @@ export default function CatalogNewListingClient({
         }
       }
 
-      // Otel detayları — yıldız + entegrasyon referansları
+      // Otel detayları — yıldız
       if (categoryCode === 'hotel') {
-        if (starRating.trim() || hotelEtRef.trim() || hotelTcRef.trim()) {
+        if (starRating.trim()) {
           await saveRequiredStep(
             'Otel detayları kaydı',
             patchManageHotelDetails(
@@ -2969,8 +2968,6 @@ export default function CatalogNewListingClient({
               lid,
               {
                 star_rating: starRating.trim() || undefined,
-                etstur_property_ref: hotelEtRef.trim() || undefined,
-                tatilcom_property_ref: hotelTcRef.trim() || undefined,
               },
               orgParam,
             ),
@@ -3506,26 +3503,6 @@ export default function CatalogNewListingClient({
           hotelStar={starRating}
           setHotelStar={setStarRating}
         />
-        {editListingId ? (
-          <Grid2 className="mt-5">
-            <Field className="block">
-              <Label>Etstur tesis referansı</Label>
-              <Input
-                className="mt-1 font-mono text-sm"
-                value={hotelEtRef}
-                onChange={(e) => setHotelEtRef(e.target.value)}
-              />
-            </Field>
-            <Field className="block">
-              <Label>Tatil.com tesis referansı</Label>
-              <Input
-                className="mt-1 font-mono text-sm"
-                value={hotelTcRef}
-                onChange={(e) => setHotelTcRef(e.target.value)}
-              />
-            </Field>
-          </Grid2>
-        ) : null}
         <div className="mt-5 grid gap-3 md:grid-cols-3">
           {[
             ['Tesis Özellikleri', 'Wi‑Fi, spa, otopark — 2. adımdaki özniteliklerden işaretleyin.'],
@@ -3895,11 +3872,10 @@ export default function CatalogNewListingClient({
                     placeholder="bodrum-deniz-manzarali-villa"
                     className="mt-1 font-mono text-sm"
                     required
-                    disabled={Boolean(editListingId)}
                   />
                   <HintText>
                     {editListingId
-                      ? 'Yayın adresi (slug) güvenlik nedeniyle buradan değiştirilemez.'
+                      ? 'Yayın adresini kısaltabilirsiniz (ör. adrasan-beltom-beach-hotel). Kaydet ile uygulanır; kurum içinde benzersiz olmalı.'
                       : 'Yalnız küçük harf, tire ve rakam. Başlıktan otomatik üretilir.'}
                   </HintText>
                 </Field>
@@ -4042,10 +4018,12 @@ export default function CatalogNewListingClient({
             <Section
               title="Galeri"
               subtitle={
-                isStayRentalEdit
-                  ? 'Özet görünüm: sahne etiketli görseller varsa sıra otomatik belirlenir; etiket yoksa kutucuklara tıklayarak seçim yapılır (Kaydet ile saklanır). Tam yükleme ve sıralama galeri sayfasında.'
-                  : isStayRentalWizard
-                    ? 'Yeni ilanda görseller önce depoya yüklenir; kayıttan sonra düzenleme için galeri sayfasına gidilir. Özet kutuları etiketsizken tıklanarak seçilir.'
+                isFacilityGalleryEdit
+                  ? isHotel
+                    ? 'Tesis görselleri özeti. Tam yükleme, sıralama ve silme için galeri sayfasını kullanın; buradan da yeni görsel ekleyebilirsiniz.'
+                    : 'Özet görünüm: sahne etiketli görseller varsa sıra otomatik belirlenir; etiket yoksa kutucuklara tıklayarak seçim yapılır (Kaydet ile saklanır). Tam yükleme ve sıralama galeri sayfasında.'
+                  : usesFacilityGallery
+                    ? 'Yeni ilanda görseller önce depoya yüklenir; kayıttan sonra düzenleme için galeri sayfasasına gidilir. Özet kutuları etiketsizken tıklanarak seçilir.'
                     : 'Görseller önce depoya yüklenir; ilanı kaydedince ilana bağlanır.'
               }
             >
@@ -4059,12 +4037,12 @@ export default function CatalogNewListingClient({
 
               <div className="mt-4 max-w-4xl">
                 <ManageListingGalleryHeroPreview
-                  urls={isStayRentalWizard ? heroPreviewFiveKeys : pendingGalleryKeys}
-                  totalCount={isStayRentalWizard ? galleryTotalCount : pendingGalleryKeys.length}
+                  urls={usesFacilityGallery ? heroPreviewFiveKeys : pendingGalleryKeys}
+                  totalCount={usesFacilityGallery ? galleryTotalCount : pendingGalleryKeys.length}
                   manageHref={galleryManageHref}
                   manageLabel="Galeriyi düzenle"
                   emptyHint={
-                    isStayRentalEdit
+                    isFacilityGalleryEdit
                       ? 'Henüz görsel yok — galeri sayfasından ekleyin.'
                       : 'Henüz görsel yok — aşağıdan yükleyin.'
                   }
@@ -4080,36 +4058,57 @@ export default function CatalogNewListingClient({
                       ? (i) => setHeroPickerSlot(i)
                       : undefined
                   }
-                  slotHints={HERO_SLOT_LABELS}
+                  slotHints={isHotel ? undefined : HERO_SLOT_LABELS}
                   footerHint={
-                    isStayRentalWizard ? (
+                    usesFacilityGallery ? (
                       <>
-                        <p>
-                          {galleryHasSceneTags ? (
-                            <>
-                              Sahne etiketleri vitrin özetine göre kullanılır (deniz manzarası, havuz, yaşam
-                              alanı, yatak, banyo). Deniz manzarası yoksa ilk iki kutu havuz görselleriyle
-                              doldurulabilir.
-                            </>
-                          ) : (
-                            <>
-                              Sahne etiketi atanmamış görseller için kutucuklara tıklayıp kapak sırasını seçin.
-                              Kayıtta bu sıra{' '}
-                              {isYacht ? 'yat ilanı ek verisinde' : 'tatil evi ek verisinde'} saklanır.
-                            </>
-                          )}
-                        </p>
-                        <p className="mt-1 text-neutral-500 dark:text-neutral-500">
-                          Toplu sahne için{' '}
-                          <strong className="font-medium text-neutral-600 dark:text-neutral-400">
-                            Galeri
-                          </strong>{' '}
-                          sayfasında &quot;Etiketsizlere AI öner&quot; veya kart üzerindeki yıldız ikonunu
-                          kullanın (sunucuda{' '}
-                          <code className="font-mono text-[11px]">DEEPSEEK_API_KEY</code>
-                          ; yoksa <code className="font-mono text-[11px]">OPENAI_API_KEY</code>
-                          ).
-                        </p>
+                        {isHotel ? (
+                          <p>
+                            Tesis galerisi vitrin detayında gösterilir. Oda görselleri oda kartlarından yönetilir.
+                            {galleryManageHref ? (
+                              <>
+                                {' '}
+                                Sıralama / silme için{' '}
+                                <Link
+                                  href={galleryManageHref}
+                                  className="font-medium text-primary-700 underline-offset-2 hover:underline dark:text-primary-300"
+                                >
+                                  Galeriyi düzenle
+                                </Link>
+                                .
+                              </>
+                            ) : null}
+                          </p>
+                        ) : (
+                          <>
+                            <p>
+                              {galleryHasSceneTags ? (
+                                <>
+                                  Sahne etiketleri vitrin özetine göre kullanılır (deniz manzarası, havuz, yaşam
+                                  alanı, yatak, banyo). Deniz manzarası yoksa ilk iki kutu havuz görselleriyle
+                                  doldurulabilir.
+                                </>
+                              ) : (
+                                <>
+                                  Sahne etiketi atanmamış görseller için kutucuklara tıklayıp kapak sırasını seçin.
+                                  Kayıtta bu sıra{' '}
+                                  {isYacht ? 'yat ilanı ek verisinde' : 'tatil evi ek verisinde'} saklanır.
+                                </>
+                              )}
+                            </p>
+                            <p className="mt-1 text-neutral-500 dark:text-neutral-500">
+                              Toplu sahne için{' '}
+                              <strong className="font-medium text-neutral-600 dark:text-neutral-400">
+                                Galeri
+                              </strong>{' '}
+                              sayfasında &quot;Etiketsizlere AI öner&quot; veya kart üzerindeki yıldız ikonunu
+                              kullanın (sunucuda{' '}
+                              <code className="font-mono text-[11px]">DEEPSEEK_API_KEY</code>
+                              ; yoksa <code className="font-mono text-[11px]">OPENAI_API_KEY</code>
+                              ).
+                            </p>
+                          </>
+                        )}
                         {galleryTotalCount > 5 ? (
                           <p className="mt-2 border-t border-neutral-200 pt-2 dark:border-neutral-700">
                             Önizlemede ilk 5 görsel gösteriliyor · toplam {galleryTotalCount} görsel
@@ -4177,6 +4176,7 @@ export default function CatalogNewListingClient({
                 </div>
               ) : null}
 
+              {/* Tatil evi/yat: düzenlemede galeri sayfası; otelde hem sayfa hem hızlı yükleme */}
               {!isStayRentalEdit ? (
                 <Field className="mt-6">
                   <Label>Yeni görsel ekle</Label>
@@ -4188,16 +4188,32 @@ export default function CatalogNewListingClient({
                       folder="listings"
                       subPath={gallerySubPath}
                       prefix={gallerySlugBase}
-                      imageIndex={pendingGalleryKeys.length + 1}
+                      imageIndex={
+                        (isFacilityGalleryEdit ? listingGalleryUrls.length : 0) +
+                        pendingGalleryKeys.length +
+                        1
+                      }
                       aspectRatio="4/3"
                       multiple
                       onBatchComplete={onPendingGalleryBatchUploaded}
-                      placeholder={`${gallerySlugBase}-${pendingGalleryKeys.length + 1}.avif — çoklu seçim veya sürükleyip bırakın`}
+                      placeholder={`${gallerySlugBase}-${(isFacilityGalleryEdit ? listingGalleryUrls.length : 0) + pendingGalleryKeys.length + 1}.avif — çoklu seçim veya sürükleyip bırakın`}
                     />
                   </div>
                   <p className="mt-1 text-xs text-neutral-400">
-                    Toplu yüklemede dosya adları sırayla {gallerySlugBase}-{pendingGalleryKeys.length + 1},{' '}
-                    {gallerySlugBase}-{pendingGalleryKeys.length + 2}, … olarak atanır.
+                    Toplu yüklemede dosya adları sırayla atanır. Kaydet ile ilana bağlanır.
+                    {isHotel && galleryManageHref ? (
+                      <>
+                        {' '}
+                        Sıralama için{' '}
+                        <Link
+                          href={galleryManageHref}
+                          className="font-medium text-primary-700 underline-offset-2 hover:underline dark:text-primary-300"
+                        >
+                          galeri sayfası
+                        </Link>
+                        .
+                      </>
+                    ) : null}
                   </p>
                 </Field>
               ) : null}
@@ -4207,7 +4223,8 @@ export default function CatalogNewListingClient({
             {/* ── ADIM 2: Özellikler ── */}
             {currentStep === 2 && (
             <>
-            {/* Fazladan Bilgi — villa: önceden rezervasyon, kişi/oda/banyo; diğer: yatak, alan… */}
+            {/* Fazladan Bilgi — tatil evi vb.; otelde yatak/kapasite oda seviyesinde */}
+            {!isHotel && (
             <Section
               title="Fazladan Bilgi"
               subtitle={
@@ -4380,6 +4397,7 @@ export default function CatalogNewListingClient({
                 </Grid3>
               )}
             </Section>
+            )}
 
             {hotelProfileSection}
 
@@ -5049,7 +5067,7 @@ export default function CatalogNewListingClient({
                 </p>
               </div>
             )}
-            {currentStep === 0 && (
+            {isVilla && currentStep === 0 && (
                 <Section title="Fiyatlandırma">
                   <Field className="block max-w-md">
                     <Label>
@@ -6279,46 +6297,6 @@ export default function CatalogNewListingClient({
                 {err}
               </div>
             )}
-
-            {!isVilla && currentStep === 6 ? (
-              <Section
-                title="Yayın Durumu"
-                subtitle="İlanın kaydedildikten sonra vitrinde nasıl görüneceğini seçin."
-              >
-                <div className="grid gap-3 sm:grid-cols-3">
-                  {[
-                    { value: 'published', label: 'Yayında', hint: 'Vitrinde görünür.' },
-                    { value: 'draft', label: 'Taslak', hint: 'Hazırlık aşamasında kalır.' },
-                    { value: 'archived', label: 'Arşivlenmiş', hint: 'Vitrinden gizlenir.' },
-                  ].map((item) => (
-                    <label
-                      key={item.value}
-                      className={clsx(
-                        'cursor-pointer rounded-xl border px-4 py-3 transition-colors',
-                        status === item.value
-                          ? 'border-primary-300 bg-primary-50 text-primary-900 dark:border-primary-800 dark:bg-primary-950/30 dark:text-primary-100'
-                          : 'border-neutral-200 bg-white text-neutral-700 hover:border-neutral-300 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-200',
-                      )}
-                    >
-                      <span className="flex items-center gap-2">
-                        <input
-                          type="radio"
-                          name="status"
-                          value={item.value}
-                          checked={status === item.value}
-                          onChange={() => setStatus(item.value as 'draft' | 'published' | 'archived')}
-                          className="h-4 w-4 accent-primary-600"
-                        />
-                        <span className="text-sm font-semibold">{item.label}</span>
-                      </span>
-                      <span className="mt-1 block text-xs text-neutral-500 dark:text-neutral-400">
-                        {item.hint}
-                      </span>
-                    </label>
-                  ))}
-                </div>
-              </Section>
-            ) : null}
 
           </div>
 

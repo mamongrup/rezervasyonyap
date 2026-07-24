@@ -214,8 +214,8 @@ export async function loadFeaturedPlacesListingPool(
     fetchCategoryListings(
       categorySlug,
       hotelScope ? { hotel_scope: hotelScope } : {},
-      // Sekme dilimleri için yeterli; 100 satır TTFB + RSC şişmesi yaratıyordu.
-      { perPage: 48 },
+      // Sekme dilimleri için yeterli; 48+ satır × 5 kategori anasayfa TTFB fırtınası.
+      { perPage: 24 },
       locale,
     ),
     allIds.length > 0

@@ -77,7 +77,11 @@ sync_erlang_shipment_dir() {
 
 git_sync_ref() {
   local ref="$1"
-  git fetch origin "$ref"
+  # Branch adini (cursor/foo gibi) her zaman refs/remotes/origin/<ref> olarak yaz —
+  # aksi halde show-ref basarisiz olup `checkout --detach cursor/foo` path sanilir.
+  if ! git fetch origin "+refs/heads/${ref}:refs/remotes/origin/${ref}"; then
+    git fetch origin "$ref" || git fetch origin "tag" "$ref" || fail "git fetch origin $ref basarisiz"
+  fi
   # Izlenen dosyadaki commitlenmemis degisiklikler checkout'u durdurur (ornek:
   # `frontend/public/page-builder/homepage.json`). `git clean` bunlari silmez.
   # GIT_SYNC_KEEP_LOCAL=1 ile bu adimi atlayip elle stash/commit yapabilirsiniz.
@@ -104,8 +108,13 @@ git_sync_ref() {
     git checkout -B "$ref" "origin/$ref"
     git reset --hard "origin/$ref"
   else
-    # tag / detached ref fallback
-    git checkout --detach "$ref"
+    # tag / SHA fallback — path gibi gorunen ref adlarini --detach'e verme
+    local sha
+    sha="$(git rev-parse --verify "refs/tags/${ref}^{commit}" 2>/dev/null \
+      || git rev-parse --verify "${ref}^{commit}" 2>/dev/null \
+      || true)"
+    [[ -n "$sha" ]] || fail "ref bulunamadi: $ref (origin/$ref yok)"
+    git checkout --detach "$sha"
   fi
   # Checkout sonrasi kalan izlenmeyen dosyalar (or. test loglari).
   git clean -fd \
@@ -289,12 +298,31 @@ main() {
     fail "Cross-category listing identity repair SQL module is missing."
   fi
 
-  if [[ -f "$APP_ROOT/backend/priv/sql/modules/375_ai_autopilot_orchestrator.sql" ]]; then
-    step "AI Autopilot orchestrator şeması"
+  if [[ -f "$APP_ROOT/backend/priv/sql/modules/372_listing_region_stats_cache.sql" ]]; then
+    step "Bölge istatistik önbelleği (region-stats)"
     bash "$APP_ROOT/deploy/apply-sql.sh" \
-      "$APP_ROOT/backend/priv/sql/modules/375_ai_autopilot_orchestrator.sql"
+      "$APP_ROOT/backend/priv/sql/modules/372_listing_region_stats_cache.sql" \
+      || warn "372 region-stats cache SQL uygulanamadı — anasayfa bölgeler boş kalabilir"
   else
-    fail "AI Autopilot orchestrator SQL modülü bulunamadı."
+    warn "372_listing_region_stats_cache.sql bulunamadı"
+  fi
+
+  if [[ -f "$APP_ROOT/backend/priv/sql/modules/373_region_stats_cache_thumbnails.sql" ]]; then
+    step "Bölge istatistik thumbnail (region-stats)"
+    bash "$APP_ROOT/deploy/apply-sql.sh" \
+      "$APP_ROOT/backend/priv/sql/modules/373_region_stats_cache_thumbnails.sql" \
+      || warn "373 region-stats thumbnail SQL uygulanamadı — bölge kartları gri kalabilir"
+  else
+    warn "373_region_stats_cache_thumbnails.sql bulunamadı"
+  fi
+
+  if [[ -f "$APP_ROOT/backend/priv/sql/modules/374_region_stats_dedupe_same_name.sql" ]]; then
+    step "Bölge istatistik isim tekilleştirme (Kemer vb.)"
+    bash "$APP_ROOT/deploy/apply-sql.sh" \
+      "$APP_ROOT/backend/priv/sql/modules/374_region_stats_dedupe_same_name.sql" \
+      || warn "374 region-stats dedupe SQL uygulanamadı — çift bölge kartı kalabilir"
+  else
+    warn "374_region_stats_dedupe_same_name.sql bulunamadı"
   fi
 
   if [[ "${SKIP_AI_WORKER_TIMER:-0}" == "1" ]]; then
@@ -318,6 +346,7 @@ main() {
     step "Sosyal paylaşım worker timer kurulumu"
     cp "$APP_ROOT/deploy/systemd/travel-social-worker.service" /etc/systemd/system/travel-social-worker.service \
       && cp "$APP_ROOT/deploy/systemd/travel-social-worker.timer" /etc/systemd/system/travel-social-worker.timer \
+      && chmod +x "$APP_ROOT/deploy/scripts/social-process-pending.sh" \
       && systemctl daemon-reload \
       && systemctl enable --now travel-social-worker.timer \
       && ok "travel-social-worker.timer etkin" \
@@ -420,6 +449,17 @@ main() {
   elif [[ -f "$APP_ROOT/deploy/scripts/warm-cache.sh" ]]; then
     step "Vitrin önbellek ısıtma (deploy sonrası)"
     WARM_ROUNDS="${WARM_ROUNDS:-2}" bash "$APP_ROOT/deploy/scripts/warm-cache.sh" || warn "warm-cache tamamlanamadı (deploy etkilenmez); elle: ./deploy/scripts/warm-cache.sh"
+  fi
+
+  # Servisler ayağa kalktıktan sonra AI + sosyal worker'ı hemen tetikle
+  # (timer yalnız 10 dk'da bir çalışır; secret yoksa script açık [WARN] basar).
+  if [[ "${SKIP_AI_SOCIAL_KICK:-0}" == "1" ]]; then
+    warn "SKIP_AI_SOCIAL_KICK=1 — AI/sosyal anlık tetik atlandı."
+  elif [[ -f "$APP_ROOT/deploy/scripts/ensure-ai-social-workers.sh" ]]; then
+    step "AI + sosyal medya worker (timer + anlık tetik)"
+    chmod +x "$APP_ROOT/deploy/scripts/ensure-ai-social-workers.sh"
+    bash "$APP_ROOT/deploy/scripts/ensure-ai-social-workers.sh" \
+      || warn "AI/sosyal worker tetik tamamlanamadı; elle: ./deploy/scripts/ensure-ai-social-workers.sh"
   fi
 }
 

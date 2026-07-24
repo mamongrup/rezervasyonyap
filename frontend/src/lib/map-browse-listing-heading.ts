@@ -11,7 +11,11 @@ export function mapBrowseListingsHeading(
   const cat = m.categoryPage
   const countStr = convertNumbThousand(category.count)
   if (category.handle && category.handle !== 'all') {
-    return interpolate(cat.listingsHeadingFiltered, { count: countStr, handle: category.name })
+    return interpolate(cat.listingsHeadingFiltered, {
+      count: countStr,
+      place: category.name,
+      handle: category.name,
+    })
   }
   return interpolate(cat.listingsHeadingAll, { count: countStr, category: category.name })
 }

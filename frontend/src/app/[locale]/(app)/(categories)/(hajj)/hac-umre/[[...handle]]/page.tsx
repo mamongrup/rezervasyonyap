@@ -9,6 +9,7 @@ import { categoryMetadata } from '@/lib/category-page-metadata'
 import { Metadata } from 'next'
 import { redirect } from 'next/navigation'
 import type { TListingHajj } from '@/types/listing-types'
+import { regionLabelFromHandle } from '@/lib/stay-location-display'
 
 export async function generateMetadata({
   params,
@@ -57,7 +58,7 @@ export default async function Page({
   }))
 
   const regionLabel =
-    currentHandle && currentHandle !== 'all' ? currentHandle.replace(/-/g, ' ') : undefined
+    currentHandle && currentHandle !== 'all' ? regionLabelFromHandle(currentHandle) : undefined
 
   return (
     <CategoryPageTemplate

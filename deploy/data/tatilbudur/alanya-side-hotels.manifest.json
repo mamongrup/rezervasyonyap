@@ -1,0 +1,492 @@
+{
+  "generatedAt": "2026-07-21",
+  "note": "Alanya / Side / Konaklı Hotels.com listesi. Hotels.com Cloudflare kapalı → Bookeder aynaları. Tema grupları: beachfront (denize sıfır), adults_only, conservative (muhafazakâr/helal), spa, luxury, boutique.",
+  "groups": {
+    "beachfront": "Denize sıfır / plaj otelleri",
+    "adults_only": "Yetişkinlere özel (+16)",
+    "conservative": "Muhafazakâr / helal konsept",
+    "spa": "Spa & wellness",
+    "luxury": "Lüks / premium",
+    "boutique": "Butik oteller",
+    "family": "Aile"
+  },
+  "pending": [
+    {
+      "sourceUrl": "https://tr.hotels.com/ho4222586176/cemsa-sunparasise-boutique-hotel/",
+      "reason": "bookeder_mirror_not_found"
+    },
+    {
+      "sourceUrl": "https://tr.hotels.com/ho3037463296/lofts-alanya-lina-alanya-turkiye/",
+      "reason": "bookeder_mirror_not_found"
+    },
+    {
+      "sourceUrl": "https://tr.hotels.com/ho4071288096/",
+      "reason": "hotels_com_slug_missing"
+    },
+    {
+      "sourceUrl": "https://tr.hotels.com/ho4006398240/",
+      "reason": "hotels_com_slug_missing"
+    },
+    {
+      "sourceUrl": "https://alussothermal.com/",
+      "reason": "official_site_only_afyon_thermal_separate_package"
+    },
+    {
+      "id": "mca-marquis",
+      "sourceUrl": "https://tr.hotels.com/ho614688/m-c-a-marquis-hotel-alanya-turkiye/",
+      "bookeder": "https://m-c-a-marquis-hotel-alanya.bookeder.com/",
+      "reason": "bookeder_redirects_to_city_hub_from_this_env"
+    }
+  ],
+  "hotels": [
+    {
+      "id": "kale-beach-otel",
+      "name": "Kale Beach Otel",
+      "sourceUrl": "https://tr.hotels.com/ho1130081888/kale-beach-otel-side-turkiye/",
+      "bookeder": "https://kale-beach-hotel-side.bookeder.com/",
+      "city": "Side",
+      "district": "Side",
+      "provinceCity": "Antalya",
+      "starRating": 4,
+      "boardType": "Her Şey Dahil",
+      "themeCode": "beachfront",
+      "themeTags": [
+        "beachfront",
+        "family"
+      ],
+      "hotelType": "hotel",
+      "bookederTitle": "Kalia Beach Hotel Side"
+    },
+    {
+      "id": "la-gaia-boutique-hotel",
+      "name": "La Gaia Boutique Hotel",
+      "sourceUrl": "https://tr.hotels.com/ho3764284768/la-gaia-boutiqe-hotel/",
+      "bookeder": "https://caligo-apart-hotel-alanya.bookeder.com/",
+      "city": "Alanya",
+      "district": "Alanya",
+      "provinceCity": "Antalya",
+      "starRating": 4,
+      "boardType": "Oda Kahvaltı",
+      "adultsOnly": true,
+      "themeCode": "adults_only",
+      "themeTags": [
+        "adults_only",
+        "beachfront",
+        "boutique"
+      ],
+      "hotelType": "boutique",
+      "priceOverrideUsd": 45,
+      "priceOverrideNote": "Bookeder ~19-50 USD; 45 USD ×40 TRY gecelik taban."
+    },
+    {
+      "id": "venessa-beach-hotel",
+      "name": "Venessa Beach Hotel",
+      "sourceUrl": "https://tr.hotels.com/ho625215/venessa-beach-hotel-alanya-turkiye/",
+      "bookeder": "https://venessa-beach-hotel-alanya.bookeder.com/",
+      "city": "Alanya",
+      "district": "Avsallar",
+      "provinceCity": "Antalya",
+      "starRating": 4,
+      "boardType": "Her Şey Dahil",
+      "themeCode": "beachfront",
+      "themeTags": [
+        "beachfront",
+        "family"
+      ],
+      "hotelType": "resort",
+      "alsoSourceUrls": [
+        "https://tr.hotels.com/ho430443328/venessa-beach-alanya-turkiye/"
+      ]
+    },
+    {
+      "id": "wome-prime",
+      "name": "Wome Prime Hotel",
+      "sourceUrl": "https://tr.hotels.com/ho3259280192/wome-prime-antalya-turkiye/",
+      "bookeder": "https://wome-prime-hotel-halal-all-inclusive-alanya.bookeder.com/",
+      "city": "Alanya",
+      "district": "Avsallar / İncekum",
+      "provinceCity": "Antalya",
+      "starRating": 5,
+      "boardType": "Helal Her Şey Dahil",
+      "themeCode": "conservative",
+      "themeTags": [
+        "conservative",
+        "beachfront",
+        "luxury",
+        "family"
+      ],
+      "hotelType": "resort",
+      "priceOverrideUsd": 180,
+      "priceOverrideNote": "Bookeder paket tutarı yüksek; 180 USD ×40 TRY gecelik taban."
+    },
+    {
+      "id": "meryan-hotel",
+      "name": "Meryan Hotel",
+      "sourceUrl": "https://tr.hotels.com/ho313612/meryan-hotel-all-inclusive-alanya-turkiye/",
+      "bookeder": "https://meryan-hotel-alanya.bookeder.com/",
+      "city": "Alanya",
+      "district": "Okurcalar",
+      "provinceCity": "Antalya",
+      "starRating": 5,
+      "boardType": "Her Şey Dahil",
+      "themeCode": "beachfront",
+      "themeTags": [
+        "beachfront",
+        "family",
+        "luxury"
+      ],
+      "hotelType": "resort",
+      "priceOverrideUsd": 200,
+      "priceOverrideNote": "Bookeder 495 USD paket olabilir; 200 USD ×40 TRY gecelik."
+    },
+    {
+      "id": "botanik-platinum",
+      "name": "Botanik Platinum Hotel",
+      "sourceUrl": "https://tr.hotels.com/ho445712/botanik-platinum-all-inclusive-alanya-turkiye/",
+      "bookeder": "https://botanik-platinum-hotel-okurcalar.bookeder.com/",
+      "city": "Alanya",
+      "district": "Okurcalar",
+      "provinceCity": "Antalya",
+      "starRating": 5,
+      "boardType": "Her Şey Dahil",
+      "themeCode": "luxury",
+      "themeTags": [
+        "luxury",
+        "beachfront",
+        "family",
+        "spa"
+      ],
+      "hotelType": "resort",
+      "priceOverrideUsd": 250,
+      "priceOverrideNote": "Bookeder 600 USD paket; 250 USD ×40 TRY gecelik."
+    },
+    {
+      "id": "oji-hotel",
+      "name": "Oji Hotel",
+      "sourceUrl": "https://tr.hotels.com/ho3089872032/oji-hotel-alanya-turkiye/",
+      "bookeder": "https://oji-hotel-alanya.bookeder.com/",
+      "city": "Alanya",
+      "district": "Alanya",
+      "provinceCity": "Antalya",
+      "starRating": 4,
+      "boardType": "Oda Kahvaltı",
+      "themeCode": "boutique",
+      "themeTags": [
+        "boutique",
+        "sea_view"
+      ],
+      "hotelType": "boutique",
+      "priceOverrideUsd": 55,
+      "priceOverrideNote": "Bookeder fiyatı belirsiz; 55 USD ×40 TRY gecelik taban."
+    },
+    {
+      "id": "villa-augusto",
+      "name": "Villa Augusto Boutique Hotel",
+      "sourceUrl": "https://tr.hotels.com/ho400234/villa-augusto-boutique-hotel-boutique-class-alanya-turkiye/",
+      "bookeder": "https://villa-augusto-boutique-hotel-boutique-class-alanya.bookeder.com/",
+      "city": "Alanya",
+      "district": "Konaklı",
+      "provinceCity": "Antalya",
+      "starRating": 5,
+      "boardType": "Her Şey Dahil",
+      "themeCode": "luxury",
+      "themeTags": [
+        "luxury",
+        "boutique",
+        "spa",
+        "beachfront"
+      ],
+      "hotelType": "boutique",
+      "priceOverrideUsd": 153
+    },
+    {
+      "id": "sunprime-dogan-side-beach",
+      "name": "Sunprime Dogan Side Beach",
+      "sourceUrl": "https://tr.hotels.com/ho612525568/sunprime-dogan-side-beach-adults-only-side-turkiye/",
+      "bookeder": "https://dogan-hotel-side.bookeder.com/",
+      "city": "Side",
+      "district": "Side",
+      "provinceCity": "Antalya",
+      "starRating": 3,
+      "boardType": "Her Şey Dahil",
+      "adultsOnly": true,
+      "themeCode": "adults_only",
+      "themeTags": [
+        "adults_only",
+        "beachfront"
+      ],
+      "hotelType": "hotel",
+      "priceOverrideTry": 4500,
+      "priceOverrideNote": "Bookeder ~9401 TL paket görünüyor; 4500 TRY gecelik taban."
+    },
+    {
+      "id": "armas-green-fugla-beach",
+      "name": "Armas Green Fugla Beach",
+      "sourceUrl": "https://tr.hotels.com/ho597935/armas-green-fugla-beach-all-inclusive-alanya-turkiye/",
+      "bookeder": "https://armas-green-fugla-beach-alanya.bookeder.com/",
+      "city": "Alanya",
+      "district": "Avsallar",
+      "provinceCity": "Antalya",
+      "starRating": 3,
+      "boardType": "Her Şey Dahil",
+      "themeCode": "beachfront",
+      "themeTags": [
+        "beachfront",
+        "family"
+      ],
+      "hotelType": "resort",
+      "priceOverrideTry": 4500
+    },
+    {
+      "id": "miarosa-incekum-beach",
+      "name": "Miarosa İncekum Beach",
+      "sourceUrl": "https://tr.hotels.com/ho1162522336/miarosa-incekum-beach-alanya-turkiye/",
+      "bookeder": "https://alara-kum-hotel-alanya.bookeder.com/",
+      "city": "Alanya",
+      "district": "İncekum",
+      "provinceCity": "Antalya",
+      "starRating": 5,
+      "boardType": "Her Şey Dahil",
+      "themeCode": "beachfront",
+      "themeTags": [
+        "beachfront",
+        "family",
+        "luxury",
+        "spa"
+      ],
+      "hotelType": "resort",
+      "priceOverrideUsd": 200
+    },
+    {
+      "id": "white-city-beach",
+      "name": "White City Beach",
+      "sourceUrl": "https://tr.hotels.com/ho514142/white-city-beach-yetiskin-oteli-alanya-turkiye/",
+      "bookeder": "https://smartline-white-city-beach-hotel-all-inclusive-konakli.bookeder.com/",
+      "city": "Alanya",
+      "district": "Konaklı",
+      "provinceCity": "Antalya",
+      "starRating": 4,
+      "boardType": "Her Şey Dahil",
+      "adultsOnly": true,
+      "themeCode": "adults_only",
+      "themeTags": [
+        "adults_only",
+        "beachfront"
+      ],
+      "hotelType": "resort",
+      "priceOverrideTry": 3525
+    },
+    {
+      "id": "ozgur-bey-spa",
+      "name": "Özgür Bey Spa Hotel",
+      "sourceUrl": "https://tr.hotels.com/ho532901/ozgur-bey-spa-hotel-alanya-turkiye/",
+      "bookeder": "https://ozgur-bey-spa-hotel-alanya.bookeder.com/",
+      "city": "Alanya",
+      "district": "Alanya",
+      "provinceCity": "Antalya",
+      "starRating": 3,
+      "boardType": "Her Şey Dahil",
+      "adultsOnly": true,
+      "themeCode": "spa",
+      "themeTags": [
+        "spa",
+        "adults_only"
+      ],
+      "hotelType": "hotel",
+      "priceOverrideTry": 2500
+    },
+    {
+      "id": "bera-hotel-alanya",
+      "name": "Bera Hotel Alanya",
+      "sourceUrl": "https://tr.hotels.com/ho775673760/bera-hotel-alanya-all-inclusive-alanya-turkiye/",
+      "bookeder": "https://bera-alanya-hotel-konakli.bookeder.com/",
+      "city": "Alanya",
+      "district": "Konaklı",
+      "provinceCity": "Antalya",
+      "starRating": 5,
+      "boardType": "Her Şey Dahil",
+      "themeCode": "luxury",
+      "themeTags": [
+        "luxury",
+        "beachfront",
+        "family",
+        "spa"
+      ],
+      "hotelType": "resort",
+      "priceOverrideUsd": 220
+    },
+    {
+      "id": "sunprime-c-lounge",
+      "name": "Sunprime C Lounge Hotel",
+      "sourceUrl": "https://tr.hotels.com/ho557840/sunprime-c-lounge-hotel-adults-only-alanya-turkiye/",
+      "bookeder": "https://sunprime-c-lounge-hotel-alanya.bookeder.com/",
+      "city": "Alanya",
+      "district": "Alanya",
+      "provinceCity": "Antalya",
+      "starRating": 5,
+      "boardType": "Her Şey Dahil",
+      "adultsOnly": true,
+      "themeCode": "adults_only",
+      "themeTags": [
+        "adults_only",
+        "luxury",
+        "beachfront"
+      ],
+      "hotelType": "hotel",
+      "priceOverrideTry": 5500
+    },
+    {
+      "id": "aysev-hotel",
+      "name": "Aysev Hotel",
+      "sourceUrl": "https://tr.hotels.com/ho648489/aysev-hotel-alanya-turkiye/",
+      "bookeder": "https://aysev-hotel-alanya.bookeder.com/",
+      "city": "Alanya",
+      "district": "Alanya",
+      "provinceCity": "Antalya",
+      "starRating": 2,
+      "boardType": "Oda Kahvaltı",
+      "themeCode": "sea_view",
+      "themeTags": [
+        "sea_view",
+        "family"
+      ],
+      "hotelType": "hotel",
+      "priceOverrideTry": 2115
+    },
+    {
+      "id": "kleopatra-sahara",
+      "name": "Kleopatra Sahara Otel",
+      "sourceUrl": "https://tr.hotels.com/ho1832460960/kleopatra-sahara-otel-alanya-turkiye/",
+      "bookeder": "https://kleopatra-sahara-hotel-alanya.bookeder.com/",
+      "city": "Alanya",
+      "district": "Kleopatra",
+      "provinceCity": "Antalya",
+      "starRating": 3,
+      "boardType": "Oda Kahvaltı",
+      "themeCode": "beachfront",
+      "themeTags": [
+        "beachfront",
+        "family"
+      ],
+      "hotelType": "hotel",
+      "priceOverrideUsd": 79
+    },
+    {
+      "id": "elite-luxury-suite-spa",
+      "name": "Elite Luxury Suite & Spa",
+      "sourceUrl": "https://tr.hotels.com/ho1120635744/elite-luxury-suite-spa-alanya-turkiye/",
+      "bookeder": "https://elite-luxury-suite-spa-alanya.bookeder.com/",
+      "city": "Alanya",
+      "district": "Konaklı",
+      "provinceCity": "Antalya",
+      "starRating": 5,
+      "boardType": "Her Şey Dahil",
+      "themeCode": "spa",
+      "themeTags": [
+        "spa",
+        "luxury",
+        "beachfront"
+      ],
+      "hotelType": "resort",
+      "priceOverrideTry": 4500
+    },
+    {
+      "id": "antique-roman-palace",
+      "name": "Antique Roman Palace",
+      "sourceUrl": "https://tr.hotels.com/ho455617/antique-roman-palace-alanya-turkiye/",
+      "bookeder": "https://antique-roman-palace-alanya.bookeder.com/",
+      "city": "Alanya",
+      "district": "Oba",
+      "provinceCity": "Antalya",
+      "starRating": 5,
+      "boardType": "Her Şey Dahil",
+      "adultsOnly": true,
+      "themeCode": "adults_only",
+      "themeTags": [
+        "adults_only",
+        "luxury",
+        "beachfront",
+        "spa"
+      ],
+      "hotelType": "resort",
+      "priceOverrideTry": 5714
+    },
+    {
+      "id": "day-one-beach-resort",
+      "name": "Day One Beach Resort & Spa",
+      "sourceUrl": "https://tr.hotels.com/ho2455789408/day-one-beach-resort-spa-adults-only-alanya-turkiye/",
+      "bookeder": "https://banana-beach-hotel-alanya.bookeder.com/",
+      "city": "Alanya",
+      "district": "Alanya",
+      "provinceCity": "Antalya",
+      "starRating": 5,
+      "boardType": "Her Şey Dahil",
+      "adultsOnly": true,
+      "themeCode": "adults_only",
+      "themeTags": [
+        "adults_only",
+        "beachfront",
+        "spa",
+        "luxury"
+      ],
+      "hotelType": "resort",
+      "priceOverrideTry": 6000
+    },
+    {
+      "id": "castles-light-boutique",
+      "name": "Castle's Light Boutique Hotel",
+      "sourceUrl": "https://tr.hotels.com/ho2676046464/castle-s-light-boutique-hotel-alanya-turkiye/",
+      "bookeder": "https://castle-light-boutique-alanya.bookeder.com/",
+      "city": "Alanya",
+      "district": "Alanya",
+      "provinceCity": "Antalya",
+      "starRating": 4,
+      "boardType": "Oda Kahvaltı",
+      "themeCode": "boutique",
+      "themeTags": [
+        "boutique",
+        "sea_view"
+      ],
+      "hotelType": "boutique",
+      "priceOverrideUsd": 70
+    },
+    {
+      "id": "en-vie-beach",
+      "name": "En Vie Beach Boutique Hotel",
+      "sourceUrl": "https://tr.hotels.com/ho565305/en-vie-beach-boutique-hotel-adult-only-alanya-turkiye/",
+      "bookeder": "https://en-vie-beach-boutique-hotel-adults-only-alanya.bookeder.com/",
+      "city": "Alanya",
+      "district": "Alanya",
+      "provinceCity": "Antalya",
+      "starRating": 3,
+      "boardType": "Oda Kahvaltı",
+      "adultsOnly": true,
+      "themeCode": "adults_only",
+      "themeTags": [
+        "adults_only",
+        "beachfront",
+        "boutique"
+      ],
+      "hotelType": "boutique",
+      "priceOverrideTry": 4500
+    },
+    {
+      "id": "livane-sun",
+      "name": "Livane Sun Otel",
+      "sourceUrl": "https://tr.hotels.com/ho2530736704/livane-sun-otel-alanya-turkiye/",
+      "bookeder": "https://livane-sun-otel-alanya.bookeder.com/",
+      "city": "Alanya",
+      "district": "Alanya",
+      "provinceCity": "Antalya",
+      "starRating": 4,
+      "boardType": "Her Şey Dahil",
+      "themeCode": "beachfront",
+      "themeTags": [
+        "beachfront",
+        "family"
+      ],
+      "hotelType": "hotel",
+      "priceOverrideUsd": 75
+    }
+  ]
+}

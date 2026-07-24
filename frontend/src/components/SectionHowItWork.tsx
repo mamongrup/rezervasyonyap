@@ -63,7 +63,7 @@ const SectionHowItWork: FC<SectionHowItWorkProps> = ({
         {data.map((item) => (
           <div key={item.id} className="relative mx-auto flex max-w-xs flex-col items-center">
             <Image
-              alt=""
+              alt={item.title}
               className="mx-auto mb-8 h-auto w-[180px] max-w-[180px]"
               src={item.img}
               sizes="180px"

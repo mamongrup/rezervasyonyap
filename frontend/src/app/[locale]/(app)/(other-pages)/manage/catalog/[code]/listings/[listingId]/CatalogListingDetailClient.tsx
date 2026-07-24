@@ -35,7 +35,6 @@ import {
   getListingAvailabilityCalendar,
   getManageHotelDetails,
   listListingPriceRules,
-  patchManageHotelDetails,
   putListingMeta,
   putListingOwnerContact,
   putListingAvailabilityCalendar,
@@ -981,7 +980,7 @@ export default function CatalogListingDetailClient({
   const [err, setErr] = useState<string | null>(null)
 
   // ── Otel alanları ──
-  const [hotelDetails, setHotelDetails] = useState<{ star: string; et: string; tc: string } | null>(null)
+  const [hotelDetails, setHotelDetails] = useState<{ star: string } | null>(null)
 
   // ── Fiyat kuralları ──
   const [rules, setRules] = useState<ListingPriceRuleRow[]>([])
@@ -1158,8 +1157,6 @@ export default function CatalogListingDetailClient({
       const d = await getManageHotelDetails(token, listingId, orgQ)
       setHotelDetails({
         star: d.star_rating ?? '',
-        et: d.etstur_property_ref ?? '',
-        tc: d.tatilcom_property_ref ?? '',
       })
     } catch { /* ignore */ }
   }, [categoryCode, listingId, needOrg, orgId, orgQ])
@@ -1588,28 +1585,6 @@ export default function CatalogListingDetailClient({
       await loadPriceRules()
     } catch (e) {
       setErr(e instanceof Error ? formatManageApiError(e.message) : formatManageApiError('rule_del_failed'))
-    } finally {
-      setBusy(null)
-    }
-  }
-
-  // ── Otel meta kaydet ──
-  async function saveHotelMeta() {
-    if (!hotelDetails) return
-    const token = getStoredAuthToken()
-    if (!token) return
-    setBusy('hotel-meta')
-    setErr(null)
-    try {
-      await patchManageHotelDetails(
-        token,
-        listingId,
-        { star_rating: hotelDetails.star.trim() || undefined, etstur_property_ref: hotelDetails.et.trim() || undefined, tatilcom_property_ref: hotelDetails.tc.trim() || undefined },
-        orgQ,
-      )
-      await loadHotel()
-    } catch (e) {
-      setErr(e instanceof Error ? formatManageApiError(e.message) : formatManageApiError('save_failed'))
     } finally {
       setBusy(null)
     }
@@ -3327,40 +3302,12 @@ export default function CatalogListingDetailClient({
                 locale={locale}
                 starRating={hotelDetails?.star ?? ''}
                 onStarSaved={(star) =>
-                  setHotelDetails((prev) =>
-                    prev ? { ...prev, star } : { star, et: '', tc: '' },
-                  )
+                  setHotelDetails((prev) => (prev ? { ...prev, star } : { star }))
                 }
               />
             </div>
           </div>
 
-          {/* Otel meta — entegrasyon referansları */}
-          <div className="rounded-xl border border-neutral-200 p-5 dark:border-neutral-700">
-            <h2 className="flex items-center gap-2 text-base font-semibold text-neutral-900 dark:text-white">
-              <Hotel className="h-5 w-5 text-primary-600" />
-              {ui.hotel.hotelInfoTitle}
-            </h2>
-            {hotelDetails ? (
-              <div className="mt-4 grid max-w-xl gap-4 sm:grid-cols-2">
-                <Field className="block sm:col-span-2">
-                  <Label>{ui.hotel.etRef}</Label>
-                  <Input className="mt-1 font-mono text-sm" value={hotelDetails.et} onChange={(e) => setHotelDetails({ ...hotelDetails, et: e.target.value })} />
-                </Field>
-                <Field className="block sm:col-span-2">
-                  <Label>{ui.hotel.tcRef}</Label>
-                  <Input className="mt-1 font-mono text-sm" value={hotelDetails.tc} onChange={(e) => setHotelDetails({ ...hotelDetails, tc: e.target.value })} />
-                </Field>
-                <div className="sm:col-span-2">
-                  <ButtonPrimary type="button" disabled={busy === 'hotel-meta'} onClick={() => void saveHotelMeta()}>
-                    {busy === 'hotel-meta' ? ui.common.ellipsis : ui.common.save}
-                  </ButtonPrimary>
-                </div>
-              </div>
-            ) : (
-              <p className="mt-4 text-sm text-neutral-400">{ui.common.loading}</p>
-            )}
-          </div>
 
           <div className="rounded-xl border border-neutral-200 p-5 dark:border-neutral-700">
             <h2 className="text-base font-semibold text-neutral-900 dark:text-white">Otel sözleşmesi</h2>

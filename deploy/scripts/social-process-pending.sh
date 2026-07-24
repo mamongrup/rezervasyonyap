@@ -26,6 +26,8 @@ LOOP_UNTIL_EMPTY="${LOOP_UNTIL_EMPTY:-1}"
 BATCH_SLEEP="${SOCIAL_WORKER_BATCH_SLEEP:-90}"
 RATE_LIMIT_SLEEP="${SOCIAL_WORKER_RATE_LIMIT_SLEEP:-300}"
 SOCIAL_WORKER_ROTATE="${SOCIAL_WORKER_ROTATE:-0}"
+CURL_CONNECT_TIMEOUT="${SOCIAL_WORKER_CURL_CONNECT_TIMEOUT:-5}"
+CURL_MAX_TIME="${SOCIAL_WORKER_CURL_MAX_TIME:-120}"
 
 if [[ -f "$FRONTEND_ENV_FILE" ]]; then
   set -a
@@ -52,6 +54,8 @@ while true; do
 
   URL="${WEB_ORIGIN%/}${WORKER_PATH}?limit=${REQUEST_LIMIT}${ROTATE_PARAM}"
   code="$(curl -sS -o "$TMP" -w "%{http_code}" \
+    --connect-timeout "$CURL_CONNECT_TIMEOUT" \
+    --max-time "$CURL_MAX_TIME" \
     -X POST \
     -H "x-travel-social-worker-secret: ${SECRET}" \
     -H "Accept: application/json" \

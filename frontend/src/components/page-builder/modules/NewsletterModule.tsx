@@ -100,11 +100,13 @@ export default function NewsletterModule({ config }: { config: NewsletterModuleC
             className="relative mt-10 max-w-sm"
           >
             <input
+              id="homepage-newsletter-email"
               type="email"
               required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               disabled={status === 'loading'}
+              aria-label="E-posta adresiniz"
               placeholder="E-posta adresinizi girin"
               className="h-12 w-full rounded-full border border-neutral-200 bg-white px-5 py-3 text-sm text-neutral-700 placeholder:text-neutral-400 shadow-sm focus:outline-none focus:ring-2 focus:ring-neutral-300 disabled:opacity-60 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-200 dark:placeholder:text-neutral-500"
             />

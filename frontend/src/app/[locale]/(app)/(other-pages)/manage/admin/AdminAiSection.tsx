@@ -896,7 +896,6 @@ export default function AdminAiSection() {
             radiusM,
             maxCount: 20,
             language: 'tr',
-            apiKey: key,
             useKeyword: useKeywordSearch,
           }),
         })
@@ -964,7 +963,6 @@ export default function AdminAiSection() {
               regionSlug,
               lat,
               lng,
-              apiKey: key,
               locale: 'tr',
             })
             const pr = await postRegionPlacesJson(payload)

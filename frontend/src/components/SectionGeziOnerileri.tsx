@@ -1,5 +1,8 @@
 import { listBlogCategories, listBlogPosts, type BlogPost } from '@/lib/travel-api'
 import { vitrinHref } from '@/lib/vitrin-href'
+import { LOCALIZED_ROUTES_STATIC_FALLBACK } from '@/data/localized-routes-fallback'
+import { prefixLocale } from '@/lib/i18n-config'
+import { buildLocalizedRouteIndexes, localizeAppPathWithHash } from '@/lib/localized-path-shared'
 import Image from 'next/image'
 import Link from 'next/link'
 import { Calendar, Clock, ArrowRight, Compass, MapPin, Waves, TreePine, type LucideIcon } from 'lucide-react'
@@ -27,6 +30,11 @@ const PLACEHOLDER_ITEMS: { icon: LucideIcon; color: string; title: string; desc:
 ]
 
 const CATEGORY_SLUG = 'gezi-onerileri'
+const STATIC_ROUTE_INDEXES = buildLocalizedRouteIndexes(LOCALIZED_ROUTES_STATIC_FALLBACK)
+
+function staticVitrinHref(locale: string, internalPath: string): string {
+  return prefixLocale(locale, localizeAppPathWithHash(internalPath, locale, STATIC_ROUTE_INDEXES))
+}
 
 function fmtDate(iso: string) {
   return new Date(iso).toLocaleDateString('tr-TR', { day: '2-digit', month: 'long', year: 'numeric' })
@@ -44,30 +52,40 @@ function coverImg(post: BlogPost): string | null {
 interface Props {
   locale: string
   className?: string
+  staticOnly?: boolean
 }
 
-export default async function SectionGeziOnerileri({ locale, className = '' }: Props) {
-  const categoryHref = await vitrinHref(locale, `/blog/category/${CATEGORY_SLUG}`)
+export default async function SectionGeziOnerileri({
+  locale,
+  className = '',
+  staticOnly = false,
+}: Props) {
+  const categoryPath = `/blog/category/${CATEGORY_SLUG}`
+  const categoryHref = staticOnly
+    ? staticVitrinHref(locale, categoryPath)
+    : await vitrinHref(locale, categoryPath)
 
   let posts: BlogPost[] = []
   let categoryId: string | null = null
 
-  try {
-    const [catsRes, allPostsRes] = await Promise.all([
-      listBlogCategories().catch(() => ({ categories: [] })),
-      listBlogPosts({ published_only: true, limit: 50 }).catch(() => ({ posts: [] })),
-    ])
+  if (!staticOnly) {
+    try {
+      const [catsRes, allPostsRes] = await Promise.all([
+        listBlogCategories().catch(() => ({ categories: [] })),
+        listBlogPosts({ published_only: true, limit: 50 }).catch(() => ({ posts: [] })),
+      ])
 
-    const cat = catsRes.categories.find((c) => c.slug === CATEGORY_SLUG)
-    categoryId = cat?.id ?? null
+      const cat = catsRes.categories.find((c) => c.slug === CATEGORY_SLUG)
+      categoryId = cat?.id ?? null
 
-    if (categoryId) {
-      posts = allPostsRes.posts
-        .filter((p) => p.category_id === categoryId)
-        .slice(0, 3)
+      if (categoryId) {
+        posts = allPostsRes.posts
+          .filter((p) => p.category_id === categoryId)
+          .slice(0, 3)
+      }
+    } catch {
+      // API bağlı değil — boş göster
     }
-  } catch {
-    // API bağlı değil — boş göster
   }
 
   const hasPosts = posts.length > 0
@@ -90,7 +108,7 @@ export default async function SectionGeziOnerileri({ locale, className = '' }: P
             <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
           </div>
         ) : (
-          <Image src={rightImgAvif} alt="" sizes="(max-width: 1024px) 100vw, 50vw" />
+          <Image src={rightImgAvif} alt="Gezi önerileri" sizes="(max-width: 1024px) 100vw, 50vw" />
         )}
       </div>
 
@@ -117,7 +135,7 @@ export default async function SectionGeziOnerileri({ locale, className = '' }: P
                       <div className="relative h-20 w-24 shrink-0 overflow-hidden rounded-xl">
                         <Image
                           src={img}
-                          alt=""
+                          alt={post.title ?? post.slug ?? 'Gezi önerisi'}
                           fill
                           sizes="96px"
                           className="object-cover group-hover:scale-105 transition-transform duration-300"
@@ -132,7 +150,7 @@ export default async function SectionGeziOnerileri({ locale, className = '' }: P
                       <h3 className="line-clamp-2 text-sm font-semibold text-neutral-900 group-hover:text-primary-600 dark:text-white dark:group-hover:text-neutral-200 transition-colors">
                         {post.title ?? post.slug}
                       </h3>
-                      <div className="mt-1.5 flex items-center gap-3 text-xs text-neutral-400">
+                      <div className="mt-1.5 flex items-center gap-3 text-xs text-neutral-600 dark:text-neutral-400">
                         <span className="flex items-center gap-1">
                           <Calendar className="h-3 w-3" />
                           {fmtDate(post.published_at ?? post.created_at)}

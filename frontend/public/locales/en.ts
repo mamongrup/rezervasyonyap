@@ -386,8 +386,9 @@ export const en = {
       button: 'Start your search',
     },
     meta: {
-      title: 'Home',
-      description: 'Home page of the Stay application',
+      title: 'Hotel, tour and holiday booking',
+      description:
+        'Book hotels, holiday homes, yacht charters, tours and activities with instant confirmation and secure payment.',
     },
     heroAlt: 'Hero',
     heroDefaults: {
@@ -457,6 +458,10 @@ export const en = {
         heading: 'Featured activities',
         subHeading: 'Experience-filled moments await you',
       },
+      feribot: {
+        heading: 'Featured ferries',
+        subHeading: 'Recommended routes to islands and coastal towns',
+      },
     },
     howItWorks: {
       title: 'How it works',
@@ -501,7 +506,7 @@ export const en = {
     yachtCharterHeroLead: 'Across Turkey and the Mediterranean',
     yachtCharterHeroHighlight: '{count}+ yachts',
     listingsHeadingAll: '{count}+ {category} listings',
-    listingsHeadingFiltered: '{count}+ results for "{handle}"',
+    listingsHeadingFiltered: 'Search results for {place} — {count}+ listings',
     pricesDisclaimer: 'Prices are per person and valid per {unit}.',
     activeSearch: 'Active search:',
     badgeRegion: 'Region:',

@@ -6,6 +6,16 @@ import { checkoutFr } from './checkout'
 export const fr: AppMessages = {
   ...en,
   navMenus,
+  homePage: {
+    ...en.homePage,
+    featuredByCategory: {
+      ...en.homePage.featuredByCategory,
+      feribot: {
+        heading: 'Ferrys recommandés',
+        subHeading: 'Liaisons recommandées vers îles et villes côtières',
+      },
+    },
+  },
   HeroSearchForm: {
     ...en.HeroSearchForm,
     searchingLocations: 'Recherche…',
@@ -53,6 +63,7 @@ export const fr: AppMessages = {
   },
   categoryPage: {
     ...en.categoryPage,
+    listingsHeadingFiltered: 'Résultats de recherche pour {place} — {count}+ annonces',
     listingFilters: {
       ...en.categoryPage.listingFilters,
       allFilters: 'Tous les filtres',

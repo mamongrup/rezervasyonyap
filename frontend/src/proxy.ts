@@ -27,8 +27,16 @@ import {
 
 const AUTH_COOKIE = 'travel_auth_token'
 
-function rewriteResponse(_request: NextRequest, target: URL): NextResponse {
-  return NextResponse.rewrite(target)
+function rewriteResponse(request: NextRequest, target: URL, locale: string): NextResponse {
+  const requestHeaders = new Headers(request.headers)
+  requestHeaders.set('x-html-lang', locale.toLowerCase())
+  return NextResponse.rewrite(target, { request: { headers: requestHeaders } })
+}
+
+function nextWithHtmlLang(request: NextRequest, locale: string): NextResponse {
+  const requestHeaders = new Headers(request.headers)
+  requestHeaders.set('x-html-lang', locale.toLowerCase())
+  return NextResponse.next({ request: { headers: requestHeaders } })
 }
 
 const PROTECTED: RegExp[] = [
@@ -270,7 +278,11 @@ export function proxy(request: NextRequest) {
     if (isProtected(apiPath) && !request.cookies.get(AUTH_COOKIE)?.value) {
       return authRequiredResponse(request)
     }
-    const res = rewriteResponse(request, rewriteTarget(request, apiPath))
+    const res = rewriteResponse(
+      request,
+      rewriteTarget(request, apiPath),
+      localeThenApi[1].toLowerCase(),
+    )
     return applyApiSecurity(request, res)
   }
 
@@ -356,12 +368,12 @@ export function proxy(request: NextRequest) {
       if (canonical && canonical !== rest[0]) {
         const tail = rest.slice(1)
         const mid = tail.length > 0 ? `/${canonical}/${tail.join('/')}` : `/${canonical}`
-        const res = rewriteResponse(request, rewriteTarget(request, `/${first}${mid}`))
+        const res = rewriteResponse(request, rewriteTarget(request, `/${first}${mid}`), loc)
         applySecurityHeaders(res)
         return res
       }
     }
-    const res = NextResponse.next()
+    const res = nextWithHtmlLang(request, loc)
     applySecurityHeaders(res)
     return res
   }
@@ -371,7 +383,7 @@ export function proxy(request: NextRequest) {
   // yaratıyor (bkz. vercel/next.js#91844). Duplicate URL riskini SEO tarafında
   // `<link rel="canonical">` ile hallediyoruz; burada hiçbir şey yapmıyoruz.
   if (first && isAppLocale(first) && first.toLowerCase() === def) {
-    const res = NextResponse.next()
+    const res = nextWithHtmlLang(request, def)
     applySecurityHeaders(res)
     return res
   }
@@ -379,7 +391,7 @@ export function proxy(request: NextRequest) {
   // Dil segmenti yok: `/`, `/blog` → içeride `/tr`, `/tr/blog` (+ alias)
   const suffix = pathname === '/' ? '' : pathname
   const pathOut = applyFirstSegmentAlias(`/${defaultLocale}${suffix}`, def)
-  const res = rewriteResponse(request, rewriteTarget(request, pathOut))
+  const res = rewriteResponse(request, rewriteTarget(request, pathOut), def)
   applySecurityHeaders(res)
   return res
 }

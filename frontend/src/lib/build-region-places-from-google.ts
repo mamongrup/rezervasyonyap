@@ -25,7 +25,6 @@ async function fetchPlacesNearbyMerged(
   googleTypes: string[],
   maxPerType: number,
   language: string,
-  apiKey: string,
 ): Promise<NearbyPlaceRow[]> {
   const byId = new Map<string, NearbyPlaceRow>()
   const hints = googleTypes.length ? googleTypes : ['tourist_attraction']
@@ -40,7 +39,6 @@ async function fetchPlacesNearbyMerged(
         radiusM,
         maxCount: maxPerType,
         language,
-        apiKey,
       }),
     })
     if (res.ok) {
@@ -66,7 +64,8 @@ export async function buildRegionPlaceDataFromGoogleDefaults(opts: {
   regionSlug: string
   lat: number
   lng: number
-  apiKey: string
+  /** @deprecated Sunucu Places anahtarı env’den okunur; yok sayılır. */
+  apiKey?: string
   locale?: string
   radiusM?: number
   maxPlacesPerRow?: number
@@ -90,7 +89,6 @@ export async function buildRegionPlaceDataFromGoogleDefaults(opts: {
         googleTypes,
         maxPlacesPerRow,
         locale,
-        opts.apiKey,
       )
       const places = placesRaw.map((p) => ({
         placeId: p.placeId,

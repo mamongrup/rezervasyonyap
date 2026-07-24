@@ -359,6 +359,7 @@ export function getHomepageDefaultModules(m: AppMessages): Omit<PageBuilderModul
     { type: 'featured_places', enabled: true,  order: 6.4, config: { categorySlug: 'yat-kiralama',   viewAllHref: '/yat-kiralama/all' } },
     { type: 'featured_places', enabled: true,  order: 6.6, config: { categorySlug: 'turlar',         viewAllHref: '/turlar/all' } },
     { type: 'featured_places', enabled: true,  order: 6.8, config: { categorySlug: 'aktiviteler',    viewAllHref: '/aktiviteler/all' } },
+    { type: 'featured_places', enabled: true,  order: 6.9, config: { categorySlug: 'feribot',         viewAllHref: '/feribot/all' } },
     { type: 'how_it_works',    enabled: true,  order: 7,  config: { title: h.howItWorks.title,           subheading: h.howItWorks.subheading } },
     { type: 'top_providers',   enabled: true,  order: 8,  config: { heading: h.topProviders.heading,     subheading: h.topProviders.subheading,     ctaText: h.topProviders.cta, ctaHref: '/manage', maxCount: 10 } },
     { type: 'newsletter',      enabled: true,  order: 9,  config: { title: h.newsletter.title,           description: h.newsletter.description,    buttonText: h.newsletter.button, gradient: 'from-primary-600 to-primary-700' } },

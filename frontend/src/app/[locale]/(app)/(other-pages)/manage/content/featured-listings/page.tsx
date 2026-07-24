@@ -8,6 +8,7 @@ const CATEGORY_LABELS: Record<string, string> = {
   'yat-kiralama': 'Yat Kiralama',
   turlar: 'Turlar',
   aktiviteler: 'Aktiviteler',
+  feribot: 'Feribot',
 }
 
 const DEFAULT_CATEGORY = 'tatil-evleri'

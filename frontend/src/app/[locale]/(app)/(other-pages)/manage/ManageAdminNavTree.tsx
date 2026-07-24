@@ -103,7 +103,7 @@ const GROUPS: NavGroupDef[] = [
       {
         heading: 'Menüler ve yayınlar',
         items: [
-          { path: '/manage/content/header-footer', label: 'Üst ve alt menü' },
+          { path: '/manage/content/header-footer', label: 'Site footer (alt bilgi)' },
           { path: '/manage/content/mega-menu', label: 'Mega menü' },
           { path: '/manage/content/catalog-menu', label: 'Katalog menüsü' },
           { path: '/manage/content/blog', label: 'Blog' },

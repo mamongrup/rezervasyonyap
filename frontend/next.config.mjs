@@ -142,7 +142,12 @@ const nextConfig = {
       (process.env.NEXT_PUBLIC_API_URL && String(process.env.NEXT_PUBLIC_API_URL).trim()) ||
       'http://127.0.0.1:8080'
     const dest = raw.replace(/\/$/, '')
-    return [{ source: '/api/v1/:path*', destination: `${dest}/api/v1/:path*` }]
+    return [
+      // Tarayıcılar metadata'daki SVG'ye ek olarak bu standart yolu da ister.
+      // Mevcut favicon.svg'yi sunarak gereksiz 404 ve konsol hatasını önle.
+      { source: '/favicon.ico', destination: '/favicon.svg' },
+      { source: '/api/v1/:path*', destination: `${dest}/api/v1/:path*` },
+    ]
   },
   async headers() {
     const headers = buildAllSecurityHeaders()
@@ -245,6 +250,24 @@ const nextConfig = {
       {
         protocol: 'https',
         hostname: 'pics.avs.io',
+        port: '',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'bookeder.com',
+        port: '',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'fairystonetravel.com',
+        port: '',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: '**.aegeanhotels.net',
         port: '',
         pathname: '/**',
       },

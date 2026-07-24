@@ -38,6 +38,7 @@ import {
   filterRegionsForHandle,
   regionsWithListings,
 } from '@/lib/region-stats-display'
+import { regionLabelFromHandle } from '@/lib/stay-location-display'
 import { Button } from '@/shared/Button'
 import { Divider } from '@/shared/divider'
 import CategoryListingPagination from '@/components/CategoryListingPagination'
@@ -419,7 +420,17 @@ export default async function CategoryPageTemplate({
                     })
                   : interpolate(cat.listingsHeadingFiltered, {
                       count: convertNumbThousand(count),
-                      handle: currentHandle ?? '',
+                      place:
+                        activeSearch?.regionLabel?.trim() ||
+                        regionLabelFromHandle(currentHandle) ||
+                        currentHandle ||
+                        '',
+                      // eski şablon uyumu
+                      handle:
+                        activeSearch?.regionLabel?.trim() ||
+                        regionLabelFromHandle(currentHandle) ||
+                        currentHandle ||
+                        '',
                     })}
           </h2>
           <p className="mt-1 text-sm text-neutral-500 dark:text-neutral-400">

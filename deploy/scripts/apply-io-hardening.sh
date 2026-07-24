@@ -29,6 +29,10 @@ cp -f deploy/systemd/travel-vacuum-heavy.{service,timer} /etc/systemd/system/
 if [[ -f deploy/systemd/travel-ai-worker.timer ]]; then
   cp -f deploy/systemd/travel-ai-worker.{service,timer} /etc/systemd/system/
 fi
+if [[ -f deploy/systemd/travel-social-worker.timer ]]; then
+  cp -f deploy/systemd/travel-social-worker.{service,timer} /etc/systemd/system/
+fi
+chmod +x deploy/scripts/ai-worker-run-steps.sh deploy/scripts/social-process-pending.sh 2>/dev/null || true
 
 systemctl daemon-reload
 
@@ -41,6 +45,10 @@ systemctl enable --now travel-vacuum-heavy.timer
 if [[ -f /etc/systemd/system/travel-ai-worker.timer ]]; then
   systemctl enable --now travel-ai-worker.timer
   systemctl restart travel-ai-worker.timer || true
+fi
+if [[ -f /etc/systemd/system/travel-social-worker.timer ]]; then
+  systemctl enable --now travel-social-worker.timer
+  systemctl restart travel-social-worker.timer || true
 fi
 systemctl restart travel-warm-cache.timer || true
 

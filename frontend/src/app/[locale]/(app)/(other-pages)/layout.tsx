@@ -1,5 +1,4 @@
 import Header from '@/components/Header/Header'
-import { Metadata } from 'next'
 import { connection } from 'next/server'
 import { ApplicationLayout } from '../application-layout'
 
@@ -11,13 +10,7 @@ import { ApplicationLayout } from '../application-layout'
 export const dynamic = 'force-dynamic'
 export const fetchCache = 'force-no-store'
 
-export const metadata: Metadata = {
-  title: 'Home',
-  description:
-    'Chisfis is a modern and elegant template for Next.js, Tailwind CSS, and TypeScript. It is designed to be simple and easy to use, with a focus on performance and accessibility.',
-  keywords: ['Next.js', 'Tailwind CSS', 'TypeScript', 'Chisfis', 'Travel', 'E-commerce', 'Booking', 'Cars'],
-}
-
+/** Sayfa metadata’sı child `generateMetadata` / `[locale]/layout` üzerinden; şablon “Home” yok. */
 export default async function Layout({
   children,
   params,

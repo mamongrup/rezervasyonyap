@@ -1,4 +1,8 @@
-import { resolveGoogleMapsApiKey } from '@/lib/google-maps-api-key'
+import {
+  formatGooglePlacesServerError,
+  resolveGoogleMapsServerApiKey,
+  GOOGLE_MAPS_SERVER_KEY_HELP,
+} from '@/lib/google-maps-api-key'
 import { NextRequest, NextResponse } from 'next/server'
 
 // ─── Haversine mesafe (km) ────────────────────────────────────────────────────
@@ -116,7 +120,10 @@ function buildTextSearchUrl(lat: number, lng: number, radiusM: number, googleTyp
 }
 
 // ─── POST /api/places-nearby ──────────────────────────────────────────────────
-// Body: { lat, lng, googleType, radiusM, maxCount, language?, apiKey?, useKeyword? }
+// Body: { lat, lng, googleType, radiusM, maxCount, language?, useKeyword? }
+// Not: İstemci `apiKey` göndermemelidir — sunucu yalnızca GOOGLE_MAPS_SERVER_API_KEY
+// (veya GOOGLE_PLACES_API_KEY / GOOGLE_MAPS_API_KEY) kullanır; referrer kısıtlı
+// tarayıcı anahtarı Places Nearby/Text Search ile uyumsuzdur.
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json() as {
@@ -126,25 +133,18 @@ export async function POST(req: NextRequest) {
       radiusM: number
       maxCount: number
       language?: string
-      apiKey?: string
       useKeyword?: boolean
     }
 
-    const { lat, lng, googleType, radiusM, maxCount, language = 'tr', apiKey, useKeyword = false } = body
+    const { lat, lng, googleType, radiusM, maxCount, language = 'tr', useKeyword = false } = body
 
     if (!Number.isFinite(lat) || !Number.isFinite(lng) || !googleType?.trim()) {
       return NextResponse.json({ error: 'lat, lng ve googleType zorunludur.' }, { status: 400 })
     }
 
-    const key = await resolveGoogleMapsApiKey(apiKey)
+    const key = resolveGoogleMapsServerApiKey()
     if (!key) {
-      return NextResponse.json(
-        {
-          error:
-            'Google Maps API anahtarı bulunamadı. Yönetim → Ayarlar → Google sekmesinden tanımlayın.',
-        },
-        { status: 400 },
-      )
+      return NextResponse.json({ error: GOOGLE_MAPS_SERVER_KEY_HELP }, { status: 400 })
     }
 
     const safeRadius = Math.max(radiusM ?? 5000, 100)
@@ -168,7 +168,7 @@ export async function POST(req: NextRequest) {
 
     if (data.status !== 'OK' && data.status !== 'ZERO_RESULTS') {
       return NextResponse.json(
-        { error: `Google Places hatası: ${data.status} — ${data.error_message ?? ''}` },
+        { error: formatGooglePlacesServerError(data.status, data.error_message) },
         { status: 502 },
       )
     }

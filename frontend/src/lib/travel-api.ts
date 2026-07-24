@@ -5711,6 +5711,8 @@ export type SitemapEntry = {
   organization_id: string
   /** `product_categories.code` — yalnızca `kind === 'listing'` */
   category_code?: string | null
+  /** Kapak + galeri (göreli veya mutlak URL), en fazla 5 — Google image sitemap */
+  images?: string[] | null
 }
 
 export async function getSeoSitemapEntries(): Promise<{ entries: SitemapEntry[] }> {
@@ -7091,7 +7093,17 @@ export async function getPublicRegionStats(
     q.set('category_code', categoryCode)
     q.set('limit', String(limit))
     if (opts?.propertyType?.trim()) q.set('property_type', opts.propertyType.trim())
-    const res = await fetch(`${b}/api/v1/catalog/public/region-stats?${q}`, init)
+    // Anasayfa RSC Suspense: API 5 sn timeout'a düşerse stream açık kalır (yükleme çubuğu).
+    // İstemci/SSR üst sınırı — yavaş/eski API olsa bile fail-soft [].
+    const signal =
+      init?.signal ??
+      (typeof AbortSignal !== 'undefined' && 'timeout' in AbortSignal
+        ? AbortSignal.timeout(2800)
+        : undefined)
+    const res = await fetch(`${b}/api/v1/catalog/public/region-stats?${q}`, {
+      ...init,
+      ...(signal ? { signal } : {}),
+    })
     if (!res.ok) return []
     const data = (await json(res)) as {
       regions?: Array<Partial<PublicRegionStatItem>>
@@ -10149,6 +10161,9 @@ export async function resolvePublicListingIdBySlug(
 /**
  * Konaklama vitrin URL'sindeki handle (slug veya UUID) için yayında ilan id'si.
  * Mock stay verisindeki sahte id'ler yerine API UUID kullanılır; yemek planları vitrinde görünür.
+ *
+ * Sıra: önce by-slug (hafif, kapısız) → sonra gerekirse arama. Hyphenli slug'larda
+ * `q=handle` ILIKE çoğu zaman kaçırır; by-slug önce olmalı.
  */
 export async function resolvePublishedListingIdForStayPage(
   handle: string,
@@ -10160,6 +10175,10 @@ export async function resolvePublishedListingIdForStayPage(
   if (STAY_PAGE_LISTING_UUID_RE.test(h)) return h
 
   const expectedCategory = expectedCategoryCode?.trim()
+
+  const byExactSlug = await resolvePublicListingIdBySlug(h, expectedCategory)
+  if (byExactSlug) return byExactSlug
+
   if (expectedCategory) {
     const scoped = await searchPublicListings({
       q: h,
@@ -10172,9 +10191,6 @@ export async function resolvePublishedListingIdForStayPage(
     )
     if (exact) return exact.id
   }
-
-  const byExactSlug = await resolvePublicListingIdBySlug(h, expectedCategory)
-  if (byExactSlug) return byExactSlug
 
   const res = await searchPublicListings({
     q: h,

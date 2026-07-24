@@ -1,4 +1,4 @@
-import { Fragment, type CSSProperties, type ReactNode } from 'react'
+import { Fragment, Suspense, type CSSProperties, type ReactNode } from 'react'
 import type { FeaturedByRegionConfig, PageBuilderModule, TListingBase } from '@/types/listing-types'
 import type { CategoryRegistryEntry } from '@/data/category-registry'
 import type { TAuthor } from '@/data/authors'
@@ -134,6 +134,8 @@ interface PageBuilderRendererProps {
   listingsBrowseHref?: string
   /** Varsayılan `div` — anasayfada `section` ile ek sarmalayıcı olmadan semantik + daha az DOM */
   rootAs?: 'div' | 'section'
+  /** Ağır ilan vitrinlerini görünür alana yaklaşınca istemcide yükler. */
+  deferFeaturedPlaces?: boolean
   /** Kök öğeye (örn. `contentVisibility` — PSI DOM/style maliyeti) */
   rootStyle?: CSSProperties
   /** Kategori vitrinı | bölge detay vitrinı */
@@ -163,6 +165,7 @@ export default async function PageBuilderRenderer({
   searchContext,
   pageKey,
   rootAs = 'div',
+  deferFeaturedPlaces = false,
   rootStyle,
   layoutVariant = 'category',
   regionSlots,
