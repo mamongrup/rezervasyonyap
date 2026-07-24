@@ -90,7 +90,7 @@ export default function CategoriesDropdown({ items, homeHref, locale }: Props) {
       <div
         id="catalog-header-menu"
         className={clsx(
-          'absolute start-0 top-full z-40 mt-4 w-[560px] overflow-hidden rounded-3xl shadow-lg ring-1 ring-black/5 transition duration-150 ease-out sm:px-0 dark:ring-white/10',
+          'absolute start-0 top-full z-40 mt-4 w-[560px] overflow-hidden rounded-3xl shadow-lg ring-1 ring-black/5 transition-[opacity,transform] duration-150 ease-out sm:px-0 dark:ring-white/10',
           open ? 'pointer-events-auto translate-y-0 opacity-100' : 'pointer-events-none translate-y-1 opacity-0'
         )}
       >

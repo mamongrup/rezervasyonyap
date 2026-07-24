@@ -6,6 +6,7 @@ export default function useSnapSlider({ sliderRef }: { sliderRef: React.RefObjec
   const rafIdRef = useRef<number | null>(null)
   /** Ok tıklanınca tekrar ölçüm yapmayı önlemek için `readAndSetBounds` ile güncellenir → forced reflow azalır */
   const itemStridePxRef = useRef(0)
+  const measuringEnabledRef = useRef(false)
 
   const get_slider_item_size = useCallback(() => {
     const fallback = sliderRef.current?.querySelector('.mySnapItem')?.clientWidth ?? 0
@@ -25,6 +26,7 @@ export default function useSnapSlider({ sliderRef }: { sliderRef: React.RefObjec
     let lastScrollWidth = 0
 
     const readAndSetBounds = () => {
+      if (!measuringEnabledRef.current) return
       const el = sliderRef.current
       if (!el) {
         return
@@ -67,36 +69,61 @@ export default function useSnapSlider({ sliderRef }: { sliderRef: React.RefObjec
       })
     }
 
-    /**
-     * Mount’ta senkron clientWidth okumak, ertelenmiş CSS uygulanınca PSI
-     * “zorunlu yeniden düzenleme” üretir. Çift rAF + ResizeObserver ile ayır.
-     */
-    let bootRaf2 = 0
-    const bootRaf1 = window.requestAnimationFrame(() => {
-      bootRaf2 = window.requestAnimationFrame(scheduleRead)
-    })
+    const enableAndRead = () => {
+      measuringEnabledRef.current = true
+      scheduleRead()
+    }
 
+    /**
+     * Mount’ta hemen clientWidth okumak PSI forced reflow üretir.
+     * Viewport yakınına gelince veya ilk scroll’da ölç.
+     */
+    let io: IntersectionObserver | null = null
+    if (typeof IntersectionObserver !== 'undefined') {
+      io = new IntersectionObserver(
+        (entries) => {
+          if (!entries.some((e) => e.isIntersecting)) return
+          enableAndRead()
+          io?.disconnect()
+          io = null
+        },
+        { rootMargin: '120px 0px' },
+      )
+      io.observe(slider)
+    } else {
+      const bootRaf1 = window.requestAnimationFrame(() => {
+        window.requestAnimationFrame(enableAndRead)
+      })
+      return () => {
+        window.cancelAnimationFrame(bootRaf1)
+      }
+    }
+
+    slider.addEventListener('scroll', enableAndRead, { passive: true, once: true })
     slider.addEventListener('scroll', scheduleRead, { passive: true })
 
     let ro: ResizeObserver | null = null
     if (typeof ResizeObserver !== 'undefined') {
-      ro = new ResizeObserver(() => scheduleRead())
+      ro = new ResizeObserver(() => {
+        if (measuringEnabledRef.current) scheduleRead()
+      })
       ro.observe(slider)
     }
 
     return () => {
+      slider.removeEventListener('scroll', enableAndRead)
       slider.removeEventListener('scroll', scheduleRead)
-      window.cancelAnimationFrame(bootRaf1)
-      if (bootRaf2) window.cancelAnimationFrame(bootRaf2)
       if (rafIdRef.current != null) {
         window.cancelAnimationFrame(rafIdRef.current)
         rafIdRef.current = null
       }
+      io?.disconnect()
       ro?.disconnect()
     }
   }, [sliderRef])
 
   function scrollToNextSlide() {
+    measuringEnabledRef.current = true
     sliderRef.current?.scrollBy({
       left: get_slider_item_size(),
       behavior: 'smooth',
@@ -104,6 +131,7 @@ export default function useSnapSlider({ sliderRef }: { sliderRef: React.RefObjec
   }
 
   function scrollToPrevSlide() {
+    measuringEnabledRef.current = true
     sliderRef.current?.scrollBy({
       left: -get_slider_item_size(),
       behavior: 'smooth',

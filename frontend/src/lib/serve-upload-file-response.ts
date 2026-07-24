@@ -42,7 +42,7 @@ export async function readUploadSegmentsResponse(segments: string[]): Promise<Ne
         // Site logoları ve favicon gibi varlıklar admin tarafından değiştirilebilir;
         // 'immutable' yerine kısa TTL + must-revalidate kullan.
         'Cache-Control':
-          'public, max-age=86400, s-maxage=2678400, stale-while-revalidate=604800',
+          'public, max-age=2592000, s-maxage=2678400, stale-while-revalidate=604800',
       },
     })
   } catch {

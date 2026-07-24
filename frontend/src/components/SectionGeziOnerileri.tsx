@@ -128,7 +128,7 @@ export default async function SectionGeziOnerileri({
                 <li key={post.id}>
                   <Link
                     href={postHrefs[idx]!}
-                    className="group flex items-start gap-4 rounded-2xl p-3 transition-colors hover:bg-neutral-50 dark:hover:bg-neutral-800/50"
+                    className="group flex items-start gap-4 rounded-2xl p-3 hover:bg-neutral-50 dark:hover:bg-neutral-800/50"
                   >
                     {/* Küçük görsel */}
                     {img ? (
@@ -147,7 +147,7 @@ export default async function SectionGeziOnerileri({
                       </div>
                     )}
                     <div className="min-w-0 flex-1">
-                      <h3 className="line-clamp-2 text-sm font-semibold text-neutral-900 group-hover:text-primary-600 dark:text-white dark:group-hover:text-neutral-200 transition-colors">
+                      <h3 className="line-clamp-2 text-sm font-semibold text-neutral-900 group-hover:text-primary-600 dark:text-white dark:group-hover:text-neutral-200">
                         {post.title ?? post.slug}
                       </h3>
                       <div className="mt-1.5 flex items-center gap-3 text-xs text-neutral-600 dark:text-neutral-400">
@@ -189,7 +189,7 @@ export default async function SectionGeziOnerileri({
 
         <Link
           href={categoryHref}
-          className="mt-8 inline-flex items-center gap-2 rounded-full bg-primary-600 px-6 py-3 text-sm font-semibold text-white shadow-sm transition-all hover:bg-primary-700 hover:shadow-md"
+          className="mt-8 inline-flex items-center gap-2 rounded-full bg-primary-600 px-6 py-3 text-sm font-semibold text-white shadow-sm hover:bg-primary-700 hover:shadow-md"
         >
           Tüm Gezi Önerileri
           <ArrowRight className="h-4 w-4" />

@@ -35,7 +35,7 @@ export function Footer2ManagePreview({
   const copyName = site.orgLegalName || site.orgName || logoAlt
   const rights = getMessages(locale).site.footer.rights
   const linkCls =
-    'text-sm/6 text-gray-600 transition-colors hover:text-neutral-800 dark:text-neutral-400 dark:hover:text-neutral-200'
+    'text-sm/6 text-gray-600 hover:text-neutral-800 dark:text-neutral-400 dark:hover:text-neutral-200'
   const headingCls = 'text-sm font-semibold uppercase tracking-wider text-gray-900 dark:text-neutral-200'
 
   return (

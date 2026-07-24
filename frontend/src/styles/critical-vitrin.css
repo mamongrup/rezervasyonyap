@@ -62,3 +62,7 @@ main.relative {
   min-width: 0;
   overflow-x: hidden;
 }
+/* Freeform hero — aspect + min yükseklik CLS */
+[data-lcp='1'] {
+  content-visibility: visible;
+}

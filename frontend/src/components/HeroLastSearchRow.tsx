@@ -57,6 +57,7 @@ export function HeroLastSearchRow({ locale, preferredVertical }: Props) {
   }, [preferredVertical])
 
   useEffect(() => {
+    // LCP sonrası — erken hydrate CLS’i artırmasın
     const id = window.setTimeout(() => setReady(true), 4500)
     return () => window.clearTimeout(id)
   }, [])
@@ -75,31 +76,33 @@ export function HeroLastSearchRow({ locale, preferredVertical }: Props) {
     }
   }, [ready, refresh])
 
-  if (!snap) return null
-
-  const href = buildHeroSearchHref(vitrinPath, snap)
-  const vlabel = heroSearchVerticalLabel(locale, snap.vertical)
-  const loc = locationPreview(snap)
-
+  // Her zaman aynı yükseklik kabuğu — snap gelince CLS 0
   return (
-    <div className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-sm text-neutral-600 dark:text-neutral-400">
-      <span>{isEn ? 'Last search' : 'Son arama'}</span>
-      <span className="hidden sm:inline text-neutral-400">·</span>
-      <span>{vlabel}</span>
-      {loc ? (
+    <div className="flex min-h-6 flex-wrap items-center justify-center gap-x-2 gap-y-1 text-sm text-neutral-600 dark:text-neutral-400">
+      {snap ? (
         <>
-          <span className="hidden sm:inline text-neutral-400">·</span>
-          <span className="max-w-[min(100%,14rem)] truncate sm:max-w-[14rem]" title={loc}>
-            {loc}
-          </span>
+          <span>{isEn ? 'Last search' : 'Son arama'}</span>
+          <span className="hidden text-neutral-400 sm:inline">·</span>
+          <span>{heroSearchVerticalLabel(locale, snap.vertical)}</span>
+          {locationPreview(snap) ? (
+            <>
+              <span className="hidden text-neutral-400 sm:inline">·</span>
+              <span
+                className="max-w-[min(100%,14rem)] truncate sm:max-w-[14rem]"
+                title={locationPreview(snap)}
+              >
+                {locationPreview(snap)}
+              </span>
+            </>
+          ) : null}
+          <Link
+            href={buildHeroSearchHref(vitrinPath, snap)}
+            className="font-medium text-indigo-600 hover:underline dark:text-indigo-400"
+          >
+            {isEn ? 'Continue' : 'Devam et'}
+          </Link>
         </>
       ) : null}
-      <Link
-        href={href}
-        className="font-medium text-indigo-600 hover:underline dark:text-indigo-400"
-      >
-        {isEn ? 'Continue' : 'Devam et'}
-      </Link>
     </div>
   )
 }

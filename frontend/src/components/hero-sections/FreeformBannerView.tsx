@@ -73,7 +73,7 @@ export default function FreeformBannerView({
         'relative mb-2 w-full min-h-0 overflow-hidden rounded-xl lg:mb-5',
         className,
       )}
-      style={{ aspectRatio: ar }}
+      style={{ aspectRatio: ar, minHeight: '12rem' }}
     >
       <div className="relative h-full w-full overflow-hidden rounded-xl">
         {layers.map((layer, i) => {

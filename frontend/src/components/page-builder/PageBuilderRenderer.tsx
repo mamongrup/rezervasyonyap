@@ -2,7 +2,6 @@ import { Fragment, Suspense, type CSSProperties, type ReactNode } from 'react'
 import type { FeaturedByRegionConfig, PageBuilderModule, TListingBase } from '@/types/listing-types'
 import type { CategoryRegistryEntry } from '@/data/category-registry'
 import type { TAuthor } from '@/data/authors'
-import SectionFeaturedByRegion from '@/components/SectionFeaturedByRegion'
 import { slimListingForVitrinCard } from '@/lib/featured-listings-utils'
 import { buildDefaultFeaturedRegionConfig } from '@/lib/featured-region-defaults'
 import { resolveListingPriceUnit } from '@/lib/listing-category-display'
@@ -11,7 +10,6 @@ import { interpolate } from '@/utils/interpolate'
 import { resolveLocalizedDeep } from '@/lib/localized-text'
 
 import HeroModule from './modules/HeroModule'
-import ListingsModule from './modules/ListingsModule'
 import type { ListingsModuleConfig } from './modules/ListingsModule'
 import type { CategorySliderModuleConfig } from './modules/CategorySliderModule'
 import {
@@ -301,6 +299,7 @@ export default async function PageBuilderRenderer({
                 viewAllHref: cfg.viewAllHref ?? defaultListingsBrowseHref,
                 viewAllLabel: cfg.viewAllLabel ?? messages.common['View all'],
               }
+              const { default: ListingsModule } = await import('./modules/ListingsModule')
               return (
                 <ListingsModule
                   key={module.id}
@@ -403,6 +402,9 @@ export default async function PageBuilderRenderer({
             const regionListings = allListings
               .filter((l) => regionListingIds.has(l.id))
               .map(slimListingForVitrinCard)
+            const { default: SectionFeaturedByRegion } = await import(
+              '@/components/SectionFeaturedByRegion'
+            )
             return (
               <SectionFeaturedByRegion
                 key={module.id}

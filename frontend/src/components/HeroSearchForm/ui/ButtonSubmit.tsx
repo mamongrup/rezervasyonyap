@@ -12,12 +12,22 @@ const styles = {
 interface Props {
   className?: string
   fieldStyle: 'default' | 'small'
+  /** Erişilebilir ad — ikon-only submit (PSI / a11y) */
+  ariaLabel?: string
 }
 
-export const ButtonSubmit: FC<Props> = ({ className, fieldStyle = 'default' }) => {
+export const ButtonSubmit: FC<Props> = ({
+  className,
+  fieldStyle = 'default',
+  ariaLabel = 'Ara',
+}) => {
   return (
-    <button type="submit" className={clsx(styles.base, styles[fieldStyle], className)}>
-      <HugeiconsIcon icon={Search01Icon} size={24} />
+    <button
+      type="submit"
+      aria-label={ariaLabel}
+      className={clsx(styles.base, styles[fieldStyle], className)}
+    >
+      <HugeiconsIcon icon={Search01Icon} size={24} aria-hidden />
     </button>
   )
 }
