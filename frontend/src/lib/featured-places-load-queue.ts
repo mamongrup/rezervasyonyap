@@ -1,7 +1,7 @@
 /**
  * Anasayfa deferred `featured_places` — aynı anda çok `/api/homepage-featured`
  * (otel + last_minute + feribot + …) travel-api havuzunu doldurup takılma üretir.
- * En fazla 2 paralel istek.
+ * En fazla 2 paralel istek; `priority` kuyruğun önüne alır (öne çıkan oteller).
  */
 
 const MAX_PARALLEL = 2
@@ -17,9 +17,11 @@ function pump(): void {
   }
 }
 
-export function acquireFeaturedPlacesSlot(): Promise<void> {
+export function acquireFeaturedPlacesSlot(priority = false): Promise<void> {
   return new Promise((resolve) => {
-    waiters.push(() => resolve())
+    const wake = () => resolve()
+    if (priority) waiters.unshift(wake)
+    else waiters.push(wake)
     pump()
   })
 }
@@ -29,8 +31,11 @@ export function releaseFeaturedPlacesSlot(): void {
   pump()
 }
 
-export async function withFeaturedPlacesSlot<T>(fn: () => Promise<T>): Promise<T> {
-  await acquireFeaturedPlacesSlot()
+export async function withFeaturedPlacesSlot<T>(
+  fn: () => Promise<T>,
+  opts?: { priority?: boolean },
+): Promise<T> {
+  await acquireFeaturedPlacesSlot(Boolean(opts?.priority))
   try {
     return await fn()
   } finally {

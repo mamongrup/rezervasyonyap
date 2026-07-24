@@ -72,24 +72,27 @@ function buildFeaturedTabDefs(
 export async function loadFeaturedPlacesModuleData(
   categorySlug: string,
   locale = 'tr',
+  opts?: { includeLastMinute?: boolean },
 ): Promise<FeaturedPlacesModuleData | null> {
   const featuredConfig = await getFeaturedListingsConfig(categorySlug)
   const tabIds = featuredConfig?.tabs ?? normalizeFeaturedListingsConfig(null, categorySlug).tabs
   const displayCount = featuredConfig?.displayCount ?? DEFAULT_FEATURED_DISPLAY_COUNT
+  const includeLastMinute = opts?.includeLastMinute !== false
 
-  // Anasayfa deferred yolunda 48 satır last_minute oteli + ana havuz = çift ağır sorgu.
-  // Sekme için displayCount yeter; tam liste /oteller?last_minute=1’de.
-  const lastMinutePromise = categorySupportsLastMinuteTab(categorySlug)
-    ? Promise.all([
-        resolveLastMinuteDateWindow(),
-        fetchCategoryListings(
-          categorySlug,
-          { last_minute: '1' },
-          { perPage: Math.max(displayCount, 12) },
-          locale,
-        ),
-      ])
-    : Promise.resolve(null)
+  // Anasayfa deferred yolunda last_minute + ana havuz = çift ağır sorgu (otel soğuk ~10s+).
+  // İlk boyada last_minute atlanabilir; sekme arka planda doldurulur.
+  const lastMinutePromise =
+    includeLastMinute && categorySupportsLastMinuteTab(categorySlug)
+      ? Promise.all([
+          resolveLastMinuteDateWindow(),
+          fetchCategoryListings(
+            categorySlug,
+            { last_minute: '1' },
+            { perPage: Math.max(displayCount, 12) },
+            locale,
+          ),
+        ])
+      : Promise.resolve(null)
 
   const [listings, lastMinutePack] = await Promise.all([
     loadFeaturedPlacesListingPool(categorySlug, tabIds, locale),
