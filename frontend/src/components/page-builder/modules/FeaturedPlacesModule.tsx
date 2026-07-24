@@ -77,13 +77,15 @@ export async function loadFeaturedPlacesModuleData(
   const tabIds = featuredConfig?.tabs ?? normalizeFeaturedListingsConfig(null, categorySlug).tabs
   const displayCount = featuredConfig?.displayCount ?? DEFAULT_FEATURED_DISPLAY_COUNT
 
+  // Anasayfa deferred yolunda 48 satır last_minute oteli + ana havuz = çift ağır sorgu.
+  // Sekme için displayCount yeter; tam liste /oteller?last_minute=1’de.
   const lastMinutePromise = categorySupportsLastMinuteTab(categorySlug)
     ? Promise.all([
         resolveLastMinuteDateWindow(),
         fetchCategoryListings(
           categorySlug,
           { last_minute: '1' },
-          { perPage: Math.max(displayCount, 48) },
+          { perPage: Math.max(displayCount, 12) },
           locale,
         ),
       ])

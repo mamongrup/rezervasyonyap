@@ -5,7 +5,11 @@ import type {
   FeaturedPlacesModuleConfig,
   FeaturedPlacesModuleData,
 } from '@/components/page-builder/modules/FeaturedPlacesModule'
+import { withFeaturedPlacesSlot } from '@/lib/featured-places-load-queue'
 import { useEffect, useRef, useState } from 'react'
+
+/** İstemci zaman aşımı — sunucu resilient 10s+10s bekleyebilir; UI sonsuza kilitlenmesin */
+const FEATURED_FETCH_TIMEOUT_MS = 12_000
 
 export default function DeferredFeaturedPlacesModule({
   config,
@@ -28,13 +32,14 @@ export default function DeferredFeaturedPlacesModule({
       return
     }
 
+    // 900px tüm blokları birden tetikliyordu → API fırtınası / feribot “takılı”
     const observer = new IntersectionObserver(
       (entries) => {
         if (!entries.some((entry) => entry.isIntersecting)) return
         setShouldLoad(true)
         observer.disconnect()
       },
-      { rootMargin: '900px 0px' },
+      { rootMargin: '280px 0px' },
     )
     observer.observe(node)
     return () => observer.disconnect()
@@ -42,24 +47,37 @@ export default function DeferredFeaturedPlacesModule({
 
   useEffect(() => {
     if (!shouldLoad || data || failed) return
+    let cancelled = false
     const controller = new AbortController()
+    const timeoutId = window.setTimeout(() => controller.abort(), FEATURED_FETCH_TIMEOUT_MS)
     const query = new URLSearchParams({ category: categorySlug, locale })
 
-    void fetch(`/api/homepage-featured?${query.toString()}`, { signal: controller.signal })
-      .then(async (response) => {
+    void withFeaturedPlacesSlot(async () => {
+      if (cancelled) return
+      try {
+        const response = await fetch(`/api/homepage-featured?${query.toString()}`, {
+          signal: controller.signal,
+        })
         if (!response.ok) throw new Error(`homepage_featured_${response.status}`)
-        return (await response.json()) as { data?: FeaturedPlacesModuleData | null }
-      })
-      .then((payload) => {
+        const payload = (await response.json()) as { data?: FeaturedPlacesModuleData | null }
+        if (cancelled) return
         if (payload.data) setData(payload.data)
         else setFailed(true)
-      })
-      .catch((error: unknown) => {
-        if (error instanceof DOMException && error.name === 'AbortError') return
+      } catch (error: unknown) {
+        if (cancelled) return
+        if (error instanceof DOMException && error.name === 'AbortError') {
+          setFailed(true)
+          return
+        }
         setFailed(true)
-      })
+      }
+    })
 
-    return () => controller.abort()
+    return () => {
+      cancelled = true
+      controller.abort()
+      window.clearTimeout(timeoutId)
+    }
   }, [categorySlug, data, failed, locale, shouldLoad])
 
   if (failed) return null

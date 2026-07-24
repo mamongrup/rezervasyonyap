@@ -83,7 +83,8 @@ git_sync_ref() {
     git fetch origin "$ref" || git fetch origin "tag" "$ref" || fail "git fetch origin $ref basarisiz"
   fi
   # Izlenen dosyadaki commitlenmemis degisiklikler checkout'u durdurur (ornek:
-  # `frontend/public/page-builder/homepage.json`). `git clean` bunlari silmez.
+  # `frontend/public/page-builder/homepage.json`). Panel CMS yedegi main()'de
+  # preserve_cms_json_* ile korunur; `git clean` uploads disinda siler.
   # GIT_SYNC_KEEP_LOCAL=1 ile bu adimi atlayip elle stash/commit yapabilirsiniz.
   if [[ "${GIT_SYNC_KEEP_LOCAL:-0}" != "1" ]]; then
     git reset --hard HEAD
@@ -133,9 +134,20 @@ main() {
 
   cd "$APP_ROOT"
 
+  # Panel CMS (page-builder + featured-listings) git’e commit edilmez; reset --hard
+  # silmesin diye yedekle → sync → geri yükle. Kapat: CMS_JSON_PRESERVE=0
+  # Zorla repo sürümü: CMS_JSON_PRESERVE=0
+  # shellcheck source=deploy/scripts/preserve-cms-json.sh
+  # shellcheck disable=SC1091
+  source "$APP_ROOT/deploy/scripts/preserve-cms-json.sh"
+  chmod +x "$APP_ROOT/deploy/scripts/preserve-cms-json.sh" 2>/dev/null || true
+  preserve_cms_json_backup "$APP_ROOT"
+
   step "Git ref senkronu ($DEPLOY_REF)"
   git_sync_ref "$DEPLOY_REF"
   ok "HEAD: $(git rev-parse --short HEAD)"
+
+  restore_cms_json_backup "$APP_ROOT"
 
   # Uploads dizini gitignored — ilk deploy veya git clean sonrası yoksa oluştur.
   mkdir -p "$APP_ROOT/frontend/public/uploads/general/hero"
