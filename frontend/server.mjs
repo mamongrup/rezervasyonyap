@@ -10,9 +10,11 @@
  * - `Link: rel=preload` yanıt başlığı: CSS indirmesi HTML gövdesi bitmeden başlar
  *   (kritik yol gecikmesi kısalır). Aynı origin için preconnect gerekmez.
  *
- * Varsayılan: AÇIK (TRAVEL_DEFER_CSS=1). Kritik CSS `critical-vitrin.css`
- * hero/header iskeletini kapsar; FOUC riski önceki sürüme göre düşük.
- * Kapatmak için: TRAVEL_DEFER_CSS=0
+ * Varsayılan: KAPALI. TRAVEL_DEFER_CSS=1 FOUC üretir (katalog/header stilleri
+ * critical-vitrin’de yok → önce çıplak HTML, sonra stil). LCP kazanımı
+ * UX’e değmez. Açmayın; render-blocking CSS tercih edilir.
+ *
+ * RSC / prefetch / statik asset isteklerine dokunulmaz.
  */
 import { createServer } from 'node:http'
 import { readFileSync } from 'node:fs'
@@ -24,7 +26,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url))
 const port = Number.parseInt(process.env.PORT || '3000', 10)
 const hostname = process.env.HOSTNAME || '127.0.0.1'
 const deferCss =
-  process.env.TRAVEL_DEFER_CSS !== '0' && process.env.TRAVEL_DEFER_CSS !== 'false'
+  process.env.TRAVEL_DEFER_CSS === '1' || process.env.TRAVEL_DEFER_CSS === 'true'
 
 let criticalCss = ''
 try {

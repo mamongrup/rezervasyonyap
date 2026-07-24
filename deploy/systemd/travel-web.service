@@ -33,12 +33,11 @@ WorkingDirectory=/var/www/vhosts/rezervasyonyap.tr/httpdocs/frontend
 EnvironmentFile=/etc/rezervasyonyap/frontend.env
 Environment=NODE_ENV=production
 Environment=PORT=3000
-Environment=HOSTNAME=127.0.0.1
-# FOUC’suz CSS defer: kritik-vitrin.css (hero/header) inline; Tailwind preload.
-Environment=TRAVEL_DEFER_CSS=1
 
-# CSS defer sunucusu (server.mjs) — next start yerine.
-ExecStart=/usr/bin/node ./server.mjs
+# Next production server (standart next start).
+# CSS defer (server.mjs + TRAVEL_DEFER_CSS=1) FOUC üretir — kritik CSS katalog/header
+# kapsamıyor; varsayılan KAPALI. Açmayın.
+ExecStart=/usr/bin/node ./node_modules/next/dist/bin/next start -H 127.0.0.1 -p 3000
 
 Restart=always
 RestartSec=5
