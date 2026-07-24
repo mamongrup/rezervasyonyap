@@ -123,7 +123,9 @@ export default function FreeformBannerView({
                     fetchPriority="high"
                     priority
                     loading="eager"
-                    decoding="async"
+                    // LCP: sync decode — async render gecikmesi lab’de 0.5–1s ekleyebiliyor
+                    decoding="sync"
+                    data-lcp="1"
                     unoptimized={slotUnopt(src)}
                   />
                 ) : (
@@ -136,6 +138,8 @@ export default function FreeformBannerView({
                     style={{
                       objectPosition: `${layer.focusX}% ${layer.focusY}%`,
                     }}
+                    loading="lazy"
+                    fetchPriority="low"
                     unoptimized={slotUnopt(src)}
                   />
                 )

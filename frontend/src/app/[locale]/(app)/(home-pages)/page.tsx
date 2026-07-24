@@ -130,9 +130,15 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
 
   const lcpHeroUrl = resolveHeroLcpImageUrl(DEFAULT_REGION_HERO_FREEFORM, mosaicForRegionHero)
   if (lcpHeroUrl) {
+    // Tek yüksek öncelikli preload — YouTube poster vb. high ile yarışmasın
     preload(lcpHeroUrl, {
       as: 'image',
       fetchPriority: 'high',
+      type: lcpHeroUrl.endsWith('.avif')
+        ? 'image/avif'
+        : lcpHeroUrl.endsWith('.webp')
+          ? 'image/webp'
+          : undefined,
     })
   }
 

@@ -19,6 +19,11 @@ export default function useSnapSlider({ sliderRef }: { sliderRef: React.RefObjec
       return
     }
 
+    /** Son ölçülen sınırlar — scroll sırasında layout thrash azaltır */
+    let lastScrollLeft = Number.NaN
+    let lastClientWidth = 0
+    let lastScrollWidth = 0
+
     const readAndSetBounds = () => {
       const el = sliderRef.current
       if (!el) {
@@ -33,6 +38,17 @@ export default function useSnapSlider({ sliderRef }: { sliderRef: React.RefObjec
       const scrollLeft = el.scrollLeft
       const clientWidth = el.clientWidth
       const scrollWidth = el.scrollWidth
+
+      if (
+        scrollLeft === lastScrollLeft &&
+        clientWidth === lastClientWidth &&
+        scrollWidth === lastScrollWidth
+      ) {
+        return
+      }
+      lastScrollLeft = scrollLeft
+      lastClientWidth = clientWidth
+      lastScrollWidth = scrollWidth
 
       if (document.dir === 'rtl') {
         setIsAtEnd(-scrollLeft + clientWidth >= scrollWidth - 50)

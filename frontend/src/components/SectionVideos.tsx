@@ -36,14 +36,19 @@ function isIframeReadyEmbed(url: string): boolean {
   )
 }
 
+/** Yerel poster — harici YouTube thumb LCP/bandwidth ile yarışmasın */
+const LOCAL_VIDEO_POSTER = '/uploads/general/hero/oteller-1.avif'
+
 function parseVideo(video: VideoType): ParsedVideo {
   const raw = (video.videoUrl || video.id || '').trim()
+  const customThumb = video.thumbnail?.trim()
   const ytMatch = raw.match(/(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)|youtu\.be\/)([A-Za-z0-9_-]{11})/)
   const youtubeId = ytMatch?.[1] ?? (/^[A-Za-z0-9_-]{11}$/.test(raw) ? raw : '')
   if (youtubeId) {
     return {
       embedUrl: `https://www.youtube.com/embed/${youtubeId}?autoplay=1&rel=0`,
-      thumbnail: video.thumbnail || `https://img.youtube.com/vi/${youtubeId}/hqdefault.jpg`,
+      // Önce CMS/yerel; yoksa yerel yedek (hqdefault ilk aday değil)
+      thumbnail: customThumb || LOCAL_VIDEO_POSTER,
       youtubeId,
     }
   }
@@ -52,7 +57,7 @@ function parseVideo(video: VideoType): ParsedVideo {
   if (vimeoMatch) {
     return {
       embedUrl: `https://player.vimeo.com/video/${vimeoMatch[1]}?autoplay=1`,
-      thumbnail: video.thumbnail || '/uploads/general/hero/aktiviteler-2.avif',
+      thumbnail: customThumb || LOCAL_VIDEO_POSTER,
     }
   }
 
@@ -62,31 +67,37 @@ function parseVideo(video: VideoType): ParsedVideo {
     const withAutoplay = trimmed.includes('autoplay=') ? trimmed : `${trimmed}${sep}autoplay=1`
     return {
       embedUrl: withAutoplay,
-      thumbnail: video.thumbnail || '/uploads/general/hero/aktiviteler-2.avif',
+      thumbnail: customThumb || LOCAL_VIDEO_POSTER,
     }
   }
 
   return {
     embedUrl: '',
-    thumbnail: video.thumbnail || '/uploads/general/hero/aktiviteler-2.avif',
+    thumbnail: customThumb || LOCAL_VIDEO_POSTER,
   }
 }
 
 function youtubePosterCandidates(video: VideoType, parsed: ParsedVideo): string[] {
   const custom = video.thumbnail?.trim()
-  if (custom) return [custom]
+  // Yerel /uploads her zaman önce — PSI “efficient cache” + LCP yarışı yok
+  if (custom) {
+    if (custom.startsWith('/uploads/')) return [custom]
+    return [custom, LOCAL_VIDEO_POSTER]
+  }
+  if (parsed.thumbnail?.startsWith('/uploads/')) {
+    return [parsed.thumbnail]
+  }
+  // YouTube thumb yedekleri yalnız yerel yoksa; mqdefault daha küçük
   if (parsed.youtubeId) {
     const id = parsed.youtubeId
     return [
-      `https://img.youtube.com/vi/${id}/hqdefault.jpg`,
+      LOCAL_VIDEO_POSTER,
       `https://img.youtube.com/vi/${id}/mqdefault.jpg`,
-      `https://img.youtube.com/vi/${id}/sddefault.jpg`,
-      `https://img.youtube.com/vi/${id}/maxresdefault.jpg`,
-      `https://img.youtube.com/vi/${id}/default.jpg`,
+      `https://img.youtube.com/vi/${id}/hqdefault.jpg`,
     ]
   }
   const t = parsed.thumbnail?.trim()
-  return t ? [t] : []
+  return t ? [t] : [LOCAL_VIDEO_POSTER]
 }
 
 function PosterImg({
@@ -219,7 +230,6 @@ const SectionVideosInner: FC<SectionVideosProps & { videos: VideoType[] }> = ({
               candidates={candidates}
               alt={video.title}
               className="absolute inset-0 h-full w-full object-cover brightness-100 transition-[filter] group-hover:brightness-75"
-              priority
             />
             <div
               onClick={() => canEmbed && setIsPlay(true)}

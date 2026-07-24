@@ -146,37 +146,44 @@
           {
             "id": "sv-1",
             "title": "Dünyanın En Güzel 28 Köyü: Mutlaka Görmelisiniz! 🌍",
-            "videoUrl": "https://www.youtube.com/watch?v=j-kGyqW99Vo"
+            "videoUrl": "https://www.youtube.com/watch?v=j-kGyqW99Vo",
+            "thumbnail": "/uploads/general/hero/oteller-1.avif"
           },
           {
             "id": "sv-2",
             "title": "Dünya'da Görülmesi Gereken Yerler",
-            "videoUrl": "https://www.youtube.com/watch?v=scaZbxdoDpk"
+            "videoUrl": "https://www.youtube.com/watch?v=scaZbxdoDpk",
+            "thumbnail": "/uploads/general/hero/oteller-2.avif"
           },
           {
             "id": "sv-3",
             "title": "Zengin Ülke İSVİÇRE'de Fiyatlar ve Masalsı Köyler",
-            "videoUrl": "https://www.youtube.com/watch?v=3_gmUSiFhVw"
+            "videoUrl": "https://www.youtube.com/watch?v=3_gmUSiFhVw",
+            "thumbnail": "/uploads/general/hero/oteller-3.avif"
           },
           {
             "id": "sv-4",
             "title": "Zamanın Unuttuğu Coğrafya: Balkanlar",
-            "videoUrl": "https://www.youtube.com/watch?v=x5QS_JLyom4"
+            "videoUrl": "https://www.youtube.com/watch?v=x5QS_JLyom4",
+            "thumbnail": "/uploads/general/hero/oteller-1.avif"
           },
           {
             "id": "sv-5",
             "title": "Dağların ve Hükümdarların Ülkesi - AVUSTURYA",
-            "videoUrl": "https://www.youtube.com/watch?v=irQjMHQsb6A"
+            "videoUrl": "https://www.youtube.com/watch?v=irQjMHQsb6A",
+            "thumbnail": "/uploads/general/hero/oteller-2.avif"
           },
           {
             "id": "sv-6",
             "title": "Alaska'nın Vahşi Güzelliği",
-            "videoUrl": "https://www.youtube.com/watch?v=KW8vZY9pW7k"
+            "videoUrl": "https://www.youtube.com/watch?v=KW8vZY9pW7k",
+            "thumbnail": "/uploads/general/hero/oteller-3.avif"
           },
           {
             "id": "sv-7",
             "title": "Phi Phi Adaları, İkonik Kayalıklar, Tertemiz Plajlar",
-            "videoUrl": "https://www.youtube.com/watch?v=7oD_GDXkUWQ&list=RD7oD_GDXkUWQ&start_radio=1"
+            "videoUrl": "https://www.youtube.com/watch?v=7oD_GDXkUWQ&list=RD7oD_GDXkUWQ&start_radio=1",
+            "thumbnail": "/uploads/general/hero/oteller-1.avif"
           }
         ]
       }

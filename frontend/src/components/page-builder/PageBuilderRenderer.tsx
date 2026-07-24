@@ -22,6 +22,7 @@ import { renderMarketingModuleChunk } from './MarketingModulesDynamic'
 import { renderPageBuilderModuleChunk } from './PageBuilderModulesDynamic'
 import DeferredRegionSliderModule from './modules/DeferredRegionSliderModule'
 import DeferredFeaturedPlacesModule from './modules/DeferredFeaturedPlacesModule'
+import DeferredSectionVideosModule from './modules/DeferredSectionVideosModule'
 import { getSharedTravelCategoryThumbnailsRaw } from '@/data/page-builder-config'
 import { mergeRawThumbnailMaps } from '@/lib/category-thumbnail-entry'
 
@@ -508,6 +509,9 @@ export default async function PageBuilderRenderer({
             })
 
           case 'section_videos':
+            if (deferFeaturedPlaces) {
+              return <DeferredSectionVideosModule key={module.id} config={module.config} />
+            }
             return await renderPageBuilderModuleChunk('section_videos', module.id, { config: module.config })
 
           case 'client_say':

@@ -32,7 +32,20 @@ let runtimeConfig: TawkRuntimeConfig | null = null
 let loadPromise: Promise<void> | null = null
 let openRequested = false
 let tawkReady = false
+let tawkFailed = false
 let hideTimer: ReturnType<typeof setTimeout> | undefined
+
+/** Tawk property/widget kimliği — bozuk/placeholder değerlerde 403 istek atma */
+function isPlausibleTawkId(propertyId: string, widgetId: string): boolean {
+  const p = propertyId.trim()
+  const w = widgetId.trim()
+  if (!p || !w) return false
+  // Property: 24 hex (Mongo ObjectId benzeri)
+  if (!/^[a-f0-9]{24}$/i.test(p)) return false
+  // Widget: "default" veya alfanumerik kısa id
+  if (w !== 'default' && !/^[a-z0-9_-]{4,32}$/i.test(w)) return false
+  return true
+}
 
 function envTawkConfig(): TawkRuntimeConfig {
   return {
@@ -54,12 +67,18 @@ export function setTawkRuntimeConfig(branding: Record<string, unknown> | null | 
   if (prev.propertyId !== next.propertyId || prev.widgetId !== next.widgetId) {
     loadPromise = null
     tawkReady = false
+    tawkFailed = false
     document.getElementById('tawk-embed-script')?.remove()
   }
 }
 
 export function isTawkConfigured(): boolean {
-  return activeTawkConfig().propertyId !== ''
+  const { propertyId, widgetId } = activeTawkConfig()
+  return isPlausibleTawkId(propertyId, widgetId)
+}
+
+export function isTawkLoadFailed(): boolean {
+  return tawkFailed
 }
 
 /**
@@ -180,7 +199,8 @@ export function hideTawkWidget(): void {
 export function ensureTawkScriptLoaded(): Promise<void> {
   if (typeof window === 'undefined') return Promise.resolve()
   const { propertyId, widgetId } = activeTawkConfig()
-  if (!propertyId) return Promise.resolve()
+  if (!isPlausibleTawkId(propertyId, widgetId)) return Promise.resolve()
+  if (tawkFailed) return Promise.resolve()
 
   if (document.getElementById('tawk-embed-script')) {
     if (tawkReady) syncTawkCurrentPage()
@@ -197,6 +217,7 @@ export function ensureTawkScriptLoaded(): Promise<void> {
     const prevOnLoad = window.Tawk_API.onLoad
     window.Tawk_API.onLoad = () => {
       tawkReady = true
+      tawkFailed = false
       // Socket hazır olmadan setAttributes sessizce düşebiliyor — kısa gecikme.
       window.setTimeout(() => syncTawkCurrentPage(), 400)
       window.setTimeout(() => syncTawkCurrentPage(), 2000)
@@ -224,12 +245,24 @@ export function ensureTawkScriptLoaded(): Promise<void> {
     const s = document.createElement('script')
     s.id = 'tawk-embed-script'
     s.async = true
+    s.defer = true
     s.src = `https://embed.tawk.to/${propertyId}/${widgetId}`
     s.charset = 'UTF-8'
     s.onload = () => resolve()
-    s.onerror = () => resolve()
+    s.onerror = () => {
+      // Cloudflare/yanlış id → 403; tekrar deneme PSI ve ağ gürültüsü üretir
+      tawkFailed = true
+      loadPromise = null
+      s.remove()
+      resolve()
+    }
     document.body.appendChild(s)
-    window.setTimeout(resolve, 2500)
+    window.setTimeout(() => {
+      if (!tawkReady && !tawkFailed) {
+        // onLoad gelmediyse (403 HTML gövdesi script sayılırsa) sessizce bırak
+        resolve()
+      }
+    }, 4000)
   })
 
   return loadPromise

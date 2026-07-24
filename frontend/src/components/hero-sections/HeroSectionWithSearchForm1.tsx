@@ -40,7 +40,8 @@ function MosaicSlot({
         fetchPriority="high"
         priority
         loading="eager"
-        decoding="async"
+        decoding="sync"
+        data-lcp="1"
         unoptimized={isExternal}
       />
     )
@@ -53,6 +54,7 @@ function MosaicSlot({
       sizes={sizes}
       className="object-cover"
       loading="lazy"
+      fetchPriority="low"
       unoptimized={isExternal}
     />
   )

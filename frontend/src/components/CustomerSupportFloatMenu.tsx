@@ -31,11 +31,10 @@ export default function CustomerSupportFloatMenu() {
       return
     }
     let cancelled = false
-    // Tawk script'ini sayfa açılışında GİZLİ yükle → Tawk panelinde ziyaretçi
-    // izleme (kaç kişi sitede / yeni / ayrılan) yeniden çalışır. Balon gizli
-    // kalır; ziyaretçi "Canlı Destek"e basınca açılır. LCP'yi bozmamak için
-    // ilk boya sonrasına ertelenir (~1.5s — sayfa verisi için 4s çok geçti).
+    // LCP / PSI: tawk embed (lab’de sık 403) ilk boyayı kirletmesin.
+    // İzleme için idle + uzun gecikme; kullanıcı “Canlı Destek”e basınca hemen yüklenir.
     let warmTimer: ReturnType<typeof setTimeout> | undefined
+    let idleId: number | undefined
     void fetchSitePublicConfig(undefined)
       .then((pub) => {
         if (cancelled) return
@@ -43,45 +42,38 @@ export default function CustomerSupportFloatMenu() {
         const ready = isTawkConfigured()
         setTawkReady(ready)
         setWhatsapp(mergeBrandingIntoEnvContact(getSitePublicConfig(), pub.branding).whatsappE164)
-        if (ready) {
-          warmTimer = setTimeout(() => {
-            // openRequested=false → onLoad balonu gizler; yalnız izleme aktif olur.
-            void ensureTawkScriptLoaded()
-          }, 1500)
+        if (!ready) return
+        const warm = () => {
+          if (cancelled) return
+          void ensureTawkScriptLoaded()
+        }
+        const scheduleWarm = () => {
+          warmTimer = setTimeout(warm, 8000)
+        }
+        if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
+          idleId = window.requestIdleCallback(scheduleWarm, { timeout: 12000 })
+        } else {
+          scheduleWarm()
         }
       })
       .catch(() => {})
     return () => {
       cancelled = true
       if (warmTimer) clearTimeout(warmTimer)
+      if (idleId != null && typeof window !== 'undefined' && 'cancelIdleCallback' in window) {
+        window.cancelIdleCallback(idleId)
+      }
     }
   }, [hideOnManage])
 
   // App Router soft navigate: Monitoring’de page-url / page-title güncelle.
+  // Script yoksa zorla yükleme — LCP’yi kirletmesin; yalnız zaten ısındıysa sync.
   useEffect(() => {
     if (hideOnManage || !tawkReady) return
-    let cancelled = false
-    let attempts = 0
-    const tick = () => {
-      if (cancelled) return
-      if (typeof window !== 'undefined' && window.Tawk_API?.setAttributes) {
-        syncTawkCurrentPage()
-        return
-      }
-      attempts += 1
-      if (attempts < 24) {
-        window.setTimeout(tick, 250)
-      }
-    }
-    void ensureTawkScriptLoaded().then(() => {
-      if (!cancelled) tick()
-    })
-    // document.title RSC sonrası geç gelebilir
-    const titleTimer = window.setTimeout(() => {
-      if (!cancelled) syncTawkCurrentPage()
-    }, 800)
+    if (typeof window === 'undefined' || !window.Tawk_API?.setAttributes) return
+    syncTawkCurrentPage()
+    const titleTimer = window.setTimeout(() => syncTawkCurrentPage(), 800)
     return () => {
-      cancelled = true
       window.clearTimeout(titleTimer)
     }
   }, [pathname, hideOnManage, tawkReady])

@@ -10,9 +10,10 @@
  * - `Link: rel=preload` yanıt başlığı: CSS indirmesi HTML gövdesi bitmeden başlar
  *   (kritik yol gecikmesi kısalır). Aynı origin için preconnect gerekmez.
  *
- * Varsayılan: KAPALI. `preload`+geç etkinleştirme LCP’yi (özellikle hero)
- * 6s+ geciktirebiliyor; render-blocking ~64KiB CSS LCP için daha güvenli.
- * Açmak için: TRAVEL_DEFER_CSS=1
+ * Varsayılan: KAPALI (TRAVEL_DEFER_CSS unset/0). Geç etkinleştirme LCP’yi
+ * bozabiliyordu; `defer-css.js` artık preload `load` olunca hemen stylesheet
+ * yapıyor + `critical-vitrin.css` hero iskeleti taşıyor.
+ * Açmak için: TRAVEL_DEFER_CSS=1 (travel-web EnvironmentFile).
  *
  * RSC / prefetch / statik asset isteklerine dokunulmaz.
  */
