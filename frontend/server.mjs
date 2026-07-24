@@ -10,8 +10,9 @@
  * - `Link: rel=preload` yanıt başlığı: CSS indirmesi HTML gövdesi bitmeden başlar
  *   (kritik yol gecikmesi kısalır). Aynı origin için preconnect gerekmez.
  *
- * Varsayılan üretim: travel-web TRAVEL_DEFER_CSS=1 + geniş critical-vitrin
- * (header/hero/LCP; katalog paneli gizli). FOUC görülürse TRAVEL_DEFER_CSS=0.
+ * Varsayılan: KAPALI. TRAVEL_DEFER_CSS=1 FOUC üretir (katalog/header stilleri
+ * critical-vitrin’de yok → önce çıplak HTML, sonra stil). LCP kazanımı
+ * UX’e değmez. Açmayın; render-blocking CSS tercih edilir.
  *
  * RSC / prefetch / statik asset isteklerine dokunulmaz.
  */
