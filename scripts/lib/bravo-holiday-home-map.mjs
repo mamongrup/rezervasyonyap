@@ -80,6 +80,29 @@ function pickText(obj, ...keys) {
   return ''
 }
 
+/** Bravo `tourism` JSON: {"certificate_number":"07-1740", ...} veya düz metin. */
+export function pickBravoTourismCertNo(space, meta = {}) {
+  const direct =
+    pickText(space, 'tourism_license', 'license', 'permit_number', 'tourism_cert') ||
+    String(meta?.tourism_cert_no || '').trim()
+  if (direct && !direct.startsWith('{')) return direct
+
+  const raw = space?.tourism != null ? String(space.tourism).trim() : ''
+  if (!raw) return direct || ''
+  if (raw.startsWith('{')) {
+    try {
+      const j = JSON.parse(raw)
+      const n =
+        pickText(j, 'certificate_number', 'certificateNumber', 'number', 'belge_no', 'license') ||
+        (j.certificate != null && typeof j.certificate === 'string' ? j.certificate.trim() : '')
+      if (n) return n
+    } catch {
+      /* düz metin gibi devam */
+    }
+  }
+  return raw || direct || ''
+}
+
 /** "4x8x1.5" / "4 x 8 x 1,5" → { length, width, depth } veya { description } */
 export function parseBravoPoolDimensions(text) {
   const s = String(text || '').trim()
@@ -332,10 +355,7 @@ export function mergeBravoListingMeta(space, existingMeta = {}, terms = []) {
         : meta.min_short_stay_nights || '',
     youtube_url:
       pickText(space, 'video', 'youtube', 'youtube_url') || meta.youtube_url || '',
-    tourism_cert_no:
-      pickText(space, 'tourism_license', 'license', 'permit_number', 'tourism_cert') ||
-      meta.tourism_cert_no ||
-      '',
+    tourism_cert_no: pickBravoTourismCertNo(space, meta),
   }
 
   if (terms?.length && !patch.property_type && meta.property_type) {

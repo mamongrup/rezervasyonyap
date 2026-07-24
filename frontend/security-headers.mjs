@@ -50,8 +50,8 @@ function cspModeEffective() {
   if (raw === 'off' || raw === '0' || raw === 'false') return 'off'
   if (raw === 'enforce') return 'enforce'
   if (raw === 'report-only') return 'report-only'
-  // Üretimde varsayılan: yalnızca raporlama; geliştirmede kapalı
-  return IS_PROD ? 'report-only' : 'off'
+  // Üretimde varsayılan: sıkılaştırma (enforce); geliştirmede kapalı
+  return IS_PROD ? 'enforce' : 'off'
 }
 
 /**

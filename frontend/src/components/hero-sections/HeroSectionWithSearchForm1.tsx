@@ -308,7 +308,7 @@ function HeroSectionWithSearchForm1({
             {imgEl}
           </Link>
         ) : (
-          <a href={imageLinkHref} className="block w-full" target="_blank" rel="noreferrer">
+          <a href={imageLinkHref} className="block w-full" target="_blank" rel="noopener noreferrer">
             {imgEl}
           </a>
         )

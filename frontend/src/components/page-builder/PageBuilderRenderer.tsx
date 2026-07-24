@@ -11,37 +11,15 @@ import { interpolate } from '@/utils/interpolate'
 import { resolveLocalizedDeep } from '@/lib/localized-text'
 
 import HeroModule from './modules/HeroModule'
-import PromoBannerModule from './modules/PromoBannerModule'
-import WhyUsModule from './modules/WhyUsModule'
-import TestimonialsModule from './modules/TestimonialsModule'
-import NewsletterModule from './modules/NewsletterModule'
-import StatsModule from './modules/StatsModule'
-import TextBlockModule from './modules/TextBlockModule'
-import FAQModule from './modules/FAQModule'
-import TopProvidersModule from './modules/TopProvidersModule'
-import BecomeProviderModule from './modules/BecomeProviderModule'
 import ListingsModule from './modules/ListingsModule'
 import type { ListingsModuleConfig } from './modules/ListingsModule'
+import type { CategorySliderModuleConfig } from './modules/CategorySliderModule'
 import {
   countListingsForFilterMode,
   hasAnyTabListings,
 } from '@/lib/listing-filter-utils'
-import VideoGalleryModule from './modules/VideoGalleryModule'
-import ImageTextModule from './modules/ImageTextModule'
-import DestinationCardsModule from './modules/DestinationCardsModule'
-import PartnersModule from './modules/PartnersModule'
-import CategorySliderModule, { type CategorySliderModuleConfig } from './modules/CategorySliderModule'
-import RegionSliderModule from './modules/RegionSliderModule'
-import SlidersBannerModule from './modules/SlidersBannerModule'
-import GeziOnerileriModule from './modules/GeziOnerileriModule'
-import FeaturedPlacesModule from './modules/FeaturedPlacesModule'
-import HowItWorksModule from './modules/HowItWorksModule'
-import CategoryGridModule from './modules/CategoryGridModule'
-import CategoryHubGridModule from './modules/CategoryHubGridModule'
-import SectionVideosModule from './modules/SectionVideosModule'
-import ClientSayModule from './modules/ClientSayModule'
-import SearchResultsModule from './modules/SearchResultsModule'
 import { renderMarketingModuleChunk } from './MarketingModulesDynamic'
+import { renderPageBuilderModuleChunk } from './PageBuilderModulesDynamic'
 import { getSharedTravelCategoryThumbnailsRaw } from '@/data/page-builder-config'
 import { mergeRawThumbnailMaps } from '@/lib/category-thumbnail-entry'
 
@@ -355,90 +333,38 @@ export default async function PageBuilderRenderer({
             )
           }
 
-          case 'promo_banner': {
-            const cfg = module.config
-            return (
-              <PromoBannerModule
-                key={module.id}
-                config={cfg}
-              />
-            )
-          }
+          case 'promo_banner':
+            return await renderPageBuilderModuleChunk('promo_banner', module.id, { config: module.config })
 
-          case 'sliders_banner': {
-            const cfg = module.config
-            return (
-              <SlidersBannerModule
-                key={module.id}
-                config={cfg}
-                fallbackPageKey={defaultSliderPageKey}
-                locale={locale}
-              />
-            )
-          }
+          case 'sliders_banner':
+            return await renderPageBuilderModuleChunk('sliders_banner', module.id, {
+              config: module.config,
+              fallbackPageKey: defaultSliderPageKey,
+              locale,
+            })
 
-          case 'why_us': {
-            const cfg = module.config
-            return (
-              <WhyUsModule
-                key={module.id}
-                config={cfg}
-              />
-            )
-          }
+          case 'why_us':
+            return await renderPageBuilderModuleChunk('why_us', module.id, { config: module.config })
 
-          case 'testimonials': {
-            const cfg = module.config
-            return (
-              <TestimonialsModule
-                key={module.id}
-                config={{
-                  ...cfg,
-                  categorySlug: category.slug,
-                }}
-              />
-            )
-          }
+          case 'testimonials':
+            return await renderPageBuilderModuleChunk('testimonials', module.id, {
+              config: {
+                ...module.config,
+                categorySlug: category.slug,
+              },
+            })
 
-          case 'newsletter': {
-            const cfg = module.config
-            return (
-              <NewsletterModule
-                key={module.id}
-                config={cfg}
-              />
-            )
-          }
+          case 'newsletter':
+            return await renderPageBuilderModuleChunk('newsletter', module.id, { config: module.config })
 
-          case 'stats': {
-            const cfg = module.config
-            return (
-              <StatsModule
-                key={module.id}
-                config={cfg}
-              />
-            )
-          }
+          case 'stats':
+            return await renderPageBuilderModuleChunk('stats', module.id, { config: module.config })
 
-          case 'text_block': {
-            const cfg = module.config
-            return (
-              <TextBlockModule
-                key={module.id}
-                config={cfg}
-              />
-            )
-          }
+          case 'text_block':
+            return await renderPageBuilderModuleChunk('text_block', module.id, { config: module.config })
 
-          case 'faq': {
-            const cfg = module.config
-            return (
-              <FAQModule
-                key={module.id}
-                config={cfg}
-              />
-            )
-          }
+          case 'faq':
+            return await renderPageBuilderModuleChunk('faq', module.id, { config: module.config })
 
           case 'featured_by_region': {
             const cfg = module.config
@@ -482,68 +408,30 @@ export default async function PageBuilderRenderer({
             )
           }
 
-          case 'top_providers': {
-            const cfg = module.config
-            return (
-              <TopProvidersModule
-                key={module.id}
-                config={cfg}
-                authors={authors}
-                categorySlug={category.slug}
-              />
-            )
-          }
+          case 'top_providers':
+            return await renderPageBuilderModuleChunk('top_providers', module.id, {
+              config: module.config,
+              authors,
+              categorySlug: category.slug,
+            })
 
-          case 'become_provider': {
-            const cfg = module.config
-            return (
-              <BecomeProviderModule
-                key={module.id}
-                config={cfg}
-              />
-            )
-          }
+          case 'become_provider':
+            return await renderPageBuilderModuleChunk('become_provider', module.id, { config: module.config })
 
-          case 'video_gallery': {
-            const cfg = module.config
-            return (
-              <VideoGalleryModule
-                key={module.id}
-                config={cfg}
-              />
-            )
-          }
+          case 'video_gallery':
+            return await renderPageBuilderModuleChunk('video_gallery', module.id, { config: module.config })
 
-          case 'image_text': {
-            const cfg = module.config
-            return (
-              <ImageTextModule
-                key={module.id}
-                config={cfg}
-              />
-            )
-          }
+          case 'image_text':
+            return await renderPageBuilderModuleChunk('image_text', module.id, { config: module.config })
 
-          case 'destination_cards': {
-            const cfg = module.config
-            return (
-              <DestinationCardsModule
-                key={module.id}
-                config={cfg}
-                locale={locale}
-              />
-            )
-          }
+          case 'destination_cards':
+            return await renderPageBuilderModuleChunk('destination_cards', module.id, {
+              config: module.config,
+              locale,
+            })
 
-          case 'partners': {
-            const cfg = module.config
-            return (
-              <PartnersModule
-                key={module.id}
-                config={cfg}
-              />
-            )
-          }
+          case 'partners':
+            return await renderPageBuilderModuleChunk('partners', module.id, { config: module.config })
 
           case 'travel_category_images':
             return null
@@ -554,114 +442,60 @@ export default async function PageBuilderRenderer({
               ...sliderCfg,
               categoryThumbnails: mergeRawThumbnailMaps(sharedCategoryThumbnails, sliderCfg.categoryThumbnails ?? {}),
             }
-            return (
-              <CategorySliderModule
-                key={module.id}
-                config={merged}
-              />
-            )
+            return await renderPageBuilderModuleChunk('category_slider', module.id, { config: merged })
           }
 
-          case 'region_slider': {
-            const cfg = module.config
-            return (
-              <RegionSliderModule
-                key={module.id}
-                config={cfg}
-                locale={locale}
-              />
-            )
-          }
+          case 'region_slider':
+            return await renderPageBuilderModuleChunk('region_slider', module.id, {
+              config: module.config,
+              locale,
+            })
 
-          case 'gezi_onerileri': {
-            const cfg = module.config
-            return (
-              <GeziOnerileriModule
-                key={module.id}
-                config={{ ...cfg, locale }}
-              />
-            )
-          }
+          case 'gezi_onerileri':
+            return await renderPageBuilderModuleChunk('gezi_onerileri', module.id, {
+              config: { ...module.config, locale },
+            })
 
-          case 'featured_places': {
-            const cfg = module.config
-            return (
-              <FeaturedPlacesModule
-                key={module.id}
-                config={cfg}
-                locale={locale}
-              />
-            )
-          }
+          case 'featured_places':
+            return await renderPageBuilderModuleChunk('featured_places', module.id, {
+              config: module.config,
+              locale,
+            })
 
-          case 'how_it_works': {
-            const cfg = module.config
-            return (
-              <HowItWorksModule
-                key={module.id}
-                config={cfg}
-              />
-            )
-          }
+          case 'how_it_works':
+            return await renderPageBuilderModuleChunk('how_it_works', module.id, { config: module.config })
 
           case 'category_grid': {
             const gridCfg = module.config
-            return (
-              <CategoryGridModule
-                key={module.id}
-                config={{
-                  ...gridCfg,
-                  categoryThumbnails: mergeRawThumbnailMaps(sharedCategoryThumbnails, gridCfg.categoryThumbnails ?? {}),
-                }}
-              />
-            )
+            return await renderPageBuilderModuleChunk('category_grid', module.id, {
+              config: {
+                ...gridCfg,
+                categoryThumbnails: mergeRawThumbnailMaps(sharedCategoryThumbnails, gridCfg.categoryThumbnails ?? {}),
+              },
+            })
           }
 
-          case 'category_hub_grid': {
-            const hubCfg = module.config
-            return (
-              <CategoryHubGridModule
-                key={module.id}
-                config={hubCfg}
-                locale={locale}
-                categorySlug={category.slug}
-              />
-            )
-          }
+          case 'category_hub_grid':
+            return await renderPageBuilderModuleChunk('category_hub_grid', module.id, {
+              config: module.config,
+              locale,
+              categorySlug: category.slug,
+            })
 
-          case 'section_videos': {
-            const cfg = module.config
-            return (
-              <SectionVideosModule
-                key={module.id}
-                config={cfg}
-              />
-            )
-          }
+          case 'section_videos':
+            return await renderPageBuilderModuleChunk('section_videos', module.id, { config: module.config })
 
-          case 'client_say': {
-            const cfg = module.config
-            return (
-              <ClientSayModule
-                key={module.id}
-                config={cfg}
-              />
-            )
-          }
+          case 'client_say':
+            return await renderPageBuilderModuleChunk('client_say', module.id, { config: module.config })
 
-          case 'search_results': {
-            const cfg = module.config
-            return (
-              <SearchResultsModule
-                key={module.id}
-                config={cfg}
-                query={searchContext?.query ?? ''}
-                categoryFilter={searchContext?.categoryFilter}
-                locale={locale}
-                page={searchContext?.page ?? 1}
-              />
-            )
-          }
+          case 'search_results':
+            return await renderPageBuilderModuleChunk('search_results', module.id, {
+              config: module.config,
+              query: searchContext?.query ?? '',
+              categoryFilter: searchContext?.categoryFilter,
+              locale,
+              page: searchContext?.page ?? 1,
+            })
 
           // ─── Marketing modülleri (dinamik chunk — admin içerikleri vitrinde) ─────────
           case 'active_campaigns':

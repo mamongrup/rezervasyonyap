@@ -80,7 +80,7 @@ const nextConfig = {
   compiler: {
     removeConsole:
       process.env.NODE_ENV === 'production'
-        ? { exclude: ['error', 'warn'] }
+        ? { exclude: ['error'] }
         : false,
   },
   /** gzip/brotli fallback — Apache/Nginx bunu zaten yapıyor ama SSR response buffer’ı için ek kat. */

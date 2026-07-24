@@ -125,27 +125,41 @@ export function buildRegionPlacesFromLocationPage(
   })
 
   if (ideaPlaces.length > 0) {
+    const classifyTravelGoogleType = (title: string, summary: string): string => {
+      const key = `${title} ${summary}`.toLocaleLowerCase('tr-TR')
+      if (/plaj|beach|koy|sahil|deniz/.test(key)) return 'beach'
+      if (/müze|museum|galeri/.test(key)) return 'museum'
+      if (/ören|antik|ruin|mezar|kale|amphitheatre|tiyatro/.test(key)) return 'historical_landmark'
+      if (/kanyon|vadi|doğa|park|ada|kule/.test(key)) return 'tourist_attraction'
+      return 'tourist_attraction'
+    }
+
     categories.push({
       id: 'travel_ideas_db',
       name: copy.nearbyVitrinColSightseeing,
       icon: '🗺️',
-      types: ideaPlaces.map(({ idea, idx, lat, lng, dist }) => ({
-        id: `travel_idea_${idea.id ?? idx}`,
-        name: asTrimmedString(idea.title) || `Öneri ${idx + 1}`,
-        googleType: 'tourist_attraction',
-        emoji: '📍',
-        places: [
-          {
-            placeId: travelIdeaPlaceId(idea, idx),
-            name: asTrimmedString(idea.title) || `Öneri ${idx + 1}`,
-            address: asTrimmedString(idea.summary).slice(0, 160),
-            distanceKm: dist,
-            lat,
-            lng,
-            types: ['tourist_attraction'],
-          },
-        ],
-      })),
+      types: ideaPlaces.map(({ idea, idx, lat, lng, dist }) => {
+        const title = asTrimmedString(idea.title) || `Öneri ${idx + 1}`
+        const summary = asTrimmedString(idea.summary)
+        const gType = classifyTravelGoogleType(title, summary)
+        return {
+          id: `travel_idea_${idea.id ?? idx}`,
+          name: title,
+          googleType: gType,
+          emoji: '📍',
+          places: [
+            {
+              placeId: travelIdeaPlaceId(idea, idx),
+              name: title,
+              address: summary.slice(0, 160),
+              distanceKm: dist,
+              lat,
+              lng,
+              types: [gType, 'tourist_attraction'],
+            },
+          ],
+        }
+      }),
     })
   }
 

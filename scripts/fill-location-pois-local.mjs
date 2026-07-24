@@ -20,6 +20,7 @@ const skipTravel = args.includes('--skip-travel')
 const skipService = args.includes('--skip-service')
 const skipListings = args.includes('--skip-listings')
 const limitPages = Number(args.find((a) => a.startsWith('--limit-pages='))?.split('=')[1] ?? 0)
+const slugPathFilter = String(args.find((a) => a.startsWith('--slug-path='))?.split('=')[1] ?? '').trim()
 const delayMs = Number(process.env.PLACES_DELAY_MS || 250)
 
 const TRAVEL_TYPES = [
@@ -161,8 +162,20 @@ async function resolveGoogleKey(pg) {
 }
 
 async function fetchLocationPages(pg) {
-  const limitSql = limitPages > 0 ? 'limit $1' : ''
-  const params = limitPages > 0 ? [limitPages] : []
+  const params = []
+  const where = [
+    `lp.region_type IN ('district', 'destination')`,
+    `coalesce(lp.map_lat::text, d.center_lat::text, listing_anchor.lat::text, '') <> ''`,
+    `coalesce(lp.map_lng::text, d.center_lng::text, listing_anchor.lng::text, '') <> ''`,
+  ]
+  if (slugPathFilter) {
+    params.push(slugPathFilter)
+    where.push(`lp.slug_path = $${params.length}`)
+  }
+  if (limitPages > 0) {
+    params.push(limitPages)
+  }
+  const limitSql = limitPages > 0 ? `LIMIT $${params.length}` : ''
   const { rows } = await pg.query(
     `SELECT
        lp.id::text,
@@ -202,25 +215,14 @@ async function fetchLocationPages(pg) {
      LEFT JOIN LATERAL (
        SELECT avg(l.map_lat::float8) AS lat, avg(l.map_lng::float8) AS lng
        FROM listings l
-       LEFT JOIN LATERAL (
-         SELECT la.value_json AS meta
-         FROM listing_attributes la
-         WHERE la.listing_id = l.id
-           AND la.group_code = 'listing_meta'
-           AND la.key = 'v1'
-         LIMIT 1
-       ) lm ON TRUE
        WHERE l.status = 'published'
          AND l.map_lat IS NOT NULL
          AND l.map_lng IS NOT NULL
          AND (
-           lower(concat_ws(' ', coalesce(l.location_name, ''), coalesce(lm.meta->>'address', ''), coalesce(lm.meta->>'city', ''), coalesce(lm.meta->>'district_label', ''), coalesce(lm.meta->>'province_city', ''), coalesce(lm.meta->>'region_display', ''))) LIKE '%' || lower(CASE WHEN lp.region_type = 'destination' THEN coalesce(nullif(lp.title, ''), lp.slug_path) ELSE d.name END) || '%'
-           OR lower(concat_ws(' ', coalesce(l.location_name, ''), coalesce(lm.meta->>'address', ''), coalesce(lm.meta->>'city', ''), coalesce(lm.meta->>'district_label', ''), coalesce(lm.meta->>'province_city', ''), coalesce(lm.meta->>'region_display', ''))) LIKE '%' || lower(coalesce(r.name, '')) || '%'
+           lower(coalesce(l.location_name, '')) LIKE '%' || lower(CASE WHEN lp.region_type = 'destination' THEN coalesce(nullif(lp.title, ''), lp.slug_path) ELSE coalesce(d.name, '') END) || '%'
          )
      ) listing_anchor ON TRUE
-     WHERE lp.region_type IN ('district', 'destination')
-       AND coalesce(lp.map_lat::text, d.center_lat::text, listing_anchor.lat::text, '') <> ''
-       AND coalesce(lp.map_lng::text, d.center_lng::text, listing_anchor.lng::text, '') <> ''
+     WHERE ${where.join('\n       AND ')}
      ORDER BY r.name, name, lp.slug_path
      ${limitSql}`,
     params,
