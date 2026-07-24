@@ -71,13 +71,12 @@ const nextConfig = {
   /** Düşük kaynaklı VPS / uzak API: SSG sayfa üretimi 60 sn’de kesilmesin (manage çok dillı rotalar). */
   staticPageGenerationTimeout: 300,
   /**
-   * FETCH Data Cache: memory-only (`cache-handler.cjs`) + 256MB LRU.
+   * FETCH Data Cache: memory-only (`cache-handler.cjs`) + 512MB LRU RAM.
    * Varsayılan FileSystemCache her revalidate'de `.next/cache/fetch-cache`
-   * yazar → DeHost disk I/O uyarısı. ISR sayfa cache'i diske yazılmaya devam.
-   * Geri al: TRAVEL_FETCH_CACHE_DISK=1
+   * yazar → DeHost / Sunucu yönetimi yüksek disk I/O uyarısı engellenir.
    */
   cacheHandler: path.join(__dirname, 'cache-handler.cjs'),
-  cacheMaxMemorySize: 256 * 1024 * 1024,
+  cacheMaxMemorySize: 512 * 1024 * 1024,
   reactStrictMode: false,
   poweredByHeader: false,
   compiler: {
@@ -177,13 +176,8 @@ const nextConfig = {
     ]
   },
   experimental: {
-    /**
-     * CSS stratejisi (App Router / Next 16):
-     * - optimizeCss / inlineCss: streaming veya HTML şişmesi → kapalı.
-     * - CSS defer (TRAVEL_DEFER_CSS=1): render-blocking'i kaldırır ama LCP'yi
-     *   bozabiliyor (lab'de ~6s+). Varsayılan KAPALI; harici CSS blocking kalır.
-     * - Vitrin CSS'i manage kaynaklarını taramaz (manage.css ayrı).
-     */
+    /** Sunucuda .next/cache içine sürekli disk yazmasını engeller (Disk I/O tasarrufu). */
+    isrFlushToDisk: false,
     /** Tek CPU ile derle — bozuk diskte worker fırtınasını keser. */
     ...(lowIoBuild ? { cpus: 1 } : {}),
     optimizePackageImports: [
