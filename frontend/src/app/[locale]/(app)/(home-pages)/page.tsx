@@ -49,13 +49,19 @@ export async function generateMetadata({
   const siteName = brandingSiteName(pub)
   const description = rawSiteDescription(pub) ?? m.homePage.meta.description ?? metaSiteDescription(pub)
   const title = m.homePage.meta.title?.trim() || siteName
+  const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL || 'https://rezervasyonyap.tr').replace(/\/$/, '')
   return {
+    metadataBase: new URL(siteUrl),
     title,
     description,
+    alternates: {
+      canonical: '/',
+    },
     openGraph: {
       title: `${title} | ${siteName}`,
       description,
       type: 'website',
+      url: '/',
     },
     twitter: {
       title: `${title} | ${siteName}`,

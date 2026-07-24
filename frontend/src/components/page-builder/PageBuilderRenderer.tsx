@@ -20,6 +20,8 @@ import {
 } from '@/lib/listing-filter-utils'
 import { renderMarketingModuleChunk } from './MarketingModulesDynamic'
 import { renderPageBuilderModuleChunk } from './PageBuilderModulesDynamic'
+import DeferredRegionSliderModule from './modules/DeferredRegionSliderModule'
+import DeferredFeaturedPlacesModule from './modules/DeferredFeaturedPlacesModule'
 import { getSharedTravelCategoryThumbnailsRaw } from '@/data/page-builder-config'
 import { mergeRawThumbnailMaps } from '@/lib/category-thumbnail-entry'
 
@@ -448,22 +450,42 @@ export default async function PageBuilderRenderer({
             return await renderPageBuilderModuleChunk('category_slider', module.id, { config: merged })
           }
 
-          case 'region_slider':
+          case 'region_slider': {
+            if (deferFeaturedPlaces) {
+              return (
+                <DeferredRegionSliderModule
+                  key={module.id}
+                  config={module.config}
+                  locale={locale}
+                />
+              )
+            }
             return await renderPageBuilderModuleChunk('region_slider', module.id, {
               config: module.config,
               locale,
             })
+          }
 
           case 'gezi_onerileri':
             return await renderPageBuilderModuleChunk('gezi_onerileri', module.id, {
               config: { ...module.config, locale },
             })
 
-          case 'featured_places':
+          case 'featured_places': {
+            if (deferFeaturedPlaces) {
+              return (
+                <DeferredFeaturedPlacesModule
+                  key={module.id}
+                  config={module.config}
+                  locale={locale}
+                />
+              )
+            }
             return await renderPageBuilderModuleChunk('featured_places', module.id, {
               config: module.config,
               locale,
             })
+          }
 
           case 'how_it_works':
             return await renderPageBuilderModuleChunk('how_it_works', module.id, { config: module.config })
