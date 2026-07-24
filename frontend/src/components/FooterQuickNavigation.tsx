@@ -16,8 +16,13 @@ import { fetchSitePreviewLinks } from '@/lib/site-preview-links-client'
 import FooterCustomerSupportSheet, {
   FooterCustomerSupportButton,
 } from '@/components/FooterCustomerSupportSheet'
-import { SearchModal } from '@/components/search/GlobalSearch'
 import { useAside } from './aside'
+import dynamic from 'next/dynamic'
+
+const SearchModal = dynamic(
+  () => import('@/components/search/GlobalSearch').then((m) => m.SearchModal),
+  { ssr: false },
+)
 
 function FooterBarIcon({
   lucide,

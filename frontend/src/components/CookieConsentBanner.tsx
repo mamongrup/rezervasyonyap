@@ -36,7 +36,15 @@ export default function CookieConsentBanner({ locale, bannerEnabled = true }: Pr
       setVisible(false)
       return
     }
-    setVisible(!readCookieConsentFromStorage())
+    // LCP sonrası — ilk boyada çubuk yarışmasın (PSI filmstrip)
+    let cancelled = false
+    const id = window.setTimeout(() => {
+      if (!cancelled) setVisible(!readCookieConsentFromStorage())
+    }, 3000)
+    return () => {
+      cancelled = true
+      window.clearTimeout(id)
+    }
   }, [bannerEnabled, hideOnRoute, pathname])
 
   const accept = useCallback((mode: 'all' | 'essential') => {

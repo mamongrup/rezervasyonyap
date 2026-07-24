@@ -1,10 +1,12 @@
 /**
- * Above-the-fold vitrin — harici Tailwind ertelenirken FOUC’u önler.
- * sunucu (server.mjs) HTML’e satır içi enjekte eder. Küçük tut; yalnız LCP iskeleti.
+ * Above-the-fold — TRAVEL_DEFER_CSS=1 iken FOUC’suz LCP.
+ * Tailwind gelene kadar header + hero + LCP img boyanabilsin.
+ * Katalog paneli kapalı kalsın (açık liste FOUC’u).
  */
 html.light,
 html {
   font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  -webkit-text-size-adjust: 100%;
 }
 body {
   margin: 0;
@@ -18,11 +20,32 @@ html.dark body {
   background: #171717;
   color: #f5f5f5;
 }
-/* Üst çubuk iskeleti — ertelenmiş Tailwind gelene kadar yükseklik sabiti */
+a {
+  color: inherit;
+  text-decoration: none;
+}
+img {
+  max-width: 100%;
+  height: auto;
+}
+.container {
+  width: 100%;
+  max-width: 80rem;
+  margin-left: auto;
+  margin-right: auto;
+  padding-left: 1rem;
+  padding-right: 1rem;
+  box-sizing: border-box;
+}
 header {
   min-height: 3.5rem;
+  position: relative;
+  z-index: 50;
+  background: #fff;
 }
-/* Logo / marka satırı — LCP öncesi okunabilir */
+.dark header {
+  background: #171717;
+}
 [data-brand-logo],
 .logo-brand {
   display: inline-flex;
@@ -31,38 +54,166 @@ header {
   text-decoration: none;
   color: inherit;
 }
-/* Container — hero genişliği */
-.container {
-  width: 100%;
-  max-width: 80rem;
-  margin-left: auto;
-  margin-right: auto;
-  padding-left: 1rem;
-  padding-right: 1rem;
+/* Katalog mega menü — defer sırasında açık liste FOUC’unu engelle */
+#catalog-header-menu {
+  display: none !important;
 }
-/* Hero LCP görseli — kutu + object-fit; decode sync ile boya gecikmesi azalır */
-img[fetchpriority='high'],
-img[data-lcp='1'] {
-  display: block;
-  max-width: 100%;
-  height: auto;
-  object-fit: cover;
+/* Mobil üst bar iskeleti */
+.fixed.inset-x-0.top-0 {
+  position: fixed;
+  left: 0;
+  right: 0;
+  top: 0;
+  z-index: 60;
+  background: #fff;
 }
-/* Freeform / mozaik kabuk — CLS’i sınırla */
-.relative.mb-2.w-full.min-h-0.overflow-hidden.rounded-xl,
-.relative.h-full.w-full.overflow-hidden.rounded-xl {
-  position: relative;
-  overflow: hidden;
-  border-radius: 0.75rem;
-}
-/* Anasayfa hero grid kabuğu (minimal) — mobilde tek kolon */
 main.relative {
   position: relative;
   isolation: isolate;
   min-width: 0;
   overflow-x: hidden;
 }
-/* Freeform hero — aspect + min yükseklik CLS */
-[data-lcp='1'] {
-  content-visibility: visible;
+/* LCP img — Next fill + sync decode */
+img[fetchpriority='high'],
+img[data-lcp='1'],
+img[data-nimg='fill'] {
+  display: block;
+  object-fit: cover;
+}
+img[data-nimg='fill'] {
+  position: absolute;
+  inset: 0;
+  height: 100%;
+  width: 100%;
+  max-width: none;
+  color: transparent;
+}
+/* Freeform hero kabuk */
+.relative.mb-2.w-full.min-h-0.overflow-hidden.rounded-xl,
+.relative.h-full.w-full.overflow-hidden.rounded-xl {
+  position: relative;
+  overflow: hidden;
+  border-radius: 0.75rem;
+}
+.absolute {
+  position: absolute;
+}
+.relative {
+  position: relative;
+}
+.inset-0 {
+  inset: 0;
+}
+.overflow-hidden {
+  overflow: hidden;
+}
+.object-cover {
+  object-fit: cover;
+}
+.w-full {
+  width: 100%;
+}
+.min-w-0 {
+  min-width: 0;
+}
+.flex {
+  display: flex;
+}
+.flex-col {
+  flex-direction: column;
+}
+.items-center {
+  align-items: center;
+}
+.items-start {
+  align-items: flex-start;
+}
+.justify-center {
+  justify-content: center;
+}
+.justify-between {
+  justify-content: space-between;
+}
+.gap-3 {
+  gap: 0.75rem;
+}
+.gap-5 {
+  gap: 1.25rem;
+}
+.rounded-xl {
+  border-radius: 0.75rem;
+}
+.rounded-full {
+  border-radius: 9999px;
+}
+.font-medium {
+  font-weight: 500;
+}
+.font-semibold {
+  font-weight: 600;
+}
+.text-2xl\/\[1\.2\] {
+  font-size: 1.5rem;
+  line-height: 1.2;
+}
+.text-base {
+  font-size: 1rem;
+  line-height: 1.5;
+}
+.text-neutral-600 {
+  color: #525252;
+}
+.text-white {
+  color: #fff;
+}
+.bg-primary-600,
+.bg-\[\#6b5cff\] {
+  background-color: #6b5cff;
+}
+/* CTA iskeleti */
+button,
+a.inline-flex {
+  box-sizing: border-box;
+}
+/* Hero arama — mobilde gizli (lg+); defer sırasında yer kaplamasın */
+.hidden {
+  display: none;
+}
+@media (min-width: 1024px) {
+  .lg\:block {
+    display: block;
+  }
+  .lg\:grid {
+    display: grid;
+  }
+  .lg\:grid-cols-2 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .lg\:gap-x-8 {
+    column-gap: 2rem;
+  }
+  .lg\:items-start {
+    align-items: flex-start;
+  }
+  .sm\:text-4xl\/\[1\.15\] {
+    font-size: 2.25rem;
+    line-height: 1.15;
+  }
+  .sm\:text-xl {
+    font-size: 1.25rem;
+    line-height: 1.75rem;
+  }
+}
+@media (min-width: 640px) {
+  .sm\:text-4xl\/\[1\.15\] {
+    font-size: 2.25rem;
+    line-height: 1.15;
+  }
+  .sm\:text-xl {
+    font-size: 1.25rem;
+    line-height: 1.75rem;
+  }
+  .sm\:w-auto {
+    width: auto;
+  }
 }

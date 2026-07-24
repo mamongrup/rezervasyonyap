@@ -15,23 +15,40 @@ const CustomerSupportFloatMenu = dynamic(() => import('@/components/CustomerSupp
 
 /**
  * Footer üstü — WhatsApp, concierge, site popup.
- * İlk boya ve LCP sonrasına bırakılır; popup/chat kodu ana hydrate yolunu şişirmemeli.
+ * Hepsi LCP sonrasına (idle / ~3.5s); mobil PSI main-thread + unused JS.
  */
 type Props = { locale: string }
 
 export function DeferredLayoutWidgets({ locale }: Props) {
-  const [renderPopups, setRenderPopups] = useState(false)
+  const [ready, setReady] = useState(false)
 
   useEffect(() => {
-    const id = window.setTimeout(() => setRenderPopups(true), 5500)
-    return () => window.clearTimeout(id)
+    let idleId: number | undefined
+    let timer: ReturnType<typeof setTimeout> | undefined
+    const go = () => setReady(true)
+    const schedule = () => {
+      timer = setTimeout(go, 3500)
+    }
+    if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
+      idleId = window.requestIdleCallback(schedule, { timeout: 5000 })
+    } else {
+      schedule()
+    }
+    return () => {
+      if (timer) clearTimeout(timer)
+      if (idleId != null && 'cancelIdleCallback' in window) {
+        window.cancelIdleCallback(idleId)
+      }
+    }
   }, [])
+
+  if (!ready) return null
 
   return (
     <>
       <CustomerSupportFloatMenu />
       <ConciergeChatWidget hideLauncher />
-      {renderPopups ? <SitePopupsRenderer locale={locale} /> : null}
+      <SitePopupsRenderer locale={locale} />
     </>
   )
 }
