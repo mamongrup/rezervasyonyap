@@ -1,7 +1,16 @@
 {
   "categorySlug": "oteller",
   "tabs": {
-    "recommended": [],
+    "recommended": [
+      "7a032a65-9ce0-4417-94aa-e5498cb98806",
+      "2d81d8ec-86ba-44d9-919b-ab263b211257",
+      "c874017c-1380-4f69-bdcc-5b99c3a2a610",
+      "caf232be-4a41-4cca-9af0-d8bc92dda1d8",
+      "08dff508-5cf7-4f33-9eaa-339625afb9dd",
+      "c99c9801-a215-4504-8e13-961bdefa1975",
+      "61f8cdf8-1b19-4dc5-8b97-5f779b2da368",
+      "4c0742e5-2d47-412d-8b8c-1b42e9d12cf8"
+    ],
     "luxury": [],
     "economic": [],
     "new": [],
@@ -9,5 +18,5 @@
     "lastMinute": []
   },
   "displayCount": 8,
-  "updatedAt": "2026-06-19T09:00:00.000Z"
+  "updatedAt": "2026-07-24T15:07:39.639Z"
 }

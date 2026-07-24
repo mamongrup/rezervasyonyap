@@ -1,13 +1,18 @@
 {
   "categorySlug": "turlar",
   "tabs": {
-    "recommended": [],
+    "recommended": [
+      "380e91f6-5eb7-496c-b416-89a3c3b127f8",
+      "3c0cf3ce-5e1b-40ed-9c91-b6150b204bcd",
+      "2a004a56-ca82-4f24-862a-11f5aaba26ca",
+      "5aa34135-e0e6-42fe-a6b0-eb30efa176d3"
+    ],
     "luxury": [],
     "economic": [],
     "new": [],
     "discounted": [],
     "lastMinute": []
   },
-  "displayCount": 8,
-  "updatedAt": "2026-06-19T09:00:00.000Z"
+  "displayCount": 4,
+  "updatedAt": "2026-07-24T14:49:29.248Z"
 }

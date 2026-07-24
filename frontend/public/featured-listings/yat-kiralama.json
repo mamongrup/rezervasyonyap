@@ -1,13 +1,18 @@
 {
   "categorySlug": "yat-kiralama",
   "tabs": {
-    "recommended": [],
+    "recommended": [
+      "3d7b33ed-9344-419b-a281-7fe88d1d2133",
+      "9b9e350a-4b78-498e-aa24-7f853ed5933a",
+      "603ad192-bcd7-4e62-9854-dbfe1d6c85ca",
+      "98e29e9b-7ebb-41bd-b7a9-3e88c12859aa"
+    ],
     "luxury": [],
     "economic": [],
     "new": [],
     "discounted": [],
     "lastMinute": []
   },
-  "displayCount": 8,
-  "updatedAt": "2026-06-19T09:00:00.000Z"
+  "displayCount": 4,
+  "updatedAt": "2026-07-24T14:47:33.703Z"
 }

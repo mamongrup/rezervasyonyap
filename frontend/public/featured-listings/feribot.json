@@ -1,13 +1,18 @@
 {
   "categorySlug": "feribot",
   "tabs": {
-    "recommended": [],
+    "recommended": [
+      "43f4e2be-a434-48c9-b93a-db66032bef69",
+      "da1d1f8c-780a-411e-a0a8-a11a97fe8a67",
+      "9cc8ade1-5f0f-47ed-9b15-35c1ea946c76",
+      "bbba6822-455b-4286-bed0-231e1f595f2d"
+    ],
     "luxury": [],
     "economic": [],
     "new": [],
     "discounted": [],
     "lastMinute": []
   },
-  "displayCount": 8,
-  "updatedAt": "2026-07-23T16:00:00.000Z"
+  "displayCount": 4,
+  "updatedAt": "2026-07-24T14:51:11.312Z"
 }

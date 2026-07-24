@@ -1,13 +1,18 @@
 {
   "categorySlug": "aktiviteler",
   "tabs": {
-    "recommended": [],
+    "recommended": [
+      "58d33418-7fc2-4f31-9e46-d78dd08c8d24",
+      "21b0bbea-6bd1-4b81-a0a7-8d8b7df14581",
+      "df1285f5-9e13-4fb1-8ae7-27f38eee47ee",
+      "f887b043-284b-4df9-88eb-fbfb53b23756"
+    ],
     "luxury": [],
     "economic": [],
     "new": [],
     "discounted": [],
     "lastMinute": []
   },
-  "displayCount": 8,
-  "updatedAt": "2026-06-19T09:00:00.000Z"
+  "displayCount": 4,
+  "updatedAt": "2026-07-24T14:50:18.881Z"
 }
