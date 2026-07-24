@@ -1,14 +1,14 @@
 # travel-ai-worker.service ile birlikte kullanın (bkz. travel-ai-worker.service başlığı).
-# Önceki: 3 dk → sürekli poll ekstra I/O; 10 dk yeterli.
+# Sürekli içerik üretimi: 3 dk. I/O baskısı olursa OnUnitActiveSec=5min deneyin.
 
 [Unit]
 Description=Travel AI worker zamanlayıcısı
 
 [Timer]
-OnBootSec=3min
-OnUnitActiveSec=10min
-AccuracySec=1min
-RandomizedDelaySec=45s
+OnBootSec=2min
+OnUnitActiveSec=3min
+AccuracySec=30s
+RandomizedDelaySec=20s
 Unit=travel-ai-worker.service
 
 [Install]
