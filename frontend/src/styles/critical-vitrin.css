@@ -1,10 +1,12 @@
 /**
  * Above-the-fold vitrin — harici Tailwind ertelenirken FOUC’u önler.
- * sunucu (server.mjs) HTML’e satır içi enjekte eder. Küçük tut; yalnız LCP iskeleti.
+ * server.mjs HTML’e satır içi enjekte eder (TRAVEL_DEFER_CSS=1).
+ * Hero + header + arama iskeleti: LCP boyanana kadar düzen bozulmasın.
  */
 html.light,
 html {
   font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  -webkit-text-size-adjust: 100%;
 }
 body {
   margin: 0;
@@ -18,11 +20,11 @@ html.dark body {
   background: #171717;
   color: #f5f5f5;
 }
-/* Üst çubuk iskeleti — ertelenmiş Tailwind gelene kadar yükseklik sabiti */
-header {
+/* Üst çubuk */
+header,
+.sticky.top-0 {
   min-height: 3.5rem;
 }
-/* Logo / marka satırı — LCP öncesi okunabilir */
 [data-brand-logo],
 .logo-brand {
   display: inline-flex;
@@ -31,7 +33,6 @@ header {
   text-decoration: none;
   color: inherit;
 }
-/* Container — hero genişliği */
 .container {
   width: 100%;
   max-width: 80rem;
@@ -39,30 +40,97 @@ header {
   margin-right: auto;
   padding-left: 1rem;
   padding-right: 1rem;
+  box-sizing: border-box;
 }
-/* Hero LCP görseli — kutu + object-fit; decode sync ile boya gecikmesi azalır */
-img[fetchpriority='high'],
-img[data-lcp='1'] {
-  display: block;
-  max-width: 100%;
-  height: auto;
-  object-fit: cover;
-}
-/* Freeform / mozaik kabuk — CLS’i sınırla */
-.relative.mb-2.w-full.min-h-0.overflow-hidden.rounded-xl,
-.relative.h-full.w-full.overflow-hidden.rounded-xl {
-  position: relative;
-  overflow: hidden;
-  border-radius: 0.75rem;
-}
-/* Anasayfa hero grid kabuğu (minimal) — mobilde tek kolon */
 main.relative {
   position: relative;
   isolation: isolate;
   min-width: 0;
   overflow-x: hidden;
 }
-/* Freeform hero — aspect + min yükseklik CLS */
-[data-lcp='1'] {
+/* Hero başlık / alt metin — Tailwind gelmeden okunabilir */
+main h1,
+main .text-4xl,
+main .text-5xl {
+  font-weight: 700;
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+  color: #171717;
+}
+html.dark main h1 {
+  color: #f5f5f5;
+}
+main p {
+  line-height: 1.5;
+  color: #525252;
+}
+/* LCP görseli */
+img[fetchpriority='high'],
+img[data-lcp='1'] {
+  display: block;
+  max-width: 100%;
+  object-fit: cover;
   content-visibility: visible;
+}
+/* Freeform / mozaik kabuk — CLS */
+.relative.mb-2.w-full.min-h-0.overflow-hidden.rounded-xl,
+.relative.h-full.w-full.overflow-hidden.rounded-xl {
+  position: relative;
+  overflow: hidden;
+  border-radius: 0.75rem;
+  min-height: 12rem;
+  background: #e5e5e5;
+}
+/* Hero grid kabuğu (minimal anasayfa) */
+.grid {
+  display: grid;
+}
+.flex {
+  display: flex;
+}
+.relative {
+  position: relative;
+}
+.absolute {
+  position: absolute;
+}
+.inset-0 {
+  inset: 0;
+}
+.w-full {
+  width: 100%;
+}
+.min-h-0 {
+  min-height: 0;
+}
+.overflow-hidden {
+  overflow: hidden;
+}
+.rounded-xl {
+  border-radius: 0.75rem;
+}
+.object-cover {
+  object-fit: cover;
+}
+/* CTA iskeleti */
+a[class*='ButtonPrimary'],
+button[class*='ButtonPrimary'] {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2.75rem;
+  padding: 0.65rem 1.25rem;
+  border-radius: 9999px;
+  background: #171717;
+  color: #fff;
+  text-decoration: none;
+  font-weight: 600;
+}
+/* Arama formu kabuğu — yükseklik sabiti (CLS) */
+[data-hero-search],
+.hero-search-shell {
+  min-height: 3.5rem;
+  border-radius: 1rem;
+  background: #fff;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.08);
 }

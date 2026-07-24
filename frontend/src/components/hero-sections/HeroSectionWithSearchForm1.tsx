@@ -4,6 +4,7 @@ import clsx from 'clsx'
 import Image from 'next/image'
 import Link from 'next/link'
 import type { ReactNode } from 'react'
+import DeferredHeroLayerImage from './DeferredHeroLayerImage'
 import FreeformBannerView from './FreeformBannerView'
 
 type HeroImageDims = { src: string; width: number; height: number }
@@ -47,15 +48,11 @@ function MosaicSlot({
     )
   }
   return (
-    <Image
+    <DeferredHeroLayerImage
       src={t}
       alt={alt}
-      fill
       sizes={sizes}
       className="object-cover"
-      loading="lazy"
-      fetchPriority="low"
-      unoptimized={isExternal}
     />
   )
 }

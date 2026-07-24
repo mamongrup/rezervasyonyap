@@ -5,6 +5,7 @@ import BtnLikeIcon from '@/components/BtnLikeIcon'
 import SaleOffBadge from '@/components/SaleOffBadge'
 import StartRating from '@/components/StartRating'
 import type { TListingBase } from '@/types/listing-types'
+import { preferListingCardImageUrl } from '@/lib/prefer-listing-card-image'
 import { Badge } from '@/shared/Badge'
 import { Location06Icon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
@@ -48,7 +49,8 @@ const StayCard: FC<StayCardProps> = ({ size = 'default', className = '', data })
       ? galleryImgs[0]
       : (galleryImgs?.[0] as { src: string } | undefined)?.src) || featuredImage
   const [brokenImage, setBrokenImage] = useState(false)
-  const trimmed = typeof imgSrcRaw === 'string' ? imgSrcRaw.trim() : ''
+  const trimmedRaw = typeof imgSrcRaw === 'string' ? imgSrcRaw.trim() : ''
+  const trimmed = preferListingCardImageUrl(trimmedRaw)
   const showRemoteImage = Boolean(trimmed) && !brokenImage
 
   const renderSliderGallery = () => {

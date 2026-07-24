@@ -6,6 +6,7 @@ import SaleOffBadge from '@/components/SaleOffBadge'
 import StartRating from '@/components/StartRating'
 import { displayListingCategoryLine } from '@/lib/listing-category-display'
 import { holidayHomeCapacitySummary } from '@/lib/holiday-home-capacity-summary'
+import { preferListingCardImageUrl } from '@/lib/prefer-listing-card-image'
 import type { TListingBase, TListingHolidayHome } from '@/types/listing-types'
 import { Badge } from '@/shared/Badge'
 import { getMessages } from '@/utils/getT'
@@ -63,7 +64,8 @@ const StayCard2: FC<StayCard2Props> = ({ size = 'default', className = '', data 
       ? galleryImgs[0]
       : (galleryImgs?.[0] as { src: string } | undefined)?.src) || featuredImage
   const [brokenImage, setBrokenImage] = useState(false)
-  const trimmed = typeof imgSrcRaw === 'string' ? imgSrcRaw.trim() : ''
+  const trimmedRaw = typeof imgSrcRaw === 'string' ? imgSrcRaw.trim() : ''
+  const trimmed = preferListingCardImageUrl(trimmedRaw)
   const showRemoteImage = Boolean(trimmed) && !brokenImage
 
   const renderSliderGallery = () => {

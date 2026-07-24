@@ -1,6 +1,7 @@
 import type { FreeformBannerDocV2 } from '@/lib/freeform-banner-spec'
 import clsx from 'clsx'
 import Image from 'next/image'
+import DeferredHeroLayerImage from './DeferredHeroLayerImage'
 
 function slotUnopt(u: string) {
   return u.startsWith('http') || u.startsWith('/uploads/')
@@ -129,18 +130,12 @@ export default function FreeformBannerView({
                     unoptimized={slotUnopt(src)}
                   />
                 ) : (
-                  <Image
+                  <DeferredHeroLayerImage
                     src={src}
                     alt={`${alt} — ${i + 1}`}
-                    fill
                     sizes={slotSizes}
+                    objectPosition={`${layer.focusX}% ${layer.focusY}%`}
                     className="object-cover"
-                    style={{
-                      objectPosition: `${layer.focusX}% ${layer.focusY}%`,
-                    }}
-                    loading="lazy"
-                    fetchPriority="low"
-                    unoptimized={slotUnopt(src)}
                   />
                 )
               ) : (
