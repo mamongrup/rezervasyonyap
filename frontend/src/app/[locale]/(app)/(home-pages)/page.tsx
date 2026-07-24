@@ -191,7 +191,7 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
   )
 
   return (
-    <main className="relative isolate min-w-0 overflow-x-hidden">
+    <main className="relative isolate min-w-0">
       <BgGlassmorphism />
 
       <div

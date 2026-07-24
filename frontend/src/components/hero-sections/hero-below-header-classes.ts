@@ -6,10 +6,11 @@ export const heroContainerBelowHeaderClassName = 'pt-3 sm:pt-4 lg:pt-5'
 
 /**
  * Mozaik / freeform hero sarmalayıcısı.
- * Mobilde kolaj taşmasını kırpar; `z-0` ile alt gövde (`heroBelowContentClassName`) üstte kalır.
+ * Mobilde kolaj taşmasını kırpar; lg+ overflow görünür (bleed + arama arkası fon).
+ * `overflow-x-clip` tek başına overflow-y’yi de auto yapıp altı keser — kullanma.
  */
 export const heroMosaicShellClassName =
-  'relative z-0 min-w-0 max-lg:overflow-hidden overflow-x-clip'
+  'relative z-0 min-w-0 max-lg:overflow-hidden lg:overflow-visible'
 
 /**
  * Hero mozaiği taşması — altındaki gövde blokları (alt kategori, arama sonuçları, page builder)
