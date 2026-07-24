@@ -17,6 +17,7 @@ chmod +x \
   deploy/scripts/vacuum-heavy-tables.sh \
   deploy/scripts/warm-cache.sh \
   deploy/scripts/refresh-vitrin-prices.sh \
+  deploy/scripts/prune-next-cache.sh \
   deploy/scripts/apply-io-hardening.sh \
   2>/dev/null || true
 
@@ -26,6 +27,7 @@ cp -f deploy/systemd/travel-vitrin-price-refresh.{service,timer} /etc/systemd/sy
 cp -f deploy/systemd/travel-purge-old-logs.{service,timer} /etc/systemd/system/
 cp -f deploy/systemd/travel-purge-past-calendars.{service,timer} /etc/systemd/system/
 cp -f deploy/systemd/travel-vacuum-heavy.{service,timer} /etc/systemd/system/
+cp -f deploy/systemd/travel-prune-next-cache.{service,timer} /etc/systemd/system/
 if [[ -f deploy/systemd/travel-ai-worker.timer ]]; then
   cp -f deploy/systemd/travel-ai-worker.{service,timer} /etc/systemd/system/
 fi
@@ -42,6 +44,7 @@ systemctl enable --now travel-vitrin-price-refresh.timer
 systemctl enable --now travel-purge-old-logs.timer
 systemctl enable --now travel-purge-past-calendars.timer
 systemctl enable --now travel-vacuum-heavy.timer
+systemctl enable --now travel-prune-next-cache.timer
 if [[ -f /etc/systemd/system/travel-ai-worker.timer ]]; then
   systemctl enable --now travel-ai-worker.timer
   systemctl restart travel-ai-worker.timer || true
@@ -51,9 +54,11 @@ if [[ -f /etc/systemd/system/travel-social-worker.timer ]]; then
   systemctl restart travel-social-worker.timer || true
 fi
 systemctl restart travel-warm-cache.timer || true
+systemctl restart travel-prune-next-cache.timer || true
 
 log "anlık log/yedek temizlik"
 ./deploy/scripts/purge-old-logs.sh || log "WARN purge-old-logs hata (devam)"
+./deploy/scripts/prune-next-cache.sh || log "WARN prune-next-cache hata (devam)"
 
 log "aktif timer'lar"
 systemctl list-timers 'travel-*' --all --no-pager | head -40 || true
@@ -79,5 +84,5 @@ else
   log "plesk CLI yok — Backup Manager'ı panelden güncelleyin"
 fi
 
-log "tamam — warm-cache=45dk, vitrin=günde2, purge günlük/aylık, vacuum=Pazar"
+log "tamam — warm-cache=45dk, prune-next-cache=30dk, vitrin=günde2, purge günlük/aylık, vacuum=Pazar"
 log "İsteğe bağlı şimdi VACUUM (uzun sürebilir): ./deploy/scripts/vacuum-heavy-tables.sh"

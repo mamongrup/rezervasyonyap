@@ -418,6 +418,21 @@ main() {
     warn "PostgreSQL bağlantı guard systemd dosyaları bulunamadı."
   fi
 
+  if [[ "${SKIP_PRUNE_NEXT_CACHE_TIMER:-0}" == "1" ]]; then
+    warn "SKIP_PRUNE_NEXT_CACHE_TIMER=1 — Next.js fetch-cache budama timer atlandı."
+  elif [[ -f "$APP_ROOT/deploy/systemd/travel-prune-next-cache.service" && -f "$APP_ROOT/deploy/systemd/travel-prune-next-cache.timer" ]]; then
+    step "Next.js fetch-cache budama timer kurulumu"
+    cp "$APP_ROOT/deploy/systemd/travel-prune-next-cache.service" /etc/systemd/system/travel-prune-next-cache.service \
+      && cp "$APP_ROOT/deploy/systemd/travel-prune-next-cache.timer" /etc/systemd/system/travel-prune-next-cache.timer \
+      && chmod +x "$APP_ROOT/deploy/scripts/prune-next-cache.sh" \
+      && systemctl daemon-reload \
+      && systemctl enable --now travel-prune-next-cache.timer \
+      && ok "travel-prune-next-cache.timer etkin" \
+      || warn "travel-prune-next-cache.timer kurulamadı; elle: ./deploy/scripts/prune-next-cache.sh"
+  else
+    warn "Next.js prune-cache systemd dosyaları bulunamadı."
+  fi
+
   step "Servis restart"
   if [[ -f "$APP_ROOT/deploy/systemd/travel-web.service" ]]; then
     cp "$APP_ROOT/deploy/systemd/travel-web.service" /etc/systemd/system/travel-web.service \
@@ -469,6 +484,15 @@ main() {
   elif [[ -f "$APP_ROOT/deploy/scripts/warm-cache.sh" ]]; then
     step "Vitrin önbellek ısıtma (deploy sonrası)"
     WARM_ROUNDS="${WARM_ROUNDS:-2}" bash "$APP_ROOT/deploy/scripts/warm-cache.sh" || warn "warm-cache tamamlanamadı (deploy etkilenmez); elle: ./deploy/scripts/warm-cache.sh"
+  fi
+
+  if [[ "${SKIP_PRUNE_NEXT_CACHE:-0}" == "1" ]]; then
+    warn "SKIP_PRUNE_NEXT_CACHE=1 — deploy sonrası fetch-cache budama atlandı."
+  elif [[ -f "$APP_ROOT/deploy/scripts/prune-next-cache.sh" ]]; then
+    step "Next.js fetch-cache budama (deploy sonrası)"
+    chmod +x "$APP_ROOT/deploy/scripts/prune-next-cache.sh"
+    bash "$APP_ROOT/deploy/scripts/prune-next-cache.sh" \
+      || warn "prune-next-cache tamamlanamadı; elle: ./deploy/scripts/prune-next-cache.sh"
   fi
 
   # Servisler ayağa kalktıktan sonra AI + sosyal worker'ı hemen tetikle

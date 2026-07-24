@@ -71,9 +71,12 @@ const nextConfig = {
   /** Düşük kaynaklı VPS / uzak API: SSG sayfa üretimi 60 sn’de kesilmesin (manage çok dillı rotalar). */
   staticPageGenerationTimeout: 300,
   /**
-   * ISR/fetch Data Cache'i daha çok RAM'de tut → `.next/cache/fetch-cache`
-   * sürekli disk yazımını azaltır (DeHost yüksek disk I/O uyarısı). 256MB.
+   * FETCH Data Cache: memory-only (`cache-handler.cjs`) + 256MB LRU.
+   * Varsayılan FileSystemCache her revalidate'de `.next/cache/fetch-cache`
+   * yazar → DeHost disk I/O uyarısı. ISR sayfa cache'i diske yazılmaya devam.
+   * Geri al: TRAVEL_FETCH_CACHE_DISK=1
    */
+  cacheHandler: path.join(__dirname, 'cache-handler.cjs'),
   cacheMaxMemorySize: 256 * 1024 * 1024,
   reactStrictMode: false,
   poweredByHeader: false,

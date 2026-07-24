@@ -13,13 +13,13 @@ FETCH_CACHE="$FRONTEND_DIR/.next/cache/fetch-cache"
 SNAP_CACHE="$FRONTEND_DIR/.next/cache/travel-public-listings"
 WEBPACK_CACHE="$FRONTEND_DIR/.next/cache/webpack"
 
-# Kaç saatten eski cache dosyaları silinsin (revalidate 300s olduğundan
-# 6 saat fazlasıyla güvenli; sık gezilen sayfalar zaten yeniden yazılır).
-FETCH_MAX_AGE_MIN="${FETCH_MAX_AGE_MIN:-360}"
+# FETCH memory-only handler sonrası disk kalıntıları kısa tutulur.
+# Eski yaş: 6s → 2s; tavan: 20k → 5k (DeHost disk I/O uyarısı).
+FETCH_MAX_AGE_MIN="${FETCH_MAX_AGE_MIN:-120}"
 # Snapshot yalnız fallback; 3 gün yeter (kod içi max-age ile uyumlu).
 SNAP_MAX_AGE_MIN="${SNAP_MAX_AGE_MIN:-4320}"
 # Güvenlik tavanı: dizinde bu sayıdan fazla dosya varsa en eskiden başlayarak kırp.
-FETCH_MAX_FILES="${FETCH_MAX_FILES:-20000}"
+FETCH_MAX_FILES="${FETCH_MAX_FILES:-5000}"
 
 log() { echo "[prune-next-cache] $*"; }
 

@@ -1,14 +1,16 @@
-# Saatlik: Next.js fetch-cache dizini şişmesin (disk dolması + yavaş dizin).
+# 30 dk: Next.js fetch-cache / snapshot dizinleri şişmesin (disk I/O + doluluk).
+# Not: üretimde FETCH artık memory-only (frontend/cache-handler.cjs); bu timer
+# eski disk kalıntıları + webpack/snapshot için hâlâ gerekli.
 
 [Unit]
-Description=Travel — Next.js fetch-cache saatlik budama
+Description=Travel — Next.js cache 30dk budama
 
 [Timer]
-OnBootSec=15min
-OnUnitActiveSec=1h
-AccuracySec=5min
+OnBootSec=10min
+OnUnitActiveSec=30min
+AccuracySec=2min
 Persistent=true
-RandomizedDelaySec=5min
+RandomizedDelaySec=2min
 Unit=travel-prune-next-cache.service
 
 [Install]

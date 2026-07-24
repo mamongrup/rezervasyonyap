@@ -19,6 +19,7 @@ for pair in \
   travel-ai-worker \
   travel-social-worker \
   travel-warm-cache \
+  travel-prune-next-cache \
   travel-vitrin-price-refresh \
   travel-purge-old-logs \
   travel-purge-past-calendars \
@@ -50,6 +51,7 @@ TIMERS=(
   travel-ai-worker.timer
   travel-social-worker.timer
   travel-warm-cache.timer
+  travel-prune-next-cache.timer
   travel-vitrin-price-refresh.timer
   travel-purge-old-logs.timer
   travel-purge-past-calendars.timer
@@ -76,6 +78,7 @@ chmod +x \
   deploy/scripts/social-process-pending.sh \
   deploy/scripts/warm-cache.sh \
   deploy/scripts/refresh-vitrin-prices.sh \
+  deploy/scripts/prune-next-cache.sh \
   2>/dev/null || true
 
 log "AI worker hemen tetikleniyor (3 loop)…"
