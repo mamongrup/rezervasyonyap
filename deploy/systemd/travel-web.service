@@ -34,13 +34,10 @@ EnvironmentFile=/etc/rezervasyonyap/frontend.env
 Environment=NODE_ENV=production
 Environment=PORT=3000
 
-# Next production — server.mjs (CSS defer isteğe bağlı).
-# HOSTNAME=127.0.0.1 zorunlu (aksi halde :3000 dışarıdan dinlenmeyebilir).
-# TRAVEL_DEFER_CSS=1: render-blocking CSS → preload + critical-vitrin (PSI).
-# Regresyonda EnvironmentFile’da TRAVEL_DEFER_CSS=0 yapın.
-Environment=HOSTNAME=127.0.0.1
-Environment=TRAVEL_DEFER_CSS=1
-ExecStart=/usr/bin/node ./server.mjs
+# Next production server (standart next start).
+# CSS defer (server.mjs + TRAVEL_DEFER_CSS=1) FOUC üretir — kritik CSS katalog/header
+# kapsamıyor; varsayılan KAPALI. Açmayın.
+ExecStart=/usr/bin/node ./node_modules/next/dist/bin/next start -H 127.0.0.1 -p 3000
 
 Restart=always
 RestartSec=5
