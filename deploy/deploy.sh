@@ -325,6 +325,14 @@ main() {
     warn "374_region_stats_dedupe_same_name.sql bulunamadı"
   fi
 
+  if [[ -f "$APP_ROOT/backend/priv/sql/modules/375_ai_autopilot_orchestrator.sql" ]]; then
+    step "AI Autopilot orchestrator şeması"
+    bash "$APP_ROOT/deploy/apply-sql.sh" \
+      "$APP_ROOT/backend/priv/sql/modules/375_ai_autopilot_orchestrator.sql"
+  else
+    fail "AI Autopilot orchestrator SQL modülü bulunamadı."
+  fi
+
   if [[ "${SKIP_AI_WORKER_TIMER:-0}" == "1" ]]; then
     warn "SKIP_AI_WORKER_TIMER=1 — AI watchdog ve kuyruk worker timer kurulumu atlandı."
   elif [[ -f "$APP_ROOT/deploy/systemd/travel-ai-worker.service" && -f "$APP_ROOT/deploy/systemd/travel-ai-worker.timer" ]]; then
