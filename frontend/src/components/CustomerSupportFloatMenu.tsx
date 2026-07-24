@@ -66,33 +66,38 @@ export default function CustomerSupportFloatMenu() {
     }
   }, [hideOnManage])
 
-  // App Router soft navigate: Monitoring’de page-url / page-title güncelle.
-  // Script yoksa zorla yükleme — LCP’yi kirletmesin; yalnız zaten ısındıysa sync.
+  // Soft navigate: Monitoring — debounce (çift setAttributes main-thread kasması)
   useEffect(() => {
     if (hideOnManage || !tawkReady) return
     if (typeof window === 'undefined' || !window.Tawk_API?.setAttributes) return
-    syncTawkCurrentPage()
-    const titleTimer = window.setTimeout(() => syncTawkCurrentPage(), 800)
-    return () => {
-      window.clearTimeout(titleTimer)
-    }
+    const id = window.setTimeout(() => syncTawkCurrentPage(), 400)
+    return () => window.clearTimeout(id)
   }, [pathname, hideOnManage, tawkReady])
 
-  // Galeri, rezervasyon tarih/misafir seçicileri ve diğer ikincil ekranlar
-  // açıldığında destek düğmesi içerik üzerinde kalmasın. Registry kullanmayan
-  // eski dialogları da DOM üzerinden yakalar.
+  // Overlay: body MutationObserver soft-nav DOM churn’ünde ana iş parçacığını
+  // kilitlemesin — kısa zaman aşımı ile birleştir.
   useEffect(() => {
+    let timer = 0
     const detectOverlay = () => {
-      const active = Boolean(
-        document.querySelector('[role="dialog"], .react-datepicker-popper, [data-vitrin-overlay="true"]')
-      )
-      setPageOverlayOpen(active)
-      if (active) setOpen(false)
+      if (timer) return
+      timer = window.setTimeout(() => {
+        timer = 0
+        const active = Boolean(
+          document.querySelector(
+            '[role="dialog"], .react-datepicker-popper, [data-vitrin-overlay="true"]',
+          ),
+        )
+        setPageOverlayOpen(active)
+        if (active) setOpen(false)
+      }, 120)
     }
     detectOverlay()
     const observer = new MutationObserver(detectOverlay)
     observer.observe(document.body, { childList: true, subtree: true })
-    return () => observer.disconnect()
+    return () => {
+      observer.disconnect()
+      if (timer) window.clearTimeout(timer)
+    }
   }, [])
 
   useEffect(() => {

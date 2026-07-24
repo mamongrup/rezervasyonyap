@@ -6,7 +6,6 @@ import MobileFixedTopBar from '@/components/MobileFixedTopBar'
 import MobileLayoutSpacer from '@/components/MobileLayoutSpacer'
 import SiteHeaderChrome from '@/components/SiteHeaderChrome'
 import Aside from '@/components/aside'
-import PageContentSkeleton from '@/components/PageContentSkeleton'
 import type { ReactNode } from 'react'
 import { Suspense } from 'react'
 
@@ -17,6 +16,11 @@ interface Props {
   locale?: string
 }
 
+/**
+ * Soft navigasyonda children’ı PageContentSkeleton Suspense fallback’i ile
+ * sarmalamıyoruz: her geçişte gövde iskelete dönüp “yeniden yükleniyor” hissi
+ * yaratıyordu. App Router önceki sayfayı tutar; hazır olunca children değişir.
+ */
 export async function ApplicationLayout({ children, header, locale = 'tr' }: Props) {
   return (
     <Aside.Provider>
@@ -26,9 +30,7 @@ export async function ApplicationLayout({ children, header, locale = 'tr' }: Pro
       {/* Mobil arama üst barı — /manage ve /staff’ta gizlenir (önyüz Header kullanılır). */}
       <MobileFixedTopBar locale={locale} />
       <MobileLayoutSpacer />
-      {/* Sayfa gövdesi Suspense ile sarıldı: rota geçişinde header kalır, içerik
-          verisi gelene kadar anında iskelet gösterilir (algılanan hız artar). */}
-      <Suspense fallback={<PageContentSkeleton />}>{children}</Suspense>
+      {children}
       <Suspense fallback={null}>
         <AsideSidebarNavigation locale={locale} />
       </Suspense>
