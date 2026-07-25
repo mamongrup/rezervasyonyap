@@ -27,13 +27,12 @@ require_root() {
 
 node_version_ok() {
   local v
-  v="$(node -v 2>/dev/null | sed 's/^v//')"
+  v="$(node -v 2>/dev/null | sed 's/^v//' | tr -cd '0-9.')"
   [[ -n "$v" ]] || return 1
-  local major minor patch
+  local major
   major="${v%%.*}"
-  minor="$(echo "$v" | cut -d. -f2)"
-  patch="$(echo "$v" | cut -d. -f3)"
-  [[ "$major" -ge 25 ]]
+  # Proje hedefi Node 25.x (engines >=25; 26+ üretimde picocolors/build sorunları görüldü).
+  [[ "$major" == "25" ]]
 }
 
 # Eski manuel kurulum: /usr/local/bin/node (v22) PATH'te /usr/bin/node (v25) önüne geçer.
