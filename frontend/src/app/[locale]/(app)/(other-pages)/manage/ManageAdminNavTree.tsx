@@ -48,6 +48,10 @@ const GROUPS: NavGroupDef[] = [
     items: [
       { path: '/manage/admin', label: 'Gösterge paneli' },
       { path: '/manage/operations', label: 'Operasyon Merkezi' },
+      { path: '/manage/admin/workspace', label: 'Yönetici çalışma alanı' },
+      { path: '/manage/admin/listing-reports', label: 'İlan şikâyetleri' },
+      { path: '/manage/admin/tc-verifications', label: 'TC kimlik başvuruları' },
+      { path: '/manage/admin/super-host', label: 'Super Host yönetimi' },
     ],
   },
   {
@@ -79,6 +83,7 @@ const GROUPS: NavGroupDef[] = [
     items: [
       { path: '/manage/members/customers', label: 'Müşteriler' },
       { path: '/manage/members/agencies', label: 'Acenteler' },
+      { path: '/manage/members/suppliers', label: 'Tedarikçiler' },
       { path: '/manage/members/staff', label: 'Personel' },
       { path: '/manage/members/admins', label: 'Yöneticiler' },
       { path: '/manage/agency-verify', label: 'Acente doğrulama' },
@@ -93,9 +98,12 @@ const GROUPS: NavGroupDef[] = [
       {
         heading: 'Sayfalar ve vitrin',
         items: [
+          { path: '/manage/content/homepage', label: 'Ana sayfa düzenleyici' },
           { path: '/manage/content/pages', label: 'Sayfalar (CMS)' },
           { path: '/manage/content/page-builder', label: 'Sayfa düzenleyici' },
           { path: '/manage/content/sliders', label: 'Slider ve bannerlar' },
+          { path: '/manage/content/category-images', label: 'Kategori görselleri' },
+          { path: '/manage/content/collections', label: 'Koleksiyonlar' },
           { path: '/manage/content/featured-listings', label: 'Öne çıkan ilanlar' },
           { path: '/manage/content/featured-regions', label: 'Öne çıkan bölgeler' },
         ],
@@ -103,9 +111,11 @@ const GROUPS: NavGroupDef[] = [
       {
         heading: 'Menüler ve yayınlar',
         items: [
+          { path: '/manage/hero-menu', label: 'Hero menü' },
           { path: '/manage/content/header-footer', label: 'Site footer (alt bilgi)' },
           { path: '/manage/content/mega-menu', label: 'Mega menü' },
           { path: '/manage/content/catalog-menu', label: 'Katalog menüsü' },
+          { path: '/manage/admin/content/navigation', label: 'Navigasyon yönetimi' },
           { path: '/manage/content/blog', label: 'Blog' },
           { path: '/manage/content/popups', label: 'Popup yönetimi' },
         ],
@@ -143,10 +153,12 @@ const GROUPS: NavGroupDef[] = [
       {
         heading: 'İletişim ve sosyal medya',
         items: [
+          { path: '/manage/admin/marketing/merchant', label: 'Merchant ve sosyal satış' },
           { path: '/manage/admin/marketing/messaging', label: 'Mesajlaşma' },
           { path: '/manage/admin/marketing/social', label: 'Sosyal medya yönetimi' },
           { path: '/manage/social/instagram', label: 'Instagram Shop & Story' },
           { path: '/manage/social/whatsapp', label: 'WhatsApp' },
+          { path: '/manage/social/ads', label: 'Reklam bannerları' },
         ],
       },
     ],
@@ -157,8 +169,11 @@ const GROUPS: NavGroupDef[] = [
     Icon: CreditCard,
     items: [
       { path: '/manage/finance/invoices', label: 'Tüm faturalar' },
+      { path: '/manage/finance/wallets', label: 'Cüzdan yönetimi' },
       { path: '/manage/finance/commissions', label: 'Komisyon ayarları' },
       { path: '/manage/finance/payment-gateways', label: 'Sanal POS (ParamPOS / Paratika)' },
+      { path: '/manage/admin/payments/gateways', label: 'Ticari ödeme entegrasyonları' },
+      { path: '/manage/admin/payments/provizyon', label: 'Provizyon işlemleri' },
       { path: '/manage/finance/reports', label: 'Mali raporlar' },
     ],
   },
@@ -173,15 +188,22 @@ const GROUPS: NavGroupDef[] = [
           { path: '/manage/seo', label: 'SEO ayarları' },
           { path: '/manage/seo/sitemap', label: 'Site haritası' },
           { path: '/manage/seo/redirects', label: 'Yönlendirmeler' },
+          { path: '/manage/admin/content/seo-redirects', label: 'SEO yönlendirme kayıtları' },
           { path: '/manage/seo/404', label: '404 yönetimi' },
+          { path: '/manage/seo/links', label: 'Dahili bağlantılar' },
+          { path: '/manage/seo/rich-snippets', label: 'Zengin sonuçlar' },
+          { path: '/manage/seo/merchant', label: 'Merchant SEO' },
         ],
       },
       {
         heading: 'Yapay zeka araçları',
         items: [
           { path: '/manage/ai/content', label: 'İçerik oluşturucu' },
+          { path: '/manage/admin/marketing/ai', label: 'AI sağlayıcı ayarları' },
           { path: '/manage/ai/listing-content', label: 'İlan içeriği ve SEO' },
           { path: '/manage/ai/regions', label: 'Bölge oluşturucu' },
+          { path: '/manage/ai/seo', label: 'SEO oluşturucu' },
+          { path: '/manage/ai/chatbot', label: 'Satış chatbotu' },
           { path: '/manage/ai/translate', label: 'Çeviri asistanı' },
         ],
       },
@@ -196,9 +218,13 @@ const GROUPS: NavGroupDef[] = [
         heading: 'Site ve bağlantılar',
         items: [
           { path: '/manage/admin/settings', label: 'Genel site ayarları' },
+          { path: '/manage/admin/settings/cookies', label: 'Çerez ayarları' },
+          { path: '/manage/admin/settings/notifications', label: 'Bildirim ayarları' },
           { path: '/manage/admin/settings/integrations', label: 'Entegrasyonlar' },
           { path: '/manage/admin/settings/listing-api', label: 'İlan API bağlantıları' },
           { path: '/manage/settings/cdn', label: 'CDN ayarları' },
+          { path: '/manage/settings/reviews', label: 'Değerlendirme ayarları' },
+          { path: '/manage/settings/live-support', label: 'Canlı destek' },
         ],
       },
       {
@@ -210,7 +236,11 @@ const GROUPS: NavGroupDef[] = [
           { path: '/manage/i18n', label: 'Diller ve çeviriler' },
           { path: '/manage/media', label: 'Medya kütüphanesi' },
           { path: '/manage/settings/image-quality', label: 'Görsel yükleme ayarları' },
-          { path: '/manage/notifications/email', label: 'Bildirim şablonları' },
+          { path: '/manage/notifications/email', label: 'E-posta bildirimleri' },
+          { path: '/manage/notifications/push', label: 'Push bildirimleri' },
+          { path: '/manage/notifications/sms', label: 'SMS bildirimleri' },
+          { path: '/manage/admin/tools', label: 'Yönetici araçları' },
+          { path: '/manage/admin/tools/banner-layout', label: 'Banner düzen aracı' },
           { path: '/manage/audit-log', label: 'Denetim günlüğü' },
         ],
       },
@@ -220,6 +250,12 @@ const GROUPS: NavGroupDef[] = [
 
 /** Katalog grubu için sabit tanım (items dinamik API'den gelir) */
 const CATALOG_GROUP_ID = 'catalog'
+const CATALOG_ADMIN_LINKS: NavLeaf[] = [
+  { path: '/manage/admin/catalog/subcategories', label: 'Alt kategori yönetimi' },
+  { path: '/manage/admin/catalog/agencies', label: 'Acente katalog profilleri' },
+  { path: '/manage/admin/catalog/suppliers', label: 'Tedarikçi katalog başvuruları' },
+  { path: '/manage/admin/catalog/grants', label: 'Acente kategori yetkileri' },
+]
 
 function isUnderPath(pathname: string | null, prefixed: string): boolean {
   if (!pathname) return false
@@ -268,7 +304,11 @@ export default function ManageAdminNavTree({
     const manual = manualOpen[CATALOG_GROUP_ID]
     if (manual !== undefined) return manual
     const h = vitrinPath('/manage/catalog')
-    return isUnderPath(pathname, h) || isUnderPath(pathname, categoryContractsHref)
+    return (
+      isUnderPath(pathname, h) ||
+      isUnderPath(pathname, categoryContractsHref) ||
+      CATALOG_ADMIN_LINKS.some((item) => isUnderPath(pathname, vitrinPath(item.path)))
+    )
   }, [manualOpen, pathname, vitrinPath, categoryContractsHref])
 
   const toggleGroup = useCallback((id: string, currentOpen: boolean) => {
@@ -314,7 +354,9 @@ export default function ManageAdminNavTree({
 
   const catalogHref = vitrinPath('/manage/catalog')
   const inCatalog =
-    isUnderPath(pathname, catalogHref) || isUnderPath(pathname, categoryContractsHref)
+    isUnderPath(pathname, catalogHref) ||
+    isUnderPath(pathname, categoryContractsHref) ||
+    CATALOG_ADMIN_LINKS.some((item) => isUnderPath(pathname, vitrinPath(item.path)))
 
   // Filter groups by search query
   const searchQuery = navSearch.toLowerCase().trim()
@@ -371,6 +413,21 @@ export default function ManageAdminNavTree({
                 Sözleşme şablonları (kategori)
               </Link>
             </li>
+            {CATALOG_ADMIN_LINKS.map((item) => {
+              const href = vitrinPath(item.path)
+              return (
+                <li key={item.path} className="list-none">
+                  <Link
+                    href={href}
+                    prefetch={false}
+                    onClick={onNavLinkClick}
+                    className={isUnderPath(pathname, href) ? LINK_ACTIVE : LINK_IDLE}
+                  >
+                    {item.label}
+                  </Link>
+                </li>
+              )
+            })}
           </ul>
         ) : null}
       </div>
