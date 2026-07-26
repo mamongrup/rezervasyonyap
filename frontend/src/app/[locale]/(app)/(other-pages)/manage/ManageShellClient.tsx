@@ -134,7 +134,7 @@ export default function ManageShellClient({ children }: { children: React.ReactN
         {/* Mobil: site header’ının altında küçük FAB — ikinci bir tam genişlik header yok */}
         <button
           type="button"
-          className="fixed top-[5.25rem] left-4 z-30 flex h-11 w-11 items-center justify-center rounded-full border border-[color:var(--manage-sidebar-border)] bg-[color:var(--manage-sidebar-bg)] text-[color:var(--manage-text)] shadow-md lg:hidden"
+          className="fixed top-[5.25rem] left-4 z-[60] flex h-11 w-11 items-center justify-center rounded-full border border-[color:var(--manage-sidebar-border)] bg-[color:var(--manage-sidebar-bg)] text-[color:var(--manage-text)] shadow-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--manage-primary)] lg:hidden"
           onClick={() => setMobileOpen((o) => !o)}
           aria-expanded={mobileOpen}
           aria-label={menuLabel}
