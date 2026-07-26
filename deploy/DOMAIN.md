@@ -1,12 +1,20 @@
-# Üretim domain (unutma)
+# Üretim domainleri
 
-| Ortam | Alan adı | Not |
-|--------|-----------|-----|
-| **Vitrin (Next.js)** | **rezervasyonyap.tr** | Plesk document root örneği: `/var/www/vhosts/rezervasyonyap.tr/httpdocs` — frontend genelde `httpdocs/frontend` |
+| Rol | Alan adı | Davranış |
+|-----|----------|----------|
+| Ana Türkçe vitrin | **rezervasyonyap.tr** | Ana domain ve tek uygulama/deploy kökü |
+| Türkçe marka domaini | **rezervasyonyap.com.tr** | Aynı uygulamayı ve Türkçe vitrini açar |
+| Uluslararası vitrin | **reservationinturkey.com** | Aynı uygulamayı açar; ilk ziyarette ülke/dil algılamasıyla dil segmentine yönlendirir |
 
-Bu dosya, deploy ve SSH sırasında **yanlış repoya / yanlış vhost’a** (`travel-cms`, başka müşteri dizini vb.) gidilmesini hatırlatmak için tutulur.
+Uygulama yalnızca `/var/www/vhosts/rezervasyonyap.tr/httpdocs` altında deploy edilir.
+Diğer iki alan adı Plesk'te **HTTP yönlendirmesi yapılmayan domain alias** olarak ana
+domainin web hizmetine bağlanmalıdır. Böylece adres çubuğunda ziyaret edilen marka
+domaini kalır ve üç ayrı kod kopyası oluşmaz. Alias ayarında `Web service` açık,
+`Redirect with HTTP 301` kapalı olmalıdır.
 
-Kurulum değişirse bu tabloyu güncelleyin.
+Üç domainin `www` karşılıkları da aynı hedefe bağlanmalı, DNS A/AAAA kayıtları aynı
+sunucuya yönelmeli ve DNS tamamlandıktan sonra her domain SSL sertifikasına dahil
+edilmelidir.
 
 ## İsteğe bağlı: `httpdocs/uploads` symlink
 

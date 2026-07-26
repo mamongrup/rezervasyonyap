@@ -11,6 +11,9 @@ describe('international locale routing', () => {
     expect(isInternationalSiteHost('reservationinturkey.com')).toBe(true)
     expect(isInternationalSiteHost('www.reservationinturkey.com:443')).toBe(true)
     expect(isInternationalSiteHost('rezervasyonyap.tr')).toBe(false)
+    expect(isInternationalSiteHost('www.rezervasyonyap.tr')).toBe(false)
+    expect(isInternationalSiteHost('rezervasyonyap.com.tr')).toBe(false)
+    expect(isInternationalSiteHost('www.rezervasyonyap.com.tr')).toBe(false)
   })
 
   it('uses configured international host aliases', () => {
@@ -26,10 +29,12 @@ describe('international locale routing', () => {
     expect(localeFromCountry('RU')).toBe('ru')
     expect(localeFromCountry('CN')).toBe('zh')
     expect(localeFromCountry('DE')).toBe('de')
-    expect(localeFromCountry('US')).toBeNull()
+    expect(localeFromCountry('US')).toBe('en')
+    expect(localeFromCountry('BY')).toBe('ru')
+    expect(localeFromCountry('TW')).toBe('zh')
   })
 
-  it('uses preference, browser, country, then English in that order', () => {
+  it('uses preference, country, browser, then English in that order', () => {
     expect(
       resolveInternationalLocale({
         preferredLocale: 'fr',
@@ -37,7 +42,7 @@ describe('international locale routing', () => {
         country: 'CN',
       }),
     ).toBe('fr')
-    expect(resolveInternationalLocale({ acceptLanguage: 'de-DE', country: 'RU' })).toBe('de')
+    expect(resolveInternationalLocale({ acceptLanguage: 'de-DE', country: 'RU' })).toBe('ru')
     expect(resolveInternationalLocale({ acceptLanguage: 'ja-JP', country: 'RU' })).toBe('ru')
     expect(resolveInternationalLocale({ acceptLanguage: 'ja-JP', country: 'JP' })).toBe('en')
   })

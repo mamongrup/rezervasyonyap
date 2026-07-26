@@ -61,15 +61,28 @@ export function localeFromCountry(country: string | null): string | null {
     case 'TR':
       return 'tr'
     case 'RU':
+    case 'BY':
+    case 'KZ':
       return 'ru'
     case 'CN':
+    case 'HK':
+    case 'MO':
     case 'SG':
+    case 'TW':
       return 'zh'
     case 'DE':
     case 'AT':
       return 'de'
     case 'FR':
+    case 'MC':
       return 'fr'
+    case 'AU':
+    case 'CA':
+    case 'GB':
+    case 'IE':
+    case 'NZ':
+    case 'US':
+      return 'en'
     default:
       return null
   }
@@ -102,8 +115,8 @@ export function resolveInternationalLocale(input: {
   if (/bot|crawler|spider|slurp|bingpreview/i.test(input.userAgent ?? '')) return 'en'
 
   return (
-    localeFromAcceptLanguage(input.acceptLanguage ?? null) ??
     localeFromCountry(input.country ?? null) ??
+    localeFromAcceptLanguage(input.acceptLanguage ?? null) ??
     'en'
   )
 }

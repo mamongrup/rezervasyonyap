@@ -333,7 +333,7 @@ export function proxy(request: NextRequest) {
   const first = segments[0]
   const def = defaultLocale.toLowerCase()
 
-  // Uluslararası marka: dil tercihi → tarayıcı dili → güvenilir ülke başlığı → İngilizce.
+  // Uluslararası marka: dil tercihi → güvenilir ülke başlığı → tarayıcı dili → İngilizce.
   // Açık dil segmentlerine dokunulmaz; yalnızca dil segmentsiz ilk ziyaret yönlendirilir.
   if (
     (!first || !isAppLocale(first)) &&
