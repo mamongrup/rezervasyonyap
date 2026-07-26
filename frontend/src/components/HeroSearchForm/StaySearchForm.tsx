@@ -1,7 +1,7 @@
 'use client'
 
 import { useVitrinHref } from '@/hooks/use-vitrin-href'
-import { DEFAULT_GUESTS_STAY } from '@/lib/guest-search-defaults'
+import { DEFAULT_GUESTS_STAY, guestSearchTotalFromRecord } from '@/lib/guest-search-defaults'
 import { formDataToStringRecord, runHeroSearchPlanEffects } from '@/lib/hero-search-plan'
 import { staySearchResultsPathFromRestPath } from '@/lib/stay-search-target'
 import { stripLocalePrefix } from '@/lib/i18n-config'
@@ -81,12 +81,12 @@ function StaySearchFormFields({
     const location = formDataEntries['location'] as string
     const checkin = formDataEntries['checkin'] as string
     const checkout = formDataEntries['checkout'] as string
-    const guestAdults = formDataEntries['guestAdults'] as string
+    const guests = guestSearchTotalFromRecord(formDataEntries)
     const searchParams = new URLSearchParams()
     if (location) searchParams.set('location', location)
     if (checkin) searchParams.set('checkin', checkin)
     if (checkout) searchParams.set('checkout', checkout)
-    if (guestAdults) searchParams.set('guests', guestAdults)
+    if (guests > 0) searchParams.set('guests', String(guests))
     const qs = searchParams.toString()
     router.push(vitrinHref(searchTargetPath) + (qs ? `?${qs}` : ''))
   }

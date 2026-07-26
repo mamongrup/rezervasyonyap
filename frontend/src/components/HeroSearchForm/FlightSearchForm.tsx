@@ -101,6 +101,11 @@ const FlightSearchFormInner: FC<Props> = ({ className, formStyle = 'default' }) 
     if (from) searchParams.set('from', from)
     if (to) searchParams.set('to', to)
     if (checkin) searchParams.set('date', checkin)
+    searchParams.set('guests', String(totalGuestCount({
+      guestAdults: guestAdultsInputValue,
+      guestChildren: guestChildrenInputValue,
+      guestInfants: guestInfantsInputValue,
+    })))
     searchParams.set('trip', tripType)
     searchParams.set('class', flightClassState)
     const qs = searchParams.toString()

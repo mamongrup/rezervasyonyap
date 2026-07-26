@@ -30,6 +30,22 @@ export function totalGuestCount(g: GuestsObject): number {
   return (g.guestAdults ?? 0) + (g.guestChildren ?? 0) + (g.guestInfants ?? 0)
 }
 
+function nonNegativeGuestCount(raw: FormDataEntryValue | string | null | undefined): number {
+  const n = Number.parseInt(typeof raw === 'string' ? raw : '', 10)
+  return Number.isFinite(n) && n > 0 ? n : 0
+}
+
+/** Arama URL'sindeki kapasite filtresi tüm yolcuları kapsar. */
+export function guestSearchTotalFromRecord(
+  values: Record<string, FormDataEntryValue | string | undefined>,
+): number {
+  return (
+    nonNegativeGuestCount(values.guestAdults) +
+    nonNegativeGuestCount(values.guestChildren) +
+    nonNegativeGuestCount(values.guestInfants)
+  )
+}
+
 /** "2 Yetişkin" veya "2 Yetişkin, 1 Çocuk" — sıfır olan tipler gösterilmez. */
 export function formatStayGuestSummary(locale: string | undefined | null, g: GuestsObject): string {
   const H = getMessages(locale).HeroSearchForm

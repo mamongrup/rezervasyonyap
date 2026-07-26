@@ -121,6 +121,63 @@ fn listing_half_day_stay_calendar_filter_sql() -> String {
   <> ")) "
 }
 
+/// Otel - ayni oda tipi tum gecelerde musait olmali ve misafir kapasitesini karsilamali.
+fn hotel_room_stay_filter_sql() -> String {
+  "and (pc.code != 'hotel' or exists ( "
+  <> "  select 1 from hotel_rooms hr "
+  <> "  where hr.listing_id = l.id "
+  <> "    and ($32::text is null or coalesce(hr.capacity, 1) >= nullif($32::text, '')::int) "
+  <> "    and ($8::text is null or $9::text is null or not exists ( "
+  <> "      select 1 "
+  <> "      from generate_series($8::date, ($9::date - interval '1 day')::date, interval '1 day') d(day) "
+  <> "      left join hotel_room_availability_calendar c "
+  <> "        on c.hotel_room_id = hr.id and c.day = d.day::date "
+  <> "      where coalesce(c.available_units, hr.unit_count) - coalesce(( "
+  <> "        select sum(rli.quantity) "
+  <> "        from reservation_line_items rli "
+  <> "        join reservations r on r.id = rli.reservation_id "
+  <> "        where rli.listing_id = l.id "
+  <> "          and r.status in ('held', 'confirmed') "
+  <> "          and rli.meta_json->>'hotel_room_id' = hr.id::text "
+  <> "          and rli.starts_on <= d.day::date and rli.ends_on > d.day::date "
+  <> "      ), 0) <= 0 "
+  <> "    )) "
+  <> ")) "
+}
+
+/// Seansli aktiviteler - secilen gunde aktif ve yeterli kapasiteli en az bir seans olmali.
+fn activity_session_search_filter_sql() -> String {
+  "and ($8::text is null or pc.code != 'activity' or not coalesce(( "
+  <> "  select ad.session_based from listing_activity_details ad where ad.listing_id = l.id "
+  <> "), false) or exists ( "
+  <> "  select 1 from listing_activity_sessions s "
+  <> "  where s.listing_id = l.id and s.is_active = true "
+  <> "    and $8::date between s.valid_from and s.valid_to "
+  <> "    and ($32::text is null or s.capacity = 0 or s.capacity >= nullif($32::text, '')::int) "
+  <> ")) "
+}
+
+/// Donemli turlar - donem verisi varsa secilen gun gercek bir kalkis tarihi olmali.
+fn tour_period_search_filter_sql() -> String {
+  "and ($8::text is null or pc.code != 'tour' or not exists ( "
+  <> "  select 1 from listing_tour_details ltd "
+  <> "  where ltd.listing_id = l.id "
+  <> "    and jsonb_typeof(ltd.program_days_json->'periods') = 'array' "
+  <> "    and jsonb_array_length(ltd.program_days_json->'periods') > 0 "
+  <> ") or exists ( "
+  <> "  select 1 from listing_tour_details ltd "
+  <> "  cross join lateral jsonb_array_elements(case "
+  <> "    when jsonb_typeof(ltd.program_days_json->'periods') = 'array' "
+  <> "    then ltd.program_days_json->'periods' else '[]'::jsonb end) p(item) "
+  <> "  where ltd.listing_id = l.id "
+  <> "    and left(coalesce(p.item->>'startDate', p.item->>'periodStartDate', ''), 10) = $8::text "
+  <> "    and ($32::text is null "
+  <> "      or coalesce(p.item->>'quota', '') !~ '^[0-9]+$' "
+  <> "      or (p.item->>'quota')::int = 0 "
+  <> "      or (p.item->>'quota')::int >= nullif($32::text, '')::int) "
+  <> ")) "
+}
+
 /// `vitrin_price` sütunu / önbellek migration'ı uygulanmamış DB'lerde arama 500 vermesin.
 fn strip_vitrin_price_cache_sql(sql: String) -> String {
   sql
@@ -1463,14 +1520,14 @@ fn search_listings_impl(
     <> "  or (pc.code = 'yacht_charter' and coalesce(y.theme_codes, '{}'::text[]) && string_to_array(trim($7), ',')::text[]) "
     <> ")) "
     // Müsaitlik yalnızca tarih verilirse aktif; çıkış günü yeni girişe açıktır.
-    <> "and ($8::text is null or $9::text is null or not exists ( "
+    <> "and ($8::text is null or $9::text is null or pc.code not in ('holiday_home', 'yacht_charter', 'car_rental') or not exists ( "
     <> "  select 1 from inventory_holds ih "
     <> "  where ih.listing_id = l.id and ih.status = 'active' "
     <> "    and (ih.expires_at is null or ih.expires_at > now()) "
     <> "    and ih.starts_on < $9::date "
     <> "    and ih.ends_on > $8::date "
     <> ")) "
-    <> "and ($8::text is null or $9::text is null or not exists ( "
+    <> "and ($8::text is null or $9::text is null or pc.code not in ('holiday_home', 'yacht_charter', 'car_rental') or not exists ( "
     <> "  select 1 from reservations r "
     <> "  where r.listing_id = l.id and r.status in ('held','confirmed') "
     <> "    and r.starts_on < $9::date "
@@ -1483,21 +1540,9 @@ fn search_listings_impl(
     <> meta_max_guests_sql
     <> " >= nullif($32::text, '')::int "
     <> ")) "
-    // Otel — her gece en az bir aktif odada müsait birim (takvim yoksa müsait say)
-    <> "and ($8::text is null or $9::text is null or pc.code != 'hotel' or not exists ( "
-    <> "  select 1 from generate_series( "
-    <> "    $8::date, "
-    <> "    ($9::date - interval '1 day')::date, "
-    <> "    interval '1 day' "
-    <> "  ) as d(day) "
-    <> "  where not exists ( "
-    <> "    select 1 from hotel_rooms hr "
-    <> "    left join hotel_room_availability_calendar c "
-    <> "      on c.hotel_room_id = hr.id and c.day = d.day::date "
-    <> "    where hr.listing_id = l.id "
-    <> "      and coalesce(c.available_units, 1) > 0 "
-    <> "  ) "
-    <> ")) "
+    <> hotel_room_stay_filter_sql()
+    <> activity_session_search_filter_sql()
+    <> tour_period_search_filter_sql()
     <> "and ($11::text is null or trim($11) = '' or ( "
     <> "  select count(*) = cardinality(string_to_array(trim($11), ',')::text[]) "
     <> "  from unnest(string_to_array(trim($11), ',')::text[]) as need(k) "
@@ -1649,14 +1694,14 @@ fn search_listings_impl(
     <> "and ($3::text is null or trim($3) = '' or (select coalesce(bool_and("
     <> location_search_sql
     <> " ilike '%' || trim(tok) || '%'), true) from unnest(string_to_array(trim($3), ' ')) as u(tok) where trim(tok) <> '')) "
-    <> "and ($8::text is null or $9::text is null or not exists ( "
+    <> "and ($8::text is null or $9::text is null or pc.code not in ('holiday_home', 'yacht_charter', 'car_rental') or not exists ( "
     <> "  select 1 from inventory_holds ih "
     <> "  where ih.listing_id = l.id and ih.status = 'active' "
     <> "    and (ih.expires_at is null or ih.expires_at > now()) "
     <> "    and ih.starts_on < $9::date "
     <> "    and ih.ends_on > $8::date "
     <> ")) "
-    <> "and ($8::text is null or $9::text is null or not exists ( "
+    <> "and ($8::text is null or $9::text is null or pc.code not in ('holiday_home', 'yacht_charter', 'car_rental') or not exists ( "
     <> "  select 1 from reservations r "
     <> "  where r.listing_id = l.id and r.status in ('held','confirmed') "
     <> "    and r.starts_on < $9::date "
@@ -1669,6 +1714,9 @@ fn search_listings_impl(
     <> meta_max_guests_sql
     <> " >= nullif($32::text, '')::int "
     <> ")) "
+    <> hotel_room_stay_filter_sql()
+    <> activity_session_search_filter_sql()
+    <> tour_period_search_filter_sql()
     <> "and ($23::text is null or pc.code not in ('holiday_home', 'yacht_charter') or lower(trim(coalesce(lm.meta->>'property_type', ''))) = $23) "
     <> "and ($25::text is null or pc.code not in ('holiday_home', 'yacht_charter') or ("
     <> meta_bed_count_sql

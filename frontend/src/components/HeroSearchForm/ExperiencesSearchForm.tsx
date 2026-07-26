@@ -1,6 +1,6 @@
 'use client'
 
-import { DEFAULT_GUESTS_EXPERIENCE } from '@/lib/guest-search-defaults'
+import { DEFAULT_GUESTS_EXPERIENCE, guestSearchTotalFromRecord } from '@/lib/guest-search-defaults'
 import { formDataToStringRecord, runHeroSearchPlanEffects } from '@/lib/hero-search-plan'
 import { useAppLocale } from '@/hooks/useAppLocale'
 import { TourLocationInputField } from './ui/TourLocationInputField'
@@ -35,11 +35,11 @@ export const ExperiencesSearchForm = ({ className, formStyle = 'default' }: Prop
     runHeroSearchPlanEffects('experience', params, '/turlar/all')
     const location = formDataEntries['location'] as string
     const checkin = formDataEntries['checkin'] as string
-    const guestAdults = formDataEntries['guestAdults'] as string
+    const guests = guestSearchTotalFromRecord(formDataEntries)
     const searchParams = new URLSearchParams()
     if (location) searchParams.set('location', location)
     if (checkin) searchParams.set('date', checkin)
-    if (guestAdults) searchParams.set('guests', guestAdults)
+    if (guests > 0) searchParams.set('guests', String(guests))
     const qs = searchParams.toString()
     router.push('/turlar/all' + (qs ? `?${qs}` : ''))
   }
