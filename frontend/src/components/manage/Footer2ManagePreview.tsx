@@ -41,8 +41,8 @@ export function Footer2ManagePreview({
   return (
     <footer className="min-w-0 overflow-x-clip border-t border-neutral-200 bg-white dark:border-neutral-700 dark:bg-neutral-950">
       <div className="container min-w-0 pt-16 pb-8 sm:pt-20 sm:pb-10">
-        <div className="grid min-w-0 grid-cols-1 gap-10 lg:grid-cols-[minmax(0,280px)_minmax(0,1fr)]">
-          <div className="min-w-0 space-y-6">
+        <div className="grid min-w-0 grid-cols-1 gap-12 xl:grid-cols-[minmax(0,280px)_minmax(0,1fr)] xl:gap-14">
+          <div className="min-w-0 max-w-md space-y-6">
             <Logo
               src={logoSrc}
               darkSrc={logoDarkSrc}
@@ -57,7 +57,7 @@ export function Footer2ManagePreview({
             </div>
           </div>
 
-          <div className="grid min-w-0 grid-cols-2 gap-8 sm:grid-cols-3 lg:grid-cols-5">
+          <div className="grid min-w-0 grid-cols-1 gap-x-10 gap-y-12 sm:grid-cols-2 lg:grid-cols-3">
             {cfg.columns.map((col, colIdx) => {
               const title = pickI18nWithLegacy(
                 { tr: col.titleTr, en: col.titleEn },

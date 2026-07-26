@@ -114,8 +114,8 @@ export default function Footer2({ locale, branding }: Footer2Props) {
     <footer className="min-w-0 overflow-x-clip border-t border-neutral-200 bg-white dark:border-neutral-700 dark:bg-neutral-950">
       {/* Üstte nefes payı; altta yasal satırdan sonra gereksiz boşluk olmaması için pb daha küçük */}
       <div className="container min-w-0 pt-16 pb-8 sm:pt-20 sm:pb-10">
-        <div className="grid min-w-0 grid-cols-1 gap-10 lg:grid-cols-[minmax(0,280px)_minmax(0,1fr)]">
-          <div className="min-w-0 space-y-6">
+        <div className="grid min-w-0 grid-cols-1 gap-12 xl:grid-cols-[minmax(0,280px)_minmax(0,1fr)] xl:gap-14">
+          <div className="min-w-0 max-w-md space-y-6">
             <Logo
               src={logoSrc}
               darkSrc={logoDarkSrc}
@@ -148,7 +148,7 @@ export default function Footer2({ locale, branding }: Footer2Props) {
             </div>
           </div>
 
-          <div className="grid min-w-0 grid-cols-2 gap-8 sm:grid-cols-3 lg:grid-cols-5">
+          <div className="grid min-w-0 grid-cols-1 gap-x-10 gap-y-12 sm:grid-cols-2 lg:grid-cols-3">
             {columns.map((col, colIdx) => (
               <div key={`footer-col-${colIdx}`} className="min-w-0">
                 <h3 className={cn(headingCls, 'break-words')}>{col.title}</h3>
