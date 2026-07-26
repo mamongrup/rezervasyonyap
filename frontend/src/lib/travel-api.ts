@@ -9865,7 +9865,7 @@ export interface PublicListingSearchParams {
   checkin?: string
   /** Çıkış tarihi ISO-8601 */
   checkout?: string
-  /** API `flex_days` — tarih aralığını genişletir (müsaitlik araması) */
+  /** Eski istemci uyumluluğu; kesin tarih araması genişletilmez. */
   flexDays?: number
   /** Toplam misafir sayısı */
   guests?: number

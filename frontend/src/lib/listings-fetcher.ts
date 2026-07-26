@@ -95,7 +95,7 @@ export interface SearchQuery {
   checkout?: string
   /** Son dakika vitrin / liste — müsaitlik tarih penceresi otomatik uygulanır */
   last_minute?: string
-  /** API `flex_days` — tarih aralığını genişletir */
+  /** Eski URL uyumluluğu; backend seçilen kesin tarih aralığını uygular. */
   flex_days?: string
   guests?: string
   page?: string

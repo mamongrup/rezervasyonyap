@@ -1254,6 +1254,11 @@ fn search_listings_impl(
   let beds_param = min_count_filter_param(beds_raw)
   let bedrooms_param = min_count_filter_param(bedrooms_raw)
   let bathrooms_param = min_count_filter_param(bathrooms_raw)
+  // $32: tatil evi / yat - toplam misafir kapasitesi (minimum)
+  let guests_raw =
+    list.key_find(qs, "guests")
+    |> result.unwrap("")
+  let guests_param = min_count_filter_param(guests_raw)
 
   let sort_raw =
     list.key_find(qs, "sort")
@@ -1270,6 +1275,7 @@ fn search_listings_impl(
   let meta_bed_count_sql = safe_int_sql("coalesce(lm.meta->>'bed_count', '')")
   let meta_room_count_sql = safe_int_sql("coalesce(lm.meta->>'room_count', '')")
   let meta_bath_count_sql = safe_int_sql("coalesce(lm.meta->>'bath_count', '')")
+  let meta_max_guests_sql = safe_int_sql("coalesce(lm.meta->>'max_guests', '')")
   // Varsayılan: `created_at` — yorum/puanı olmayan yeni ilanlar sayfa sonuna itilmesin.
   // Eski davranış (önce yüksek puan): `?sort=recommended` veya `sort=rating`.
   let order_sql = case sort_raw {
@@ -1309,8 +1315,9 @@ fn search_listings_impl(
     False -> hotel_public_must_have_price_sql()
   }
 
-  // Faz F: Esnek tarih arama. start_date / end_date verilirse müsaitlik filtresi uygulanır.
-  // flex_days (0|3|7) verilirse aralık her iki uçtan o kadar genişler — daha çok sonuç.
+  // start_date / end_date verilirse tam olarak seçilen konaklama aralığı uygulanır.
+  // flex_days eski istemciler için kabul edilir; doğrulanmamış alternatif tarihler
+  // seçilen aralığın fiyatı veya müsaitliği gibi gösterilmez.
   let start_raw =
     list.key_find(qs, "start_date")
     |> result.unwrap("")
@@ -1455,25 +1462,32 @@ fn search_listings_impl(
     <> "  (pc.code = 'holiday_home' and coalesce(h.theme_codes, '{}'::text[]) && string_to_array(trim($7), ',')::text[]) "
     <> "  or (pc.code = 'yacht_charter' and coalesce(y.theme_codes, '{}'::text[]) && string_to_array(trim($7), ',')::text[]) "
     <> ")) "
-    // Faz F: müsaitlik. Yalnızca tarih verilirse aktif. flex_days kadar her iki uçtan genişlet.
+    // Müsaitlik yalnızca tarih verilirse aktif; çıkış günü yeni girişe açıktır.
     <> "and ($8::text is null or $9::text is null or not exists ( "
     <> "  select 1 from inventory_holds ih "
     <> "  where ih.listing_id = l.id and ih.status = 'active' "
-    <> "    and ih.starts_on <= ($9::date + ($10 || ' days')::interval)::date "
-    <> "    and ih.ends_on >= ($8::date - ($10 || ' days')::interval)::date "
+    <> "    and (ih.expires_at is null or ih.expires_at > now()) "
+    <> "    and ih.starts_on < $9::date "
+    <> "    and ih.ends_on > $8::date "
     <> ")) "
     <> "and ($8::text is null or $9::text is null or not exists ( "
     <> "  select 1 from reservations r "
     <> "  where r.listing_id = l.id and r.status in ('held','confirmed') "
-    <> "    and r.starts_on <= ($9::date + ($10 || ' days')::interval)::date "
-    <> "    and r.ends_on >= ($8::date - ($10 || ' days')::interval)::date "
+    <> "    and r.starts_on < $9::date "
+    <> "    and r.ends_on > $8::date "
     <> ")) "
     <> listing_half_day_stay_calendar_filter_sql()
+    <> "and ($32::text is null or pc.code not in ('holiday_home', 'yacht_charter') or ( "
+    <> meta_max_guests_sql
+    <> " is not null and "
+    <> meta_max_guests_sql
+    <> " >= nullif($32::text, '')::int "
+    <> ")) "
     // Otel — her gece en az bir aktif odada müsait birim (takvim yoksa müsait say)
     <> "and ($8::text is null or $9::text is null or pc.code != 'hotel' or not exists ( "
     <> "  select 1 from generate_series( "
-    <> "    ($8::date - ($10 || ' days')::interval)::date, "
-    <> "    ($9::date + ($10 || ' days')::interval - interval '1 day')::date, "
+    <> "    $8::date, "
+    <> "    ($9::date - interval '1 day')::date, "
     <> "    interval '1 day' "
     <> "  ) as d(day) "
     <> "  where not exists ( "
@@ -1638,16 +1652,23 @@ fn search_listings_impl(
     <> "and ($8::text is null or $9::text is null or not exists ( "
     <> "  select 1 from inventory_holds ih "
     <> "  where ih.listing_id = l.id and ih.status = 'active' "
-    <> "    and ih.starts_on <= ($9::date + ($10 || ' days')::interval)::date "
-    <> "    and ih.ends_on >= ($8::date - ($10 || ' days')::interval)::date "
+    <> "    and (ih.expires_at is null or ih.expires_at > now()) "
+    <> "    and ih.starts_on < $9::date "
+    <> "    and ih.ends_on > $8::date "
     <> ")) "
     <> "and ($8::text is null or $9::text is null or not exists ( "
     <> "  select 1 from reservations r "
     <> "  where r.listing_id = l.id and r.status in ('held','confirmed') "
-    <> "    and r.starts_on <= ($9::date + ($10 || ' days')::interval)::date "
-    <> "    and r.ends_on >= ($8::date - ($10 || ' days')::interval)::date "
+    <> "    and r.starts_on < $9::date "
+    <> "    and r.ends_on > $8::date "
     <> ")) "
     <> listing_half_day_stay_calendar_filter_sql()
+    <> "and ($32::text is null or pc.code not in ('holiday_home', 'yacht_charter') or ( "
+    <> meta_max_guests_sql
+    <> " is not null and "
+    <> meta_max_guests_sql
+    <> " >= nullif($32::text, '')::int "
+    <> ")) "
     <> "and ($23::text is null or pc.code not in ('holiday_home', 'yacht_charter') or lower(trim(coalesce(lm.meta->>'property_type', ''))) = $23) "
     <> "and ($25::text is null or pc.code not in ('holiday_home', 'yacht_charter') or ("
     <> meta_bed_count_sql
@@ -1806,6 +1827,7 @@ fn search_listings_impl(
     |> pog.parameter(cruise_route_param)
     |> pog.parameter(tour_region_param)
     |> pog.parameter(hotel_scope_param)
+    |> pog.parameter(guests_param)
   }
 
   let is_agent_search = case agency_org_opt {
@@ -3469,4 +3491,3 @@ pub fn public_tour_kultur_hub_stats(req: Request, ctx: Context) -> Response {
     }
   }
 }
-
