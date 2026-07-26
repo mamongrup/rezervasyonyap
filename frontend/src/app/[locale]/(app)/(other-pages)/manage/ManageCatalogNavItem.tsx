@@ -74,7 +74,12 @@ function subItems(base: string, code: string, t: (k: string) => string) {
     { href: `${p}/accommodation-rules`, label: 'Kurallar' },
   ]
   if (code === 'hotel') {
+    items.push({ href: `${p}/valid-campaigns`, label: 'Otel detay kampanyaları' })
+    items.push({ href: `${p}/facet-options`, label: 'Tip / tema / konaklama' })
     items.push({ href: `${p}/room-features`, label: 'Oda öznitelikleri' })
+  }
+  if (code === 'tour') {
+    items.push({ href: `${p}/facet-options`, label: 'Tur filtreleri' })
   }
   items.push(
     { href: `${p}/seo`, label: 'SEO' },
