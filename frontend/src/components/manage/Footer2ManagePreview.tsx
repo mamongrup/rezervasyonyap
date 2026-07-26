@@ -57,7 +57,7 @@ export function Footer2ManagePreview({
             </div>
           </div>
 
-          <div className="grid min-w-0 grid-cols-1 gap-x-10 gap-y-12 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid min-w-0 grid-cols-1 gap-x-8 gap-y-12 sm:grid-cols-2 lg:grid-cols-5">
             {cfg.columns.map((col, colIdx) => {
               const title = pickI18nWithLegacy(
                 { tr: col.titleTr, en: col.titleEn },

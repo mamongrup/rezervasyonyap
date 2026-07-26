@@ -123,7 +123,7 @@ fn listing_half_day_stay_calendar_filter_sql() -> String {
 
 /// Otel - ayni oda tipi tum gecelerde musait olmali ve misafir kapasitesini karsilamali.
 fn hotel_room_stay_filter_sql() -> String {
-  "and (pc.code != 'hotel' or exists ( "
+  "and ($8::text is null and $9::text is null and $32::text is null or pc.code != 'hotel' or exists ( "
   <> "  select 1 from hotel_rooms hr "
   <> "  where hr.listing_id = l.id "
   <> "    and ($32::text is null or coalesce(hr.capacity, 1) >= nullif($32::text, '')::int) "
@@ -1506,6 +1506,7 @@ fn search_listings_impl(
     <> "left join lateral (select la.value_json from listing_attributes la where la.listing_id = l.id and la.group_code = 'wtatil' and la.key = 'snapshot' limit 1) wtatil_snap on true "
     <> "left join listing_cruise_details cruise_det on cruise_det.listing_id = l.id "
     <> "where l.status = 'published' "
+    <> "and ($10::text is null or $10::text is not null) "
     <> browse_image_gate_sql
     <> "and ($1::text is null or trim($1) = '' or (select coalesce(bool_and("
     <> listing_search_match_sql
@@ -1689,6 +1690,7 @@ fn search_listings_impl(
     <> "left join lateral (select la.value_json from listing_attributes la where la.listing_id = l.id and la.group_code = 'vertical_tour' and la.key = 'v1' limit 1) tour_attr on true "
     <> "left join listing_cruise_details cruise_det on cruise_det.listing_id = l.id "
     <> "where l.status = 'published' "
+    <> "and ($10::text is null or $10::text is not null) "
     <> public_listing_must_have_image_browse_sql()
     <> "and ($2::text is null or pc.code = $2) "
     <> "and ($3::text is null or trim($3) = '' or (select coalesce(bool_and("
