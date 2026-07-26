@@ -7,8 +7,12 @@ import { usePathname } from 'next/navigation'
 export default function MobileLayoutSpacer() {
   const { type } = useAside()
   const pathname = usePathname()
-  const hideOnManage = Boolean(pathname?.includes('/manage') || pathname?.includes('/staff'))
-  if (hideOnManage || type === 'sidebar-navigation') return null
+  const hasFullHeader = Boolean(
+    pathname?.includes('/manage') ||
+      pathname?.includes('/staff') ||
+      pathname?.includes('/account'),
+  )
+  if (hasFullHeader || type === 'sidebar-navigation') return null
 
   return (
     <div

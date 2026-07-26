@@ -10,13 +10,17 @@ import type { ReactNode } from 'react'
  */
 export default function SiteHeaderChrome({ children }: { children: ReactNode }) {
   const pathname = usePathname()
-  const panelChrome = Boolean(pathname?.includes('/manage') || pathname?.includes('/staff'))
+  const fullHeaderChrome = Boolean(
+    pathname?.includes('/manage') ||
+      pathname?.includes('/staff') ||
+      pathname?.includes('/account'),
+  )
 
   return (
     <div
       className={clsx(
         'relative z-50 bg-white dark:bg-neutral-900',
-        panelChrome ? 'sticky top-0 block' : 'hidden lg:block',
+        fullHeaderChrome ? 'sticky top-0 block' : 'hidden lg:block',
       )}
     >
       {children}
