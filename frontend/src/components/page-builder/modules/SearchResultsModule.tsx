@@ -8,6 +8,7 @@ import {
   categoryLabelForSearch,
   dedupeSearchListings,
   publicListingDetailPath,
+  searchCategoryLabelsFromMessages,
 } from '@/lib/search-listings-display'
 import { formatPublicListingCardPrice } from '@/lib/activity-listing-price-display'
 import { vitrinHref } from '@/lib/vitrin-href'
@@ -41,7 +42,7 @@ function ListingCard({
   const m = getMessages(locale)
   const catLabel = categoryLabelForSearch(
     item.category_code,
-    m.listing.browseCategory as Record<string, string>,
+    searchCategoryLabelsFromMessages(m),
   )
   const priceLabel = formatPublicListingCardPrice(item, locale)
   const reviewAvg =

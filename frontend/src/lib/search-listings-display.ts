@@ -71,6 +71,20 @@ export function publicListingDetailPath(categoryCode: string, slug: string): str
   return `/${seg}/${slug}`
 }
 
+/**
+ * Arama / vitrin alt başlıkları: önce `listing.browseCategory`, yoksa
+ * `categoryPage.verticalLabels`. Eksik browse anahtarında ham kod (`activity`) görünmez.
+ */
+export function searchCategoryLabelsFromMessages(msgs: {
+  listing?: { browseCategory?: Record<string, string> }
+  categoryPage?: { verticalLabels?: Record<string, string> }
+}): Record<string, string> {
+  return {
+    ...(msgs.categoryPage?.verticalLabels ?? {}),
+    ...(msgs.listing?.browseCategory ?? {}),
+  }
+}
+
 export function categoryLabelForSearch(
   categoryCode: string,
   labels: Record<string, string> | undefined,
