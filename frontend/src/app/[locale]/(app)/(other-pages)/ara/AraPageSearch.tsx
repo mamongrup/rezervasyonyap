@@ -6,7 +6,7 @@ import { useVitrinHref } from '@/hooks/use-vitrin-href'
 import { Search } from 'lucide-react'
 import Form from 'next/form'
 import { useRouter } from 'next/navigation'
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 interface Props {
   locale: string
@@ -15,13 +15,43 @@ interface Props {
 
 export default function AraPageSearch({ locale, initialQuery = '' }: Props) {
   const [query, setQuery] = useState(initialQuery)
+  const [panelOpen, setPanelOpen] = useState(false)
   const router = useRouter()
   const vitrinPath = useVitrinHref()
-  const showLive = query.trim().length >= SEARCH_MIN_QUERY_LEN
+  const blurTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const showLive = panelOpen && query.trim().length >= SEARCH_MIN_QUERY_LEN
+
+  useEffect(() => {
+    setQuery(initialQuery)
+    // URL ile gelen / gönderilen sonuçlar sayfasında öneri menüsü kapalı kalsın.
+    setPanelOpen(false)
+  }, [initialQuery])
+
+  useEffect(
+    () => () => {
+      if (blurTimerRef.current) clearTimeout(blurTimerRef.current)
+    },
+    [],
+  )
+
+  const openPanel = () => {
+    if (blurTimerRef.current) {
+      clearTimeout(blurTimerRef.current)
+      blurTimerRef.current = null
+    }
+    setPanelOpen(true)
+  }
+
+  const scheduleClosePanel = () => {
+    if (blurTimerRef.current) clearTimeout(blurTimerRef.current)
+    // Öneri satırına tıklamaya izin ver.
+    blurTimerRef.current = setTimeout(() => setPanelOpen(false), 150)
+  }
 
   const handleSubmit = (formData: FormData) => {
     const q = String(formData.get('q') ?? '').trim()
     const base = vitrinPath('/ara')
+    setPanelOpen(false)
     router.push(q ? `${base}?q=${encodeURIComponent(q)}` : base)
   }
 
@@ -34,7 +64,12 @@ export default function AraPageSearch({ locale, initialQuery = '' }: Props) {
             type="search"
             name="q"
             value={query}
-            onChange={(e) => setQuery(e.target.value)}
+            onChange={(e) => {
+              setQuery(e.target.value)
+              setPanelOpen(true)
+            }}
+            onFocus={openPanel}
+            onBlur={scheduleClosePanel}
             placeholder="İlan, destinasyon veya özellik ara…"
             autoComplete="off"
             className="w-full border-0 bg-transparent text-base focus:ring-0 focus:outline-none dark:text-white"
@@ -43,7 +78,12 @@ export default function AraPageSearch({ locale, initialQuery = '' }: Props) {
       </Form>
       {showLive ? (
         <div className="absolute start-0 end-0 top-full z-20 mt-2">
-          <ListingSearchSuggestions query={query} locale={locale} showViewAllLink />
+          <ListingSearchSuggestions
+            query={query}
+            locale={locale}
+            showViewAllLink={false}
+            onNavigate={() => setPanelOpen(false)}
+          />
         </div>
       ) : null}
     </div>
