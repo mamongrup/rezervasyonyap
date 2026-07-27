@@ -6,12 +6,9 @@
 #   - API + Next tam deploy + verify
 #   - sosyal worker restart
 #
-# Üretim (önerilen):
+# Üretim (önerilen — main):
 #   cd /var/www/vhosts/rezervasyonyap.tr/httpdocs
 #   chmod +x deploy/scripts/deploy-all-pending.sh
-#   DEPLOY_REF=cursor/deploy-all-pending-5f49 ./deploy/scripts/deploy-all-pending.sh
-#
-# main'e merge sonrası:
 #   DEPLOY_REF=main ./deploy/scripts/deploy-all-pending.sh
 #
 # Atlama bayrakları:
@@ -24,7 +21,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 cd "$ROOT"
 
-REF="${DEPLOY_REF:-cursor/deploy-all-pending-5f49}"
+REF="${DEPLOY_REF:-main}"
 
 ok() { echo "[OK] $*"; }
 step() { echo; echo "==> $*"; }
