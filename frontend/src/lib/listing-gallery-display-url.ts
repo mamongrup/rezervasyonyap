@@ -10,8 +10,34 @@
 const AEGEAN_IMGS_RE =
   /^https:\/\/[^/]+\.aegeanhotels\.net\/data\/Imgs\/(?:1920x1080w|OriginalPhoto)\//i
 
-export function rewriteAegeanHotelsImageToBookeder(src: string): string {
+export function unwrapKplusCdnUrl(src: string): string {
   const s = src.trim()
+  if (!s || !/cdn\.kplus\.com\.tr/i.test(s)) return s
+  try {
+    const u = new URL(s)
+    const rawUrlParam = u.searchParams.get('url')
+    if (!rawUrlParam) return s
+    let decoded = ''
+    try {
+      if (typeof window !== 'undefined' && typeof window.atob === 'function') {
+        decoded = window.atob(rawUrlParam)
+      } else if (typeof Buffer !== 'undefined') {
+        decoded = Buffer.from(rawUrlParam, 'base64').toString('utf-8')
+      }
+    } catch {
+      return s
+    }
+    decoded = decoded.trim()
+    if (!decoded) return s
+    if (/^https?:\/\//i.test(decoded)) return decoded
+    return `https://${decoded}`
+  } catch {
+    return s
+  }
+}
+
+export function rewriteAegeanHotelsImageToBookeder(src: string): string {
+  const s = unwrapKplusCdnUrl(src.trim())
   if (!s || !AEGEAN_IMGS_RE.test(s)) return s
   try {
     const u = new URL(s)

@@ -246,6 +246,30 @@ const nextConfig = {
       },
       {
         protocol: 'https',
+        hostname: '**.tatilbudur.com',
+        port: '',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'productcdn.tatilbudur.com',
+        port: '',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: '**.travelapi.com',
+        port: '',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: '**.hotelbeds.com',
+        port: '',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
         hostname: 'pics.avs.io',
         port: '',
         pathname: '/**',
