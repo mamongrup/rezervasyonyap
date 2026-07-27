@@ -52,8 +52,13 @@ export function rewriteAegeanHotelsImageToBookeder(src: string): string {
 }
 
 export function preferListingGalleryFullAsset(src: string): string {
-  const s = rewriteAegeanHotelsImageToBookeder(src.trim())
+  let s = rewriteAegeanHotelsImageToBookeder(src.trim())
   if (!s) return s
+
+  // Bookeder gerçek dosya uzantısı `.JPEG`; yanlış `.avif` 404 verir.
+  if (/bookeder\.com/i.test(s) && /\.avif(\?|#|$)/i.test(s)) {
+    s = s.replace(/\.avif/i, '.JPEG')
+  }
 
   const qIdx = s.indexOf('?')
   const hIdx = s.indexOf('#')
@@ -71,10 +76,8 @@ export function preferListingGalleryFullAsset(src: string): string {
   else if (/_thumb\.avif$/i.test(upgraded)) upgraded = upgraded.replace(/_thumb\.avif$/i, '.avif')
   else if (/-thumb\.webp$/i.test(upgraded)) upgraded = upgraded.replace(/-thumb\.webp$/i, '.webp')
   else if (/_thumb\.webp$/i.test(upgraded)) upgraded = upgraded.replace(/_thumb\.webp$/i, '.webp')
-  // Diskte AVIF üretildi; DB hâlâ .jpg/.webp tutuyorsa 404 — kardeş .avif'e çevir.
-  else if (/\.(jpe?g|png|webp)$/i.test(upgraded)) {
-    upgraded = upgraded.replace(/\.(jpe?g|png|webp)$/i, '.avif')
-  }
+  // Not: diskte hâlâ .webp varken DB/önceki rewrite .avif yazmış olabilir.
+  // Kör .webp→.avif dönüşümü gri kart üretir; kardeş uzantı `listing-image-url-fallbacks` ile denenir.
 
   return upgraded + suffix
 }

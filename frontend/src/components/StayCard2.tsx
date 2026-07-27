@@ -6,6 +6,7 @@ import SaleOffBadge from '@/components/SaleOffBadge'
 import StartRating from '@/components/StartRating'
 import { displayListingCategoryLine } from '@/lib/listing-category-display'
 import { holidayHomeCapacitySummary } from '@/lib/holiday-home-capacity-summary'
+import { nextListingImageUrlFallback } from '@/lib/listing-image-url-fallbacks'
 import { preferListingCardImageUrl } from '@/lib/prefer-listing-card-image'
 import type { TListingBase, TListingHolidayHome } from '@/types/listing-types'
 import { Badge } from '@/shared/Badge'
@@ -16,7 +17,7 @@ import clsx from 'clsx'
 import Image from 'next/image'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
-import { FC, useState } from 'react'
+import { FC, useEffect, useState } from 'react'
 import { useVitrinHref } from '@/hooks/use-vitrin-href'
 import { normalizeCatalogVertical } from '@/lib/catalog-listing-vertical'
 import { detailPathForVertical } from '@/lib/listing-detail-routes'
@@ -63,10 +64,19 @@ const StayCard2: FC<StayCard2Props> = ({ size = 'default', className = '', data 
     (galleryImgs?.[0] && typeof galleryImgs[0] === 'string'
       ? galleryImgs[0]
       : (galleryImgs?.[0] as { src: string } | undefined)?.src) || featuredImage
-  const [brokenImage, setBrokenImage] = useState(false)
   const trimmedRaw = typeof imgSrcRaw === 'string' ? imgSrcRaw.trim() : ''
-  const trimmed = preferListingCardImageUrl(trimmedRaw)
-  const showRemoteImage = Boolean(trimmed) && !brokenImage
+  const initialSrc = preferListingCardImageUrl(trimmedRaw)
+  const [imageSrc, setImageSrc] = useState(initialSrc)
+  const [tried, setTried] = useState<string[]>(() => (initialSrc ? [initialSrc] : []))
+  const [brokenImage, setBrokenImage] = useState(false)
+
+  useEffect(() => {
+    setImageSrc(initialSrc)
+    setTried(initialSrc ? [initialSrc] : [])
+    setBrokenImage(false)
+  }, [initialSrc])
+
+  const showRemoteImage = Boolean(imageSrc) && !brokenImage
 
   const renderSliderGallery = () => {
     return (
@@ -75,17 +85,26 @@ const StayCard2: FC<StayCard2Props> = ({ size = 'default', className = '', data 
           <div className="relative w-full overflow-hidden rounded-xl" style={{ paddingBottom: '75%' }}>
             {showRemoteImage ? (
               <Image
-                src={trimmed}
+                src={imageSrc}
                 fill
                 alt={title ?? 'listing'}
                 className="object-cover transition-transform duration-300 group-hover:scale-105"
                 sizes="(max-width: 640px) 92vw, (max-width: 1024px) 46vw, (max-width: 1280px) 31vw, 24vw"
                 unoptimized={
-                  trimmed.startsWith('data:') ||
-                  trimmed.startsWith('/uploads/') ||
-                  /^https?:\/\//i.test(trimmed)
+                  imageSrc.startsWith('data:') ||
+                  imageSrc.startsWith('/uploads/') ||
+                  imageSrc.startsWith('/api/listing-ext-image') ||
+                  /^https?:\/\//i.test(imageSrc)
                 }
-                onError={() => setBrokenImage(true)}
+                onError={() => {
+                  const next = nextListingImageUrlFallback(imageSrc, new Set(tried))
+                  if (next) {
+                    setTried((prev) => [...prev, next])
+                    setImageSrc(next)
+                    return
+                  }
+                  setBrokenImage(true)
+                }}
               />
             ) : (
               <div className="absolute inset-0 bg-neutral-200 dark:bg-neutral-700" aria-hidden />

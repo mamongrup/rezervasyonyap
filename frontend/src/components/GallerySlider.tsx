@@ -6,6 +6,8 @@ import Link from 'next/link'
 import { useCallback, useEffect, useState } from 'react'
 import { ArrowLeft02Icon, ArrowRight02Icon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
+import { nextListingImageUrlFallback } from '@/lib/listing-image-url-fallbacks'
+
 interface GallerySliderProps {
   className?: string
   uniqueID?: string
@@ -48,17 +50,33 @@ export default function GallerySlider({
 }: GallerySliderProps) {
   const [index, setIndex] = useState(0)
   const [failed, setFailed] = useState<Set<number>>(() => new Set())
+  const [srcOverrides, setSrcOverrides] = useState<Record<number, string>>({})
+  const [triedByIndex, setTriedByIndex] = useState<Record<number, string[]>>({})
   const images = galleryToUrlStrings(galleryImgs ?? []).filter((u) => u.trim() !== '')
 
   useEffect(() => {
     setIndex(0)
     setFailed(new Set())
+    setSrcOverrides({})
+    setTriedByIndex({})
   }, [uniqueID, images.join('\u001f')])
 
-  const currentSrc = images.length > 0 ? (images[index] ?? images[0]) : ''
+  const baseSrc = images.length > 0 ? (images[index] ?? images[0]) : ''
+  const currentSrc = srcOverrides[index] ?? baseSrc
 
   const onImageError = useCallback(
     (i: number) => {
+      const base = images[i] ?? ''
+      const shown = srcOverrides[i] ?? base
+      const prevTried = triedByIndex[i] ?? []
+      const tried = new Set<string>([...prevTried, shown, base].filter(Boolean))
+      const fallback = nextListingImageUrlFallback(shown || base, tried)
+      if (fallback) {
+        setTriedByIndex((prev) => ({ ...prev, [i]: [...tried] }))
+        setSrcOverrides((prev) => ({ ...prev, [i]: fallback }))
+        return
+      }
+
       setFailed((prev) => {
         const next = new Set(prev)
         next.add(i)
@@ -74,7 +92,7 @@ export default function GallerySlider({
         return next
       })
     },
-    [images.length],
+    [images, srcOverrides, triedByIndex],
   )
 
   return (
