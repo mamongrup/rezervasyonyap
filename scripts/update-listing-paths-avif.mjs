@@ -46,11 +46,8 @@ if (!dryRun) {
           'i'
         ),
         updated_at = now()
-    WHERE l.external_listing_ref IS NOT NULL
-      AND (
-        coalesce(l.featured_image_url, '') ~* '\\.(webp|jpe?g|png|jfif)(\\?.*)?$'
-        OR coalesce(l.thumbnail_url, '') ~* '\\.(webp|jpe?g|png|jfif)(\\?.*)?$'
-      )
+    WHERE coalesce(l.featured_image_url, '') ~* '\\.(webp|jpe?g|png|jfif)(\\?|$)'
+       OR coalesce(l.thumbnail_url, '') ~* '\\.(webp|jpe?g|png|jfif)(\\?|$)'
     RETURNING l.id
   `)
   console.log('listing_images updated:', img.rowCount)

@@ -319,6 +319,24 @@ main() {
     warn "378_repair_baransen_yacht_villa_identity.sql bulunamadı"
   fi
 
+  if [[ -f "$APP_ROOT/backend/priv/sql/modules/379_listing_image_urls_to_avif.sql" ]]; then
+    step "İlan görsel URL .jpg→.avif (disk AVIF uyumu)"
+    bash "$APP_ROOT/deploy/apply-sql.sh" \
+      "$APP_ROOT/backend/priv/sql/modules/379_listing_image_urls_to_avif.sql" \
+      || warn "379 listing image avif URL SQL uygulanamadı — villa kartları gri kalabilir"
+  else
+    warn "379_listing_image_urls_to_avif.sql bulunamadı"
+  fi
+
+  if [[ -f "$APP_ROOT/backend/priv/sql/modules/380_repair_holiday_home_turkish_titles.sql" ]]; then
+    step "Tatil evi Türkçe başlık (? → ş/ğ/ı) onarımı"
+    bash "$APP_ROOT/deploy/apply-sql.sh" \
+      "$APP_ROOT/backend/priv/sql/modules/380_repair_holiday_home_turkish_titles.sql" \
+      || warn "380 holiday home title encoding SQL uygulanamadı"
+  else
+    warn "380_repair_holiday_home_turkish_titles.sql bulunamadı"
+  fi
+
   if [[ -f "$APP_ROOT/backend/priv/sql/modules/372_listing_region_stats_cache.sql" ]]; then
     step "Bölge istatistik önbelleği (region-stats)"
     bash "$APP_ROOT/deploy/apply-sql.sh" \

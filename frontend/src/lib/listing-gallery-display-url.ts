@@ -71,6 +71,10 @@ export function preferListingGalleryFullAsset(src: string): string {
   else if (/_thumb\.avif$/i.test(upgraded)) upgraded = upgraded.replace(/_thumb\.avif$/i, '.avif')
   else if (/-thumb\.webp$/i.test(upgraded)) upgraded = upgraded.replace(/-thumb\.webp$/i, '.webp')
   else if (/_thumb\.webp$/i.test(upgraded)) upgraded = upgraded.replace(/_thumb\.webp$/i, '.webp')
+  // Diskte AVIF üretildi; DB hâlâ .jpg/.webp tutuyorsa 404 — kardeş .avif'e çevir.
+  else if (/\.(jpe?g|png|webp)$/i.test(upgraded)) {
+    upgraded = upgraded.replace(/\.(jpe?g|png|webp)$/i, '.avif')
+  }
 
   return upgraded + suffix
 }
