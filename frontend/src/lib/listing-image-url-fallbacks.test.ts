@@ -44,6 +44,14 @@ describe('listing-image-url-fallbacks', () => {
     )
   })
 
+  it('repairs Wikimedia ferry .avif to .jpg', () => {
+    const src =
+      'https://upload.wikimedia.org/wikipedia/commons/1/15/Kastelorizo_Hafen.avif'
+    expect(repairExternalListingImageExt(src)).toBe(
+      'https://upload.wikimedia.org/wikipedia/commons/1/15/Kastelorizo_Hafen.jpg',
+    )
+  })
+
   it('falls back uploads .avif to .webp', () => {
     const avif = '/uploads/listings/ilanlar/tatil-evleri/puzzle-villa/villa-puzzle-18.avif'
     const next = nextListingImageUrlFallback(avif, new Set([avif]))

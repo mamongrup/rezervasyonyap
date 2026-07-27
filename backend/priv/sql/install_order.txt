@@ -227,6 +227,7 @@ modules/382_repair_listing_image_ext_after_partial_avif.sql
 modules/383_repair_external_cdn_image_extensions.sql
 modules/384_repair_reserwation_tour_image_ext.sql
 modules/385_repair_fairystone_activity_image_ext.sql
+modules/386_repair_wikimedia_ferry_image_ext.sql
 
 # Kurulum doğrulama (install_order’a dahil değil — elle çalıştırın):
 #   psql -U postgres -d travel -f priv/sql/check_installation.sql

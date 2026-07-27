@@ -11,6 +11,7 @@ const PROXY_HOST_SUFFIXES = [
   'aegeanhotels.net',
   'reserwation.com',
   'fairystonetravel.com',
+  'upload.wikimedia.org',
 ] as const
 
 export function listingExtImageNeedsProxy(url: string): boolean {
@@ -45,11 +46,12 @@ export function isAllowedListingExtImageHost(hostname: string): boolean {
     'bookeder.com',
     'productcdn.tatilbudur.com',
     'reserwation.com',
+    'fairystonetravel.com',
+    'upload.wikimedia.org',
     'i.travelapi.com',
     'photos.hotelbeds.com',
     'cdn.kplus.com.tr',
     'pics.avs.io',
-    'fairystonetravel.com',
     ...PROXY_HOST_SUFFIXES,
   ] as const
   for (const suffix of allowed) {

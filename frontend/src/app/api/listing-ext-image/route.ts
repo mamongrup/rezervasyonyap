@@ -47,12 +47,22 @@ export async function GET(req: NextRequest) {
   const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS)
 
   try {
+    const upstreamHeaders: Record<string, string> = {
+      Accept: 'image/avif,image/webp,image/apng,image/*,*/*;q=0.8',
+      'User-Agent': USER_AGENT,
+    }
+    try {
+      const host = new URL(upstreamUrl).hostname.toLowerCase()
+      if (host === 'upload.wikimedia.org' || host.endsWith('.wikimedia.org')) {
+        upstreamHeaders.Referer = 'https://commons.wikimedia.org/'
+      }
+    } catch {
+      /* ignore */
+    }
+
     const upstream = await fetch(upstreamUrl, {
       signal: controller.signal,
-      headers: {
-        Accept: 'image/avif,image/webp,image/apng,image/*,*/*;q=0.8',
-        'User-Agent': USER_AGENT,
-      },
+      headers: upstreamHeaders,
       next: { revalidate: 86400 },
     })
 
