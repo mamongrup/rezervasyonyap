@@ -5,6 +5,7 @@
  * Backend `suggest=1`: tam sayım yok, görsel/fiyat kapısı yok → hızlı öneri.
  */
 import { apiOriginForFetch } from '@/lib/api-origin'
+import { resolveListingDisplayImageUrl } from '@/lib/listing-ext-image-proxy'
 import {
   categoryLabelForSearch,
   dedupeSearchListings,
@@ -36,6 +37,9 @@ type CollectionRow = {
 let collectionsCache: { at: number; rows: CollectionRow[] } | null = null
 const COLLECTIONS_TTL_MS = 5 * 60 * 1000
 
+/** Locale mesajları da tuş başına yüklenmesin. */
+const categoryLabelsCache = new Map<string, Record<string, string>>()
+
 async function loadCollections(apiBase: string, signal?: AbortSignal): Promise<CollectionRow[]> {
   const now = Date.now()
   if (collectionsCache && now - collectionsCache.at < COLLECTIONS_TTL_MS) {
@@ -56,6 +60,20 @@ async function loadCollections(apiBase: string, signal?: AbortSignal): Promise<C
   }
 }
 
+async function loadCategoryLabels(locale: string): Promise<Record<string, string>> {
+  const cached = categoryLabelsCache.get(locale)
+  if (cached) return cached
+  const { getMessages } = await import('@/utils/getT')
+  const labels = (getMessages(locale).listing.browseCategory ?? {}) as Record<string, string>
+  categoryLabelsCache.set(locale, labels)
+  return labels
+}
+
+function suggestionImage(raw: string | null | undefined): string | undefined {
+  const resolved = resolveListingDisplayImageUrl(raw)
+  return resolved || undefined
+}
+
 export async function GET(req: NextRequest) {
   const q = (req.nextUrl.searchParams.get('q') ?? '').trim()
   const locale = (req.nextUrl.searchParams.get('locale') ?? 'tr').trim()
@@ -64,9 +82,6 @@ export async function GET(req: NextRequest) {
   if (q.length < SEARCH_MIN_QUERY_LEN) {
     return NextResponse.json({ suggestions: [] })
   }
-
-  const { getMessages } = await import('@/utils/getT')
-  const categoryLabels = getMessages(locale).listing.browseCategory as Record<string, string>
 
   const apiBase =
     apiOriginForFetch() || (process.env.API_URL ?? '').replace(/\/$/, '')
@@ -80,7 +95,7 @@ export async function GET(req: NextRequest) {
       `?q=${encodeURIComponent(q)}&locale=${encodeURIComponent(locale)}` +
       `&limit=${limit}&suggest=1`
 
-    const [listingsSettled, collections] = await Promise.all([
+    const [listingsSettled, collections, categoryLabels] = await Promise.all([
       fetch(listingsUrl, { signal, next: { revalidate: 60 } })
         .then(async (r) => {
           if (!r.ok) return [] as PublicListingItem[]
@@ -89,6 +104,7 @@ export async function GET(req: NextRequest) {
         })
         .catch(() => [] as PublicListingItem[]),
       loadCollections(apiBase, signal),
+      loadCategoryLabels(locale),
     ])
 
     const deduped = dedupeSearchListings(listingsSettled)
@@ -100,7 +116,7 @@ export async function GET(req: NextRequest) {
         slug: item.slug,
         title: item.title,
         subtitle: [catLabel, item.location].filter(Boolean).join(' · ') || undefined,
-        image: item.featured_image_url ?? item.thumbnail_url ?? undefined,
+        image: suggestionImage(item.featured_image_url ?? item.thumbnail_url),
         href: publicListingDetailPath(item.category_code, item.slug),
       })
     }
@@ -117,7 +133,7 @@ export async function GET(req: NextRequest) {
           slug: col.slug,
           title: col.title,
           subtitle: col.description?.slice(0, 60) ?? 'Koleksiyon',
-          image: col.hero_image_url ?? undefined,
+          image: suggestionImage(col.hero_image_url),
           href: `/kesfet/${col.slug}`,
         })
       }

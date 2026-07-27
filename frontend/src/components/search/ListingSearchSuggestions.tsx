@@ -17,6 +17,32 @@ interface Props {
   showViewAllLink?: boolean
 }
 
+function SuggestThumb({ src }: { src?: string }) {
+  const [broken, setBroken] = useState(false)
+  useEffect(() => {
+    setBroken(false)
+  }, [src])
+  if (!src || broken) {
+    return (
+      <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-neutral-100 dark:bg-neutral-800">
+        <Tag className="h-5 w-5 text-neutral-400" />
+      </div>
+    )
+  }
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={src}
+      alt=""
+      className="h-11 w-11 shrink-0 rounded-lg object-cover"
+      referrerPolicy="no-referrer"
+      loading="lazy"
+      decoding="async"
+      onError={() => setBroken(true)}
+    />
+  )
+}
+
 export default function ListingSearchSuggestions({
   query,
   locale,
@@ -30,6 +56,9 @@ export default function ListingSearchSuggestions({
   const [suggestions, setSuggestions] = useState<SearchSuggestion[]>([])
   const [loading, setLoading] = useState(false)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const abortRef = useRef<AbortController | null>(null)
+  const cacheRef = useRef(new Map<string, SearchSuggestion[]>())
+  const latestRef = useRef('')
 
   useEffect(() => {
     if (trimmed.length < SEARCH_MIN_QUERY_LEN) {
@@ -37,23 +66,42 @@ export default function ListingSearchSuggestions({
       setLoading(false)
       return
     }
+    latestRef.current = trimmed
     if (debounceRef.current) clearTimeout(debounceRef.current)
+    abortRef.current?.abort()
+
+    const cacheKey = `${locale}:${trimmed.toLocaleLowerCase(locale)}`
+    const cached = cacheRef.current.get(cacheKey)
+    if (cached) {
+      setSuggestions(cached)
+      setLoading(false)
+      return
+    }
+
     debounceRef.current = setTimeout(async () => {
       setLoading(true)
+      const controller = new AbortController()
+      abortRef.current = controller
       try {
         const res = await fetch(
           `/api/listing-search?q=${encodeURIComponent(trimmed)}&locale=${locale}&limit=8`,
+          { signal: controller.signal },
         )
         const data = (await res.json()) as { suggestions: SearchSuggestion[] }
-        setSuggestions(data.suggestions ?? [])
-      } catch {
-        setSuggestions([])
+        const next = data.suggestions ?? []
+        cacheRef.current.set(cacheKey, next)
+        if (latestRef.current !== trimmed) return
+        setSuggestions(next)
+      } catch (error) {
+        if (error instanceof DOMException && error.name === 'AbortError') return
+        if (latestRef.current !== trimmed) return
       } finally {
-        setLoading(false)
+        if (latestRef.current === trimmed) setLoading(false)
       }
-    }, 280)
+    }, 140)
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current)
+      abortRef.current?.abort()
     }
   }, [trimmed, locale])
 
@@ -67,7 +115,7 @@ export default function ListingSearchSuggestions({
       )}
     >
       {loading && suggestions.length === 0 ? (
-        <div className="flex items-center justify-center gap-2 px-4 py-6 text-sm text-neutral-500">
+        <div className="flex items-center gap-2 justify-center px-4 py-6 text-sm text-neutral-500">
           <Loader2 className="h-4 w-4 animate-spin text-primary-500" />
           Aranıyor…
         </div>
@@ -97,13 +145,7 @@ export default function ListingSearchSuggestions({
                 onClick={onNavigate}
                 className="flex items-center gap-3 px-3 py-2.5 transition hover:bg-neutral-50 dark:hover:bg-neutral-800/80"
               >
-                {s.image ? (
-                  <img src={s.image} alt="" className="h-11 w-11 shrink-0 rounded-lg object-cover" />
-                ) : (
-                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-neutral-100 dark:bg-neutral-800">
-                    <Tag className="h-5 w-5 text-neutral-400" />
-                  </div>
-                )}
+                <SuggestThumb src={s.image} />
                 <div className="min-w-0 flex-1 text-start">
                   <p className="truncate text-sm font-semibold text-neutral-900 dark:text-neutral-100">
                     {s.title}
