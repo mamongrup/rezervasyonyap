@@ -10,6 +10,7 @@ const PROXY_HOST_SUFFIXES = [
   'productcdn.tatilbudur.com',
   'aegeanhotels.net',
   'reserwation.com',
+  'fairystonetravel.com',
 ] as const
 
 export function listingExtImageNeedsProxy(url: string): boolean {

@@ -10,6 +10,7 @@ const PATH_EXT_RE = /\.(avif|webp|jpe?g|png)$/i
  * - Bookeder → `.JPEG` (case-sensitive)
  * - TatilBudur productcdn → `.jpg` (`.avif` 403, `.JPEG` 500)
  * - Reserwation (WTatil turları) → `.jpg` (`.avif` 404)
+ * - FairyStone aktiviteleri → `.jpg` (`.avif` 404)
  */
 export function repairExternalListingImageExt(src: string): string {
   const s = src.trim()
@@ -27,6 +28,11 @@ export function repairExternalListingImageExt(src: string): string {
       return s
     }
     if (host === 'reserwation.com' || host.endsWith('.reserwation.com')) {
+      if (/\.avif(\?|#|$)/i.test(s)) return s.replace(/\.avif/i, '.jpg')
+      if (/\.JPEG(\?|#|$)/.test(s)) return s.replace(/\.JPEG(\?|#|$)/, '.jpg$1')
+      return s
+    }
+    if (host === 'fairystonetravel.com' || host.endsWith('.fairystonetravel.com')) {
       if (/\.avif(\?|#|$)/i.test(s)) return s.replace(/\.avif/i, '.jpg')
       if (/\.JPEG(\?|#|$)/.test(s)) return s.replace(/\.JPEG(\?|#|$)/, '.jpg$1')
       return s

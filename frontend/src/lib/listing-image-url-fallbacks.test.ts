@@ -36,6 +36,14 @@ describe('listing-image-url-fallbacks', () => {
     )
   })
 
+  it('repairs FairyStone activity .avif to .jpg', () => {
+    const src =
+      'https://fairystonetravel.com/wp-content/uploads/2024/02/hotairballoon004.avif'
+    expect(repairExternalListingImageExt(src)).toBe(
+      'https://fairystonetravel.com/wp-content/uploads/2024/02/hotairballoon004.jpg',
+    )
+  })
+
   it('falls back uploads .avif to .webp', () => {
     const avif = '/uploads/listings/ilanlar/tatil-evleri/puzzle-villa/villa-puzzle-18.avif'
     const next = nextListingImageUrlFallback(avif, new Set([avif]))
