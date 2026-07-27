@@ -229,12 +229,15 @@ export function HotelStayBookingSidebar(props: SharedProps) {
     selectedRoom,
     rangeStart,
     rangeEnd,
-    fallbackNightly: booking.fallbackNightly,
+    fallbackNightly: booking.selectedRoomFallbackNightly,
     mealPlans,
     selectedMealPlanId: booking.selectedMealPlanId,
     activitySurchargesTotal: booking.activitySurchargesTotal,
     locale,
     bookingUnitCount: roomChosen ? bookingUnitCount : 1,
+    resolveRoomNightly: selectedRoom
+      ? (ymd) => booking.resolveRoomNightlyForDay(selectedRoom, ymd)
+      : null,
   })
 
   const boardLabels = buildBoardTypeLabelsFromMessages(
@@ -249,7 +252,12 @@ export function HotelStayBookingSidebar(props: SharedProps) {
     booking.activitySurchargesTotal,
   )
   const checkoutPayment = useCheckoutPaymentAmount(quote.currencyCode, perRoomCartPrice)
-  const startingNightlyPrice = quote.formatConverted(booking.fallbackNightly, quote.currencyCode)
+  const startingNightlyPrice = quote.formatConverted(
+    booking.selectedRoomFallbackNightly > 0
+      ? booking.selectedRoomFallbackNightly
+      : booking.fallbackNightly,
+    quote.currencyCode,
+  )
 
   const canCheckout =
     Boolean(listingId.trim()) &&
@@ -285,7 +293,9 @@ export function HotelStayBookingSidebar(props: SharedProps) {
       <div className="flex flex-wrap items-start gap-x-3 gap-y-2">
         <div className="flex min-w-0 flex-1 flex-wrap items-baseline gap-x-3 gap-y-1">
           <span className="text-2xl font-semibold text-neutral-900 sm:text-3xl dark:text-neutral-100">
-            {booking.fallbackNightly > 0 ? startingNightlyPrice : quote.displayMainPrice}
+            {booking.selectedRoomFallbackNightly > 0 || booking.fallbackNightly > 0
+              ? startingNightlyPrice
+              : quote.displayMainPrice}
           </span>
           <span className="text-base text-neutral-500 dark:text-neutral-400">
             {messages.listing.sidebar.perNight}

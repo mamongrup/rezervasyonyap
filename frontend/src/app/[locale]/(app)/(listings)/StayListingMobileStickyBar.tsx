@@ -75,12 +75,17 @@ export default function StayListingMobileStickyBar({
     selectedRoom: roomChosen ? selectedRoom : undefined,
     rangeStart: isHotelRoomBooking ? rangeStart : null,
     rangeEnd: isHotelRoomBooking ? rangeEnd : null,
-    fallbackNightly: hotelCtx?.fallbackNightly ?? 0,
+    fallbackNightly:
+      hotelCtx?.selectedRoomFallbackNightly ?? hotelCtx?.fallbackNightly ?? 0,
     mealPlans,
     selectedMealPlanId: hotelCtx?.selectedMealPlanId,
     activitySurchargesTotal: hotelCtx?.activitySurchargesTotal ?? 0,
     locale,
     bookingUnitCount: roomChosen ? bookingUnitCount : 1,
+    resolveRoomNightly:
+      roomChosen && selectedRoom && hotelCtx
+        ? (ymd) => hotelCtx.resolveRoomNightlyForDay(selectedRoom, ymd)
+        : null,
   })
 
   const villaQuote = useStayListingQuote({

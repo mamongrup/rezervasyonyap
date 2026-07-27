@@ -29,6 +29,7 @@ export function useHotelRoomStayQuote({
   activitySurchargesTotal = 0,
   locale = 'tr',
   bookingUnitCount = 1,
+  resolveRoomNightly = null,
 }: {
   listingId: string
   selectedRoom: HotelRoomBookingOption | undefined
@@ -40,6 +41,7 @@ export function useHotelRoomStayQuote({
   activitySurchargesTotal?: number
   locale?: string
   bookingUnitCount?: number
+  resolveRoomNightly?: ((ymd: string) => number | null) | null
 }) {
   const ctx = usePreferredCurrencyContext()
   const [days, setDays] = useState<Awaited<ReturnType<typeof fetchPublicHotelRoomAvailabilityDaysSafe>>>([])
@@ -131,6 +133,7 @@ export function useHotelRoomStayQuote({
       bookingUnitCount,
       rawAvailabilityDays: rawDays,
       inventoryDefault: selectedRoom?.unit_count,
+      resolveRoomNightly,
     })
   }, [
     days,
@@ -144,6 +147,7 @@ export function useHotelRoomStayQuote({
     selectedRoom?.unit_count,
     activitySurchargesTotal,
     bookingUnitCount,
+    resolveRoomNightly,
   ])
 
   const displayMainPrice = useMemo(() => {

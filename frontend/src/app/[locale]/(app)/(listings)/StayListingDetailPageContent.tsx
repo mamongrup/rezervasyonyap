@@ -79,6 +79,7 @@ import {
   type ListingPriceRuleRow,
 } from '@/lib/travel-api'
 import { roomGalleryFallback } from '@/lib/hotel-room-gallery-fallback'
+import { extractHotelRoomFeaturesFromMeta } from '@/lib/hotel-room-nightly'
 import type { TListingHolidayHome } from '@/types/listing-types'
 import type { RegionPlaceData } from '@/app/api/region-places/route'
 import { guessCalendarMonthsShownFromRequest } from '@/lib/calendar-months-shown-server'
@@ -421,11 +422,13 @@ export default async function StayListingDetailPageContent({
     isStayRentalCategory(vertical) && catalogListingId
       ? getPublicListingPriceLines(catalogListingId, locale)
       : Promise.resolve(null),
-    isStayRentalCategory(vertical) && catalogListingId
+    (isStayRentalCategory(vertical) || vertical === 'hotel') && catalogListingId
       ? getPublicListingPriceRules(catalogListingId)
       : Promise.resolve([]),
   ])
   const listingDetailCampaigns = parseListingDetailCampaignsPayload(listingDetailCampaignsRaw)
+  const hotelPriceRules: ListingPriceRuleRow[] =
+    vertical === 'hotel' ? prefetchedHolidayHomePriceRules : []
 
   let listingContractHref: string | null = null
   let listingContractBody: { title: string; bodyHtml: string } | null = null
@@ -639,17 +642,21 @@ export default async function StayListingDetailPageContent({
       const galleryImages = pickStringArr('images')
       const fallbackImages = roomGalleryFallback(hotelGalleryResult?.images ?? [], row.name)
       const resolvedImages = galleryImages ?? (heroImage ? [heroImage] : fallbackImages)
+      const fromFeatures = extractHotelRoomFeaturesFromMeta(row.meta_json)
+      const amenities =
+        pickStringArr('amenities') ??
+        (fromFeatures.features.length > 0 ? fromFeatures.features : null)
       return {
         id: row.id,
         name: row.name,
         capacity: Number.isFinite(cap) ? (cap as number) : null,
         boardType: row.board_type,
         beds: pickNumber('beds'),
-        bedType: pickString('bed_type') ?? pickString('bedType'),
+        bedType: pickString('bed_type') ?? pickString('bedType') ?? fromFeatures.bedType,
         sizeM2:
           pickNumber('size_m2') ?? pickNumber('size_sqm') ?? pickNumber('size'),
         description: pickString('description') ?? pickString('summary'),
-        amenities: pickStringArr('amenities'),
+        amenities,
         paidAmenities: pickStringArr('paid_amenities'),
         roomScore: pickNumber('room_score') ?? pickNumber('score'),
         image: heroImage ?? fallbackImages[0] ?? null,
@@ -1585,6 +1592,7 @@ export default async function StayListingDetailPageContent({
         rooms={hotelBookingRooms}
         activities={hotelActivities}
         quoteProps={hotelBookingQuoteProps}
+        priceRules={hotelPriceRules}
       >
       <main className="relative z-[1] flex flex-col gap-6 lg:flex-row lg:items-start xl:gap-8">
         {/* LEFT COLUMN */}

@@ -1,7 +1,7 @@
 'use client'
 
 import type { HotelRoomBookingOption } from '@/lib/hotel-room-availability-public'
-import type { HotelListingActivity } from '@/lib/travel-api'
+import type { HotelListingActivity, ListingPriceRuleRow } from '@/lib/travel-api'
 import { Suspense, type ReactNode } from 'react'
 import {
   HotelStayBookingProvider,
@@ -14,6 +14,7 @@ export default function HotelListingMainShell({
   rooms,
   activities = [],
   quoteProps,
+  priceRules = [],
   children,
 }: {
   enabled: boolean
@@ -21,6 +22,7 @@ export default function HotelListingMainShell({
   rooms: HotelRoomBookingOption[]
   activities?: HotelListingActivity[]
   quoteProps: HotelStayBookingQuoteProps
+  priceRules?: ListingPriceRuleRow[]
   children: ReactNode
 }) {
   if (!enabled) return children
@@ -31,6 +33,7 @@ export default function HotelListingMainShell({
         rooms={rooms}
         activities={activities}
         quoteProps={quoteProps}
+        priceRules={priceRules}
       >
         {children}
       </HotelStayBookingProvider>

@@ -82,6 +82,8 @@ export function computeHotelStayQuoteTotals(input: {
   bookingUnitCount?: number
   rawAvailabilityDays?: readonly HotelRoomAvailabilityDay[]
   inventoryDefault?: number
+  /** Takvim override sonrası oda bazlı gecelik (seasonal / price_rules). */
+  resolveRoomNightly?: ((ymd: string) => number | null) | null
 }): HotelStayQuoteTotals {
   const nights = diffStayNights(input.rangeStart, input.rangeEnd)
   const activePlans = pickActiveMealPlans(input.mealPlans)
@@ -102,12 +104,14 @@ export function computeHotelStayQuoteTotals(input: {
           input.fallbackNightly,
           input.inventoryDefault,
           units,
+          input.resolveRoomNightly,
         )
       : computeHotelRoomStayQuote(
           input.days,
           input.rangeStart,
           input.rangeEnd,
           input.fallbackNightly,
+          input.resolveRoomNightly,
         )
 
   const mealPlanSupplement = computeMealPlanSupplement(selectedPlan, basePlan, roomQuote.nights)
