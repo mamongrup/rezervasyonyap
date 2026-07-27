@@ -191,7 +191,7 @@ fn run_caption_profile(ctx: Context, input_json: String) -> Result(String, Strin
   }
 }
 
-/// POST /api/v1/social/worker/enqueue-rotate — villa/yat/aktivite döngü kuyruğu.
+/// POST /api/v1/social/worker/enqueue-rotate — villa→yat→aktivite→tur→gemi→otel kuyruğu.
 pub fn post_worker_enqueue_rotate(req: Request, ctx: Context) -> Response {
   use <- wisp.require_method(req, http.Post)
   case auth_worker(req) {

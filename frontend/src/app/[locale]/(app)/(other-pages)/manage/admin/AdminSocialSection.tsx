@@ -61,11 +61,12 @@ function isWorkerLoopUnavailableError(err: unknown): boolean {
 }
 
 const SOCIAL_CATEGORIES = [
-  { code: 'hotel', label: 'Otel' },
   { code: 'holiday_home', label: 'Villa / Tatil Evi' },
   { code: 'yacht_charter', label: 'Yat' },
-  { code: 'tour', label: 'Tur' },
   { code: 'activity', label: 'Aktivite' },
+  { code: 'tour', label: 'Tur' },
+  { code: 'cruise', label: 'Gemi Turu' },
+  { code: 'hotel', label: 'Otel' },
   { code: 'flight', label: 'Uçak' },
   { code: 'car_rental', label: 'Araç Kiralama' },
 ]

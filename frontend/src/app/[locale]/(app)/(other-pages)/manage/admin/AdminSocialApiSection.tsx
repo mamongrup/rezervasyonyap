@@ -90,16 +90,21 @@ const VISUAL_SOCIAL_CATEGORIES = [
   'holiday_home',
   'yacht_charter',
   'activity',
+  'tour',
   'cruise',
   'hotel',
-  'ferry',
-  'car_rental',
-  'flight',
 ]
 
 const DEFAULT_ROTATION: RotationSettings = {
   enabled: true,
-  category_codes: ['holiday_home', 'yacht_charter', 'activity'],
+  category_codes: [
+    'holiday_home',
+    'yacht_charter',
+    'activity',
+    'tour',
+    'cruise',
+    'hotel',
+  ],
   min_repost_hours: 24,
   per_run_limit: 1,
   auto_story: true,
@@ -543,7 +548,8 @@ export default function AdminSocialApiSection() {
         <div className="rounded-2xl border border-[color:var(--manage-card-border)] bg-[color:var(--manage-card-bg)] p-5 backdrop-blur-sm">
           <h3 className="text-sm font-semibold text-[color:var(--manage-text)]">Otomatik vitrin yansıtma (10 dk)</h3>
           <p className="mt-1 text-xs text-[color:var(--manage-text-muted)]">
-            Villa (tatil evi), yat ve aktivite ilanları sırayla sosyal medya kuyruğuna eklenir. Sunucuda{' '}
+            Kategori sırası: villa → yat → aktivite → tur → gemi turu → otel. Bir kategoride paylaşılacak ilan
+            kalmayınca (veya hepsi bekleme süresindeyse) sonrakine geçilir. Sunucuda{' '}
             <code className="rounded bg-neutral-100 px-1 dark:bg-neutral-800">travel-social-worker.timer</code> her 10 dakikada bir çalışmalıdır.
           </p>
           <div className="mt-4 space-y-3">
@@ -573,7 +579,7 @@ export default function AdminSocialApiSection() {
                   },
                 }))
               }
-              hint="Varsayılan: holiday_home (villa), yacht_charter (yat), activity (aktivite)"
+              hint="Sıra önemli: holiday_home, yacht_charter, activity, tour, cruise, hotel (önceki bitince sonraki)"
             />
             <div className="grid gap-4 sm:grid-cols-2">
               <PlainField
