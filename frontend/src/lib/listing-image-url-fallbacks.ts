@@ -1,52 +1,58 @@
 /**
  * Vitrin görselleri: DB `.avif` derken diskte `.webp` veya harici CDN gerçek uzantısı farklı olabilir.
  * 404/403 sonrası kardeş uzantıyı dene — gri/kırık ikon yerine gerçek foto.
+ *
+ * Yerel yüklemeler / yeniden-host AVIF olmalı. Harici CDN'de AVIF yoksa
+ * çalışan orijinal uzantıya çeviririz; rehost script sonra yerel AVIF üretir.
  */
 
 const PATH_EXT_RE = /\.(avif|webp|jpe?g|png)$/i
 
-/**
- * Migration 379 tüm URL'leri `.avif` yaptı; CDN gerçek uzantıları farklı:
- * - Bookeder → `.JPEG` (case-sensitive)
- * - TatilBudur productcdn → `.jpg` (`.avif` 403, `.JPEG` 500)
- * - Reserwation (WTatil turları) → `.jpg` (`.avif` 404)
- * - FairyStone aktiviteleri → `.jpg` (`.avif` 404)
- * - Wikimedia Commons (feribot vb.) → `.jpg` (`.avif` 404)
- */
+/** Host → 379 sonrası yanlış `.avif` yerine gerçek uzantı */
+const CDN_AVIF_REPAIR: Array<{ test: (host: string) => boolean; to: string }> = [
+  {
+    test: (h) => h === 'bookeder.com' || h.endsWith('.bookeder.com'),
+    to: '.JPEG',
+  },
+  {
+    test: (h) => h === 'productcdn.tatilbudur.com' || h.endsWith('.tatilbudur.com'),
+    to: '.jpg',
+  },
+  {
+    test: (h) => h === 'reserwation.com' || h.endsWith('.reserwation.com'),
+    to: '.jpg',
+  },
+  {
+    test: (h) => h === 'fairystonetravel.com' || h.endsWith('.fairystonetravel.com'),
+    to: '.jpg',
+  },
+  {
+    test: (h) => h === 'upload.wikimedia.org' || h.endsWith('.wikimedia.org'),
+    to: '.jpg',
+  },
+  {
+    test: (h) => h.includes('yolcu360.com'),
+    to: '.png',
+  },
+]
+
 export function repairExternalListingImageExt(src: string): string {
   const s = src.trim()
   if (!s || !/^https?:\/\//i.test(s)) return s
   try {
     const host = new URL(s).hostname.toLowerCase()
-    if (host === 'bookeder.com' || host.endsWith('.bookeder.com')) {
-      if (/\.avif(\?|#|$)/i.test(s)) return s.replace(/\.avif/i, '.JPEG')
-      return s
+    const rule = CDN_AVIF_REPAIR.find((r) => r.test(host))
+    if (!rule) return s
+    let out = s
+    if (/\.avif(\?|#|$)/i.test(out)) out = out.replace(/\.avif/i, rule.to)
+    // Yanlış blanket .JPEG (TatilBudur / FairyStone / Reserwation / Wikimedia / Yolcu360)
+    if (rule.to === '.jpg' && /\.JPEG(\?|#|$)/.test(out)) {
+      out = out.replace(/\.JPEG(\?|#|$)/, '.jpg$1')
     }
-    if (host === 'productcdn.tatilbudur.com' || host.endsWith('.tatilbudur.com')) {
-      if (/\.avif(\?|#|$)/i.test(s)) return s.replace(/\.avif/i, '.jpg')
-      // 382 blanket JPEG düzeltmesi TatilBudur'da 500 verir
-      if (/\.JPEG(\?|#|$)/.test(s)) return s.replace(/\.JPEG(\?|#|$)/, '.jpg$1')
-      return s
-    }
-    if (host === 'reserwation.com' || host.endsWith('.reserwation.com')) {
-      if (/\.avif(\?|#|$)/i.test(s)) return s.replace(/\.avif/i, '.jpg')
-      if (/\.JPEG(\?|#|$)/.test(s)) return s.replace(/\.JPEG(\?|#|$)/, '.jpg$1')
-      return s
-    }
-    if (host === 'fairystonetravel.com' || host.endsWith('.fairystonetravel.com')) {
-      if (/\.avif(\?|#|$)/i.test(s)) return s.replace(/\.avif/i, '.jpg')
-      if (/\.JPEG(\?|#|$)/.test(s)) return s.replace(/\.JPEG(\?|#|$)/, '.jpg$1')
-      return s
-    }
-    if (host === 'upload.wikimedia.org' || host.endsWith('.wikimedia.org')) {
-      if (/\.avif(\?|#|$)/i.test(s)) return s.replace(/\.avif/i, '.jpg')
-      if (/\.JPEG(\?|#|$)/.test(s)) return s.replace(/\.JPEG(\?|#|$)/, '.jpg$1')
-      return s
-    }
+    return out
   } catch {
     return s
   }
-  return s
 }
 
 /** @deprecated use repairExternalListingImageExt */
@@ -109,7 +115,6 @@ export function nextListingImageUrlFallback(
   for (let step = 1; step <= order.length; step++) {
     const ext = order[(start + step) % order.length]!
     if (ext === currentExt) continue
-    // Aynı harf duyarsız eşleşme (jpeg/JPEG) — yine de case farkı için dene
     if (ext.toLowerCase() === currentExt.toLowerCase() && ext === currentExt) continue
     const nextPath = stem + ext + suffix
     const candidate = isProxy ? proxyPrefix + encodeURIComponent(nextPath) : nextPath

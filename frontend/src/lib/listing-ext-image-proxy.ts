@@ -12,6 +12,8 @@ const PROXY_HOST_SUFFIXES = [
   'reserwation.com',
   'fairystonetravel.com',
   'upload.wikimedia.org',
+  'integration-static.yolcu360.com',
+  'static.yolcu360.com',
 ] as const
 
 export function listingExtImageNeedsProxy(url: string): boolean {
@@ -52,6 +54,9 @@ export function isAllowedListingExtImageHost(hostname: string): boolean {
     'photos.hotelbeds.com',
     'cdn.kplus.com.tr',
     'pics.avs.io',
+    'integration-static.yolcu360.com',
+    'static.yolcu360.com',
+    'yolcu360.com',
     ...PROXY_HOST_SUFFIXES,
   ] as const
   for (const suffix of allowed) {

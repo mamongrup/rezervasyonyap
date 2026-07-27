@@ -55,6 +55,8 @@ export async function GET(req: NextRequest) {
       const host = new URL(upstreamUrl).hostname.toLowerCase()
       if (host === 'upload.wikimedia.org' || host.endsWith('.wikimedia.org')) {
         upstreamHeaders.Referer = 'https://commons.wikimedia.org/'
+      } else if (host.includes('yolcu360.com')) {
+        upstreamHeaders.Referer = 'https://www.yolcu360.com/'
       }
     } catch {
       /* ignore */

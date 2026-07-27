@@ -52,6 +52,14 @@ describe('listing-image-url-fallbacks', () => {
     )
   })
 
+  it('repairs Yolcu360 .avif to .png', () => {
+    const src =
+      'https://integration-static.yolcu360.com/vehicle/70571c08-e2d6-42e9-92e0-f4387c5a3013.avif'
+    expect(repairExternalListingImageExt(src)).toBe(
+      'https://integration-static.yolcu360.com/vehicle/70571c08-e2d6-42e9-92e0-f4387c5a3013.png',
+    )
+  })
+
   it('falls back uploads .avif to .webp', () => {
     const avif = '/uploads/listings/ilanlar/tatil-evleri/puzzle-villa/villa-puzzle-18.avif'
     const next = nextListingImageUrlFallback(avif, new Set([avif]))
