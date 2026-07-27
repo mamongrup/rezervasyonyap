@@ -337,6 +337,15 @@ main() {
     warn "380_repair_holiday_home_turkish_titles.sql bulunamadı"
   fi
 
+  if [[ -f "$APP_ROOT/backend/priv/sql/modules/381_sanitize_ministry_license_ref.sql" ]]; then
+    step "Turizm belge no — JSON/PII temizliği (ministry_license_ref)"
+    bash "$APP_ROOT/deploy/apply-sql.sh" \
+      "$APP_ROOT/backend/priv/sql/modules/381_sanitize_ministry_license_ref.sql" \
+      || warn "381 ministry license sanitize SQL uygulanamadı — Belge No satırında JSON kalabilir"
+  else
+    warn "381_sanitize_ministry_license_ref.sql bulunamadı"
+  fi
+
   if [[ -f "$APP_ROOT/backend/priv/sql/modules/372_listing_region_stats_cache.sql" ]]; then
     step "Bölge istatistik önbelleği (region-stats)"
     bash "$APP_ROOT/deploy/apply-sql.sh" \

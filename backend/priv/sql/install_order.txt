@@ -222,6 +222,7 @@ modules/377_unwrap_kplus_cdn_listing_images.sql
 modules/378_repair_baransen_yacht_villa_identity.sql
 modules/379_listing_image_urls_to_avif.sql
 modules/380_repair_holiday_home_turkish_titles.sql
+modules/381_sanitize_ministry_license_ref.sql
 
 # Kurulum doğrulama (install_order’a dahil değil — elle çalıştırın):
 #   psql -U postgres -d travel -f priv/sql/check_installation.sql

@@ -1,5 +1,7 @@
 /** Otel SSS maddeleri — saf veri; server ve client'tan güvenle çağrılabilir. */
 
+import { parsePublicMinistryLicenseRef } from '@/lib/ministry-license-ref'
+
 export interface HotelFaqSource {
   /** "14:00–23:00" gibi serbest metin (locale ile gelir) */
   checkInLine?: string
@@ -80,7 +82,7 @@ export function buildHotelFaqItems(
     })
   }
 
-  const ministryLicenseRef = str(source.ministryLicenseRef)
+  const ministryLicenseRef = parsePublicMinistryLicenseRef(source.ministryLicenseRef) ?? ''
   if (includePolicyItems && ministryLicenseRef) {
     items.push({
       q: t.qLicense ?? 'Tesisin Bakanlık ruhsat numarası nedir?',

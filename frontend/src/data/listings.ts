@@ -6,6 +6,7 @@ import {
   parseHeroPreviewKeysFromVertical,
 } from '@/lib/holiday-listing-hero-preview'
 import { resolveListingDisplayImageUrl } from '@/lib/listing-ext-image-proxy'
+import { parsePublicMinistryLicenseRef } from '@/lib/ministry-license-ref'
 import {
   extractHolidayHomePoolsFromVerticalMeta,
   hasAnyEnabledPool,
@@ -300,7 +301,7 @@ export const getStayListingByHandle = cache(async (
     if (safeTrim(item.theme_codes)) {
       themeCodes = parseHolidayThemeCodes(item.theme_codes)
     }
-    const mlr = safeTrimOrNull(item.ministry_license_ref)
+    const mlr = parsePublicMinistryLicenseRef(item.ministry_license_ref)
     if (mlr) ministryLicenseRef = mlr
     const pp = safeTrimOrNull(item.prepayment_percent)
     if (pp) prepaymentPercent = pp

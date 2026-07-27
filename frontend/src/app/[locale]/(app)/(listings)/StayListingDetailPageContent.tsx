@@ -6,6 +6,7 @@ import { fetchCategoryListings } from '@/lib/listings-fetcher'
 import { getSitePublicConfig as getSitePublicConfigSync, mergeBrandingIntoEnvContact } from '@/lib/site-public-config'
 import { buildListingOgImageUrl } from '@/lib/social-share/listing-og-image-url'
 import { sanitizeRichCmsHtml } from '@/lib/sanitize-cms-html'
+import { parsePublicMinistryLicenseRef } from '@/lib/ministry-license-ref'
 import { stripHtml } from '@/lib/social-share/strip-html'
 import {
   normalizeCatalogVertical,
@@ -842,7 +843,7 @@ export default async function StayListingDetailPageContent({
         )?.label ?? hotelTypeCodeNorm
       : listingCategory
   const resolvedMinistryLicenseRef =
-    safeTrimOrNull(listing.ministryLicenseRef) ??
+    parsePublicMinistryLicenseRef(listing.ministryLicenseRef) ??
     (vertical === 'hotel' && handle === HOTEL_DEMO_LISTING_HANDLE
       ? HOTEL_DEMO_MINISTRY_LICENSE_REF
       : null)
@@ -1622,7 +1623,7 @@ export default async function StayListingDetailPageContent({
                   hasBreakfast: hotelHasBreakfast,
                   prepaymentLine: prepaymentNoteText?.trim() ?? null,
                   cancellationLine: cancellationPolicyPlain?.trim() ?? null,
-                  ministryLicenseLine: listing.ministryLicenseRef?.trim() ?? null,
+                  ministryLicenseLine: parsePublicMinistryLicenseRef(listing.ministryLicenseRef),
                   additionalRuleLines: hotelAdditionalRuleLines,
                 }}
                 contract={
