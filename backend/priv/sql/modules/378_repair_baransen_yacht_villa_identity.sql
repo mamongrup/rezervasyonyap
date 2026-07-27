@@ -41,11 +41,6 @@ updated AS (
     slug = s.folder_slug,
     external_provider_code = 'baransen',
     external_listing_ref = coalesce(s.baransen_ref, l.external_listing_ref),
-    property_type = CASE
-      WHEN lower(coalesce(l.property_type, '')) IN ('villa', 'apartment', 'apart')
-        THEN NULL
-      ELSE l.property_type
-    END,
     updated_at = now()
   FROM safe s
   WHERE l.id = s.id
@@ -56,7 +51,8 @@ SET title = initcap(replace(regexp_replace(u.folder_slug, '-bs-[0-9]+$', ''), '-
 FROM updated u
 WHERE lt.listing_id = u.id
   AND (
-    lower(translate(trim(lt.title), 'İIı', 'iii')) = lower(translate(replace(u.wrong_slug, '-', ' '), 'İIı', 'iii'))
+    lower(translate(trim(lt.title), 'İIı', 'iii'))
+      = lower(translate(replace(u.wrong_slug, '-', ' '), 'İIı', 'iii'))
     OR lower(trim(lt.title)) LIKE '%villa%'
     OR lower(trim(lt.title)) LIKE '%apart%'
   );
