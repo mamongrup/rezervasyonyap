@@ -3,7 +3,7 @@
 import clsx from 'clsx'
 import Image from 'next/image'
 import Link from 'next/link'
-import { useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { ArrowLeft02Icon, ArrowRight02Icon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
 interface GallerySliderProps {
@@ -47,9 +47,35 @@ export default function GallerySlider({
   navigation = true,
 }: GallerySliderProps) {
   const [index, setIndex] = useState(0)
+  const [failed, setFailed] = useState<Set<number>>(() => new Set())
   const images = galleryToUrlStrings(galleryImgs ?? []).filter((u) => u.trim() !== '')
 
+  useEffect(() => {
+    setIndex(0)
+    setFailed(new Set())
+  }, [uniqueID, images.join('\u001f')])
+
   const currentSrc = images.length > 0 ? (images[index] ?? images[0]) : ''
+
+  const onImageError = useCallback(
+    (i: number) => {
+      setFailed((prev) => {
+        const next = new Set(prev)
+        next.add(i)
+        if (images.length > 1) {
+          for (let step = 1; step <= images.length; step++) {
+            const candidate = (i + step) % images.length
+            if (!next.has(candidate)) {
+              setIndex(candidate)
+              break
+            }
+          }
+        }
+        return next
+      })
+    },
+    [images.length],
+  )
 
   return (
     <div className={clsx(`group/cardGallerySlider group relative`, className)}>
@@ -57,18 +83,21 @@ export default function GallerySlider({
       <div className={clsx(`relative w-full overflow-hidden rounded-xl`, galleryClass)}>
         <Link href={href} className={clsx(`relative flex items-center justify-center`, ratioClass)}>
           <div className="absolute inset-0">
-            {currentSrc ? (
+            {currentSrc && !failed.has(index) ? (
               <Image
                 src={currentSrc}
                 fill
                 alt="listing card gallery"
                 className={clsx(`rounded-xl object-cover`, imageClass)}
                 sizes="(max-width: 640px) 92vw, (max-width: 1024px) 46vw, (max-width: 1280px) 31vw, 24vw"
+                referrerPolicy="no-referrer"
                 unoptimized={
                   currentSrc.startsWith('data:') ||
                   currentSrc.startsWith('/uploads/') ||
+                  currentSrc.startsWith('/api/listing-ext-image') ||
                   /^https?:\/\//i.test(currentSrc)
                 }
+                onError={() => onImageError(index)}
               />
             ) : (
               <div className="absolute inset-0 rounded-xl bg-neutral-200 dark:bg-neutral-700" aria-hidden />

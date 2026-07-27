@@ -7,7 +7,7 @@
  */
 
 import { enrichFlightListingFromCatalogItem, dedupeFlightListingsByRoute } from '@/lib/flight-catalog-vitrin'
-import { preferListingGalleryFullAsset } from '@/lib/listing-gallery-display-url'
+import { resolveListingDisplayImageUrl } from '@/lib/listing-ext-image-proxy'
 import { storageKeyToPublicUrl } from '@/lib/listing-gallery-hero-order'
 import { holidayHomeRulePriceRangeEnabled } from '@/lib/holiday-home-rule-price-range'
 import { parseHolidayThemeCodes } from '@/lib/holiday-theme-codes'
@@ -252,7 +252,7 @@ function coercePositiveDiscountPercent(v: unknown): number | undefined {
 
 function normalizeListingCoverUrl(raw: string | null | undefined): string {
   const url = storageKeyToPublicUrl(String(raw ?? '').trim())
-  return url ? preferListingGalleryFullAsset(url) : ''
+  return url ? resolveListingDisplayImageUrl(url) : ''
 }
 
 function normalizePublicListingGallery(paths: string[] | null | undefined): string[] {

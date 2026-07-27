@@ -1,13 +1,8 @@
 /**
- * Vitrin kartı kapak URL’si.
- *
- * Sağlayıcının verdiği doğrulanmış URL'yi değiştirmiyoruz. Bookeder
- * `Photos/Big` adreslerini `Photos/Medium` olarak tahmin etmek bazı tesislerde
- * var olmayan bir dosyaya gidiyor ve kartı boş bırakıyordu.
+ * Vitrin kartı kapak URL’si — harici CDN proxy + kplus unwrap dahil.
  */
-import { unwrapKplusCdnUrl } from './listing-gallery-display-url'
+import { resolveListingDisplayImageUrl } from '@/lib/listing-ext-image-proxy'
 
 export function preferListingCardImageUrl(url: string): string {
-  const trimmed = (url ?? '').trim()
-  return unwrapKplusCdnUrl(trimmed)
+  return resolveListingDisplayImageUrl(url)
 }

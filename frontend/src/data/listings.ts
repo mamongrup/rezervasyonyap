@@ -5,7 +5,7 @@ import {
   galleryUrlsWithHolidayHeroPreview,
   parseHeroPreviewKeysFromVertical,
 } from '@/lib/holiday-listing-hero-preview'
-import { preferListingGalleryFullAsset } from '@/lib/listing-gallery-display-url'
+import { resolveListingDisplayImageUrl } from '@/lib/listing-ext-image-proxy'
 import {
   extractHolidayHomePoolsFromVerticalMeta,
   hasAnyEnabledPool,
@@ -313,9 +313,9 @@ export const getStayListingByHandle = cache(async (
   const externalListingRef = vitrine?.external_listing_ref?.trim() || undefined
 
   const featuredNorm = listing.featuredImage?.trim()
-    ? preferListingGalleryFullAsset(listing.featuredImage.trim())
+    ? resolveListingDisplayImageUrl(listing.featuredImage.trim())
     : listing.featuredImage
-  const galleryNorm = galleryImgs.map(preferListingGalleryFullAsset)
+  const galleryNorm = galleryImgs.map((u) => resolveListingDisplayImageUrl(u))
 
   const merged = {
     ...listing,

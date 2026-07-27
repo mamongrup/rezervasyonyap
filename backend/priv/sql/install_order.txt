@@ -218,6 +218,7 @@ modules/373_region_stats_cache_thumbnails.sql
 modules/374_region_stats_dedupe_same_name.sql
 modules/375_ai_autopilot_orchestrator.sql
 modules/376_ai_continuous_production.sql
+modules/377_unwrap_kplus_cdn_listing_images.sql
 
 # Kurulum doğrulama (install_order’a dahil değil — elle çalıştırın):
 #   psql -U postgres -d travel -f priv/sql/check_installation.sql

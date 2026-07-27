@@ -11,6 +11,7 @@ import {
   extractHotelMinNightlyPrice,
   collectHotelGalleryEntries,
 } from './travelrobot-hotel-extras.mjs'
+import { normalizeImportedListingImageUrl } from './kplus-cdn-url.mjs'
 
 const TRAVELROBOT_MEAL_NOTES = 'source:travelrobot'
 
@@ -51,7 +52,10 @@ async function upsertListingMeta(pgClient, listingId, patch, overwrite) {
 }
 
 export async function upsertTravelrobotHotelGallery(pgClient, listingId, hotel) {
-  const entries = collectHotelGalleryEntries(hotel).filter((e) => e.url && !isKplusPlaceholderImage(e.url))
+  const entries = collectHotelGalleryEntries(hotel)
+    .filter((e) => e.url && !isKplusPlaceholderImage(e.url))
+    .map((e) => ({ ...e, url: normalizeImportedListingImageUrl(e.url) }))
+    .filter((e) => e.url)
   if (!entries.length) return 0
   await pgClient.query(
     `UPDATE listings SET featured_image_url = $2, thumbnail_url = $2, updated_at = now() WHERE id = $1::uuid`,
