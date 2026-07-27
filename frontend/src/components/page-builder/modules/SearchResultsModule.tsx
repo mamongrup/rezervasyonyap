@@ -44,6 +44,10 @@ function ListingCard({
     m.listing.browseCategory as Record<string, string>,
   )
   const priceLabel = formatPublicListingCardPrice(item, locale)
+  const reviewAvg =
+    item.review_avg == null ? null : Number(item.review_avg)
+  const reviewLabel =
+    reviewAvg != null && Number.isFinite(reviewAvg) ? reviewAvg.toFixed(1) : null
 
   const mealBadge =
     item.meal_plan_summary === 'meal_only' ? (
@@ -99,10 +103,10 @@ function ListingCard({
           ) : (
             <span />
           )}
-          {item.review_avg && (
+          {reviewLabel && (
             <span className="flex items-center gap-1 text-xs font-medium text-amber-500">
               <Star className="h-3 w-3 fill-current" />
-              {item.review_avg.toFixed(1)}
+              {reviewLabel}
             </span>
           )}
         </div>

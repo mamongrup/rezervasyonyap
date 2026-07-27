@@ -99,7 +99,7 @@ function ListingCard({ item, locale = 'tr' }: { item: PublicListingItem; locale?
           {item.review_avg && (
             <div className="flex items-center gap-1 text-sm font-medium text-amber-500">
               <Star className="w-4 h-4 fill-current" />
-              {item.review_avg.toFixed(1)}
+              {Number(item.review_avg).toFixed(1)}
               {(item.review_count ?? 0) > 0 && (
                 <span className="text-xs text-neutral-400 font-normal">({item.review_count ?? 0})</span>
               )}
