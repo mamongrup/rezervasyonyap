@@ -310,6 +310,15 @@ main() {
     fail "Cross-category listing identity repair SQL module is missing."
   fi
 
+  if [[ -f "$APP_ROOT/backend/priv/sql/modules/378_repair_baransen_yacht_villa_identity.sql" ]]; then
+    step "Baransen yat ↔ Bravo villa kimlik onarımı (slug/title)"
+    bash "$APP_ROOT/deploy/apply-sql.sh" \
+      "$APP_ROOT/backend/priv/sql/modules/378_repair_baransen_yacht_villa_identity.sql" \
+      || warn "378 baransen yacht identity SQL uygulanamadı — /yat/*villa* URL'leri kalabilir"
+  else
+    warn "378_repair_baransen_yacht_villa_identity.sql bulunamadı"
+  fi
+
   if [[ -f "$APP_ROOT/backend/priv/sql/modules/372_listing_region_stats_cache.sql" ]]; then
     step "Bölge istatistik önbelleği (region-stats)"
     bash "$APP_ROOT/deploy/apply-sql.sh" \
