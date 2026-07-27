@@ -142,7 +142,8 @@ export default function StayListingBookingQuoteModal(props: Props) {
     selectedRoom: hotelRoom,
     rangeStart,
     rangeEnd,
-    fallbackNightly: bookingCtx?.fallbackNightly ?? 0,
+    fallbackNightly:
+      bookingCtx?.selectedRoomFallbackNightly ?? bookingCtx?.fallbackNightly ?? 0,
     mealPlans,
     selectedMealPlanId: isHotel ? (props.selectedMealPlanId ?? bookingCtx?.selectedMealPlanId) : null,
     activitySurchargesTotal: isHotel
@@ -150,6 +151,10 @@ export default function StayListingBookingQuoteModal(props: Props) {
       : 0,
     locale,
     bookingUnitCount: hotelBookingUnitCount,
+    resolveRoomNightly:
+      isHotel && hotelRoom && bookingCtx
+        ? (ymd) => bookingCtx.resolveRoomNightlyForDay(hotelRoom, ymd)
+        : null,
   })
 
   const boardLabels = buildBoardTypeLabelsFromMessages(

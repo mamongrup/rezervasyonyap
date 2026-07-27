@@ -16,6 +16,7 @@ import { createHash } from 'node:crypto'
 import { fileURLToPath } from 'node:url'
 import { createPgClient } from './lib/pg-client.mjs'
 import { createJobReporter } from './lib/sync-job-reporter.mjs'
+import { fillMissingHotelRoomRates } from './lib/hotel-room-rate-factor.mjs'
 
 const PROVIDER = 'tatilbudur'
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -143,24 +144,34 @@ function normalizeHotel(raw) {
     String(raw?.featuredImage ?? raw?.featured_image ?? raw?.image ?? images[0] ?? '').trim(),
   )
   if (featured && !images.includes(featured)) images.unshift(featured)
-  const rooms = arr(raw?.rooms ?? raw?.roomTypes ?? raw?.room_types).map((room, index) => {
-    const rates = arr(room?.rates ?? room?.prices ?? room?.ratePlans ?? room?.rate_plans)
-      .map((rate) => normalizeRate(rate, room)).filter(Boolean)
-    return {
-      id: String(room?.id ?? room?.roomId ?? room?.room_id ?? index + 1),
-      name: String(room?.name ?? room?.roomName ?? room?.title ?? `Oda ${index + 1}`).trim(),
-      capacity: (() => {
-        const value = num(room?.capacity ?? room?.maxGuests ?? room?.max_guests)
-        return value == null ? null : Math.max(1, Math.round(value))
-      })(),
-      unitCount: Math.max(1, Math.round(num(room?.unitCount ?? room?.unit_count) || 1)),
-      boardType: String(room?.boardType ?? room?.board_type ?? '').trim(),
-      image: rewriteAegeanToBookeder(String(room?.image ?? room?.imageUrl ?? room?.image_url ?? '').trim()),
-      images: textList(room?.images ?? room?.gallery ?? room?.photos).map(rewriteAegeanToBookeder),
-      features: textList(room?.features ?? room?.amenities),
-      rates,
-    }
-  })
+  const rooms = fillMissingHotelRoomRates(
+    arr(raw?.rooms ?? raw?.roomTypes ?? raw?.room_types).map((room, index) => {
+      const rates = arr(room?.rates ?? room?.prices ?? room?.ratePlans ?? room?.rate_plans)
+        .map((rate) => normalizeRate(rate, room))
+        .filter(Boolean)
+      return {
+        id: String(room?.id ?? room?.roomId ?? room?.room_id ?? index + 1),
+        name: String(room?.name ?? room?.roomName ?? room?.title ?? `Oda ${index + 1}`).trim(),
+        capacity: (() => {
+          const value = num(room?.capacity ?? room?.maxGuests ?? room?.max_guests)
+          return value == null ? null : Math.max(1, Math.round(value))
+        })(),
+        unitCount: Math.max(1, Math.round(num(room?.unitCount ?? room?.unit_count) || 1)),
+        boardType: String(room?.boardType ?? room?.board_type ?? '').trim(),
+        image: rewriteAegeanToBookeder(
+          String(room?.image ?? room?.imageUrl ?? room?.image_url ?? '').trim(),
+        ),
+        images: textList(room?.images ?? room?.gallery ?? room?.photos).map(rewriteAegeanToBookeder),
+        features: textList(room?.features ?? room?.amenities),
+        rates,
+      }
+    }),
+    {
+      floorNightly: num(raw?.minPrice ?? raw?.min_price ?? raw?.priceOverrideTry),
+      boardType: String(raw?.boardType ?? raw?.board_type ?? '').trim(),
+      currency: String(raw?.currency ?? 'TRY').toUpperCase(),
+    },
+  )
   const allRates = rooms.flatMap((room) => room.rates)
   const minPrice = allRates.reduce((min, rate) => min == null || rate.nightlyPrice < min ? rate.nightlyPrice : min, null)
   const city = String(raw?.city ?? raw?.region ?? raw?.location?.city ?? '').trim()

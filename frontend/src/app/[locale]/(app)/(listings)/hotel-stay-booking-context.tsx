@@ -4,7 +4,7 @@ import {
   computeHotelActivityStaySurcharges,
   isActivityDateWithinStay,
 } from '@/lib/hotel-activity-pricing'
-import type { HotelListingActivity } from '@/lib/travel-api'
+import type { HotelListingActivity, ListingPriceRuleRow } from '@/lib/travel-api'
 import type { HotelRoomBookingOption } from '@/lib/hotel-room-availability-public'
 import { DEFAULT_GUESTS_STAY } from '@/lib/guest-search-defaults'
 import {
@@ -13,6 +13,11 @@ import {
 } from '@/lib/stay-listing-booking-init'
 import { useSearchParams } from 'next/navigation'
 import { pickDefaultMealPlanForRoom, pickActiveMealPlans } from '@/lib/hotel-stay-quote'
+import {
+  hotelListingHasRoomScopedPrices,
+  resolveHotelRoomFallbackNightly,
+  resolveHotelRoomNightlyForDay,
+} from '@/lib/hotel-room-nightly'
 import type { MealPlanItem } from '@/lib/travel-api'
 import type { StayBookingRules } from '@/types/listing-types'
 import type { GuestsObject } from '@/type'
@@ -52,7 +57,14 @@ type HotelStayBookingContextValue = {
   activitySurchargesTotal: number
   selectRoomAndScroll: (roomId: string) => void
   scrollToReservation: () => void
+  /** İlan genel (yemek planı / vitrin) taban — oda kartlarında doğrudan kullanılmamalı. */
   fallbackNightly: number
+  /** Seçili oda için gecelik taban (oda seasonal/rules; yoksa 0 veya sentetikte ilan tabanı). */
+  selectedRoomFallbackNightly: number
+  priceRules: ListingPriceRuleRow[]
+  listingHasRoomScopedPrices: boolean
+  roomFallbackNightly: (room: HotelRoomBookingOption) => number
+  resolveRoomNightlyForDay: (room: HotelRoomBookingOption, ymd: string) => number | null
   currencyCode: string
 }
 
@@ -63,6 +75,7 @@ export function HotelStayBookingProvider({
   rooms,
   activities = [],
   quoteProps,
+  priceRules = [],
   reservationAnchorId = 'stay-reservation-card',
   children,
 }: {
@@ -70,6 +83,8 @@ export function HotelStayBookingProvider({
   rooms: HotelRoomBookingOption[]
   activities?: HotelListingActivity[]
   quoteProps: HotelStayBookingQuoteProps
+  /** Oda adıyla eşleşen `listing_price_rules` — oda kartı fiyat farkı için. */
+  priceRules?: ListingPriceRuleRow[]
   reservationAnchorId?: string
   children: ReactNode
 }) {
@@ -175,6 +190,43 @@ export function HotelStayBookingProvider({
     return parsed > 0 ? parsed : 0
   }, [cheapestPlan, quoteProps])
 
+  const listingHasRoomScoped = useMemo(
+    () => hotelListingHasRoomScopedPrices({ rooms, priceRules }),
+    [rooms, priceRules],
+  )
+
+  const roomFallbackNightly = useCallback(
+    (room: HotelRoomBookingOption) =>
+      resolveHotelRoomFallbackNightly({
+        roomId: room.id,
+        roomName: room.name,
+        metaJson: room.meta_json,
+        rangeStart,
+        rangeEnd,
+        priceRules,
+        listingFallbackNightly: fallbackNightly,
+        listingHasRoomScopedPrices: listingHasRoomScoped,
+      }),
+    [rangeStart, rangeEnd, priceRules, fallbackNightly, listingHasRoomScoped],
+  )
+
+  const resolveRoomNightlyForDay = useCallback(
+    (room: HotelRoomBookingOption, ymd: string) =>
+      resolveHotelRoomNightlyForDay({
+        ymd,
+        roomName: room.name,
+        metaJson: room.meta_json,
+        priceRules,
+        allowUnscopedRules: !listingHasRoomScoped,
+      }),
+    [priceRules, listingHasRoomScoped],
+  )
+
+  const selectedRoomFallbackNightly = useMemo(() => {
+    if (!selectedRoom) return fallbackNightly
+    return roomFallbackNightly(selectedRoom)
+  }, [selectedRoom, roomFallbackNightly, fallbackNightly])
+
   const currencyCode = (
     cheapestPlan?.currency_code ??
     quoteProps.priceCurrency ??
@@ -205,6 +257,11 @@ export function HotelStayBookingProvider({
       selectRoomAndScroll,
       scrollToReservation,
       fallbackNightly,
+      selectedRoomFallbackNightly,
+      priceRules,
+      listingHasRoomScopedPrices: listingHasRoomScoped,
+      roomFallbackNightly,
+      resolveRoomNightlyForDay,
       currencyCode,
     }),
     [
@@ -226,6 +283,11 @@ export function HotelStayBookingProvider({
       selectRoomAndScroll,
       scrollToReservation,
       fallbackNightly,
+      selectedRoomFallbackNightly,
+      priceRules,
+      listingHasRoomScoped,
+      roomFallbackNightly,
+      resolveRoomNightlyForDay,
       currencyCode,
     ],
   )

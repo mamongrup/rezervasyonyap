@@ -1370,6 +1370,7 @@ export const en = {
       selectRoom: 'Select this room',
       selectDates: 'Select dates',
       enterDatesForPrice: 'Enter dates to see prices.',
+      noRoomPrice: 'No price found for this room type on the selected dates.',
       totalForNights: '{nights} nights total',
       loadingPrice: 'Calculating price…',
       unavailable: 'Not available for selected dates',

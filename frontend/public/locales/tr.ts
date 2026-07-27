@@ -886,6 +886,7 @@ export const tr = {
       selectRoom: 'Bu odayı seç',
       selectDates: 'Tarih Seç',
       enterDatesForPrice: 'Fiyatlar için tarih giriniz.',
+      noRoomPrice: 'Bu oda tipi için seçilen tarihlerde fiyat bulunamadı.',
       totalForNights: '{nights} gece toplam',
       loadingPrice: 'Fiyat hesaplanıyor…',
       unavailable: 'Seçilen tarihlerde müsait değil',

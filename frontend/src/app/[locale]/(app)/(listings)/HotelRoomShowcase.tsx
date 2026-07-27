@@ -79,6 +79,7 @@ function useRoomRangeQuote(
   rangeStart: Date | null,
   rangeEnd: Date | null,
   fallbackNightly: number,
+  resolveRoomNightly: ((ymd: string) => number | null) | null,
 ) {
   const [total, setTotal] = useState<number | null>(null)
   const [available, setAvailable] = useState(true)
@@ -97,7 +98,13 @@ function useRoomRangeQuote(
     void fetchPublicHotelRoomAvailabilityDaysSafe(listingId, room.id, room.unit_count)
       .then((days) => {
         if (cancelled) return
-        const quote = computeHotelRoomStayQuote(days, rangeStart, rangeEnd, fallbackNightly)
+        const quote = computeHotelRoomStayQuote(
+          days,
+          rangeStart,
+          rangeEnd,
+          fallbackNightly,
+          resolveRoomNightly,
+        )
         setTotal(quote.total > 0 ? quote.total : null)
         setAvailable(quote.available)
       })
@@ -113,7 +120,16 @@ function useRoomRangeQuote(
     return () => {
       cancelled = true
     }
-  }, [listingId, room?.id, room?.unit_count, rangeStart, rangeEnd, fallbackNightly, nights])
+  }, [
+    listingId,
+    room?.id,
+    room?.unit_count,
+    rangeStart,
+    rangeEnd,
+    fallbackNightly,
+    resolveRoomNightly,
+    nights,
+  ])
 
   return { total, available, loading, nights }
 }
@@ -213,12 +229,24 @@ function HotelRoomListRow({
   const rangeEnd = booking?.rangeEnd ?? null
   const hasDates = rangeStart != null && rangeEnd != null
 
+  const roomFallback = useMemo(() => {
+    if (!bookingRoom) return 0
+    if (booking) return booking.roomFallbackNightly(bookingRoom)
+    return 0
+  }, [booking, bookingRoom])
+
+  const resolveRoomNightly = useMemo(() => {
+    if (!booking || !bookingRoom) return null
+    return (ymd: string) => booking.resolveRoomNightlyForDay(bookingRoom, ymd)
+  }, [booking, bookingRoom])
+
   const { total, available, loading, nights } = useRoomRangeQuote(
     booking?.listingId,
     bookingRoom,
     rangeStart,
     rangeEnd,
-    booking?.fallbackNightly ?? 0,
+    roomFallback,
+    resolveRoomNightly,
   )
 
   const formatPrice = (amount: number, fromCurrency: string) => {
@@ -353,7 +381,7 @@ function HotelRoomListRow({
               </div>
             ) : (
               <p className="text-center text-xs leading-relaxed text-neutral-500 dark:text-neutral-400">
-                {rs.enterDatesForPrice ?? 'Fiyatlar için tarih giriniz.'}
+                {rs.noRoomPrice ?? rs.enterDatesForPrice ?? 'Bu oda için güncel fiyat yok.'}
               </p>
             )
           ) : (
