@@ -2,126 +2,151 @@
   "seamelia-beach-resort-hotel-spa": {
     "bookeder": "https://seamelia-beach-resort-hotel-spa-side.bookeder.com/",
     "nightlyTryFloor": 2800,
-    "source": "bookeder"
+    "source": "bookeder_overview_gece",
+    "usdTryRate": 40
   },
   "tui-blue-xanthe": {
     "bookeder": null,
     "nightlyTryFloor": null,
-    "source": null
+    "source": null,
+    "usdTryRate": 40
   },
   "lucida-beach-hotel": {
-    "bookeder": "https://lucida-beach-hotel-kemer.bookeder.com/",
+    "bookeder": null,
     "nightlyTryFloor": null,
-    "source": null
+    "source": null,
+    "usdTryRate": 40
   },
   "royal-atlantis-beach": {
     "bookeder": "https://royal-atlantis-beach-side.bookeder.com/",
-    "nightlyTryFloor": 2840,
-    "source": "bookeder"
+    "nightlyTryFloor": 2850,
+    "source": "bookeder_usd_ve_uzeri",
+    "usdTryRate": 40
   },
   "susesi-luxury-resort": {
     "bookeder": "https://susesi-luxury-resort-belek.bookeder.com/",
-    "nightlyTryFloor": 7500,
-    "source": "bookeder"
+    "nightlyTryFloor": 20000,
+    "source": "bookeder_overview_gece",
+    "usdTryRate": 40
   },
   "michell-hotel-spa-16": {
     "bookeder": "https://michell-hotel-spa-alanya.bookeder.com/",
-    "nightlyTryFloor": 5640,
-    "source": "bookeder"
+    "nightlyTryFloor": 5650,
+    "source": "bookeder_overview_gece",
+    "usdTryRate": 40
   },
   "queens-park-goynuk": {
-    "bookeder": "https://queens-park-goynuk-kemer.bookeder.com/",
+    "bookeder": null,
     "nightlyTryFloor": null,
-    "source": null
+    "source": null,
+    "usdTryRate": 40
   },
   "crystal-admiral-aqua-collection": {
     "bookeder": null,
     "nightlyTryFloor": null,
-    "source": null
+    "source": null,
+    "usdTryRate": 40
   },
   "ozkaymak-marina-hotel": {
     "bookeder": "https://ozkaymak-marina-hotel-kemer.bookeder.com/",
-    "nightlyTryFloor": 1960,
-    "source": "bookeder"
+    "nightlyTryFloor": 1950,
+    "source": "bookeder_usd_ve_uzeri",
+    "usdTryRate": 40
   },
   "royal-wings-hotel": {
     "bookeder": null,
     "nightlyTryFloor": null,
-    "source": null
+    "source": null,
+    "usdTryRate": 40
   },
   "innvista-hotels-belek": {
     "bookeder": "https://innvista-hotels-belek.bookeder.com/",
-    "nightlyTryFloor": 2360,
-    "source": "bookeder"
+    "nightlyTryFloor": 4600,
+    "source": "bookeder_overview_gece",
+    "usdTryRate": 40
   },
   "nova-park-hotel": {
     "bookeder": "https://nova-park-hotel-side.bookeder.com/",
-    "nightlyTryFloor": 3280,
-    "source": "bookeder"
+    "nightlyTryFloor": 5700,
+    "source": "bookeder_overview_gece",
+    "usdTryRate": 40
   },
   "crystal-sunset-pearl-collection": {
     "bookeder": null,
     "nightlyTryFloor": null,
-    "source": null
+    "source": null,
+    "usdTryRate": 40
   },
   "sunthalia-hotels-resorts-16": {
     "bookeder": null,
     "nightlyTryFloor": null,
-    "source": null
+    "source": null,
+    "usdTryRate": 40
   },
   "leodikya-kirman-premium": {
     "bookeder": null,
     "nightlyTryFloor": null,
-    "source": null
+    "source": null,
+    "usdTryRate": 40
   },
   "caretta-beach-hotel": {
     "bookeder": "https://caretta-beach-hotel-alanya.bookeder.com/",
-    "nightlyTryFloor": 5640,
-    "source": "bookeder"
+    "nightlyTryFloor": 5650,
+    "source": "bookeder_usd_ve_uzeri",
+    "usdTryRate": 40
   },
   "haydarpasha-palace-hotel": {
     "bookeder": "https://haydarpasha-palace-hotel-alanya.bookeder.com/",
-    "nightlyTryFloor": 3320,
-    "source": "bookeder"
+    "nightlyTryFloor": 7950,
+    "source": "bookeder_overview_gece",
+    "usdTryRate": 40
   },
   "crystal-de-luxe-comfort-collection": {
     "bookeder": null,
     "nightlyTryFloor": null,
-    "source": null
+    "source": null,
+    "usdTryRate": 40
   },
   "orange-county-alanya": {
     "bookeder": "https://orange-county-resort-hotel-alanya.bookeder.com/",
-    "nightlyTryFloor": 10560,
-    "source": "bookeder"
+    "nightlyTryFloor": 10550,
+    "source": "bookeder_overview_gece",
+    "usdTryRate": 40
   },
   "adam-eve-16": {
     "bookeder": "https://adam-eve-hotel-belek.bookeder.com/",
-    "nightlyTryFloor": 3050,
-    "source": "bookeder"
+    "nightlyTryFloor": 33850,
+    "source": "bookeder_overview_gece",
+    "usdTryRate": 40
   },
   "sidemarin-kirman-premium": {
     "bookeder": null,
     "nightlyTryFloor": null,
-    "source": null
+    "source": null,
+    "usdTryRate": 40
   },
   "viking-nona-beach-hotel": {
     "bookeder": "https://viking-nona-beach-hotel-kemer.bookeder.com/",
-    "nightlyTryFloor": 2240,
-    "source": "bookeder"
+    "nightlyTryFloor": 2950,
+    "source": "bookeder_overview_gece",
+    "usdTryRate": 40
   },
   "bera-alanya-otel": {
     "bookeder": "https://bera-alanya-hotel-konakli.bookeder.com/",
-    "nightlyTryFloor": 5700,
-    "source": "bookeder"
+    "nightlyTryFloor": 12900,
+    "source": "bookeder_overview_gece",
+    "usdTryRate": 40
   },
   "la-kumsal-hotel": {
     "bookeder": "https://la-kumsal-hotel-kas.bookeder.com/",
     "nightlyTryFloor": 10400,
-    "source": "bookeder"
+    "source": "bookeder_overview_gece",
+    "usdTryRate": 40
   },
   "lures-hotel-adults-only-16": {
     "bookeder": "https://lures-hotel-kalkan.bookeder.com/",
-    "nightlyTryFloor": 4900,
-    "source": "bookeder"
+    "nightlyTryFloor": 3050,
+    "source": "bookeder_overview_gece",
+    "usdTryRate": 40
   }
 }

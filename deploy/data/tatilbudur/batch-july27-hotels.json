@@ -209,7 +209,7 @@
       "priceNote": "Fiyat tablosu başlığı var; canlı gecelik fiyatlar JS ile yükleniyor (statik HTML’de yok). Afişe edilen fiyatlar kontenjana ve döneme göre değişebilir.",
       "featuredImage": "https://productcdn.tatilbudur.com/Otel/gallery/seamelia-beach-resort-hotel-spa_1857_848668.jpg",
       "priceOverrideTry": 2800,
-      "priceSource": "bookeder_try_floor=2800 window=2026-07-01..2026-10-31 (TatilBudur canlı ay takvimi bu ortamda JS/WAF nedeniyle okunamadı)"
+      "priceSource": "bookeder_overview_gece=2800 TRY usd_try=40 window=2026-07-01..2026-10-31 (TatilBudur canlı ay takvimi bu ortamda JS/WAF nedeniyle okunamadı; Bookeder açık gecelik teklif / ve-üzeri tabanı — yaz zirvesi değil taban)"
     },
     {
       "id": "tui-blue-xanthe",
@@ -789,8 +789,8 @@
       "lng": null,
       "priceNote": "Fiyat tablosu başlığı var; canlı gecelik fiyatlar JS ile yükleniyor (statik HTML’de yok). Afişe edilen fiyatlar kontenjana ve döneme göre değişebilir.",
       "featuredImage": "https://productcdn.tatilbudur.com/Otel/gallery/royal-atlantis-beach_13969_777921.jpg",
-      "priceOverrideTry": 2840,
-      "priceSource": "bookeder_try_floor=2840 window=2026-07-01..2026-10-31 (TatilBudur canlı ay takvimi bu ortamda JS/WAF nedeniyle okunamadı)"
+      "priceOverrideTry": 2850,
+      "priceSource": "bookeder_usd_ve_uzeri=2850 TRY usd_try=40 window=2026-07-01..2026-10-31 (TatilBudur canlı ay takvimi bu ortamda JS/WAF nedeniyle okunamadı; Bookeder açık gecelik teklif / ve-üzeri tabanı — yaz zirvesi değil taban)"
     },
     {
       "id": "susesi-luxury-resort",
@@ -865,7 +865,7 @@
             {
               "validFrom": "2026-07-01",
               "validTo": "2026-10-31",
-              "nightlyPrice": 7500,
+              "nightlyPrice": 20000,
               "currency": "TRY",
               "boardType": "Ultra Her Şey Dahil"
             }
@@ -887,7 +887,7 @@
             {
               "validFrom": "2026-07-01",
               "validTo": "2026-10-31",
-              "nightlyPrice": 8850,
+              "nightlyPrice": 23600,
               "currency": "TRY",
               "boardType": "Ultra Her Şey Dahil"
             }
@@ -909,7 +909,7 @@
             {
               "validFrom": "2026-07-01",
               "validTo": "2026-10-31",
-              "nightlyPrice": 8850,
+              "nightlyPrice": 23600,
               "currency": "TRY",
               "boardType": "Ultra Her Şey Dahil"
             }
@@ -931,7 +931,7 @@
             {
               "validFrom": "2026-07-01",
               "validTo": "2026-10-31",
-              "nightlyPrice": 8850,
+              "nightlyPrice": 23600,
               "currency": "TRY",
               "boardType": "Ultra Her Şey Dahil"
             }
@@ -953,7 +953,7 @@
             {
               "validFrom": "2026-07-01",
               "validTo": "2026-10-31",
-              "nightlyPrice": 10100,
+              "nightlyPrice": 27000,
               "currency": "TRY",
               "boardType": "Ultra Her Şey Dahil"
             }
@@ -975,7 +975,7 @@
             {
               "validFrom": "2026-07-01",
               "validTo": "2026-10-31",
-              "nightlyPrice": 10100,
+              "nightlyPrice": 27000,
               "currency": "TRY",
               "boardType": "Ultra Her Şey Dahil"
             }
@@ -997,7 +997,7 @@
             {
               "validFrom": "2026-07-01",
               "validTo": "2026-10-31",
-              "nightlyPrice": 10100,
+              "nightlyPrice": 27000,
               "currency": "TRY",
               "boardType": "Ultra Her Şey Dahil"
             }
@@ -1019,7 +1019,7 @@
             {
               "validFrom": "2026-07-01",
               "validTo": "2026-10-31",
-              "nightlyPrice": 10100,
+              "nightlyPrice": 27000,
               "currency": "TRY",
               "boardType": "Ultra Her Şey Dahil"
             }
@@ -1041,7 +1041,7 @@
             {
               "validFrom": "2026-07-01",
               "validTo": "2026-10-31",
-              "nightlyPrice": 10100,
+              "nightlyPrice": 27000,
               "currency": "TRY",
               "boardType": "Ultra Her Şey Dahil"
             }
@@ -1063,7 +1063,7 @@
             {
               "validFrom": "2026-07-01",
               "validTo": "2026-10-31",
-              "nightlyPrice": 10100,
+              "nightlyPrice": 27000,
               "currency": "TRY",
               "boardType": "Ultra Her Şey Dahil"
             }
@@ -1085,7 +1085,7 @@
             {
               "validFrom": "2026-07-01",
               "validTo": "2026-10-31",
-              "nightlyPrice": 10100,
+              "nightlyPrice": 27000,
               "currency": "TRY",
               "boardType": "Ultra Her Şey Dahil"
             }
@@ -1107,7 +1107,7 @@
             {
               "validFrom": "2026-07-01",
               "validTo": "2026-10-31",
-              "nightlyPrice": 10100,
+              "nightlyPrice": 27000,
               "currency": "TRY",
               "boardType": "Ultra Her Şey Dahil"
             }
@@ -1194,8 +1194,8 @@
       "lng": null,
       "priceNote": "Fiyat tablosu başlığı var; canlı gecelik fiyatlar JS ile yükleniyor (statik HTML’de yok). Afişe edilen fiyatlar kontenjana ve döneme göre değişebilir.",
       "featuredImage": "https://productcdn.tatilbudur.com/Otel/gallery/susesi-luxury-resort_166_1020727.jpg",
-      "priceOverrideTry": 7500,
-      "priceSource": "bookeder_try_floor=7500 window=2026-07-01..2026-10-31 (TatilBudur canlı ay takvimi bu ortamda JS/WAF nedeniyle okunamadı)"
+      "priceOverrideTry": 20000,
+      "priceSource": "bookeder_overview_gece=20000 TRY usd_try=40 window=2026-07-01..2026-10-31 (TatilBudur canlı ay takvimi bu ortamda JS/WAF nedeniyle okunamadı; Bookeder açık gecelik teklif / ve-üzeri tabanı — yaz zirvesi değil taban)"
     },
     {
       "id": "michell-hotel-spa-16",
@@ -1328,8 +1328,8 @@
       "lng": null,
       "priceNote": "Fiyat tablosu başlığı var; canlı gecelik fiyatlar JS ile yükleniyor (statik HTML’de yok). Afişe edilen fiyatlar kontenjana ve döneme göre değişebilir.",
       "featuredImage": "https://productcdn.tatilbudur.com/Otel/gallery/michell-hotel-spa-16_5980_960884.jpg",
-      "priceOverrideTry": 5640,
-      "priceSource": "bookeder_try_floor=5640 window=2026-07-01..2026-10-31 (TatilBudur canlı ay takvimi bu ortamda JS/WAF nedeniyle okunamadı)"
+      "priceOverrideTry": 5650,
+      "priceSource": "bookeder_overview_gece=5650 TRY usd_try=40 window=2026-07-01..2026-10-31 (TatilBudur canlı ay takvimi bu ortamda JS/WAF nedeniyle okunamadı; Bookeder açık gecelik teklif / ve-üzeri tabanı — yaz zirvesi değil taban)"
     },
     {
       "id": "queens-park-goynuk",
@@ -1974,8 +1974,8 @@
       "lng": null,
       "priceNote": "Fiyat tablosu başlığı var; canlı gecelik fiyatlar JS ile yükleniyor (statik HTML’de yok). Afişe edilen fiyatlar kontenjana ve döneme göre değişebilir.",
       "featuredImage": "https://productcdn.tatilbudur.com/Otel/gallery/ozkaymak-marina-hotel_1037_892979.jpg",
-      "priceOverrideTry": 1960,
-      "priceSource": "bookeder_try_floor=1960 window=2026-07-01..2026-10-31 (TatilBudur canlı ay takvimi bu ortamda JS/WAF nedeniyle okunamadı)"
+      "priceOverrideTry": 1950,
+      "priceSource": "bookeder_usd_ve_uzeri=1950 TRY usd_try=40 window=2026-07-01..2026-10-31 (TatilBudur canlı ay takvimi bu ortamda JS/WAF nedeniyle okunamadı; Bookeder açık gecelik teklif / ve-üzeri tabanı — yaz zirvesi değil taban)"
     },
     {
       "id": "royal-wings-hotel",
@@ -2288,7 +2288,7 @@
             {
               "validFrom": "2026-07-01",
               "validTo": "2026-10-31",
-              "nightlyPrice": 2350,
+              "nightlyPrice": 4600,
               "currency": "TRY",
               "boardType": "Ultra Her Şey Dahil"
             }
@@ -2310,7 +2310,7 @@
             {
               "validFrom": "2026-07-01",
               "validTo": "2026-10-31",
-              "nightlyPrice": 3200,
+              "nightlyPrice": 6200,
               "currency": "TRY",
               "boardType": "Ultra Her Şey Dahil"
             }
@@ -2332,7 +2332,7 @@
             {
               "validFrom": "2026-07-01",
               "validTo": "2026-10-31",
-              "nightlyPrice": 3200,
+              "nightlyPrice": 6200,
               "currency": "TRY",
               "boardType": "Ultra Her Şey Dahil"
             }
@@ -2394,8 +2394,8 @@
       "lng": null,
       "priceNote": "Fiyat tablosu başlığı var; canlı gecelik fiyatlar JS ile yükleniyor (statik HTML’de yok). Afişe edilen fiyatlar kontenjana ve döneme göre değişebilir.",
       "featuredImage": "https://productcdn.tatilbudur.com/Otel/gallery/innvista-hotels-belek_13884_504562.jpg",
-      "priceOverrideTry": 2360,
-      "priceSource": "bookeder_try_floor=2360 window=2026-07-01..2026-10-31 (TatilBudur canlı ay takvimi bu ortamda JS/WAF nedeniyle okunamadı)"
+      "priceOverrideTry": 4600,
+      "priceSource": "bookeder_overview_gece=4600 TRY usd_try=40 window=2026-07-01..2026-10-31 (TatilBudur canlı ay takvimi bu ortamda JS/WAF nedeniyle okunamadı; Bookeder açık gecelik teklif / ve-üzeri tabanı — yaz zirvesi değil taban)"
     },
     {
       "id": "nova-park-hotel",
@@ -2470,7 +2470,7 @@
             {
               "validFrom": "2026-07-01",
               "validTo": "2026-10-31",
-              "nightlyPrice": 3300,
+              "nightlyPrice": 5700,
               "currency": "TRY",
               "boardType": "Ultra Her Şey Dahil"
             }
@@ -2492,7 +2492,7 @@
             {
               "validFrom": "2026-07-01",
               "validTo": "2026-10-31",
-              "nightlyPrice": 3650,
+              "nightlyPrice": 6400,
               "currency": "TRY",
               "boardType": "Ultra Her Şey Dahil"
             }
@@ -2514,7 +2514,7 @@
             {
               "validFrom": "2026-07-01",
               "validTo": "2026-10-31",
-              "nightlyPrice": 3850,
+              "nightlyPrice": 6750,
               "currency": "TRY",
               "boardType": "Ultra Her Şey Dahil"
             }
@@ -2536,7 +2536,7 @@
             {
               "validFrom": "2026-07-01",
               "validTo": "2026-10-31",
-              "nightlyPrice": 4450,
+              "nightlyPrice": 7700,
               "currency": "TRY",
               "boardType": "Ultra Her Şey Dahil"
             }
@@ -2558,7 +2558,7 @@
             {
               "validFrom": "2026-07-01",
               "validTo": "2026-10-31",
-              "nightlyPrice": 4450,
+              "nightlyPrice": 7700,
               "currency": "TRY",
               "boardType": "Ultra Her Şey Dahil"
             }
@@ -2608,8 +2608,8 @@
       "lng": null,
       "priceNote": "Fiyat tablosu başlığı var; canlı gecelik fiyatlar JS ile yükleniyor (statik HTML’de yok). Afişe edilen fiyatlar kontenjana ve döneme göre değişebilir.",
       "featuredImage": "https://productcdn.tatilbudur.com/Otel/gallery/nova-park-hotel_5446_774738.jpg",
-      "priceOverrideTry": 3280,
-      "priceSource": "bookeder_try_floor=3280 window=2026-07-01..2026-10-31 (TatilBudur canlı ay takvimi bu ortamda JS/WAF nedeniyle okunamadı)"
+      "priceOverrideTry": 5700,
+      "priceSource": "bookeder_overview_gece=5700 TRY usd_try=40 window=2026-07-01..2026-10-31 (TatilBudur canlı ay takvimi bu ortamda JS/WAF nedeniyle okunamadı; Bookeder açık gecelik teklif / ve-üzeri tabanı — yaz zirvesi değil taban)"
     },
     {
       "id": "crystal-sunset-pearl-collection",
@@ -3382,8 +3382,8 @@
       "lng": null,
       "priceNote": "Fiyat tablosu başlığı var; canlı gecelik fiyatlar JS ile yükleniyor (statik HTML’de yok). Afişe edilen fiyatlar kontenjana ve döneme göre değişebilir.",
       "featuredImage": "https://productcdn.tatilbudur.com/Otel/gallery/caretta-beach-hotel_1049_900386.jpg",
-      "priceOverrideTry": 5640,
-      "priceSource": "bookeder_try_floor=5640 window=2026-07-01..2026-10-31 (TatilBudur canlı ay takvimi bu ortamda JS/WAF nedeniyle okunamadı)"
+      "priceOverrideTry": 5650,
+      "priceSource": "bookeder_usd_ve_uzeri=5650 TRY usd_try=40 window=2026-07-01..2026-10-31 (TatilBudur canlı ay takvimi bu ortamda JS/WAF nedeniyle okunamadı; Bookeder açık gecelik teklif / ve-üzeri tabanı — yaz zirvesi değil taban)"
     },
     {
       "id": "haydarpasha-palace-hotel",
@@ -3458,7 +3458,7 @@
             {
               "validFrom": "2026-07-01",
               "validTo": "2026-10-31",
-              "nightlyPrice": 3300,
+              "nightlyPrice": 7950,
               "currency": "TRY",
               "boardType": "Ultra Her Şey Dahil"
             }
@@ -3480,7 +3480,7 @@
             {
               "validFrom": "2026-07-01",
               "validTo": "2026-10-31",
-              "nightlyPrice": 3900,
+              "nightlyPrice": 9400,
               "currency": "TRY",
               "boardType": "Ultra Her Şey Dahil"
             }
@@ -3502,7 +3502,7 @@
             {
               "validFrom": "2026-07-01",
               "validTo": "2026-10-31",
-              "nightlyPrice": 3900,
+              "nightlyPrice": 9400,
               "currency": "TRY",
               "boardType": "Ultra Her Şey Dahil"
             }
@@ -3524,7 +3524,7 @@
             {
               "validFrom": "2026-07-01",
               "validTo": "2026-10-31",
-              "nightlyPrice": 3900,
+              "nightlyPrice": 9400,
               "currency": "TRY",
               "boardType": "Ultra Her Şey Dahil"
             }
@@ -3546,7 +3546,7 @@
             {
               "validFrom": "2026-07-01",
               "validTo": "2026-10-31",
-              "nightlyPrice": 4500,
+              "nightlyPrice": 10750,
               "currency": "TRY",
               "boardType": "Ultra Her Şey Dahil"
             }
@@ -3568,7 +3568,7 @@
             {
               "validFrom": "2026-07-01",
               "validTo": "2026-10-31",
-              "nightlyPrice": 4500,
+              "nightlyPrice": 10750,
               "currency": "TRY",
               "boardType": "Ultra Her Şey Dahil"
             }
@@ -3590,7 +3590,7 @@
             {
               "validFrom": "2026-07-01",
               "validTo": "2026-10-31",
-              "nightlyPrice": 4500,
+              "nightlyPrice": 10750,
               "currency": "TRY",
               "boardType": "Ultra Her Şey Dahil"
             }
@@ -3672,8 +3672,8 @@
       "lng": null,
       "priceNote": "Fiyat tablosu başlığı var; canlı gecelik fiyatlar JS ile yükleniyor (statik HTML’de yok). Afişe edilen fiyatlar kontenjana ve döneme göre değişebilir.",
       "featuredImage": "https://productcdn.tatilbudur.com/Otel/gallery/haydarpasha-palace-hotel_18514_960660.jpg",
-      "priceOverrideTry": 3320,
-      "priceSource": "bookeder_try_floor=3320 window=2026-07-01..2026-10-31 (TatilBudur canlı ay takvimi bu ortamda JS/WAF nedeniyle okunamadı)"
+      "priceOverrideTry": 7950,
+      "priceSource": "bookeder_overview_gece=7950 TRY usd_try=40 window=2026-07-01..2026-10-31 (TatilBudur canlı ay takvimi bu ortamda JS/WAF nedeniyle okunamadı; Bookeder açık gecelik teklif / ve-üzeri tabanı — yaz zirvesi değil taban)"
     },
     {
       "id": "crystal-de-luxe-comfort-collection",
@@ -4125,8 +4125,8 @@
       "lng": null,
       "priceNote": "Fiyat tablosu başlığı var; canlı gecelik fiyatlar JS ile yükleniyor (statik HTML’de yok). Afişe edilen fiyatlar kontenjana ve döneme göre değişebilir.",
       "featuredImage": "https://productcdn.tatilbudur.com/Otel/gallery/orange-county-alanya_6591_1075560.jpg",
-      "priceOverrideTry": 10560,
-      "priceSource": "bookeder_try_floor=10560 window=2026-07-01..2026-10-31 (TatilBudur canlı ay takvimi bu ortamda JS/WAF nedeniyle okunamadı)"
+      "priceOverrideTry": 10550,
+      "priceSource": "bookeder_overview_gece=10550 TRY usd_try=40 window=2026-07-01..2026-10-31 (TatilBudur canlı ay takvimi bu ortamda JS/WAF nedeniyle okunamadı; Bookeder açık gecelik teklif / ve-üzeri tabanı — yaz zirvesi değil taban)"
     },
     {
       "id": "adam-eve-16",
@@ -4204,7 +4204,7 @@
             {
               "validFrom": "2026-07-01",
               "validTo": "2026-10-31",
-              "nightlyPrice": 3050,
+              "nightlyPrice": 33850,
               "currency": "TRY",
               "boardType": "Ultra Her Şey Dahil"
             }
@@ -4282,8 +4282,8 @@
       "lng": null,
       "priceNote": "Fiyat tablosu başlığı var; canlı gecelik fiyatlar JS ile yükleniyor (statik HTML’de yok). Afişe edilen fiyatlar kontenjana ve döneme göre değişebilir.",
       "featuredImage": "https://productcdn.tatilbudur.com/Otel/gallery/adam-eve-16_5359_510015.jpg",
-      "priceOverrideTry": 3050,
-      "priceSource": "bookeder_try_floor=3050 window=2026-07-01..2026-10-31 (TatilBudur canlı ay takvimi bu ortamda JS/WAF nedeniyle okunamadı)"
+      "priceOverrideTry": 33850,
+      "priceSource": "bookeder_overview_gece=33850 TRY usd_try=40 window=2026-07-01..2026-10-31 (TatilBudur canlı ay takvimi bu ortamda JS/WAF nedeniyle okunamadı; Bookeder açık gecelik teklif / ve-üzeri tabanı — yaz zirvesi değil taban)"
     },
     {
       "id": "sidemarin-kirman-premium",
@@ -4549,7 +4549,7 @@
             {
               "validFrom": "2026-07-01",
               "validTo": "2026-10-31",
-              "nightlyPrice": 2250,
+              "nightlyPrice": 2950,
               "currency": "TRY",
               "boardType": "Her Şey Dahil"
             }
@@ -4585,8 +4585,8 @@
       "lng": null,
       "priceNote": "Fiyat tablosu başlığı var; canlı gecelik fiyatlar JS ile yükleniyor (statik HTML’de yok). Afişe edilen fiyatlar kontenjana ve döneme göre değişebilir.",
       "featuredImage": "https://productcdn.tatilbudur.com/Otel/gallery/viking-nona-beach-hotel_843_754246.jpg",
-      "priceOverrideTry": 2240,
-      "priceSource": "bookeder_try_floor=2240 window=2026-07-01..2026-10-31 (TatilBudur canlı ay takvimi bu ortamda JS/WAF nedeniyle okunamadı)"
+      "priceOverrideTry": 2950,
+      "priceSource": "bookeder_overview_gece=2950 TRY usd_try=40 window=2026-07-01..2026-10-31 (TatilBudur canlı ay takvimi bu ortamda JS/WAF nedeniyle okunamadı; Bookeder açık gecelik teklif / ve-üzeri tabanı — yaz zirvesi değil taban)"
     },
     {
       "id": "bera-alanya-otel",
@@ -4661,7 +4661,7 @@
             {
               "validFrom": "2026-07-01",
               "validTo": "2026-10-31",
-              "nightlyPrice": 5700,
+              "nightlyPrice": 12900,
               "currency": "TRY",
               "boardType": "Alkolsüz Her Şey Dahil"
             }
@@ -4683,7 +4683,7 @@
             {
               "validFrom": "2026-07-01",
               "validTo": "2026-10-31",
-              "nightlyPrice": 7700,
+              "nightlyPrice": 17400,
               "currency": "TRY",
               "boardType": "Alkolsüz Her Şey Dahil"
             }
@@ -4748,8 +4748,8 @@
       "lng": null,
       "priceNote": "Fiyat tablosu başlığı var; canlı gecelik fiyatlar JS ile yükleniyor (statik HTML’de yok). Afişe edilen fiyatlar kontenjana ve döneme göre değişebilir.",
       "featuredImage": "https://productcdn.tatilbudur.com/Otel/gallery/bera-alanya-otel_6696_1073390.jpg",
-      "priceOverrideTry": 5700,
-      "priceSource": "bookeder_try_floor=5700 window=2026-07-01..2026-10-31 (TatilBudur canlı ay takvimi bu ortamda JS/WAF nedeniyle okunamadı)"
+      "priceOverrideTry": 12900,
+      "priceSource": "bookeder_overview_gece=12900 TRY usd_try=40 window=2026-07-01..2026-10-31 (TatilBudur canlı ay takvimi bu ortamda JS/WAF nedeniyle okunamadı; Bookeder açık gecelik teklif / ve-üzeri tabanı — yaz zirvesi değil taban)"
     },
     {
       "id": "la-kumsal-hotel",
@@ -4942,7 +4942,7 @@
       "priceNote": "Fiyat tablosu başlığı var; canlı gecelik fiyatlar JS ile yükleniyor (statik HTML’de yok). Afişe edilen fiyatlar kontenjana ve döneme göre değişebilir.",
       "featuredImage": "https://productcdn.tatilbudur.com/Otel/gallery/la-kumsal-hotel_6691_287017.jpg",
       "priceOverrideTry": 10400,
-      "priceSource": "bookeder_try_floor=10400 window=2026-07-01..2026-10-31 (TatilBudur canlı ay takvimi bu ortamda JS/WAF nedeniyle okunamadı)"
+      "priceSource": "bookeder_overview_gece=10400 TRY usd_try=40 window=2026-07-01..2026-10-31 (TatilBudur canlı ay takvimi bu ortamda JS/WAF nedeniyle okunamadı; Bookeder açık gecelik teklif / ve-üzeri tabanı — yaz zirvesi değil taban)"
     },
     {
       "id": "lures-hotel-adults-only-16",
@@ -5017,7 +5017,7 @@
             {
               "validFrom": "2026-07-01",
               "validTo": "2026-10-31",
-              "nightlyPrice": 4900,
+              "nightlyPrice": 3050,
               "currency": "TRY",
               "boardType": "Her Şey Dahil"
             }
@@ -5039,7 +5039,7 @@
             {
               "validFrom": "2026-07-01",
               "validTo": "2026-10-31",
-              "nightlyPrice": 5800,
+              "nightlyPrice": 3600,
               "currency": "TRY",
               "boardType": "Her Şey Dahil"
             }
@@ -5061,7 +5061,7 @@
             {
               "validFrom": "2026-07-01",
               "validTo": "2026-10-31",
-              "nightlyPrice": 6600,
+              "nightlyPrice": 4100,
               "currency": "TRY",
               "boardType": "Her Şey Dahil"
             }
@@ -5083,7 +5083,7 @@
             {
               "validFrom": "2026-07-01",
               "validTo": "2026-10-31",
-              "nightlyPrice": 6600,
+              "nightlyPrice": 4100,
               "currency": "TRY",
               "boardType": "Her Şey Dahil"
             }
@@ -5105,7 +5105,7 @@
             {
               "validFrom": "2026-07-01",
               "validTo": "2026-10-31",
-              "nightlyPrice": 6600,
+              "nightlyPrice": 4100,
               "currency": "TRY",
               "boardType": "Her Şey Dahil"
             }
@@ -5127,7 +5127,7 @@
             {
               "validFrom": "2026-07-01",
               "validTo": "2026-10-31",
-              "nightlyPrice": 6600,
+              "nightlyPrice": 4100,
               "currency": "TRY",
               "boardType": "Her Şey Dahil"
             }
@@ -5218,8 +5218,8 @@
       "lng": null,
       "priceNote": "Fiyat tablosu başlığı var; canlı gecelik fiyatlar JS ile yükleniyor (statik HTML’de yok). Afişe edilen fiyatlar kontenjana ve döneme göre değişebilir.",
       "featuredImage": "https://productcdn.tatilbudur.com/Otel/gallery/lures-hotel-adults-only-16_14222_949257.jpg",
-      "priceOverrideTry": 4900,
-      "priceSource": "bookeder_try_floor=4900 window=2026-07-01..2026-10-31 (TatilBudur canlı ay takvimi bu ortamda JS/WAF nedeniyle okunamadı)"
+      "priceOverrideTry": 3050,
+      "priceSource": "bookeder_overview_gece=3050 TRY usd_try=40 window=2026-07-01..2026-10-31 (TatilBudur canlı ay takvimi bu ortamda JS/WAF nedeniyle okunamadı; Bookeder açık gecelik teklif / ve-üzeri tabanı — yaz zirvesi değil taban)"
     }
   ]
 }
