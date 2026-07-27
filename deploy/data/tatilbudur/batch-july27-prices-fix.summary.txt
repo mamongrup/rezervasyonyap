@@ -1,0 +1,34 @@
+TatilBudur batch-july27 — Bookeder fiyat düzeltmesi
+Date: 2026-07-27T17:46:51.905986+00:00
+
+Kök neden: USD "ve üzeri" ×40 TRY sonrası 15k–120k bandı yanlışlıkla
+haftalık paket sanılıp /7 bölünüyordu (Adam&Eve 21480→3050, Susesi 52600→7500).
+Yeni kaynak: overview "TL|US$ / gece" (+ net USD ve-üzeri alt sınırı).
+
+- seamelia-beach-resort-hotel-spa: 2800 TRY (bookeder_overview_gece)
+- tui-blue-xanthe: (fiyat yok — Bookeder otel sayfası bulunamadı)
+- lucida-beach-hotel: (fiyat yok — Bookeder otel sayfası bulunamadı)
+- royal-atlantis-beach: 2850 TRY (bookeder_usd_ve_uzeri)
+- susesi-luxury-resort: 20000 TRY (bookeder_overview_gece)
+- michell-hotel-spa-16: 5650 TRY (bookeder_overview_gece)
+- queens-park-goynuk: (fiyat yok — Bookeder otel sayfası bulunamadı)
+- crystal-admiral-aqua-collection: (fiyat yok — Bookeder otel sayfası bulunamadı)
+- ozkaymak-marina-hotel: 1950 TRY (bookeder_usd_ve_uzeri)
+- royal-wings-hotel: (fiyat yok — Bookeder otel sayfası bulunamadı)
+- innvista-hotels-belek: 4600 TRY (bookeder_overview_gece)
+- nova-park-hotel: 5700 TRY (bookeder_overview_gece)
+- crystal-sunset-pearl-collection: (fiyat yok — Bookeder otel sayfası bulunamadı)
+- sunthalia-hotels-resorts-16: (fiyat yok — Bookeder otel sayfası bulunamadı)
+- leodikya-kirman-premium: (fiyat yok — Bookeder otel sayfası bulunamadı)
+- caretta-beach-hotel: 5650 TRY (bookeder_usd_ve_uzeri)
+- haydarpasha-palace-hotel: 7950 TRY (bookeder_overview_gece)
+- crystal-de-luxe-comfort-collection: (fiyat yok — Bookeder otel sayfası bulunamadı)
+- orange-county-alanya: 10550 TRY (bookeder_overview_gece)
+- adam-eve-16: 33850 TRY (bookeder_overview_gece)
+- sidemarin-kirman-premium: (fiyat yok — Bookeder otel sayfası bulunamadı)
+- viking-nona-beach-hotel: 2950 TRY (bookeder_overview_gece)
+- bera-alanya-otel: 12900 TRY (bookeder_overview_gece)
+- la-kumsal-hotel: 10400 TRY (bookeder_overview_gece)
+- lures-hotel-adults-only-16: 3050 TRY (bookeder_overview_gece)
+
+with_rates=15/25
