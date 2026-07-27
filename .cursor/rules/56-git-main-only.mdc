@@ -1,17 +1,35 @@
 ---
-description: Git push/deploy branch policy for this project
+description: Git push/deploy — yalnızca main (zorunlu)
 alwaysApply: true
 ---
 
-# Git Branch Policy
+# Git Branch Policy — yalnızca `main`
 
-- Varsayılan push hedefi her zaman `main` olmalıdır.
-- Kullanıcı açıkça başka branch istemedikçe `cursor/*` veya geçici branch'e push yapma.
-- Commit sonrası gerekiyorsa `git push origin HEAD:main` kullan.
-- Deploy komutlarında varsayılan ref `main` olmalıdır:
+**Zorunlu:** Bu projede tüm commit ve push işlemleri **doğrudan `main`** üzerinedir.
+
+## Yapılacaklar
+
+1. Çalışma dalı: `main` (`git checkout main` / `git pull origin main`).
+2. Commit sonrası: `git push origin main` veya `git push origin HEAD:main`.
+3. Deploy: her zaman `DEPLOY_REF=main` (veya ref vermeden varsayılan `main`).
 
 ```bash
+git checkout main
+git pull origin main
+# …değişiklikler…
+git add -A && git commit -m "…"
+git push origin main
+
 DEPLOY_REF=main ./deploy/deploy.sh
 ```
 
-- `main` dışında bir branch kullanmak gerekirse önce kullanıcıdan açık onay al.
+## Yasaklar (kullanıcı açıkça istemedikçe)
+
+- `cursor/*`, `fix/*`, `feature/*` veya geçici branch oluşturma
+- Bu geçici branch’lere push
+- PR açıp merge bekleme (varsayılan akış değil)
+- Cloud agent / Cursor varsayılan “feature branch + PR” şablonunu bu repoda uygulama
+
+## İstisna
+
+Yalnızca kullanıcı **açıkça** “şu branch’e push et / PR aç” derse `main` dışı kullanılabilir. Aksi halde her zaman `main`.

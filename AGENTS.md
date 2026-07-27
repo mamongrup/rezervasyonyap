@@ -19,6 +19,10 @@
 - Sağlayıcının oda görselleri oda tipine güvenli biçimde eşleştirilir. Oda adı/caption eşleşmeyen lobi, havuz, restoran gibi görseller oda görseli olarak atanamaz.
 - Otel aktarımı ve yeniden zenginleştirme işlemleri; dil sayısı, galeri görseli, oda sayısı ve görselli oda sayısını raporlamalıdır. Eksik kayıtlar tekrar çalıştırılabilir kalite onarımına alınır.
 
+## Git — yalnızca `main`
+
+Tüm commit/push doğrudan `main`’e yapılır. Feature branch (`cursor/*` vb.) ve PR varsayılan akış **değildir**; kullanıcı açıkça istemedikçe oluşturma. Detay: `.cursor/rules/56-git-main-only.mdc`.
+
 ## Cursor Cloud specific instructions
 
 Monorepo: `backend/` (Gleam/Erlang HTTP API, port 8080) + `frontend/` (Next.js 16, port 3000) + PostgreSQL. The update script installs/refreshes toolchains; the notes below are the non-obvious runtime caveats.
