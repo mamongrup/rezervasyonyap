@@ -10,7 +10,7 @@ import { HugeiconsIcon } from '@hugeicons/react'
 import clsx from 'clsx'
 import { EmblaOptionsType } from 'embla-carousel'
 import useEmblaCarousel from 'embla-carousel-react'
-import Image from 'next/image'
+import ListingGalleryImage from '@/components/ListingGalleryImage'
 import { useParams } from 'next/navigation'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 
@@ -77,7 +77,7 @@ const EmblaCarousel = ({ images, option }: { images: string[]; option: EmblaOpti
               key={index}
             >
               <div className="relative h-full w-full max-w-[1920px] px-1">
-                <Image
+                <ListingGalleryImage
                   alt=""
                   src={image}
                   fill
@@ -107,7 +107,7 @@ const EmblaCarousel = ({ images, option }: { images: string[]; option: EmblaOpti
                 )}
                 onClick={() => onThumbClick(index)}
               >
-                <Image alt="Slide image" src={image} fill sizes="100px" className={'object-cover'} />
+                <ListingGalleryImage alt="Slide image" src={image} fill sizes="100px" className={'object-cover'} />
               </button>
             ))}
           </div>
@@ -229,7 +229,7 @@ const HeaderGalleryGrid1 = ({
     <header className="relative md:grid md:grid-cols-4 md:gap-2">
       <div className="relative aspect-4/5 size-full md:col-span-2 md:aspect-4/4" onClick={() => handleOpenDialog(0)}>
         {images[0] && (
-          <Image
+          <ListingGalleryImage
             fill
             className="rounded-xl object-cover brightness-100 transition-[filter] hover:brightness-75"
             src={images[0]}
@@ -247,7 +247,7 @@ const HeaderGalleryGrid1 = ({
           const idx = index + 1
           return (
             <div className="relative aspect-2/2 size-full" key={`${idx}-${url}`} onClick={() => handleOpenDialog(idx)}>
-              <Image
+              <ListingGalleryImage
                 fill
                 className="rounded-xl object-cover brightness-100 transition-[filter] hover:brightness-75"
                 src={url}
@@ -277,7 +277,7 @@ const HeaderGalleryGrid2 = ({
     <header className="relative md:grid md:grid-cols-4">
       <div className="relative aspect-4/5 size-full md:col-span-3 md:aspect-5/4" onClick={() => handleOpenDialog(0)}>
         {images[0] && (
-          <Image
+          <ListingGalleryImage
             alt=""
             src={images[0]}
             fill
@@ -296,7 +296,7 @@ const HeaderGalleryGrid2 = ({
           const idx = index + 1
           return (
             <div className="relative aspect-3/2 size-full" key={`${idx}-${url}`} onClick={() => handleOpenDialog(idx)}>
-              <Image
+              <ListingGalleryImage
                 alt=""
                 src={url}
                 fill
@@ -326,7 +326,7 @@ const HeaderGalleryGrid3 = ({
     <header className="relative md:grid md:grid-cols-3 md:gap-x-2">
       <div className="relative aspect-4/5 size-full md:aspect-3/4" onClick={() => handleOpenDialog(0)}>
         {images[0] && (
-          <Image
+          <ListingGalleryImage
             alt=""
             src={images[0]}
             fill
@@ -341,7 +341,7 @@ const HeaderGalleryGrid3 = ({
       <div className="hidden md:grid md:grid-cols-1 md:gap-y-2">
         <div className="relative aspect-3/2 size-full" onClick={() => handleOpenDialog(1)}>
           {images[1] && (
-            <Image
+            <ListingGalleryImage
               alt=""
               src={images[1]}
               fill
@@ -353,7 +353,7 @@ const HeaderGalleryGrid3 = ({
         </div>
         <div className="relative aspect-3/2 size-full" onClick={() => handleOpenDialog(2)}>
           {images[2] && (
-            <Image
+            <ListingGalleryImage
               alt=""
               src={images[2]}
               fill
@@ -367,7 +367,7 @@ const HeaderGalleryGrid3 = ({
 
       <div className="relative hidden size-full md:block md:aspect-3/4" onClick={() => handleOpenDialog(3)}>
         {images[3] && (
-          <Image
+          <ListingGalleryImage
             alt=""
             src={images[3]}
             fill
@@ -395,7 +395,7 @@ const HeaderGalleryGrid4 = ({
     <header className="relative md:grid md:grid-cols-3 md:gap-x-2">
       <div className="relative aspect-4/5 size-full md:aspect-3/4" onClick={() => handleOpenDialog(0)}>
         {images[0] && (
-          <Image
+          <ListingGalleryImage
             alt=""
             src={images[0]}
             fill
@@ -409,7 +409,7 @@ const HeaderGalleryGrid4 = ({
 
       <div className="relative hidden aspect-4/5 size-full md:block md:aspect-3/4" onClick={() => handleOpenDialog(3)}>
         {images[3] && (
-          <Image
+          <ListingGalleryImage
             alt=""
             src={images[3]}
             fill
@@ -423,7 +423,7 @@ const HeaderGalleryGrid4 = ({
       <div className="hidden md:grid md:grid-cols-1 md:gap-y-2">
         <div className="relative aspect-3/2 size-full" onClick={() => handleOpenDialog(1)}>
           {images[1] && (
-            <Image
+            <ListingGalleryImage
               alt=""
               src={images[1]}
               fill
@@ -435,7 +435,7 @@ const HeaderGalleryGrid4 = ({
         </div>
         <div className="relative aspect-3/2 size-full" onClick={() => handleOpenDialog(2)}>
           {images[2] && (
-            <Image
+            <ListingGalleryImage
               alt=""
               src={images[2]}
               fill

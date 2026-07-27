@@ -7,6 +7,8 @@
  * aynı path Bookeder `Photos/Big` aynasında açık — galeri URL'lerini oraya çeviririz.
  */
 
+import { repairExternalListingImageExt } from '@/lib/listing-image-url-fallbacks'
+
 const AEGEAN_IMGS_RE =
   /^https:\/\/[^/]+\.aegeanhotels\.net\/data\/Imgs\/(?:1920x1080w|OriginalPhoto)\//i
 
@@ -55,10 +57,8 @@ export function preferListingGalleryFullAsset(src: string): string {
   let s = rewriteAegeanHotelsImageToBookeder(src.trim())
   if (!s) return s
 
-  // Bookeder gerçek dosya uzantısı `.JPEG`; yanlış `.avif` 404 verir.
-  if (/bookeder\.com/i.test(s) && /\.avif(\?|#|$)/i.test(s)) {
-    s = s.replace(/\.avif/i, '.JPEG')
-  }
+  // Harici CDN: 379 sonrası yanlış .avif (ve 382 blanket .JPEG) onarımı
+  s = repairExternalListingImageExt(s)
 
   const qIdx = s.indexOf('?')
   const hIdx = s.indexOf('#')

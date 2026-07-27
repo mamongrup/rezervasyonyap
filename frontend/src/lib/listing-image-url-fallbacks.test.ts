@@ -1,15 +1,31 @@
 import { describe, expect, it } from 'vitest'
 import {
   nextListingImageUrlFallback,
-  repairBookederImageExt,
+  repairExternalListingImageExt,
 } from './listing-image-url-fallbacks'
 
 describe('listing-image-url-fallbacks', () => {
   it('repairs Bookeder .avif to .JPEG', () => {
     const src =
       'https://bookeder.com/data/Photos/Big/17201/1720157/1720157310/img-silence-villas-fethiye-1.avif'
-    expect(repairBookederImageExt(src)).toBe(
+    expect(repairExternalListingImageExt(src)).toBe(
       'https://bookeder.com/data/Photos/Big/17201/1720157/1720157310/img-silence-villas-fethiye-1.JPEG',
+    )
+  })
+
+  it('repairs TatilBudur .avif to .jpg', () => {
+    const src =
+      'https://productcdn.tatilbudur.com/Otel/gallery/seamelia-beach-resort-hotel-spa_1857_848668.avif'
+    expect(repairExternalListingImageExt(src)).toBe(
+      'https://productcdn.tatilbudur.com/Otel/gallery/seamelia-beach-resort-hotel-spa_1857_848668.jpg',
+    )
+  })
+
+  it('repairs TatilBudur .JPEG to .jpg', () => {
+    const src =
+      'https://productcdn.tatilbudur.com/Otel/gallery/seamelia-beach-resort-hotel-spa_1857_848668.JPEG'
+    expect(repairExternalListingImageExt(src)).toBe(
+      'https://productcdn.tatilbudur.com/Otel/gallery/seamelia-beach-resort-hotel-spa_1857_848668.jpg',
     )
   })
 
