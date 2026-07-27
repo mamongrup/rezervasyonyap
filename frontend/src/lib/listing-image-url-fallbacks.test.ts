@@ -29,6 +29,13 @@ describe('listing-image-url-fallbacks', () => {
     )
   })
 
+  it('repairs Reserwation tour .avif to .jpg', () => {
+    const src = 'https://reserwation.com/Uploads/Gallery/2/roma-3185-27122023.avif'
+    expect(repairExternalListingImageExt(src)).toBe(
+      'https://reserwation.com/Uploads/Gallery/2/roma-3185-27122023.jpg',
+    )
+  })
+
   it('falls back uploads .avif to .webp', () => {
     const avif = '/uploads/listings/ilanlar/tatil-evleri/puzzle-villa/villa-puzzle-18.avif'
     const next = nextListingImageUrlFallback(avif, new Set([avif]))

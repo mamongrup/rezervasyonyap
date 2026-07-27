@@ -5,7 +5,12 @@
 import { preferListingGalleryFullAsset } from '@/lib/listing-gallery-display-url'
 
 /** Vitrin kartında proxy gerektiren host sonekleri (travelapi/hotelbeds genelde doğrudan açılır). */
-const PROXY_HOST_SUFFIXES = ['bookeder.com', 'productcdn.tatilbudur.com', 'aegeanhotels.net'] as const
+const PROXY_HOST_SUFFIXES = [
+  'bookeder.com',
+  'productcdn.tatilbudur.com',
+  'aegeanhotels.net',
+  'reserwation.com',
+] as const
 
 export function listingExtImageNeedsProxy(url: string): boolean {
   const s = url.trim()
@@ -38,6 +43,7 @@ export function isAllowedListingExtImageHost(hostname: string): boolean {
   const allowed = [
     'bookeder.com',
     'productcdn.tatilbudur.com',
+    'reserwation.com',
     'i.travelapi.com',
     'photos.hotelbeds.com',
     'cdn.kplus.com.tr',

@@ -1,5 +1,6 @@
 import { isAllowedListingExtImageHost } from '@/lib/listing-ext-image-proxy'
 import { unwrapKplusCdnUrl, rewriteAegeanHotelsImageToBookeder } from '@/lib/listing-gallery-display-url'
+import { repairExternalListingImageExt } from '@/lib/listing-image-url-fallbacks'
 import { NextRequest, NextResponse } from 'next/server'
 
 export const dynamic = 'force-dynamic'
@@ -15,7 +16,21 @@ function normalizeUpstreamUrl(raw: string): string | null {
     const u = new URL(trimmed)
     if (u.protocol !== 'https:' && u.protocol !== 'http:') return null
     if (!isAllowedListingExtImageHost(u.hostname)) return null
-    return rewriteAegeanHotelsImageToBookeder(unwrapKplusCdnUrl(u.toString()))
+    // Türkçe dosya adları: pathname percent-encode (Mısır → M%C4%B1s%C4%B1r)
+    u.pathname = u.pathname
+      .split('/')
+      .map((seg) => {
+        if (!seg) return seg
+        try {
+          return encodeURIComponent(decodeURIComponent(seg))
+        } catch {
+          return encodeURIComponent(seg)
+        }
+      })
+      .join('/')
+    return rewriteAegeanHotelsImageToBookeder(
+      unwrapKplusCdnUrl(repairExternalListingImageExt(u.toString())),
+    )
   } catch {
     return null
   }
