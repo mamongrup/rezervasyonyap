@@ -1,0 +1,58 @@
+TatilBudur batch-july27 harvest summary
+Date: 2026-07-27T17:14:07.308Z
+
+found count: 25 / 25
+missing slugs: (none)
+hotels with images>0: 25
+hotels with rooms>0: 23
+hotels with any rates: 0
+
+Per hotel:
+- seamelia-beach-resort-hotel-spa: found=true images=40 rooms=4 rates=0 amenities=56 desc=4687 board=Ultra Her Şey Dahil adultsOnly=false city=Side
+- tui-blue-xanthe: found=true images=40 rooms=4 rates=0 amenities=56 desc=3770 board=Ultra Her Şey Dahil adultsOnly=false city=Side
+- lucida-beach-hotel: found=true images=40 rooms=3 rates=0 amenities=62 desc=2433 board=Ultra Her Şey Dahil adultsOnly=false city=Kemer
+- royal-atlantis-beach: found=true images=40 rooms=6 rates=0 amenities=34 desc=5269 board=Ultra Her Şey Dahil adultsOnly=false city=Side
+- susesi-luxury-resort: found=true images=40 rooms=12 rates=0 amenities=74 desc=4388 board=Ultra Her Şey Dahil adultsOnly=false city=Belek
+- michell-hotel-spa-16: found=true images=40 rooms=0 rates=0 amenities=42 desc=1567 board=Ultra Her Şey Dahil adultsOnly=true city=Alanya
+- queens-park-goynuk: found=true images=40 rooms=4 rates=0 amenities=62 desc=4784 board=Ultra Her Şey Dahil adultsOnly=false city=Kemer
+- crystal-admiral-aqua-collection: found=true images=40 rooms=5 rates=0 amenities=76 desc=3744 board=Ultimate Her Şey Dahil adultsOnly=false city=Side
+- ozkaymak-marina-hotel: found=true images=40 rooms=6 rates=0 amenities=51 desc=1718 board=Ultra Her Şey Dahil adultsOnly=false city=Kemer
+- royal-wings-hotel: found=true images=40 rooms=7 rates=0 amenities=74 desc=3061 board=Ultra Her Şey Dahil adultsOnly=false city=Antalya
+- innvista-hotels-belek: found=true images=40 rooms=3 rates=0 amenities=49 desc=4850 board=Ultra Her Şey Dahil adultsOnly=false city=Belek
+- nova-park-hotel: found=true images=40 rooms=5 rates=0 amenities=37 desc=2054 board=Ultra Her Şey Dahil adultsOnly=false city=Side
+- crystal-sunset-pearl-collection: found=true images=40 rooms=7 rates=0 amenities=64 desc=3594 board=Ultimate Her Şey Dahil adultsOnly=false city=Side
+- sunthalia-hotels-resorts-16: found=true images=40 rooms=7 rates=0 amenities=56 desc=5682 board=Ultra Her Şey Dahil adultsOnly=true city=Side
+- leodikya-kirman-premium: found=true images=40 rooms=6 rates=0 amenities=40 desc=7121 board=Ultra Her Şey Dahil adultsOnly=false city=Alanya
+- caretta-beach-hotel: found=true images=40 rooms=1 rates=0 amenities=47 desc=2794 board=Her Şey Dahil adultsOnly=false city=Alanya
+- haydarpasha-palace-hotel: found=true images=40 rooms=7 rates=0 amenities=69 desc=5667 board=Ultra Her Şey Dahil adultsOnly=false city=Alanya
+- crystal-de-luxe-comfort-collection: found=true images=40 rooms=6 rates=0 amenities=50 desc=2454 board=Ultimate Her Şey Dahil adultsOnly=false city=Kemer
+- orange-county-alanya: found=true images=40 rooms=6 rates=0 amenities=54 desc=3621 board=Ultra Her Şey Dahil adultsOnly=false city=Alanya
+- adam-eve-16: found=true images=40 rooms=0 rates=0 amenities=65 desc=3789 board=Ultra Her Şey Dahil adultsOnly=true city=Belek
+- sidemarin-kirman-premium: found=true images=40 rooms=6 rates=0 amenities=45 desc=5826 board=Ultra Her Şey Dahil adultsOnly=false city=Side
+- viking-nona-beach-hotel: found=true images=36 rooms=1 rates=0 amenities=23 desc=904 board=Her Şey Dahil adultsOnly=false city=Kemer
+- bera-alanya-otel: found=true images=40 rooms=2 rates=0 amenities=52 desc=1183 board=Alkolsüz Her Şey Dahil adultsOnly=false city=Alanya
+- la-kumsal-hotel: found=true images=40 rooms=5 rates=0 amenities=16 desc=2948 board=Oda Kahvaltı adultsOnly=true city=Kaş
+- lures-hotel-adults-only-16: found=true images=40 rooms=6 rates=0 amenities=78 desc=2665 board=- adultsOnly=true city=Kalkan
+
+Resolved search slugs:
+- michell-hotel-spa-16
+- queens-park-goynuk
+- nova-park-hotel
+- crystal-sunset-pearl-collection
+- sunthalia-hotels-resorts-16
+- haydarpasha-palace-hotel
+- crystal-de-luxe-comfort-collection
+- orange-county-alanya
+- adam-eve-16
+- sidemarin-kirman-premium
+- la-kumsal-hotel
+- crystal-admiral-aqua-collection (crystal-admiral-resort-suites-spa Access Denied)
+
+Notes:
+- Live room rates are JS-loaded; rates[] empty for all hotels.
+- Room names taken from #### Odalar ### headings when present in static HTML.
+- No Odalar headings in static HTML (rooms=[]): michell-hotel-spa-16, adam-eve-16.
+- boardType null: lures-hotel-adults-only-16 (page has no explicit pansiyon/konsept heading).
+- Images: productcdn /Otel/gallery/ preferred, then ucdn /855x426/; deduped max 40.
+- Source: r.jina.ai markdown of tatilbudur.com pages (direct curl WAF 403).
+- Crystal Admiral: crystal-admiral-resort-suites-spa → Access Denied; used crystal-admiral-aqua-collection.
