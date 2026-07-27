@@ -11,19 +11,23 @@ import travel/db/resilient_pog as db_exec
 
 const social_api_key = "social_api"
 
+/// Feed sırası: villa bitince yat → aktivite → tur → gemi → otel.
 const default_rotation_categories = [
-  "holiday_home", "yacht_charter", "activity",
+  "holiday_home",
+  "yacht_charter",
+  "activity",
+  "tour",
+  "cruise",
+  "hotel",
 ]
 
 const default_visual_social_categories = [
   "holiday_home",
   "yacht_charter",
   "activity",
+  "tour",
   "cruise",
   "hotel",
-  "ferry",
-  "car_rental",
-  "flight",
 ]
 
 fn pick_bool(raw: String, path: List(String), default: Bool) -> Bool {
@@ -336,12 +340,9 @@ fn fetch_next_rotation_listings(
           <> "    and (jc.status = 'pending' or (jc.status in ('posted', 'failed') "
           <> "      and coalesce(jc.posted_at, jc.created_at) > now() - ($6::integer * interval '1 hour'))) "
           <> ")) "
-          <> "order by ( "
-          <> "  select max(jc2.posted_at) from social_share_jobs jc2 "
-          <> "  inner join listings lc2 on lc2.id = jc2.entity_id "
-          <> "  where jc2.entity_type = 'listing' and lc2.category_id = l.category_id "
-          <> "    and jc2.network = $2 and jc2.post_type = $3 and jc2.status = 'posted' "
-          <> ") asc nulls first, "
+          // Önce listedeki kategori sırası (villa bitmeden yata geçme);
+          // kategori içinde henüz paylaşılmayan / en eski paylaşım.
+          <> "order by coalesce(array_position($1::text[], pc.code), 999) asc, "
           <> "case when $7::boolean and ( "
           <> "  'luxury' = any(coalesce(h.theme_codes, '{}'::text[])) "
           <> "  or 'luxury' = any(coalesce(y.theme_codes, '{}'::text[])) "
@@ -440,7 +441,7 @@ fn enqueue_rotation_type(
   })
 }
 
-/// Periyodik döngü: villa / yat / aktivite ilanlarını sırayla kuyruğa ekler.
+/// Periyodik döngü: villa → yat → aktivite → tur → gemi → otel (önceki bitince sonraki).
 pub fn enqueue_rotation(
   db: pog.Connection,
   per_network_limit: Int,
