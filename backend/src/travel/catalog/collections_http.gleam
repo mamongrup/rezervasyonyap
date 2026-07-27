@@ -107,6 +107,17 @@ fn hotel_public_must_have_price_sql() -> String {
   "and ($6::text is not null or pc.code != 'hotel' or coalesce(l.vitrin_price, l.first_charge_amount, 0) > 0) "
 }
 
+/// Bravo villa id çakışması: yat kaydı villa slug/title almış, galeri /yatlar/{kanonik}/.
+/// Arama ve autocomplete'te villa adı altında "Yat kiralama" olarak çıkmasın (378 onarımı
+/// uygulanana / kalan kaçaklara kadar).
+fn yacht_identity_collision_hide_sql() -> String {
+  "and not ("
+  <> "  pc.code = 'yacht_charter' "
+  <> "  and coalesce(l.featured_image_url, '') ~ '/yatlar/[^/]+/' "
+  <> "  and l.slug is distinct from (regexp_match(l.featured_image_url, '/yatlar/([^/]+)/'))[1]"
+  <> ") "
+}
+
 /// Tatil evi / yat / araç — arama tarihlerinde konaklama geceleri (çıkış hariç) yarım gün müsaitliği.
 fn listing_half_day_stay_calendar_filter_sql() -> String {
   "and ($8::text is null or $9::text is null or pc.code not in ('holiday_home', 'yacht_charter', 'car_rental') or not exists ( "
@@ -1509,6 +1520,7 @@ fn search_listings_impl(
     <> "where l.status = 'published' "
     <> "and ($10::text is null or $10::text is not null) "
     <> browse_image_gate_sql
+    <> yacht_identity_collision_hide_sql()
     <> "and ($1::text is null or trim($1) = '' or (select coalesce(bool_and("
     <> listing_search_match_sql
     <> " ilike '%' || trim(tok) || '%'), true) from unnest(string_to_array(trim($1), ' ')) as u(tok) where trim(tok) <> '')) "
@@ -1693,6 +1705,7 @@ fn search_listings_impl(
     <> "where l.status = 'published' "
     <> "and ($10::text is null or $10::text is not null) "
     <> public_listing_must_have_image_browse_sql()
+    <> yacht_identity_collision_hide_sql()
     <> "and ($2::text is null or pc.code = $2) "
     <> "and ($3::text is null or trim($3) = '' or (select coalesce(bool_and("
     <> location_search_sql
@@ -1844,7 +1857,9 @@ fn search_listings_impl(
     <> "    and ($1::text is null or trim($1) = '' or (select coalesce(bool_and("
     <> listing_suggest_token_match_sql
     <> "), true) from toks as u(tok))) "
-    <> "    and ($2::text is null or pc.code = $2)"
+    <> "    and ($2::text is null or pc.code = $2) "
+    <> "    "
+    <> yacht_identity_collision_hide_sql()
     <> "  ) ranked "
     <> "  where ranked.rn > $5 and ranked.rn <= ($5 + $4)"
     <> ") "

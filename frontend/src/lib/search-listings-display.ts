@@ -36,18 +36,34 @@ function listingDisplayScore(item: PublicListingItem): number {
   return score
 }
 
-/** Aynı slug için çift kayıt (biri çeviri başlığı, biri ham slug) — en iyi satırı bırak */
+/**
+ * Baransen yat ↔ Bravo villa id çakışması: slug villa adı, galeri /yatlar/{kanonik}/.
+ * Arama/öneride bu bozuk kimlikler villa sanılıp "Yat kiralama" diye çıkmasın.
+ */
+export function isYachtIdentityCollision(item: PublicListingItem): boolean {
+  if (item.category_code !== 'yacht_charter') return false
+  const img = (item.featured_image_url || item.thumbnail_url || '').trim()
+  const m = img.match(/\/yatlar\/([^/]+)\//i)
+  if (!m) return false
+  return normalizeSlugKey(m[1]) !== normalizeSlugKey(item.slug)
+}
+
+/** Aynı slug için çift kayıt (biri çeviri başlığı, biri ham slug) — en iyi satırı bırak.
+ *  Kategori + slug ile ayır: holiday_home ugurlu-villa ile bozuk yacht ugurlu-villa çakışmasın.
+ */
 export function dedupeSearchListings(items: PublicListingItem[]): PublicListingItem[] {
-  const bySlug = new Map<string, PublicListingItem>()
+  const byKey = new Map<string, PublicListingItem>()
   for (const item of items) {
-    const key = normalizeSlugKey(item.slug)
-    if (!key) continue
-    const prev = bySlug.get(key)
+    if (isYachtIdentityCollision(item)) continue
+    const slugKey = normalizeSlugKey(item.slug)
+    if (!slugKey) continue
+    const key = `${item.category_code || ''}:${slugKey}`
+    const prev = byKey.get(key)
     if (!prev || listingDisplayScore(item) > listingDisplayScore(prev)) {
-      bySlug.set(key, item)
+      byKey.set(key, item)
     }
   }
-  return [...bySlug.values()]
+  return [...byKey.values()]
 }
 
 export function publicListingDetailPath(categoryCode: string, slug: string): string {
