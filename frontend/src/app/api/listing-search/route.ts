@@ -11,6 +11,7 @@ import {
   dedupeSearchListings,
   publicListingDetailPath,
   SEARCH_MIN_QUERY_LEN,
+  searchCategoryLabelsFromMessages,
 } from '@/lib/search-listings-display'
 import type { PublicListingItem } from '@/lib/travel-api'
 import { NextRequest, NextResponse } from 'next/server'
@@ -64,7 +65,7 @@ async function loadCategoryLabels(locale: string): Promise<Record<string, string
   const cached = categoryLabelsCache.get(locale)
   if (cached) return cached
   const { getMessages } = await import('@/utils/getT')
-  const labels = (getMessages(locale).listing.browseCategory ?? {}) as Record<string, string>
+  const labels = searchCategoryLabelsFromMessages(getMessages(locale))
   categoryLabelsCache.set(locale, labels)
   return labels
 }
