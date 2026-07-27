@@ -7,7 +7,55 @@ import clsx from 'clsx'
 import { ArrowRight, Layers, Loader2, MapPin, Search, Tag, X } from 'lucide-react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
+
+function SuggestThumb({
+  src,
+  alt,
+  className,
+  fallback,
+}: {
+  src?: string
+  alt: string
+  className: string
+  fallback: ReactNode
+}) {
+  const [broken, setBroken] = useState(false)
+  useEffect(() => {
+    setBroken(false)
+  }, [src])
+  if (!src || broken) return <>{fallback}</>
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={src}
+      alt={alt}
+      className={className}
+      referrerPolicy="no-referrer"
+      loading="lazy"
+      decoding="async"
+      onError={() => setBroken(true)}
+    />
+  )
+}
+
+function cacheGet(
+  cache: Map<string, SearchSuggestion[]>,
+  key: string,
+): SearchSuggestion[] | undefined {
+  const exact = cache.get(key)
+  if (exact) return exact
+  // Uzayan sorguda önceki önek sonucunu anında göster (API beklerken).
+  let best: SearchSuggestion[] | undefined
+  let bestLen = 0
+  for (const [k, v] of cache) {
+    if (key.startsWith(k) && k.length >= 3 && k.length > bestLen) {
+      best = v
+      bestLen = k.length
+    }
+  }
+  return best
+}
 
 // ─── Overlay search modal ─────────────────────────────────────────────────────
 export function SearchModal({ onClose, locale }: { onClose: () => void; locale: string }) {
@@ -59,16 +107,22 @@ export function SearchModal({ onClose, locale }: { onClose: () => void; locale: 
       }
 
       const cacheKey = `${locale}:${q.toLocaleLowerCase(locale)}`
-      const cached = cacheRef.current.get(cacheKey)
-      if (cached) {
-        setSuggestions(cached)
+      const cachedExact = cacheRef.current.get(cacheKey)
+      if (cachedExact) {
+        setSuggestions(cachedExact)
         setSelectedIdx(-1)
         setLoading(false)
         return
       }
 
+      const prefixHit = cacheGet(cacheRef.current, cacheKey)
+      if (prefixHit) {
+        setSuggestions(prefixHit)
+        setSelectedIdx(-1)
+      }
+
       setLoading(true)
-      // 250ms: tuş başına ağır katalog sorgusunu birleştirir (40ms neredeyse her harfte istek atıyordu).
+      // 140ms: hızlı tepki + kısa tuş birleştirme (önceki 250ms ağır hissediliyordu).
       debounceRef.current = setTimeout(async () => {
         const controller = new AbortController()
         abortRef.current = controller
@@ -86,11 +140,12 @@ export function SearchModal({ onClose, locale }: { onClose: () => void; locale: 
         } catch (error) {
           if (error instanceof DOMException && error.name === 'AbortError') return
           if (latestQueryRef.current !== q) return
-          setSuggestions([])
+          // Önceki önek sonuçlarını silme — boş flash olmasın.
+          if (!prefixHit) setSuggestions([])
         } finally {
           if (latestQueryRef.current === q) setLoading(false)
         }
-      }, 250)
+      }, 140)
     },
     [locale]
   )
@@ -112,6 +167,16 @@ export function SearchModal({ onClose, locale }: { onClose: () => void; locale: 
       }
     }
   }
+
+  const iconFallback = (type: SearchSuggestion['type']) => (
+    <div className="flex size-14 flex-shrink-0 items-center justify-center rounded-2xl bg-neutral-100 dark:bg-neutral-800">
+      {type === 'collection' ? (
+        <Layers className="size-6 text-primary-500" />
+      ) : (
+        <Tag className="size-6 text-neutral-400" />
+      )}
+    </div>
+  )
 
   return (
     <div className="fixed inset-0 z-[999] flex flex-col bg-neutral-950/55 backdrop-blur-md" onClick={onClose}>
@@ -139,6 +204,20 @@ export function SearchModal({ onClose, locale }: { onClose: () => void; locale: 
               {loading && (
                 <Loader2 className="absolute top-1/2 right-4 size-5 -translate-y-1/2 animate-spin text-primary-500" />
               )}
+              {!loading && query ? (
+                <button
+                  type="button"
+                  aria-label="Aramayı temizle"
+                  className="absolute top-1/2 right-4 -translate-y-1/2 text-neutral-400 hover:text-neutral-700"
+                  onClick={() => {
+                    setQuery('')
+                    search('')
+                    inputRef.current?.focus()
+                  }}
+                >
+                  <X className="size-5" />
+                </button>
+              ) : null}
             </div>
             <button
               onClick={onClose}
@@ -200,21 +279,12 @@ export function SearchModal({ onClose, locale }: { onClose: () => void; locale: 
                           'bg-primary-50 ring-1 ring-primary-200 dark:bg-primary-900/20 dark:ring-primary-800'
                       )}
                     >
-                      {s.image ? (
-                        <img
-                          src={s.image}
-                          alt={s.title}
-                          className="size-14 flex-shrink-0 rounded-2xl object-cover shadow-sm ring-1 ring-black/5"
-                        />
-                      ) : (
-                        <div className="flex size-14 flex-shrink-0 items-center justify-center rounded-2xl bg-neutral-100 dark:bg-neutral-800">
-                          {s.type === 'collection' ? (
-                            <Layers className="size-6 text-primary-500" />
-                          ) : (
-                            <Tag className="size-6 text-neutral-400" />
-                          )}
-                        </div>
-                      )}
+                      <SuggestThumb
+                        src={s.image}
+                        alt={s.title}
+                        className="size-14 flex-shrink-0 rounded-2xl object-cover shadow-sm ring-1 ring-black/5"
+                        fallback={iconFallback(s.type)}
+                      />
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2">
                           <span className="truncate text-sm font-semibold text-neutral-900 sm:text-base dark:text-white">

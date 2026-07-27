@@ -27,7 +27,8 @@ import wisp.{type Request, type Response}
 const vitrin_query_timeout_ms = 12_000
 
 /// Autocomplete (`?suggest=1`) — kısa timeout; ağır browse pipeline kullanılmaz.
-const suggest_query_timeout_ms = 3000
+/// Aday-birleşim SQL ile genelde <500 ms; 5 sn üst sınır (boş öneri yerine sonuç).
+const suggest_query_timeout_ms = 5000
 
 /// Bölge slider / kategori shell — anasayfa RSC stream'ini açık tutmamak için
 /// kısa pog timeout. 16k+ otelde EXISTS/LIKE yok; aggregate + eşitlik hedef <500 ms.
@@ -1794,28 +1795,58 @@ fn search_listings_impl(
     <> fast_main_sql
     <> order_sql
 
-  // Autocomplete: yalnızca $1=q $2=cat $3=locale $4=limit $5=offset — dummy $22::uuid yok
-  // (pog.null()→uuid cast prod’da search_failed üretebiliyordu).
+  // Autocomplete: $1=q $2=cat $3=locale $4=limit $5=offset.
+  // Önce ilk token ile trgm-index aday kümesi (title ∪ slug ∪ location), sonra
+  // tüm token filtresi + sıralama — 16k+ satırda seq-scan EXISTS yolundan kaçınır.
   let suggest_page_sql =
-    "with page_ids as materialized (select l.id "
-    <> "from listings l "
-    <> "join product_categories pc on pc.id = l.category_id "
-    <> "where l.status = 'published' "
-    <> "and ($1::text is null or trim($1) = '' or (select coalesce(bool_and("
+    "with toks as ("
+    <> "  select trim(tok) as tok from unnest(string_to_array(trim(coalesce($1::text, '')), ' ')) as u(tok)"
+    <> "  where trim(tok) <> ''"
+    <> "), first_tok as ("
+    <> "  select coalesce((select tok from toks limit 1), '') as tok"
+    <> "), cand as ("
+    <> "  select distinct lt.listing_id as id"
+    <> "  from listing_translations lt"
+    <> "  cross join first_tok ft"
+    <> "  where ft.tok <> '' and ("
+    <> "    translate(lower(lt.title), 'üğışöç', 'ugisoc') ilike ft.tok || '%'"
+    <> "    or translate(lower(lt.title), 'üğışöç', 'ugisoc') ilike '% ' || ft.tok || '%'"
+    <> "    or (char_length(ft.tok) >= 4 and translate(lower(lt.title), 'üğışöç', 'ugisoc') ilike '%' || ft.tok || '%')"
+    <> "  )"
+    <> "  union"
+    <> "  select l.id from listings l"
+    <> "  cross join first_tok ft"
+    <> "  where l.status = 'published' and ft.tok <> '' and ("
+    <> "    lower(replace(l.slug, '-', ' ')) ilike ft.tok || '%'"
+    <> "    or lower(replace(l.slug, '-', ' ')) ilike '% ' || ft.tok || '%'"
+    <> "    or (char_length(ft.tok) >= 4 and lower(replace(l.slug, '-', ' ')) ilike '%' || ft.tok || '%')"
+    <> "    or lower(coalesce(l.location_name, '')) ilike ft.tok || '%'"
+    <> "    or lower(coalesce(l.location_name, '')) ilike '% ' || ft.tok || '%'"
+    <> "    or (char_length(ft.tok) >= 4 and lower(coalesce(l.location_name, '')) ilike '%' || ft.tok || '%')"
+    <> "  )"
+    <> "), page_ids as materialized ("
+    <> "  select ranked.id, ranked.rn from ("
+    <> "    select l.id, row_number() over (order by "
+    <> "      case when pc.code in ('holiday_home', 'yacht_charter', 'tour', 'activity') then 0 else 1 end asc, "
+    <> "      case "
+    <> "        when lower(replace(l.slug, '-', ' ')) ilike (select tok from first_tok) || '%' then 0 "
+    <> "        when exists ("
+    <> "          select 1 from listing_translations lt where lt.listing_id = l.id "
+    <> "            and translate(lower(lt.title), 'üğışöç', 'ugisoc') ilike (select tok from first_tok) || '%'"
+    <> "        ) then 0 "
+    <> "        else 1 end asc, "
+    <> "      l.created_at desc"
+    <> "    ) as rn "
+    <> "    from cand "
+    <> "    join listings l on l.id = cand.id "
+    <> "    join product_categories pc on pc.id = l.category_id "
+    <> "    where l.status = 'published' "
+    <> "    and ($1::text is null or trim($1) = '' or (select coalesce(bool_and("
     <> listing_suggest_token_match_sql
-    <> "), true) from unnest(string_to_array(trim($1), ' ')) as u(tok) where trim(tok) <> '')) "
-    <> "and ($2::text is null or pc.code = $2) "
-    <> "order by "
-    <> "case when pc.code in ('holiday_home', 'yacht_charter', 'tour', 'activity') then 0 else 1 end asc, "
-    <> "case "
-    <> "when exists ("
-    <> "  select 1 from listing_translations lt where lt.listing_id = l.id "
-    <> "    and translate(lower(lt.title), 'üğışöç', 'ugisoc') ilike split_part(trim(coalesce($1::text, '')), ' ', 1) || '%'"
-    <> ") then 0 "
-    <> "when lower(replace(l.slug, '-', ' ')) ilike split_part(trim(coalesce($1::text, '')), ' ', 1) || '%' then 0 "
-    <> "else 1 end asc, "
-    <> "l.created_at desc "
-    <> "offset $5 limit $4"
+    <> "), true) from toks as u(tok))) "
+    <> "    and ($2::text is null or pc.code = $2)"
+    <> "  ) ranked "
+    <> "  where ranked.rn > $5 and ranked.rn <= ($5 + $4)"
     <> ") "
     <> "select "
     <> "l.id::text, l.slug, "
@@ -1828,16 +1859,7 @@ fn search_listings_impl(
     <> "from page_ids __pids "
     <> "join listings l on l.id = __pids.id "
     <> "join product_categories pc on pc.id = l.category_id "
-    <> "order by "
-    <> "case when pc.code in ('holiday_home', 'yacht_charter', 'tour', 'activity') then 0 else 1 end asc, "
-    <> "case "
-    <> "when exists ("
-    <> "  select 1 from listing_translations lt where lt.listing_id = l.id "
-    <> "    and translate(lower(lt.title), 'üğışöç', 'ugisoc') ilike split_part(trim(coalesce($1::text, '')), ' ', 1) || '%'"
-    <> ") then 0 "
-    <> "when lower(replace(l.slug, '-', ' ')) ilike split_part(trim(coalesce($1::text, '')), ' ', 1) || '%' then 0 "
-    <> "else 1 end asc, "
-    <> "l.created_at desc "
+    <> "order by __pids.rn "
 
   let agency_param = case agency_org_opt {
     None -> pog.null()
