@@ -188,19 +188,19 @@ export async function upsertAkdenizvillamVillaListing(
   await pgClient.query('BEGIN')
   try {
     if (listingId) {
+      // Mevcut yayın URL'sini koru — yeniden import slug'ı ezmesin
       await pgClient.query(
         `UPDATE listings SET
-           slug = $2, status = $3, currency_code = $4,
-           min_stay_nights = $5, map_lat = $6, map_lng = $7,
-           location_name = $8, external_provider_code = $9,
-           external_listing_ref = $10, listing_source = 'api',
-           vitrin_price = $11, first_charge_amount = $12,
-           cleaning_fee_amount = $13, share_to_social = true,
+           status = $2, currency_code = $3,
+           min_stay_nights = $4, map_lat = $5, map_lng = $6,
+           location_name = $7, external_provider_code = $8,
+           external_listing_ref = $9, listing_source = 'api',
+           vitrin_price = $10, first_charge_amount = $11,
+           cleaning_fee_amount = $12, share_to_social = true,
            updated_at = now()
          WHERE id = $1::uuid`,
         [
           listingId,
-          slug,
           status,
           pkg.currency || 'TRY',
           pkg.minStayNights || 5,
@@ -355,7 +355,21 @@ async function resolveImportUrl(pgClient, input) {
   const saved = bySlug.rows[0]?.source_url?.trim()
   if (saved) return saved
 
-  return `https://www.akdenizvillam.com/kiralik-villalar/${slug}`
+  // Kaynak URL genelde villa-{name}; bizim slug {name}-villa.
+  const candidates = []
+  if (slug.startsWith('villa-')) candidates.push(slug)
+  if (slug.endsWith('-villa')) candidates.push(`villa-${slug.slice(0, -'-villa'.length)}`)
+  candidates.push(slug)
+  for (const path of [...new Set(candidates)]) {
+    const url = `https://www.akdenizvillam.com/kiralik-villalar/${path}`
+    try {
+      const res = await fetch(url, { method: 'HEAD', redirect: 'follow', signal: AbortSignal.timeout(8000) })
+      if (res.ok) return url
+    } catch {
+      /* try next */
+    }
+  }
+  return `https://www.akdenizvillam.com/kiralik-villalar/${candidates[0] || slug}`
 }
 
 export async function runAkdenizvillamImport(urlOrSlug, opts = {}) {

@@ -384,10 +384,13 @@ export function parseAkdenizvillamVillaPage(html, sourceUrl) {
 
   const acc = rental.containsPlace || {}
   const propertyType = 'villa'
-  const title = formatHolidayHomeTitleTr(
+  const nameOnly = formatHolidayHomeTitleTr(
     (rental.name || product?.name || 'Villa').replace(/\s*\|.*$/, '').trim(),
     propertyType,
   )
+  // Konum başlıkta kalsın — AI/SEO karışıklığında Kayaköy vb. yanlış bölgeye kaymasın.
+  // Slug ise yalnız ada göre üretilir (URL kırılmasın: gulbay-villa).
+  const title = /kalkan/i.test(nameOnly) ? nameOnly : `${nameOnly} - Kalkan`
   const subtitle = stripTags(html.match(/<h3[^>]*>([^<]*Havuzlu[^<]*)<\/h3>/i)?.[1] || '')
   const description = parseDescription(html, title, subtitle)
   const fees = parseFees(html)
@@ -411,7 +414,7 @@ export function parseAkdenizvillamVillaPage(html, sourceUrl) {
   return {
     sourceUrl,
     externalRef: String(rental.identifier || product?.sku || slugFromUrl(sourceUrl)),
-    slug: slugifyHolidayHomeName(title, propertyType),
+    slug: slugifyHolidayHomeName(nameOnly, propertyType),
     title,
     subtitle,
     description,
@@ -455,9 +458,11 @@ export function parseAkdenizvillamVillaPage(html, sourceUrl) {
       square_meters: String(acc.floorSize?.value ?? 250),
       square_m2: String(acc.floorSize?.value ?? 250),
       property_type: 'villa',
+      // Vitrin kartı city+district gösterir — Kaş ilçesi değil, belde adı Kalkan olmalı.
       district_label: 'Kışla',
-      city: 'Kaş',
+      city: 'Kalkan',
       province_city: 'Antalya',
+      region_display: 'Kalkan, Kışla, Antalya',
       tourism_cert_no: parseLicense(html),
       pool_type: poolDims
         ? `${poolDims.length}x${poolDims.width}m özel havuz${poolDims.depth ? ` (${poolDims.depth}m derinlik)` : ''}`

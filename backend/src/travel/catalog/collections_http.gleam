@@ -1432,7 +1432,7 @@ fn search_listings_impl(
     <> " else null end, case when pc.code = 'activity' then "
     <> activity_listing_vitrin_price_sql()
     <> " else null end, nullif(price_rule.min_price::text, ''), nullif(l.first_charge_amount::text, ''), nullif(meal_vitrin.room_only_price, ''), nullif(meal_vitrin.min_other_price, ''), nullif(meal_vitrin.min_fallback_price, ''), ''), "
-    <> "coalesce(nullif(trim(both ', ' from concat_ws(', ', nullif(trim(lm.meta->>'city'), ''), nullif(trim(lm.meta->>'district_label'), ''), (case when trim(coalesce(lm.meta->>'province_city', '')) ~ '/' then nullif(trim(substring(trim(lm.meta->>'province_city') from '[^/]+$')), '') else nullif(trim(lm.meta->>'province_city'), '') end))), ''), nullif(trim(l.location_name), ''), nullif(trim(lm.meta->>'region_display'), ''), nullif(trim(lm.meta->>'address'), ''), ''), "
+    <> "coalesce(nullif(trim(l.location_name), ''), nullif(trim(both ', ' from concat_ws(', ', nullif(trim(lm.meta->>'city'), ''), nullif(trim(lm.meta->>'district_label'), ''), (case when trim(coalesce(lm.meta->>'province_city', '')) ~ '/' then nullif(trim(substring(trim(lm.meta->>'province_city') from '[^/]+$')), '') else nullif(trim(lm.meta->>'province_city'), '') end))), ''), nullif(trim(lm.meta->>'region_display'), ''), nullif(trim(lm.meta->>'address'), ''), ''), "
     <> "coalesce(l.review_avg::text, ''), "
     <> "coalesce((select case "
     <> "  when sum(case when plan_code != 'room_only' then 1 else 0 end) > 0 "

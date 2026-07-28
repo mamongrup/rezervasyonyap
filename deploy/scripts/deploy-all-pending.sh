@@ -13,7 +13,8 @@
 #
 # Atlama bayrakları:
 #   SKIP_GIT_SYNC=1 SKIP_IMAGE_FIX=1 SKIP_HOTEL_PRICE_BACKFILL=1
-#   SKIP_STAY_DISTANCES=1 SKIP_SOCIAL_SQL=1 SKIP_DEPLOY=1 SKIP_VERIFY=1
+#   SKIP_STAY_DISTANCES=1 SKIP_AKDENIZVILLAM_REPAIR=1
+#   SKIP_SOCIAL_SQL=1 SKIP_DEPLOY=1 SKIP_VERIFY=1
 #   SKIP_SOCIAL_RESTART=1
 #   REHOST_EXTERNAL=1   # CDN görsellerini yerel AVIF'e al (uzun)
 #
@@ -37,6 +38,7 @@ chmod +x \
   deploy/scripts/deploy-all-pending.sh \
   scripts/backfill-hotel-room-scoped-prices.mjs \
   scripts/refresh-stay-nearby-pois.mjs \
+  scripts/repair-akdenizvillam-villa-content.mjs \
   2>/dev/null || true
 
 if [[ "${SKIP_GIT_SYNC:-0}" != "1" ]]; then
@@ -103,6 +105,24 @@ if [[ "${SKIP_STAY_DISTANCES:-0}" != "1" ]]; then
   fi
 else
   warn "SKIP_STAY_DISTANCES=1"
+fi
+
+if [[ "${SKIP_AKDENIZVILLAM_REPAIR:-0}" != "1" ]]; then
+  step "Akdeniz Villam villa içerik/fiyat onarımı"
+  if [[ -f scripts/repair-akdenizvillam-villa-content.mjs ]]; then
+    # Varsayılan: Gülbay + fiyat kuralı boş kalanlar
+    # shellcheck disable=SC2086
+    node scripts/repair-akdenizvillam-villa-content.mjs gulbay-villa ${AKDENIZVILLAM_REPAIR_ARGS:-} \
+      || warn "gulbay-villa onarımı başarısız (devam)"
+    # shellcheck disable=SC2086
+    node scripts/repair-akdenizvillam-villa-content.mjs --all-missing-prices ${AKDENIZVILLAM_REPAIR_ARGS:-} \
+      || warn "akdenizvillam eksik fiyat onarımı başarısız (devam)"
+    ok "akdenizvillam villa onarım"
+  else
+    warn "repair-akdenizvillam-villa-content.mjs yok — atlandı"
+  fi
+else
+  warn "SKIP_AKDENIZVILLAM_REPAIR=1"
 fi
 
 if [[ "${SKIP_DEPLOY:-0}" != "1" ]]; then
