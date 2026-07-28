@@ -19,10 +19,16 @@ export function mergeGuestDefaults(
   partial?: GuestsObject,
   base: GuestsObject = DEFAULT_GUESTS_STAY,
 ): GuestsObject {
+  const guestChildren = partial?.guestChildren ?? base.guestChildren ?? 0
+  const childAges =
+    partial?.childAges ??
+    base.childAges ??
+    (guestChildren > 0 ? undefined : [])
   return {
     guestAdults: partial?.guestAdults ?? base.guestAdults ?? DEFAULT_GUESTS_STAY.guestAdults,
-    guestChildren: partial?.guestChildren ?? base.guestChildren ?? 0,
+    guestChildren,
     guestInfants: partial?.guestInfants ?? base.guestInfants ?? 0,
+    ...(childAges != null ? { childAges } : {}),
   }
 }
 

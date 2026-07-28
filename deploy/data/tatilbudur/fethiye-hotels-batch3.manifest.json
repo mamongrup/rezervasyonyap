@@ -34,7 +34,10 @@
       "starRating": 3,
       "adultsOnly": true,
       "themeCode": "adults_only",
-      "themeTags": ["adults_only", "boutique"],
+      "themeTags": [
+        "adults_only",
+        "boutique"
+      ],
       "hotelType": "boutique",
       "address": "Karagözler Mah., Fethiye/Muğla",
       "lat": 36.62205,
@@ -53,7 +56,10 @@
       "boardType": "Oda Kahvaltı",
       "starRating": 3,
       "themeCode": "boutique",
-      "themeTags": ["boutique", "family"],
+      "themeTags": [
+        "boutique",
+        "family"
+      ],
       "hotelType": "boutique",
       "priceOverrideUsd": 120,
       "priceOverrideNote": "Bookeder/Aegean yok; resmi kayaamari.com galeri + Kayaköy butik BB piyasa.",
@@ -75,9 +81,21 @@
         "https://kayaamari.com/wp-content/uploads/2025/03/f441df7a.png"
       ],
       "defaultRooms": [
-        { "id": "standart-oda", "name": "Standart Oda", "capacity": 2 },
-        { "id": "superior-oda", "name": "Superior Oda", "capacity": 2 },
-        { "id": "suit", "name": "Süit", "capacity": 3 }
+        {
+          "id": "standart-oda",
+          "name": "Standart Oda",
+          "capacity": 2
+        },
+        {
+          "id": "superior-oda",
+          "name": "Superior Oda",
+          "capacity": 2
+        },
+        {
+          "id": "suit",
+          "name": "Süit",
+          "capacity": 3
+        }
       ],
       "freeChildMaxAge": 6,
       "childChargePercent": 50,
@@ -95,7 +113,10 @@
       "boardType": "Her Şey Dahil",
       "starRating": 4,
       "themeCode": "beachfront",
-      "themeTags": ["beachfront", "family"],
+      "themeTags": [
+        "beachfront",
+        "family"
+      ],
       "hotelType": "hotel",
       "priceOverrideUsd": 85,
       "priceOverrideNote": "Bookeder 30 USD taban çok düşük; Ölüdeniz 4* AI beachfront ~85 USD.",
@@ -117,7 +138,10 @@
       "boardType": "Oda Kahvaltı",
       "starRating": 4,
       "themeCode": "boutique",
-      "themeTags": ["boutique", "sea_view"],
+      "themeTags": [
+        "boutique",
+        "sea_view"
+      ],
       "hotelType": "boutique",
       "priceOverrideUsd": 150,
       "priceOverrideNote": "Bookeder yok; Aegean galeri + Faralya/Kabak butik deniz manzarası ~150 USD.",
@@ -125,9 +149,21 @@
       "lat": 36.47,
       "lng": 29.13,
       "defaultRooms": [
-        { "id": "standart-oda", "name": "Standart Oda", "capacity": 2 },
-        { "id": "deniz-manzarali-oda", "name": "Deniz Manzaralı Oda", "capacity": 2 },
-        { "id": "suit", "name": "Süit", "capacity": 3 }
+        {
+          "id": "standart-oda",
+          "name": "Standart Oda",
+          "capacity": 2
+        },
+        {
+          "id": "deniz-manzarali-oda",
+          "name": "Deniz Manzaralı Oda",
+          "capacity": 2
+        },
+        {
+          "id": "suit",
+          "name": "Süit",
+          "capacity": 3
+        }
       ],
       "freeChildMaxAge": 6,
       "childChargePercent": 50,
@@ -145,8 +181,12 @@
       "boardType": "Oda Kahvaltı",
       "starRating": 3,
       "themeCode": "boutique",
-      "themeTags": ["boutique"],
+      "themeTags": [
+        "boutique"
+      ],
       "hotelType": "boutique",
+      "priceOverrideUsd": 80,
+      "priceOverrideNote": "Bookeder minPrice yok; Fethiye merkez 3★ BB piyasa (~80 USD).",
       "address": "Cumhuriyet Mah. Dispanser Cad. No:16, Fethiye/Muğla",
       "lat": 36.623828,
       "lng": 29.113499,
@@ -166,7 +206,10 @@
       "boardType": "Her Şey Dahil",
       "starRating": 4,
       "themeCode": "beachfront",
-      "themeTags": ["beachfront", "family"],
+      "themeTags": [
+        "beachfront",
+        "family"
+      ],
       "hotelType": "hotel",
       "address": "Çalış Mah., Fethiye/Muğla",
       "lat": 36.658236,
@@ -187,8 +230,12 @@
       "boardType": "Oda Kahvaltı",
       "starRating": 3,
       "themeCode": "boutique",
-      "themeTags": ["boutique"],
+      "themeTags": [
+        "boutique"
+      ],
       "hotelType": "boutique",
+      "priceOverrideUsd": 70,
+      "priceOverrideNote": "Bookeder minPrice yok; marina 3★ BB piyasa (~70 USD).",
       "address": "Fevzi Çakmak Cad. İskele Meydanı No:1-17, Fethiye/Muğla",
       "lat": 36.621889,
       "lng": 29.104902,
@@ -208,7 +255,9 @@
       "boardType": "Oda Kahvaltı",
       "starRating": 3,
       "themeCode": "boutique",
-      "themeTags": ["boutique"],
+      "themeTags": [
+        "boutique"
+      ],
       "hotelType": "boutique",
       "address": "Fethiye Merkez, Fethiye/Muğla",
       "lat": 36.620446,
@@ -229,7 +278,10 @@
       "boardType": "Her Şey Dahil",
       "starRating": 3,
       "themeCode": "beachfront",
-      "themeTags": ["beachfront", "family"],
+      "themeTags": [
+        "beachfront",
+        "family"
+      ],
       "hotelType": "hotel",
       "priceOverrideUsd": 75,
       "priceOverrideNote": "Bookeder ~59 USD; Ölüdeniz 3* family beachfront taban ~75 USD.",
@@ -253,7 +305,11 @@
       "starRating": 3,
       "adultsOnly": true,
       "themeCode": "adults_only",
-      "themeTags": ["adults_only", "boutique", "luxury"],
+      "themeTags": [
+        "adults_only",
+        "boutique",
+        "luxury"
+      ],
       "hotelType": "boutique",
       "address": "1. Karagözler Fevzi Çakmak Cad. No:14, Fethiye/Muğla",
       "lat": 36.621677,
@@ -275,7 +331,10 @@
       "starRating": 4,
       "adultsOnly": true,
       "themeCode": "adults_only",
-      "themeTags": ["adults_only", "boutique"],
+      "themeTags": [
+        "adults_only",
+        "boutique"
+      ],
       "hotelType": "boutique",
       "address": "Hisarönü, Fethiye/Muğla",
       "lat": 36.569859,
@@ -296,7 +355,10 @@
       "boardType": "Oda Kahvaltı",
       "starRating": 4,
       "themeCode": "boutique",
-      "themeTags": ["boutique", "luxury"],
+      "themeTags": [
+        "boutique",
+        "luxury"
+      ],
       "hotelType": "boutique",
       "address": "Yacht Harbour No:17, Fethiye/Muğla",
       "lat": 36.622221,
@@ -317,14 +379,19 @@
       "boardType": "Oda Kahvaltı",
       "starRating": 4,
       "themeCode": "boutique",
-      "themeTags": ["boutique", "family"],
+      "themeTags": [
+        "boutique",
+        "family"
+      ],
       "hotelType": "boutique",
       "address": "Hisarönü, Ölüdeniz, Fethiye/Muğla",
       "lat": 36.574584,
       "lng": 29.136136,
       "freeChildMaxAge": 6,
       "childChargePercent": 50,
-      "infantsFree": true
+      "infantsFree": true,
+      "priceOverrideUsd": 90,
+      "priceOverrideNote": "Bookeder fiyat çıkarımı boş; Hisarönü 3* BB ~90 USD."
     },
     {
       "id": "marina-boutique-hotel",
@@ -338,7 +405,9 @@
       "boardType": "Oda Kahvaltı",
       "starRating": 3,
       "themeCode": "boutique",
-      "themeTags": ["boutique"],
+      "themeTags": [
+        "boutique"
+      ],
       "hotelType": "boutique",
       "address": "Karagözler Mah. Fevzi Çakmak Cad. No:50, Fethiye/Muğla",
       "lat": 36.62317,

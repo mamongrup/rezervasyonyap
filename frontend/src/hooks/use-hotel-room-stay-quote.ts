@@ -30,6 +30,9 @@ export function useHotelRoomStayQuote({
   locale = 'tr',
   bookingUnitCount = 1,
   resolveRoomNightly = null,
+  childAges,
+  infantCount = 0,
+  childPolicy = null,
 }: {
   listingId: string
   selectedRoom: HotelRoomBookingOption | undefined
@@ -42,6 +45,9 @@ export function useHotelRoomStayQuote({
   locale?: string
   bookingUnitCount?: number
   resolveRoomNightly?: ((ymd: string) => number | null) | null
+  childAges?: number[]
+  infantCount?: number
+  childPolicy?: import('@/lib/hotel-child-policy').HotelChildPolicy | null
 }) {
   const ctx = usePreferredCurrencyContext()
   const [days, setDays] = useState<Awaited<ReturnType<typeof fetchPublicHotelRoomAvailabilityDaysSafe>>>([])
@@ -115,6 +121,8 @@ export function useHotelRoomStayQuote({
         nights: 0,
         lodgingSubtotal: 0,
         mealPlanSupplement: 0,
+        childSurchargeTotal: 0,
+        childBreakdown: null,
         grandTotal: 0,
         available: true,
         selectedPlan: null,
@@ -134,6 +142,9 @@ export function useHotelRoomStayQuote({
       rawAvailabilityDays: rawDays,
       inventoryDefault: selectedRoom?.unit_count,
       resolveRoomNightly,
+      childAges,
+      infantCount,
+      childPolicy,
     })
   }, [
     days,
@@ -148,6 +159,9 @@ export function useHotelRoomStayQuote({
     activitySurchargesTotal,
     bookingUnitCount,
     resolveRoomNightly,
+    childAges,
+    infantCount,
+    childPolicy,
   ])
 
   const displayMainPrice = useMemo(() => {

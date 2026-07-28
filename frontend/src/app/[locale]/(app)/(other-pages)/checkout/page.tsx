@@ -394,6 +394,9 @@ function CheckoutPageContent() {
                     guest_adults: stayGuests.guestAdults,
                     guest_children: stayGuests.guestChildren,
                     guest_infants: stayGuests.guestInfants,
+                    ...(Array.isArray(stayGuests.childAges) && stayGuests.childAges.length > 0
+                      ? { child_ages: stayGuests.childAges }
+                      : {}),
                   })
                 : undefined
         const cart = await createCart(currency)
@@ -472,6 +475,9 @@ function CheckoutPageContent() {
             guest_adults: stayGuests.guestAdults,
             guest_children: stayGuests.guestChildren,
             guest_infants: stayGuests.guestInfants,
+            ...(Array.isArray(stayGuests.childAges) && stayGuests.guestChildren
+              ? { child_ages: stayGuests.childAges }
+              : {}),
             amount_total: grandTotal,
             amount_paid: amountDueNow,
             amount_remaining: amountRemaining,

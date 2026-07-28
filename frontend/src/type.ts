@@ -2,6 +2,8 @@ export interface GuestsObject {
   guestAdults?: number
   guestChildren?: number
   guestInfants?: number
+  /** Otel rezervasyonu: her çocuk için yaş (2–12); uzunluk guestChildren ile eşitlenir */
+  childAges?: number[]
 }
 
 export type ListingType = 'Stays' | 'Experiences' | 'Cars' | 'Flights'
