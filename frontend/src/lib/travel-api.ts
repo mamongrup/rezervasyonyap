@@ -5181,20 +5181,25 @@ export type CdnActiveRes =
   | { active: null }
   | { active: string; pull_zone_url: string | null; is_active: boolean }
 
-export async function getActiveCdn(): Promise<CdnActiveRes> {
+export async function getActiveCdn(token?: string): Promise<CdnActiveRes> {
   const b = base()
   if (!b) throw new Error('NEXT_PUBLIC_API_URL_missing')
-  const res = await fetch(`${b}/api/v1/media/cdn`)
+  const headers: Record<string, string> = {}
+  if (token) headers.Authorization = `Bearer ${token}`
+  const res = await fetch(`${b}/api/v1/media/cdn`, { headers, cache: 'no-store' })
   if (!res.ok) throw new Error(`media_cdn_${res.status}`)
   return json(res)
 }
 
-export async function setActiveCdn(code: 'bunny' | 'cloudflare'): Promise<{ ok: boolean; active: string }> {
+export async function setActiveCdn(
+  token: string,
+  code: 'bunny' | 'cloudflare',
+): Promise<{ ok: boolean; active: string }> {
   const b = base()
   if (!b) throw new Error('NEXT_PUBLIC_API_URL_missing')
   const res = await fetch(`${b}/api/v1/media/cdn/active`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
     body: JSON.stringify({ code }),
   })
   if (!res.ok) {
@@ -5204,10 +5209,13 @@ export async function setActiveCdn(code: 'bunny' | 'cloudflare'): Promise<{ ok: 
   return json(res)
 }
 
-export async function deactivateCdn(): Promise<{ ok: boolean }> {
+export async function deactivateCdn(token: string): Promise<{ ok: boolean }> {
   const b = base()
   if (!b) throw new Error('NEXT_PUBLIC_API_URL_missing')
-  const res = await fetch(`${b}/api/v1/media/cdn/deactivate`, { method: 'POST' })
+  const res = await fetch(`${b}/api/v1/media/cdn/deactivate`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+  })
   if (!res.ok) {
     const err = await res.json().catch(() => ({}))
     throw new Error((err as { error?: string }).error ?? `media_cdn_deactivate_${res.status}`)
@@ -5216,6 +5224,7 @@ export async function deactivateCdn(): Promise<{ ok: boolean }> {
 }
 
 export async function updateCdnPullZoneUrl(
+  token: string,
   code: 'bunny' | 'cloudflare',
   pull_zone_url: string,
 ): Promise<{ ok: boolean }> {
@@ -5223,7 +5232,7 @@ export async function updateCdnPullZoneUrl(
   if (!b) throw new Error('NEXT_PUBLIC_API_URL_missing')
   const res = await fetch(`${b}/api/v1/media/cdn/url`, {
     method: 'PATCH',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
     body: JSON.stringify({ code, pull_zone_url }),
   })
   if (!res.ok) {
@@ -5240,10 +5249,13 @@ export type CdnProviderRecord = {
   config_json: Record<string, string>
 }
 
-export async function getAllCdnProviders(): Promise<CdnProviderRecord[]> {
+export async function getAllCdnProviders(token: string): Promise<CdnProviderRecord[]> {
   const b = base()
   if (!b) throw new Error('NEXT_PUBLIC_API_URL_missing')
-  const res = await fetch(`${b}/api/v1/media/cdn/all`)
+  const res = await fetch(`${b}/api/v1/media/cdn/all`, {
+    headers: { Authorization: `Bearer ${token}` },
+    cache: 'no-store',
+  })
   if (!res.ok) throw new Error(`media_cdn_all_${res.status}`)
   // `json()` helper'ı parseLenientJson + 200/non-JSON tespiti yapar.
   const rows = await json<Array<{ code: string; pull_zone_url: string | null; is_active: boolean; config_json: string }>>(res)
@@ -5256,6 +5268,7 @@ export async function getAllCdnProviders(): Promise<CdnProviderRecord[]> {
 }
 
 export async function updateCdnConfig(
+  token: string,
   code: 'bunny' | 'cloudflare',
   pull_zone_url: string,
   config: Record<string, string>,
@@ -5264,7 +5277,7 @@ export async function updateCdnConfig(
   if (!b) throw new Error('NEXT_PUBLIC_API_URL_missing')
   const res = await fetch(`${b}/api/v1/media/cdn/config`, {
     method: 'PATCH',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
     body: JSON.stringify({ code, pull_zone_url, config_json: JSON.stringify(config) }),
   })
   if (!res.ok) {
@@ -5291,10 +5304,13 @@ export type ImageUploadProfile = {
   display_order: number
 }
 
-export async function getImageUploadProfiles(): Promise<ImageUploadProfile[]> {
+export async function getImageUploadProfiles(token: string): Promise<ImageUploadProfile[]> {
   const b = base()
   if (!b) throw new Error('NEXT_PUBLIC_API_URL_missing')
-  const res = await fetch(`${b}/api/v1/media/image-profiles`, { cache: 'no-store' })
+  const res = await fetch(`${b}/api/v1/media/image-profiles`, {
+    headers: { Authorization: `Bearer ${token}` },
+    cache: 'no-store',
+  })
   if (!res.ok) throw new Error(`image_profiles_${res.status}`)
   const rows = await json<Array<ImageUploadProfile & { fit: string }>>(res)
   return rows.map((r) => ({
@@ -5304,6 +5320,7 @@ export async function getImageUploadProfiles(): Promise<ImageUploadProfile[]> {
 }
 
 export async function updateImageUploadProfile(
+  token: string,
   profile: Pick<
     ImageUploadProfile,
     'folder' | 'width' | 'height' | 'fit' | 'vivid' | 'quality' | 'effort' | 'thumb_size'
@@ -5313,7 +5330,7 @@ export async function updateImageUploadProfile(
   if (!b) throw new Error('NEXT_PUBLIC_API_URL_missing')
   const res = await fetch(`${b}/api/v1/media/image-profiles`, {
     method: 'PATCH',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
     body: JSON.stringify(profile),
   })
   if (!res.ok) {

@@ -1,10 +1,13 @@
-import ManagePlaceholderPage from '../../ManagePlaceholderPage'
+import { vitrinHref } from '@/lib/vitrin-href'
+import { redirect } from 'next/navigation'
 
-export default function Page() {
-  return (
-    <ManagePlaceholderPage
-      title="Canlı Destek"
-      description="Canlı destek widget ve chatbot entegrasyon ayarları. Bu modül geliştirme aşamasındadır."
-    />
-  )
+/** Canlı destek (Tawk.to) → Ayarlar → Site kimliği sekmesinde yönetilir. */
+export default async function LiveSupportRedirectPage({
+  params,
+}: {
+  params: Promise<{ locale: string }>
+}) {
+  const { locale } = await params
+  const base = await vitrinHref(locale, '/manage/admin/settings')
+  redirect(`${base}?tab=kimlik`)
 }

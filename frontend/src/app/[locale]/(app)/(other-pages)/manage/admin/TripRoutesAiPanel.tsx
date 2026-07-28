@@ -81,7 +81,15 @@ export default function TripRoutesAiPanel({ profile, title, description, accent 
     try {
       const r = await queueAllTripRoutes(token, profile)
       if (r.message === 'no_locations_need_routes' || (r.queued === 0 && r.total_found === 0)) {
-        setLog((l) => [...l, 'Kuyruğa eklenecek bölge yok (rota alanı boş ve bekleyen iş yok).'])
+        const queuedNow = stats?.jobs?.queued ?? stats?.jobs?.pending ?? 0
+        if (queuedNow > 0) {
+          setLog((l) => [
+            ...l,
+            `Yeni aday yok; kuyrukta zaten ${queuedNow} iş var. «2c. Bitene kadar sürdür» ile devam edin.`,
+          ])
+        } else {
+          setLog((l) => [...l, 'Kuyruğa eklenecek bölge yok (rota alanı dolu veya bekleyen iş yok).'])
+        }
       } else {
         setLog((l) => [...l, `${r.queued} bölge kuyruğa alındı (aday: ${r.total_found}).`])
       }
@@ -223,6 +231,13 @@ export default function TripRoutesAiPanel({ profile, title, description, accent 
                 2b. {batchCount} bölge işle
               </button>
             </div>
+            <button
+              type="button"
+              onClick={() => void onProcess({ untilDone: true })}
+              className="rounded-xl border border-emerald-300 bg-emerald-50 px-4 py-2 text-sm font-medium text-emerald-800 hover:bg-emerald-100 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-200"
+            >
+              2c. Bitene kadar sürdür
+            </button>
           </>
         ) : (
           <button

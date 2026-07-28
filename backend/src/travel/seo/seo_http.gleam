@@ -562,9 +562,10 @@ pub fn list_not_found_logs(req: Request, ctx: Context) -> Response {
   }
 }
 
-/// Yayınlanmış içerik + ilan kapak/galeri görselleri (JSON dizi metni, en fazla 5).
+/// Yayınlanmış içerik özeti — kapak görseli (featured) yeter; satır başı galeri
+/// subquery'si üretimde sitemap JSON/XML'i timeout'a düşürüyordu.
 fn sitemap_union_sql() -> String {
-  "select 'listing'::text, l.slug::text, l.organization_id::text, coalesce(pc.code, '')::text, coalesce((select json_agg(x.u)::text from (select u from (select 0 as ord, case when trim(coalesce(l.featured_image_url, '')) = '' then null when trim(l.featured_image_url) ilike 'http%' then trim(l.featured_image_url) when left(trim(l.featured_image_url), 1) = '/' then trim(l.featured_image_url) else '/' || trim(l.featured_image_url) end as u union all select 10 + row_number() over (order by li.sort_order asc, li.created_at asc), case when trim(coalesce(li.storage_key, '')) = '' then null when trim(li.storage_key) ilike 'http%' then trim(li.storage_key) when left(trim(li.storage_key), 1) = '/' then trim(li.storage_key) else '/' || trim(li.storage_key) end from listing_images li where li.listing_id = l.id) raw where u is not null and length(trim(u)) > 0 order by ord limit 5) x), '[]') from listings l join product_categories pc on pc.id = l.category_id where l.status = 'published' union all select 'cms_page'::text, p.slug::text, coalesce(p.organization_id::text, ''), ''::text, '[]'::text from cms_pages p where p.is_published = true union all select 'blog_post'::text, b.slug::text, ''::text, ''::text, '[]'::text from blog_posts b where b.published_at is not null order by 1, 2 limit 5000"
+  "select 'listing'::text, l.slug::text, l.organization_id::text, coalesce(pc.code, '')::text, case when nullif(trim(coalesce(l.featured_image_url, '')), '') is null then '[]'::text else json_build_array(case when trim(l.featured_image_url) ilike 'http%' then trim(l.featured_image_url) when left(trim(l.featured_image_url), 1) = '/' then trim(l.featured_image_url) else '/' || trim(l.featured_image_url) end)::text end from listings l join product_categories pc on pc.id = l.category_id where l.status = 'published' union all select 'cms_page'::text, p.slug::text, coalesce(p.organization_id::text, ''), ''::text, '[]'::text from cms_pages p where p.is_published = true union all select 'blog_post'::text, b.slug::text, ''::text, ''::text, '[]'::text from blog_posts b where b.published_at is not null order by 1, 2 limit 5000"
 }
 
 fn sitemap_row_decoder() -> decode.Decoder(
@@ -649,6 +650,7 @@ pub fn sitemap_entries(req: Request, ctx: Context) -> Response {
   use <- wisp.require_method(req, http.Get)
   case
     pog.query(sitemap_union_sql())
+    |> pog.timeout(20_000)
     |> pog.returning(sitemap_row_decoder())
     |> db_exec.execute(ctx.db)
   {
@@ -695,6 +697,7 @@ pub fn sitemap_xml(req: Request, ctx: Context) -> Response {
   let base = scheme <> "://" <> host
   case
     pog.query(sitemap_union_sql())
+    |> pog.timeout(20_000)
     |> pog.returning(sitemap_row_decoder())
     |> db_exec.execute(ctx.db)
   {

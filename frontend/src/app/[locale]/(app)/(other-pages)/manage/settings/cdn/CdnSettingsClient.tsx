@@ -1,5 +1,6 @@
 'use client'
 import { formatManageApiCatch } from '@/lib/manage-api-error-tr'
+import { getStoredAuthToken } from '@/lib/auth-storage'
 import ButtonPrimary from '@/shared/ButtonPrimary'
 import {
   getAllCdnProviders,
@@ -181,7 +182,9 @@ export default function CdnSettingsClient() {
     setError(null)
     setLoading(true)
     try {
-      const rows = await getAllCdnProviders()
+      const token = getStoredAuthToken()
+      if (!token) throw new Error('missing_token')
+      const rows = await getAllCdnProviders(token)
       setProviders(rows)
       const next: Record<string, Record<string, string>> = { bunny: {}, cloudflare: {} }
       for (const row of rows) {
@@ -206,7 +209,9 @@ export default function CdnSettingsClient() {
     setActivating(code)
     setError(null)
     try {
-      await setActiveCdn(code)
+      const token = getStoredAuthToken()
+      if (!token) throw new Error('missing_token')
+      await setActiveCdn(token, code)
       await load()
     } catch (e) {
       setError(formatManageApiCatch(e, 'Etkinleştirme başarısız'))
@@ -219,7 +224,9 @@ export default function CdnSettingsClient() {
     setDeactivating(true)
     setError(null)
     try {
-      await deactivateCdn()
+      const token = getStoredAuthToken()
+      if (!token) throw new Error('missing_token')
+      await deactivateCdn(token)
       await load()
     } catch (e) {
       setError(formatManageApiCatch(e, 'Devre dışı bırakma başarısız'))
@@ -232,13 +239,15 @@ export default function CdnSettingsClient() {
     setSaving(code)
     setMsgs((prev) => ({ ...prev, [code]: undefined as never }))
     try {
+      const token = getStoredAuthToken()
+      if (!token) throw new Error('missing_token')
       const form = forms[code] ?? {}
       const pullZoneUrl = form['pull_zone_url'] ?? ''
       const config: Record<string, string> = {}
       for (const [k, v] of Object.entries(form)) {
         if (k !== 'pull_zone_url') config[k] = v
       }
-      await updateCdnConfig(code, pullZoneUrl, config)
+      await updateCdnConfig(token, code, pullZoneUrl, config)
       setMsgs((prev) => ({ ...prev, [code]: { ok: true, text: 'Ayarlar kaydedildi.' } }))
       await load()
     } catch (e) {

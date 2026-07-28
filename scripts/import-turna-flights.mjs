@@ -5,6 +5,7 @@
  *   TURNA_BASE_URL, TURNA_API_KEY (zorunlu)
  *   TURNA_STATUS — draft | published (varsayılan published)
  *   TURNA_ORG_ID — varsayılan a0000000-0000-4000-8000-000000000001
+ *   SYNC_JOB_ID — panel import işi (ilerleme raporu)
  *
  * Kullanım:
  *   node scripts/import-turna-flights.mjs --ping
@@ -18,6 +19,7 @@ import { fileURLToPath } from 'node:url'
 import { fetchFlightSearch, loadTurnaConfigAsync, pingTurnaLogin } from './lib/turna-api.mjs'
 import { resolveImportContext, upsertTurnaFlightListing } from './lib/turna-listing-db.mjs'
 import { createPgClient } from './lib/pg-client.mjs'
+import { createJobReporter } from './lib/sync-job-reporter.mjs'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const ROUTES_PATH = path.join(__dirname, 'config', 'turna-flight-routes.json')
@@ -28,6 +30,9 @@ const DRY_RUN = args.has('--dry-run')
 const PING = args.has('--ping')
 const limitIdx = process.argv.indexOf('--limit')
 const LIMIT = limitIdx >= 0 ? Number(process.argv[limitIdx + 1]) : 0
+const jobIdIdx = process.argv.indexOf('--job-id')
+const JOB_ID = jobIdIdx >= 0 ? process.argv[jobIdIdx + 1] : (process.env.SYNC_JOB_ID || '')
+const reporter = createJobReporter(JOB_ID)
 
 function loadFlightRoutes() {
   if (!fs.existsSync(ROUTES_PATH)) {
@@ -61,14 +66,20 @@ async function main() {
   if (!DRY_RUN) await client.connect()
 
   try {
+    await reporter.start(slice.length)
     const ctx = DRY_RUN ? { orgId, categoryId: null, localeTrId: null } : await resolveImportContext(client, orgId)
     let created = 0
     let updated = 0
+    let i = 0
 
     for (const route of slice) {
-      if (!route?.origin || !route?.destination) continue
+      i += 1
+      if (!route?.origin || !route?.destination) {
+        await reporter.step(`[turna] atlandı (eksik rota)`, i, slice.length)
+        continue
+      }
       const key = `${route.origin}-${route.destination}`.toLowerCase()
-      process.stdout.write(`[turna] ${key} … `)
+      await reporter.step(`[turna] ${key} …`, i, slice.length)
 
       let searchPayload = null
       try {
@@ -76,7 +87,7 @@ async function main() {
         const { json } = await fetchFlightSearch(route, { cfg })
         searchPayload = json
       } catch (e) {
-        console.log(`atlandı (${e.message})`)
+        await reporter.log(`[turna] ${key} atlandı (${e.message})`)
         continue
       }
 
@@ -84,10 +95,14 @@ async function main() {
       if (out.created) created += 1
       else if (!DRY_RUN && out.action === 'updated') updated += 1
       const priceNote = out.price != null ? ` ₺${out.price}` : ''
-      console.log(out.action + (out.slug ? ` (${out.slug})` : '') + priceNote)
+      await reporter.log(`[turna] ${key} ${out.action}${out.slug ? ` (${out.slug})` : ''}${priceNote}`)
     }
 
-    console.log(`\nBitti: ${created} yeni, ${updated} güncelleme${DRY_RUN ? ' (dry-run)' : ''}.`)
+    const doneMsg = `Bitti: ${created} yeni, ${updated} güncelleme${DRY_RUN ? ' (dry-run)' : ''}.`
+    await reporter.done(doneMsg)
+  } catch (e) {
+    await reporter.fail(e?.message || String(e))
+    throw e
   } finally {
     if (!DRY_RUN) await client.end()
   }

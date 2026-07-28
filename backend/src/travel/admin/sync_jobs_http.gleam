@@ -67,6 +67,23 @@ pub fn get_status(req: Request, ctx: Context) -> Response {
             use finished_at <- decode.field(7, decode.string)
             decode.success(#(id, status, progress, total, log_tail, error_text, started_at, finished_at))
           }
+          let _ =
+            case
+              pog.query(
+                "update provider_sync_jobs
+                 set status = 'error',
+                     error_text = coalesce(nullif(error_text,''), 'Takılı iş: 2 saatten uzun süredir yanıt yok'),
+                     finished_at = now()
+                 where provider = $1
+                   and status in ('pending','running')
+                   and started_at < now() - interval '2 hours'",
+              )
+              |> pog.parameter(pog.text(provider))
+              |> db_exec.execute(ctx.db)
+            {
+              Error(_) -> Nil
+              Ok(_) -> Nil
+            }
           case
             pog.query(
               "select id::text, status, progress, total, log_tail,
@@ -147,6 +164,18 @@ pub fn create_job(req: Request, ctx: Context) -> Response {
                 True -> json_err(400, "provider_required")
                 False -> {
                   let p = string.trim(provider)
+                  // Önceki açık işleri kapat (Turna gibi reporter'sız scriptler pending'de kalırdı).
+                  let _ =
+                    pog.query(
+                      "update provider_sync_jobs
+                       set status = 'error',
+                           error_text = coalesce(nullif(error_text,''), 'Takılı iş: yeni import başlatıldı (önceki iş yanıt vermedi)'),
+                           finished_at = now()
+                       where provider = $1
+                         and status in ('pending','running')",
+                    )
+                    |> pog.parameter(pog.text(p))
+                    |> db_exec.execute(ctx.db)
                   case
                     pog.query(
                       "insert into provider_sync_jobs (provider, status)

@@ -1304,7 +1304,7 @@ export default function GeneralSettingsClient({ embedded = false }: GeneralSetti
                     Varsayılan satırlar yukarıdaki alanlardır. Domain seçip doldurursanız o host&apos;ta
                     logo yazısı/rengi değişir; boş bırakılan alan varsayılanı kullanır.
                   </p>
-                  <div className="mt-3">
+                  <Field className="mt-3 block">
                     <Label>Domain</Label>
                     <select
                       className="mt-1 w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm dark:border-neutral-700 dark:bg-neutral-900"
@@ -1320,7 +1320,7 @@ export default function GeneralSettingsClient({ embedded = false }: GeneralSetti
                         </option>
                       ))}
                     </select>
-                  </div>
+                  </Field>
                   {(() => {
                     const ov = domainOverrides[logoOverrideDomain] ?? {}
                     const setOv = (patch: Partial<BrandingDomainLogoOverride>) => {

@@ -467,53 +467,21 @@ fn clean_ai_description(raw: String) -> String {
 }
 
 fn need_work_sql() -> String {
+  // Tek TR çeviri satırı + dil/SEO eksikleri — tekrarlı correlated subquery yok (timeout önler).
   "
   (
-    length(coalesce((
-      select lt.description
+    not exists (
+      select 1
       from listing_translations lt
       join locales lo on lo.id = lt.locale_id
-      where lt.listing_id = l.id and lower(lo.code) = 'tr'
-      limit 1
-    ), '')) < 120
-    or lower(coalesce((
-      select lt.description
-      from listing_translations lt
-      join locales lo on lo.id = lt.locale_id
-      where lt.listing_id = l.id and lower(lo.code) = 'tr'
-      limit 1
-    ), '')) like '%&nbsp%'
-    or lower(coalesce((
-      select lt.description
-      from listing_translations lt
-      join locales lo on lo.id = lt.locale_id
-      where lt.listing_id = l.id and lower(lo.code) = 'tr'
-      limit 1
-    ), '')) like '%&amp;nbsp%'
-    or (
-      lower(coalesce((
-        select lt.description
-        from listing_translations lt
-        join locales lo on lo.id = lt.locale_id
-        where lt.listing_id = l.id and lower(lo.code) = 'tr'
-        limit 1
-      ), '')) !~ '<p([[:space:]]|>)'
-      or lower(coalesce((
-        select lt.description
-        from listing_translations lt
-        join locales lo on lo.id = lt.locale_id
-        where lt.listing_id = l.id and lower(lo.code) = 'tr'
-        limit 1
-      ), '')) !~ '<(h2|h3|ul|ol)([[:space:]]|>)'
-    )
-    or (
-      lower(coalesce((
-        select lt.description
-        from listing_translations lt
-        join locales lo on lo.id = lt.locale_id
-        where lt.listing_id = l.id and lower(lo.code) = 'tr'
-        limit 1
-      ), '')) ~ '\\m(the|and|with|from|located|featuring|complimentary|nearest|breakfast)\\M'
+      where lt.listing_id = l.id
+        and lower(lo.code) = 'tr'
+        and length(coalesce(lt.description, '')) >= 120
+        and lower(coalesce(lt.description, '')) not like '%&nbsp%'
+        and lower(coalesce(lt.description, '')) not like '%&amp;nbsp%'
+        and lower(coalesce(lt.description, '')) ~ '<p([[:space:]]|>)'
+        and lower(coalesce(lt.description, '')) ~ '<(h2|h3|ul|ol)([[:space:]]|>)'
+        and lower(coalesce(lt.description, '')) !~ '\\m(the|and|with|from|located|featuring|complimentary|nearest|breakfast)\\M'
     )
     or exists (
       select 1 from locales lo
@@ -587,10 +555,14 @@ pub fn stats(req: Request, ctx: Context) -> Response {
       let run_count = fn(sql: String) {
         case cat == "" {
           True ->
-            pog.query(sql) |> pog.returning(int_col0) |> db_exec.execute(ctx.db)
+            pog.query(sql)
+            |> pog.timeout(20_000)
+            |> pog.returning(int_col0)
+            |> db_exec.execute(ctx.db)
           False ->
             pog.query(sql)
             |> pog.parameter(pog.text(cat))
+            |> pog.timeout(20_000)
             |> pog.returning(int_col0)
             |> db_exec.execute(ctx.db)
         }

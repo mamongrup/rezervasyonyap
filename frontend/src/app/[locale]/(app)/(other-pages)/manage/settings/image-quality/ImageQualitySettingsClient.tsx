@@ -1,5 +1,6 @@
 'use client'
 import { formatManageApiCatch } from '@/lib/manage-api-error-tr'
+import { getStoredAuthToken } from '@/lib/auth-storage'
 import ButtonPrimary from '@/shared/ButtonPrimary'
 import {
   getImageUploadProfiles,
@@ -88,7 +89,9 @@ export default function ImageQualitySettingsClient() {
     setError(null)
     setLoading(true)
     try {
-      const data = await getImageUploadProfiles()
+      const token = getStoredAuthToken()
+      if (!token) throw new Error('missing_token')
+      const data = await getImageUploadProfiles(token)
       setRows(data.map((r) => ({ ...r, dirty: false, saving: false })))
     } catch (e) {
       setError(formatManageApiCatch(e, 'Yüklenemedi'))
@@ -122,7 +125,9 @@ export default function ImageQualitySettingsClient() {
       prev.map((r) => (r.folder === folder ? { ...r, saving: true, msg: undefined } : r)),
     )
     try {
-      await updateImageUploadProfile({
+      const token = getStoredAuthToken()
+      if (!token) throw new Error('missing_token')
+      await updateImageUploadProfile(token, {
         folder: row.folder,
         width: row.width,
         height: row.height,
