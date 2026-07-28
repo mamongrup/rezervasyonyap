@@ -1,7 +1,7 @@
 /**
  * Tatilsepeti otelleri — PostgreSQL upsert (provider: tatilsepeti).
  */
-import { scoreHotelPackage } from './tatilsepeti-hotel-api.mjs'
+import { isAdultSeasonalPriceRow, scoreHotelPackage } from './tatilsepeti-hotel-api.mjs'
 import { assessAndPersistHotelImportQuality } from './hotel-import-quality.mjs'
 
 const PROVIDER = 'tatilsepeti'
@@ -167,6 +167,7 @@ async function upsertRoomsAndPrices(pgClient, listingId, pkg) {
     roomCount++
 
     for (const row of room.seasonalPrices || []) {
+      if (!isAdultSeasonalPriceRow(row)) continue
       const boardLabel = String(row.priceType || room.boardType || pkg.pensionType || 'Oda')
         .split('\n')[0]
         .trim()
