@@ -21,10 +21,7 @@ import {
   applyListingMapCoordsIfEmpty,
   resolveStayMapCoordsSync,
 } from './lib/stay-location-coords.mjs'
-<<<<<<< HEAD
 import { cleanTatilbudurDescriptionHtml } from './lib/tatilbudur-description-clean.mjs'
-=======
->>>>>>> origin/cursor/fix-hotel-map-coords-5f49
 
 const PROVIDER = 'tatilbudur'
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
