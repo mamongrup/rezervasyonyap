@@ -3,6 +3,8 @@
 #   - medya CDN onarımı (SQL 382–387 + isteğe bağlı AVIF)
 #   - otel oda-kapsamlı fiyat backfill
 #   - sosyal paylaşım kategori sırası (SQL 388)
+#   - tatil evi AI slogan başlık temizliği (SQL 389)
+#   - Gülbay Villa kaynak içerik onarımı (SQL 390 + scrape)
 #   - API + Next tam deploy + verify
 #   - sosyal worker restart
 #
@@ -14,6 +16,7 @@
 # Atlama bayrakları:
 #   SKIP_GIT_SYNC=1 SKIP_IMAGE_FIX=1 SKIP_HOTEL_PRICE_BACKFILL=1
 #   SKIP_STAY_DISTANCES=1 SKIP_AKDENIZVILLAM_REPAIR=1
+#   SKIP_VILLA_TITLE_SQL=1 SKIP_GULBAY_SQL=1
 #   SKIP_SOCIAL_SQL=1 SKIP_DEPLOY=1 SKIP_VERIFY=1
 #   SKIP_SOCIAL_RESTART=1
 #   REHOST_EXTERNAL=1   # CDN görsellerini yerel AVIF'e al (uzun)
@@ -39,6 +42,7 @@ chmod +x \
   scripts/backfill-hotel-room-scoped-prices.mjs \
   scripts/refresh-stay-nearby-pois.mjs \
   scripts/repair-akdenizvillam-villa-content.mjs \
+  scripts/strip-holiday-home-marketing-titles.mjs \
   2>/dev/null || true
 
 if [[ "${SKIP_GIT_SYNC:-0}" != "1" ]]; then
@@ -77,6 +81,36 @@ if [[ "${SKIP_SOCIAL_SQL:-0}" != "1" ]]; then
   fi
 else
   warn "SKIP_SOCIAL_SQL=1"
+fi
+
+if [[ "${SKIP_VILLA_TITLE_SQL:-0}" != "1" ]]; then
+  step "tatil evi AI slogan başlık temizliği (389)"
+  if [[ -f backend/priv/sql/modules/389_strip_holiday_home_marketing_titles.sql ]]; then
+    ./deploy/apply-sql.sh backend/priv/sql/modules/389_strip_holiday_home_marketing_titles.sql \
+      || fail "389 strip holiday marketing titles"
+    ok "tatil evi başlıkları → yalnız ilan adı"
+  else
+    warn "389 SQL yok — atlandı"
+  fi
+  if [[ -f scripts/strip-holiday-home-marketing-titles.mjs ]]; then
+    node scripts/strip-holiday-home-marketing-titles.mjs \
+      || warn "strip-holiday-home-marketing-titles.mjs uyarısı (devam)"
+  fi
+else
+  warn "SKIP_VILLA_TITLE_SQL=1"
+fi
+
+if [[ "${SKIP_GULBAY_SQL:-0}" != "1" ]]; then
+  step "Gülbay Villa kaynak içerik (390)"
+  if [[ -f backend/priv/sql/modules/390_repair_gulbay_villa_source_content.sql ]]; then
+    ./deploy/apply-sql.sh backend/priv/sql/modules/390_repair_gulbay_villa_source_content.sql \
+      || fail "390 gulbay source content"
+    ok "gulbay başlık/açıklama/konum/SEO"
+  else
+    warn "390 SQL yok — atlandı"
+  fi
+else
+  warn "SKIP_GULBAY_SQL=1"
 fi
 
 if [[ "${SKIP_HOTEL_PRICE_BACKFILL:-0}" != "1" ]]; then
@@ -158,6 +192,8 @@ echo "============================================"
 echo " TÜm BEKLEYEN DEPLOY TAMAM ($REF)"
 echo "  - görseller 382–387"
 echo "  - otel oda fiyatları"
+echo "  - mesafeler / akdenizvillam"
+echo "  - villa başlık 389 + gulbay 390"
 echo "  - sosyal sıra villa→yat→aktivite→tur→gemi→otel"
 echo "  - travel-api + travel-web"
 echo "============================================"
