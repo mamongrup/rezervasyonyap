@@ -69,12 +69,13 @@ function extractImages(text) {
   return uniq([...gallery, ...ucdn, ...thumbs]).slice(0, 40)
 }
 
-/** Find content section by loose heading match (allows ###### prefixes) */
+/** Find content section by loose heading match (allows ###### prefixes).
+ * End markers match as prefix (e.g. "#### Fiyat Tablosu Yetişkin…"). */
 function section(text, startNeedles, endNeedles) {
   let start = -1
   for (const n of startNeedles) {
     const re =
-      typeof n === 'string' ? new RegExp(`(^|\\n)#{0,6}\\s*${n}\\s*(\\n|$)`, 'i') : n
+      typeof n === 'string' ? new RegExp(`(^|\\n)#{0,6}\\s*${escapeRegExp(n)}\\s*(\\n|$)`, 'i') : n
     const m = text.match(re)
     if (m) {
       start = m.index + m[0].length
@@ -86,11 +87,21 @@ function section(text, startNeedles, endNeedles) {
   const slice = text.slice(start)
   for (const n of endNeedles) {
     const re =
-      typeof n === 'string' ? new RegExp(`(^|\\n)#{0,6}\\s*${n}\\s*(\\n|$)`, 'i') : n
+      typeof n === 'string'
+        ? // Başlık tek satırda devam edebiliyor: "Fiyat Tablosu Yetişkin ve çocuk…"
+          new RegExp(`(^|\\n)#{0,6}\\s*${escapeRegExp(n)}\\b`, 'i')
+        : n
     const m = slice.match(re)
     if (m && m.index < end - start) end = start + m.index
   }
+  // Modal / UI kromu: satır başında × #### Fiyat Tablosu…
+  const chrome = slice.search(/\n\s*×\s*#{0,6}\s*Fiyat\s+Tablosu/i)
+  if (chrome >= 0 && start + chrome < end) end = start + chrome
   return text.slice(start, end).trim()
+}
+
+function escapeRegExp(s) {
+  return String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 }
 
 function bulletItems(block) {
@@ -262,8 +273,13 @@ function buildDescription(text, boardType) {
     })
     .join('\n')
     .trim()
-  const concept = section(text, ['Konsept Özellikleri'], ['Önemli Notlar', 'Kullanıcı Yorumları', 'Popüler Yurtiçi'])
-  const onemli = section(text, ['Önemli Notlar'], ['Kullanıcı Yorumları', 'Fiyat Tablosu', 'Popüler Yurtiçi', 'Oda Müsaitlik'])
+  const concept = section(text, ['Konsept Özellikleri'], ['Önemli Notlar', 'Kullanıcı Yorumları', 'Popüler Yurtiçi', 'Fiyat Tablosu'])
+  const onemli = section(text, ['Önemli Notlar'], [
+    'Kullanıcı Yorumları',
+    'Fiyat Tablosu',
+    'Popüler Yurtiçi',
+    'Oda Müsaitlik',
+  ])
   const parts = []
   if (boardType) parts.push(`<p><strong>Konsept:</strong> ${boardType}</p>`)
   const conceptHtml = parasFromText(concept, 4500)
@@ -272,7 +288,39 @@ function buildDescription(text, boardType) {
   if (genelHtml) parts.push(`<h3>Genel</h3>\n${genelHtml}`)
   const onemliHtml = parasFromText(onemli, 2000)
   if (onemliHtml) parts.push(`<h3>Önemli Notlar</h3>\n${onemliHtml}`)
-  return parts.join('\n') || null
+  const joined = parts.join('\n') || null
+  if (!joined) return null
+  // eslint-disable-next-line no-undef -- dynamic import avoided; inline trim of known chrome
+  return cleanDescriptionInline(joined)
+}
+
+/** Local copy of scripts/lib/tatilbudur-description-clean (reparse runs standalone). */
+function cleanDescriptionInline(html) {
+  let s = String(html || '')
+  const cutRes = [
+    /×\s*#{0,6}\s*Fiyat\s+Tablosu/i,
+    /#{1,6}\s*Fiyat\s+Tablosu/i,
+    /Fiyat\s+Tablosu\s+Yetişkin\s+ve\s+çocuk\s+dahil/i,
+    /Oda\s+Müsaitlik\s+Takvimi/i,
+  ]
+  let cutAt = -1
+  for (const re of cutRes) {
+    const idx = s.search(re)
+    if (idx >= 0 && (cutAt < 0 || idx < cutAt)) cutAt = idx
+  }
+  if (cutAt >= 0) s = s.slice(0, cutAt)
+  s = s.replace(
+    /(?:Genel|Plaj\s*&\s*Havuz|Odalar|Konsept(?:\s+Özellikleri)?|Kampanyalar|Yorumlar|Önemli\s+Notlar)\]\([^)]*\)/gi,
+    '',
+  )
+  s = s.replace(/(?:\*+\s*;\)\s*){2,}/g, '')
+  s = s.replace(/https?:\/\/(?:www\.)?tatilbudur\.com\/[^\s<"']+/gi, '')
+  s = s.replace(/(?:<p>\s*<\/p>\s*)+/gi, '')
+  s = s.replace(/<p>\s*$/i, '')
+  const openP = (s.match(/<p\b/gi) || []).length
+  const closeP = (s.match(/<\/p>/gi) || []).length
+  if (openP > closeP) s += '</p>'.repeat(openP - closeP)
+  return s.trim()
 }
 
 function extractRooms(text, boardType) {
@@ -401,6 +449,11 @@ for (const meta of HOTELS) {
 const stats = hotels.map((h) => h._meta)
 const exportHotels = hotels.map(({ _meta, ...rest }) => rest)
 writeFileSync(join(__dirname, 'batch-july27-hotels.raw.json'), JSON.stringify(exportHotels, null, 2), 'utf8')
+writeFileSync(
+  join(__dirname, 'batch-july27-hotels.json'),
+  JSON.stringify({ hotels: exportHotels }, null, 2) + '\n',
+  'utf8',
+)
 
 const foundCount = stats.filter((s) => s.found).length
 const withImages = stats.filter((s) => s.imageCount > 0).length

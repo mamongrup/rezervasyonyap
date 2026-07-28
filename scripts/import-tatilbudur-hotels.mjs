@@ -17,6 +17,7 @@ import { fileURLToPath } from 'node:url'
 import { createPgClient } from './lib/pg-client.mjs'
 import { createJobReporter } from './lib/sync-job-reporter.mjs'
 import { fillMissingHotelRoomRates } from './lib/hotel-room-rate-factor.mjs'
+import { cleanTatilbudurDescriptionHtml } from './lib/tatilbudur-description-clean.mjs'
 
 const PROVIDER = 'tatilbudur'
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -202,7 +203,7 @@ function normalizeHotel(raw) {
     externalId,
     slug: hotelListingSlug(name, externalId, raw?.slug),
     name,
-    description: String(raw?.description ?? raw?.content ?? '').trim(),
+    description: cleanTatilbudurDescriptionHtml(String(raw?.description ?? raw?.content ?? '').trim()),
     url: String(raw?.url ?? raw?.sourceUrl ?? raw?.source_url ?? '').trim(),
     city,
     district,

@@ -6,6 +6,7 @@ import { fetchCategoryListings } from '@/lib/listings-fetcher'
 import { getSitePublicConfig as getSitePublicConfigSync, mergeBrandingIntoEnvContact } from '@/lib/site-public-config'
 import { buildListingOgImageUrl } from '@/lib/social-share/listing-og-image-url'
 import { sanitizeRichCmsHtml } from '@/lib/sanitize-cms-html'
+import { cleanTatilbudurDescriptionHtml } from '@/lib/tatilbudur-description-clean'
 import { parsePublicMinistryLicenseRef } from '@/lib/ministry-license-ref'
 import { stripHtml } from '@/lib/social-share/strip-html'
 import {
@@ -1239,7 +1240,9 @@ export default async function StayListingDetailPageContent({
   }
 
   const renderSectionDescription = () => {
-    let introHtml = sanitizeRichCmsHtml(description ?? '')
+    let introHtml = sanitizeRichCmsHtml(
+      vertical === 'hotel' ? cleanTatilbudurDescriptionHtml(description ?? '') : (description ?? ''),
+    )
     if (vertical === 'hotel' && handle === HOTEL_DEMO_LISTING_HANDLE && !stripHtml(introHtml).trim()) {
       introHtml = HOTEL_DEMO_INTRO_HTML
     }
