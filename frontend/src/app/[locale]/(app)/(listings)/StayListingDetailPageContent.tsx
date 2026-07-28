@@ -736,7 +736,9 @@ export default async function StayListingDetailPageContent({
     )
   }
 
-  const minNightlyFromRules = minNightlyFromListingPriceRules(holidayHomePriceRules)
+  // Otellerde de price_rules → başlangıç fiyatı (yemek planı / price_from yoksa).
+  const priceRulesForNightlyMin = isStayRental ? holidayHomePriceRules : hotelPriceRules
+  const minNightlyFromRules = minNightlyFromListingPriceRules(priceRulesForNightlyMin)
   const maxNightlyFromRules = isStayRental
     ? maxNightlyFromListingPriceRules(holidayHomePriceRules)
     : undefined
@@ -762,6 +764,14 @@ export default async function StayListingDetailPageContent({
       ? minNightlyFromRules
       : undefined
 
+  const mealPlanNightlyCandidate = (() => {
+    const positives = mealPlans
+      .filter((p) => p.is_active && Number.isFinite(p.price_per_night) && p.price_per_night > 0)
+      .map((p) => p.price_per_night)
+    if (positives.length === 0) return undefined
+    return Math.min(...positives)
+  })()
+
   /** Arama `price_from` yemek planı minimumu bazen depozito ile aynı yanlış kayıtla gelir — kuralları önceliklendir */
   const nightlyEscapesDeposit = (n: number | undefined): n is number =>
     n != null &&
@@ -773,11 +783,15 @@ export default async function StayListingDetailPageContent({
     ? priceAmount
     : nightlyEscapesDeposit(rulesNightlyCandidate)
       ? rulesNightlyCandidate
-      : priceAmount != null && Number.isFinite(priceAmount) && priceAmount > 0
-        ? priceAmount
-        : rulesNightlyCandidate
+      : nightlyEscapesDeposit(mealPlanNightlyCandidate)
+        ? mealPlanNightlyCandidate
+        : priceAmount != null && Number.isFinite(priceAmount) && priceAmount > 0
+          ? priceAmount
+          : rulesNightlyCandidate ?? mealPlanNightlyCandidate
 
-  const ruleFallbackForQuote = isStayRental ? rulesNightlyCandidate : undefined
+  // Tatil evi + otel: kural min’i rezervasyon paneli fallback’ine yaz.
+  const ruleFallbackForQuote =
+    isStayRental || vertical === 'hotel' ? rulesNightlyCandidate : undefined
   const stayPriceRulesForQuote = isStayRental ? holidayHomePriceRules : undefined
 
   const seasonalExtraCharges: ListingExtraChargesModel | undefined = isStayRental

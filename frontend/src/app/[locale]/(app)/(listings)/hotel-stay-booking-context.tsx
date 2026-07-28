@@ -15,6 +15,7 @@ import { useSearchParams } from 'next/navigation'
 import { pickDefaultMealPlanForRoom, pickActiveMealPlans } from '@/lib/hotel-stay-quote'
 import {
   hotelListingHasRoomScopedPrices,
+  minHotelRoomOwnedNightly,
   resolveHotelRoomFallbackNightly,
   resolveHotelRoomNightlyForDay,
 } from '@/lib/hotel-room-nightly'
@@ -179,16 +180,26 @@ export function HotelStayBookingProvider({
   )
 
   const fallbackNightly = useMemo(() => {
+    let base = 0
     if (cheapestPlan?.price_per_night && cheapestPlan.price_per_night > 0) {
-      return cheapestPlan.price_per_night
+      base = cheapestPlan.price_per_night
+    } else if (quoteProps.ruleFallbackNightly && quoteProps.ruleFallbackNightly > 0) {
+      base = quoteProps.ruleFallbackNightly
+    } else if (quoteProps.priceAmount && quoteProps.priceAmount > 0) {
+      base = quoteProps.priceAmount
+    } else {
+      const parsed = Number.parseInt((quoteProps.price ?? '').replace(/\D/g, '') || '0', 10)
+      base = parsed > 0 ? parsed : 0
     }
-    if (quoteProps.ruleFallbackNightly && quoteProps.ruleFallbackNightly > 0) {
-      return quoteProps.ruleFallbackNightly
-    }
-    if (quoteProps.priceAmount && quoteProps.priceAmount > 0) return quoteProps.priceAmount
-    const parsed = Number.parseInt((quoteProps.price ?? '').replace(/\D/g, '') || '0', 10)
-    return parsed > 0 ? parsed : 0
-  }, [cheapestPlan, quoteProps])
+    if (base > 0) return base
+    // Arama kapısı / eksik price_from: oda seasonal veya oda-kapsamlı kurallardan min.
+    return minHotelRoomOwnedNightly({
+      rooms,
+      priceRules,
+      rangeStart,
+      rangeEnd,
+    })
+  }, [cheapestPlan, quoteProps, rooms, priceRules, rangeStart, rangeEnd])
 
   const listingHasRoomScoped = useMemo(
     () => hotelListingHasRoomScopedPrices({ rooms, priceRules }),

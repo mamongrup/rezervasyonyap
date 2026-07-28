@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   extractHotelRoomFeaturesFromMeta,
   hotelListingHasRoomScopedPrices,
+  minHotelRoomOwnedNightly,
   resolveHotelRoomFallbackNightly,
   resolveHotelRoomNightlyForDay,
 } from '@/lib/hotel-room-nightly'
@@ -106,6 +107,31 @@ describe('hotel-room-nightly', () => {
         listingHasRoomScopedPrices: false,
       }),
     ).toBe(5000)
+  })
+
+  it('minHotelRoomOwnedNightly ignores synthetic and unpriced rooms', () => {
+    const min = minHotelRoomOwnedNightly({
+      rooms: [
+        { id: SYNTHETIC_HOTEL_ROOM_ID, name: 'Standart Oda', meta_json: '{}' },
+        {
+          id: 'r1',
+          name: 'Deniz',
+          meta_json: JSON.stringify({
+            seasonal_prices: [{ nightlyPrice: 4200, validFrom: '2026-07-01', validTo: '2026-10-31' }],
+          }),
+        },
+        {
+          id: 'r2',
+          name: 'Kara',
+          meta_json: JSON.stringify({
+            seasonal_prices: [{ nightlyPrice: 2800, validFrom: '2026-07-01', validTo: '2026-10-31' }],
+          }),
+        },
+      ],
+      rangeStart: new Date(2026, 6, 10),
+      rangeEnd: new Date(2026, 6, 12),
+    })
+    expect(min).toBe(2800)
   })
 
   it('detects room-scoped catalog', () => {
