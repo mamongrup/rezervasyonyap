@@ -274,7 +274,14 @@ function buildDescription(text, boardType) {
     .join('\n')
     .trim()
   const concept = extractConceptNotes(text)
-  const onemli = sectionBetween(text, /\nÖnemli Notlar\s*\n/, [/\n#### Kullanıcı/, /\n### Popüler/, /\nMichell|\nSeamelia|\nCrystal|\nSunthalia/])
+  const onemli = sectionBetween(text, /\nÖnemli Notlar\s*\n/, [
+    /\n####?\s*Kullanıcı/,
+    /\n###\s*Popüler/,
+    /\n\s*×\s*#{0,6}\s*Fiyat\s+Tablosu/i,
+    /\n#{1,6}\s*Fiyat\s+Tablosu/i,
+    /\nOda\s+Müsaitlik/i,
+    /\nMichell|\nSeamelia|\nCrystal|\nSunthalia/,
+  ])
     .replace(/\[Daha Fazla[^\]]*\]\([^)]*\)/g, '')
     .trim()
   const parts = []
