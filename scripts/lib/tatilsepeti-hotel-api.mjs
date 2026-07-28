@@ -243,13 +243,36 @@ export async function fetchHotelListCatalog(session, listPaths = DEFAULT_LIST_PA
 }
 
 function parseJsonLd(html) {
-  const m = html.match(/<script type="application\/ld\+json">\s*([\s\S]*?)<\/script>/i)
-  if (!m) return null
-  try {
-    return JSON.parse(m[1])
-  } catch {
-    return null
+  const blocks = [
+    ...String(html || '').matchAll(
+      /<script[^>]*type=["']application\/ld\+json["'][^>]*>\s*([\s\S]*?)<\/script>/gi,
+    ),
+  ]
+  let first = null
+  for (const m of blocks) {
+    try {
+      const data = JSON.parse(m[1])
+      if (!first) first = data
+      const type = data?.['@type']
+      const types = Array.isArray(type) ? type : type ? [type] : []
+      if (types.includes('LodgingBusiness') || types.includes('Hotel')) return data
+    } catch {
+      /* sonraki blok */
+    }
   }
+  return first
+}
+
+/** GetRoomAllPrice tablosunda çocuk satırları adult min fiyatı bozmasın. */
+export function isAdultSeasonalPriceRow(row) {
+  const dateRange = String(row?.dateRange || '').trim()
+  const priceType = String(row?.priceType || '').trim()
+  if (!dateRange) return false
+  if (/ya[sş]/i.test(priceType)) return false
+  if (/^\d+\s*-\s*\d+/i.test(priceType) && !/her.?şey|pansiyon|kahvalt|board|dahil/i.test(priceType)) {
+    return false
+  }
+  return true
 }
 
 function parseHiddenFields(html) {
@@ -264,6 +287,10 @@ function parseHiddenFields(html) {
   }
 }
 
+function preferLargeTatilsepetiImage(url) {
+  return String(url || '').replace(/\/100X67\//i, '/1050X700/')
+}
+
 function parseGalleryImages(html) {
   const urls = []
   const patterns = [
@@ -274,8 +301,8 @@ function parseGalleryImages(html) {
   for (const re of patterns) {
     let m
     while ((m = re.exec(html))) {
-      const u = m[1].replace(/&amp;/g, '&')
-      if (/ts-loading|wwwroot\/images|room-bed\.svg/i.test(u)) continue
+      let u = preferLargeTatilsepetiImage(m[1].replace(/&amp;/g, '&'))
+      if (/ts-loading|wwwroot\/images|room-bed\.svg|\/100X67\//i.test(u)) continue
       if (!urls.includes(u)) urls.push(u)
     }
   }
@@ -706,9 +733,9 @@ export async function fetchHotelDetailPackage(session, listRow, opts = {}) {
     let min = null
     for (const room of rooms) {
       for (const row of room.seasonalPrices || []) {
-        for (const p of [row.doublePerPerson, row.singlePrice]) {
-          if (p != null && (min == null || p < min)) min = p
-        }
+        if (!isAdultSeasonalPriceRow(row)) continue
+        const p = row.doublePerPerson ?? row.singlePrice
+        if (p != null && (min == null || p < min)) min = p
       }
       if (room.quoteNightly != null && (min == null || room.quoteNightly < min)) {
         min = room.quoteNightly
