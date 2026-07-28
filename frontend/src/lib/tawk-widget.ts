@@ -9,6 +9,13 @@ declare global {
       hideWidget?: () => void
       onLoad?: () => void
       onChatMinimized?: () => void
+      onChatMaximized?: () => void
+      onStatusChange?: (status: string) => void
+      onUnreadCountChanged?: (count: number) => void
+      customStyle?: {
+        visibility?: { desktop?: string; mobile?: string; [key: string]: string | undefined }
+        [key: string]: unknown
+      }
       setAttributes?: (
         attributes: Record<string, string>,
         callback?: (error?: unknown) => void,
@@ -34,6 +41,8 @@ let openRequested = false
 let tawkReady = false
 let tawkFailed = false
 let hideTimer: ReturnType<typeof setTimeout> | undefined
+let enforceTimer: ReturnType<typeof setInterval> | undefined
+let hideObserver: MutationObserver | null = null
 
 /** Tawk property/widget kimliği — bozuk/placeholder değerlerde 403 istek atma */
 function isPlausibleTawkId(propertyId: string, widgetId: string): boolean {
@@ -68,6 +77,7 @@ export function setTawkRuntimeConfig(branding: Record<string, unknown> | null | 
     loadPromise = null
     tawkReady = false
     tawkFailed = false
+    stopHideEnforcement()
     document.getElementById('tawk-embed-script')?.remove()
   }
 }
@@ -84,32 +94,103 @@ export function isTawkLoadFailed(): boolean {
 /**
  * Tawk kendi balonunu (launcher) varsayılan gösterir; biz kendi birleşik destek
  * menümüzü kullandığımız için balon ASLA görünmemeli — yalnız ziyaretçi izleme
- * için gizli yüklenir. `hideWidget()` çağrısı ile onLoad arası kısa "flash"ı
- * önlemek için Tawk konteynerini CSS ile gizleriz; yalnız `html.tawk-open`
- * sınıfı varken (kullanıcı "Canlı Destek"e bastığında) görünür.
+ * için gizli yüklenir. Okunmamış mesaj / status change Tawk'ı yeniden açabilir;
+ * CSS + hideWidget birlikte zorunlu.
  */
 function injectTawkHideStyle(): void {
   if (typeof document === 'undefined') return
-  if (document.getElementById('tawk-hide-style')) return
-  const style = document.createElement('style')
-  style.id = 'tawk-hide-style'
-  style.textContent = `
+  const existing = document.getElementById('tawk-hide-style')
+  const css = `
+    /* Kullanıcı «Canlı Destek»e basmadan Tawk UI yok — unread badge flash'ını da keser */
     html:not(.tawk-open) #tawkchat-container,
     html:not(.tawk-open) #tawkchat-minified-container,
+    html:not(.tawk-open) #tawkchat-minified-box,
+    html:not(.tawk-open) #tawkchat-status-frame-container,
     html:not(.tawk-open) .tawkchat-container,
+    html:not(.tawk-open) .tawk-min-container,
+    html:not(.tawk-open) .widget-visible,
     html:not(.tawk-open) iframe[title="chat widget"],
-    html:not(.tawk-open) iframe[title*="tawk" i] {
+    html:not(.tawk-open) iframe[title*="tawk" i],
+    html:not(.tawk-open) iframe[src*="tawk.to"],
+    html:not(.tawk-open) iframe[src*="embed.tawk.to"],
+    html:not(.tawk-open) div[id^="tawk-"],
+    html:not(.tawk-open) div[class*="tawk-button"],
+    html:not(.tawk-open) div[class*="tawk-min-"] {
+      display: none !important;
       visibility: hidden !important;
       opacity: 0 !important;
       pointer-events: none !important;
+      transform: translate(-9999px, -9999px) !important;
+      max-width: 0 !important;
+      max-height: 0 !important;
+      overflow: hidden !important;
     }
   `
+  if (existing) {
+    existing.textContent = css
+    return
+  }
+  const style = document.createElement('style')
+  style.id = 'tawk-hide-style'
+  style.textContent = css
   document.head.appendChild(style)
 }
 
 function setTawkOpenClass(open: boolean): void {
   if (typeof document === 'undefined') return
   document.documentElement.classList.toggle('tawk-open', open)
+}
+
+function enforceHiddenIfClosed(): void {
+  if (typeof window === 'undefined') return
+  if (openRequested) return
+  setTawkOpenClass(false)
+  try {
+    window.Tawk_API?.hideWidget?.()
+  } catch {
+    /* ignore */
+  }
+}
+
+function stopHideEnforcement(): void {
+  if (hideTimer) {
+    clearTimeout(hideTimer)
+    hideTimer = undefined
+  }
+  if (enforceTimer) {
+    clearInterval(enforceTimer)
+    enforceTimer = undefined
+  }
+  if (hideObserver) {
+    hideObserver.disconnect()
+    hideObserver = null
+  }
+}
+
+/** Tawk DOM'a balon eklediğinde / unread ile geri getirdiğinde yeniden gizle. */
+function startHideEnforcement(): void {
+  if (typeof document === 'undefined' || typeof window === 'undefined') return
+  stopHideEnforcement()
+  enforceHiddenIfClosed()
+  // İlk saniyelerde Tawk sıkça launcher'ı yeniden koyar (özellikle unread=1).
+  enforceTimer = setInterval(enforceHiddenIfClosed, 400)
+  window.setTimeout(() => {
+    if (enforceTimer) {
+      clearInterval(enforceTimer)
+      enforceTimer = undefined
+    }
+  }, 12_000)
+
+  hideObserver = new MutationObserver(() => {
+    if (openRequested) return
+    enforceHiddenIfClosed()
+  })
+  hideObserver.observe(document.body, { childList: true, subtree: true })
+  // Observer uzun süre main-thread yükü yaratmasın — 20 sn sonra bırak.
+  window.setTimeout(() => {
+    hideObserver?.disconnect()
+    hideObserver = null
+  }, 20_000)
 }
 
 function sanitizeTawkAttrValue(raw: string): string {
@@ -158,21 +239,11 @@ export function syncTawkCurrentPage(): void {
   }
 }
 
-function scheduleHiddenMode(): void {
-  if (hideTimer) clearTimeout(hideTimer)
-  // İlk sayfa ping’inin Monitoring’e düşmesi için hideWidget’ı biraz geciktir.
-  hideTimer = setTimeout(() => {
-    if (openRequested) return
-    setTawkOpenClass(false)
-    window.Tawk_API?.hideWidget?.()
-  }, 1500)
-}
-
 /** Tawk.to widget'ını aç / büyüt */
 export function openTawkWidget(): void {
   if (typeof window === 'undefined') return
   openRequested = true
-  if (hideTimer) clearTimeout(hideTimer)
+  stopHideEnforcement()
   setTawkOpenClass(true)
   const api = window.Tawk_API
   api?.showWidget?.()
@@ -192,7 +263,11 @@ export function hideTawkWidget(): void {
   if (typeof window === 'undefined') return
   openRequested = false
   setTawkOpenClass(false)
-  window.Tawk_API?.hideWidget?.()
+  try {
+    window.Tawk_API?.hideWidget?.()
+  } catch {
+    /* ignore */
+  }
 }
 
 /** Tawk embed script — panelden veya env ile yapılandırıldıysa */
@@ -203,7 +278,10 @@ export function ensureTawkScriptLoaded(): Promise<void> {
   if (tawkFailed) return Promise.resolve()
 
   if (document.getElementById('tawk-embed-script')) {
-    if (tawkReady) syncTawkCurrentPage()
+    if (tawkReady) {
+      syncTawkCurrentPage()
+      if (!openRequested) enforceHiddenIfClosed()
+    }
     return loadPromise ?? Promise.resolve()
   }
 
@@ -214,6 +292,16 @@ export function ensureTawkScriptLoaded(): Promise<void> {
 
   loadPromise = new Promise((resolve) => {
     window.Tawk_API = window.Tawk_API || {}
+    // Tawk kendi launcher'ını masaüstü/mobilde varsayılan gizli tutsun.
+    window.Tawk_API.customStyle = {
+      ...(window.Tawk_API.customStyle ?? {}),
+      visibility: {
+        desktop: 'hidden',
+        mobile: 'hidden',
+        ...(window.Tawk_API.customStyle?.visibility ?? {}),
+      },
+    }
+
     const prevOnLoad = window.Tawk_API.onLoad
     window.Tawk_API.onLoad = () => {
       tawkReady = true
@@ -226,7 +314,8 @@ export function ensureTawkScriptLoaded(): Promise<void> {
         window.Tawk_API?.showWidget?.()
         window.Tawk_API?.maximize?.()
       } else {
-        scheduleHiddenMode()
+        // Monitoring ping için script yüklü kalır; UI hemen ve sürekli gizli.
+        startHideEnforcement()
       }
       if (typeof prevOnLoad === 'function') {
         try {
@@ -239,7 +328,14 @@ export function ensureTawkScriptLoaded(): Promise<void> {
     window.Tawk_API.onChatMinimized = () => {
       openRequested = false
       setTawkOpenClass(false)
-      window.Tawk_API?.hideWidget?.()
+      startHideEnforcement()
+    }
+    window.Tawk_API.onUnreadCountChanged = () => {
+      // Okunmamış mesaj Tawk balonunu zorla açar — kullanıcı istemediyse kapat.
+      if (!openRequested) enforceHiddenIfClosed()
+    }
+    window.Tawk_API.onStatusChange = () => {
+      if (!openRequested) enforceHiddenIfClosed()
     }
     window.Tawk_LoadStart = new Date()
     const s = document.createElement('script')
