@@ -2,6 +2,8 @@
 
 import React from 'react'
 
+import { apiOriginForFetch } from '@/lib/api-origin'
+
 type Perks = {
   instant_book: boolean
 }
@@ -13,7 +15,7 @@ export default function ListingInstantApprovalTitleBadge({ listingId }: { listin
   const [instantBook, setInstantBook] = React.useState<boolean | null>(null)
 
   React.useEffect(() => {
-    const base = process.env.NEXT_PUBLIC_API_URL
+    const base = apiOriginForFetch().replace(/\/$/, '')
     if (!base || !listingId) return
     let cancelled = false
     fetch(`${base}/api/v1/public/listings/${encodeURIComponent(listingId)}/perks`, {

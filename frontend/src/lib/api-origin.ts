@@ -6,17 +6,45 @@
  *   bu yüzden üretimde loopback tercih edilir: `INTERNAL_API_ORIGIN=http://127.0.0.1:8080`
  *   (`deploy/systemd/frontend.env.example`). `API_URL` yedek olarak `listing-search` route ile uyumludur.
  *
- * ### www / apex (yönetim paneli “Failed to fetch”)
- * Build’de `NEXT_PUBLIC_API_URL=https://ornek.com` iken kullanıcı `https://www.ornek.com` üzerinden
- * paneli açarsa tarayıcı isteği farklı origin’e gider; CORS yoksa yanıt gelmez ve `fetch` “Failed to fetch”
- * verir. Aynı sitenin `www` ve apex host’u eşleşiyorsa API kökü olarak **geçerli sekme origin’i** kullanılır.
+ * ### www / apex / marka domainleri (CORS + 502)
+ * Build’de `NEXT_PUBLIC_API_URL=https://rezervasyonyap.tr` iken kullanıcı
+ * `https://www.rezervasyonyap.com.tr` üzerinden sayfayı açarsa tarayıcı isteği farklı origin’e gider.
+ * Upstream 502’de nginx CORS header eklemez → konsolda hem CORS hem 502 görünür.
+ * Aynı deploy’a bağlı marka host’larında API kökü olarak **geçerli sekme origin’i** kullanılır
+ * (nginx `/api` proxy → same-origin, CORS gerekmez).
  */
 function stripTrailingSlash(s: string): string {
   return s.replace(/\/$/, '')
 }
 
-function hostApexKey(hostname: string): string {
+/** `www.` önekini at; karşılaştırma için. */
+export function hostApexKey(hostname: string): string {
   return hostname.replace(/^www\./i, '').toLowerCase()
+}
+
+/**
+ * Aynı uygulamayı / nginx `/api` proxy’sini paylaşan üretim apex host’ları
+ * (`deploy/DOMAIN.md`, `ensure-multidomain-frontend-env.sh`).
+ * Bunlar arasında www/apex veya `.tr` / `.com.tr` farkı cross-origin sayılmaz.
+ */
+export const SAME_DEPLOYMENT_SITE_APEXES = [
+  'rezervasyonyap.tr',
+  'rezervasyonyap.com.tr',
+  'reservationinturkey.com',
+  'tatil-evi.com',
+] as const
+
+export function isSameDeploymentSiteHost(hostname: string): boolean {
+  const apex = hostApexKey(hostname)
+  return (SAME_DEPLOYMENT_SITE_APEXES as readonly string[]).includes(apex)
+}
+
+/** API host ile sayfa host’u aynı deploy ailesindeyse same-origin kullanılmalı. */
+export function shouldPreferPageOriginForApi(apiHostname: string, pageHostname: string): boolean {
+  const apiApex = hostApexKey(apiHostname)
+  const pageApex = hostApexKey(pageHostname)
+  if (apiApex === pageApex) return true
+  return isSameDeploymentSiteHost(apiHostname) && isSameDeploymentSiteHost(pageHostname)
 }
 
 export function apiOriginForFetch(): string {
@@ -39,7 +67,7 @@ export function apiOriginForFetch(): string {
       const abs = /^https?:\/\//i.test(pub) ? pub : `https://${pub}`
       const apiHostname = new URL(abs).hostname
       const pageHostname = window.location.hostname
-      if (hostApexKey(apiHostname) === hostApexKey(pageHostname)) {
+      if (shouldPreferPageOriginForApi(apiHostname, pageHostname)) {
         const o = window.location?.origin ?? ''
         if (o) return strip(o)
       }
