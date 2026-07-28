@@ -75,10 +75,16 @@ describe('listing-image-url-fallbacks', () => {
     )
   })
 
-  it('falls back uploads .avif to .webp', () => {
+  it('does not fall back local uploads .avif to .webp (AVIF-only)', () => {
     const avif = '/uploads/listings/ilanlar/tatil-evleri/puzzle-villa/villa-puzzle-18.avif'
     const next = nextListingImageUrlFallback(avif, new Set([avif]))
-    expect(next).toBe('/uploads/listings/ilanlar/tatil-evleri/puzzle-villa/villa-puzzle-18.webp')
+    expect(next).toBeNull()
+  })
+
+  it('upgrades local uploads .webp to .avif', () => {
+    const webp = '/uploads/listings/ilanlar/tatil-evleri/puzzle-villa/villa-puzzle-18.webp'
+    const next = nextListingImageUrlFallback(webp, new Set([webp]))
+    expect(next).toBe('/uploads/listings/ilanlar/tatil-evleri/puzzle-villa/villa-puzzle-18.avif')
   })
 
   it('falls back proxy Bookeder .avif via upstream', () => {

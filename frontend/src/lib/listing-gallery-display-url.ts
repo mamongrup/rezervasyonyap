@@ -8,6 +8,7 @@
  */
 
 import { repairExternalListingImageExt } from '@/lib/listing-image-url-fallbacks'
+import { preferUploadsAvifUrl } from '@/lib/prefer-hero-avif'
 
 const AEGEAN_IMGS_RE =
   /^https:\/\/[^/]+\.aegeanhotels\.net\/data\/Imgs\/(?:1920x1080w|OriginalPhoto)\//i
@@ -69,15 +70,17 @@ export function preferListingGalleryFullAsset(src: string): string {
   const path = s.slice(0, pathEnd)
   const suffix = s.slice(pathEnd)
 
-  if (!path.toLowerCase().includes('/uploads/listings/')) return s
+  if (!path.toLowerCase().includes('/uploads/')) return s
 
   let upgraded = path
-  if (/-thumb\.avif$/i.test(upgraded)) upgraded = upgraded.replace(/-thumb\.avif$/i, '.avif')
-  else if (/_thumb\.avif$/i.test(upgraded)) upgraded = upgraded.replace(/_thumb\.avif$/i, '.avif')
-  else if (/-thumb\.webp$/i.test(upgraded)) upgraded = upgraded.replace(/-thumb\.webp$/i, '.webp')
-  else if (/_thumb\.webp$/i.test(upgraded)) upgraded = upgraded.replace(/_thumb\.webp$/i, '.webp')
-  // Not: diskte hâlâ .webp varken DB/önceki rewrite .avif yazmış olabilir.
-  // Kör .webp→.avif dönüşümü gri kart üretir; kardeş uzantı `listing-image-url-fallbacks` ile denenir.
+  // Thumb → full; webp/jpg thumb de AVIF full'a (AVIF-only politika)
+  if (/-thumb\.(avif|webp|jpe?g|png)$/i.test(upgraded)) {
+    upgraded = upgraded.replace(/-thumb\.(avif|webp|jpe?g|png)$/i, '.avif')
+  } else if (/_thumb\.(avif|webp|jpe?g|png)$/i.test(upgraded)) {
+    upgraded = upgraded.replace(/_thumb\.(avif|webp|jpe?g|png)$/i, '.avif')
+  } else {
+    upgraded = preferUploadsAvifUrl(upgraded)
+  }
 
   return upgraded + suffix
 }

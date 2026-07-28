@@ -1,19 +1,20 @@
 /**
- * Vitrin hero kolajı — panel hâlâ `.jpg` URL tutsa bile aynı basename `.avif`
- * varsa onu kullan (LCP + "modern image formats" PSI). Dosya sunucuda
- * `scripts/optimize-hero-uploads.mjs` ile üretilir; yoksa orijinal URL kalır
- * (404 riski yok — rewrite yalnızca bilinen hero upload yolu için).
- *
- * Not: AVIF dosyasının varlığı runtime'da kontrol edilmez (RSC kenarında fs
- * yok). Optimize script deploy sonrası çalıştırılmalıdır.
+ * Yerel `/uploads/**` URL'lerini AVIF'e çevir (jpg/png/webp → .avif).
+ * Harici CDN'e dokunmaz. Dosya yoksa 404 → ListingGalleryImage hata verir;
+ * disk dönüşümü `convert-uploads-to-avif.mjs` / deploy script ile yapılır.
  */
-export function preferHeroAvifUrl(url: string): string {
+export function preferUploadsAvifUrl(url: string): string {
   const raw = url.trim()
   if (!raw) return raw
-  // Yalnızca kendi hero upload'larımız — harici CDN'e dokunma.
-  if (!/\/uploads\/general\/hero\//i.test(raw)) return raw
-  if (/\.avif(?:$|\?)/i.test(raw)) return raw
+  if (!/\/uploads\//i.test(raw)) return raw
+  if (/^https?:\/\//i.test(raw) && !/\/uploads\//i.test(raw)) return raw
+  if (/\.avif(?:$|\?|#)/i.test(raw)) return raw
   return raw.replace(/\.(jpe?g|png|webp)(\?[^#]*)?(#.*)?$/i, '.avif$2$3')
+}
+
+/** @deprecated alias — hero dahil tüm uploads AVIF */
+export function preferHeroAvifUrl(url: string): string {
+  return preferUploadsAvifUrl(url)
 }
 
 export function preferHeroAvifTriple(

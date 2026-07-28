@@ -1,9 +1,9 @@
 /**
- * Vitrin görselleri: DB `.avif` derken diskte `.webp` veya harici CDN gerçek uzantısı farklı olabilir.
- * 404/403 sonrası kardeş uzantıyı dene — gri/kırık ikon yerine gerçek foto.
+ * Vitrin görselleri — AVIF-only yerel politika + harici CDN onarımı.
  *
- * Yerel yüklemeler / yeniden-host AVIF olmalı. Harici CDN'de AVIF yoksa
- * çalışan orijinal uzantıya çeviririz; rehost script sonra yerel AVIF üretir.
+ * Yerel `/uploads/**`: webp/jpg → bir kez `.avif` dene; AVIF 404'te raster
+ * kardeşe düşme (iOS 15 AVIF göstermez — bilinçli).
+ * Harici CDN: sahte `.avif` → gerçek jpg/png (rehost olmadan AVIF yok).
  */
 
 const PATH_EXT_RE = /\.(avif|webp|jpe?g|png)$/i
@@ -111,11 +111,22 @@ export function nextListingImageUrlFallback(
   const suffix = working.slice(pathEnd)
   if (!PATH_EXT_RE.test(path)) return null
 
-  const order = ['.avif', '.webp', '.jpg', '.jpeg', '.JPEG', '.png'] as const
   const m = path.match(PATH_EXT_RE)
   if (!m) return null
   const currentExt = m[0]
   const stem = path.slice(0, path.length - currentExt.length)
+  const isLocalUpload = /\/uploads\//i.test(path) || path.startsWith('/uploads/')
+
+  // Yerel medya: yalnızca AVIF'e yükselt; AVIF'ten webp/jpg'ye düşme.
+  if (isLocalUpload) {
+    if (/\.avif$/i.test(currentExt)) return null
+    const nextPath = stem + '.avif' + suffix
+    const candidate = isProxy ? proxyPrefix + encodeURIComponent(nextPath) : nextPath
+    return tried.has(candidate) ? null : candidate
+  }
+
+  // Harici: çalışan orijinal uzantılara düş (CDN AVIF sunmaz)
+  const order = ['.avif', '.webp', '.jpg', '.jpeg', '.JPEG', '.png'] as const
   const start = Math.max(
     0,
     order.findIndex((e) => e.toLowerCase() === currentExt.toLowerCase()),

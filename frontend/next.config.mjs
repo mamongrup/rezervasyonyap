@@ -198,14 +198,13 @@ const nextConfig = {
   },
   images: {
     /**
-     * Migration sonrası TÜM resimler zaten AVIF (1600px, quality 72) olarak
-     * `public/uploads/**` altında. Next.js image optimizer'ın `/_next/image?...`
-     * transformasyonu her istekte server'ı yoruyor ve ilk yüklemede LCP'yi 5+ sn'ye
-     * çekiyordu. Direk serve → Apache/Nginx statik cache + HTTP/2 ile çok daha hızlı.
-     * İleride optimize edilmesi gereken (non-AVIF) resim eklersek tekrar açılabilir.
+     * Yerel medya politikası: AVIF-only (`public/uploads/**`).
+     * Optimizer kapalı — dosyalar diskten doğrudan servis edilir (LCP/I/O).
+     * Optimizer tekrar açılırsa yalnızca AVIF üretimi (WebP yok).
+     * Not: iOS 15 / iPhone 7 AVIF göstermez; bilinçli tercih.
      */
     unoptimized: true,
-    formats: ['image/avif', 'image/webp'],
+    formats: ['image/avif'],
     minimumCacheTTL: 2678400 * 3,
     remotePatterns: [
       {
