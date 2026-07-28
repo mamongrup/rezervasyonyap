@@ -17,10 +17,13 @@ import { fileURLToPath } from 'node:url'
 import { createPgClient } from './lib/pg-client.mjs'
 import { createJobReporter } from './lib/sync-job-reporter.mjs'
 import { fillMissingHotelRoomRates } from './lib/hotel-room-rate-factor.mjs'
+<<<<<<< HEAD
 import {
   applyListingMapCoordsIfEmpty,
   resolveStayMapCoordsSync,
 } from './lib/stay-location-coords.mjs'
+=======
+>>>>>>> origin/cursor/fix-tatilbudur-description-junk-5f49
 import { cleanTatilbudurDescriptionHtml } from './lib/tatilbudur-description-clean.mjs'
 
 const PROVIDER = 'tatilbudur'
