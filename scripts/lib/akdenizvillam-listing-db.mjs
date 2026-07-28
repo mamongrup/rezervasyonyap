@@ -11,6 +11,10 @@ import { buildSeasonalRuleJson } from './bravo-seasonal-prices.mjs'
 import { downloadGalleryImages } from './wtatil-image-download.mjs'
 import { HOLIDAY_HOME_RULE_CODE_TO_ACCOMMODATION_ID } from './bravo-holiday-home-map.mjs'
 import { upsertAvailabilityCalendar } from './akdenizvillam-calendar.mjs'
+import {
+  buildAkdenizvillamLocaleDescriptions,
+  seoDescriptionFromHtml,
+} from './akdenizvillam-locale-descriptions.mjs'
 
 const PROVIDER = 'akdenizvillam'
 const DEFAULT_ORG = 'a0000000-0000-4000-8000-000000000001'
@@ -166,6 +170,54 @@ function emptyPoolRow() {
   }
 }
 
+async function syncLocaleTitlesAndDescriptions(pgClient, listingId, pkg) {
+  const title = String(pkg.title || '').trim() || 'Villa'
+  const locales = await pgClient.query(`SELECT id, lower(code) AS code FROM locales`)
+  const byCode = Object.fromEntries(locales.rows.map((r) => [r.code, r.id]))
+  const trId = byCode.tr
+  if (!trId) return
+
+  const localeHtml = buildAkdenizvillamLocaleDescriptions(pkg)
+  for (const [code, html] of Object.entries(localeHtml)) {
+    const localeId = byCode[code]
+    if (!localeId) continue
+    await pgClient.query(
+      `INSERT INTO listing_translations (listing_id, locale_id, title, description)
+       VALUES ($1::uuid, $2, $3, $4)
+       ON CONFLICT (listing_id, locale_id) DO UPDATE SET
+         title = EXCLUDED.title,
+         description = EXCLUDED.description`,
+      [listingId, localeId, title, html],
+    )
+  }
+
+  // Diğer bilinen dillerde başlığı hizala; Kayaköy vb. AI sloganlarını düşür
+  await pgClient.query(
+    `UPDATE listing_translations lt
+     SET title = $2
+     WHERE lt.listing_id = $1::uuid
+       AND lt.locale_id <> $3
+       AND lt.title IS DISTINCT FROM $2`,
+    [listingId, title, trId],
+  )
+
+  const seoDesc = seoDescriptionFromHtml(pkg.description, pkg.shortDescription)
+  for (const code of ['tr', 'en', 'de', 'ru', 'zh', 'fr']) {
+    const localeId = byCode[code]
+    if (!localeId) continue
+    const desc =
+      code === 'tr' ? seoDesc : seoDescriptionFromHtml(localeHtml[code] || '', seoDesc)
+    await pgClient.query(
+      `INSERT INTO seo_metadata (entity_type, entity_id, locale_id, title, description)
+       VALUES ('listing', $1::uuid, $2, $3, nullif($4, ''))
+       ON CONFLICT (entity_type, entity_id, locale_id) DO UPDATE SET
+         title = EXCLUDED.title,
+         description = EXCLUDED.description`,
+      [listingId, localeId, title, desc],
+    )
+  }
+}
+
 export async function upsertAkdenizvillamVillaListing(
   pgClient,
   ctx,
@@ -182,7 +234,20 @@ export async function upsertAkdenizvillamVillaListing(
   }
 
   if (dryRun) {
-    return { action: isNew ? 'would_create' : 'would_update', listingId, slug, externalRef, dryRun: true }
+    return {
+      action: isNew ? 'would_create' : 'would_update',
+      listingId,
+      slug,
+      externalRef,
+      dryRun: true,
+      title: pkg.title,
+      locationName: pkg.locationName,
+      descriptionPreview: String(pkg.description || '')
+        .replace(/<[^>]+>/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .slice(0, 220),
+    }
   }
 
   await pgClient.query('BEGIN')
@@ -255,6 +320,8 @@ export async function upsertAkdenizvillamVillaListing(
          description = EXCLUDED.description`,
       [listingId, ctx.localeTrId, pkg.title, pkg.description || pkg.shortDescription || ''],
     )
+
+    await syncLocaleTitlesAndDescriptions(pgClient, listingId, pkg)
 
     const pools = buildPools(pkg)
     const poolSizeLabel =
