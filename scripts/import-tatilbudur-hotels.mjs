@@ -17,6 +17,10 @@ import { fileURLToPath } from 'node:url'
 import { createPgClient } from './lib/pg-client.mjs'
 import { createJobReporter } from './lib/sync-job-reporter.mjs'
 import { fillMissingHotelRoomRates } from './lib/hotel-room-rate-factor.mjs'
+import {
+  applyListingMapCoordsIfEmpty,
+  resolveStayMapCoordsSync,
+} from './lib/stay-location-coords.mjs'
 
 const PROVIDER = 'tatilbudur'
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -180,8 +184,6 @@ function normalizeHotel(raw) {
     raw?.provinceCity ?? raw?.province_city ?? raw?.province ?? raw?.location?.province ?? '',
   ).trim()
   const address = String(raw?.address ?? raw?.location?.address ?? '').trim()
-  const lat = num(raw?.lat ?? raw?.latitude ?? raw?.mapLat ?? raw?.map_lat ?? raw?.location?.lat)
-  const lng = num(raw?.lng ?? raw?.longitude ?? raw?.mapLng ?? raw?.map_lng ?? raw?.location?.lng)
   const locationName = [district, city, provinceCity].filter(Boolean).join(', ') || city || district || ''
   const sourceFacts = raw?.sourceFacts && typeof raw.sourceFacts === 'object' ? raw.sourceFacts : {}
   const themeCode = String(
@@ -198,6 +200,24 @@ function normalizeHotel(raw) {
   const adultsOnly = Boolean(
     raw?.adultsOnly ?? raw?.adults_only ?? sourceFacts.adultsOnly ?? sourceFacts.adults_only,
   )
+  let lat = num(raw?.lat ?? raw?.latitude ?? raw?.mapLat ?? raw?.map_lat ?? raw?.location?.lat)
+  let lng = num(raw?.lng ?? raw?.longitude ?? raw?.mapLng ?? raw?.map_lng ?? raw?.location?.lng)
+  if (lat == null || lng == null) {
+    const resolved = resolveStayMapCoordsSync({
+      location_name: locationName,
+      meta_json: {
+        district_label: district,
+        city,
+        province_city: provinceCity,
+        address,
+      },
+      slug: hotelListingSlug(name, externalId, raw?.slug),
+    })
+    if (resolved) {
+      lat = resolved.lat
+      lng = resolved.lng
+    }
+  }
   return {
     externalId,
     slug: hotelListingSlug(name, externalId, raw?.slug),
@@ -408,6 +428,18 @@ async function upsertHotel(pg, ctx, hotel) {
         [listingId, hotel.minPrice, hotel.currency],
       )
     }
+    await applyListingMapCoordsIfEmpty(pg, listingId, {
+      location_name: hotel.locationName || hotel.city || hotel.district || null,
+      meta_json: {
+        district_label: hotel.district,
+        city: hotel.city,
+        province_city: hotel.provinceCity,
+        address: hotel.address,
+        lat: hotel.lat != null ? String(hotel.lat) : undefined,
+        lng: hotel.lng != null ? String(hotel.lng) : undefined,
+      },
+      slug: hotel.slug,
+    })
     await pg.query('COMMIT')
     return created ? 'created' : 'updated'
   } catch (error) {

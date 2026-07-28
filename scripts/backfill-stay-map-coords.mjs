@@ -1,9 +1,11 @@
 /**
- * Villa / yat ilanlarına `listings.map_lat` / `map_lng` yazar.
+ * Villa / yat / otel ilanlarına `listings.map_lat` / `map_lng` yazar.
  *
  *   node scripts/backfill-stay-map-coords.mjs --dry-run
  *   node scripts/backfill-stay-map-coords.mjs
  *   node scripts/backfill-stay-map-coords.mjs --only yacht
+ *   node scripts/backfill-stay-map-coords.mjs --only hotel
+ *   node scripts/backfill-stay-map-coords.mjs --only hotel --slug queens-park-goynuk
  */
 import { createPgClient } from './lib/pg-client.mjs'
 import { loadDistrictCoords, resolveStayMapCoords } from './lib/stay-location-coords.mjs'
@@ -15,6 +17,8 @@ const onlyIdx = process.argv.indexOf('--only')
 const ONLY = onlyIdx >= 0 ? process.argv[onlyIdx + 1] : 'all'
 const limitIdx = process.argv.indexOf('--limit')
 const LIMIT = limitIdx >= 0 ? Number(process.argv[limitIdx + 1]) : 0
+const slugIdx = process.argv.indexOf('--slug')
+const SLUG = slugIdx >= 0 ? String(process.argv[slugIdx + 1] || '').trim() : ''
 
 async function main() {
   const categoryFilter =
@@ -22,7 +26,11 @@ async function main() {
       ? `pc.code = 'yacht_charter'`
       : ONLY === 'villa'
         ? `pc.code = 'holiday_home'`
-        : `pc.code IN ('holiday_home', 'yacht_charter')`
+        : ONLY === 'hotel'
+          ? `pc.code = 'hotel'`
+          : ONLY === 'stay'
+            ? `pc.code IN ('holiday_home', 'yacht_charter')`
+            : `pc.code IN ('holiday_home', 'yacht_charter', 'hotel')`
 
   const missingFilter = FORCE
     ? 'TRUE'
@@ -34,6 +42,16 @@ async function main() {
   try {
     const districtMap = await loadDistrictCoords(client)
     const limitClause = LIMIT > 0 ? `LIMIT ${LIMIT}` : ''
+    const params = []
+    let slugFilter = ''
+    // Tek slug: draft dahil (önizleme / yerelde onarım). Toplu: yalnız published.
+    const statusFilter = SLUG
+      ? `l.status IN ('published', 'draft')`
+      : `l.status = 'published'`
+    if (SLUG) {
+      params.push(SLUG)
+      slugFilter = `AND lower(l.slug) = lower($${params.length})`
+    }
 
     const { rows } = await client.query(
       `
@@ -52,16 +70,18 @@ async function main() {
       LEFT JOIN listing_yacht_details y ON y.listing_id = l.id
       LEFT JOIN listing_attributes lm ON lm.listing_id = l.id
         AND lm.group_code = 'listing_meta' AND lm.key = 'v1'
-      WHERE l.status = 'published'
+      WHERE ${statusFilter}
         AND ${categoryFilter}
         AND ${missingFilter}
+        ${slugFilter}
       ORDER BY pc.code, l.slug
       ${limitClause}
     `,
+      params,
     )
 
     console.log(
-      `Hedef: ${rows.length} ilan${DRY_RUN ? ' (dry-run)' : ''}${FORCE ? ' (force)' : ''} [${ONLY}]`,
+      `Hedef: ${rows.length} ilan${DRY_RUN ? ' (dry-run)' : ''}${FORCE ? ' (force)' : ''} [${ONLY}]${SLUG ? ` slug=${SLUG}` : ''}`,
     )
 
     let updated = 0
