@@ -7,7 +7,7 @@ import { preferListingGalleryFullAsset } from '@/lib/listing-gallery-display-url
 /** Vitrin kartında proxy gerektiren host sonekleri (travelapi/hotelbeds genelde doğrudan açılır). */
 const PROXY_HOST_SUFFIXES = [
   'bookeder.com',
-  'productcdn.tatilbudur.com',
+  // productcdn.tatilbudur.com: VPS egress sık 504; tarayıcı doğrudan 200 — proxy etme.
   'aegeanhotels.net',
   'reserwation.com',
   'fairystonetravel.com',
