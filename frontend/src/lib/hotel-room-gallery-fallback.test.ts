@@ -22,6 +22,25 @@ describe('roomGalleryFallback', () => {
     expect(result).not.toContain('/lobby.jpg')
   })
 
+  it('alt etiketi boş olsa da dosya adından oda görsellerini ayıklar', () => {
+    const result = roomGalleryFallback(
+      [
+        { storage_key: 'https://cdn.example/Hotel-Restaurant.JPEG', alt_text_key: null },
+        { storage_key: 'https://cdn.example/Hotel-Lobby.JPEG', alt_text_key: null },
+        { storage_key: 'https://cdn.example/Deluxe-Room-1.JPEG', alt_text_key: null },
+        { storage_key: 'https://cdn.example/King-Suite.JPEG', alt_text_key: null },
+        { storage_key: 'https://cdn.example/Private-Bathroom.JPEG', alt_text_key: null },
+      ],
+      'King Suite',
+    )
+
+    expect(result).toContain('https://cdn.example/King-Suite.JPEG')
+    expect(result).toContain('https://cdn.example/Deluxe-Room-1.JPEG')
+    expect(result).toContain('https://cdn.example/Private-Bathroom.JPEG')
+    expect(result).not.toContain('https://cdn.example/Hotel-Restaurant.JPEG')
+    expect(result).not.toContain('https://cdn.example/Hotel-Lobby.JPEG')
+  })
+
   it('oda etiketi yoksa yanlış tesis fotoğrafı kullanmaz', () => {
     expect(
       roomGalleryFallback(
