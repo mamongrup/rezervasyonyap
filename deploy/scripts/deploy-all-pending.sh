@@ -13,7 +13,8 @@
 #
 # Atlama bayrakları:
 #   SKIP_GIT_SYNC=1 SKIP_IMAGE_FIX=1 SKIP_HOTEL_PRICE_BACKFILL=1
-#   SKIP_SOCIAL_SQL=1 SKIP_DEPLOY=1 SKIP_VERIFY=1 SKIP_SOCIAL_RESTART=1
+#   SKIP_STAY_DISTANCES=1 SKIP_SOCIAL_SQL=1 SKIP_DEPLOY=1 SKIP_VERIFY=1
+#   SKIP_SOCIAL_RESTART=1
 #   REHOST_EXTERNAL=1   # CDN görsellerini yerel AVIF'e al (uzun)
 #
 set -euo pipefail
@@ -35,6 +36,7 @@ chmod +x \
   deploy/scripts/fix-all-listing-images.sh \
   deploy/scripts/deploy-all-pending.sh \
   scripts/backfill-hotel-room-scoped-prices.mjs \
+  scripts/refresh-stay-nearby-pois.mjs \
   2>/dev/null || true
 
 if [[ "${SKIP_GIT_SYNC:-0}" != "1" ]]; then
@@ -87,6 +89,20 @@ if [[ "${SKIP_HOTEL_PRICE_BACKFILL:-0}" != "1" ]]; then
   fi
 else
   warn "SKIP_HOTEL_PRICE_BACKFILL=1"
+fi
+
+if [[ "${SKIP_STAY_DISTANCES:-0}" != "1" ]]; then
+  step "otel/villa mesafeler (nearby_pois) backfill"
+  if [[ -f scripts/refresh-stay-nearby-pois.mjs ]]; then
+    # shellcheck disable=SC2086
+    node scripts/refresh-stay-nearby-pois.mjs ${STAY_DISTANCES_ARGS:-} \
+      || fail "stay nearby distances backfill"
+    ok "mesafeler backfill"
+  else
+    warn "refresh-stay-nearby-pois.mjs yok — atlandı"
+  fi
+else
+  warn "SKIP_STAY_DISTANCES=1"
 fi
 
 if [[ "${SKIP_DEPLOY:-0}" != "1" ]]; then

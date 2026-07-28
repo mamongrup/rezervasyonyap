@@ -95,7 +95,7 @@ fn pois_result_row() -> decode.Decoder(#(String, String)) {
 /// 1. İlanın `map_lat`, `map_lng` koordinatlarını okur.
 /// 2. Tüm bölgelerin `travel_ideas_json` (gezi önerisi) ile en yakın ilçenin
 ///    `service_pois_json` (market, havalimanı, restoran vb.) kayıtlarını birleştirir.
-/// 3. İlana olan Haversine mesafesi (km) hesaplanır (≤ 30 km).
+/// 3. İlana olan Haversine mesafesi (km) hesaplanır (≤ 80 km).
 /// 4. En yakından başlayarak en fazla 18 kalemi `listings.nearby_pois_json`'a yazar.
 /// 5. Güncellenmiş JSON'u döndürür.
 pub fn compute_nearby_pois(req: Request, ctx: Context, listing_id: String) -> Response {
@@ -131,7 +131,6 @@ pub fn compute_nearby_pois(req: Request, ctx: Context, listing_id: String) -> Re
         AND  trim(coalesce(elem->>'lng', '')) ~ '^-?[0-9]+(\\.[0-9]+)?$'
         AND  jsonb_typeof(elem->'lat') IN ('number','string')
         AND  jsonb_typeof(elem->'lng') IN ('number','string')
-        AND  NULLIF(trim(elem->>'place_id'), '') IS NOT NULL
     ),
     nearest_svc_page AS (
       SELECT lp.service_pois_json
@@ -185,7 +184,6 @@ pub fn compute_nearby_pois(req: Request, ctx: Context, listing_id: String) -> Re
         AND  trim(coalesce(elem->>'lng', '')) ~ '^-?[0-9]+(\\.[0-9]+)?$'
         AND  jsonb_typeof(elem->'lat') IN ('number','string')
         AND  jsonb_typeof(elem->'lng') IN ('number','string')
-        AND  NULLIF(trim(elem->>'place_id'), '') IS NOT NULL
     ),
     pois AS (
       SELECT * FROM travel_pois
@@ -218,7 +216,7 @@ pub fn compute_nearby_pois(req: Request, ctx: Context, listing_id: String) -> Re
           ORDER BY distance_km
         ) AS dedupe_rn
       FROM   with_dist
-      WHERE  distance_km <= 30
+      WHERE  distance_km <= 80
     ),
     top18 AS (
       SELECT *
