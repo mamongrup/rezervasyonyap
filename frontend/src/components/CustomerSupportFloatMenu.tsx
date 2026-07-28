@@ -1,6 +1,8 @@
 'use client'
 
 import { useFloatingWidgetsSuppressed } from '@/components/aside/aside'
+import { DeskPhoneBadge } from '@/components/DeskPhoneBadge'
+import { phoneToTelHref, resolveDisplayPhone } from '@/lib/site-phone'
 import { getSitePublicConfig, mergeBrandingIntoEnvContact } from '@/lib/site-public-config'
 import {
   ensureTawkScriptLoaded,
@@ -22,6 +24,7 @@ export default function CustomerSupportFloatMenu() {
   const [open, setOpen] = useState(false)
   const [pageOverlayOpen, setPageOverlayOpen] = useState(false)
   const [whatsapp, setWhatsapp] = useState(() => getSitePublicConfig().whatsappE164)
+  const [phoneDisplay, setPhoneDisplay] = useState(() => resolveDisplayPhone(getSitePublicConfig().phone))
   const [tawkReady, setTawkReady] = useState(() => isTawkConfigured())
   const rootRef = useRef<HTMLDivElement>(null)
 
@@ -41,7 +44,9 @@ export default function CustomerSupportFloatMenu() {
         setTawkRuntimeConfig(pub.branding ?? null)
         const ready = isTawkConfigured()
         setTawkReady(ready)
-        setWhatsapp(mergeBrandingIntoEnvContact(getSitePublicConfig(), pub.branding).whatsappE164)
+        const merged = mergeBrandingIntoEnvContact(getSitePublicConfig(), pub.branding)
+        setWhatsapp(merged.whatsappE164)
+        setPhoneDisplay(resolveDisplayPhone(merged.phone))
         if (!ready) return
         const warm = () => {
           if (cancelled) return
@@ -110,6 +115,8 @@ export default function CustomerSupportFloatMenu() {
 
   if (hideOnManage || suppressed || pageOverlayOpen) return null
 
+  const phoneTel = phoneToTelHref(phoneDisplay)
+
   const openAssistant = () => {
     setOpen(false)
     window.dispatchEvent(new CustomEvent('open-concierge-chat'))
@@ -127,6 +134,16 @@ export default function CustomerSupportFloatMenu() {
           <p className="px-3 pt-1 pb-2 text-xs font-semibold tracking-wide text-neutral-400 uppercase">
             Nasıl yardımcı olalım?
           </p>
+          {phoneTel ? (
+            <a
+              href={phoneTel}
+              onClick={() => setOpen(false)}
+              className="flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-semibold text-neutral-800 transition hover:bg-neutral-100 dark:text-white dark:hover:bg-neutral-800"
+            >
+              <DeskPhoneBadge className="size-10 rounded-xl" iconClassName="size-5" />
+              {phoneDisplay}
+            </a>
+          ) : null}
           {whatsapp ? (
             <a
               href={`https://wa.me/${whatsapp}`}
