@@ -108,8 +108,9 @@ const DEFAULT_ROTATION: RotationSettings = {
   min_repost_hours: 24,
   per_run_limit: 1,
   auto_story: true,
-  stories_per_day: 18,
+  stories_per_day: 30,
   story_category_codes: VISUAL_SOCIAL_CATEGORIES,
+  /** Instagram Reels otomatik (9:16 video) */
   auto_reel: true,
   reel_category_codes: VISUAL_SOCIAL_CATEGORIES,
 }
