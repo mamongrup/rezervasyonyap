@@ -234,6 +234,7 @@ modules/389_strip_holiday_home_marketing_titles.sql
 modules/390_repair_gulbay_villa_source_content.sql
 modules/391_repair_bella_villa_islamlar_content.sql
 modules/392_repair_gulbay_villa_force_content_prices.sql
+modules/393_repair_mia_house_kalkan_akbel_content.sql
 
 # Kurulum doğrulama (install_order’a dahil değil — elle çalıştırın):
 #   psql -U postgres -d travel -f priv/sql/check_installation.sql
