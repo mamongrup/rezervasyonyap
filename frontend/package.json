@@ -102,10 +102,11 @@
     "minimatch": "10.2.5"
   },
   "browserslist": [
-    "chrome >= 111",
-    "edge >= 111",
-    "firefox >= 110",
-    "safari >= 16.4",
+    "chrome >= 109",
+    "edge >= 109",
+    "firefox >= 109",
+    "safari >= 15",
+    "ios >= 15",
     "opera >= 95"
   ]
 }
