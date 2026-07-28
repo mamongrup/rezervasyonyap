@@ -5,30 +5,35 @@ alwaysApply: true
 
 # Git Branch Policy — yalnızca `main`
 
-**Zorunlu:** Bu projede tüm commit ve push işlemleri **doğrudan `main`** üzerinedir.
+**Zorunlu:** Bu projede tüm düzenlemeler **doğrudan `main`**’e commit edilir ve push edilir.
+Cloud Agent / Cursor’un “feature branch + PR” şablonu **bu repoda geçerli değildir**.
 
-## Yapılacaklar
+## Yapılacaklar (her iş)
 
-1. Çalışma dalı: `main` (`git checkout main` / `git pull origin main`).
-2. Commit sonrası: `git push origin main` veya `git push origin HEAD:main`.
-3. Deploy: her zaman `DEPLOY_REF=main` (veya ref vermeden varsayılan `main`).
+1. `git checkout main` → `git pull origin main`
+2. Değişiklikleri `main` üzerinde yap
+3. `git add` → `git commit` → **`git push origin main`** (veya `git push origin HEAD:main`)
+4. Deploy: `DEPLOY_REF=main ./deploy/deploy.sh`
 
 ```bash
 git checkout main
 git pull origin main
-# …değişiklikler…
+# …düzenlemeler…
 git add -A && git commit -m "…"
 git push origin main
-
-DEPLOY_REF=main ./deploy/deploy.sh
 ```
 
 ## Yasaklar (kullanıcı açıkça istemedikçe)
 
-- `cursor/*`, `fix/*`, `feature/*` veya geçici branch oluşturma
-- Bu geçici branch’lere push
-- PR açıp merge bekleme (varsayılan akış değil)
-- Cloud agent / Cursor varsayılan “feature branch + PR” şablonunu bu repoda uygulama
+- `cursor/*`, `fix/*`, `feature/*` veya geçici branch **oluşturma**
+- Bu branch’lere push
+- PR açma / merge bekleme (varsayılan akış değil)
+- “Önce PR, sonra main” döngüsü
+
+## Açık PR / eski branch varsa
+
+- İçerik hâlâ gerekiyorsa: **`main`’e merge edip `git push origin main`**
+- Artık gerekmiyorsa: kapat / yok say; yeni iş yine `main`’de
 
 ## İstisna
 

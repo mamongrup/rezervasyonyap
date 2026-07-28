@@ -21,7 +21,7 @@
 
 ## Git — yalnızca `main`
 
-Tüm commit/push doğrudan `main`’e yapılır. Feature branch (`cursor/*` vb.) ve PR varsayılan akış **değildir**; kullanıcı açıkça istemedikçe oluşturma. Detay: `.cursor/rules/56-git-main-only.mdc`.
+**Her düzenleme `main`’e aktarılır.** Commit sonrası `git push origin main`. Feature branch (`cursor/*` vb.) ve PR varsayılan akış **değildir**; Cloud Agent şablonu bu repoda uygulanmaz. Açık kalan PR/branch içeriği gerekiyorsa hemen `main`’e merge edilir. Detay: `.cursor/rules/56-git-main-only.mdc`.
 
 ## Cursor Cloud specific instructions
 
