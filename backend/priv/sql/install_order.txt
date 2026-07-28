@@ -232,6 +232,7 @@ modules/387_repair_all_listing_image_extensions.sql
 modules/388_social_share_category_order.sql
 modules/389_strip_holiday_home_marketing_titles.sql
 modules/390_repair_gulbay_villa_source_content.sql
+modules/394_repair_trios_villa_seasonal_prices.sql
 
 # Kurulum doğrulama (install_order’a dahil değil — elle çalıştırın):
 #   psql -U postgres -d travel -f priv/sql/check_installation.sql
