@@ -62,6 +62,11 @@ if [[ "${SKIP_CONVERT:-0}" != "1" ]]; then
   fi
   node frontend/scripts/convert-uploads-to-avif.mjs frontend/public/uploads/listings
   step "DB yollarını mevcut .avif dosyalarına güvenli güncelle (http CDN dokunulmaz)"
+  # pg: scripts/node_modules veya frontend — yoksa scripts içinde kur
+  if [[ ! -d scripts/node_modules/pg && ! -d frontend/node_modules/pg ]]; then
+    echo "  pg yok — scripts npm install"
+    (cd scripts && npm install --omit=dev --no-audit --no-fund)
+  fi
   node scripts/update-listing-paths-avif.mjs
 fi
 
