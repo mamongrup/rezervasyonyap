@@ -34,6 +34,15 @@ const CDN_AVIF_REPAIR: Array<{ test: (host: string) => boolean; to: string }> = 
     test: (h) => h.includes('yolcu360.com'),
     to: '.png',
   },
+  {
+    // KPlus / Expedia travelapi: DB'ye .avif yazılmış olabilir; CDN yalnızca .jpg sunar.
+    test: (h) => h === 'i.travelapi.com' || h.endsWith('.travelapi.com'),
+    to: '.jpg',
+  },
+  {
+    test: (h) => h === 'photos.hotelbeds.com' || h.endsWith('.hotelbeds.com'),
+    to: '.jpg',
+  },
 ]
 
 export function repairExternalListingImageExt(src: string): string {
