@@ -388,9 +388,9 @@ export function parseAkdenizvillamVillaPage(html, sourceUrl) {
     (rental.name || product?.name || 'Villa').replace(/\s*\|.*$/, '').trim(),
     propertyType,
   )
-  // Konum başlıkta kalsın — AI/SEO karışıklığında Kayaköy vb. yanlış bölgeye kaymasın.
-  // Slug ise yalnız ada göre üretilir (URL kırılmasın: gulbay-villa).
-  const title = /kalkan/i.test(nameOnly) ? nameOnly : `${nameOnly} - Kalkan`
+  // Vitrin başlığı yalnız ilan adı (AI/SEO sloganı yok). Konum location_name / meta’da.
+  // Slug ada göre üretilir (URL kırılmasın: gulbay-villa).
+  const title = nameOnly
   const subtitle = stripTags(html.match(/<h3[^>]*>([^<]*Havuzlu[^<]*)<\/h3>/i)?.[1] || '')
   const description = parseDescription(html, title, subtitle)
   const fees = parseFees(html)

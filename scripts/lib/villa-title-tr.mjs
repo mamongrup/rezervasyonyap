@@ -9,6 +9,12 @@ export const HOLIDAY_PROPERTY_TYPE_LABEL_TR = {
 
 const TYPE_WORD_RE = /\b(villa|apart|apartment|bungalov|bungalow|daire|duplex|triplex)\b/gi
 
+/** AI/SEO sloganı: "Gülbay Villa - Fethiye Kayaköy'de Doğayla İç İçe Huzurlu Villa" */
+const MARKETING_SUFFIX_RE =
+  /\s+-\s+.+(?:'da|'de|'ta|'te|\bda\b|\bde\b|\bta\b|\bte\b|nda|nde).*$/iu
+const MARKETING_WORDS_RE =
+  /\s+-\s+.+(?:özel\s+havuzlu|huzurlu|lüks|manzaralı|doğayla|merkeze\s+yakın|iç\s+içe).*$/iu
+
 function normalizeNameCasing(name) {
   const t = String(name || '').trim()
   if (!t) return ''
@@ -22,9 +28,22 @@ function normalizeNameCasing(name) {
   return t
 }
 
+/**
+ * AI/SEO’nun eklediği konum+slogan sonekini düşürür; yalnız ilan adı kalır.
+ * Örn. "Gülbay Villa - Fethiye Kayaköy'de …" → "Gülbay Villa"
+ */
+export function stripHolidayMarketingTitleSuffix(title) {
+  let t = String(title || '').trim()
+  if (!t || !t.includes(' - ')) return t
+  if (MARKETING_SUFFIX_RE.test(t) || MARKETING_WORDS_RE.test(t)) {
+    t = t.split(/\s+-\s+/)[0]?.trim() || t
+  }
+  return t
+}
+
 /** Baş/sondaki ilan tipi kelimesini çıkarır. */
 export function stripHolidayTypeFromTitle(title) {
-  let t = String(title || '').trim()
+  let t = stripHolidayMarketingTitleSuffix(title)
   if (!t) return ''
   t = t.replace(/^(villa|apart|bungalov|daire)\s+/i, '')
   t = t.replace(TYPE_WORD_RE, ' ').replace(/\s+/g, ' ').trim()

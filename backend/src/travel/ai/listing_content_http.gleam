@@ -78,7 +78,9 @@ fn category_hint(code: String) -> String {
       "Otel ilanı: konum, oda ve tesis olanakları, çevre ve konaklama deneyimini vurgula. "
       <> hotel_content_standard()
     "holiday_home" ->
-      "Tatil evi/villa: kapasite, oda sayısı, havuz/bahçe, manzara ve konaklama konforunu anlat."
+      "Tatil evi/villa: kapasite, oda sayısı, havuz/bahçe, manzara ve konaklama konforunu anlat. "
+      <> "BAŞLIK KURALI: title alanına yalnızca tesisin kısa ilan adını yaz (ör. 'Gülbay Villa'). "
+      <> "Konum, slogan, '…da/…de huzurlu/lüks/özel havuzlu villa' gibi SEO ekleri koyma; konum açıklamada kalır."
     "yacht_charter" ->
       "Yat kiralama: tekne tipi, kapasite, rota/kalkış limanı, mürettebat ve mavi yolculuk deneyimini vurgula."
     "ferry" ->
@@ -1005,6 +1007,47 @@ fn lookup_locale_id(
   }
 }
 
+fn strip_holiday_marketing_title(title: String) -> String {
+  let t = string.trim(title)
+  case string.split_once(t, " - ") {
+    Error(Nil) -> t
+    Ok(#(left, right)) -> {
+      let r = string.lowercase(right)
+      let has_locative =
+        string.contains(r, "'da")
+        || string.contains(r, "'de")
+        || string.contains(r, "'ta")
+        || string.contains(r, "'te")
+        || string.contains(r, "nda")
+        || string.contains(r, "nde")
+      let has_marketing =
+        string.contains(r, "huzurlu")
+        || string.contains(r, "lüks")
+        || string.contains(r, "luks")
+        || string.contains(r, "özel havuzlu")
+        || string.contains(r, "ozel havuzlu")
+        || string.contains(r, "manzaralı")
+        || string.contains(r, "manzarali")
+        || string.contains(r, "doğayla")
+        || string.contains(r, "dogayla")
+        || string.contains(r, "merkeze")
+        || string.contains(r, "iç içe")
+        || string.contains(r, "ic ice")
+      case has_locative || has_marketing {
+        True -> string.trim(left)
+        False -> t
+      }
+    }
+  }
+}
+
+fn sanitize_listing_title(category_code: String, title: String) -> String {
+  case string.lowercase(string.trim(category_code)) {
+    "holiday_home" -> strip_holiday_marketing_title(title)
+    _ -> string.trim(title)
+  }
+}
+
 fn upsert_translation(
   conn: pog.Connection,
   listing_id: String,
@@ -1183,9 +1226,9 @@ fn run_tr_phase(
         _ ->
           case en_source_desc != "" {
             True ->
-              "Kaynak İngilizce başlık ve açıklamayı Türkçeye çevir; profesyonel bir seyahat editörü ve SEO uzmanı gibi yeniden düzenle. Özel adları koru. Yazım, büyük-küçük harf ve noktalama kurallarına uy; tekrarları, ham mesafe yığınlarını ve abartılı reklam kalıplarını temizle. Bilgi, fiyat, konum veya olanak uydurma. Anahtar kelimeleri doğal kullan; anahtar kelime doldurma yapma. Okunabilir semantik HTML üret: kısa paragraflar; uygun olduğunda Konum, Konaklama, Olanaklar, Yeme-İçme ve Önemli Bilgiler bölümlerini <h2>/<h3> başlıkları ve <ul>/<li> listeleriyle grupla. Görünür HTML entity bırakma. Yalnızca güvenli <h2>, <h3>, <p>, <ul>, <ol>, <li>, <strong> etiketlerini kullan. JSON: {\"title\":\"Türkçe başlık\",\"description\":\"<HTML>\"}"
+              "Kaynak İngilizce başlık ve açıklamayı Türkçeye çevir; profesyonel bir seyahat editörü ve SEO uzmanı gibi yeniden düzenle. Özel adları koru. Yazım, büyük-küçük harf ve noktalama kurallarına uy; tekrarları, ham mesafe yığınlarını ve abartılı reklam kalıplarını temizle. Bilgi, fiyat, konum veya olanak uydurma. Anahtar kelimeleri doğal kullan; anahtar kelime doldurma yapma. Okunabilir semantik HTML üret: kısa paragraflar; uygun olduğunda Konum, Konaklama, Olanaklar, Yeme-İçme ve Önemli Bilgiler bölümlerini <h2>/<h3> başlıkları ve <ul>/<li> listeleriyle grupla. Görünür HTML entity bırakma. Yalnızca güvenli <h2>, <h3>, <p>, <ul>, <ol>, <li>, <strong> etiketlerini kullan. title alanına yalnızca kısa ilan adını yaz; konum/slogan ekleme. JSON: {\"title\":\"Türkçe başlık\",\"description\":\"<HTML>\"}"
             False ->
-              "Türkçe ilan başlığını ve açıklamasını profesyonel bir seyahat editörü gibi düzenle. Yazım, büyük-küçük harf ve noktalama kurallarını düzelt. Bilgi uydurma; gerçek fiyat, tarih, kapasite, rota, konum ve olanakları değiştirme. Tek parça düz yazı bırakma: kısa <p> paragrafları kullan; uygun bilgileri <h2>/<h3> başlıkları ve <ul>/<li> listeleri altında grupla. Tekrarları ve abartılı reklam dilini temizle. SEO anahtar kelimelerini doğal kullan, doldurma yapma. Görünür HTML entity bırakma. Yalnızca güvenli <h2>, <h3>, <p>, <ul>, <ol>, <li>, <strong> etiketlerini kullan. JSON: {\"title\":\"Türkçe başlık\",\"description\":\"<HTML>\"}"
+              "Türkçe ilan başlığını ve açıklamasını profesyonel bir seyahat editörü gibi düzenle. Yazım, büyük-küçük harf ve noktalama kurallarını düzelt. Bilgi uydurma; gerçek fiyat, tarih, kapasite, rota, konum ve olanakları değiştirme. Tek parça düz yazı bırakma: kısa <p> paragrafları kullan; uygun bilgileri <h2>/<h3> başlıkları ve <ul>/<li> listeleri altında grupla. Tekrarları ve abartılı reklam dilini temizle. SEO anahtar kelimelerini doğal kullan, doldurma yapma. Görünür HTML entity bırakma. Yalnızca güvenli <h2>, <h3>, <p>, <ul>, <ol>, <li>, <strong> etiketlerini kullan. title alanına yalnızca kısa ilan adını yaz; '…da/…de huzurlu villa' gibi slogan ekleme. JSON: {\"title\":\"Türkçe başlık\",\"description\":\"<HTML>\"}"
           }
       }
       let input =
@@ -1223,10 +1266,14 @@ fn run_tr_phase(
             Error(_) -> Error("listing_content_tr_parse_failed")
             Ok(description) -> {
               let clean_description = clean_ai_description(description)
-              let edited_title = case json_field_string(raw, "title") {
-                Ok(value) -> value
-                Error(_) -> title_tr
-              }
+              let edited_title =
+                sanitize_listing_title(
+                  category_code,
+                  case json_field_string(raw, "title") {
+                    Ok(value) -> value
+                    Error(_) -> title_tr
+                  },
+                )
               case has_editorial_quality(clean_description) {
                 False -> Error("listing_content_tr_quality_failed")
                 True ->
