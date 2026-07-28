@@ -1,6 +1,8 @@
 'use client'
 
 import { useRegisterVitrinOverlay, vitrinOverlayDialogClassName } from '@/components/aside/aside'
+import { DeskPhoneBadge } from '@/components/DeskPhoneBadge'
+import { phoneToTelHref, resolveDisplayPhone } from '@/lib/site-phone'
 import { getSitePublicConfig, mergeBrandingIntoEnvContact } from '@/lib/site-public-config'
 import { ensureTawkScriptLoaded, isTawkConfigured, openTawkWidget, setTawkRuntimeConfig } from '@/lib/tawk-widget'
 import { getSitePublicConfig as fetchSitePublicConfig } from '@/lib/travel-api'
@@ -29,7 +31,10 @@ function CustomerSupportBadge({ className, iconClassName = 'size-7' }: { classNa
   )
 }
 
-function SupportOptionIcon({ tone, children }: { tone: 'ai' | 'live' | 'wa'; children: ReactNode }) {
+function SupportOptionIcon({ tone, children }: { tone: 'ai' | 'live' | 'wa' | 'phone'; children: ReactNode }) {
+  if (tone === 'phone') {
+    return <DeskPhoneBadge className="size-11" iconClassName="size-5" />
+  }
   return (
     <span
       className={clsx(
@@ -50,6 +55,7 @@ export default function FooterCustomerSupportSheet({ open, onClose, locale }: Pr
   useRegisterVitrinOverlay(open)
 
   const [whatsappE164, setWhatsappE164] = useState(() => getSitePublicConfig().whatsappE164)
+  const [phoneDisplay, setPhoneDisplay] = useState(() => resolveDisplayPhone(getSitePublicConfig().phone))
   const [tawkReady, setTawkReady] = useState(() => isTawkConfigured())
 
   useEffect(() => {
@@ -59,7 +65,9 @@ export default function FooterCustomerSupportSheet({ open, onClose, locale }: Pr
         if (cancelled) return
         setTawkRuntimeConfig(pub.branding ?? null)
         setTawkReady(isTawkConfigured())
-        setWhatsappE164(mergeBrandingIntoEnvContact(getSitePublicConfig(), pub.branding).whatsappE164)
+        const merged = mergeBrandingIntoEnvContact(getSitePublicConfig(), pub.branding)
+        setWhatsappE164(merged.whatsappE164)
+        setPhoneDisplay(resolveDisplayPhone(merged.phone))
       })
       .catch(() => {})
     return () => {
@@ -84,7 +92,24 @@ export default function FooterCustomerSupportSheet({ open, onClose, locale }: Pr
     window.open(`https://wa.me/${whatsappE164}`, '_blank', 'noopener,noreferrer')
   }
 
+  function openPhone() {
+    const href = phoneToTelHref(phoneDisplay)
+    if (!href) return
+    onClose()
+    window.location.href = href
+  }
+
+  const phoneTel = phoneToTelHref(phoneDisplay)
+
   const items = [
+    {
+      key: 'phone',
+      label: phoneDisplay,
+      onClick: openPhone,
+      tone: 'phone' as const,
+      icon: null,
+      show: !!phoneTel,
+    },
     {
       key: 'ai',
       label: bn.supportAiAssistant,

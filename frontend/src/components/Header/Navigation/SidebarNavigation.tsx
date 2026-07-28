@@ -9,7 +9,10 @@ import {
   SECTION_LABELS,
   type UserRole,
 } from '@/lib/notification-roles'
-import { getAuthMe } from '@/lib/travel-api'
+import { phoneToTelHref, resolveDisplayPhone } from '@/lib/site-phone'
+import { getSitePublicConfig, mergeBrandingIntoEnvContact } from '@/lib/site-public-config'
+import { getAuthMe, getSitePublicConfig as fetchSitePublicConfig } from '@/lib/travel-api'
+import { DeskPhoneBadge } from '@/components/DeskPhoneBadge'
 import ButtonPrimary from '@/shared/ButtonPrimary'
 import { Divider } from '@/shared/divider'
 import { Link } from '@/shared/link'
@@ -107,7 +110,9 @@ const SidebarNavigation: React.FC<Props> = ({ data, currencies, locale }) => {
   const s = getMessages(effectiveLocale).sidebar
   const [role, setRole] = useState<UserRole>('guest')
   const [searchQuery, setSearchQuery] = useState('')
+  const [phoneDisplay, setPhoneDisplay] = useState(() => resolveDisplayPhone(getSitePublicConfig().phone))
   const showLiveSearch = searchQuery.trim().length >= SEARCH_MIN_QUERY_LEN
+  const phoneTel = phoneToTelHref(phoneDisplay)
 
   useEffect(() => {
     const token = getStoredAuthToken()
@@ -119,6 +124,20 @@ const SidebarNavigation: React.FC<Props> = ({ data, currencies, locale }) => {
         setRole(detectRole(roles, perms))
       })
       .catch(() => setRole('guest'))
+  }, [])
+
+  useEffect(() => {
+    let cancelled = false
+    void fetchSitePublicConfig(undefined)
+      .then((pub) => {
+        if (cancelled) return
+        const merged = mergeBrandingIntoEnvContact(getSitePublicConfig(), pub.branding)
+        setPhoneDisplay(resolveDisplayPhone(merged.phone))
+      })
+      .catch(() => {})
+    return () => {
+      cancelled = true
+    }
   }, [])
 
   const { megaRoot, extraMenuItems } = useMemo(() => {
@@ -389,6 +408,17 @@ const SidebarNavigation: React.FC<Props> = ({ data, currencies, locale }) => {
           panelClassName="z-10 w-72 p-4!"
         />
       </div>
+
+      {phoneTel ? (
+        <a
+          href={phoneTel}
+          onClick={handleClose}
+          className="inline-flex items-center gap-2.5 rounded-xl px-1 py-1 text-sm font-semibold text-neutral-800 transition hover:bg-neutral-100 dark:text-neutral-100 dark:hover:bg-neutral-800"
+        >
+          <DeskPhoneBadge className="size-8 rounded-xl" iconClassName="size-4" />
+          <span>{phoneDisplay}</span>
+        </a>
+      ) : null}
 
       <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm">
         <Link href={navItemHref(effectiveLocale, vitrinPath, '/contact')} onClick={handleClose} className="text-link-muted-underline">
