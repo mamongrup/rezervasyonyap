@@ -2,10 +2,12 @@
 
 import React from 'react'
 
+import { apiOriginForFetch } from '@/lib/api-origin'
+
 type Props = {
   listingId: string
   className?: string
-  /** API base override (yoksa NEXT_PUBLIC_API_URL). */
+  /** API base override (yoksa apiOriginForFetch). */
   apiBase?: string
 }
 
@@ -27,9 +29,9 @@ function getOrCreateSession(): string {
 
 export default function SocialProofBadge({ listingId, className, apiBase }: Props) {
   const [stats, setStats] = React.useState<Stats | null>(null)
-  const base = apiBase ?? process.env.NEXT_PUBLIC_API_URL
 
   React.useEffect(() => {
+    const base = (apiBase ?? apiOriginForFetch()).replace(/\/$/, '')
     if (!base || !listingId) return
     const sk = getOrCreateSession()
     let active = true
@@ -71,7 +73,7 @@ export default function SocialProofBadge({ listingId, className, apiBase }: Prop
       if (pingTimer) clearInterval(pingTimer)
       if (fetchTimer) clearInterval(fetchTimer)
     }
-  }, [base, listingId])
+  }, [apiBase, listingId])
 
   if (!stats) return null
 

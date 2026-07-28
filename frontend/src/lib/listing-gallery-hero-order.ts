@@ -3,6 +3,8 @@
  * sahne kolajı (`orderGalleryUrlsForHero`). Detay hero/share için `galleryUrlsForStayDetailHeader`.
  */
 
+import { hostApexKey, shouldPreferPageOriginForApi } from '@/lib/api-origin'
+
 export const LISTING_IMAGE_SCENE_ORDER = [
   'sea_view',
   'pool',
@@ -21,10 +23,6 @@ function normalizeScene(code: string | null | undefined): ListingImageSceneCode 
   if (!s) return 'unspecified'
   if ((LISTING_IMAGE_SCENE_ORDER as readonly string[]).includes(s)) return s as ListingImageSceneCode
   return 'unspecified'
-}
-
-function hostApexKey(hostname: string): string {
-  return hostname.replace(/^www\./i, '').toLowerCase()
 }
 
 function isLoopbackHost(hostname: string): boolean {
@@ -70,11 +68,12 @@ function listingUploadsOrigin(): string {
 
   try {
     const apiUrl = new URL(pub)
-    const apiHost = hostApexKey(apiUrl.hostname)
+    const apiHost = apiUrl.hostname
 
     if (typeof window !== 'undefined') {
-      const pageHost = hostApexKey(window.location.hostname)
-      if (pageHost !== apiHost) return apiUrl.origin
+      if (!shouldPreferPageOriginForApi(apiHost, window.location.hostname)) {
+        return apiUrl.origin
+      }
       return ''
     }
 
