@@ -11,7 +11,6 @@ import { getPublicListingImages } from '@/lib/travel-api'
 import {
   buildExperienceListingShareRows,
   buildStayListingShareRows,
-  inferCatalogVerticalForStayListing,
 } from '@/lib/social-share/listing-share-templates'
 import { ImageResponse } from 'next/og'
 import { NextRequest } from 'next/server'
@@ -176,6 +175,48 @@ function truncate(s: string, max: number): string {
   const t = s.trim()
   if (t.length <= max) return t
   return `${t.slice(0, max - 1)}…`
+}
+
+/** WhatsApp/Facebook link önizlemesi — temiz kapak; metin overlay yok. */
+function cleanListingOgImageResponse(bgUrl: string | null) {
+  return new ImageResponse(
+    (
+      <div
+        style={{
+          width: '100%',
+          height: '100%',
+          display: 'flex',
+          position: 'relative',
+          background: '#0f172a',
+        }}
+      >
+        {bgUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={bgUrl}
+            alt=""
+            width={OG_W}
+            height={OG_H}
+            style={{
+              position: 'absolute',
+              inset: 0,
+              width: '100%',
+              height: '100%',
+              objectFit: 'cover',
+            }}
+          />
+        ) : null}
+      </div>
+    ),
+    {
+      width: OG_W,
+      height: OG_H,
+      headers: {
+        // WhatsApp OG önbelleği agresif; sürüm değişince yeniden çekilsin
+        'Cache-Control': 'public, max-age=3600, stale-while-revalidate=86400',
+      },
+    },
+  )
 }
 
 function titleFontSize(title: string): number {
@@ -713,10 +754,6 @@ export async function GET(req: NextRequest) {
       return new Response('Not found', { status: 404 })
     }
 
-    const vertical = inferCatalogVerticalForStayListing({
-      listingVertical: normalizeCatalogVertical(listing.listingVertical),
-      listingCategory: listing.listingCategory,
-    })
     const rows = buildStayListingShareRows(
       {
         title: listing.title,
@@ -739,18 +776,6 @@ export async function GET(req: NextRequest) {
 
     const rawImg = listing.featuredImage || listing.galleryImgs?.[0]
     const bgUrlRaw = rawImg ? toAbsoluteAssetUrl(base, rawImg) ?? rawImg : null
-    const badge =
-      vertical === 'holiday_home'
-        ? locale.startsWith('en')
-          ? 'Holiday home'
-          : 'Villa'
-        : vertical === 'yacht_charter'
-          ? locale.startsWith('en')
-            ? 'Yacht'
-            : 'Yat'
-          : locale.startsWith('en')
-            ? 'Hotel'
-            : 'Otel'
 
     if (variant === 'social') {
       return socialListingImage({
@@ -768,112 +793,8 @@ export async function GET(req: NextRequest) {
       { width: OG_W, height: OG_H, fit: 'cover' },
       base,
     )
-    const ogRows = sanitizeOgRows(rows)
 
-    return new ImageResponse(
-      (
-        <div
-          style={{
-            width: '100%',
-            height: '100%',
-            display: 'flex',
-            flexDirection: 'column',
-            position: 'relative',
-            background: '#0f172a',
-          }}
-        >
-          {bgUrl ? (
-             
-            <img
-              src={bgUrl}
-              alt=""
-              width={OG_W}
-              height={OG_H}
-              style={{
-                position: 'absolute',
-                inset: 0,
-                width: '100%',
-                height: '100%',
-                objectFit: 'cover',
-              }}
-            />
-          ) : null}
-          <div
-            style={{
-              position: 'absolute',
-              inset: 0,
-              background:
-                'linear-gradient(to top, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.35) 45%, rgba(0,0,0,0.1) 100%)',
-            }}
-          />
-          <div
-            style={{
-              position: 'absolute',
-              top: 28,
-              right: 32,
-              padding: '10px 18px',
-              borderRadius: 999,
-              background: 'rgba(255,255,255,0.12)',
-              color: '#fff',
-              fontSize: 18,
-              fontWeight: 600,
-              letterSpacing: 0.3,
-            }}
-          >
-            {badge}
-          </div>
-          <div
-            style={{
-              position: 'absolute',
-              bottom: 0,
-              left: 0,
-              right: 0,
-              padding: '36px 44px 40px',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 18,
-            }}
-          >
-            <div
-              style={{
-                color: '#fff',
-                fontSize: 44,
-                fontWeight: 700,
-                lineHeight: 1.15,
-                textShadow: '0 2px 24px rgba(0,0,0,0.5)',
-              }}
-            >
-              {truncate(sanitizeOgText(listing.title), 90)}
-            </div>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>
-              {ogRows.map((row, i) => (
-                <div
-                  key={`r-${i}-${row.label}`}
-                  style={{
-                    display: 'flex',
-                    flexDirection: 'column',
-                    padding: '12px 18px',
-                    borderRadius: 14,
-                    background: 'rgba(15,23,42,0.72)',
-                    border: '1px solid rgba(255,255,255,0.12)',
-                    minWidth: 120,
-                  }}
-                >
-                  <span style={{ color: 'rgba(255,255,255,0.75)', fontSize: 16, marginBottom: 4 }}>
-                    {row.label}
-                  </span>
-                  <span style={{ color: '#fff', fontSize: 24, fontWeight: 700 }}>{row.value}</span>
-                </div>
-              ))}
-            </div>
-            <div style={{ color: 'rgba(255,255,255,0.55)', fontSize: 15 }}>
-              {sanitizeOgText(branding.logoTextLine1)}
-            </div>
-          </div>
-        </div>
-      ),
-      { width: OG_W, height: OG_H },
-    )
+    return cleanListingOgImageResponse(bgUrl)
   }
 
   const listing = await getExperienceListingByHandle(handle, locale)
@@ -900,16 +821,6 @@ export async function GET(req: NextRequest) {
   const rawImg = listing.featuredImage || listing.galleryImgs?.[0]
   const bgUrlRaw = rawImg ? toAbsoluteAssetUrl(base, rawImg) ?? rawImg : null
 
-  const v = normalizeCatalogVertical(listing.listingVertical)
-  const badge =
-    v === 'activity'
-      ? locale.startsWith('en')
-        ? 'Activity'
-        : 'Aktivite'
-      : locale.startsWith('en')
-        ? 'Tour'
-        : 'Tur'
-
   if (variant === 'social') {
     return socialListingImage({
       bgUrl: bgUrlRaw,
@@ -926,111 +837,8 @@ export async function GET(req: NextRequest) {
     { width: OG_W, height: OG_H, fit: 'cover' },
     base,
   )
-  const ogRows = sanitizeOgRows(rows)
 
-  return new ImageResponse(
-    (
-      <div
-        style={{
-          width: '100%',
-          height: '100%',
-          display: 'flex',
-          flexDirection: 'column',
-          position: 'relative',
-          background: '#0f172a',
-        }}
-      >
-        {bgUrl ? (
-           
-          <img
-            src={bgUrl}
-            alt=""
-            width={OG_W}
-            height={OG_H}
-            style={{
-              position: 'absolute',
-              inset: 0,
-              width: '100%',
-              height: '100%',
-              objectFit: 'cover',
-            }}
-          />
-        ) : null}
-        <div
-          style={{
-            position: 'absolute',
-            inset: 0,
-            background:
-              'linear-gradient(to top, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.35) 45%, rgba(0,0,0,0.1) 100%)',
-          }}
-        />
-        <div
-          style={{
-            position: 'absolute',
-            top: 28,
-            right: 32,
-            padding: '10px 18px',
-            borderRadius: 999,
-            background: 'rgba(255,255,255,0.12)',
-            color: '#fff',
-            fontSize: 18,
-            fontWeight: 600,
-          }}
-        >
-          {badge}
-        </div>
-        <div
-          style={{
-            position: 'absolute',
-            bottom: 0,
-            left: 0,
-            right: 0,
-            padding: '36px 44px 40px',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 18,
-          }}
-        >
-          <div
-            style={{
-              color: '#fff',
-              fontSize: 44,
-              fontWeight: 700,
-              lineHeight: 1.15,
-              textShadow: '0 2px 24px rgba(0,0,0,0.5)',
-            }}
-          >
-            {truncate(sanitizeOgText(listing.title), 90)}
-          </div>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>
-            {ogRows.map((row, i) => (
-              <div
-                key={`r-${i}-${row.label}`}
-                style={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  padding: '12px 18px',
-                  borderRadius: 14,
-                  background: 'rgba(15,23,42,0.72)',
-                  border: '1px solid rgba(255,255,255,0.12)',
-                  minWidth: 120,
-                }}
-              >
-                <span style={{ color: 'rgba(255,255,255,0.75)', fontSize: 16, marginBottom: 4 }}>
-                  {row.label}
-                </span>
-                <span style={{ color: '#fff', fontSize: 24, fontWeight: 700 }}>{row.value}</span>
-              </div>
-            ))}
-          </div>
-          <div style={{ color: 'rgba(255,255,255,0.55)', fontSize: 15 }}>
-            {sanitizeOgText(branding.logoTextLine1)}
-          </div>
-        </div>
-      </div>
-    ),
-    { width: OG_W, height: OG_H },
-  )
+  return cleanListingOgImageResponse(bgUrl)
 }
 
 

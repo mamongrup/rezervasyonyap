@@ -8,7 +8,7 @@ import { buildListingOgImageUrl } from '@/lib/social-share/listing-og-image-url'
 import { sanitizeRichCmsHtml } from '@/lib/sanitize-cms-html'
 import { cleanTatilbudurDescriptionHtml } from '@/lib/tatilbudur-description-clean'
 import { parsePublicMinistryLicenseRef } from '@/lib/ministry-license-ref'
-import { stripHtml } from '@/lib/social-share/strip-html'
+import { listingMetaDescription, stripHtml } from '@/lib/social-share/strip-html'
 import {
   normalizeCatalogVertical,
   type CatalogListingVerticalCode,
@@ -195,7 +195,7 @@ export async function generateStayListingMetadata({
   const { handle, locale } = await params
   const listing = await getStayListingByHandle(handle, locale, expectedVertical)
   if (!listing) return { title: getMessages(locale).listing.detailPage.notFoundTitle }
-  const plainDesc = listing.description ? stripHtml(listing.description) : listing.title
+  const plainDesc = listingMetaDescription(listing.title, listing.description)
   const ogImage = buildListingOgImageUrl({ kind: 'stay', handle, locale })
   return {
     title: listing.title,
