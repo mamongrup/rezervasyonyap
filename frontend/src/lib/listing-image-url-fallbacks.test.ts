@@ -60,6 +60,21 @@ describe('listing-image-url-fallbacks', () => {
     )
   })
 
+  it('repairs TravelAPI .avif to .jpg', () => {
+    const src =
+      'https://i.travelapi.com/lodging/92000000/91770000/91768000/91767946/b36ca39c_b.avif'
+    expect(repairExternalListingImageExt(src)).toBe(
+      'https://i.travelapi.com/lodging/92000000/91770000/91768000/91767946/b36ca39c_b.jpg',
+    )
+  })
+
+  it('repairs Hotelbeds .avif to .jpg', () => {
+    const src = 'https://photos.hotelbeds.com/giata/bigger/12/123456/123456a_hb_ro_001.avif'
+    expect(repairExternalListingImageExt(src)).toBe(
+      'https://photos.hotelbeds.com/giata/bigger/12/123456/123456a_hb_ro_001.jpg',
+    )
+  })
+
   it('falls back uploads .avif to .webp', () => {
     const avif = '/uploads/listings/ilanlar/tatil-evleri/puzzle-villa/villa-puzzle-18.avif'
     const next = nextListingImageUrlFallback(avif, new Set([avif]))

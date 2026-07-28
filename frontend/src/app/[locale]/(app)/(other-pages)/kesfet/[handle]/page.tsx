@@ -38,10 +38,14 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 }
 
 import { formatPublicListingCardPrice } from '@/lib/activity-listing-price-display'
+import { resolveListingDisplayImageUrl } from '@/lib/listing-ext-image-proxy'
+import ListingGalleryImage from '@/components/ListingGalleryImage'
 
 // ─── Listing Card ─────────────────────────────────────────────────────────────
 function ListingCard({ item, locale = 'tr' }: { item: PublicListingItem; locale?: string }) {
-  const img = item.featured_image_url ?? item.thumbnail_url
+  const img = resolveListingDisplayImageUrl(
+    item.featured_image_url ?? item.thumbnail_url ?? item.gallery_urls?.[0],
+  )
   const priceLabel = formatPublicListingCardPrice(item, locale)
 
   return (
@@ -51,10 +55,12 @@ function ListingCard({ item, locale = 'tr' }: { item: PublicListingItem; locale?
     >
       {img ? (
         <div className="relative h-52 overflow-hidden">
-          <img
+          <ListingGalleryImage
             src={img}
             alt={item.title}
-            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+            fill
+            sizes="(max-width: 640px) 100vw, 33vw"
+            className="object-cover group-hover:scale-105 transition-transform duration-500"
           />
           {item.discount_percent && (
             <span className="absolute top-3 left-3 px-2 py-1 rounded-lg bg-red-500 text-white text-xs font-bold">

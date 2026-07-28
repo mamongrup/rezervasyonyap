@@ -11,9 +11,10 @@ import {
   searchCategoryLabelsFromMessages,
 } from '@/lib/search-listings-display'
 import { formatPublicListingCardPrice } from '@/lib/activity-listing-price-display'
+import { resolveListingDisplayImageUrl } from '@/lib/listing-ext-image-proxy'
 import { vitrinHref } from '@/lib/vitrin-href'
 import { getMessages } from '@/utils/getT'
-import Image from 'next/image'
+import ListingGalleryImage from '@/components/ListingGalleryImage'
 import Link from 'next/link'
 import { Search, Star, MapPin, Tag, Layers, ArrowRight } from 'lucide-react'
 
@@ -38,7 +39,9 @@ function ListingCard({
   locale?: string
   href: string
 }) {
-  const img = item.featured_image_url ?? item.thumbnail_url
+  const img = resolveListingDisplayImageUrl(
+    item.featured_image_url ?? item.thumbnail_url ?? item.gallery_urls?.[0],
+  )
   const m = getMessages(locale)
   const catLabel = categoryLabelForSearch(
     item.category_code,
@@ -66,10 +69,10 @@ function ListingCard({
       href={href}
       className="group flex gap-4 rounded-2xl border border-neutral-200 bg-white p-4 transition-all hover:shadow-md dark:border-neutral-800 dark:bg-neutral-900"
     >
-      {/* Görsel */}
-      <div className="relative h-20 w-24 flex-shrink-0">
+      {/* Görsel — kplus unwrap + uzantı fallback (StayCard ile aynı boru) */}
+      <div className="relative h-20 w-24 flex-shrink-0 overflow-hidden rounded-xl">
         {img ? (
-          <Image
+          <ListingGalleryImage
             src={img}
             alt={item.title}
             fill
@@ -117,15 +120,16 @@ function ListingCard({
 }
 
 function CollectionCard({ col }: { col: ListingCollection }) {
+  const hero = resolveListingDisplayImageUrl(col.hero_image_url)
   return (
     <Link
       href={`/kesfet/${col.slug}`}
       className="group flex items-center gap-4 rounded-2xl border border-primary-200 bg-gradient-to-r from-primary-50 to-primary-100 p-4 transition-all hover:shadow-md dark:border-primary-800 dark:from-primary-900/20 dark:to-primary-800/20"
     >
-      {col.hero_image_url ? (
+      {hero ? (
         <div className="relative h-14 w-16 flex-shrink-0 overflow-hidden rounded-xl">
-          <Image
-            src={col.hero_image_url}
+          <ListingGalleryImage
+            src={hero}
             alt={col.title}
             fill
             sizes="64px"
