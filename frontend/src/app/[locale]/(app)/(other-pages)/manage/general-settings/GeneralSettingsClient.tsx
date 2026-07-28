@@ -38,6 +38,12 @@ import {
   parseHomePageLinksFromBranding,
   parseMobileAccountPathFromBranding,
 } from '@/lib/site-branding-seo'
+import {
+  BRANDING_DOMAIN_APEXES,
+  parseDomainOverrides,
+  sanitizeDomainOverrides,
+  type BrandingDomainLogoOverride,
+} from '@/lib/branding-for-host'
 import { parseLenientJson } from '@/lib/json-parse'
 import { formatTawkEmbedDisplay, parseTawkEmbedInput } from '@/lib/tawk-embed-parse'
 import type { BrandingUploadPurpose } from '@/lib/upload-branding-asset'
@@ -262,6 +268,9 @@ export default function GeneralSettingsClient({ embedded = false }: GeneralSetti
   const [logoTextLine2, setLogoTextLine2] = useState('')
   const [logoTextLine1Color, setLogoTextLine1Color] = useState('#171717')
   const [logoTextLine2Color, setLogoTextLine2Color] = useState('#f97316')
+  /** Apex → logo yazı override (bağlı domainler) */
+  const [domainOverrides, setDomainOverrides] = useState<Record<string, BrandingDomainLogoOverride>>({})
+  const [logoOverrideDomain, setLogoOverrideDomain] = useState<string>(BRANDING_DOMAIN_APEXES[0] ?? 'rezervasyonyap.tr')
   const [categories, setCategories] = useState<ProductCategoryRow[]>([])
   const [travelHomeCategorySlugs, setTravelHomeCategorySlugs] = useState<string[]>(() =>
     normalizeTravelCategoryHomeOrder(null),
@@ -389,6 +398,7 @@ export default function GeneralSettingsClient({ embedded = false }: GeneralSetti
       if (typeof branding.logo_text_line2 === 'string') setLogoTextLine2(branding.logo_text_line2)
       if (typeof branding.logo_text_line1_color === 'string') setLogoTextLine1Color(branding.logo_text_line1_color)
       if (typeof branding.logo_text_line2_color === 'string') setLogoTextLine2Color(branding.logo_text_line2_color)
+      setDomainOverrides(parseDomainOverrides(branding))
       if (typeof branding.public_contact_email === 'string') setPublicContactEmail(branding.public_contact_email)
       if (typeof branding.public_phone === 'string') setPublicPhone(branding.public_phone)
       if (typeof branding.public_address === 'string') setPublicAddress(branding.public_address)
@@ -420,6 +430,7 @@ export default function GeneralSettingsClient({ embedded = false }: GeneralSetti
         logo_text_line2: _lt2,
         logo_text_line1_color: _lt1c,
         logo_text_line2_color: _lt2c,
+        domain_overrides: _domOv,
         public_contact_email: _pce,
         public_phone: _pp,
         public_address: _pa,
@@ -747,6 +758,7 @@ export default function GeneralSettingsClient({ embedded = false }: GeneralSetti
         logo_text_line2: logoTextLine2.trim(),
         logo_text_line1_color: logoTextLine1Color.trim(),
         logo_text_line2_color: logoTextLine2Color.trim(),
+        domain_overrides: sanitizeDomainOverrides(domainOverrides),
         category_logos: categoryLogos,
         home_page_links: homePageLinks
           .map((l) => ({
@@ -802,6 +814,7 @@ export default function GeneralSettingsClient({ embedded = false }: GeneralSetti
         logo_text_line2: logoTextLine2.trim(),
         logo_text_line1_color: logoTextLine1Color.trim(),
         logo_text_line2_color: logoTextLine2Color.trim(),
+        domain_overrides: sanitizeDomainOverrides(domainOverrides),
         category_logos: categoryLogos,
         home_page_links: homePageLinks
           .map((l) => ({
@@ -1281,6 +1294,153 @@ export default function GeneralSettingsClient({ embedded = false }: GeneralSetti
                       />
                     </div>
                   </Field>
+                </div>
+
+                <div className="rounded-xl border border-dashed border-neutral-300 p-4 dark:border-neutral-600">
+                  <p className="text-sm font-medium text-neutral-800 dark:text-neutral-200">
+                    Bağlı domain logo yazıları
+                  </p>
+                  <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">
+                    Varsayılan satırlar yukarıdaki alanlardır. Domain seçip doldurursanız o host&apos;ta
+                    logo yazısı/rengi değişir; boş bırakılan alan varsayılanı kullanır.
+                  </p>
+                  <div className="mt-3">
+                    <Label>Domain</Label>
+                    <select
+                      className="mt-1 w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm dark:border-neutral-700 dark:bg-neutral-900"
+                      value={logoOverrideDomain}
+                      onChange={(e) => setLogoOverrideDomain(e.target.value)}
+                    >
+                      {BRANDING_DOMAIN_APEXES.map((apex) => (
+                        <option key={apex} value={apex}>
+                          {apex}
+                          {domainOverrides[apex] && Object.keys(domainOverrides[apex]!).length > 0
+                            ? ' · özelleştirildi'
+                            : ''}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  {(() => {
+                    const ov = domainOverrides[logoOverrideDomain] ?? {}
+                    const setOv = (patch: Partial<BrandingDomainLogoOverride>) => {
+                      setDomainOverrides((prev) => {
+                        const nextEntry = { ...(prev[logoOverrideDomain] ?? {}), ...patch }
+                        const cleaned: BrandingDomainLogoOverride = {}
+                        for (const k of [
+                          'logo_text_line1',
+                          'logo_text_line2',
+                          'logo_text_line1_color',
+                          'logo_text_line2_color',
+                        ] as const) {
+                          const v = nextEntry[k]
+                          if (typeof v === 'string') cleaned[k] = v
+                        }
+                        const next = { ...prev }
+                        if (
+                          !cleaned.logo_text_line1?.trim() &&
+                          !cleaned.logo_text_line2?.trim() &&
+                          !cleaned.logo_text_line1_color?.trim() &&
+                          !cleaned.logo_text_line2_color?.trim()
+                        ) {
+                          delete next[logoOverrideDomain]
+                        } else {
+                          next[logoOverrideDomain] = cleaned
+                        }
+                        return next
+                      })
+                    }
+                    const previewL1 = (ov.logo_text_line1?.trim() || logoTextLine1 || siteName || '').trim()
+                    const previewL2 = (ov.logo_text_line2?.trim() || logoTextLine2 || '').trim()
+                    const previewC1 = ov.logo_text_line1_color?.trim() || logoTextLine1Color || '#171717'
+                    const previewC2 = ov.logo_text_line2_color?.trim() || logoTextLine2Color || '#f97316'
+                    return (
+                      <>
+                        <div className="mt-3 flex items-center gap-2.5 rounded-lg border border-neutral-200 bg-white p-3 dark:border-neutral-700 dark:bg-neutral-900">
+                          <span className="text-xs text-neutral-400">{logoOverrideDomain}</span>
+                          <span className="inline-flex items-baseline gap-1 leading-none whitespace-nowrap">
+                            {previewL1 && (
+                              <span className="text-[15px] font-bold tracking-tight" style={{ color: previewC1 }}>
+                                {previewL1}
+                              </span>
+                            )}
+                            {previewL2 && (
+                              <span className="text-[15px] font-semibold tracking-tight" style={{ color: previewC2 }}>
+                                {previewL2}
+                              </span>
+                            )}
+                          </span>
+                        </div>
+                        <div className="mt-3 grid gap-4 sm:grid-cols-2">
+                          <Field className="block">
+                            <Label>1. Satır (bu domain)</Label>
+                            <Input
+                              className="mt-1"
+                              value={ov.logo_text_line1 ?? ''}
+                              onChange={(e) => setOv({ logo_text_line1: e.target.value })}
+                              placeholder={logoTextLine1 || siteName || 'Varsayılan'}
+                            />
+                          </Field>
+                          <Field className="block">
+                            <Label>1. Satır rengi</Label>
+                            <div className="mt-1 flex items-center gap-2">
+                              <input
+                                type="color"
+                                value={ov.logo_text_line1_color || logoTextLine1Color || '#171717'}
+                                onChange={(e) => setOv({ logo_text_line1_color: e.target.value })}
+                                className="h-9 w-12 cursor-pointer rounded-lg border border-neutral-200 p-0.5 dark:border-neutral-700"
+                              />
+                              <Input
+                                value={ov.logo_text_line1_color ?? ''}
+                                onChange={(e) => setOv({ logo_text_line1_color: e.target.value })}
+                                placeholder={logoTextLine1Color || '#171717'}
+                                className="font-mono"
+                              />
+                            </div>
+                          </Field>
+                          <Field className="block">
+                            <Label>2. Satır (bu domain)</Label>
+                            <Input
+                              className="mt-1"
+                              value={ov.logo_text_line2 ?? ''}
+                              onChange={(e) => setOv({ logo_text_line2: e.target.value })}
+                              placeholder={logoTextLine2 || 'Varsayılan'}
+                            />
+                          </Field>
+                          <Field className="block">
+                            <Label>2. Satır rengi</Label>
+                            <div className="mt-1 flex items-center gap-2">
+                              <input
+                                type="color"
+                                value={ov.logo_text_line2_color || logoTextLine2Color || '#f97316'}
+                                onChange={(e) => setOv({ logo_text_line2_color: e.target.value })}
+                                className="h-9 w-12 cursor-pointer rounded-lg border border-neutral-200 p-0.5 dark:border-neutral-700"
+                              />
+                              <Input
+                                value={ov.logo_text_line2_color ?? ''}
+                                onChange={(e) => setOv({ logo_text_line2_color: e.target.value })}
+                                placeholder={logoTextLine2Color || '#f97316'}
+                                className="font-mono"
+                              />
+                            </div>
+                          </Field>
+                        </div>
+                        <button
+                          type="button"
+                          className="mt-3 text-xs text-neutral-500 underline hover:text-neutral-800 dark:hover:text-neutral-200"
+                          onClick={() =>
+                            setDomainOverrides((prev) => {
+                              const next = { ...prev }
+                              delete next[logoOverrideDomain]
+                              return next
+                            })
+                          }
+                        >
+                          Bu domain override&apos;ını temizle
+                        </button>
+                      </>
+                    )
+                  })()}
                 </div>
               </div>
             )}

@@ -1,5 +1,6 @@
 import { getExperienceListingByHandle, getStayListingByHandle } from '@/data/listings'
 import { apiOriginForFetch } from '@/lib/api-origin'
+import { applyBrandingDomainOverrides } from '@/lib/branding-for-host'
 import { normalizeCatalogVertical } from '@/lib/catalog-listing-vertical'
 import { getPublicSiteUrl, toAbsoluteSiteUrl } from '@/lib/site-branding-seo'
 import { normalizeSiteLogoUrl, resolveSiteLogoUrl } from '@/lib/resolve-site-logo-url'
@@ -374,7 +375,13 @@ async function fetchOgBranding(base: string): Promise<{
     const res = await fetchWithTimeout(`${apiBase}/api/v1/site/public-config`, 2500)
     if (!res.ok) return fallback
     const data = (await res.json()) as { branding?: Record<string, unknown> | null }
-    const b = data.branding ?? null
+    let host = ''
+    try {
+      host = new URL(base).hostname
+    } catch {
+      host = ''
+    }
+    const b = applyBrandingDomainOverrides(data.branding ?? {}, host)
     const rawLogo =
       normalizeSiteLogoUrl(brandingText(b, 'logo_url')) ??
       normalizeSiteLogoUrl(brandingText(b, 'logo_url_dark')) ??

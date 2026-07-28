@@ -1,6 +1,7 @@
 'use client'
 
 import { useVitrinHref } from '@/hooks/use-vitrin-href'
+import { applyBrandingDomainOverrides, type BrandingDomainLogoOverride } from '@/lib/branding-for-host'
 import { normalizeSiteLogoUrl, pickEffectiveSiteLogoUrls, resolveSiteLogoUrl } from '@/lib/resolve-site-logo-url'
 import { siteUploadBrowserHref } from '@/lib/site-upload-browser-href'
 import { getSitePublicConfig } from '@/lib/travel-api'
@@ -108,8 +109,15 @@ export interface BrandingConfig {
   logo_text_line2?: string
   logo_text_line1_color?: string
   logo_text_line2_color?: string
+  /** Apex host → logo yazı override (`rezervasyonyap.com.tr` vb.) */
+  domain_overrides?: Record<string, BrandingDomainLogoOverride>
   site_name?: string
   category_logos?: Record<string, CategoryLogo>
+}
+
+function brandingForCurrentHost(b: BrandingConfig): BrandingConfig {
+  if (typeof window === 'undefined') return b
+  return applyBrandingDomainOverrides(b as Record<string, unknown>, window.location.hostname) as BrandingConfig
 }
 
 function readCachedBranding(): BrandingConfig | null {
@@ -378,7 +386,20 @@ const Logo: React.FC<LogoProps> = ({ className = 'w-auto', src, darkSrc, alt, in
 
   useEffect(() => {
     if (initialBranding) {
-      writeCachedBranding(initialBranding)
+      const forHost = brandingForCurrentHost(initialBranding)
+      writeCachedBranding(forHost)
+      setBranding((prev) => {
+        const picked = pickEffectiveSiteLogoUrls(
+          forHost.logo_url ?? prev.logo_url,
+          forHost.logo_url_dark ?? prev.logo_url_dark,
+        )
+        return {
+          ...forHost,
+          logo_url: picked.light ?? undefined,
+          logo_url_dark: picked.dark ?? undefined,
+          site_name: forHost.site_name ?? prev.site_name ?? alt ?? 'Logo',
+        }
+      })
       return
     }
     if (src) return
@@ -386,15 +407,16 @@ const Logo: React.FC<LogoProps> = ({ className = 'w-auto', src, darkSrc, alt, in
     // 1) Önce cache'ten anında yükle (flash'ı önler)
     const cached = readCachedBranding()
     if (cached) {
-      setBranding(cached)
-      setCategoryLogos(cached.category_logos ?? {})
+      const forHost = brandingForCurrentHost(cached)
+      setBranding(forHost)
+      setCategoryLogos(forHost.category_logos ?? {})
     }
 
     // 2) Sonra API'den güncel veriyi çek ve cache'i güncelle
     getSitePublicConfig(undefined, { cache: 'no-store' })
       .then((cfg) => {
         const b = (cfg.branding ?? {}) as BrandingConfig & Record<string, unknown>
-        const next: BrandingConfig = {
+        const raw: BrandingConfig = {
           logo_url: b.logo_url,
           logo_url_dark: b.logo_url_dark,
           logo_icon_url: b.logo_icon_url,
@@ -403,9 +425,11 @@ const Logo: React.FC<LogoProps> = ({ className = 'w-auto', src, darkSrc, alt, in
           logo_text_line2: b.logo_text_line2,
           logo_text_line1_color: b.logo_text_line1_color,
           logo_text_line2_color: b.logo_text_line2_color,
+          domain_overrides: b.domain_overrides,
           site_name: b.site_name ?? (cfg as { site_name?: string }).site_name,
           category_logos: b.category_logos as Record<string, CategoryLogo> | undefined,
         }
+        const next = brandingForCurrentHost(raw)
         setBranding((prev) => {
           const merged = mergeBrandingLogos(prev, next)
           writeCachedBranding(merged)
@@ -418,7 +442,7 @@ const Logo: React.FC<LogoProps> = ({ className = 'w-auto', src, darkSrc, alt, in
       .catch(() => {
         /* cache veya fallback kullanılmaya devam eder */
       })
-  }, [src, initialBranding])
+  }, [src, initialBranding, alt])
 
   const catCode = detectCategoryCode(pathname)
   const catLogo = catCode ? categoryLogos[catCode] : null

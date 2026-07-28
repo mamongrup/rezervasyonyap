@@ -1,7 +1,9 @@
 import { getCatalogMenuForLocale } from '@/data/catalog-menu'
 import { resolveMegaMenuFeatured } from '@/data/mega-menu-sidebar'
 import { getNavMegaMenuLocalized, resolveHeaderCurrencies } from '@/data/navigation'
+import { applyBrandingDomainOverrides } from '@/lib/branding-for-host'
 import { pickEffectiveSiteLogoUrls } from '@/lib/resolve-site-logo-url'
+import { getRequestHostname } from '@/lib/request-hostname'
 import { vitrinHref } from '@/lib/vitrin-href'
 import Logo, { type BrandingConfig } from '@/shared/Logo'
 import clsx from 'clsx'
@@ -29,15 +31,17 @@ const Header: FC<HeaderProps> = async ({ hasBorderBottom = true, className, loca
     import('@/lib/site-config-cache').then((m) => m.getCachedSiteConfig()).catch(() => null),
     getCatalogMenuForLocale(locale),
   ])
-  const branding = siteConfig?.branding as Record<string, unknown> | null ?? null
-  const initialBranding = (branding ?? {}) as BrandingConfig
+  const hostname = await getRequestHostname()
+  const brandingRaw = (siteConfig?.branding as Record<string, unknown> | null) ?? null
+  const branding = applyBrandingDomainOverrides(brandingRaw ?? {}, hostname)
+  const initialBranding = branding as BrandingConfig
   const pickedLogos = pickEffectiveSiteLogoUrls(
-    typeof branding?.logo_url === 'string' ? branding.logo_url : null,
-    typeof branding?.logo_url_dark === 'string' ? branding.logo_url_dark : null,
+    typeof branding.logo_url === 'string' ? branding.logo_url : null,
+    typeof branding.logo_url_dark === 'string' ? branding.logo_url_dark : null,
   )
   const logoSrc = pickedLogos.light ?? undefined
   const logoDarkSrc = pickedLogos.dark ?? undefined
-  const siteName = typeof branding?.site_name === 'string' ? branding.site_name : 'Logo'
+  const siteName = typeof branding.site_name === 'string' ? branding.site_name : 'Logo'
 
   const resolvedCatalogItems = await Promise.all(
     catalogMenuItems.map(async (item) => {
