@@ -1,12 +1,14 @@
 import CookieConsentBanner from '@/components/CookieConsentBanner'
 import Footer2 from '@/components/Footer2'
 import FooterQuickNavigation from '@/components/FooterQuickNavigation'
+import HideOnManageStaff from '@/components/HideOnManageStaff'
 import { getCachedSiteConfig } from '@/lib/site-config-cache'
 import { Suspense } from 'react'
 
 /**
  * Non-critical layout widgets deferred until after hydration.
  * FooterQuickNavigation mounts immediately; site config (Footer2, cookies) suspends separately.
+ * /manage ve /staff: vitrin Footer2 + cookie banner yok (panel kendi kabuğunu kullanır).
  */
 type Props = { locale: string }
 
@@ -28,9 +30,11 @@ export function DeferredFooterWidgets({ locale }: Props) {
   return (
     <>
       <FooterQuickNavigation />
-      <Suspense fallback={null}>
-        <FooterConfigWidgets locale={locale} />
-      </Suspense>
+      <HideOnManageStaff>
+        <Suspense fallback={null}>
+          <FooterConfigWidgets locale={locale} />
+        </Suspense>
+      </HideOnManageStaff>
     </>
   )
 }
