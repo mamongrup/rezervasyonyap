@@ -31,6 +31,7 @@ interface GallerySliderProps {
 function galleryToUrlStrings(galleryImgs: GallerySliderProps['galleryImgs']): string[] {
   const out: string[] = []
   for (const item of galleryImgs) {
+    if (out.length >= 5) break
     const s = typeof item === 'string' ? item : item?.src
     if (typeof s === 'string' && s.trim() !== '') out.push(s.trim())
   }
@@ -108,6 +109,8 @@ export default function GallerySlider({
                 alt="listing card gallery"
                 className={clsx(`rounded-xl object-cover`, imageClass)}
                 sizes="(max-width: 640px) 92vw, (max-width: 1024px) 46vw, (max-width: 1280px) 31vw, 24vw"
+                loading="lazy"
+                decoding="async"
                 referrerPolicy="no-referrer"
                 unoptimized={
                   currentSrc.startsWith('data:') ||

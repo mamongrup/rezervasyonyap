@@ -255,10 +255,21 @@ function normalizeListingCoverUrl(raw: string | null | undefined): string {
   return url ? resolveListingDisplayImageUrl(url) : ''
 }
 
-function normalizePublicListingGallery(paths: string[] | null | undefined): string[] {
+/**
+ * Liste/kart RSC HTML’inde tam galeri iPhone’da ~1 MB+ sayfa + bellek baskısı yaratıyordu.
+ * Kart kaydırıcısı için birkaç görsel yeterli; detay sayfası ayrı image API ile dolar.
+ */
+export const LISTING_CARD_GALLERY_LIMIT = 5
+
+function normalizePublicListingGallery(
+  paths: string[] | null | undefined,
+  limit = LISTING_CARD_GALLERY_LIMIT,
+): string[] {
   const seen = new Set<string>()
   const out: string[] = []
+  const max = Number.isFinite(limit) && limit > 0 ? Math.floor(limit) : LISTING_CARD_GALLERY_LIMIT
   for (const p of paths ?? []) {
+    if (out.length >= max) break
     const u = normalizeListingCoverUrl(p)
     if (u === '' || seen.has(u)) continue
     seen.add(u)
@@ -281,6 +292,8 @@ export type MapPublicListingItemOpts = {
   yachtPropertyTypeItems?: YachtCharterPropertyTypeItem[]
   /** Tatil evi / yat liste aramasından detay sayfasına taşınan tarih-misafir query */
   detailSearchQuery?: string
+  /** Kart galerisi üst sınırı (varsayılan {@link LISTING_CARD_GALLERY_LIMIT}) */
+  galleryLimit?: number
 }
 
 export function mapPublicListingItemToListingBase(
@@ -379,10 +392,14 @@ export function mapPublicListingItemToListingBase(
   const cleaningFeeAmount = parseFirstChargeAmount(item.cleaning_fee_amount ?? undefined)
 
   const coverRaw = normalizeListingCoverUrl(item.featured_image_url ?? item.thumbnail_url)
+  const galleryLimit = opts?.galleryLimit ?? LISTING_CARD_GALLERY_LIMIT
   let imgs = normalizePublicListingGallery(
     Array.isArray(item.gallery_urls) ? item.gallery_urls : undefined,
+    galleryLimit,
   )
-  if (coverRaw !== '' && !imgs.includes(coverRaw)) imgs.unshift(coverRaw)
+  if (coverRaw !== '' && !imgs.includes(coverRaw)) {
+    imgs = [coverRaw, ...imgs].slice(0, galleryLimit)
+  }
   const galleryImgs = imgs.length > 0 ? imgs : undefined
 
   const discountPct = coercePositiveDiscountPercent(item.discount_percent)
@@ -670,7 +687,8 @@ export async function fetchCategoryListings(
     apiQuery.sort = 'price_asc'
   }
 
-  const defaultPerPage = isStayRentalCategory(categoryCode) ? 48 : 12
+  // 48 kart × çoklu galeri RSC + JS iPhone’da sık sık yarım/boş yükleme bırakıyordu.
+  const defaultPerPage = isStayRentalCategory(categoryCode) ? 24 : 12
   const perPage = vitrinTab
     ? 100
     : Math.min(100, Math.max(1, opts.perPage ?? defaultPerPage))

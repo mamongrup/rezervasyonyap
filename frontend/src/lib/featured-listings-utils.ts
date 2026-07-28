@@ -277,6 +277,25 @@ export function slimListingForVitrinCard(listing: TListingBase): TListingBase {
 }
 
 /**
+ * Kategori page-builder istemci prop’u (`allListings`) — filtre sekmeleri için meta kalsın,
+ * galeri/harita RSC’ye tekrar gömülmesin (kartlar `listingCardsById` ile gelir).
+ */
+export function slimListingForCategoryClient(listing: TListingBase): TListingBase {
+  const slim = slimListingForVitrinCard(listing)
+  return {
+    ...slim,
+    themeCodes: listing.themeCodes,
+    themeChipLabels: listing.themeChipLabels,
+    instantBook: listing.instantBook,
+    saleOff: listing.saleOff,
+    discountPercent: listing.discountPercent,
+    isNew: listing.isNew,
+    isCampaign: listing.isCampaign,
+    createdAt: listing.createdAt,
+  }
+}
+
+/**
  * Tam kategori havuzundan sekmeleri sunucuda hesaplar; istemciye yalnızca
  * gösterilecek kartlar (+ kart alanları) gider. Lüks/ekonomik dilim hesabı
  * tam havuzda kalır; istemciye manuel tab id listesi yazılır ki yeniden

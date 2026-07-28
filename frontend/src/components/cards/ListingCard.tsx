@@ -188,7 +188,7 @@ const ListingCard: FC<ListingCardProps> = ({
         <GallerySlider
           uniqueID={String(data.id)}
           ratioClass={ratioClass}
-          galleryImgs={galleryImgs}
+          galleryImgs={galleryImgs.slice(0, 5)}
           href={listingHref}
           galleryClass={size === 'default' ? undefined : ''}
         />

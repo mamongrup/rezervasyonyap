@@ -28,6 +28,11 @@ import type { FilterOption, PageBuilderModule, TListingBase } from '@/types/list
 import type { TAuthor } from '@/data/authors'
 import { listPublicThemeItems } from '@/lib/travel-api'
 import { loadCategoryPageShellCached } from '@/lib/category-page-shell-cache'
+import {
+  listingMatchesFilter,
+  type ListingFilterMode,
+} from '@/lib/listing-filter-utils'
+import { slimListingForCategoryClient } from '@/lib/featured-listings-utils'
 import { SLUG_TO_CODE } from '@/lib/listings-fetcher'
 import { resolveListingPriceUnit } from '@/lib/listing-category-display'
 import {
@@ -272,13 +277,51 @@ export default async function CategoryPageTemplate({
     filterRegionsForHandle(rawRegionStats, currentHandle),
   )
 
-  /** Page builder (client) modüllerine fonksiyon yerine id → kart node geçir */
-  const listingCardsById: Record<string, ReactNode> | undefined =
-    allListings?.length && listingCardRenderer
-      ? Object.fromEntries(
-          allListings.map((l, i) => [l.id, listingCardRenderer(l, i)] as [string, ReactNode]),
-        )
-      : undefined
+  /** Page builder istemcisine tam galeri gömmeyin — filtre meta + kapak yeterli. */
+  const allListingsForClient =
+    allListings?.length ? allListings.map(slimListingForCategoryClient) : undefined
+
+  /**
+   * Page builder listings_* modülleri için id → kart. Tam sayfa ızgarası zaten
+   * `listingCards` ile SSR edilir; burada yalnızca her sekme/filtreden `count`
+   * kadarını üret (48 kart × 2 RSC ağacı iPhone’da yüklemeyi kırıyordu).
+   */
+  const listingCardsById: Record<string, ReactNode> | undefined = (() => {
+    if (!allListings?.length || !listingCardRenderer) return undefined
+    const neededIds = new Set<string>()
+    for (const m of resolvedModules) {
+      if (!m.enabled || (m.type !== 'listings_grid' && m.type !== 'listings_slider')) continue
+      const cfg = (m.config ?? {}) as {
+        count?: unknown
+        showTabs?: unknown
+        filterMode?: unknown
+      }
+      const countRaw = Number(cfg.count)
+      const count = Number.isFinite(countRaw) && countRaw > 0 ? Math.floor(countRaw) : 8
+      const showTabs = cfg.showTabs === true
+      const modes: ListingFilterMode[] = showTabs
+        ? ['all', 'new', 'discounted', 'campaign']
+        : [((cfg.filterMode as ListingFilterMode) || 'all')]
+      for (const mode of modes) {
+        let added = 0
+        for (const l of allListings) {
+          if (!listingMatchesFilter(l, mode)) continue
+          neededIds.add(l.id)
+          added += 1
+          if (added >= count) break
+        }
+      }
+    }
+    if (neededIds.size === 0) return undefined
+    const indexById = new Map(allListings.map((l, i) => [l.id, i] as const))
+    return Object.fromEntries(
+      [...neededIds].flatMap((id) => {
+        const l = allListings.find((x) => x.id === id)
+        if (!l) return []
+        return [[id, listingCardRenderer(l, indexById.get(id) ?? 0)] as [string, ReactNode]]
+      }),
+    )
+  })()
 
   // Read hero config from Page Builder modules (category-level, only for /all)
   const heroModule = resolvedModules.find((m) => m.type === 'hero' && m.enabled)
@@ -660,7 +703,7 @@ export default async function CategoryPageTemplate({
               </div>
             }
             categoriesNode={destinationCards}
-            allListings={allListings}
+            allListings={allListingsForClient}
             listingLinkBase={listingLinkBase}
             priceUnit={effectivePriceUnit}
             authors={authors}
