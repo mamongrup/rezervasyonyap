@@ -334,7 +334,6 @@ async function refreshListingPois(pg) {
       WHERE lp.region_type IN ('district', 'destination')
         AND trim(coalesce(elem->>'lat', '')) ~ '^-?[0-9]+(\\.[0-9]+)?$'
         AND trim(coalesce(elem->>'lng', '')) ~ '^-?[0-9]+(\\.[0-9]+)?$'
-        AND NULLIF(trim(elem->>'place_id'), '') IS NOT NULL
     ),
     service_pois AS (
       SELECT
@@ -372,7 +371,6 @@ async function refreshListingPois(pg) {
       CROSS JOIN LATERAL jsonb_array_elements(coalesce(ns.service_pois_json, '[]'::jsonb)) elem
       WHERE trim(coalesce(elem->>'lat', '')) ~ '^-?[0-9]+(\\.[0-9]+)?$'
         AND trim(coalesce(elem->>'lng', '')) ~ '^-?[0-9]+(\\.[0-9]+)?$'
-        AND NULLIF(trim(elem->>'place_id'), '') IS NOT NULL
     ),
     pois AS (
       SELECT * FROM travel_pois
@@ -386,7 +384,7 @@ async function refreshListingPois(pg) {
           ORDER BY distance_km
         ) AS dedupe_rn
       FROM pois
-      WHERE distance_km <= 30
+      WHERE distance_km <= 80
     ),
     topn AS (
       SELECT *, ROW_NUMBER() OVER (PARTITION BY listing_id ORDER BY distance_km) AS rn

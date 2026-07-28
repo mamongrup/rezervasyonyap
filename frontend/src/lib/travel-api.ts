@@ -12433,9 +12433,11 @@ export async function computeListingNearbyPois(
 ): Promise<{ listing_id: string; nearby_pois: NearbyPoi[] }> {
   const b = base()
   if (!b) throw new Error('api_not_configured')
+  const headers: Record<string, string> = {}
+  if (token.trim()) headers.Authorization = `Bearer ${token}`
   const res = await fetch(`${b}/api/v1/listings/${listingId}/compute-nearby-pois`, {
     method: 'POST',
-    headers: { Authorization: `Bearer ${token}` },
+    headers,
   })
   if (!res.ok) throw new Error(`compute_nearby_pois_${res.status}`)
   const data = await json<{ listing_id: string; nearby_pois: unknown }>(res)
@@ -12451,6 +12453,28 @@ export async function getListingNearbyPois(listingId: string): Promise<NearbyPoi
   if (!b) return []
   try {
     const res = await fetch(`${b}/api/v1/listings/${listingId}/nearby-pois`)
+    if (!res.ok) return []
+    const data = await json<{ nearby_pois: unknown }>(res)
+    return parseNearbyPoisPayload(data.nearby_pois)
+  } catch {
+    return []
+  }
+}
+
+/**
+ * Otel/villa detayında mesafeler boşsa bir kez hesaplar.
+ * Auth gerekmez; başarısız olursa mevcut (boş) listeyi döner.
+ */
+export async function ensureListingNearbyPoisSafe(listingId: string): Promise<NearbyPoi[]> {
+  const existing = await getListingNearbyPois(listingId)
+  if (existing.length > 0) return existing
+  const b = base()
+  if (!b) return []
+  try {
+    const res = await fetch(`${b}/api/v1/listings/${listingId}/compute-nearby-pois`, {
+      method: 'POST',
+      signal: AbortSignal.timeout(12_000),
+    })
     if (!res.ok) return []
     const data = await json<{ nearby_pois: unknown }>(res)
     return parseNearbyPoisPayload(data.nearby_pois)

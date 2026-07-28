@@ -65,6 +65,7 @@ import {
   fetchPublicVerticalYachtSafe,
   getBlogSlugsByTitles,
   getComputedServicePois,
+  ensureListingNearbyPoisSafe,
   getListingNearbyPois,
   getPublicHotelRooms,
   getPublicListingImages,
@@ -474,7 +475,11 @@ export default async function StayListingDetailPageContent({
     vertical === 'yacht_charter' && catalogListingId
       ? fetchPublicVerticalMetaSafe(catalogListingId, 'yacht_extra')
       : Promise.resolve(null),
-    getListingNearbyPois(listing.id),
+    (vertical === 'hotel' || isHolidayHomeListing) &&
+    listing.map?.lat != null &&
+    listing.map?.lng != null
+      ? ensureListingNearbyPoisSafe(listing.id)
+      : getListingNearbyPois(listing.id),
     getComputedServicePois(listing.id),
     resolveRegionPlacesBundleForListingPage(
       regionSlugForPlaces,
@@ -1504,7 +1509,14 @@ export default async function StayListingDetailPageContent({
   const renderListingLocationSection = () => (
     <div id="stay-section-location" className="scroll-mt-28 space-y-5">
       <SectionMap locale={locale} lat={map?.lat} lng={map?.lng} address={address} heading={dp.location} />
-      {isHolidayHome && holidayHomeNearbyPlacesData ? (
+      {hasListingDistanceColumns && listingDistanceColumns ? (
+        <HotelListingDistancesSection
+          locale={locale}
+          historicPlaces={listingDistanceColumns.historic}
+          surroundings={listingDistanceColumns.surroundings}
+          transport={listingDistanceColumns.transport}
+        />
+      ) : isHolidayHome && holidayHomeNearbyPlacesData ? (
         <ListingNearbyPlacesVitrinSection
           locale={locale}
           placesData={holidayHomeNearbyPlacesData}
@@ -1514,14 +1526,7 @@ export default async function StayListingDetailPageContent({
           nearbyPois={nearbyPois}
           title={dp.nearbyPlaces}
         />
-      ) : hasListingDistanceColumns && listingDistanceColumns ? (
-        <HotelListingDistancesSection
-          locale={locale}
-          historicPlaces={listingDistanceColumns.historic}
-          surroundings={listingDistanceColumns.surroundings}
-          transport={listingDistanceColumns.transport}
-        />
-      ) : hasServicePoiDistances && isStayRental ? (
+      ) : hasServicePoiDistances && (isStayRental || vertical === 'hotel') ? (
         <ListingServicePoisSection
           locale={locale}
           amenities={servicePois.amenities}

@@ -203,6 +203,26 @@ export function buildHotelDistanceColumnsFromFacilitySections(
   return result
 }
 
+function distanceItemKey(name: string): string {
+  return name.toLocaleLowerCase('tr').replace(/\s+/g, ' ').trim()
+}
+
+function mergeDistanceItems(
+  base: HotelDistanceItem[],
+  extra: HotelDistanceItem[],
+  limit: number,
+): HotelDistanceItem[] {
+  const seen = new Set(base.map((item) => distanceItemKey(item.name)).filter(Boolean))
+  const out = [...base]
+  for (const item of extra) {
+    const key = distanceItemKey(item.name)
+    if (!key || seen.has(key)) continue
+    seen.add(key)
+    out.push(item)
+  }
+  return out.sort((a, b) => a.distanceKm - b.distanceKm).slice(0, limit)
+}
+
 export function buildHotelListingDistanceColumns(input: {
   nearbyPois: NearbyPoi[]
   servicePois: ListingServicePois
@@ -217,26 +237,40 @@ export function buildHotelListingDistanceColumns(input: {
   )
 
   const nearbyColumns: HotelDistanceColumns = { historic: [], surroundings: [], transport: [] }
-  for (const poi of sortedNearby.slice(0, 9)) {
-    nearbyColumns[classifyDistanceName(poi.title)].push({
-      name: poi.title,
+  for (const poi of sortedNearby.slice(0, 18)) {
+    const name = String(poi.title ?? '').trim()
+    if (!name) continue
+    nearbyColumns[classifyDistanceName(name)].push({
+      name,
       distanceKm: poi.distance_km ?? 0,
     })
   }
-  let historic = nearbyColumns.historic
-  let surroundings = nearbyColumns.surroundings
 
-  if (surroundings.length === 0 && input.servicePois.amenities.length > 0) {
-    surroundings = input.servicePois.amenities.slice(0, 3).map((poi) => ({
-      name: poi.label?.trim() || poi.type,
-      distanceKm: poi.distance_km,
-    }))
+  let historic = nearbyColumns.historic.slice(0, 6)
+  let surroundings = nearbyColumns.surroundings.slice(0, 6)
+  let transport = nearbyColumns.transport.slice(0, 6)
+
+  if (input.servicePois.amenities.length > 0) {
+    surroundings = mergeDistanceItems(
+      surroundings,
+      input.servicePois.amenities.map((poi) => ({
+        name: poi.label?.trim() || poi.type,
+        distanceKm: poi.distance_km,
+      })),
+      6,
+    )
   }
 
-  let transport = input.servicePois.transport.slice(0, 6).map((poi) => ({
-    name: poi.label?.trim() || poi.type,
-    distanceKm: poi.distance_km,
-  }))
+  if (input.servicePois.transport.length > 0) {
+    transport = mergeDistanceItems(
+      transport,
+      input.servicePois.transport.map((poi) => ({
+        name: poi.label?.trim() || poi.type,
+        distanceKm: poi.distance_km,
+      })),
+      6,
+    )
+  }
 
   if (input.useDemoFallback) {
     if (historic.length === 0) historic = [...HOTEL_DEMO_DISTANCES.historic]
