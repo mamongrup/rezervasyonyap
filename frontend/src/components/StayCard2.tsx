@@ -7,6 +7,7 @@ import StartRating from '@/components/StartRating'
 import { displayListingCategoryLine } from '@/lib/listing-category-display'
 import { holidayHomeCapacitySummary } from '@/lib/holiday-home-capacity-summary'
 import { nextListingImageUrlFallback } from '@/lib/listing-image-url-fallbacks'
+import { shouldUnoptimizeListingImage } from '@/lib/listing-image-optimization'
 import { preferListingCardImageUrl } from '@/lib/prefer-listing-card-image'
 import type { TListingBase, TListingHolidayHome } from '@/types/listing-types'
 import { Badge } from '@/shared/Badge'
@@ -90,12 +91,7 @@ const StayCard2: FC<StayCard2Props> = ({ size = 'default', className = '', data 
                 alt={title ?? 'listing'}
                 className="object-cover transition-transform duration-300 group-hover:scale-105"
                 sizes="(max-width: 640px) 92vw, (max-width: 1024px) 46vw, (max-width: 1280px) 31vw, 24vw"
-                unoptimized={
-                  imageSrc.startsWith('data:') ||
-                  imageSrc.startsWith('/uploads/') ||
-                  imageSrc.startsWith('/api/listing-ext-image') ||
-                  /^https?:\/\//i.test(imageSrc)
-                }
+                unoptimized={shouldUnoptimizeListingImage(imageSrc)}
                 onError={() => {
                   const next = nextListingImageUrlFallback(imageSrc, new Set(tried))
                   if (next) {

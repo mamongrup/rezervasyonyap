@@ -6,6 +6,7 @@ import SaleOffBadge from '@/components/SaleOffBadge'
 import StartRating from '@/components/StartRating'
 import type { TListingBase } from '@/types/listing-types'
 import { nextListingImageUrlFallback } from '@/lib/listing-image-url-fallbacks'
+import { shouldUnoptimizeListingImage } from '@/lib/listing-image-optimization'
 import { preferListingCardImageUrl } from '@/lib/prefer-listing-card-image'
 import { Badge } from '@/shared/Badge'
 import { Location06Icon } from '@hugeicons/core-free-icons'
@@ -78,12 +79,7 @@ const StayCard: FC<StayCardProps> = ({ size = 'default', className = '', data })
                 alt={title ?? 'listing'}
                 className="object-cover transition-transform duration-300 group-hover:scale-105"
                 sizes="(max-width: 640px) 92vw, (max-width: 1024px) 46vw, (max-width: 1280px) 31vw, 24vw"
-                unoptimized={
-                  imageSrc.startsWith('data:') ||
-                  imageSrc.startsWith('/uploads/') ||
-                  imageSrc.startsWith('/api/listing-ext-image') ||
-                  /^https?:\/\//i.test(imageSrc)
-                }
+                unoptimized={shouldUnoptimizeListingImage(imageSrc)}
                 onError={() => {
                   const next = nextListingImageUrlFallback(imageSrc, new Set(tried))
                   if (next) {

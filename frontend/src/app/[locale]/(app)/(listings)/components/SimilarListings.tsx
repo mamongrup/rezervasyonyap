@@ -2,6 +2,7 @@
 
 import ListingPrice from '@/components/ListingPrice'
 import StartRating from '@/components/StartRating'
+import { shouldUnoptimizeListingImage } from '@/lib/listing-image-optimization'
 import { useLocaleSegment } from '@/contexts/locale-context'
 import useSnapSlider from '@/hooks/useSnapSlider'
 import { ButtonCircle } from '@/shared/Button'
@@ -61,11 +62,7 @@ function SimilarListingCard({
             fill
             className="object-cover transition-transform duration-300 group-hover:scale-105"
             sizes="(max-width: 640px) 78vw, (max-width: 1024px) 46vw, 25vw"
-            unoptimized={
-              imgSrc.startsWith('data:') ||
-              imgSrc.startsWith('/uploads/') ||
-              /^https?:\/\//i.test(imgSrc)
-            }
+            unoptimized={shouldUnoptimizeListingImage(imgSrc)}
             onError={() => setBrokenImage(true)}
           />
         ) : (

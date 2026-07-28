@@ -7,6 +7,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { ArrowLeft02Icon, ArrowRight02Icon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { nextListingImageUrlFallback } from '@/lib/listing-image-url-fallbacks'
+import { shouldUnoptimizeListingImage } from '@/lib/listing-image-optimization'
 
 interface GallerySliderProps {
   className?: string
@@ -112,12 +113,7 @@ export default function GallerySlider({
                 loading="lazy"
                 decoding="async"
                 referrerPolicy="no-referrer"
-                unoptimized={
-                  currentSrc.startsWith('data:') ||
-                  currentSrc.startsWith('/uploads/') ||
-                  currentSrc.startsWith('/api/listing-ext-image') ||
-                  /^https?:\/\//i.test(currentSrc)
-                }
+                unoptimized={shouldUnoptimizeListingImage(currentSrc)}
                 onError={() => onImageError(index)}
               />
             ) : (

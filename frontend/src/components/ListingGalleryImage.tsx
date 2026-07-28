@@ -4,6 +4,7 @@
  * İlan galeri/hero görseli — 404/403'te kardeş uzantı dener (avif↔webp↔jpg).
  */
 import { nextListingImageUrlFallback } from '@/lib/listing-image-url-fallbacks'
+import { shouldUnoptimizeListingImage } from '@/lib/listing-image-optimization'
 import Image, { type ImageProps } from 'next/image'
 import { useEffect, useState } from 'react'
 
@@ -30,10 +31,7 @@ export default function ListingGalleryImage({ src, alt, ...rest }: Props) {
 
   const unoptimized =
     rest.unoptimized ??
-    (current.startsWith('data:') ||
-      current.startsWith('/uploads/') ||
-      current.startsWith('/api/listing-ext-image') ||
-      /^https?:\/\//i.test(current))
+    shouldUnoptimizeListingImage(current)
 
   return (
     <Image
