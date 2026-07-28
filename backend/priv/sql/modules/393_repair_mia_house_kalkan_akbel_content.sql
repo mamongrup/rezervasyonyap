@@ -36,7 +36,7 @@ WHERE la.listing_id = l.id
 INSERT INTO listing_translations (listing_id, locale_id, title, description)
 SELECT l.id, lo.id, 'Mia House Villa', $dtr$<section>
 <h2>Mia House Villa: Kalkan Akbel’de deniz manzaralı tiny house</h2>
-<p>Mia House Villa, Antalya’nın Kalkan beldesinde Akbel mevkiinde yer alan, 2 kişilik tiny house konseptli bir tatil evidir. Panoramik deniz manzarası, özel korunaklı yüzme havuzu ve terastaki jakuzi ile özellikle çiftler ve balayı konukları için düzenlenmiştir. Fethiye veya Çalış Plajı ile ilgisi yoktur; villa Kalkan Akbel’dedir.</p>
+<p>Mia House Villa, Antalya’nın Kalkan beldesinde Akbel mevkiinde yer alan, 2 kişilik tiny house konseptli bir tatil evidir. Panoramik deniz manzarası, özel korunaklı yüzme havuzu ve terastaki jakuzi ile özellikle çiftler ve balayı konukları için düzenlenmiştir.</p>
 <h2>Konaklama</h2>
 <ul>
 <li>1 yatak odası (çift kişilik yatak), 1 banyo</li>
@@ -70,7 +70,7 @@ ON CONFLICT (listing_id, locale_id) DO UPDATE SET
 INSERT INTO listing_translations (listing_id, locale_id, title, description)
 SELECT l.id, lo.id, 'Mia House Villa', $den$<section>
 <h2>Mia House Villa — sea-view tiny house in Kalkan Akbel</h2>
-<p>Mia House Villa is a 2-guest tiny house in Akbel, Kalkan (Antalya). It offers a panoramic sea view, a private sheltered pool and a terrace jacuzzi — designed for couples. It is not in Fethiye or near Çalış Beach.</p>
+<p>Mia House Villa is a 2-guest tiny house in Akbel, Kalkan (Antalya). It offers a panoramic sea view, a private sheltered pool and a terrace jacuzzi — designed for couples.</p>
 <ul>
 <li>1 bedroom, 1 bathroom, max 2 guests</li>
 <li>Private pool about 7.5 × 3 × 1.5 m</li>
@@ -89,7 +89,7 @@ ON CONFLICT (listing_id, locale_id) DO UPDATE SET
 INSERT INTO listing_translations (listing_id, locale_id, title, description)
 SELECT l.id, lo.id, 'Mia House Villa', $dde$<section>
 <h2>Mia House Villa — Tiny House mit Meerblick in Kalkan Akbel</h2>
-<p>Mia House Villa ist ein Tiny House für 2 Personen in Akbel, Kalkan (Antalya), mit Panoramameerblick, privatem Pool und Jacuzzi auf der Terrasse. Die Villa liegt nicht in Fethiye und nicht an der Çalış-Bucht.</p>
+<p>Mia House Villa ist ein Tiny House für 2 Personen in Akbel, Kalkan (Antalya), mit Panoramameerblick, privatem Pool und Jacuzzi auf der Terrasse.</p>
 <ul>
 <li>1 Schlafzimmer, 1 Bad, max. 2 Gäste</li>
 <li>Privater Pool ca. 7,5 × 3 × 1,5 m</li>
@@ -107,7 +107,7 @@ ON CONFLICT (listing_id, locale_id) DO UPDATE SET
 INSERT INTO listing_translations (listing_id, locale_id, title, description)
 SELECT l.id, lo.id, 'Mia House Villa', $dru$<section>
 <h2>Mia House Villa — tiny house с видом на море в Kalkan Akbel</h2>
-<p>Mia House Villa — дом для двоих в районе Akbel, Kalkan (Antalya): панорамный вид на море, частный бассейн и джакузи на террасе. Это не Fethiye и не пляж Çalış.</p>
+<p>Mia House Villa — дом для двоих в районе Akbel, Kalkan (Antalya): панорамный вид на море, частный бассейн и джакузи на террасе.</p>
 <ul>
 <li>1 спальня, 1 ванная, до 2 гостей</li>
 <li>Бассейн ок. 7,5 × 3 × 1,5 м</li>
@@ -125,7 +125,7 @@ ON CONFLICT (listing_id, locale_id) DO UPDATE SET
 INSERT INTO listing_translations (listing_id, locale_id, title, description)
 SELECT l.id, lo.id, 'Mia House Villa', $dzh$<section>
 <h2>Mia House Villa — 位于 Kalkan Akbel 的海景 tiny house</h2>
-<p>Mia House Villa 位于 Antalya 省 Kalkan 的 Akbel，为 2 人设计的 tiny house，享有海景、私人泳池与露台按摩浴缸。不在 Fethiye，也不靠近 Çalış 海滩。</p>
+<p>Mia House Villa 位于 Antalya 省 Kalkan 的 Akbel，为 2 人设计的 tiny house，享有海景、私人泳池与露台按摩浴缸。</p>
 <ul>
 <li>1 间卧室、1 间浴室，最多 2 人</li>
 <li>私人泳池约 7.5 × 3 × 1.5 米</li>
@@ -143,7 +143,7 @@ ON CONFLICT (listing_id, locale_id) DO UPDATE SET
 INSERT INTO listing_translations (listing_id, locale_id, title, description)
 SELECT l.id, lo.id, 'Mia House Villa', $dfr$<section>
 <h2>Mia House Villa — tiny house avec vue mer à Kalkan Akbel</h2>
-<p>Mia House Villa est un tiny house pour 2 personnes à Akbel, Kalkan (Antalya), avec vue mer panoramique, piscine privée et jacuzzi sur la terrasse. Elle n’est pas à Fethiye ni près de la plage de Çalış.</p>
+<p>Mia House Villa est un tiny house pour 2 personnes à Akbel, Kalkan (Antalya), avec vue mer panoramique, piscine privée et jacuzzi sur la terrasse.</p>
 <ul>
 <li>1 chambre, 1 salle de bain, max. 2 personnes</li>
 <li>Piscine privée env. 7,5 × 3 × 1,5 m</li>
