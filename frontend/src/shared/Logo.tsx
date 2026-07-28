@@ -106,6 +106,7 @@ export interface BrandingConfig {
   logo_mode?: 'image' | 'icon_text'
   logo_text_line1?: string
   logo_text_line2?: string
+  logo_text_line1_color?: string
   logo_text_line2_color?: string
   site_name?: string
   category_logos?: Record<string, CategoryLogo>
@@ -400,6 +401,7 @@ const Logo: React.FC<LogoProps> = ({ className = 'w-auto', src, darkSrc, alt, in
           logo_mode: b.logo_mode,
           logo_text_line1: b.logo_text_line1,
           logo_text_line2: b.logo_text_line2,
+          logo_text_line1_color: b.logo_text_line1_color,
           logo_text_line2_color: b.logo_text_line2_color,
           site_name: b.site_name ?? (cfg as { site_name?: string }).site_name,
           category_logos: b.category_logos as Record<string, CategoryLogo> | undefined,
@@ -470,8 +472,8 @@ const Logo: React.FC<LogoProps> = ({ className = 'w-auto', src, darkSrc, alt, in
   if (!catLogo && branding.logo_mode === 'icon_text' && iconUrl && !iconFailed) {
     const line1 = branding.logo_text_line1 || branding.site_name || ''
     const line2 = branding.logo_text_line2 || ''
-    // Varsayılan turuncu WCAG AA (≥4.5:1) — panel #f97316 verse bile
-    // accessibleOnWhite light modda koyulaştırır; SSR'da da güvenli başlangıç.
+    // Varsayılan: satır1 koyu nötr, satır2 turuncu (WCAG için light'ta koyulaştırılır).
+    const line1Color = branding.logo_text_line1_color || '#171717'
     const line2Color = branding.logo_text_line2_color || '#c2410c'
 
     return (
@@ -487,7 +489,19 @@ const Logo: React.FC<LogoProps> = ({ className = 'w-auto', src, darkSrc, alt, in
         />
         <span className="inline-flex items-baseline gap-1 leading-none whitespace-nowrap">
           {line1 && (
-            <span className="text-[18px] font-bold tracking-tight text-neutral-900 dark:text-white">{line1}</span>
+            <span
+              className="text-[18px] font-bold tracking-tight text-[color:var(--logo-line1)] dark:text-[color:var(--logo-line1-dark)]"
+              style={
+                {
+                  '--logo-line1': accessibleOnWhite(line1Color),
+                  '--logo-line1-dark': line1Color === '#171717' || line1Color.toLowerCase() === '#000000'
+                    ? '#ffffff'
+                    : line1Color,
+                } as React.CSSProperties
+              }
+            >
+              {line1}
+            </span>
           )}
           {line2 && (
             <span

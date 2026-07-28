@@ -260,6 +260,7 @@ export default function GeneralSettingsClient({ embedded = false }: GeneralSetti
   const [logoIconUrl, setLogoIconUrl] = useState('')
   const [logoTextLine1, setLogoTextLine1] = useState('')
   const [logoTextLine2, setLogoTextLine2] = useState('')
+  const [logoTextLine1Color, setLogoTextLine1Color] = useState('#171717')
   const [logoTextLine2Color, setLogoTextLine2Color] = useState('#f97316')
   const [categories, setCategories] = useState<ProductCategoryRow[]>([])
   const [travelHomeCategorySlugs, setTravelHomeCategorySlugs] = useState<string[]>(() =>
@@ -386,6 +387,7 @@ export default function GeneralSettingsClient({ embedded = false }: GeneralSetti
       if (typeof branding.logo_icon_url === 'string') setLogoIconUrl(branding.logo_icon_url)
       if (typeof branding.logo_text_line1 === 'string') setLogoTextLine1(branding.logo_text_line1)
       if (typeof branding.logo_text_line2 === 'string') setLogoTextLine2(branding.logo_text_line2)
+      if (typeof branding.logo_text_line1_color === 'string') setLogoTextLine1Color(branding.logo_text_line1_color)
       if (typeof branding.logo_text_line2_color === 'string') setLogoTextLine2Color(branding.logo_text_line2_color)
       if (typeof branding.public_contact_email === 'string') setPublicContactEmail(branding.public_contact_email)
       if (typeof branding.public_phone === 'string') setPublicPhone(branding.public_phone)
@@ -416,6 +418,7 @@ export default function GeneralSettingsClient({ embedded = false }: GeneralSetti
         logo_icon_url: _li,
         logo_text_line1: _lt1,
         logo_text_line2: _lt2,
+        logo_text_line1_color: _lt1c,
         logo_text_line2_color: _lt2c,
         public_contact_email: _pce,
         public_phone: _pp,
@@ -742,6 +745,7 @@ export default function GeneralSettingsClient({ embedded = false }: GeneralSetti
         logo_icon_url: logoIconUrl.trim(),
         logo_text_line1: logoTextLine1.trim(),
         logo_text_line2: logoTextLine2.trim(),
+        logo_text_line1_color: logoTextLine1Color.trim(),
         logo_text_line2_color: logoTextLine2Color.trim(),
         category_logos: categoryLogos,
         home_page_links: homePageLinks
@@ -796,6 +800,7 @@ export default function GeneralSettingsClient({ embedded = false }: GeneralSetti
         logo_icon_url: logoIconUrl.trim(),
         logo_text_line1: logoTextLine1.trim(),
         logo_text_line2: logoTextLine2.trim(),
+        logo_text_line1_color: logoTextLine1Color.trim(),
         logo_text_line2_color: logoTextLine2Color.trim(),
         category_logos: categoryLogos,
         home_page_links: homePageLinks
@@ -1204,7 +1209,10 @@ export default function GeneralSettingsClient({ embedded = false }: GeneralSetti
                       )}
                       <span className="inline-flex items-baseline gap-1 leading-none whitespace-nowrap">
                         {(logoTextLine1 || siteName) && (
-                          <span className="text-[17px] font-bold tracking-tight text-neutral-900 dark:text-white">
+                          <span
+                            className="text-[17px] font-bold tracking-tight"
+                            style={{ color: logoTextLine1Color || '#171717' }}
+                          >
                             {logoTextLine1 || siteName}
                           </span>
                         )}
@@ -1219,7 +1227,7 @@ export default function GeneralSettingsClient({ embedded = false }: GeneralSetti
                   </div>
                 </div>
 
-                <div className="grid gap-4 sm:grid-cols-3">
+                <div className="grid gap-4 sm:grid-cols-2">
                   <Field className="block">
                     <Label>1. Satır (Ana Metin)</Label>
                     <Input
@@ -1229,6 +1237,23 @@ export default function GeneralSettingsClient({ embedded = false }: GeneralSetti
                       placeholder={siteName || 'Rezervasyon'}
                     />
                     <p className="mt-1 text-xs text-neutral-400">Boş bırakılırsa Site Adı kullanılır.</p>
+                  </Field>
+                  <Field className="block">
+                    <Label>1. Satır Rengi</Label>
+                    <div className="mt-1 flex items-center gap-2">
+                      <input
+                        type="color"
+                        value={logoTextLine1Color || '#171717'}
+                        onChange={(e) => setLogoTextLine1Color(e.target.value)}
+                        className="h-9 w-12 cursor-pointer rounded-lg border border-neutral-200 p-0.5 dark:border-neutral-700"
+                      />
+                      <Input
+                        value={logoTextLine1Color}
+                        onChange={(e) => setLogoTextLine1Color(e.target.value)}
+                        placeholder="#171717"
+                        className="font-mono"
+                      />
+                    </div>
                   </Field>
                   <Field className="block">
                     <Label>2. Satır (Alt Metin)</Label>
