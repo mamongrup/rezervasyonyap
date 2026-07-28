@@ -46,7 +46,7 @@ import { sanitizeRichCmsHtml } from '@/lib/sanitize-cms-html'
 import { buildExperienceListingDetailJsonLd } from '@/lib/seo/listing-detail-jsonld'
 import { getSitePublicConfig } from '@/lib/site-public-config'
 import { buildListingOgImageUrl } from '@/lib/social-share/listing-og-image-url'
-import { stripHtml } from '@/lib/social-share/strip-html'
+import { listingMetaDescription, stripHtml } from '@/lib/social-share/strip-html'
 import { normalizeStayLocationPin } from '@/lib/stay-location-display'
 import { resolveTourCountryCards } from '@/lib/tour-countries-resolve'
 import { parseTourDescription, tourFlightScheduleInsertAfterSectionId } from '@/lib/tour-description-parser'
@@ -301,7 +301,7 @@ export async function generateExperienceListingMetadata({
     }
   }
 
-  const plainDesc = listing.description ? stripHtml(listing.description) : listing.title
+  const plainDesc = listingMetaDescription(listing.title, listing.description)
   const ogImage = buildListingOgImageUrl({ kind: 'experience', handle, locale })
 
   return {

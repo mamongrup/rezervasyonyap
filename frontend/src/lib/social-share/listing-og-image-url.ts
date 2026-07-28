@@ -23,5 +23,9 @@ export function buildListingOgImageUrl(opts: {
   if (opts.title) u.searchParams.set('title', opts.title)
   if (opts.categoryCode) u.searchParams.set('category_code', opts.categoryCode)
   if (opts.themeCodes) u.searchParams.set('theme_codes', opts.themeCodes)
+  // WhatsApp/Facebook OG önbelleğini kırmak için — overlay'siz kapak sürümü
+  if (!opts.variant || opts.variant === 'og') {
+    u.searchParams.set('v', '2')
+  }
   return u.toString()
 }
