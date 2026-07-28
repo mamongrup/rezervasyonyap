@@ -27,9 +27,12 @@ import {
 } from '@/lib/hotel-detail-demo-content'
 import { formatListingLocationHierarchy, normalizeStayLocationPin } from '@/lib/stay-location-display'
 import { normalizeCatalogVertical, type CatalogListingVerticalCode } from '@/lib/catalog-listing-vertical'
+import { minNightlyFromListingPriceRules } from '@/lib/listing-price-rules-public'
 import {
   getPublicListingImages,
+  getPublicListingPriceRules,
   getPublicListingVitrine,
+  getPublicMealPlans,
   getVerticalMeta,
   fetchPublicHolidayHomeFaqTemplate,
   fetchPublicYachtCharterFaqTemplate,
@@ -165,6 +168,21 @@ export const getStayListingByHandle = cache(async (
   if (!item) {
     if (!vitrine) return null
     const verticalFallback = expectedCategoryCode ?? 'holiday_home'
+    // Fiyat kapısı aramayı boş bıraktığında meal_plans / price_rules'tan başlangıç fiyatı.
+    const [mealPlans, priceRules] = await Promise.all([
+      getPublicMealPlans(catalogId),
+      getPublicListingPriceRules(catalogId),
+    ])
+    const mealMin = mealPlans
+      .filter((p) => p.is_active && p.price_per_night > 0)
+      .reduce<number | null>((min, p) => (min == null ? p.price_per_night : Math.min(min, p.price_per_night)), null)
+    const ruleMin = minNightlyFromListingPriceRules(priceRules)
+    const hydratedFrom =
+      mealMin != null && mealMin > 0
+        ? mealMin
+        : ruleMin != null && ruleMin > 0
+          ? ruleMin
+          : null
     item = {
       id: catalogId,
       slug: handle,
@@ -173,7 +191,7 @@ export const getStayListingByHandle = cache(async (
       listing_vertical: verticalFallback,
       featured_image_url: null,
       thumbnail_url: null,
-      price_from: null,
+      price_from: hydratedFrom != null ? String(hydratedFrom) : null,
       location: vitrine.location_label ?? null,
       review_avg: null,
       discount_percent: null,

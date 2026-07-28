@@ -239,6 +239,35 @@ export function hotelListingHasRoomScopedPrices(input: {
 }
 
 /**
+ * İlan “başlangıç fiyatı” (sidebar): yemek planı / kural / priceAmount yoksa
+ * odaların kendi geceliklerinden minimumu al. Sentetik oda sayılmaz.
+ */
+export function minHotelRoomOwnedNightly(input: {
+  rooms: readonly { id: string; name: string; meta_json?: string | null }[]
+  priceRules?: readonly ListingPriceRuleRow[] | null
+  rangeStart?: Date | null
+  rangeEnd?: Date | null
+}): number {
+  let min = 0
+  for (const room of input.rooms) {
+    if (isSyntheticHotelRoomId(room.id)) continue
+    const n = resolveHotelRoomFallbackNightly({
+      roomId: room.id,
+      roomName: room.name,
+      metaJson: room.meta_json,
+      rangeStart: input.rangeStart,
+      rangeEnd: input.rangeEnd,
+      priceRules: input.priceRules,
+      listingFallbackNightly: 0,
+      // Yalnızca odaya ait oranlar; ilan min’ine düşme.
+      listingHasRoomScopedPrices: true,
+    })
+    if (n > 0) min = min === 0 ? n : Math.min(min, n)
+  }
+  return min
+}
+
+/**
  * Oda kartı / rezervasyon paneli için gecelik taban.
  * Oda kapsamlı fiyat varken ilan minimumunu her odaya kopyalamaz.
  */
