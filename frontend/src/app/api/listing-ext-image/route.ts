@@ -2,12 +2,20 @@ import { isAllowedListingExtImageHost } from '@/lib/listing-ext-image-proxy'
 import { unwrapKplusCdnUrl, rewriteAegeanHotelsImageToBookeder } from '@/lib/listing-gallery-display-url'
 import { repairExternalListingImageExt } from '@/lib/listing-image-url-fallbacks'
 import { NextRequest, NextResponse } from 'next/server'
+import sharp from 'sharp'
 
 export const dynamic = 'force-dynamic'
 
 const FETCH_TIMEOUT_MS = 12_000
 const USER_AGENT =
   'Mozilla/5.0 (compatible; RezervasyonYapListingImage/1.0; +https://rezervasyonyap.tr)'
+const IMMUTABLE_IMAGE_CACHE =
+  'public, max-age=31536000, s-maxage=31536000, stale-while-revalidate=604800, immutable'
+
+function boundedInt(raw: string | null, fallback: number, min: number, max: number): number {
+  const value = Number.parseInt(raw ?? '', 10)
+  return Number.isFinite(value) ? Math.min(max, Math.max(min, value)) : fallback
+}
 
 function normalizeUpstreamUrl(raw: string): string | null {
   const trimmed = raw.trim()
@@ -38,6 +46,11 @@ function normalizeUpstreamUrl(raw: string): string | null {
 
 export async function GET(req: NextRequest) {
   const raw = req.nextUrl.searchParams.get('u')?.trim() ?? ''
+  const requestedWidth = req.nextUrl.searchParams.has('w')
+    ? boundedInt(req.nextUrl.searchParams.get('w'), 720, 240, 1600)
+    : null
+  const quality = boundedInt(req.nextUrl.searchParams.get('q'), 72, 48, 86)
+  const requestedFormat = req.nextUrl.searchParams.get('format')?.trim().toLowerCase()
   const upstreamUrl = normalizeUpstreamUrl(raw)
   if (!upstreamUrl) {
     return NextResponse.json({ error: 'invalid_image_url' }, { status: 400 })
@@ -82,11 +95,39 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'upstream_not_image' }, { status: 502 })
     }
 
+    if (requestedWidth != null && requestedFormat === 'webp') {
+      const original = Buffer.from(await upstream.arrayBuffer())
+      try {
+        const optimized = await sharp(original)
+          .rotate()
+          .resize({ width: requestedWidth, withoutEnlargement: true })
+          .webp({ quality, effort: 4 })
+          .toBuffer()
+        return new NextResponse(new Uint8Array(optimized), {
+          status: 200,
+          headers: {
+            'Content-Type': 'image/webp',
+            'Content-Length': String(optimized.byteLength),
+            'Cache-Control': IMMUTABLE_IMAGE_CACHE,
+          },
+        })
+      } catch {
+        return new NextResponse(new Uint8Array(original), {
+          status: 200,
+          headers: {
+            'Content-Type': contentType,
+            'Content-Length': String(original.byteLength),
+            'Cache-Control': IMMUTABLE_IMAGE_CACHE,
+          },
+        })
+      }
+    }
+
     return new NextResponse(upstream.body, {
       status: 200,
       headers: {
         'Content-Type': contentType,
-        'Cache-Control': 'public, max-age=86400, stale-while-revalidate=604800',
+        'Cache-Control': IMMUTABLE_IMAGE_CACHE,
       },
     })
   } catch {
