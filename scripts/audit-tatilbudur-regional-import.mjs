@@ -35,13 +35,19 @@ try {
      ORDER BY tr.title`,
     [names.map((name) => name.trim())],
   )
+  const titleKey = (value) => String(value || '')
+    .normalize('NFKD')
+    .replace(/\p{M}/gu, '')
+    .toLocaleLowerCase('tr-TR')
+    .replace(/ı/g, 'i')
+    .trim()
   const byName = new Map()
   for (const row of result.rows) {
-    const key = row.title.toLocaleLowerCase('tr-TR')
+    const key = titleKey(row.title)
     const current = byName.get(key)
     if (!current || row.language_count > current.language_count) byName.set(key, row)
   }
-  const rows = names.map((name) => byName.get(name.toLocaleLowerCase('tr-TR')) || { title: name, missing: true })
+  const rows = names.map((name) => byName.get(titleKey(name)) || { title: name, missing: true })
   console.table(rows)
   console.log(JSON.stringify({
     requested: names.length,
