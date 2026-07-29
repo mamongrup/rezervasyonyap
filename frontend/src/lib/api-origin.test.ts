@@ -18,7 +18,6 @@ describe('isSameDeploymentSiteHost', () => {
     expect(isSameDeploymentSiteHost('rezervasyonyap.tr')).toBe(true)
     expect(isSameDeploymentSiteHost('www.rezervasyonyap.com.tr')).toBe(true)
     expect(isSameDeploymentSiteHost('reservationinturkey.com')).toBe(true)
-    expect(isSameDeploymentSiteHost('www.tatil-evi.com')).toBe(true)
   })
 
   it('rejects unrelated hosts', () => {
@@ -41,11 +40,10 @@ describe('shouldPreferPageOriginForApi', () => {
     ).toBe(true)
   })
 
-  it('treats international / tatil-evi aliases as same deployment vs primary API host', () => {
+  it('treats the international alias as the same deployment as the primary API host', () => {
     expect(
       shouldPreferPageOriginForApi('rezervasyonyap.tr', 'www.reservationinturkey.com'),
     ).toBe(true)
-    expect(shouldPreferPageOriginForApi('rezervasyonyap.tr', 'tatil-evi.com')).toBe(true)
   })
 
   it('does not collapse unrelated API hosts', () => {

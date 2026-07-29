@@ -9,9 +9,9 @@ import { getSitePublicConfig, type SitePublicConfig } from './travel-api'
 
 export const getCachedSiteConfig = cache(async (): Promise<SitePublicConfig | null> => {
   try {
-    // Site config yalnız admin panelinden değişir; 15s aşırı sık disk cache yazımı
-    // (fetch-cache I/O) yaratıyordu. 1 saat yeterli.
-    return await getSitePublicConfig(undefined, withDevNoStore({ next: { revalidate: 3600 } }))
+    // Domain bazlı marka ayarları değiştiğinde SSR çıktısı da kısa sürede yenilensin.
+    // İstemci Logo bileşeni ayrıca no-store ile anlık günceller.
+    return await getSitePublicConfig(undefined, withDevNoStore({ next: { revalidate: 60 } }))
   } catch {
     return null
   }

@@ -31,7 +31,6 @@ export const SAME_DEPLOYMENT_SITE_APEXES = [
   'rezervasyonyap.tr',
   'rezervasyonyap.com.tr',
   'reservationinturkey.com',
-  'tatil-evi.com',
 ] as const
 
 export function isSameDeploymentSiteHost(hostname: string): boolean {

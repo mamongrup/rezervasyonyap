@@ -34,11 +34,8 @@ grep -q '^DATABASE_URL=keep-me$' "$backend"
 grep -q 'custom.example' "$tmp"
 grep -q 'reservationinturkey.com' "$tmp"
 grep -q 'rezervasyonyap.com.tr' "$tmp"
-grep -q 'tatil-evi.com' "$tmp"
 grep -q 'legacy.example' "$tmp"
 grep -q 'https://custom.example' "$backend"
-grep -q 'https://tatil-evi.com' "$backend"
-! grep '^INTERNATIONAL_SITE_HOSTS=' "$tmp" | grep -q 'tatil-evi.com'
 
 FRONTEND_ENV_FILE="$missing" BACKEND_ENV_FILE="$backend_missing" bash "$SCRIPT_DIR/ensure-multidomain-frontend-env.sh"
 grep -q '^ALLOWED_HOSTS=' "$missing"

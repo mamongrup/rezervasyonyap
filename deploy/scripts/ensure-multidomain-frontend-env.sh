@@ -5,9 +5,9 @@ set -euo pipefail
 
 ENV_FILE="${FRONTEND_ENV_FILE:-/etc/rezervasyonyap/frontend.env}"
 BACKEND_ENV_FILE="${BACKEND_ENV_FILE:-/etc/rezervasyonyap/backend.env}"
-REQUIRED_ALLOWED_HOSTS="rezervasyonyap.tr,www.rezervasyonyap.tr,rezervasyonyap.com.tr,www.rezervasyonyap.com.tr,reservationinturkey.com,www.reservationinturkey.com,tatil-evi.com,www.tatil-evi.com,127.0.0.1,localhost"
+REQUIRED_ALLOWED_HOSTS="rezervasyonyap.tr,www.rezervasyonyap.tr,rezervasyonyap.com.tr,www.rezervasyonyap.com.tr,reservationinturkey.com,www.reservationinturkey.com,127.0.0.1,localhost"
 REQUIRED_INTERNATIONAL_HOSTS="reservationinturkey.com,www.reservationinturkey.com"
-REQUIRED_CORS_ORIGINS="https://rezervasyonyap.tr,https://www.rezervasyonyap.tr,https://rezervasyonyap.com.tr,https://www.rezervasyonyap.com.tr,https://reservationinturkey.com,https://www.reservationinturkey.com,https://tatil-evi.com,https://www.tatil-evi.com"
+REQUIRED_CORS_ORIGINS="https://rezervasyonyap.tr,https://www.rezervasyonyap.tr,https://rezervasyonyap.com.tr,https://www.rezervasyonyap.com.tr,https://reservationinturkey.com,https://www.reservationinturkey.com"
 
 env_value() {
   local file="$1"
