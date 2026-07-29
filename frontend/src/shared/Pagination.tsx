@@ -51,7 +51,9 @@ export function PaginationNext({
 }
 
 export function PaginationList({ className, ...props }: React.ComponentPropsWithoutRef<'span'>) {
-  return <span {...props} className={clsx(className, 'hidden items-baseline gap-x-2 sm:flex')} />
+  // Mobilde de sayfa numaraları görünsün (önceden sm:flex — tatil evi tarihli aramada
+  // yalnızca zayıf «Sonraki» metin linki kalıyordu).
+  return <span {...props} className={clsx(className, 'flex items-baseline gap-x-1 sm:gap-x-2')} />
 }
 
 export function PaginationPage({

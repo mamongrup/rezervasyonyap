@@ -580,6 +580,21 @@ export default async function CategoryPageTemplate({
         {listingCards}
       </div>
 
+      {/* Sayfalama, esnek arama bloğundan ÖNCE — tarihli aramada 24 kart + esnek öneriler
+          sayfanın altında pager’ı görünmez kılıyordu. */}
+      {listingPagination ? (
+        <div className="mt-12 flex flex-col items-center gap-3 sm:mt-16">
+          <Suspense fallback={<div className="h-10 w-40 animate-pulse rounded-lg bg-neutral-100 dark:bg-neutral-800" />}>
+            <CategoryListingPagination
+              locale={locale}
+              page={listingPagination.page}
+              total={listingPagination.total}
+              perPage={listingPagination.perPage}
+            />
+          </Suspense>
+        </div>
+      ) : null}
+
       {flexibleListingCards ? (
         <section className="mt-14 border-t border-neutral-200 pt-12 md:mt-16 md:pt-14 dark:border-neutral-700">
           <h2 className="text-xl font-semibold text-neutral-900 dark:text-white md:text-2xl">
@@ -592,19 +607,6 @@ export default async function CategoryPageTemplate({
             {flexibleListingCards}
           </div>
         </section>
-      ) : null}
-
-      {listingPagination ? (
-        <div className="mt-16 flex items-center justify-center">
-          <Suspense fallback={<div className="h-10 w-40 animate-pulse rounded-lg bg-neutral-100 dark:bg-neutral-800" />}>
-            <CategoryListingPagination
-              locale={locale}
-              page={listingPagination.page}
-              total={listingPagination.total}
-              perPage={listingPagination.perPage}
-            />
-          </Suspense>
-        </div>
       ) : null}
     </div>
   )

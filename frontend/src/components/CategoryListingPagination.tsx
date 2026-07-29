@@ -11,6 +11,8 @@ import {
   PaginationPrevious,
 } from '@/shared/Pagination'
 import { getMessages } from '@/utils/getT'
+import convertNumbThousand from '@/utils/convertNumbThousand'
+import Link from 'next/link'
 
 /** 1 … N arası sayfa numaraları; arada boşluklar `gap` */
 function buildPaginationItems(current: number, totalPages: number): (number | 'gap')[] {
@@ -79,26 +81,44 @@ export default function CategoryListingPagination({
   }
 
   const items = buildPaginationItems(current, totalPages)
+  const shownFrom = (current - 1) * Math.max(1, perPage) + 1
+  const shownTo = Math.min(current * Math.max(1, perPage), total)
+  const nextHref = current < totalPages ? makeHref(current + 1) : null
 
   return (
-    <Pagination aria-label={p.aria}>
-      <PaginationPrevious href={current > 1 ? makeHref(current - 1) : null} aria-label={p.previous}>
-        {p.previous}
-      </PaginationPrevious>
-      <PaginationList>
-        {items.map((it, idx) =>
-          it === 'gap' ? (
-            <PaginationGap key={`gap-${idx}`} />
-          ) : (
-            <PaginationPage key={it} href={makeHref(it)} current={it === current}>
-              {it}
-            </PaginationPage>
-          ),
-        )}
-      </PaginationList>
-      <PaginationNext href={current < totalPages ? makeHref(current + 1) : null} aria-label={p.next}>
-        {p.next}
-      </PaginationNext>
-    </Pagination>
+    <div className="flex w-full max-w-xl flex-col items-center gap-4">
+      <p className="text-center text-sm text-neutral-500 dark:text-neutral-400">
+        {shownFrom}–{shownTo} / {convertNumbThousand(total)}
+        <span className="mx-1.5 text-neutral-300 dark:text-neutral-600">·</span>
+        {current}/{totalPages}
+      </p>
+      <Pagination aria-label={p.aria} className="w-full justify-between sm:justify-center">
+        <PaginationPrevious href={current > 1 ? makeHref(current - 1) : null} aria-label={p.previous}>
+          {p.previous}
+        </PaginationPrevious>
+        <PaginationList>
+          {items.map((it, idx) =>
+            it === 'gap' ? (
+              <PaginationGap key={`gap-${idx}`} />
+            ) : (
+              <PaginationPage key={it} href={makeHref(it)} current={it === current}>
+                {it}
+              </PaginationPage>
+            ),
+          )}
+        </PaginationList>
+        <PaginationNext href={nextHref} aria-label={p.next}>
+          {p.next}
+        </PaginationNext>
+      </Pagination>
+      {nextHref ? (
+        <Link
+          href={nextHref}
+          className="inline-flex w-full items-center justify-center rounded-xl bg-neutral-900 px-5 py-3 text-sm font-semibold text-white transition hover:bg-neutral-800 sm:hidden dark:bg-white dark:text-neutral-900 dark:hover:bg-neutral-200"
+        >
+          {p.next}
+        </Link>
+      ) : null}
+    </div>
   )
 }
