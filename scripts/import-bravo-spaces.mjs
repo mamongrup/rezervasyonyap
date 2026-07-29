@@ -18,6 +18,7 @@ import https from 'node:https'
 import http from 'node:http'
 import { createRequire } from 'node:module'
 import { mediaUrlCandidates } from './lib/bravo-media.mjs'
+import { prepareBravoCalendarDays } from './lib/bravo-calendar.mjs'
 import { importBravoSeasonalPriceRules } from './lib/bravo-seasonal-prices.mjs'
 import {
   applyListingPropertyType,
@@ -342,16 +343,18 @@ async function importImages(
 }
 
 async function importCalendar(pgClient, listingId, legacyId, mysql) {
-  const [dates] = await mysql.query(
+  const [sourceDates] = await mysql.query(
     `SELECT DATE(start_date) AS day, active, price
      FROM bravo_space_dates
      WHERE target_id = ?
      ORDER BY start_date`,
     [legacyId],
   )
-  if (!dates.length) return 0
+  if (!sourceDates.length) return 0
 
   await pgClient.query(`DELETE FROM listing_availability_calendar WHERE listing_id = $1::uuid`, [listingId])
+
+  const dates = prepareBravoCalendarDays(sourceDates)
 
   const BATCH = 400
   let inserted = 0
@@ -361,12 +364,16 @@ async function importCalendar(pgClient, listingId, legacyId, mysql) {
     const params = [listingId]
     let p = 2
     for (const d of chunk) {
-      const available = Number(d.active) === 1
       values.push(
-        `($1::uuid, $${p}::date, $${p + 1}, $${p + 1}, $${p + 1}, $${p + 2})`,
+        `($1::uuid, $${p}::date, ($${p + 1}::boolean OR $${p + 2}::boolean), $${p + 1}::boolean, $${p + 2}::boolean, $${p + 3})`,
       )
-      params.push(d.day, available, d.price != null ? String(d.price) : null)
-      p += 3
+      params.push(
+        d.day,
+        d.amAvailable,
+        d.pmAvailable,
+        d.price != null ? String(d.price) : null,
+      )
+      p += 4
       inserted++
     }
     await pgClient.query(

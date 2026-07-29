@@ -1,5 +1,10 @@
 /**
  * bravo_space_dates → listing_availability_calendar (günlük müsaitlik + fiyat override).
+ *
+ * Eski Bravo/Excalibur takviminde kapalı günler 1 gün kısa tutuluyordu
+ * (ör. 15–19 kapalı → gerçekte 15–20 / çıkış sabahı 20 olmalı).
+ * `extendBravoInactiveBlocksByOneDay` bu eksik günü kapatır; ardından turnover
+ * yarım-gün sınırlarını (giriş ÖS / çıkış ÖÖ) açar.
  */
 
 /**
@@ -18,6 +23,54 @@ function nextDayKey(value) {
   const date = new Date(`${dayKey(value)}T12:00:00Z`)
   date.setUTCDate(date.getUTCDate() + 1)
   return date.toISOString().slice(0, 10)
+}
+
+/**
+ * 2+ günlük kesintisiz `active=0` bloğunun sonuna 1 gün daha kapatır.
+ * Tek günlük bakım bloklarına dokunmaz.
+ *
+ * @param {Array<{ day: unknown, active: unknown, price?: unknown }>} dates
+ */
+export function extendBravoInactiveBlocksByOneDay(dates) {
+  const out = dates.map((d) => ({ ...d }))
+  /** @type {number[]} */
+  const multiDayEnds = []
+  let i = 0
+  while (i < out.length) {
+    if (Number(out[i].active) === 1) {
+      i += 1
+      continue
+    }
+    let j = i
+    while (
+      j + 1 < out.length &&
+      Number(out[j + 1].active) !== 1 &&
+      dayKey(out[j + 1].day) === nextDayKey(out[j].day)
+    ) {
+      j += 1
+    }
+    if (j > i) multiDayEnds.push(j)
+    i = j + 1
+  }
+
+  // Sondan uygula — splice indeksleri bozmasın
+  for (const j of multiDayEnds.reverse()) {
+    const end = out[j]
+    const want = nextDayKey(end.day)
+    const next = out[j + 1]
+    if (next && dayKey(next.day) === want) {
+      if (Number(next.active) === 1) {
+        out[j + 1] = { ...next, active: 0 }
+      }
+      continue
+    }
+    out.splice(j + 1, 0, {
+      day: want,
+      active: 0,
+      price: end.price ?? null,
+    })
+  }
+  return out
 }
 
 /**
@@ -67,6 +120,11 @@ export function applyBravoTurnoverBoundaries(dates) {
   return out
 }
 
+/** Kaynak satırları: +1 gün kapat → turnover yarım günleri. */
+export function prepareBravoCalendarDays(sourceDates) {
+  return applyBravoTurnoverBoundaries(extendBravoInactiveBlocksByOneDay(sourceDates))
+}
+
 export async function importBravoAvailabilityCalendar(pgClient, mysql, listingId, legacyId) {
   const [sourceDates] = await mysql.query(
     `SELECT DATE(start_date) AS day, active, price
@@ -82,7 +140,7 @@ export async function importBravoAvailabilityCalendar(pgClient, mysql, listingId
 
   if (!sourceDates.length) return { days: 0, blocked: 0, skipped: true }
 
-  const dates = applyBravoTurnoverBoundaries(sourceDates)
+  const dates = prepareBravoCalendarDays(sourceDates)
 
   const BATCH = 400
   let inserted = 0

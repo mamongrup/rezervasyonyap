@@ -1,10 +1,66 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { applyBravoTurnoverBoundaries } from './bravo-calendar.mjs'
+import {
+  applyBravoTurnoverBoundaries,
+  extendBravoInactiveBlocksByOneDay,
+  prepareBravoCalendarDays,
+} from './bravo-calendar.mjs'
 
 function row(day, active) {
   return { day, active, price: '10000' }
 }
+
+test('extends multi-day inactive block by one day before open day', () => {
+  const days = extendBravoInactiveBlocksByOneDay([
+    row('2026-09-14', 1),
+    row('2026-09-15', 0),
+    row('2026-09-16', 0),
+    row('2026-09-17', 0),
+    row('2026-09-18', 0),
+    row('2026-09-19', 0),
+    row('2026-09-20', 1),
+    row('2026-09-21', 1),
+  ])
+  assert.equal(Number(days.find((d) => d.day === '2026-09-20').active), 0)
+  assert.equal(Number(days.find((d) => d.day === '2026-09-21').active), 1)
+})
+
+test('does not extend a single maintenance day', () => {
+  const days = extendBravoInactiveBlocksByOneDay([
+    row('2026-08-09', 1),
+    row('2026-08-10', 0),
+    row('2026-08-11', 1),
+  ])
+  assert.equal(Number(days[1].active), 0)
+  assert.equal(Number(days[2].active), 1)
+})
+
+test('prepare: Bravo 15–19 kapalı → giriş 15 / çıkış 20 (geceler 15–19)', () => {
+  const days = prepareBravoCalendarDays([
+    row('2026-09-14', 1),
+    row('2026-09-15', 0),
+    row('2026-09-16', 0),
+    row('2026-09-17', 0),
+    row('2026-09-18', 0),
+    row('2026-09-19', 0),
+    row('2026-09-20', 1),
+    row('2026-09-21', 1),
+  ])
+
+  assert.deepEqual(
+    days.map((d) => [d.day, d.amAvailable, d.pmAvailable]),
+    [
+      ['2026-09-14', true, true],
+      ['2026-09-15', true, false], // giriş
+      ['2026-09-16', false, false],
+      ['2026-09-17', false, false],
+      ['2026-09-18', false, false],
+      ['2026-09-19', false, false],
+      ['2026-09-20', false, true], // çıkış sabahı
+      ['2026-09-21', true, true],
+    ],
+  )
+})
 
 test('opens half-day boundaries around a multi-day reservation', () => {
   const days = applyBravoTurnoverBoundaries([
