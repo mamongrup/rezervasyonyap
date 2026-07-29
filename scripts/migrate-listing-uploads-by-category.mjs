@@ -35,22 +35,45 @@ function absFromStorageKey(key) {
   return path.join(PUBLIC_ROOT, ...k.split('/'))
 }
 
-async function moveFile(oldAbs, newAbs) {
-  if (!existsSync(oldAbs)) return { moved: false, reason: 'missing' }
-  if (existsSync(newAbs)) {
-    const [a, b] = await Promise.all([stat(oldAbs), stat(newAbs)])
-    if (a.size === b.size) return { moved: false, reason: 'exists' }
+const SIBLING_EXTS = ['.avif', '.webp', '.jpg', '.jpeg', '.JPEG', '.png', '.jfif']
+
+/** DB anahtarı .avif iken diskte yalnızca .webp kaldıysa kardeşi bul. */
+function resolveExistingSource(oldAbs) {
+  if (oldAbs && existsSync(oldAbs)) return oldAbs
+  if (!oldAbs) return null
+  const dir = path.dirname(oldAbs)
+  const stem = path.basename(oldAbs, path.extname(oldAbs))
+  for (const ext of SIBLING_EXTS) {
+    const cand = path.join(dir, stem + ext)
+    if (existsSync(cand)) return cand
   }
-  if (DRY_RUN) return { moved: true, reason: 'dry-run' }
-  await mkdir(path.dirname(newAbs), { recursive: true })
+  return null
+}
+
+async function moveFile(oldAbs, newAbs) {
+  const source = resolveExistingSource(oldAbs)
+  if (!source) return { moved: false, reason: 'missing' }
+  // Uzantı farklıysa hedefi kaynak uzantısıyla yaz; DB anahtarı ayrıca güncellenir.
+  let dest = newAbs
+  const srcExt = path.extname(source)
+  const destExt = path.extname(newAbs)
+  if (srcExt && destExt && srcExt !== destExt) {
+    dest = newAbs.slice(0, -destExt.length) + srcExt
+  }
+  if (existsSync(dest)) {
+    const [a, b] = await Promise.all([stat(source), stat(dest)])
+    if (a.size === b.size) return { moved: false, reason: 'exists', dest }
+  }
+  if (DRY_RUN) return { moved: true, reason: 'dry-run', dest }
+  await mkdir(path.dirname(dest), { recursive: true })
   try {
-    await rename(oldAbs, newAbs)
+    await rename(source, dest)
   } catch {
     const { copyFile, unlink } = await import('node:fs/promises')
-    await copyFile(oldAbs, newAbs)
-    await unlink(oldAbs).catch(() => {})
+    await copyFile(source, dest)
+    await unlink(source).catch(() => {})
   }
-  return { moved: true, reason: 'ok' }
+  return { moved: true, reason: 'ok', dest }
 }
 
 async function cleanupEmptyDirs(dir) {
@@ -113,21 +136,43 @@ for (const row of listings) {
 
     const oldAbs = absFromStorageKey(oldKey)
     const newAbs = absFromStorageKey(newKey)
+    let finalKey = newKey
     if (oldAbs && newAbs) {
       const res = await moveFile(oldAbs, newAbs)
-      if (res.moved) filesMoved += 1
-      else if (res.reason === 'missing') filesMissing += 1
+      if (res.moved) {
+        filesMoved += 1
+        // Kardeş uzantıdan taşındıysa DB anahtarını gerçek dosya uzantısına çek
+        if (res.dest && path.extname(res.dest) !== path.extname(newAbs)) {
+          const rel = path.relative(PUBLIC_ROOT, res.dest).split(path.sep).join('/')
+          finalKey = oldKey.startsWith('/') ? `/${rel}` : rel
+        }
+      } else if (res.reason === 'missing') {
+        filesMissing += 1
+        // Dosya yokken yolu güncelleme — kırık .avif referansı üretme
+        continue
+      }
     }
 
-    imageUpdates.push({ id: img.id, newKey })
+    imageUpdates.push({ id: img.id, newKey: finalKey })
     changed = true
     imagesUpdated += 1
   }
 
   const newFeatured = remapPublicUploadUrl(row.featured_image_url, row.category_code, row.slug)
   const newThumb = remapPublicUploadUrl(row.thumbnail_url, row.category_code, row.slug)
-  const coverChanged =
+  let coverChanged =
     newFeatured !== (row.featured_image_url || '') || newThumb !== (row.thumbnail_url || '')
+  if (coverChanged) {
+    const featAbs = absFromStorageKey(newFeatured)
+    const thumbAbs = absFromStorageKey(newThumb)
+    const featOk = !featAbs || resolveExistingSource(featAbs)
+    const thumbOk = !thumbAbs || resolveExistingSource(thumbAbs)
+    if (!featOk || !thumbOk) {
+      // Kapak dosyası yok — DB yolunu kör güncelleme
+      coverChanged = false
+      filesMissing += 1
+    }
+  }
 
   if (!changed && !coverChanged) continue
 

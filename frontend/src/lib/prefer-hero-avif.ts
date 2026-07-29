@@ -1,7 +1,7 @@
 /**
  * Yerel `/uploads/**` URL'lerini AVIF'e çevir (jpg/png/webp → .avif).
- * Harici CDN'e dokunmaz. Dosya yoksa 404 → ListingGalleryImage hata verir;
- * disk dönüşümü `convert-uploads-to-avif.mjs` / deploy script ile yapılır.
+ * Harici CDN'e dokunmaz. Dosya yoksa kart `onError` kardeş uzantıya düşer
+ * (`listing-image-url-fallbacks`); kalıcı onarım: convert + repair script.
  */
 export function preferUploadsAvifUrl(url: string): string {
   const raw = url.trim()

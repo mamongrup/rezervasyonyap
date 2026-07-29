@@ -75,16 +75,23 @@ describe('listing-image-url-fallbacks', () => {
     )
   })
 
-  it('does not fall back local uploads .avif to .webp (AVIF-only)', () => {
+  it('falls back local uploads .avif to .webp when AVIF missing', () => {
     const avif = '/uploads/listings/ilanlar/tatil-evleri/puzzle-villa/villa-puzzle-18.avif'
     const next = nextListingImageUrlFallback(avif, new Set([avif]))
-    expect(next).toBeNull()
+    expect(next).toBe('/uploads/listings/ilanlar/tatil-evleri/puzzle-villa/villa-puzzle-18.webp')
   })
 
-  it('upgrades local uploads .webp to .avif', () => {
+  it('upgrades local uploads .webp to .avif first', () => {
     const webp = '/uploads/listings/ilanlar/tatil-evleri/puzzle-villa/villa-puzzle-18.webp'
     const next = nextListingImageUrlFallback(webp, new Set([webp]))
     expect(next).toBe('/uploads/listings/ilanlar/tatil-evleri/puzzle-villa/villa-puzzle-18.avif')
+  })
+
+  it('falls back local .webp to .jpg when avif already tried', () => {
+    const webp = '/uploads/listings/ilanlar/tatil-evleri/puzzle-villa/villa-puzzle-18.webp'
+    const avif = '/uploads/listings/ilanlar/tatil-evleri/puzzle-villa/villa-puzzle-18.avif'
+    const next = nextListingImageUrlFallback(webp, new Set([webp, avif]))
+    expect(next).toBe('/uploads/listings/ilanlar/tatil-evleri/puzzle-villa/villa-puzzle-18.jpg')
   })
 
   it('falls back proxy Bookeder .avif via upstream', () => {

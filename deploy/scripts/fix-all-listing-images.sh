@@ -61,6 +61,10 @@ if [[ "${SKIP_CONVERT:-0}" != "1" ]]; then
     set +a
   fi
   node frontend/scripts/convert-uploads-to-avif.mjs frontend/public/uploads/listings
+  step "Eksik AVIF: kardeş/legacy webp-jpg → hedef yola AVIF"
+  node scripts/repair-missing-local-upload-avifs.mjs || {
+    echo "WARN: repair-missing-local-upload-avifs failed (devam)"
+  }
   step "DB yollarını mevcut .avif dosyalarına güvenli güncelle (http CDN dokunulmaz)"
   # pg: scripts/node_modules veya frontend — yoksa scripts içinde kur
   if [[ ! -d scripts/node_modules/pg && ! -d frontend/node_modules/pg ]]; then

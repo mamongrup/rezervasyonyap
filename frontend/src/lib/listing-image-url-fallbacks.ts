@@ -1,8 +1,8 @@
 /**
- * Vitrin görselleri — AVIF-only yerel politika + harici CDN onarımı.
+ * Vitrin görselleri — yerel AVIF tercihi + harici CDN onarımı.
  *
- * Yerel `/uploads/**`: webp/jpg → bir kez `.avif` dene; AVIF 404'te raster
- * kardeşe düşme (iOS 15 AVIF göstermez — bilinçli).
+ * Yerel `/uploads/**`: önce `.avif` dene; dosya yoksa (yarım kalan dönüşüm)
+ * aynı stem’de `.webp` / `.jpg` / `.png` kardeşine düş. Gri kart yerine foto.
  * Harici CDN: sahte `.avif` → gerçek jpg/png (rehost olmadan AVIF yok).
  */
 
@@ -117,16 +117,16 @@ export function nextListingImageUrlFallback(
   const stem = path.slice(0, path.length - currentExt.length)
   const isLocalUpload = /\/uploads\//i.test(path) || path.startsWith('/uploads/')
 
-  // Yerel medya: yalnızca AVIF'e yükselt; AVIF'ten webp/jpg'ye düşme.
-  if (isLocalUpload) {
-    if (/\.avif$/i.test(currentExt)) return null
-    const nextPath = stem + '.avif' + suffix
-    const candidate = isProxy ? proxyPrefix + encodeURIComponent(nextPath) : nextPath
-    return tried.has(candidate) ? null : candidate
+  // Yerel raster: önce AVIF yükselt (dosya varsa). AVIF 404 → kardeş raster.
+  // Harici: dairesel kardeş listesi (CDN sahte .avif onarımı yukarıda).
+  const order = ['.avif', '.webp', '.jpg', '.jpeg', '.JPEG', '.png'] as const
+
+  if (isLocalUpload && !/\.avif$/i.test(currentExt)) {
+    const avifPath = stem + '.avif' + suffix
+    const avifCandidate = isProxy ? proxyPrefix + encodeURIComponent(avifPath) : avifPath
+    if (!tried.has(avifCandidate)) return avifCandidate
   }
 
-  // Harici: çalışan orijinal uzantılara düş (CDN AVIF sunmaz)
-  const order = ['.avif', '.webp', '.jpg', '.jpeg', '.JPEG', '.png'] as const
   const start = Math.max(
     0,
     order.findIndex((e) => e.toLowerCase() === currentExt.toLowerCase()),
@@ -136,6 +136,7 @@ export function nextListingImageUrlFallback(
     const ext = order[(start + step) % order.length]!
     if (ext === currentExt) continue
     if (ext.toLowerCase() === currentExt.toLowerCase() && ext === currentExt) continue
+    if (isLocalUpload && /\.avif$/i.test(ext)) continue // yerelde avif yukarıda denendi
     const nextPath = stem + ext + suffix
     const candidate = isProxy ? proxyPrefix + encodeURIComponent(nextPath) : nextPath
     if (!tried.has(candidate)) return candidate
