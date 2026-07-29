@@ -2,6 +2,7 @@
 
 import { CATEGORY_REGISTRY, type CategoryRegistryEntry } from '@/data/category-registry'
 import { heroCategoryInlineLabel } from '@/lib/hero-category-inline-labels'
+import { useVitrinHref } from '@/hooks/use-vitrin-href'
 import { Link } from '@/shared/link'
 import { Popover, PopoverButton, PopoverPanel } from '@headlessui/react'
 import {
@@ -103,6 +104,7 @@ export function HeroMenuCategoryBar({
   collapseOverflowAfterSlug?: string
 }) {
   const lc = (locale || 'tr').toLowerCase().slice(0, 2)
+  const vitrinHref = useVitrinHref()
   const slugOrder =
     activeSlugs != null && activeSlugs.length > 0
       ? new Map(activeSlugs.map((s, i) => [s, i]))
@@ -154,7 +156,7 @@ export function HeroMenuCategoryBar({
     return (
       <Link
         key={cat.slug}
-        href={cat.categoryRoute}
+        href={vitrinHref(cat.categoryRoute)}
         className={clsx(
           'group/tab cursor-pointer flex flex-col items-center gap-1.5 sm:gap-2',
           spread ? clsx('min-w-0 flex-1 basis-0', extraClass) : clsx('shrink-0', extraClass),
@@ -218,7 +220,7 @@ export function HeroMenuCategoryBar({
             return (
               <Link
                 key={cat.slug}
-                href={cat.categoryRoute}
+                href={vitrinHref(cat.categoryRoute)}
                 className="flex min-w-0 items-center gap-3 rounded-xl px-3 py-2.5 text-start hover:bg-neutral-100 dark:hover:bg-neutral-800"
               >
                 <span className="flex size-9 shrink-0 items-center justify-center rounded-full border border-neutral-200 text-neutral-500 dark:border-neutral-700 dark:text-neutral-400">

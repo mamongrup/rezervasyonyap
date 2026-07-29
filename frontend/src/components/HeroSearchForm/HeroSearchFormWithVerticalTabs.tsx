@@ -1,5 +1,6 @@
 'use client'
 
+import { useVitrinHref } from '@/hooks/use-vitrin-href'
 import { verticalNavLabel } from '@/lib/vertical-nav-i18n'
 import { Link } from '@/shared/link'
 import { ListingType } from '@/type'
@@ -12,14 +13,18 @@ export default function HeroSearchFormWithVerticalTabs({
   className,
   initTab = 'Stays',
   locale = 'tr',
+  staySearchTargetPath,
 }: {
   className?: string
   initTab: ListingType
   locale?: string
-  /** Dikey sekmeli modda kullanılmıyor; imza `HeroSearchForm` ile uyumlu */
+  /** Dikey sekmeli modda kategori şeridi yok; imza `HeroSearchForm` ile uyumlu */
   categoryBarLayout?: 'default' | 'spread'
   activeSlugs?: string[]
+  staySearchTargetPath?: string
 }) {
+  const vitrinHref = useVitrinHref()
+
   return (
     <div className={clsx('hero-search-form relative isolate z-[100] w-full min-w-0 overflow-visible', className)}>
       <TabGroup defaultIndex={formTabs.findIndex((tab) => tab.name === initTab)}>
@@ -30,7 +35,7 @@ export default function HeroSearchFormWithVerticalTabs({
               <Tab
                 key={tab.name}
                 as={Link}
-                href={tab.href}
+                href={vitrinHref(tab.href)}
                 className="group/tab flex shrink-0 cursor-pointer items-center text-sm font-medium text-neutral-500 transition-colors hover:text-neutral-700 focus-visible:outline-hidden data-[selected]:font-semibold data-[selected]:text-neutral-950 lg:text-base dark:text-neutral-500 dark:hover:text-neutral-400 dark:data-[selected]:text-neutral-100"
               >
                 <div className="me-1.5 hidden size-2.5 rounded-full bg-neutral-950 group-data-[selected]/tab:block xl:me-2 dark:bg-neutral-100" />
@@ -43,7 +48,7 @@ export default function HeroSearchFormWithVerticalTabs({
       {formTabs.map((tab) =>
         tab.name === initTab ? (
           <Fragment key={tab.name}>
-            <tab.formComponent formStyle={'default'} />
+            <tab.formComponent formStyle={'default'} searchTargetPath={staySearchTargetPath} />
           </Fragment>
         ) : null,
       )}

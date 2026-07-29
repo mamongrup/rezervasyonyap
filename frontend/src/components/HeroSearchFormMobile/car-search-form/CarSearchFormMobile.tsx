@@ -3,26 +3,39 @@
 import { ensureCarRentalCheckout } from '@/lib/yolcu360-cars'
 import { normalizeYolcu360PickupQuery } from '@/lib/yolcu360-location-query'
 import { formDataToStringRecord, runHeroSearchPlanEffects } from '@/lib/hero-search-plan'
+import { heroSearchResultsPathFromRestPath } from '@/lib/hero-search-target'
+import { stripLocalePrefix } from '@/lib/i18n-config'
+import { useVitrinHref } from '@/hooks/use-vitrin-href'
 import converSelectedDateToString from '@/utils/converSelectedDateToString'
 import { parseLocalYmd } from '@/utils/format-local-ymd'
 import { getMessages } from '@/utils/getT'
 import { Radio, RadioGroup } from '@headlessui/react'
 import Form from 'next/form'
-import { useParams, useRouter, useSearchParams } from 'next/navigation'
+import { useParams, usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { Suspense, useEffect, useMemo, useState } from 'react'
 import DatesRangeInput from '../DatesRangeInput'
 import FieldPanelContainer from '../FieldPanelContainer'
 import LocationInput from '../LocationInput'
 
-function CarSearchFormMobileInner() {
+type Props = { searchTargetPath?: string }
+
+function CarSearchFormMobileInner({ searchTargetPath: searchTargetPathProp }: Props) {
   const [fieldNameShow, setFieldNameShow] = useState<'locationPickup' | 'locationDropoff' | 'dates'>('locationPickup')
 
   const searchParams = useSearchParams()
+  const pathname = usePathname()
+  const vitrinHref = useVitrinHref()
   const urlPickup = searchParams.get('location') ?? ''
   const urlDropoff = searchParams.get('drop_off_location') ?? ''
   const urlCheckin = searchParams.get('checkin') ?? ''
   const urlCheckoutRaw = searchParams.get('checkout') ?? ''
   const urlDropOff = searchParams.get('drop_off')
+
+  const searchTargetPath = useMemo(() => {
+    if (searchTargetPathProp?.trim()) return searchTargetPathProp.trim()
+    const { restPath } = stripLocalePrefix(pathname ?? '/')
+    return heroSearchResultsPathFromRestPath(restPath)
+  }, [pathname, searchTargetPathProp])
 
   const defaultCheckout = useMemo(
     () => ensureCarRentalCheckout(urlCheckin, urlCheckoutRaw) || undefined,
@@ -78,7 +91,7 @@ function CarSearchFormMobileInner() {
         startDate && endDate ? converSelectedDateToString([startDate, endDate]) : '',
       ...(checkout ? { checkout } : {}),
     }
-    runHeroSearchPlanEffects('car', params, '/arac-kiralama/all')
+    runHeroSearchPlanEffects('car', params, searchTargetPath)
     const location = normalizeYolcu360PickupQuery(
       formDataEntries['pickup-location'] as string | undefined,
     )
@@ -94,7 +107,7 @@ function CarSearchFormMobileInner() {
     if (checkout) qs.set('checkout', checkout)
     qs.set('drop_off', dropOffLocationType)
     const qstr = qs.toString()
-    router.push('/arac-kiralama/all' + (qstr ? `?${qstr}` : ''))
+    router.push(vitrinHref(searchTargetPath) + (qstr ? `?${qstr}` : ''))
   }
 
   return (
@@ -131,6 +144,7 @@ function CarSearchFormMobileInner() {
         <LocationInput
           headingText={m.HeroSearchForm['Pick up'] + '?'}
           imputName="pickup-location"
+          locationSearchType="car"
           defaultValue={locationInputPickUp}
           onChange={(value) => {
             setLocationInputPickUp(value)
@@ -154,6 +168,7 @@ function CarSearchFormMobileInner() {
           <LocationInput
             headingText={m.HeroSearchForm['Drop off'] + '?'}
             imputName="dropoff-location"
+            locationSearchType="car"
             defaultValue={locationInputDropOff}
             onChange={(value) => {
               setLocationInputDropOff(value)
@@ -181,9 +196,9 @@ function CarSearchFormMobileInner() {
   )
 }
 
-const CarSearchFormMobile = () => (
+const CarSearchFormMobile = (props: Props) => (
   <Suspense fallback={null}>
-    <CarSearchFormMobileInner />
+    <CarSearchFormMobileInner searchTargetPath={props.searchTargetPath} />
   </Suspense>
 )
 

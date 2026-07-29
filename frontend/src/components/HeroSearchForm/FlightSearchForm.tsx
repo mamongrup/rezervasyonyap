@@ -3,6 +3,9 @@
 import NcInputNumber from '@/components/NcInputNumber'
 import { DEFAULT_GUESTS_STAY, totalGuestCount } from '@/lib/guest-search-defaults'
 import { formDataToStringRecord, runHeroSearchPlanEffects } from '@/lib/hero-search-plan'
+import { heroSearchResultsPathFromRestPath } from '@/lib/hero-search-target'
+import { stripLocalePrefix } from '@/lib/i18n-config'
+import { useVitrinHref } from '@/hooks/use-vitrin-href'
 import { GuestsObject } from '@/type'
 import { useAppLocale } from '@/hooks/useAppLocale'
 import {
@@ -17,7 +20,7 @@ import { ArrowDown01Icon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
 import clsx from 'clsx'
 import Form from 'next/form'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { FC, Suspense, useEffect, useMemo, useState } from 'react'
 import { HeroSearchFormSkeleton } from './HeroSearchFormSkeleton'
 import { AirplaneLandingIcon, AirplaneTakeOffIcon } from '@hugeicons/core-free-icons'
@@ -26,6 +29,7 @@ import { ButtonSubmit, DateRangeField, FlightLocationInputField, VerticalDivider
 interface Props {
   className?: string
   formStyle: 'default' | 'small'
+  searchTargetPath?: string
 }
 
 const FLIGHT_CLASS_KEYS = [
@@ -34,16 +38,29 @@ const FLIGHT_CLASS_KEYS = [
   { key: 'Multiple' as const, value: 'Multiple' },
 ]
 
-const FlightSearchFormInner: FC<Props> = ({ className, formStyle = 'default' }) => {
+const FlightSearchFormInner: FC<Props> = ({
+  className,
+  formStyle = 'default',
+  searchTargetPath: searchTargetPathProp,
+}) => {
   const { messages } = useAppLocale()
   const hf = messages.HeroSearchForm
   const searchParams = useSearchParams()
+  const pathname = usePathname()
+  const vitrinHref = useVitrinHref()
   const urlTrip = searchParams.get('trip')
   const urlClass = searchParams.get('class')
   const urlGuests = searchParams.get('guests')
   const urlFrom = searchParams.get('from') ?? ''
   const urlTo = searchParams.get('to') ?? ''
   const urlDate = searchParams.get('date') ?? searchParams.get('checkin') ?? ''
+  const urlCheckout = searchParams.get('checkout') ?? ''
+
+  const searchTargetPath = useMemo(() => {
+    if (searchTargetPathProp?.trim()) return searchTargetPathProp.trim()
+    const { restPath } = stripLocalePrefix(pathname ?? '/')
+    return heroSearchResultsPathFromRestPath(restPath)
+  }, [pathname, searchTargetPathProp])
 
   const [tripType, setTripType] = useState<'roundTrip' | 'oneWay'>(
     urlTrip === 'oneWay' ? 'oneWay' : 'roundTrip',
@@ -61,28 +78,21 @@ const FlightSearchFormInner: FC<Props> = ({ className, formStyle = 'default' }) 
   const router = useRouter()
 
   const defaultStartDate = useMemo(() => urlDate || undefined, [urlDate])
+  const defaultEndDate = useMemo(() => urlCheckout || undefined, [urlCheckout])
 
   useEffect(() => {
-    router.prefetch('/ucak-bileti/all')
-  }, [router])
+    router.prefetch(vitrinHref(searchTargetPath))
+  }, [router, searchTargetPath, vitrinHref])
 
   const handleChangeData = (value: number, type: keyof GuestsObject) => {
-    let newValue = {
-      guestAdults: guestAdultsInputValue,
-      guestChildren: guestChildrenInputValue,
-      guestInfants: guestInfantsInputValue,
-    }
     if (type === 'guestAdults') {
       setGuestAdultsInputValue(value)
-      newValue.guestAdults = value
     }
     if (type === 'guestChildren') {
       setGuestChildrenInputValue(value)
-      newValue.guestChildren = value
     }
     if (type === 'guestInfants') {
       setGuestInfantsInputValue(value)
-      newValue.guestInfants = value
     }
   }
 
@@ -93,23 +103,30 @@ const FlightSearchFormInner: FC<Props> = ({ className, formStyle = 'default' }) 
       trip_type: tripType,
       flight_class: flightClassState,
     }
-    runHeroSearchPlanEffects('flight', params, '/ucak-bileti/all')
+    runHeroSearchPlanEffects('flight', params, searchTargetPath)
     const from = formDataEntries['flying-from-location'] as string
     const to = formDataEntries['flying-to-location'] as string
     const checkin = formDataEntries['checkin'] as string
-    const searchParams = new URLSearchParams()
-    if (from) searchParams.set('from', from)
-    if (to) searchParams.set('to', to)
-    if (checkin) searchParams.set('date', checkin)
-    searchParams.set('guests', String(totalGuestCount({
-      guestAdults: guestAdultsInputValue,
-      guestChildren: guestChildrenInputValue,
-      guestInfants: guestInfantsInputValue,
-    })))
-    searchParams.set('trip', tripType)
-    searchParams.set('class', flightClassState)
-    const qs = searchParams.toString()
-    router.push('/ucak-bileti/all' + (qs ? `?${qs}` : ''))
+    const checkout = formDataEntries['checkout'] as string
+    const nextParams = new URLSearchParams()
+    if (from) nextParams.set('from', from)
+    if (to) nextParams.set('to', to)
+    if (checkin) nextParams.set('date', checkin)
+    if (tripType === 'roundTrip' && checkout) nextParams.set('checkout', checkout)
+    nextParams.set(
+      'guests',
+      String(
+        totalGuestCount({
+          guestAdults: guestAdultsInputValue,
+          guestChildren: guestChildrenInputValue,
+          guestInfants: guestInfantsInputValue,
+        }),
+      ),
+    )
+    nextParams.set('trip', tripType)
+    nextParams.set('class', flightClassState)
+    const qs = nextParams.toString()
+    router.push(vitrinHref(searchTargetPath) + (qs ? `?${qs}` : ''))
   }
 
   const totalGuests = totalGuestCount({
@@ -289,6 +306,7 @@ const FlightSearchFormInner: FC<Props> = ({ className, formStyle = 'default' }) 
           description={tripType === 'oneWay' ? hf['Flying date'] : hf['Flying dates']}
           isOnlySingleDate={tripType === 'oneWay'}
           defaultStartDate={defaultStartDate}
+          defaultEndDate={tripType === 'roundTrip' ? defaultEndDate : undefined}
           clearDataButtonClassName={clsx(formStyle === 'small' && 'sm:end-18', formStyle === 'default' && 'sm:end-22')}
         />
 

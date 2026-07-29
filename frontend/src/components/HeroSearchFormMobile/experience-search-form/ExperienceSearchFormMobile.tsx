@@ -2,29 +2,41 @@
 
 import { DEFAULT_GUESTS_EXPERIENCE, totalGuestCount } from '@/lib/guest-search-defaults'
 import { formDataToStringRecord, runHeroSearchPlanEffects } from '@/lib/hero-search-plan'
+import { heroSearchResultsPathFromRestPath } from '@/lib/hero-search-target'
+import { stripLocalePrefix } from '@/lib/i18n-config'
+import { useVitrinHref } from '@/hooks/use-vitrin-href'
 import { GuestsObject } from '@/type'
 import converSelectedDateToString from '@/utils/converSelectedDateToString'
+import { formatLocalYmd } from '@/utils/format-local-ymd'
 import { getMessages } from '@/utils/getT'
 import Form from 'next/form'
-import { useParams, useRouter } from 'next/navigation'
-import { useState } from 'react'
+import { useParams, usePathname, useRouter } from 'next/navigation'
+import { useMemo, useState } from 'react'
 import DatesRangeInput from '../DatesRangeInput'
 import FieldPanelContainer from '../FieldPanelContainer'
 import GuestsInput from '../GuestsInput'
 import LocationInput from '../LocationInput'
 
-const ExperienceSearchFormMobile = () => {
-  //
+type Props = { searchTargetPath?: string }
+
+const ExperienceSearchFormMobile = ({ searchTargetPath: searchTargetPathProp }: Props) => {
   const [fieldNameShow, setFieldNameShow] = useState<'location' | 'dates' | 'guests'>('location')
-  //
   const [locationInputTo, setLocationInputTo] = useState('')
   const [guestInput, setGuestInput] = useState<GuestsObject>({ ...DEFAULT_GUESTS_EXPERIENCE })
   const [startDate, setStartDate] = useState<Date | null>(null)
   const [endDate, setEndDate] = useState<Date | null>(null)
   const router = useRouter()
+  const pathname = usePathname()
+  const vitrinHref = useVitrinHref()
   const params = useParams()
   const locale = typeof params?.locale === 'string' ? params.locale : 'tr'
   const m = getMessages(locale)
+
+  const searchTargetPath = useMemo(() => {
+    if (searchTargetPathProp?.trim()) return searchTargetPathProp.trim()
+    const { restPath } = stripLocalePrefix(pathname ?? '/')
+    return heroSearchResultsPathFromRestPath(restPath)
+  }, [pathname, searchTargetPathProp])
 
   const onChangeDate = (dates: [Date | null, Date | null]) => {
     const [start, end] = dates
@@ -41,23 +53,24 @@ const ExperienceSearchFormMobile = () => {
       guestChildren: String(guestInput.guestChildren),
       guestInfants: String(guestInput.guestInfants),
     }
-    runHeroSearchPlanEffects('experience', params, '/turlar/all')
+    runHeroSearchPlanEffects('experience', params, searchTargetPath)
     const location = formDataEntries['location'] as string
     const qs = new URLSearchParams()
     if (location) qs.set('location', location)
-    if (params.guestAdults) qs.set('guests', params.guestAdults)
+    const dateYmd = startDate ? formatLocalYmd(startDate) : formDataEntries['checkin']
+    if (dateYmd) qs.set('date', String(dateYmd))
+    const guests = totalGuestCount(guestInput)
+    if (guests > 0) qs.set('guests', String(guests))
     const qstr = qs.toString()
-    router.push('/turlar/all' + (qstr ? `?${qstr}` : ''))
+    router.push(vitrinHref(searchTargetPath) + (qstr ? `?${qstr}` : ''))
   }
 
-  //
   const totalGuests = totalGuestCount(guestInput)
   const guestStringConverted = totalGuests
     ? `${totalGuests} ${m.HeroSearchForm['Guests']}`
     : m.HeroSearchForm['Add guests']
   return (
     <Form id="form-hero-search-form-mobile" action={handleFormSubmit} className="flex w-full flex-col gap-y-3">
-      {/*  LOCATION */}
       <FieldPanelContainer
         isActive={fieldNameShow === 'location'}
         headingOnClick={() => setFieldNameShow('location')}
@@ -73,7 +86,6 @@ const ExperienceSearchFormMobile = () => {
         />
       </FieldPanelContainer>
 
-      {/* DATE RANGE  */}
       <FieldPanelContainer
         isActive={fieldNameShow === 'dates'}
         headingOnClick={() => setFieldNameShow('dates')}
@@ -83,18 +95,17 @@ const ExperienceSearchFormMobile = () => {
         <DatesRangeInput defaultStartDate={startDate} defaultEndDate={endDate} onChange={onChangeDate} />
       </FieldPanelContainer>
 
-      {/* GUEST NUMBER */}
       <FieldPanelContainer
         isActive={fieldNameShow === 'guests'}
         headingOnClick={() => setFieldNameShow('guests')}
         headingTitle={m.HeroSearchForm['Who']}
         headingValue={guestStringConverted}
       >
-          <GuestsInput
-            defaultValue={guestInput}
-            onChange={setGuestInput}
-            guestDefaults={DEFAULT_GUESTS_EXPERIENCE}
-          />
+        <GuestsInput
+          defaultValue={guestInput}
+          onChange={setGuestInput}
+          guestDefaults={DEFAULT_GUESTS_EXPERIENCE}
+        />
       </FieldPanelContainer>
     </Form>
   )

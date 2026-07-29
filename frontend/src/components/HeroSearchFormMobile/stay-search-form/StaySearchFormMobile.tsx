@@ -107,7 +107,8 @@ const StaySearchFormMobile = () => {
     if (location) qs.set('location', location)
     if (params.checkin) qs.set('checkin', params.checkin)
     if (params.checkout) qs.set('checkout', params.checkout)
-    if (params.guestAdults) qs.set('guests', params.guestAdults)
+    const guests = totalGuestCount(guestInput)
+    if (guests > 0) qs.set('guests', String(guests))
     const qstr = qs.toString()
     router.push(staySearchHref + (qstr ? `?${qstr}` : ''))
   }

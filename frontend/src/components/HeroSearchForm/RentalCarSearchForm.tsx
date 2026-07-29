@@ -3,11 +3,14 @@
 import { ensureCarRentalCheckout } from '@/lib/yolcu360-cars'
 import { normalizeYolcu360PickupQuery } from '@/lib/yolcu360-location-query'
 import { formDataToStringRecord, runHeroSearchPlanEffects } from '@/lib/hero-search-plan'
+import { heroSearchResultsPathFromRestPath } from '@/lib/hero-search-target'
+import { stripLocalePrefix } from '@/lib/i18n-config'
+import { useVitrinHref } from '@/hooks/use-vitrin-href'
 import { useAppLocale } from '@/hooks/useAppLocale'
 import { Radio, RadioGroup } from '@headlessui/react'
 import clsx from 'clsx'
 import Form from 'next/form'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { FC, Suspense, useEffect, useMemo, useState } from 'react'
 import { HeroSearchFormSkeleton } from './HeroSearchFormSkeleton'
 import { ButtonSubmit, DateRangeField, LocationInputField, VerticalDividerLine } from './ui'
@@ -15,17 +18,31 @@ import { ButtonSubmit, DateRangeField, LocationInputField, VerticalDividerLine }
 interface Props {
   className?: string
   formStyle: 'default' | 'small'
+  /** Örn. `/arac-kiralama/all` veya `/feribot/all` */
+  searchTargetPath?: string
 }
 
-const RentalCarSearchFormInner: FC<Props> = ({ className, formStyle = 'default' }) => {
+const RentalCarSearchFormInner: FC<Props> = ({
+  className,
+  formStyle = 'default',
+  searchTargetPath: searchTargetPathProp,
+}) => {
   const { messages } = useAppLocale()
   const hf = messages.HeroSearchForm
   const searchParams = useSearchParams()
+  const pathname = usePathname()
+  const vitrinHref = useVitrinHref()
   const urlPickup = searchParams.get('location') ?? ''
   const urlDropoff = searchParams.get('drop_off_location') ?? ''
   const urlCheckin = searchParams.get('checkin') ?? ''
   const urlCheckoutRaw = searchParams.get('checkout') ?? ''
   const urlDropOff = searchParams.get('drop_off')
+
+  const searchTargetPath = useMemo(() => {
+    if (searchTargetPathProp?.trim()) return searchTargetPathProp.trim()
+    const { restPath } = stripLocalePrefix(pathname ?? '/')
+    return heroSearchResultsPathFromRestPath(restPath)
+  }, [pathname, searchTargetPathProp])
 
   const defaultCheckout = useMemo(
     () => ensureCarRentalCheckout(urlCheckin, urlCheckoutRaw) || undefined,
@@ -39,8 +56,8 @@ const RentalCarSearchFormInner: FC<Props> = ({ className, formStyle = 'default' 
   const router = useRouter()
 
   useEffect(() => {
-    router.prefetch('/arac-kiralama/all')
-  }, [router])
+    router.prefetch(vitrinHref(searchTargetPath))
+  }, [router, searchTargetPath, vitrinHref])
 
   useEffect(() => {
     setDropOffLocationType(urlDropOff === 'different' ? 'different' : 'same')
@@ -49,7 +66,7 @@ const RentalCarSearchFormInner: FC<Props> = ({ className, formStyle = 'default' 
   const handleFormSubmit = (formData: FormData) => {
     const formDataEntries = Object.fromEntries(formData.entries())
     const params = { ...formDataToStringRecord(formData), drop_off_mode: dropOffLocationType }
-    runHeroSearchPlanEffects('car', params, '/arac-kiralama/all')
+    runHeroSearchPlanEffects('car', params, searchTargetPath)
     const location = normalizeYolcu360PickupQuery(
       formDataEntries['pickup-location'] as string | undefined,
     )
@@ -70,7 +87,7 @@ const RentalCarSearchFormInner: FC<Props> = ({ className, formStyle = 'default' 
     if (checkout) nextParams.set('checkout', checkout)
     nextParams.set('drop_off', dropOffLocationType)
     const qs = nextParams.toString()
-    router.push('/arac-kiralama/all' + (qs ? `?${qs}` : ''))
+    router.push(vitrinHref(searchTargetPath) + (qs ? `?${qs}` : ''))
   }
 
   const isDdropOffdifferent = dropOffLocationType === 'different'

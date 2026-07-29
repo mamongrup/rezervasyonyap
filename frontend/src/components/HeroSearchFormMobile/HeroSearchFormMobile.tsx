@@ -3,6 +3,7 @@
 import { FilterVerticalIcon, Search01Icon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { stripLocalePrefix } from '@/lib/i18n-config'
+import { heroSearchVerticalFromRestPath } from '@/lib/hero-search-target'
 import clsx from 'clsx'
 import dynamic from 'next/dynamic'
 import { useParams, usePathname } from 'next/navigation'
@@ -179,19 +180,24 @@ const HeroSearchFormMobile = ({ className, locale: localeProp, open: openProp, o
   let weekText = hb.defaultWeek
   let guestsText = hb.defaultGuests
 
-  if (restPath.startsWith('/turlar') || restPath.startsWith('/aktiviteler') || restPath.startsWith('/kruvaziyer') || restPath.startsWith('/hac-umre')) {
+  const vertical = heroSearchVerticalFromRestPath(restPath)
+  if (vertical === 'experience') {
     locationText = hb.toursLocation
     weekText = hb.toursWeek
     guestsText = hb.toursGuests
-  } else if (restPath.startsWith('/arac-kiralama') || restPath.startsWith('/feribot') || restPath.startsWith('/transfer')) {
+  } else if (vertical === 'car') {
     locationText = hb.carLocation
     weekText = hb.carWeek
     guestsText = hb.carGuests
-  } else if (restPath.startsWith('/ucak-bileti')) {
+  } else if (vertical === 'flight') {
     locationText = hb.flightLocation
     weekText = hb.flightWeek
     guestsText = hb.flightGuests
-  } else if (restPath.startsWith('/oteller') || restPath.startsWith('/tatil-evleri') || restPath.startsWith('/yat-kiralama')) {
+  } else if (
+    restPath.startsWith('/oteller') ||
+    restPath.startsWith('/tatil-evleri') ||
+    restPath.startsWith('/yat-kiralama')
+  ) {
     locationText = hb.stayLocation
     weekText = hb.stayWeek
     guestsText = hb.stayGuests

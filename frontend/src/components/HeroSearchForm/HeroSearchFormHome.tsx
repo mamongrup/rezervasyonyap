@@ -28,6 +28,7 @@ export function HeroSearchFormHome({
   activeSlugs?: string[]
   /** Örn. ana sayfa: `arac-kiralama` sonrası kalan kayıtlı kategoriler hamburger menüde */
   collapseOverflowAfterSlug?: string
+  /** Stay / experience / car / flight ortak sonuç yolu (`/kategori/all`) */
   staySearchTargetPath?: string
   staySearchPrefill?: StaySearchPrefill
 }) {
@@ -49,7 +50,7 @@ export function HeroSearchFormHome({
           searchPrefill={staySearchPrefill}
         />
       ) : (
-        <FormComponent formStyle="default" />
+        <FormComponent formStyle="default" searchTargetPath={staySearchTargetPath} />
       )}
     </div>
   )
