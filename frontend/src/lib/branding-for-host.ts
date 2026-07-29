@@ -31,7 +31,7 @@ export function applyBrandingDomainOverrides<T extends Record<string, unknown>>(
 ): T {
   if (!branding) return {} as T
   const apex = hostApexKey(hostname.split(':')[0] ?? '')
-  if (!apex) return branding
+  if (!apex || !BRANDING_DOMAIN_APEXES.includes(apex)) return branding
 
   const rawOverrides = branding.domain_overrides
   if (!rawOverrides || typeof rawOverrides !== 'object' || Array.isArray(rawOverrides)) {
@@ -62,7 +62,7 @@ export function sanitizeDomainOverrides(
   const out: Record<string, BrandingDomainLogoOverride> = {}
   for (const [apexKey, entry] of Object.entries(raw)) {
     const apex = hostApexKey(apexKey)
-    if (!apex || !entry || typeof entry !== 'object') continue
+    if (!apex || !BRANDING_DOMAIN_APEXES.includes(apex) || !entry || typeof entry !== 'object') continue
     const cleaned: BrandingDomainLogoOverride = {}
     for (const key of LOGO_TEXT_KEYS) {
       const v = entry[key]
@@ -79,7 +79,15 @@ export function parseDomainOverrides(branding: Record<string, unknown>): Record<
   const out: Record<string, BrandingDomainLogoOverride> = {}
   for (const [apexKey, entry] of Object.entries(raw as Record<string, unknown>)) {
     const apex = hostApexKey(apexKey)
-    if (!apex || !entry || typeof entry !== 'object' || Array.isArray(entry)) continue
+    if (
+      !apex ||
+      !BRANDING_DOMAIN_APEXES.includes(apex) ||
+      !entry ||
+      typeof entry !== 'object' ||
+      Array.isArray(entry)
+    ) {
+      continue
+    }
     const e = entry as Record<string, unknown>
     const cleaned: BrandingDomainLogoOverride = {}
     for (const key of LOGO_TEXT_KEYS) {
