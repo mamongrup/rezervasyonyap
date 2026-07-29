@@ -100,6 +100,7 @@ export default async function Page({
         vitrinTab: parseFeaturedVitrinTab(query.vitrin_tab),
       }}
       listingPagination={{ page, total, perPage }}
+      paginationSearchParams={sp}
       {...categoryPageShellProps(shell)}
     />
   )

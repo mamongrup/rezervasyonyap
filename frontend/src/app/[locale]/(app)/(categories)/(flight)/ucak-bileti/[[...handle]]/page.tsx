@@ -104,6 +104,7 @@ export default async function Page({
       }}
       listingSectionTitle={showLiveSearch ? msgs.flightLiveSearch?.resultsHeading : undefined}
       listingPagination={showLiveSearch ? undefined : { page, total, perPage }}
+      paginationSearchParams={sp}
     />
   )
 }

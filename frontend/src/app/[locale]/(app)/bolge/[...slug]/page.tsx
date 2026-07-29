@@ -10,7 +10,9 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import BgGlassmorphism from '@/components/BgGlassmorphism'
-import CategoryListingPagination from '@/components/CategoryListingPagination'
+import CategoryListingPagination, {
+  flattenListingSearchParams,
+} from '@/components/CategoryListingPagination'
 import HeroSectionWithSearchForm1 from '@/components/hero-sections/HeroSectionWithSearchForm1'
 import {
   heroBelowContentClassName,
@@ -73,7 +75,6 @@ import {
 } from '@hugeicons/core-free-icons'
 import type { IconSvgElement } from '@hugeicons/react'
 import { HugeiconsIcon } from '@hugeicons/react'
-import { Suspense } from 'react'
 
 interface Props {
   params: Promise<{ locale: string; slug: string[] }>
@@ -587,17 +588,15 @@ export default async function RegionDetailPage({ params, searchParams }: Props) 
               <StayCard2 key={data.id} data={data} />
             ))}
           </div>
-          <div className="mt-16 flex items-center justify-center">
-            <Suspense
-              fallback={<div className="h-10 w-40 animate-pulse rounded-lg bg-neutral-100 dark:bg-neutral-800" />}
-            >
-              <CategoryListingPagination
-                locale={locale}
-                page={pageNum}
-                total={totalListings}
-                perPage={perPage}
-              />
-            </Suspense>
+          <div className="mt-12 flex flex-col items-center gap-3 sm:mt-16">
+            <CategoryListingPagination
+              locale={locale}
+              page={pageNum}
+              total={totalListings}
+              perPage={perPage}
+              pathname={regionPublicHref(locale, slugPath)}
+              query={flattenListingSearchParams(sp)}
+            />
           </div>
         </>
       ) : (

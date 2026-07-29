@@ -103,6 +103,7 @@ export default async function Page({
         fromApi,
       }}
       listingPagination={{ page, total, perPage }}
+      paginationSearchParams={sp}
       {...categoryPageShellProps(shell)}
     />
   )

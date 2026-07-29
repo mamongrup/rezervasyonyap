@@ -46,7 +46,9 @@ import {
 import { regionLabelFromHandle } from '@/lib/stay-location-display'
 import { Button } from '@/shared/Button'
 import { Divider } from '@/shared/divider'
-import CategoryListingPagination from '@/components/CategoryListingPagination'
+import CategoryListingPagination, {
+  flattenListingSearchParams,
+} from '@/components/CategoryListingPagination'
 import convertNumbThousand from '@/utils/convertNumbThousand'
 import { getMessages } from '@/utils/getT'
 import { interpolate } from '@/utils/interpolate'
@@ -140,7 +142,13 @@ interface CategoryPageTemplateProps {
   /** Tatil evleri vb.: ana ızgaradan sonra gösterilecek esnek arama önerileri */
   flexibleListingCards?: ReactNode
   /** Sayfalama — API toplamı ve sayfa boyutu (1 tabanlı sayfa numarası) */
-  listingPagination?: { page: number; total: number; perPage: number }
+  listingPagination?: {
+    page: number
+    total: number
+    perPage: number
+  }
+  /** Sayfalama link query’si (checkin vb.); Suspense/useSearchParams yerine SSR */
+  paginationSearchParams?: Record<string, string | string[] | undefined>
   /** Statik ilan sayısı yerine özel başlık (ör. Turna canlı arama) */
   listingSectionTitle?: string
   /** Kategori landing'inde liste/sonuç bloğunu gizle (örn. dış API arama bekleyen sayfalar). */
@@ -180,6 +188,7 @@ export default async function CategoryPageTemplate({
   regionStats,
   flexibleListingCards,
   listingPagination,
+  paginationSearchParams,
   listingSectionTitle,
   hideListingsOnLanding = false,
   preloadedStayRentalThemeOptions,
@@ -580,18 +589,18 @@ export default async function CategoryPageTemplate({
         {listingCards}
       </div>
 
-      {/* Sayfalama, esnek arama bloğundan ÖNCE — tarihli aramada 24 kart + esnek öneriler
-          sayfanın altında pager’ı görünmez kılıyordu. */}
+      {/* Sayfalama, esnek arama bloğundan ÖNCE — SSR (Suspense yok): tarihli aramada
+          24 kart + esnek öneriler pager’ı gizlemesin / hidden slot’a düşmesin. */}
       {listingPagination ? (
         <div className="mt-12 flex flex-col items-center gap-3 sm:mt-16">
-          <Suspense fallback={<div className="h-10 w-40 animate-pulse rounded-lg bg-neutral-100 dark:bg-neutral-800" />}>
-            <CategoryListingPagination
-              locale={locale}
-              page={listingPagination.page}
-              total={listingPagination.total}
-              perPage={listingPagination.perPage}
-            />
-          </Suspense>
+          <CategoryListingPagination
+            locale={locale}
+            page={listingPagination.page}
+            total={listingPagination.total}
+            perPage={listingPagination.perPage}
+            pathname={`/${locale}/${category.slug}/${currentHandle || 'all'}`}
+            query={flattenListingSearchParams(paginationSearchParams)}
+          />
         </div>
       ) : null}
 

@@ -7,12 +7,11 @@ import { TStayCategory } from '@/data/categories'
 import type { TListingBase } from '@/types/listing-types'
 import { getStayListingFilterOptions } from '@/data/listings'
 import { Divider } from '@/shared/divider'
-import CategoryListingPagination from '@/components/CategoryListingPagination'
 import clsx from 'clsx'
 import { getSubcategoriesByParent } from '@/data/subcategory-registry'
 import { mapBrowseListingsHeading } from '@/lib/map-browse-listing-heading'
 import { getMessages } from '@/utils/getT'
-import { FC, useState, Suspense } from 'react'
+import { FC, useState, Suspense, type ReactNode } from 'react'
 import MapFixedSection from '../../../MapFixedSection'
 import {
   mapBrowseHeading,
@@ -34,7 +33,7 @@ interface Props {
   locale?: string
   /** Harita sayfası — tema seçenekleri (sunucu `listPublicThemeItems`) */
   themeOptions?: { code: string; label: string }[]
-  listingPagination?: { page: number; total: number; perPage: number }
+  listingPaginationSlot?: ReactNode
 }
 
 const SectionGridHasMap: FC<Props> = ({
@@ -46,7 +45,7 @@ const SectionGridHasMap: FC<Props> = ({
   categorySlug,
   locale,
   themeOptions: themeOptionsProp,
-  listingPagination,
+  listingPaginationSlot,
 }) => {
   const [currentHoverID, setCurrentHoverID] = useState<string>('')
 
@@ -90,17 +89,8 @@ const SectionGridHasMap: FC<Props> = ({
             </div>
           ))}
         </div>
-        <div className="mt-16 flex items-center">
-          {locale ? (
-            <Suspense fallback={<div className="h-10 w-40 animate-pulse rounded-lg bg-neutral-100 dark:bg-neutral-800" />}>
-              <CategoryListingPagination
-                locale={locale}
-                page={listingPagination?.page}
-                total={listingPagination?.total}
-                perPage={listingPagination?.perPage}
-              />
-            </Suspense>
-          ) : null}
+        <div className="mt-12 flex w-full flex-col items-center gap-3 sm:mt-16">
+          {listingPaginationSlot}
         </div>
       </div>
 

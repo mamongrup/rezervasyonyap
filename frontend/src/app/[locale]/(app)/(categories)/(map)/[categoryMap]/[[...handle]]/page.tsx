@@ -1,6 +1,9 @@
 import StaySectionGridHasMap from '../../../(stay)/stay-categories-map/[[...handle]]/SectionGridHasMap'
 import CarSectionGridHasMap from '../../../(car)/car-categories-map/[[...handle]]/SectionGridHasMap'
 import ExperienceSectionGridHasMap from '../../../(experience)/experience-categories-map/[[...handle]]/SectionGridHasMap'
+import CategoryListingPagination, {
+  flattenListingSearchParams,
+} from '@/components/CategoryListingPagination'
 import type { CategoryRegistryEntry } from '@/data/category-registry'
 import { getCategoryByMapRoute } from '@/data/category-registry'
 import type { TCarCategory, TExperienceCategory, TStayCategory } from '@/data/categories'
@@ -130,6 +133,18 @@ export default async function Page({
 
   const variant = mapVariant(reg)
   const closeListingHref = `${reg.categoryRoute}/${currentHandle}#heading`
+  const pagerPath = `/${locale}/${reg.slug}/${currentHandle || 'all'}`
+  const pagerQuery = flattenListingSearchParams(sp)
+  const makePager = (page: number, total: number, perPage: number) => (
+    <CategoryListingPagination
+      locale={locale}
+      page={page}
+      total={total}
+      perPage={perPage}
+      pathname={pagerPath}
+      query={pagerQuery}
+    />
+  )
 
   if (variant === 'stay') {
     const [listingResult, filterOptions, themeOpts] = await Promise.all([
@@ -151,7 +166,7 @@ export default async function Page({
         listings={listings as TListingBase[]}
         locale={locale}
         themeOptions={themeOptions}
-        listingPagination={{ page, total, perPage }}
+        listingPaginationSlot={makePager(page, total, perPage)}
       />
     )
   }
@@ -170,7 +185,7 @@ export default async function Page({
         filterOptions={filterOptions}
         listings={listings as unknown as TCarListing[]}
         locale={locale}
-        listingPagination={{ page, total, perPage }}
+        listingPaginationSlot={makePager(page, total, perPage)}
       />
     )
   }
@@ -188,7 +203,7 @@ export default async function Page({
       filterOptions={filterOptions}
       listings={listings as unknown as TExperienceListing[]}
       locale={locale}
-      listingPagination={{ page, total, perPage }}
+      listingPaginationSlot={makePager(page, total, perPage)}
     />
   )
 }
