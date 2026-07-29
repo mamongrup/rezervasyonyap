@@ -41,6 +41,7 @@ const LIMIT = Math.max(0, Number(valueAfter('--limit') || 0))
 const FILE_PATH = valueAfter('--file') || process.env.TATILBUDUR_FEED_FILE || ''
 const FEED_URL = process.env.TATILBUDUR_FEED_URL || ''
 const LISTING_STATUS = process.env.TATILBUDUR_LISTING_STATUS || 'draft'
+const ENRICH_EXISTING_NAMES = args.has('--enrich-existing-names')
 const JOB_ID = valueAfter('--job-id') || process.env.SYNC_JOB_ID || ''
 const reporter = createJobReporter(JOB_ID)
 
@@ -187,6 +188,7 @@ function normalizeHotel(raw) {
   const address = String(raw?.address ?? raw?.location?.address ?? '').trim()
   const locationName = [district, city, provinceCity].filter(Boolean).join(', ') || city || district || ''
   const sourceFacts = raw?.sourceFacts && typeof raw.sourceFacts === 'object' ? raw.sourceFacts : {}
+  const sourceRules = sourceFacts.rules && typeof sourceFacts.rules === 'object' ? sourceFacts.rules : {}
   const themeCode = String(
     raw?.themeCode ?? raw?.theme_code ?? sourceFacts.themeCode ?? sourceFacts.theme_code ?? '',
   ).trim()
@@ -238,6 +240,8 @@ function normalizeHotel(raw) {
     reviewCount: num(raw?.reviewCount ?? raw?.review_count),
     checkIn: String(raw?.checkIn ?? raw?.check_in ?? '').trim(),
     checkOut: String(raw?.checkOut ?? raw?.check_out ?? '').trim(),
+    petsRule: String(raw?.petsRule ?? raw?.pets_rule ?? sourceRules.pets ?? '').trim(),
+    smokingRule: String(raw?.smokingRule ?? raw?.smoking_rule ?? sourceRules.smoking ?? '').trim(),
     amenities: textList(raw?.amenities ?? raw?.features),
     images,
     rooms,
@@ -247,6 +251,7 @@ function normalizeHotel(raw) {
     themeTags,
     hotelType,
     adultsOnly,
+    translations: raw?.translations && typeof raw.translations === 'object' ? raw.translations : {},
     raw,
   }
 }
@@ -282,9 +287,15 @@ async function loadFeed() {
 async function resolveContext(pg) {
   const org = await pg.query(`SELECT id FROM organizations ORDER BY created_at LIMIT 1`)
   const cat = await pg.query(`SELECT id FROM product_categories WHERE code='hotel' LIMIT 1`)
-  const loc = await pg.query(`SELECT id FROM locales WHERE code='tr' AND is_active=true LIMIT 1`)
+  const loc = await pg.query(`SELECT id, code FROM locales WHERE is_active=true ORDER BY id`)
   if (!org.rows[0] || !cat.rows[0] || !loc.rows[0]) throw new Error('import_context_missing')
-  return { orgId: org.rows[0].id, categoryId: cat.rows[0].id, localeId: loc.rows[0].id }
+  const localeByCode = Object.fromEntries(loc.rows.map((row) => [row.code, row.id]))
+  return {
+    orgId: org.rows[0].id,
+    categoryId: cat.rows[0].id,
+    localeId: localeByCode.tr,
+    localeByCode,
+  }
 }
 
 async function upsertHotel(pg, ctx, hotel) {
@@ -296,6 +307,24 @@ async function upsertHotel(pg, ctx, hotel) {
       [ctx.orgId, PROVIDER, hotel.externalId],
     )
     let listingId = existing.rows[0]?.id
+    let enrichedByName = false
+    if (!listingId) {
+      const sameName = await pg.query(
+        `SELECT l.id::text
+         FROM listings l
+         JOIN listing_translations lt ON lt.listing_id=l.id
+         JOIN locales lo ON lo.id=lt.locale_id
+         WHERE l.organization_id=$1::uuid AND l.category_id=$2::smallint
+           AND lo.code='tr' AND lower(btrim(lt.title))=lower(btrim($3))
+         LIMIT 1`,
+        [ctx.orgId, ctx.categoryId, hotel.name],
+      )
+      if (sameName.rows[0]) {
+        if (!ENRICH_EXISTING_NAMES) return 'skipped'
+        listingId = sameName.rows[0].id
+        enrichedByName = true
+      }
+    }
     const created = !listingId
     if (listingId) {
       // Mevcut yayın URL'sini koru — yeniden import kısa slug'ı ezmesin
@@ -323,9 +352,28 @@ async function upsertHotel(pg, ctx, hotel) {
     await pg.query(
       `INSERT INTO listing_translations (listing_id,locale_id,title,description)
        VALUES ($1::uuid,$2::smallint,$3,$4) ON CONFLICT (listing_id,locale_id) DO UPDATE SET
-       title=excluded.title, description=coalesce(nullif(excluded.description,''),listing_translations.description)`,
-      [listingId, ctx.localeId, hotel.name, hotel.description],
+       title=CASE WHEN $5::boolean THEN listing_translations.title ELSE excluded.title END,
+       description=CASE WHEN $5::boolean AND coalesce(btrim(listing_translations.description),'') <> ''
+         THEN listing_translations.description
+         ELSE coalesce(nullif(excluded.description,''),listing_translations.description) END`,
+      [listingId, ctx.localeId, hotel.name, hotel.description, enrichedByName],
     )
+    for (const [code, translation] of Object.entries(hotel.translations)) {
+      const localeId = ctx.localeByCode[code]
+      if (!localeId || code === 'tr' || !translation || typeof translation !== 'object') continue
+      const title = String(translation.title || hotel.name).trim()
+      const description = String(translation.description || '').trim()
+      if (!title || !description) continue
+      await pg.query(
+        `INSERT INTO listing_translations (listing_id,locale_id,title,description)
+         VALUES ($1::uuid,$2::smallint,$3,$4)
+         ON CONFLICT (listing_id,locale_id) DO UPDATE SET
+         title=CASE WHEN $5::boolean THEN listing_translations.title ELSE excluded.title END,
+         description=CASE WHEN $5::boolean AND coalesce(btrim(listing_translations.description),'') <> ''
+           THEN listing_translations.description ELSE excluded.description END`,
+        [listingId, localeId, title, description, enrichedByName],
+      )
+    }
     const country = await pg.query(`SELECT id FROM countries WHERE iso2=$1 LIMIT 1`, [hotel.countryCode])
     await pg.query(
       `INSERT INTO listing_hotel_details (listing_id,star_rating,country_id) VALUES ($1::uuid,$2,$3)
@@ -333,7 +381,12 @@ async function upsertHotel(pg, ctx, hotel) {
        country_id=coalesce(excluded.country_id,listing_hotel_details.country_id)`,
       [listingId, hotel.starRating, country.rows[0]?.id ?? null],
     )
-    if (hotel.images.length) {
+    const existingMedia = enrichedByName
+      ? await pg.query(`SELECT count(*)::int AS count FROM listing_images WHERE listing_id=$1::uuid`, [listingId])
+      : null
+    const shouldImportImages = hotel.images.length
+      && (!enrichedByName || Number(existingMedia?.rows[0]?.count || 0) < 2)
+    if (shouldImportImages) {
       await pg.query(`UPDATE listings SET featured_image_url=$2,thumbnail_url=$2 WHERE id=$1::uuid`, [listingId, hotel.images[0]])
       await pg.query(`DELETE FROM listing_images WHERE listing_id=$1::uuid`, [listingId])
       for (let i = 0; i < hotel.images.length; i++) {
@@ -361,7 +414,13 @@ async function upsertHotel(pg, ctx, hotel) {
        DO UPDATE SET value_json=excluded.value_json`,
       [listingId, JSON.stringify({ source: PROVIDER, source_url: hotel.url, check_in: hotel.checkIn,
         check_out: hotel.checkOut, guest_score: hotel.guestScore, review_count: hotel.reviewCount,
-        address: hotel.address, district: hotel.district })],
+        address: hotel.address, district: hotel.district,
+        rules: {
+          check_in: hotel.checkIn,
+          check_out: hotel.checkOut,
+          pets: hotel.petsRule,
+          smoking: hotel.smokingRule,
+        } })],
     )
     if (hotel.district || hotel.city || hotel.provinceCity || hotel.address || hotel.lat != null) {
       const meta = {
@@ -398,7 +457,12 @@ async function upsertHotel(pg, ctx, hotel) {
         [listingId, JSON.stringify(String(hotel.hotelType))],
       )
     }
-    if (hotel.rooms.length) {
+    const existingRooms = enrichedByName
+      ? await pg.query(`SELECT count(*)::int AS count FROM hotel_rooms WHERE listing_id=$1::uuid`, [listingId])
+      : null
+    const shouldImportRooms = hotel.rooms.length
+      && (!enrichedByName || Number(existingRooms?.rows[0]?.count || 0) === 0)
+    if (shouldImportRooms) {
       await pg.query(`DELETE FROM hotel_rooms WHERE listing_id=$1::uuid`, [listingId])
       for (const room of hotel.rooms) {
         await pg.query(
@@ -410,8 +474,39 @@ async function upsertHotel(pg, ctx, hotel) {
               features: room.features, seasonal_prices: room.rates }), room.unitCount],
         )
       }
+    } else if (enrichedByName && hotel.rooms.length) {
+      for (const room of hotel.rooms) {
+        if (!room.image && !room.images.length) continue
+        await pg.query(
+          `UPDATE hotel_rooms
+           SET board_type=coalesce(board_type,nullif($3::text,'')),
+             meta_json=meta_json || jsonb_build_object(
+               'image',$4::text,
+               'images',$5::jsonb,
+               'features',CASE
+                 WHEN jsonb_array_length(coalesce(meta_json->'features','[]'::jsonb))=0
+                 THEN $6::jsonb ELSE meta_json->'features' END
+             )
+           WHERE listing_id=$1::uuid
+             AND lower(btrim(name))=lower(btrim($2))
+             AND coalesce(meta_json->>'image','')=''`,
+          [
+            listingId,
+            room.name,
+            room.boardType || '',
+            room.image || room.images[0] || '',
+            JSON.stringify(room.images.length ? room.images : room.image ? [room.image] : []),
+            JSON.stringify(room.features),
+          ],
+        )
+      }
     }
-    if (hotel.minPrice != null) {
+    const existingPrice = enrichedByName
+      ? await pg.query(`SELECT vitrin_price FROM listings WHERE id=$1::uuid`, [listingId])
+      : null
+    const shouldImportPrice = hotel.minPrice != null
+      && (!enrichedByName || Number(existingPrice?.rows[0]?.vitrin_price || 0) <= 0)
+    if (shouldImportPrice) {
       await pg.query(`DELETE FROM listing_price_rules WHERE listing_id=$1::uuid AND rule_json->>'source'=$2`, [listingId, PROVIDER])
       const rateGroups = hotel.rooms.flatMap((room) => room.rates.map((rate) => ({ ...rate, roomId: room.id, roomName: room.name })))
       if (!rateGroups.length) rateGroups.push({ nightlyPrice: hotel.minPrice, currency: hotel.currency, roomId: '', roomName: '' })
@@ -442,7 +537,7 @@ async function upsertHotel(pg, ctx, hotel) {
       slug: hotel.slug,
     })
     await pg.query('COMMIT')
-    return created ? 'created' : 'updated'
+    return created ? 'created' : enrichedByName ? 'enriched' : 'updated'
   } catch (error) {
     await pg.query('ROLLBACK')
     throw error
@@ -475,6 +570,8 @@ async function main() {
         const action = pg ? await upsertHotel(pg, ctx, hotel) : 'dry-run'
         if (action === 'created') state.created++
         if (action === 'updated') state.updated++
+        if (action === 'enriched') state.enriched = (state.enriched || 0) + 1
+        if (action === 'skipped') state.skipped = (state.skipped || 0) + 1
         console.log(`[${i + 1}/${feed.hotels.length}] ${hotel.name} -> ${action} oda:${hotel.rooms.length} fiyat:${hotel.minPrice ?? '-'}`)
       } catch (error) {
         state.failed++
