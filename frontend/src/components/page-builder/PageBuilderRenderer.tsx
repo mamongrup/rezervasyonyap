@@ -216,17 +216,6 @@ export default async function PageBuilderRenderer({
     ? 'flex flex-col gap-0 min-w-0'
     : 'flex flex-col gap-16 py-12 container'
 
-  /** Anasayfa: oteller (veya ilk featured) Intersection beklemeden öncelikli yüklensin */
-  const priorityFeaturedPlacesId = deferFeaturedPlaces
-    ? (
-        enabledResolved.find(
-          (m) =>
-            m.type === 'featured_places' &&
-            ((m.config as { categorySlug?: string }).categorySlug ?? 'oteller') === 'oteller',
-        ) ?? enabledResolved.find((m) => m.type === 'featured_places')
-      )?.id
-    : undefined
-
   return (
     <Root className={rootLayoutClass} style={rootStyle}>
       {await Promise.all(
@@ -492,7 +481,6 @@ export default async function PageBuilderRenderer({
                   key={module.id}
                   config={module.config}
                   locale={locale}
-                  priority={module.id === priorityFeaturedPlacesId}
                 />
               )
             }

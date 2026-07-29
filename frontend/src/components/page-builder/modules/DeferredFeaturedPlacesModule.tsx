@@ -44,7 +44,7 @@ export default function DeferredFeaturedPlacesModule({
         setShouldLoad(true)
         observer.disconnect()
       },
-      { rootMargin: '280px 0px' },
+      { rootMargin: '80px 0px' },
     )
     observer.observe(node)
     return () => observer.disconnect()

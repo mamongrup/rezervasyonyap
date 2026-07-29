@@ -20,18 +20,30 @@ const CustomerSupportFloatMenu = dynamic(() => import('@/components/CustomerSupp
 type Props = { locale: string }
 
 export function DeferredLayoutWidgets({ locale }: Props) {
-  const [renderPopups, setRenderPopups] = useState(false)
+  const [renderWidgets, setRenderWidgets] = useState(false)
 
   useEffect(() => {
-    const id = window.setTimeout(() => setRenderPopups(true), 5500)
-    return () => window.clearTimeout(id)
+    let idleId: number | undefined
+    const timerId = window.setTimeout(() => {
+      if ('requestIdleCallback' in window) {
+        idleId = window.requestIdleCallback(() => setRenderWidgets(true), { timeout: 2500 })
+      } else {
+        setRenderWidgets(true)
+      }
+    }, 4500)
+    return () => {
+      window.clearTimeout(timerId)
+      if (idleId != null && 'cancelIdleCallback' in window) window.cancelIdleCallback(idleId)
+    }
   }, [])
+
+  if (!renderWidgets) return null
 
   return (
     <>
       <CustomerSupportFloatMenu />
       <ConciergeChatWidget hideLauncher />
-      {renderPopups ? <SitePopupsRenderer locale={locale} /> : null}
+      <SitePopupsRenderer locale={locale} />
     </>
   )
 }
