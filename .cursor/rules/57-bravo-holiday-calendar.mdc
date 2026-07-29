@@ -1,0 +1,60 @@
+---
+description: Bravo/Excalibur tatil evi takvim — eski sistem 1 gün eksik kapatma kuralı
+globs: scripts/lib/bravo-calendar.mjs,scripts/**/bravo*calendar*,scripts/import-bravo*.mjs,scripts/sync-excalibur*.mjs,frontend/src/lib/availability-turnover-boundaries.ts,frontend/src/components/manage/HolidayHomeAvailabilityHub.tsx,backend/src/travel/**/booking*.gleam
+alwaysApply: false
+---
+
+# Bravo tatil evi takvim (1 gün eksik kapatma)
+
+## Kök neden (değişmez)
+
+Eski sistem (Bravo / Excalibur `bravo_space_dates`) kapalı aralıkları **1 gün kısa** tutar.
+
+| Eski DB’de kapalı | Travel’da olması gereken |
+|-------------------|---------------------------|
+| 15–19 | **15–20** (giriş 15, çıkış sabahı 20; geceler 15–19) |
+
+Bizim yazılım (exclusive checkout / yarım gün turnover) **doğru**; hata kaynak veride.
+
+## Stay anlamı (travel)
+
+- Checkout **exclusive**: `[checkin, checkout)` geceleri.
+- Giriş günü: ÖÖ açık / ÖS kapalı.
+- Orta günler: tam kapalı.
+- Çıkış günü: ÖÖ kapalı / ÖS açık.
+- Tek günlük tam blok = bakım → **+1 uzatma yok**.
+
+## Import (zorunlu)
+
+Bravo takvim aktarımında **önce** çok günlük `active=0` bloğunu +1 gün uzat, **sonra** turnover:
+
+- `scripts/lib/bravo-calendar.mjs`
+  - `extendBravoInactiveBlocksByOneDay`
+  - `applyBravoTurnoverBoundaries`
+  - `prepareBravoCalendarDays` (= uzat + turnover)
+- `importBravoAvailabilityCalendar` / `import-bravo-spaces` / `sync-excalibur-bravo` bu yolu kullanmalı.
+- Uzatmayı kaldıran veya turnover’ı “son inactive = checkout” varsayımına geri alan değişiklik **regresyon**.
+
+Test: `node --test scripts/lib/bravo-calendar.test.mjs`  
+(ör. “15–19 kapalı → çıkış 20”).
+
+## Mevcut üretim verisi
+
+Zaten kısa kapanmış takvimler için (idempotent):
+
+```bash
+cd /var/www/vhosts/rezervasyonyap.tr/httpdocs
+git fetch origin main && git reset --hard origin/main
+node scripts/repair-bravo-calendar-checkout-plus-one.mjs --dry-run
+node scripts/repair-bravo-calendar-checkout-plus-one.mjs
+```
+
+- Yalnız `holiday_home` + `bravo_space` (veya sayısal `external_listing_ref`).
+- Tekrar çalıştırılabilir; uzatılmış blokları yeniden seçmez.
+- Panelde elle boyanan doğru aralıklara kör +1 uygulama — repair script Bravo sync sonrası eksik için.
+
+## Yapma
+
+- “Eski DB doğru, checkout’u 1 gün öne çek” diye travel modelini bozma.
+- Tek günlük bakım kapalılarını otomatik +1 yapma.
+- `applyTurnoverBoundaries` (panel) ile Bravo kaynak düzeltmesini karıştırma: panel kullanıcı aralığına göre çalışır; Bravo kaynak eksikliği import/repair’te giderilir.
