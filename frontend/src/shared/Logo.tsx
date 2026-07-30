@@ -2,6 +2,7 @@
 
 import { useVitrinHref } from '@/hooks/use-vitrin-href'
 import { applyBrandingDomainOverrides, type BrandingDomainLogoOverride } from '@/lib/branding-for-host'
+import { ensureReadableColor } from '@/lib/color-contrast'
 import { normalizeSiteLogoUrl, pickEffectiveSiteLogoUrls, resolveSiteLogoUrl } from '@/lib/resolve-site-logo-url'
 import { siteUploadBrowserHref } from '@/lib/site-upload-browser-href'
 import { getSitePublicConfig } from '@/lib/travel-api'
@@ -458,9 +459,16 @@ const Logo: React.FC<LogoProps> = ({ className = 'w-auto', src, darkSrc, alt, in
   if (!catLogo && branding.logo_mode === 'icon_text' && iconUrl && !iconFailed) {
     const line1 = branding.logo_text_line1 || branding.site_name || ''
     const line2 = branding.logo_text_line2 || ''
-    // Varsayılan: satır1 koyu nötr, satır2 turuncu (WCAG için light'ta koyulaştırılır).
+    // Varsayılan: satır1 koyu nötr, satır2 turuncu.
     const line1Color = branding.logo_text_line1_color || '#171717'
     const line2Color = branding.logo_text_line2_color || '#c2410c'
+    // Panelde seçilen renk kontrastı yetersizse (ör. açık turuncu beyaz zemin)
+    // aynı tonu koruyarak otomatik koyulaştırır/aydınlatır — WCAG AA (4.5:1).
+    // Kayıtlı değer değişmez; yalnız ekrana çizilen renk düzeltilir.
+    const line1ColorLight = ensureReadableColor(line1Color, '#ffffff')
+    const line1ColorDark = ensureReadableColor(line1Color, '#171717')
+    const line2ColorLight = ensureReadableColor(line2Color, '#ffffff')
+    const line2ColorDark = ensureReadableColor(line2Color, '#171717')
 
     return (
       <Link
@@ -476,16 +484,26 @@ const Logo: React.FC<LogoProps> = ({ className = 'w-auto', src, darkSrc, alt, in
         <span className="inline-flex items-baseline gap-1 leading-none whitespace-nowrap">
           {line1 && (
             <span
-              className="text-[18px] font-bold tracking-tight"
-              style={{ color: line1Color }}
+              className="text-[18px] font-bold tracking-tight text-[color:var(--logo-l1-light)] dark:text-[color:var(--logo-l1-dark)]"
+              style={
+                {
+                  '--logo-l1-light': line1ColorLight,
+                  '--logo-l1-dark': line1ColorDark,
+                } as React.CSSProperties
+              }
             >
               {line1}
             </span>
           )}
           {line2 && (
             <span
-              className="text-[18px] font-semibold tracking-tight"
-              style={{ color: line2Color }}
+              className="text-[18px] font-semibold tracking-tight text-[color:var(--logo-l2-light)] dark:text-[color:var(--logo-l2-dark)]"
+              style={
+                {
+                  '--logo-l2-light': line2ColorLight,
+                  '--logo-l2-dark': line2ColorDark,
+                } as React.CSSProperties
+              }
             >
               {line2}
             </span>
