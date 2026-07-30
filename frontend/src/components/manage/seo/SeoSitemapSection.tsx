@@ -81,10 +81,17 @@ export default function SeoSitemapSection() {
       <p className="mt-2 text-sm text-neutral-600 dark:text-neutral-400">
         Yayınlanmış içeriklerin JSON listesi (API ile aynı kaynak). Ön yüzde çok dilli yollar{' '}
         <code className="rounded bg-neutral-100 px-1 font-mono text-xs dark:bg-neutral-800">/[locale]/…</code> ile
-        kullanılır; tabloda tr örneği gösterilir. Üretimde genelde{' '}
-        <code className="rounded bg-neutral-100 px-1 font-mono text-xs dark:bg-neutral-800">/sitemap.xml</code> (
-        <code className="rounded bg-neutral-100 px-1 font-mono text-xs dark:bg-neutral-800">NEXT_PUBLIC_SITE_URL</code>{' '}
-        + her dil) kullanılır.
+        kullanılır; tabloda tr örneği gösterilir. Üretimde{' '}
+        <code className="rounded bg-neutral-100 px-1 font-mono text-xs dark:bg-neutral-800">/sitemap.xml</code>{' '}
+        kategori index’idir; parçalar{' '}
+        <code className="rounded bg-neutral-100 px-1 font-mono text-xs dark:bg-neutral-800">
+          /sitemap/hotel.xml
+        </code>
+        ,{' '}
+        <code className="rounded bg-neutral-100 px-1 font-mono text-xs dark:bg-neutral-800">
+          /sitemap/tour.xml
+        </code>{' '}
+        vb. (istek host’una göre marka domaini).
       </p>
       {smErr ? <p className="mt-3 text-sm text-red-600 dark:text-red-400">{smErr}</p> : null}
       <p className="mt-2 text-xs text-neutral-500 dark:text-neutral-500">

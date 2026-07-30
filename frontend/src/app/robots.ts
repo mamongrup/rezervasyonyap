@@ -2,6 +2,9 @@ import type { MetadataRoute } from 'next'
 import { isAppLocale } from '@/lib/i18n-config'
 import { resolveCanonicalBaseUrl } from '@/lib/resolve-canonical-base-url'
 
+/** Host’a göre Sitemap / Host satırı — marka domain cache karışmasın. */
+export const dynamic = 'force-dynamic'
+
 /**
  * Crawl bütçesini korumak için arka plan / kullanıcı paneli / API uçlarını
  * tarayıcılara kapatıyoruz. Hem öneksiz (`/manage`) hem her dilin önekli

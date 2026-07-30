@@ -31,11 +31,14 @@ Search Console’da her apex için ayrı mülk ekleyin ve sitemap gönderin:
    (Ana `.tr` zaten varsa bırakın.)
 2. Doğrulama: DNS TXT veya paneldeki `search_console_verification` HTML meta
    (her mülk için ayrı doğrulama gerekebilir).
-3. **Sitemaps** → gönder:
+3. **Sitemaps** → her mülkte kök index’i gönderin (kategori parçalarını içerir):
    - `https://rezervasyonyap.com.tr/sitemap.xml`
    - `https://reservationinturkey.com/sitemap.xml`
-4. Ana sayfa için **URL inspection → Request indexing**
-   (`/` ve RIT için `/en`).
+   - Index altındaki örnekler: `/sitemap/hotel.xml`, `/sitemap/tour.xml`,
+     `/sitemap/site.xml` (anasayfa + CMS + blog), … (tüm dikeyler)
+4. İndekslemeyi **kategori kategori** hızlandırmak için URL inspection:
+   - Hub: `/oteller/all`, `/turlar/all`, … (RIT’te `/en/…`)
+   - İstenirse ilgili `/sitemap/{kategori}.xml` içinden örnek ilan URL’leri
 
 Not: Aynı içeriğin üç host’ta da yayında olması Google’ın birini “ana”
 seçmesine yol açabilir; yine de host-doğru canonical olmadan marka domainleri
