@@ -7,17 +7,25 @@ import { HugeiconsIcon, type IconSvgElement } from '@hugeicons/react'
 import { Search } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import clsx from 'clsx'
+import dynamic from 'next/dynamic'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useEffect, useState } from 'react'
 
 const DEFAULT_ACCOUNT_PATH = '/account'
 import { fetchSitePreviewLinks } from '@/lib/site-preview-links-client'
-import FooterCustomerSupportSheet, {
-  FooterCustomerSupportButton,
-} from '@/components/FooterCustomerSupportSheet'
-import { SearchModal } from '@/components/search/GlobalSearch'
+import { FooterCustomerSupportButton } from '@/components/FooterCustomerSupportButton'
 import { useAside } from './aside'
+
+const FooterCustomerSupportSheet = dynamic(
+  () => import('@/components/FooterCustomerSupportSheet'),
+  { ssr: false },
+)
+
+const SearchModal = dynamic(
+  () => import('@/components/search/GlobalSearch').then((mod) => mod.SearchModal),
+  { ssr: false },
+)
 
 function FooterBarIcon({
   lucide,
