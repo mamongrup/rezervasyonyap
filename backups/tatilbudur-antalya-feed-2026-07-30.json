@@ -1778,12 +1778,13 @@
             {
               "validFrom": "2026-08-01",
               "validTo": "2026-08-08",
-              "nightlyPrice": 14112.86,
-              "totalPrice": 98790,
+              "nightlyPrice": 15340,
+              "totalPrice": 107380,
               "stayNights": 7,
               "adults": 2,
               "currency": "TRY",
-              "boardType": ""
+              "boardType": "",
+              "priceSource": "stay_total"
             }
           ]
         },
@@ -1805,12 +1806,13 @@
             {
               "validFrom": "2026-08-01",
               "validTo": "2026-08-08",
-              "nightlyPrice": 14509,
-              "totalPrice": 101563,
+              "nightlyPrice": 15770.71,
+              "totalPrice": 110395,
               "stayNights": 7,
               "adults": 2,
               "currency": "TRY",
-              "boardType": ""
+              "boardType": "",
+              "priceSource": "stay_total"
             }
           ]
         },
@@ -1828,7 +1830,15 @@
           "features": [
             "62 m2"
           ],
-          "rates": []
+          "rates": [
+            {
+              "validFrom": "2026-08-01",
+              "validTo": "2026-08-08",
+              "nightlyPrice": 20700,
+              "currency": "TRY",
+              "boardType": ""
+            }
+          ]
         },
         {
           "id": "d75fdab1dc7611e8b4e642010a050a0b",
@@ -1844,7 +1854,15 @@
           "features": [
             "62 m2"
           ],
-          "rates": []
+          "rates": [
+            {
+              "validFrom": "2026-08-01",
+              "validTo": "2026-08-08",
+              "nightlyPrice": 20700,
+              "currency": "TRY",
+              "boardType": ""
+            }
+          ]
         }
       ],
       "currency": "TRY",

@@ -37,6 +37,10 @@ bulunabilir. Fiyat kaydı:
 }
 ```
 
+**Kart kampanyası yok:** `prepare-tatilbudur-regional-feed.mjs` oda tutarı olarak
+yalnızca **"Toplam Fiyat"** alır; Worldcard / Bankkart / “sepette %…” satırları
+vitrine yazılmaz (`scripts/lib/tatilbudur-stay-price.mjs`).
+
 ## Çalıştırma
 
 ```bash
