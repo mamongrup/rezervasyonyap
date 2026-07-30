@@ -29,7 +29,9 @@ import {
 } from '@/lib/site-branding-seo'
 import { getCachedSiteConfig } from '@/lib/site-config-cache'
 import { resolveCanonicalBaseUrl } from '@/lib/resolve-canonical-base-url'
+import { resolveRequestBranding } from '@/lib/request-branding-seo'
 import { vitrinHref } from '@/lib/vitrin-href'
+import type { SitePublicConfig } from '@/lib/travel-api'
 import heroRightStay from '@/images/hero-right.avif'
 import ButtonPrimary from '@/shared/ButtonPrimary'
 import Link from 'next/link'
@@ -47,8 +49,12 @@ export async function generateMetadata({
   const { locale } = await params
   const m = getMessages(locale)
   const pub = await getCachedSiteConfig()
-  const siteName = brandingSiteName(pub)
-  const description = rawSiteDescription(pub) ?? m.homePage.meta.description ?? metaSiteDescription(pub)
+  const { branding: hostBranding } = await resolveRequestBranding(
+    (pub?.branding ?? null) as Record<string, unknown> | null,
+  )
+  const pubForBrand = (pub ? { ...pub, branding: hostBranding } : null) as SitePublicConfig | null
+  const siteName = brandingSiteName(pubForBrand)
+  const description = rawSiteDescription(pubForBrand) ?? m.homePage.meta.description ?? metaSiteDescription(pubForBrand)
   const title = m.homePage.meta.title?.trim() || siteName
   const siteUrl = (await resolveCanonicalBaseUrl()).replace(/\/$/, '')
   const homePath = await vitrinHref(locale, '/')

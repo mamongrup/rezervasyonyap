@@ -20,6 +20,10 @@ import {
 } from '@/lib/site-branding-seo'
 import { getCachedSiteConfig } from '@/lib/site-config-cache'
 import { resolveCanonicalBaseUrl } from '@/lib/resolve-canonical-base-url'
+import {
+  resolveRequestBranding,
+  resolveSearchConsoleVerification,
+} from '@/lib/request-branding-seo'
 import type { Metadata } from 'next'
 import type { SitePublicConfig } from '@/lib/travel-api'
 import { getPublicCurrencyRates } from '@/lib/travel-api'
@@ -44,12 +48,6 @@ export async function generateStaticParams() {
   }
 }
 
-function searchConsoleVerification(pub: SitePublicConfig | null): string {
-  if (!pub?.analytics) return ''
-  const an = pub.analytics as Record<string, unknown>
-  return typeof an.search_console_verification === 'string' ? an.search_console_verification : ''
-}
-
 export async function generateMetadata({
   params,
 }: {
@@ -57,10 +55,17 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { locale } = await params
   const pub = await getCachedSiteConfig()
-  const siteName = brandingSiteName(pub)
-  const description = metaSiteDescription(pub)
-  const keywords = brandingKeywords(pub, siteName)
-  const scVerification = searchConsoleVerification(pub)
+  const { hostname, branding: hostBranding } = await resolveRequestBranding(
+    (pub?.branding ?? null) as Record<string, unknown> | null,
+  )
+  const pubForBrand = (pub ? { ...pub, branding: hostBranding } : null) as SitePublicConfig | null
+  const siteName = brandingSiteName(pubForBrand)
+  const description = metaSiteDescription(pubForBrand)
+  const keywords = brandingKeywords(pubForBrand, siteName)
+  const scVerification = resolveSearchConsoleVerification(
+    (pub?.analytics ?? null) as Record<string, unknown> | null,
+    hostname,
+  )
 
   const rows = await fetchActiveLocales()
   const codes = rows.map((r) => r.code)
@@ -77,8 +82,8 @@ export async function generateMetadata({
     ? { google: scVerification }
     : undefined
 
-  const faviconPath = brandingAssetPath(pub, 'favicon_url')
-  const shareImage = shareOgImageMeta(base, pub, siteName)
+  const faviconPath = brandingAssetPath(pubForBrand, 'favicon_url')
+  const shareImage = shareOgImageMeta(base, pubForBrand, siteName)
   const faviconRel = faviconPath.trim() ? faviconPath : DEFAULT_FAVICON_PATH
   const faviconNormalized = faviconRel.startsWith('/') ? faviconRel : `/${faviconRel}`
   const faviconUrl = toAbsoluteSiteUrl(base, faviconNormalized)

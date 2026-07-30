@@ -1,11 +1,13 @@
 import { hostApexKey, SAME_DEPLOYMENT_SITE_APEXES } from '@/lib/api-origin'
 
-/** Domain başına logo yazı override alanları (`branding.domain_overrides[apex]`). */
+/** Domain başına logo + SEO override alanları (`branding.domain_overrides[apex]`). */
 export type BrandingDomainLogoOverride = {
   logo_text_line1?: string
   logo_text_line2?: string
   logo_text_line1_color?: string
   logo_text_line2_color?: string
+  site_name?: string
+  site_description?: string
 }
 
 const LOGO_TEXT_KEYS = [
@@ -13,6 +15,8 @@ const LOGO_TEXT_KEYS = [
   'logo_text_line2',
   'logo_text_line1_color',
   'logo_text_line2_color',
+  'site_name',
+  'site_description',
 ] as const
 
 export type BrandingLogoTextKey = (typeof LOGO_TEXT_KEYS)[number]

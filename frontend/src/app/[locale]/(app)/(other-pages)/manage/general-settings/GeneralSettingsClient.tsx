@@ -228,6 +228,8 @@ export default function GeneralSettingsClient({ embedded = false }: GeneralSetti
   const [adsenseAutoAds, setAdsenseAutoAds] = useState(false)
   const [googleAdsId, setGoogleAdsId] = useState('')
   const [searchConsoleCode, setSearchConsoleCode] = useState('')
+  const [searchConsoleComTr, setSearchConsoleComTr] = useState('')
+  const [searchConsoleRit, setSearchConsoleRit] = useState('')
   const [analyticsRest, setAnalyticsRest] = useState<Record<string, unknown>>({})
   const [googleServicesSaving, setGoogleServicesSaving] = useState(false)
 
@@ -380,7 +382,29 @@ export default function GeneralSettingsClient({ embedded = false }: GeneralSetti
       setAdsenseAutoAds(an.adsense_auto_ads === true)
       setGoogleAdsId(typeof an.google_ads_id === 'string' ? an.google_ads_id : '')
       setSearchConsoleCode(typeof an.search_console_verification === 'string' ? an.search_console_verification : '')
-      const { ga4_id: _g, gtm_id: _t, adsense_id: _a, adsense_auto_ads: _aa, google_ads_id: _gads, search_console_verification: _sc, ...restAn } = an
+      const byHostRaw = an.search_console_verification_by_host
+      const byHost =
+        byHostRaw && typeof byHostRaw === 'object' && !Array.isArray(byHostRaw)
+          ? (byHostRaw as Record<string, unknown>)
+          : {}
+      setSearchConsoleComTr(
+        typeof byHost['rezervasyonyap.com.tr'] === 'string' ? byHost['rezervasyonyap.com.tr'] : '',
+      )
+      setSearchConsoleRit(
+        typeof byHost['reservationinturkey.com'] === 'string'
+          ? byHost['reservationinturkey.com']
+          : '',
+      )
+      const {
+        ga4_id: _g,
+        gtm_id: _t,
+        adsense_id: _a,
+        adsense_auto_ads: _aa,
+        google_ads_id: _gads,
+        search_console_verification: _sc,
+        search_console_verification_by_host: _scbh,
+        ...restAn
+      } = an
       setAnalyticsRest(restAn)
       const branding = pub.branding ?? {}
       setBrandingJson(JSON.stringify(branding, null, 2))
@@ -681,6 +705,17 @@ export default function GeneralSettingsClient({ embedded = false }: GeneralSetti
       setGoogleAdsId(ads)
       setAdsenseId(adsense)
 
+      const byHost: Record<string, string> = {}
+      if (searchConsoleCode.trim()) {
+        byHost['rezervasyonyap.tr'] = searchConsoleCode.trim()
+      }
+      if (searchConsoleComTr.trim()) {
+        byHost['rezervasyonyap.com.tr'] = searchConsoleComTr.trim()
+      }
+      if (searchConsoleRit.trim()) {
+        byHost['reservationinturkey.com'] = searchConsoleRit.trim()
+      }
+
       const next = {
         ...analyticsRest,
         ...(ga4 ? { ga4_id: ga4 } : {}),
@@ -689,6 +724,7 @@ export default function GeneralSettingsClient({ embedded = false }: GeneralSetti
         adsense_auto_ads: adsenseAutoAds,
         ...(ads ? { google_ads_id: ads } : {}),
         ...(searchConsoleCode.trim() ? { search_console_verification: searchConsoleCode.trim() } : {}),
+        ...(Object.keys(byHost).length > 0 ? { search_console_verification_by_host: byHost } : {}),
       }
       await upsertSiteSettingFromPanel({ key: 'analytics', value_json: JSON.stringify(next) })
       const note = moved.length > 0 ? ` (${moved.join('; ')})` : ''
@@ -2109,21 +2145,54 @@ export default function GeneralSettingsClient({ embedded = false }: GeneralSetti
               <span className="text-2xl">🔍</span>
               <div>
                 <h2 className="text-base font-semibold">Google Search Console</h2>
-                <p className="text-sm text-neutral-500">Site doğrulama meta etiketi. Kodu head&apos;e eklenecektir.</p>
+                <p className="text-sm text-neutral-500">
+                  Üç marka domaini için ayrı mülk doğrulama kodları (HTML etiketi{' '}
+                  <code className="font-mono text-xs">content</code> değeri). Host’a göre meta seçilir.
+                </p>
               </div>
             </div>
-            <Field className="block max-w-lg">
-              <Label>Doğrulama kodu <span className="text-xs font-normal text-neutral-400">(sadece content değeri)</span></Label>
-              <Input className="mt-1 font-mono" value={searchConsoleCode} onChange={(e) => setSearchConsoleCode(e.target.value)} placeholder="XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX" />
-              <p className="mt-1 text-xs text-neutral-400">
-                <a href="https://search.google.com/search-console" target="_blank" rel="noopener noreferrer" className="text-primary-600 underline">Search Console</a> → Mülk ekle → HTML etiketi yöntemi → <code className="font-mono">content=&quot;…&quot;</code> değerini buraya yapıştırın.
+            <div className="space-y-4 max-w-lg">
+              <Field className="block">
+                <Label>rezervasyonyap.tr (varsayılan / genel)</Label>
+                <Input
+                  className="mt-1 font-mono"
+                  value={searchConsoleCode}
+                  onChange={(e) => setSearchConsoleCode(e.target.value)}
+                  placeholder="XXXXXXXX…"
+                />
+              </Field>
+              <Field className="block">
+                <Label>rezervasyonyap.com.tr</Label>
+                <Input
+                  className="mt-1 font-mono"
+                  value={searchConsoleComTr}
+                  onChange={(e) => setSearchConsoleComTr(e.target.value)}
+                  placeholder="XXXXXXXX…"
+                />
+              </Field>
+              <Field className="block">
+                <Label>reservationinturkey.com</Label>
+                <Input
+                  className="mt-1 font-mono"
+                  value={searchConsoleRit}
+                  onChange={(e) => setSearchConsoleRit(e.target.value)}
+                  placeholder="XXXXXXXX…"
+                />
+              </Field>
+              <p className="text-xs text-neutral-400">
+                <a
+                  href="https://search.google.com/search-console"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-primary-600 underline"
+                >
+                  Search Console
+                </a>{' '}
+                → her apex için mülk ekle → HTML etiketi →{' '}
+                <code className="font-mono">content=&quot;…&quot;</code> değerini ilgili alana yapıştırın. DNS
+                TXT doğrulaması da kullanılabilir (panel gerekmez).
               </p>
-              {searchConsoleCode && (
-                <code className="mt-2 block rounded bg-neutral-50 px-3 py-2 text-xs text-neutral-600 dark:bg-neutral-800 dark:text-neutral-400">
-                  {`<meta name="google-site-verification" content="${searchConsoleCode}" />`}
-                </code>
-              )}
-            </Field>
+            </div>
           </section>
 
           {/* ── Save Button ───────────────────────────────────────────── */}

@@ -17,16 +17,26 @@ export const COMPANY = {
   },
   address: {
     line: 'Kesikkapı Mahallesi, Çarşı Caddesi No:254',
-    city: 'Fethiye / Muğla',
+    district: 'Kesikkapı',
+    city: 'Fethiye',
+    region: 'Muğla',
+    postalCode: '48300',
     country: 'Türkiye',
+    countryCode: 'TR',
+    /** Google Maps / LocalBusiness geo — Fethiye Çarşı civarı */
+    geo: { latitude: 36.6217, longitude: 29.1164 },
   },
+  /** Google Haritalar arama / yol tarifi (GBP Place ID panelden eklenebilir) */
+  mapsUrl:
+    'https://www.google.com/maps/search/?api=1&query=Kesikkap%C4%B1+Mahallesi+Çarşı+Caddesi+No:254+Fethiye+Muğla',
   siteUrl: 'https://rezervasyonyap.tr',
-  legacySiteUrl: 'https://www.rezervasyonyap.com.tr',
+  legacySiteUrl: 'https://rezervasyonyap.com.tr',
+  internationalSiteUrl: 'https://reservationinturkey.com',
   etbisNote: 'T.C. Ticaret Bakanlığı Elektronik Ticaret Bilgi Sistemi (ETBİS) kayıtlıdır.',
 } as const
 
 export function companyAddressFull(): string {
-  return `${COMPANY.address.line}, ${COMPANY.address.city}`
+  return `${COMPANY.address.line}, ${COMPANY.address.postalCode} ${COMPANY.address.city}/${COMPANY.address.region}`
 }
 
 export function formatTursabLabel(): string {

@@ -44,6 +44,44 @@ Not: Aynı içeriğin üç host’ta da yayında olması Google’ın birini “
 seçmesine yol açabilir; yine de host-doğru canonical olmadan marka domainleri
 pratikte indekslenmez. `www` → apex tercihi canonical’da apex’e normalize edilir.
 
+Kod ayrıca: host’a özel title/description, footer’da kardeş site linkleri,
+TravelAgency+LocalBusiness JSON-LD (adres/geo/hasMap/sameAs), kategori hub
+canonical’ları ve Search Console doğrulama kodlarını host bazında seçer.
+
+## Google ekosistemi (Search + Maps + etkileşim)
+
+Bunlar kod deploy’undan bağımsız; üst sıralar ve Maps paneli için zorunlu operasyon:
+
+### Search Console / Search
+1. Üç apex mülkü doğrula (DNS veya panel → Genel ayarlar → Google → domain kodları).
+2. Her mülkte `/sitemap.xml` gönder; kapsam → sayfa indeksleme oranını izle.
+3. Performans raporunda gösterim yüksek / tıklama düşük sorgularda title+snippet iyileştir.
+4. “Deneyim” (Core Web Vitals) uyarılarını mobil için kapat.
+
+### Google Business Profile (Maps / yerel paket)
+1. GBP’de web sitesi = `https://rezervasyonyap.tr` (veya markaya göre tutarlı tek URL).
+2. NAP (adres/telefon) sitedeki Hakkımızda / JSON-LD ile **birebir** aynı olsun.
+3. Kategori: Seyahat acentesi; hizmetler: otel, tur, villa, transfer…
+4. Haftalık fotoğraf + ürün/hizmet; yorumlara yanıt (Maps sıralaması).
+5. İsteğe bağlı: panel branding’e `google_maps_place_url` / `google_place_id` ekleyin
+   (JSON-LD `hasMap` / Place eşlemesi güçlenir).
+
+### Google diğer ürünler
+| Ürün | Amaç |
+|------|------|
+| GA4 + GTM | Davranış / dönüşüm (Consent Mode açık) |
+| Google Ads | Marka + şehir×kategori kampanyaları (Search etkileşimi) |
+| Merchant / Hotel Center | Uygunsa fiyat feed (zengin sonuç) |
+| YouTube / Shorts | Destinasyon videoları → marka araması |
+| Reviews (GBP) | Yerel paket + güven |
+
+### Üç sitenin birlikte yükselmesi
+- `.tr` = ana Türkçe otorite; `.com.tr` = TR marka; `reservationinturkey.com` = EN/uluslararası.
+- Host’a özel meta + sitemap + çapraz footer linkleri kodda var; yine de **benzersiz
+  içerik** (özellikle RIT EN metinleri, şehir hub’ları) olmadan Google tek host’u tercih edebilir.
+- Backlink ve GBP’de mümkün olduğunca `.tr`’yi güçlendirin; diğer domainlere de
+  doğal marka mention’ları ekleyin.
+
 ## İsteğe bağlı: `httpdocs/uploads` symlink
 
 Bazı kurulumlarda `httpdocs/uploads` → `frontend/public/uploads` sembolik bağ oluşturulmuş olabilir (Apache doküman kökü `httpdocs` iken `/uploads/` isteğini doğrudan dosyadan sunmak için). Next.js tarafında `/uploads/**` için `frontend/src/app/uploads/[[...segments]]/route.ts` kullanılıyorsa bu bağ **zorunlu değildir**.

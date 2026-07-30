@@ -1,3 +1,5 @@
+import { COMPANY, companyAddressFull } from '@/lib/corporate/company'
+import { allBrandSiteOrigins } from '@/lib/brand-sites'
 import { getCachedSiteConfig } from '@/lib/site-config-cache'
 import {
   brandingAssetPath,
@@ -7,6 +9,7 @@ import {
   toAbsoluteSiteUrl,
 } from '@/lib/site-branding-seo'
 import { resolveCanonicalBaseUrl } from '@/lib/resolve-canonical-base-url'
+import { resolveRequestBranding } from '@/lib/request-branding-seo'
 import { getSitePublicConfig, mergeBrandingIntoEnvContact } from '@/lib/site-public-config'
 import { vitrinHref } from '@/lib/vitrin-href'
 
@@ -14,70 +17,133 @@ type Props = {
   locale: string
 }
 
-/** Organization + WebSite şeması — panel `branding` + ortam iletişim alanları birleşik. */
+function pickBrandingUrl(branding: Record<string, unknown>, key: string): string {
+  const v = branding[key]
+  return typeof v === 'string' && v.trim().startsWith('http') ? v.trim() : ''
+}
+
+/** TravelAgency + WebSite (+ SearchAction) — Maps / Knowledge Panel / sitelinks araması. */
 export default async function SiteJsonLd({ locale }: Props) {
   const pub = await getCachedSiteConfig()
-  const c = mergeBrandingIntoEnvContact(getSitePublicConfig(), pub?.branding ?? null)
+  const { branding: hostBranding } = await resolveRequestBranding(
+    (pub?.branding ?? null) as Record<string, unknown> | null,
+  )
+  const pubForBrand = pub ? { ...pub, branding: hostBranding } : pub
+  const c = mergeBrandingIntoEnvContact(getSitePublicConfig(), hostBranding)
   const base = await resolveCanonicalBaseUrl()
   if (!base) return null
   const homePath = await vitrinHref(locale, '/')
   const baseNoSlash = base.replace(/\/$/, '')
   const home = toAbsoluteSiteUrl(baseNoSlash, homePath) ?? `${baseNoSlash}${homePath}`
-  const siteName = brandingSiteName(pub)
-  const description = rawSiteDescription(pub)
-  const logoFromBranding = brandingAssetPath(pub, 'logo_url')
+  const siteName = brandingSiteName(pubForBrand)
+  const description = rawSiteDescription(pubForBrand)
+  const logoFromBranding = brandingAssetPath(pubForBrand, 'logo_url')
   const logoAbs =
     toAbsoluteSiteUrl(baseNoSlash, logoFromBranding) ||
     (c.logoUrl?.startsWith('http') ? c.logoUrl : toAbsoluteSiteUrl(baseNoSlash, c.logoUrl)) ||
     undefined
 
-  const legalOrBrand = (c.orgLegalName && c.orgLegalName.trim()) || siteName || c.orgName
-  const sameAs = [c.socialFacebook, c.socialInstagram, c.socialX, c.socialYoutube].filter(Boolean)
+  const legalOrBrand =
+    (c.orgLegalName && c.orgLegalName.trim()) || COMPANY.legalName || siteName || c.orgName
+
+  const mapsUrl =
+    pickBrandingUrl(hostBranding, 'google_maps_place_url') ||
+    pickBrandingUrl(hostBranding, 'google_business_url') ||
+    COMPANY.mapsUrl
+
+  const placeId =
+    typeof hostBranding.google_place_id === 'string' ? hostBranding.google_place_id.trim() : ''
+
+  const sameAs = Array.from(
+    new Set(
+      [
+        ...allBrandSiteOrigins().filter((o) => o !== baseNoSlash),
+        c.socialFacebook,
+        c.socialInstagram,
+        c.socialX,
+        c.socialYoutube,
+        mapsUrl,
+      ].filter(Boolean),
+    ),
+  )
+
+  const street = c.address?.trim() || companyAddressFull()
+  const phone = c.phone?.trim() || COMPANY.phones.reservation[0]
+  const email = c.email?.trim() || COMPANY.email
 
   const organization: Record<string, unknown> = {
     '@context': 'https://schema.org',
-    '@type': 'TravelAgency',
+    '@type': ['TravelAgency', 'LocalBusiness'],
+    '@id': `${baseNoSlash}/#organization`,
     name: legalOrBrand,
+    alternateName: [COMPANY.brandName, COMPANY.agencyName, siteName].filter(
+      (n, i, arr) => n && arr.indexOf(n) === i && n !== legalOrBrand,
+    ),
     url: home,
+    address: {
+      '@type': 'PostalAddress',
+      streetAddress: COMPANY.address.line,
+      addressLocality: COMPANY.address.city,
+      addressRegion: COMPANY.address.region,
+      postalCode: COMPANY.address.postalCode,
+      addressCountry: COMPANY.address.countryCode,
+      ...(street && street !== COMPANY.address.line ? { name: street } : {}),
+    },
+    geo: {
+      '@type': 'GeoCoordinates',
+      latitude: COMPANY.address.geo.latitude,
+      longitude: COMPANY.address.geo.longitude,
+    },
+    hasMap: mapsUrl,
+    areaServed: {
+      '@type': 'Country',
+      name: 'Turkey',
+    },
+    priceRange: '$$',
   }
 
-  if (description) {
-    organization.description = description
-  }
-  if (logoAbs) {
-    organization.logo = logoAbs
-  }
-  if (c.phone) {
-    organization.telephone = c.phone
-  }
-  if (c.email) {
-    organization.email = c.email
-  }
-  if (c.address) {
-    organization.address = {
-      '@type': 'PostalAddress',
-      streetAddress: c.address,
+  if (description) organization.description = description
+  if (logoAbs) organization.logo = logoAbs
+  if (phone) organization.telephone = phone
+  if (email) organization.email = email
+  if (COMPANY.tursabNo) {
+    organization.identifier = {
+      '@type': 'PropertyValue',
+      name: 'TÜRSAB',
+      value: COMPANY.tursabNo,
     }
   }
-  if (sameAs.length) {
-    organization.sameAs = sameAs
+  if (placeId) {
+    organization.additionalProperty = {
+      '@type': 'PropertyValue',
+      name: 'google_place_id',
+      value: placeId,
+    }
   }
+  if (sameAs.length) organization.sameAs = sameAs
+
+  const searchPath = await vitrinHref(locale, '/')
+  const searchTarget = `${baseNoSlash}${searchPath === '/' ? '' : searchPath}?q={search_term_string}`
 
   const website: Record<string, unknown> = {
     '@context': 'https://schema.org',
     '@type': 'WebSite',
+    '@id': `${baseNoSlash}/#website`,
     name: siteName || c.orgName,
     url: home,
     inLanguage: ogLocaleForSite(locale),
-    publisher: {
-      '@type': 'Organization',
-      name: legalOrBrand,
+    publisher: { '@id': `${baseNoSlash}/#organization` },
+    potentialAction: {
+      '@type': 'SearchAction',
+      target: {
+        '@type': 'EntryPoint',
+        urlTemplate: searchTarget,
+      },
+      'query-input': 'required name=search_term_string',
     },
   }
 
-  if (description) {
-    website.description = description
-  }
+  if (description) website.description = description
 
   return (
     <>
