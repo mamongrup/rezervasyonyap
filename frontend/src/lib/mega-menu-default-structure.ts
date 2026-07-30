@@ -41,27 +41,34 @@ export const DEFAULT_MEGA_MENU_STRUCTURE: MegaMenuStoredGroup[] = [
     ],
   },
   {
-    id: '2',
+    id: '4',
     url: '#',
     children: [
-      { id: '2-1', url: '/otel/best-western-cedars-hotel' },
-      { id: '2-2', url: '/arac/peugeot-108' },
-      { id: '2-3', url: '/aktivite/generate-interactive-markets' },
-    ],
-  },
-  {
-    id: '4',
-    url: '/#',
-    children: [
-      { id: '4-1', url: '/authors/truelock-alric' },
+      { id: '4-1', url: '/tedarikci-ol' },
       { id: '4-2', url: '/blog' },
-      { id: '4-3', url: '/checkout' },
+      { id: '4-3', url: '/yardim' },
       { id: '4-5', url: '/contact' },
       { id: '4-6', url: '/login' },
       { id: '4-8', url: '/account' },
-      { id: '4-7', url: '/add-listing/1' },
+      { id: '4-7', url: '/ilan-ver' },
     ],
   },
 ]
 
 export const KNOWN_MEGA_GROUP_IDS = DEFAULT_MEGA_MENU_STRUCTURE.map((g) => g.id)
+
+/**
+ * Admin ayarında eski tema/demo bağlantıları kalsa bile vitrinde yalnızca doğrulanmış
+ * kategori ve yardımcı sayfaları göster. Eksik grup/çocuklar da otomatik tamamlanır.
+ */
+export function normalizeMegaMenuStructure(_raw: unknown): MegaMenuStoredGroup[] {
+  return DEFAULT_MEGA_MENU_STRUCTURE.map((canonicalGroup) => ({
+    id: canonicalGroup.id,
+    url: canonicalGroup.url,
+    children: canonicalGroup.children.map((canonicalChild) => ({
+      id: canonicalChild.id,
+      // URL bilinçli olarak kanonik kaynaktan gelir; eski demo/404 hedefleri geri dönemez.
+      url: canonicalChild.url,
+    })),
+  }))
+}

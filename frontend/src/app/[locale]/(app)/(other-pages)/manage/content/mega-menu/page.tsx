@@ -3,6 +3,7 @@ import { formatManageApiCatch } from '@/lib/manage-api-error-tr'
 import ImageUpload from '@/components/editor/ImageUpload'
 import {
   DEFAULT_MEGA_MENU_STRUCTURE,
+  normalizeMegaMenuStructure,
   type MegaMenuStoredChild,
   type MegaMenuStoredGroup,
   KNOWN_MEGA_GROUP_IDS,
@@ -19,25 +20,7 @@ import clsx from 'clsx'
 import { useParams } from 'next/navigation'
 
 function normalizeMegaMenuRaw(raw: unknown): MegaMenuStoredGroup[] {
-  if (!Array.isArray(raw) || raw.length === 0) return DEFAULT_MEGA_MENU_STRUCTURE
-  const out: MegaMenuStoredGroup[] = []
-  for (const g of raw) {
-    if (!g || typeof g !== 'object') continue
-    const gr = g as Record<string, unknown>
-    const gid = typeof gr.id === 'string' ? gr.id : ''
-    const gurl = typeof gr.url === 'string' ? gr.url : '#'
-    const childrenIn = Array.isArray(gr.children) ? gr.children : []
-    const gi = out.length
-    const children: MegaMenuStoredChild[] = childrenIn.map((c, ci) => {
-      const ch = c as Record<string, unknown>
-      return {
-        id: typeof ch.id === 'string' ? ch.id : `g${gi}-c${ci}`,
-        url: typeof ch.url === 'string' ? ch.url : '',
-      }
-    })
-    if (gid) out.push({ id: gid, url: gurl, children })
-  }
-  return out.length > 0 ? out : DEFAULT_MEGA_MENU_STRUCTURE
+  return normalizeMegaMenuStructure(raw)
 }
 
 export default function Page() {

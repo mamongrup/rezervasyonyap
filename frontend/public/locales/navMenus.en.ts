@@ -99,9 +99,9 @@ export const navMenus = {
       '4': {
         title: 'More pages',
         links: {
-          '4-1': 'Host profile',
+          '4-1': 'Become a partner',
           '4-2': 'Blog',
-          '4-3': 'Checkout',
+          '4-3': 'Help center',
           '4-5': 'Contact',
           '4-6': 'Log in / Sign up',
           '4-8': 'Account',

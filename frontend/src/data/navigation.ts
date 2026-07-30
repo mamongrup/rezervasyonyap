@@ -69,28 +69,18 @@ export const STATIC_NAVIGATION: TNavigationItem[] = [
           ],
         },
         {
-          id: '2',
-          href: '#',
-          name: 'İlan Sayfaları',
-          children: [
-            { id: '2-1', href: '/otel/best-western-cedars-hotel', name: 'Otel detay' },
-            { id: '2-2', href: '/arac/peugeot-108', name: 'Araç detay' },
-            { id: '2-3', href: '/aktivite/generate-interactive-markets', name: 'Deneyim detay' },
-          ],
-        },
-        {
           id: '4',
-          href: '/#',
-          name: 'Other Pages',
+          href: '#',
+          name: 'Diğer sayfalar',
           type: 'dropdown',
           children: [
-            { id: '4-1', href: '/authors/truelock-alric', name: 'Host profile' },
+            { id: '4-1', href: '/tedarikci-ol', name: 'İş ortağımız olun' },
             { id: '4-2', href: '/blog', name: 'Blog' },
-            { id: '4-3', href: '/checkout', name: 'Checkout' },
-            { id: '4-5', href: '/contact', name: 'Contact' },
-            { id: '4-6', href: '/login', name: 'Login/Signup' },
-            { id: '4-8', href: '/account', name: 'Account' },
-            { id: '4-7', href: '/add-listing/1', name: 'Add listing' },
+            { id: '4-3', href: '/yardim', name: 'Yardım merkezi' },
+            { id: '4-5', href: '/contact', name: 'İletişim' },
+            { id: '4-6', href: '/login', name: 'Giriş / Kayıt' },
+            { id: '4-8', href: '/account', name: 'Hesabım' },
+            { id: '4-7', href: '/ilan-ver', name: 'İlan ver' },
           ],
         },
       ],
@@ -132,11 +122,13 @@ export async function getNavMegaMenu(): Promise<TNavigationItem> {
         : null)
 
     if (Array.isArray(raw) && raw.length > 0) {
+      const { normalizeMegaMenuStructure } = await import('@/lib/mega-menu-default-structure')
+      const normalized = normalizeMegaMenuStructure(raw)
       return {
         id: 'admin-mega-menu',
         name: '',
         type: 'mega-menu',
-        children: (raw as RawMegaGroup[]).map((group, gi) => ({
+        children: (normalized as RawMegaGroup[]).map((group, gi) => ({
           id: group.id ?? `g${gi}`,
           name: group.label ?? '',
           href: group.url || '#',

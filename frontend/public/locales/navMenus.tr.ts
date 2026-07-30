@@ -96,9 +96,9 @@ export const navMenus = {
       '4': {
         title: 'Diğer sayfalar',
         links: {
-          '4-1': 'Ev sahibi profili',
+          '4-1': 'İş ortağımız olun',
           '4-2': 'Blog',
-          '4-3': 'Ödeme',
+          '4-3': 'Yardım merkezi',
           '4-5': 'İletişim',
           '4-6': 'Giriş / Kayıt',
           '4-8': 'Hesabım',
