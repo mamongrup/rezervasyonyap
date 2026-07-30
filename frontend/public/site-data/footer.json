@@ -79,6 +79,16 @@
           "nameTr": "Vize",
           "nameEn": "Visa Services",
           "href": "/vize/all"
+        },
+        {
+          "nameTr": "Hac & Umre",
+          "nameEn": "Hajj & Umrah",
+          "href": "/hac-umre/all"
+        },
+        {
+          "nameTr": "Gemi Turları",
+          "nameEn": "Cruises",
+          "href": "/kruvaziyer/all"
         }
       ]
     },
@@ -145,7 +155,7 @@
         {
           "nameTr": "Nasıl Çalışır?",
           "nameEn": "How It Works",
-          "href": "/ilan-ver#nasil-calisir"
+          "href": "/about#nasil-calisir"
         },
         {
           "nameTr": "İptal ve İade",
@@ -205,6 +215,11 @@
           "href": "/tedarikci-ol"
         },
         {
+          "nameTr": "Tesis Yönetimi",
+          "nameEn": "Property Management",
+          "href": "/tesis-yonetimi"
+        },
+        {
           "nameTr": "Tedarikçi Girişi",
           "nameEn": "Supplier Login",
           "href": "/manage/supplier"
@@ -212,7 +227,7 @@
         {
           "nameTr": "Tedarikçi Faydaları",
           "nameEn": "Supplier Benefits",
-          "href": "/tedarikci-ol"
+          "href": "/tesis-yonetimi"
         },
         {
           "nameTr": "Acente Olun",

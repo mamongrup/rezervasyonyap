@@ -112,7 +112,7 @@ export const DEFAULT_FOOTER_SITE_CONFIG: FooterSiteConfig = {
       [
         link('/contact',              { tr: 'İletişim',              en: 'Contact',             de: 'Kontakt',           ru: 'Контакт',           zh: '联系',         fr: 'Contact' }),
         link('/legal/faq',            { tr: 'Sık Sorulan Sorular',   en: 'FAQ',                 de: 'FAQ',               ru: 'FAQ',               zh: '常见问题',     fr: 'FAQ' }),
-        link('/ilan-ver#nasil-calisir', { tr: 'Nasıl Çalışır?',      en: 'How It Works',        de: 'So funktioniert es', ru: 'Как это работает', zh: '如何运作',     fr: 'Comment ça marche' }),
+        link('/about#nasil-calisir',    { tr: 'Nasıl Çalışır?',      en: 'How It Works',        de: 'So funktioniert es', ru: 'Как это работает', zh: '如何运作',     fr: 'Comment ça marche' }),
         link('/legal/cancellation',   { tr: 'İptal ve İade',         en: 'Cancellation Policy', de: 'Stornierung',       ru: 'Отмена и возврат',  zh: '取消政策',     fr: 'Annulation' }),
         link('/legal/privacy',        { tr: 'Gizlilik / KVKK',       en: 'Privacy / KVKK',      de: 'Datenschutz',       ru: 'Конфиденциальность', zh: '隐私政策',    fr: 'Confidentialité' }),
         link('/legal/terms',          { tr: 'Kullanım Koşulları',    en: 'Terms of Use',        de: 'Nutzungsbedingungen', ru: 'Условия использования', zh: '使用条款', fr: 'Conditions d\'utilisation' }),
@@ -134,7 +134,7 @@ export const DEFAULT_FOOTER_SITE_CONFIG: FooterSiteConfig = {
         link('/tedarikci-ol',           { tr: 'Tedarikçi Olun',           en: 'Become a Supplier',  de: 'Anbieter werden',  ru: 'Стать поставщиком', zh: '成为供应商', fr: 'Devenir fournisseur' }),
         link('/tesis-yonetimi',         { tr: 'Tesis Yönetimi',           en: 'Property Management', de: 'Objektverwaltung', ru: 'Управление объектом', zh: '物业托管', fr: 'Gestion d\'établissement' }),
         link('/manage/supplier',        { tr: 'Tedarikçi Girişi',         en: 'Supplier Login',     de: 'Anbieter-Login',   ru: 'Вход поставщика',   zh: '供应商登录', fr: 'Connexion fournisseur' }),
-        link('/tedarikci-ol',           { tr: 'Tedarikçi Faydaları',      en: 'Supplier Benefits',  de: 'Anbieter-Vorteile', ru: 'Преимущества',      zh: '供应商权益', fr: 'Avantages fournisseurs' }),
+        link('/tesis-yonetimi',         { tr: 'Tedarikçi Faydaları',      en: 'Supplier Benefits',  de: 'Anbieter-Vorteile', ru: 'Преимущества',      zh: '供应商权益', fr: 'Avantages fournisseurs' }),
         link('/acente-ol',              { tr: 'Acente Olun',              en: 'Become an Agency',   de: 'Agentur werden',   ru: 'Стать агентством',  zh: '成为代理',   fr: 'Devenir agence' }),
         link('/manage/agency',          { tr: 'Acente Girişi',            en: 'Agency Login',       de: 'Agentur-Login',    ru: 'Вход агентства',    zh: '代理登录',   fr: 'Connexion agence' }),
         link('/developer',              { tr: 'API Entegrasyonu',         en: 'API Integration',    de: 'API-Integration',  ru: 'Интеграция API',    zh: 'API 集成',   fr: 'Intégration API' }),
