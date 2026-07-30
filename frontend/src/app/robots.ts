@@ -1,5 +1,6 @@
 import type { MetadataRoute } from 'next'
 import { isAppLocale } from '@/lib/i18n-config'
+import { resolveCanonicalBaseUrl } from '@/lib/resolve-canonical-base-url'
 
 /**
  * Crawl bütçesini korumak için arka plan / kullanıcı paneli / API uçlarını
@@ -35,8 +36,12 @@ function withLocalizedVariants(paths: string[]): string[] {
   return Array.from(out).sort()
 }
 
-export default function robots(): MetadataRoute.Robots {
-  const base = (process.env.NEXT_PUBLIC_SITE_URL ?? '').replace(/\/$/, '')
+/**
+ * Host’a göre Host + Sitemap (marka domainleri kendi köküne işaret etmeli).
+ * Aksi halde Google .com.tr / reservationinturkey.com’u .tr sitemap’ine yönlendirir.
+ */
+export default async function robots(): Promise<MetadataRoute.Robots> {
+  const base = (await resolveCanonicalBaseUrl()).replace(/\/$/, '')
   return {
     rules: [
       {

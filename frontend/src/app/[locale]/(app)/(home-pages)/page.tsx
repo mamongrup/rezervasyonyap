@@ -28,6 +28,7 @@ import {
   rawSiteDescription,
 } from '@/lib/site-branding-seo'
 import { getCachedSiteConfig } from '@/lib/site-config-cache'
+import { resolveCanonicalBaseUrl } from '@/lib/resolve-canonical-base-url'
 import { vitrinHref } from '@/lib/vitrin-href'
 import heroRightStay from '@/images/hero-right.avif'
 import ButtonPrimary from '@/shared/ButtonPrimary'
@@ -49,19 +50,21 @@ export async function generateMetadata({
   const siteName = brandingSiteName(pub)
   const description = rawSiteDescription(pub) ?? m.homePage.meta.description ?? metaSiteDescription(pub)
   const title = m.homePage.meta.title?.trim() || siteName
-  const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL || 'https://rezervasyonyap.tr').replace(/\/$/, '')
+  const siteUrl = (await resolveCanonicalBaseUrl()).replace(/\/$/, '')
+  const homePath = await vitrinHref(locale, '/')
+  const canonical = siteUrl ? `${siteUrl}${homePath === '/' ? '/' : homePath}` : homePath
   return {
-    metadataBase: new URL(siteUrl),
+    ...(siteUrl ? { metadataBase: new URL(siteUrl) } : {}),
     title,
     description,
     alternates: {
-      canonical: '/',
+      canonical,
     },
     openGraph: {
       title: `${title} | ${siteName}`,
       description,
       type: 'website',
-      url: '/',
+      url: canonical,
     },
     twitter: {
       title: `${title} | ${siteName}`,

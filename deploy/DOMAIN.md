@@ -16,6 +16,31 @@ domaini kalır ve üç ayrı kod kopyası oluşmaz. Alias ayarında `Web service
 sunucuya yönelmeli ve DNS tamamlandıktan sonra her domain SSL sertifikasına dahil
 edilmelidir.
 
+## Google indeksleme (üç domain)
+
+Kod tarafı: istek host’una göre **canonical**, `robots.txt` (`Host` + `Sitemap`) ve
+`/sitemap.xml` aynı marka domainini gösterir. Böylece Google
+`rezervasyonyap.com.tr` veya `reservationinturkey.com` taradığında içeriği
+`rezervasyonyap.tr`’ye “gömmeye” zorlanmaz.
+
+Search Console’da her apex için ayrı mülk ekleyin ve sitemap gönderin:
+
+1. [Google Search Console](https://search.google.com/search-console) → mülk ekle
+   - `https://rezervasyonyap.com.tr`
+   - `https://reservationinturkey.com`
+   (Ana `.tr` zaten varsa bırakın.)
+2. Doğrulama: DNS TXT veya paneldeki `search_console_verification` HTML meta
+   (her mülk için ayrı doğrulama gerekebilir).
+3. **Sitemaps** → gönder:
+   - `https://rezervasyonyap.com.tr/sitemap.xml`
+   - `https://reservationinturkey.com/sitemap.xml`
+4. Ana sayfa için **URL inspection → Request indexing**
+   (`/` ve RIT için `/en`).
+
+Not: Aynı içeriğin üç host’ta da yayında olması Google’ın birini “ana”
+seçmesine yol açabilir; yine de host-doğru canonical olmadan marka domainleri
+pratikte indekslenmez. `www` → apex tercihi canonical’da apex’e normalize edilir.
+
 ## İsteğe bağlı: `httpdocs/uploads` symlink
 
 Bazı kurulumlarda `httpdocs/uploads` → `frontend/public/uploads` sembolik bağ oluşturulmuş olabilir (Apache doküman kökü `httpdocs` iken `/uploads/` isteğini doğrudan dosyadan sunmak için). Next.js tarafında `/uploads/**` için `frontend/src/app/uploads/[[...segments]]/route.ts` kullanılıyorsa bu bağ **zorunlu değildir**.

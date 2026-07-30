@@ -2,6 +2,7 @@ import type { MetadataRoute } from 'next'
 import { getSeoSitemapEntries, type SitemapEntry } from '@/lib/travel-api'
 import { normalizeCatalogVertical } from '@/lib/catalog-listing-vertical'
 import { detailPathForVertical } from '@/lib/listing-detail-routes'
+import { resolveCanonicalBaseUrl } from '@/lib/resolve-canonical-base-url'
 import { vitrinHref } from '@/lib/vitrin-href'
 import { fetchActiveLocaleCodes } from '@/lib/i18n-server'
 
@@ -47,7 +48,8 @@ function absoluteSitemapImages(siteBase: string, images: string[] | null | undef
 }
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const base = (process.env.NEXT_PUBLIC_SITE_URL ?? '').replace(/\/$/, '')
+  // İstek host’una göre (rezervasyonyap.com.tr / reservationinturkey.com / .tr)
+  const base = (await resolveCanonicalBaseUrl()).replace(/\/$/, '')
   if (!base) return []
 
   const localeCodes = await fetchActiveLocaleCodes()

@@ -8,13 +8,13 @@ import {
   brandingKeywords,
   brandingSiteName,
   DEFAULT_FAVICON_PATH,
-  getPublicSiteUrl,
   metaSiteDescription,
   ogLocaleForSite,
   shareOgImageMeta,
   toAbsoluteSiteUrl,
 } from '@/lib/site-branding-seo'
 import { getCachedSiteConfig } from '@/lib/site-config-cache'
+import { resolveCanonicalBaseUrl } from '@/lib/resolve-canonical-base-url'
 import { cn } from '@/lib/utils'
 import '@/styles/tailwind.css'
 import type { Metadata, Viewport } from 'next'
@@ -37,7 +37,7 @@ export async function generateMetadata(): Promise<Metadata> {
   const description = metaSiteDescription(pub)
   const keywords = brandingKeywords(pub, siteName)
   const scVerification = searchConsoleVerification(pub)
-  const base = getPublicSiteUrl()
+  const base = await resolveCanonicalBaseUrl()
   const verification: Metadata['verification'] = scVerification ? { google: scVerification } : undefined
 
   const faviconPath = brandingAssetPath(pub, 'favicon_url')

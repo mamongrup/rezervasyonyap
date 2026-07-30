@@ -8,7 +8,8 @@ import type { ListingType } from '@/data/category-registry'
 import type { CatalogListingVerticalCode } from '@/lib/catalog-listing-vertical'
 import { normalizeCatalogVertical } from '@/lib/catalog-listing-vertical'
 import { galleryUrlsForStayDetailHeader } from '@/lib/listing-gallery-hero-order'
-import { getPublicSiteUrl, toAbsoluteSiteUrl } from '@/lib/site-branding-seo'
+import { resolveCanonicalBaseUrl } from '@/lib/resolve-canonical-base-url'
+import { toAbsoluteSiteUrl } from '@/lib/site-branding-seo'
 import { vitrinHref } from '@/lib/vitrin-href'
 
 type StayVertical = 'hotel' | 'holiday_home' | 'yacht'
@@ -377,7 +378,7 @@ export async function buildStayListingDetailJsonLd(opts: {
   linkBase: string
   organizationName: string
 }): Promise<Record<string, unknown> | null> {
-  const base = getPublicSiteUrl()
+  const base = await resolveCanonicalBaseUrl()
   if (!base) return null
 
   const { locale, listing, linkBase, organizationName } = opts
@@ -516,7 +517,7 @@ export async function buildExperienceListingDetailJsonLd(opts: {
   linkBase: string
   organizationName: string
 }): Promise<Record<string, unknown> | null> {
-  const base = getPublicSiteUrl()
+  const base = await resolveCanonicalBaseUrl()
   if (!base) return null
 
   const { locale, listing, linkBase, organizationName } = opts

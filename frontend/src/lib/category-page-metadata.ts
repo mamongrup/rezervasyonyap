@@ -1,6 +1,7 @@
 import { getCategoryBySlug } from '@/data/category-registry'
 import { resolveCategoryDisplay } from '@/lib/localized-category'
-import { getPublicSiteUrl, shareOgImageMeta } from '@/lib/site-branding-seo'
+import { resolveCanonicalBaseUrl } from '@/lib/resolve-canonical-base-url'
+import { shareOgImageMeta } from '@/lib/site-branding-seo'
 import type { Metadata } from 'next'
 
 /**
@@ -9,12 +10,13 @@ import type { Metadata } from 'next'
  *
  * WhatsApp/Facebook için mutlak JPEG `og:image` ekler (layout AVIF logosunu ezmez).
  */
-export function categoryMetadata(slug: string, locale?: string): Metadata {
+export async function categoryMetadata(slug: string, locale?: string): Promise<Metadata> {
   const raw = getCategoryBySlug(slug)
   const category = raw ? resolveCategoryDisplay(raw, locale ?? 'tr') : null
   const title = category?.name
   const description = category?.heroSubheading
-  const shareImage = shareOgImageMeta(getPublicSiteUrl(), null, title || 'Rezervasyon Yap')
+  const base = await resolveCanonicalBaseUrl()
+  const shareImage = shareOgImageMeta(base, null, title || 'Rezervasyon Yap')
 
   return {
     title,

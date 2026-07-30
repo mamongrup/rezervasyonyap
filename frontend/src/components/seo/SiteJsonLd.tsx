@@ -2,11 +2,11 @@ import { getCachedSiteConfig } from '@/lib/site-config-cache'
 import {
   brandingAssetPath,
   brandingSiteName,
-  getPublicSiteUrl,
   ogLocaleForSite,
   rawSiteDescription,
   toAbsoluteSiteUrl,
 } from '@/lib/site-branding-seo'
+import { resolveCanonicalBaseUrl } from '@/lib/resolve-canonical-base-url'
 import { getSitePublicConfig, mergeBrandingIntoEnvContact } from '@/lib/site-public-config'
 import { vitrinHref } from '@/lib/vitrin-href'
 
@@ -18,7 +18,7 @@ type Props = {
 export default async function SiteJsonLd({ locale }: Props) {
   const pub = await getCachedSiteConfig()
   const c = mergeBrandingIntoEnvContact(getSitePublicConfig(), pub?.branding ?? null)
-  const base = getPublicSiteUrl()
+  const base = await resolveCanonicalBaseUrl()
   if (!base) return null
   const homePath = await vitrinHref(locale, '/')
   const baseNoSlash = base.replace(/\/$/, '')
@@ -27,8 +27,8 @@ export default async function SiteJsonLd({ locale }: Props) {
   const description = rawSiteDescription(pub)
   const logoFromBranding = brandingAssetPath(pub, 'logo_url')
   const logoAbs =
-    toAbsoluteSiteUrl(base, logoFromBranding) ||
-    (c.logoUrl?.startsWith('http') ? c.logoUrl : toAbsoluteSiteUrl(base, c.logoUrl)) ||
+    toAbsoluteSiteUrl(baseNoSlash, logoFromBranding) ||
+    (c.logoUrl?.startsWith('http') ? c.logoUrl : toAbsoluteSiteUrl(baseNoSlash, c.logoUrl)) ||
     undefined
 
   const legalOrBrand = (c.orgLegalName && c.orgLegalName.trim()) || siteName || c.orgName

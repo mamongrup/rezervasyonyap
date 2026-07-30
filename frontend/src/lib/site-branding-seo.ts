@@ -12,7 +12,9 @@ export const DEFAULT_OG_IMAGE_WIDTH = 1200
 export const DEFAULT_OG_IMAGE_HEIGHT = 630
 
 /**
- * Canonical, Open Graph, Twitter ve `metadataBase` için site kökü (sonda `/` yok).
+ * Ortam değişkeninden site kökü (sonda `/` yok).
+ * Sayfa canonical / sitemap için tercihen `resolveCanonicalBaseUrl()` kullanın
+ * (istek host’una göre marka domaini seçer). Bu fonksiyon:
  * - Öncelik: `NEXT_PUBLIC_SITE_URL`
  * - Vercel: `VERCEL_URL` → `https://…`
  * - Geliştirme: `http://127.0.0.1:3000`

@@ -11,7 +11,8 @@
 import type { CategoryRegistryEntry, ListingType } from '@/data/category-registry'
 import { schemaOrgTypeForCatalogVertical } from '@/lib/catalog-listing-vertical'
 import type { TListingBase } from '@/types/listing-types'
-import { getPublicSiteUrl, toAbsoluteSiteUrl } from '@/lib/site-branding-seo'
+import { resolveCanonicalBaseUrl } from '@/lib/resolve-canonical-base-url'
+import { toAbsoluteSiteUrl } from '@/lib/site-branding-seo'
 import { vitrinHref } from '@/lib/vitrin-href'
 
 const MAX_ITEMS = 50
@@ -122,7 +123,7 @@ export async function buildListingsItemListJsonLd(opts: {
   currentHandle?: string
 }): Promise<Record<string, unknown> | null> {
   const { category, listings, locale, currentHandle } = opts
-  const base = getPublicSiteUrl()
+  const base = await resolveCanonicalBaseUrl()
   if (!base || listings.length === 0) return null
 
   const linkBase = category.detailRoute
