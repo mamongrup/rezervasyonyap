@@ -120,18 +120,30 @@ async function syncHotelsIncremental(cfg, tokenCode, client, orgId) {
   }
   const last = await readLastSync(client)
   const lastHotelAt = last?.hotels_at ?? null
-  await reporter.log(`Otel: statik incremental${lastHotelAt ? ` (since ${lastHotelAt})` : ' (ilk tam tarama)'}…`)
+  // Statik API LastUpdateDateTime — ISO; milisaniye bazı uçlarda sorun çıkarabiliyor.
+  const sinceIso = lastHotelAt
+    ? new Date(lastHotelAt).toISOString().replace(/\.\d{3}Z$/, 'Z')
+    : null
+  await reporter.log(`Otel: statik incremental${sinceIso ? ` (since ${sinceIso})` : ' (ilk tam tarama)'}…`)
 
-  const { token: staticToken } = await authenticateStatic(cfg)
+  let staticToken
+  try {
+    ;({ token: staticToken } = await authenticateStatic(cfg))
+  } catch (e) {
+    const msg = e.message || String(e)
+    await reporter.log(`Otel: statik kimlik hatası — ${msg.slice(0, 200)}`)
+    throw new Error(`Otel statik API: ${msg}`)
+  }
+
   let codes = []
-  if (!lastHotelAt) {
+  if (!sinceIso) {
     // İlk tarama: LastUpdateDateTime zorunlu olduğu için getHotelCodes atla
     await reporter.log('Otel: ilk tam tarama — getAllHotelCodes kullanılıyor…')
     const allPayload = await getAllHotelCodes(cfg, staticToken)
     codes = pickStaticHotelCodes(allPayload).slice(0, Number(process.env.TRAVELROBOT_SYNC_HOTEL_LIMIT || 200))
   } else {
     const codesPayload = await getHotelCodes(cfg, staticToken, {
-      lastUpdateDateTime: lastHotelAt,
+      lastUpdateDateTime: sinceIso,
     })
     codes = pickStaticHotelCodes(codesPayload)
     if (!codes.length) {
@@ -237,11 +249,23 @@ async function main() {
     if (run('flight')) parts.push(['uçuş', () => syncFlights(cfg, tokenCode, client, orgId)])
 
     const summary = []
+    const failures = []
     for (const [label, fn] of parts) {
-      const r = await fn()
-      summary.push(`${label}: +${r.created} / ~${r.updated} (${r.total ?? 0} kayıt)`)
+      try {
+        const r = await fn()
+        summary.push(`${label}: +${r.created} / ~${r.updated} (${r.total ?? 0} kayıt)`)
+      } catch (e) {
+        const msg = e.message || String(e)
+        failures.push(`${label}: ${msg.slice(0, 160)}`)
+        await reporter.log(`${label}: hata — ${msg.slice(0, 200)}`)
+        summary.push(`${label}: HATA`)
+      }
     }
-    await reporter.done(`Senkron tamam — ${summary.join(' · ')}${DRY_RUN ? ' (dry-run)' : ''}`)
+    if (failures.length && failures.length === parts.length) {
+      throw new Error(`Travelrobot senkron başarısız — ${failures.join(' · ')}`)
+    }
+    const note = failures.length ? ` · kısmi hata: ${failures.join(' · ')}` : ''
+    await reporter.done(`Senkron tamam — ${summary.join(' · ')}${note}${DRY_RUN ? ' (dry-run)' : ''}`)
   } finally {
     if (lock) await lock.release()
     await client.end()

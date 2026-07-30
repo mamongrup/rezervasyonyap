@@ -18,6 +18,7 @@
  */
 
 import { loadTravelrobotConfigFromDb } from './listing-api-providers-db.mjs'
+import { fetchWithRetry } from './fetch-with-retry.mjs'
 
 const DEFAULT_STATIC_BASE_URL = 'https://static.travelchain.online/api'
 
@@ -55,10 +56,15 @@ async function staticFetch(cfg, svcPath, { method = 'GET', token, body, headers 
   // IIS/ARR bazen gövdesiz POST için Content-Length ister (411 Length Required).
   const fetchBody = hasJsonBody ? JSON.stringify(body) : method === 'POST' || method === 'PUT' ? '' : undefined
   if (fetchBody !== undefined) h['Content-Length'] = String(Buffer.byteLength(fetchBody))
-  const res = await fetch(url, {
+  const timeoutMs = Number(process.env.TRAVELROBOT_STATIC_TIMEOUT_MS || process.env.PROVIDER_FETCH_TIMEOUT_MS || 90_000)
+  const retries = Number(process.env.TRAVELROBOT_STATIC_RETRIES || process.env.PROVIDER_FETCH_RETRIES || 4)
+  const res = await fetchWithRetry(url, {
     method,
     headers: h,
     ...(fetchBody !== undefined ? { body: fetchBody } : {}),
+    timeoutMs,
+    retries,
+    label: `Travelrobot Static ${svcPath}`,
   })
   const text = await res.text()
   let json = null

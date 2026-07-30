@@ -37,6 +37,7 @@
  */
 
 import { loadTravelrobotConfigFromDb } from './listing-api-providers-db.mjs'
+import { fetchWithRetry, formatFetchNetworkError } from './fetch-with-retry.mjs'
 
 export async function loadTravelrobotConfig() {
   const cfg = await loadTravelrobotConfigFromDb()
@@ -56,22 +57,20 @@ function joinUrl(base, path) {
 async function kplusPost(baseUrl, svcPath, body, opts = {}) {
   const url = joinUrl(baseUrl, svcPath)
   const timeoutMs = Number(opts.timeoutMs ?? process.env.KPLUS_FETCH_TIMEOUT_MS ?? 120000)
-  const fetchOpts = {
-    method: 'POST',
-    headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  }
-  if (timeoutMs > 0 && typeof AbortSignal !== 'undefined' && AbortSignal.timeout) {
-    fetchOpts.signal = AbortSignal.timeout(timeoutMs)
-  }
+  const retries = Number(opts.retries ?? process.env.KPLUS_FETCH_RETRIES ?? 3)
   let res
   try {
-    res = await fetch(url, fetchOpts)
+    res = await fetchWithRetry(url, {
+      method: 'POST',
+      headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+      timeoutMs,
+      retries,
+      label: `Travelrobot ${svcPath}`,
+    })
   } catch (e) {
-    if (e?.name === 'TimeoutError' || e?.name === 'AbortError') {
-      throw new Error(`${svcPath}: zaman aşımı (${timeoutMs}ms)`)
-    }
-    throw e
+    if (e?.message?.includes('zaman aşımı') || e?.message?.includes('ağ bağlantısı')) throw e
+    throw new Error(formatFetchNetworkError(svcPath, e), { cause: e })
   }
   const text = await res.text()
   let json = null
