@@ -2,6 +2,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { pickTatilbudurStayTotalPrice } from './lib/tatilbudur-stay-price.mjs'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const input = path.resolve(process.argv[2] || path.join(ROOT, 'backups', 'tatilbudur-ege-capture-2026-07-29.json'))
@@ -30,17 +31,12 @@ function uniqueImages(values) {
   return result
 }
 
-function priceNumber(value) {
-  const normalized = clean(value).replace(/\s*(?:TL|₺)\s*$/i, '').replace(/\./g, '').replace(',', '.')
-  const number = Number(normalized.replace(/[^\d.]/g, ''))
-  return Number.isFinite(number) && number > 0 ? number : null
-}
-
 function currentRates(room) {
   const text = clean(room.text)
   if (room.status !== 'available' || !/Toplam Fiyat/i.test(text) || !/Rezervasyon Yap/i.test(text)) return []
   const nights = Number((text.match(/(\d+)\s+Gece/i) || [])[1] || 0)
-  const total = (room.price_texts || []).map(priceNumber).filter(Boolean).at(-1)
+  // Banka kartı / sepette kampanya tutarını alma — yalnız "Toplam Fiyat"
+  const total = pickTatilbudurStayTotalPrice(room)
   if (!nights || !total) return []
   return [{
     validFrom: '2026-08-01',
@@ -51,6 +47,7 @@ function currentRates(room) {
     adults: 2,
     currency: 'TRY',
     boardType: /Oda Kahvaltı/i.test(text) ? 'Oda Kahvaltı' : '',
+    priceSource: 'stay_total',
   }]
 }
 
