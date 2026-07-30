@@ -8,7 +8,7 @@ import gleam/string
 import pog
 import travel/db/resilient_pog as db_exec
 import travel/ai/ai_config
-import travel/ai/deepseek_chat
+import travel/ai/llm_chat
 import travel/db/decode_helpers as row_dec
 
 fn session_ai_state_row() -> decode.Decoder(#(String, String, String)) {
@@ -135,17 +135,24 @@ pub fn try_append_assistant_reply(ctx: Context, session_id: String) -> Option(St
                               let #(r, b) = pr
                               #(string.lowercase(string.trim(r)), b)
                             })
-                          let cfg = ai_config.load(ctx.db)
                           let timeout_ms =
                             ai_config.profile_upstream_timeout_ms(
                               ctx.db,
                               "chat_sales",
                             )
+                          let flat =
+                            pairs
+                            |> list.map(fn(pr) {
+                              let #(r, b) = pr
+                              r <> ": " <> b
+                            })
+                            |> string.join("\n")
                           case
-                            deepseek_chat.chat_completion_with_config(
-                              cfg,
+                            llm_chat.complete(
+                              ctx.db,
                               sys,
-                              pairs,
+                              flat,
+                              0.55,
                               timeout_ms,
                             )
                           {

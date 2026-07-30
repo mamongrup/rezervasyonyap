@@ -1665,6 +1665,21 @@ fn dispatch(req: Request, ctx: Context) -> Response {
     http.Get, ["api", "v1", "ai", "providers"] ->
       ai_http.list_ai_providers(req, ctx)
 
+    http.Patch, ["api", "v1", "ai", "providers", pcode] ->
+      ai_http.patch_ai_provider(req, ctx, pcode)
+
+    http.Get, ["api", "v1", "ai", "api-keys"] ->
+      ai_http.list_ai_api_keys(req, ctx)
+
+    http.Post, ["api", "v1", "ai", "api-keys"] ->
+      ai_http.create_ai_api_key(req, ctx)
+
+    http.Patch, ["api", "v1", "ai", "api-keys", kid] ->
+      ai_http.patch_ai_api_key(req, ctx, kid)
+
+    http.Delete, ["api", "v1", "ai", "api-keys", kid] ->
+      ai_http.delete_ai_api_key(req, ctx, kid)
+
     http.Get, ["api", "v1", "ai", "feature-profiles"] ->
       ai_http.list_feature_profiles(req, ctx)
 

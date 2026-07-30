@@ -870,3 +870,319 @@ pub fn ops_agent_run(req: Request, ctx: Context) -> Response {
       }
   }
 }
+
+fn patch_provider_decoder() -> decode.Decoder(Bool) {
+  decode.field("is_active", decode.bool, fn(a) { decode.success(a) })
+}
+
+/// PATCH /api/v1/ai/providers/:code — DeepSeek/Gemini aktif-pasif (silmeden).
+pub fn patch_ai_provider(req: Request, ctx: Context, code: String) -> Response {
+  use <- wisp.require_method(req, http.Patch)
+  case admin_gate.require_admin_users_read(req, ctx) {
+    Error(r) -> r
+    Ok(_) ->
+      case string.trim(code) == "" {
+        True -> json_err(400, "code_required")
+        False ->
+          case read_body_string(req) {
+            Error(_) -> json_err(400, "empty_body")
+            Ok(body) ->
+              case json.parse(body, patch_provider_decoder()) {
+                Error(_) -> json_err(400, "invalid_json")
+                Ok(is_active) ->
+                  case
+                    pog.query(
+                      "update ai_providers set is_active = $2 where code = $1 returning id::text, code, display_name, coalesce(default_model,''), is_active",
+                    )
+                    |> pog.parameter(pog.text(string.trim(code)))
+                    |> pog.parameter(pog.bool(is_active))
+                    |> pog.returning(prov_row())
+                    |> db_exec.execute(ctx.db)
+                  {
+                    Error(_) -> json_err(500, "ai_provider_patch_failed")
+                    Ok(r) ->
+                      case r.rows {
+                        [row] -> {
+                          let body =
+                            json.object([#("provider", prov_json(row))])
+                            |> json.to_string
+                          wisp.json_response(body, 200)
+                        }
+                        [] -> json_err(404, "unknown_provider_code")
+                        _ -> json_err(500, "unexpected")
+                      }
+                  }
+              }
+          }
+      }
+  }
+}
+
+fn key_slot_row() -> decode.Decoder(
+  #(String, String, String, String, Bool, String, String, Int, Bool),
+) {
+  use id <- decode.field(0, decode.string)
+  use pc <- decode.field(1, decode.string)
+  use label <- decode.field(2, decode.string)
+  use key <- decode.field(3, decode.string)
+  use en <- decode.field(4, decode.bool)
+  use exh <- decode.field(5, decode.string)
+  use last <- decode.field(6, decode.string)
+  use so <- decode.field(7, decode.int)
+  use avail <- decode.field(8, decode.bool)
+  decode.success(#(id, pc, label, key, en, exh, last, so, avail))
+}
+
+fn mask_api_key(key: String) -> String {
+  let t = string.trim(key)
+  let n = string.length(t)
+  case n <= 8 {
+    True -> "••••"
+    False -> string.slice(t, 0, 4) <> "…" <> string.slice(t, n - 4, 4)
+  }
+}
+
+fn key_slot_json(
+  row: #(String, String, String, String, Bool, String, String, Int, Bool),
+) -> json.Json {
+  let #(id, pc, label, key, en, exh, last, so, avail) = row
+  let exh_j = case exh == "" {
+    True -> json.null()
+    False -> json.string(exh)
+  }
+  let last_j = case last == "" {
+    True -> json.null()
+    False -> json.string(last)
+  }
+  json.object([
+    #("id", json.string(id)),
+    #("provider_code", json.string(pc)),
+    #("label", json.string(label)),
+    #("api_key_masked", json.string(mask_api_key(key))),
+    #("is_enabled", json.bool(en)),
+    #("exhausted_until", exh_j),
+    #("last_used_at", last_j),
+    #("sort_order", json.int(so)),
+    #("is_available", json.bool(avail)),
+  ])
+}
+
+/// GET /api/v1/ai/api-keys?provider=gemini
+pub fn list_ai_api_keys(req: Request, ctx: Context) -> Response {
+  use <- wisp.require_method(req, http.Get)
+  case admin_gate.require_admin_users_read(req, ctx) {
+    Error(r) -> r
+    Ok(_) -> {
+      let qs = case request.get_query(req) {
+        Ok(q) -> q
+        Error(_) -> []
+      }
+      let provider =
+        list.find(qs, fn(p) {
+          let #(k, _) = p
+          k == "provider"
+        })
+        |> result.map(fn(p) {
+          let #(_, v) = p
+          v
+        })
+        |> result.unwrap("gemini")
+      case
+        pog.query(
+          "select id::text, provider_code, coalesce(label,''), api_key, is_enabled,"
+          <> " coalesce(exhausted_until::text,''),"
+          <> " coalesce(last_used_at::text,''), sort_order,"
+          <> " (is_enabled and (exhausted_until is null or exhausted_until <= now()))"
+          <> " from ai_api_key_slots"
+          <> " where provider_code = $1"
+          <> " order by sort_order, created_at",
+        )
+        |> pog.parameter(pog.text(string.trim(provider)))
+        |> pog.returning(key_slot_row())
+        |> db_exec.execute(ctx.db)
+      {
+        Error(_) -> json_err(500, "ai_api_keys_query_failed")
+        Ok(ret) -> {
+          let arr = list.map(ret.rows, key_slot_json)
+          let body =
+            json.object([#("keys", json.array(from: arr, of: fn(x) { x }))])
+            |> json.to_string
+          wisp.json_response(body, 200)
+        }
+      }
+    }
+  }
+}
+
+fn create_key_decoder() -> decode.Decoder(#(String, String, String, Bool, Int)) {
+  decode.optional_field("provider_code", "gemini", decode.string, fn(pc) {
+    decode.field("api_key", decode.string, fn(key) {
+      decode.optional_field("label", "", decode.string, fn(label) {
+        decode.optional_field("is_enabled", True, decode.bool, fn(en) {
+          decode.optional_field("sort_order", 0, decode.int, fn(so) {
+            decode.success(#(pc, key, label, en, so))
+          })
+        })
+      })
+    })
+  })
+}
+
+/// POST /api/v1/ai/api-keys — yeni Gemini (veya diğer) anahtar.
+pub fn create_ai_api_key(req: Request, ctx: Context) -> Response {
+  use <- wisp.require_method(req, http.Post)
+  case admin_gate.require_admin_users_read(req, ctx) {
+    Error(r) -> r
+    Ok(_) ->
+      case read_body_string(req) {
+        Error(_) -> json_err(400, "empty_body")
+        Ok(body) ->
+          case json.parse(body, create_key_decoder()) {
+            Error(_) -> json_err(400, "invalid_json")
+            Ok(#(pc, key, label, en, so)) ->
+              case string.trim(key) == "" {
+                True -> json_err(400, "api_key_required")
+                False ->
+                  case
+                    pog.query(
+                      "insert into ai_api_key_slots (provider_code, label, api_key, is_enabled, sort_order)"
+                      <> " values ($1, $2, $3, $4, $5)"
+                      <> " returning id::text, provider_code, coalesce(label,''), api_key, is_enabled,"
+                      <> " coalesce(exhausted_until::text,''), coalesce(last_used_at::text,''), sort_order,"
+                      <> " (is_enabled and (exhausted_until is null or exhausted_until <= now()))",
+                    )
+                    |> pog.parameter(pog.text(string.trim(pc)))
+                    |> pog.parameter(pog.text(string.trim(label)))
+                    |> pog.parameter(pog.text(string.trim(key)))
+                    |> pog.parameter(pog.bool(en))
+                    |> pog.parameter(pog.int(so))
+                    |> pog.returning(key_slot_row())
+                    |> db_exec.execute(ctx.db)
+                  {
+                    Error(_) -> json_err(500, "ai_api_key_create_failed")
+                    Ok(r) ->
+                      case r.rows {
+                        [row] -> {
+                          let out =
+                            json.object([#("key", key_slot_json(row))])
+                            |> json.to_string
+                          wisp.json_response(out, 201)
+                        }
+                        _ -> json_err(500, "unexpected")
+                      }
+                  }
+              }
+          }
+      }
+  }
+}
+
+fn patch_key_decoder() -> decode.Decoder(#(String, Bool, String, Bool, Bool, Bool, Bool)) {
+  // label, set_label, api_key, set_key, is_enabled, set_en, clear_exhausted
+  decode.optional_field("set_label", False, decode.bool, fn(set_label) {
+    decode.optional_field("label", "", decode.string, fn(label) {
+      decode.optional_field("set_key", False, decode.bool, fn(set_key) {
+        decode.optional_field("api_key", "", decode.string, fn(key) {
+          decode.optional_field("set_enabled", False, decode.bool, fn(set_en) {
+            decode.optional_field("is_enabled", True, decode.bool, fn(en) {
+              decode.optional_field("clear_exhausted", False, decode.bool, fn(clear) {
+                decode.success(#(label, set_label, key, set_key, en, set_en, clear))
+              })
+            })
+          })
+        })
+      })
+    })
+  })
+}
+
+/// PATCH /api/v1/ai/api-keys/:id
+pub fn patch_ai_api_key(req: Request, ctx: Context, id: String) -> Response {
+  use <- wisp.require_method(req, http.Patch)
+  case admin_gate.require_admin_users_read(req, ctx) {
+    Error(r) -> r
+    Ok(_) ->
+      case string.trim(id) == "" {
+        True -> json_err(400, "id_required")
+        False ->
+          case read_body_string(req) {
+            Error(_) -> json_err(400, "empty_body")
+            Ok(body) ->
+              case json.parse(body, patch_key_decoder()) {
+                Error(_) -> json_err(400, "invalid_json")
+                Ok(#(label, set_label, key, set_key, en_val, set_en, clear_exh)) ->
+                  case
+                    pog.query(
+                      "update ai_api_key_slots set"
+                      <> " label = case when $2 then $3 else label end,"
+                      <> " is_enabled = case when $4 then $5 else is_enabled end,"
+                      <> " api_key = case when $6 then $7 else api_key end,"
+                      <> " exhausted_until = case when $8 then null else exhausted_until end"
+                      <> " where id = $1::uuid"
+                      <> " returning id::text, provider_code, coalesce(label,''), api_key, is_enabled,"
+                      <> " coalesce(exhausted_until::text,''), coalesce(last_used_at::text,''), sort_order,"
+                      <> " (is_enabled and (exhausted_until is null or exhausted_until <= now()))",
+                    )
+                    |> pog.parameter(pog.text(string.trim(id)))
+                    |> pog.parameter(pog.bool(set_label))
+                    |> pog.parameter(pog.text(string.trim(label)))
+                    |> pog.parameter(pog.bool(set_en))
+                    |> pog.parameter(pog.bool(en_val))
+                    |> pog.parameter(pog.bool(set_key))
+                    |> pog.parameter(pog.text(string.trim(key)))
+                    |> pog.parameter(pog.bool(clear_exh))
+                    |> pog.returning(key_slot_row())
+                    |> db_exec.execute(ctx.db)
+                  {
+                    Error(_) -> json_err(500, "ai_api_key_patch_failed")
+                    Ok(r) ->
+                      case r.rows {
+                        [row] -> {
+                          let out =
+                            json.object([#("key", key_slot_json(row))])
+                            |> json.to_string
+                          wisp.json_response(out, 200)
+                        }
+                        [] -> json_err(404, "unknown_api_key")
+                        _ -> json_err(500, "unexpected")
+                      }
+                  }
+              }
+          }
+      }
+  }
+}
+
+/// DELETE /api/v1/ai/api-keys/:id
+pub fn delete_ai_api_key(req: Request, ctx: Context, id: String) -> Response {
+  use <- wisp.require_method(req, http.Delete)
+  case admin_gate.require_admin_users_read(req, ctx) {
+    Error(r) -> r
+    Ok(_) ->
+      case string.trim(id) == "" {
+        True -> json_err(400, "id_required")
+        False ->
+          case
+            pog.query(
+              "delete from ai_api_key_slots where id = $1::uuid returning id::text",
+            )
+            |> pog.parameter(pog.text(string.trim(id)))
+            |> pog.returning(row_dec.col0_string())
+            |> db_exec.execute(ctx.db)
+          {
+            Error(_) -> json_err(500, "ai_api_key_delete_failed")
+            Ok(r) ->
+              case r.rows {
+                [_] -> {
+                  let out =
+                    json.object([#("ok", json.bool(True))])
+                    |> json.to_string
+                  wisp.json_response(out, 200)
+                }
+                [] -> json_err(404, "unknown_api_key")
+                _ -> json_err(500, "unexpected")
+              }
+          }
+      }
+  }
+}

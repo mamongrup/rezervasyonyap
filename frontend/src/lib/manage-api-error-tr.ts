@@ -223,6 +223,20 @@ const TR_BY_CODE: Record<string, string> = {
   provider_inactive: 'AI sağlayıcı pasif. Veritabanında ai_providers tablosunda DeepSeek için is_active açılmalı.',
   ai_provider_inactive_enable_in_ai_providers:
     'AI sağlayıcı kapalı. ai_providers tablosunda Deepseek satırını etkinleştirin veya SQL modülü 227’yi çalıştırın.',
+  ai_provider_patch_failed: 'AI sağlayıcı durumu güncellenemedi.',
+  unknown_provider_code: 'Bilinmeyen AI sağlayıcı kodu.',
+  ai_api_keys_query_failed: 'AI API anahtarları listelenemedi.',
+  ai_api_key_create_failed: 'AI API anahtarı eklenemedi.',
+  ai_api_key_patch_failed: 'AI API anahtarı güncellenemedi.',
+  ai_api_key_delete_failed: 'AI API anahtarı silinemedi.',
+  api_key_required: 'API anahtarı zorunludur.',
+  unknown_api_key: 'AI API anahtarı bulunamadı.',
+  gemini_no_available_keys:
+    'Kullanılabilir Gemini anahtarı yok. Ayarlar → Yapay zeka bölümünden Google AI Studio anahtarı ekleyin veya kota bitmiş anahtarların ertesi günü bekleyin.',
+  gemini_provider_inactive: 'Gemini sağlayıcı pasif. Ayarlar → Yapay zeka’dan Gemini’yi etkinleştirin.',
+  deepseek_provider_inactive:
+    'DeepSeek sağlayıcı pasif. Gemini anahtarları da kullanılamıyorsa Ayarlar → Yapay zeka’dan DeepSeek’i açın.',
+  llm_unavailable: 'Yapay zeka yanıtı üretilemedi (Gemini ve DeepSeek kullanılamıyor). Anahtar ve kota durumunu kontrol edin.',
   job_not_queued: 'AI işi zaten işlenmiş veya kilitli.',
   ai_job_lock_failed: 'AI işi başlatılamadı (veritabanı).',
   region_content_unexpected_job_rows: 'AI iş kaydı beklenmedik.',
@@ -440,6 +454,13 @@ export function formatManageApiError(raw: string): string {
       return 'DeepSeek API zaman aşımı. Ayarlar → Genel → Yapay zekada süreyi artırın; sunucuda travel-api güncel derleme + restart; kamuya açık API için ters vekil read timeout panel süresinden kısa olmam'
     }
     return `DeepSeek API hatası: ${detail}`
+  }
+  if (key.startsWith('gemini_http:') || key.startsWith('gemini_quota:')) {
+    const detail = key.slice(key.indexOf(':') + 1).trim()
+    return `Gemini API hatası: ${detail.slice(0, 160)}`
+  }
+  if (key.startsWith('llm_unavailable')) {
+    return TR_BY_CODE.llm_unavailable
   }
   if (looksLikeApiCode(key)) {
     return `İşlem tamamlanamadı. Teknik kod: ${key}`

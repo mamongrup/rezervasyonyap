@@ -9272,6 +9272,129 @@ export async function listAiProviders(token: string): Promise<{
   return json(res)
 }
 
+/** DeepSeek / Gemini aktif-pasif (silmeden). */
+export async function patchAiProvider(
+  token: string,
+  code: string,
+  body: { is_active: boolean },
+): Promise<{
+  provider: {
+    id: string
+    code: string
+    display_name: string
+    default_model: string | null
+    is_active: boolean
+  }
+}> {
+  const b = base()
+  if (!b) throw new Error('NEXT_PUBLIC_API_URL_missing')
+  const res = await fetch(`${b}/api/v1/ai/providers/${encodeURIComponent(code)}`, {
+    method: 'PATCH',
+    headers: { ...locJson(), Authorization: `Bearer ${token}` },
+    body: JSON.stringify(body),
+  })
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}))
+    throw new Error((err as { error?: string }).error ?? `ai_provider_patch_${res.status}`)
+  }
+  return json(res)
+}
+
+export type AiApiKeySlot = {
+  id: string
+  provider_code: string
+  label: string
+  api_key_masked: string
+  is_enabled: boolean
+  exhausted_until: string | null
+  last_used_at: string | null
+  sort_order: number
+  is_available: boolean
+}
+
+/** Gemini (AI Studio) çoklu anahtar havuzu. */
+export async function listAiApiKeys(
+  token: string,
+  provider = 'gemini',
+): Promise<{ keys: AiApiKeySlot[] }> {
+  const b = base()
+  if (!b) throw new Error('NEXT_PUBLIC_API_URL_missing')
+  const q = new URLSearchParams({ provider })
+  const res = await fetch(`${b}/api/v1/ai/api-keys?${q}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  })
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}))
+    throw new Error((err as { error?: string }).error ?? `ai_api_keys_${res.status}`)
+  }
+  return json(res)
+}
+
+export async function createAiApiKey(
+  token: string,
+  body: {
+    provider_code?: string
+    api_key: string
+    label?: string
+    is_enabled?: boolean
+    sort_order?: number
+  },
+): Promise<{ key: AiApiKeySlot }> {
+  const b = base()
+  if (!b) throw new Error('NEXT_PUBLIC_API_URL_missing')
+  const res = await fetch(`${b}/api/v1/ai/api-keys`, {
+    method: 'POST',
+    headers: { ...locJson(), Authorization: `Bearer ${token}` },
+    body: JSON.stringify(body),
+  })
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}))
+    throw new Error((err as { error?: string }).error ?? `ai_api_key_create_${res.status}`)
+  }
+  return json(res)
+}
+
+export async function patchAiApiKey(
+  token: string,
+  id: string,
+  body: {
+    set_label?: boolean
+    label?: string
+    set_key?: boolean
+    api_key?: string
+    set_enabled?: boolean
+    is_enabled?: boolean
+    clear_exhausted?: boolean
+  },
+): Promise<{ key: AiApiKeySlot }> {
+  const b = base()
+  if (!b) throw new Error('NEXT_PUBLIC_API_URL_missing')
+  const res = await fetch(`${b}/api/v1/ai/api-keys/${encodeURIComponent(id)}`, {
+    method: 'PATCH',
+    headers: { ...locJson(), Authorization: `Bearer ${token}` },
+    body: JSON.stringify(body),
+  })
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}))
+    throw new Error((err as { error?: string }).error ?? `ai_api_key_patch_${res.status}`)
+  }
+  return json(res)
+}
+
+export async function deleteAiApiKey(token: string, id: string): Promise<{ ok: boolean }> {
+  const b = base()
+  if (!b) throw new Error('NEXT_PUBLIC_API_URL_missing')
+  const res = await fetch(`${b}/api/v1/ai/api-keys/${encodeURIComponent(id)}`, {
+    method: 'DELETE',
+    headers: { Authorization: `Bearer ${token}` },
+  })
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}))
+    throw new Error((err as { error?: string }).error ?? `ai_api_key_delete_${res.status}`)
+  }
+  return json(res)
+}
+
 export async function listAiFeatureProfiles(token: string): Promise<{
   profiles: {
     id: string

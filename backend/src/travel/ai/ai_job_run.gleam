@@ -1,4 +1,4 @@
-//// `ai_jobs` kuyruğunu DeepSeek ile senkron işler (worker süreci yok; API isteği içinde tamamlanır).
+//// `ai_jobs` kuyruğunu LLM yönlendirici ile senkron işler (Gemini havuzu → DeepSeek).
 
 import backend/context.{type Context}
 import gleam/dynamic/decode
@@ -8,7 +8,7 @@ import gleam/string
 import pog
 import travel/db/resilient_pog as db_exec
 import travel/ai/ai_config
-import travel/ai/deepseek_chat
+import travel/ai/llm_chat
 
 fn start_row() -> decode.Decoder(#(String, String)) {
   use ij <- decode.field(0, decode.string)
@@ -90,64 +90,52 @@ pub fn run_ai_job(ctx: Context, job_id: String) -> Result(Nil, String) {
                       let _ = fail_job(ctx.db, jid, "unknown_profile")
                       Error("unknown_profile")
                     }
-                    [#(sys_prompt, temp_str, is_active)] -> {
-                      case is_active {
-                        False -> {
-                          let _ =
-                            fail_job(
-                              ctx.db,
-                              jid,
-                              "ai_provider_inactive_enable_in_ai_providers",
-                            )
-                          Error("provider_inactive")
-                        }
-                        True -> {
-                          let temp = parse_temperature(temp_str)
-                          let user_msg =
-                            "The following JSON is the queued job input. Follow the profile system prompt; prefer structured output when possible. If the JSON includes a top-level string field `locale` (tr, en, de, ru, zh, fr), write the entire response in that language; otherwise use Turkish.\n\n"
-                            <> input_json_text
-                          let cfg = ai_config.load(ctx.db)
-                          let timeout_ms =
-                            ai_config.profile_upstream_timeout_ms(
-                              ctx.db,
-                              profile_code,
-                            )
+                    [#(sys_prompt, temp_str, _is_active)] -> {
+                      // Sağlayıcı seçimi llm_chat'te: Gemini key havuzu → DeepSeek (aktifse).
+                      // Profil provider is_active tek başına engellemez (DeepSeek pasifken Gemini çalışsın).
+                      let _temp = parse_temperature(temp_str)
+                      let user_msg =
+                        "The following JSON is the queued job input. Follow the profile system prompt; prefer structured output when possible. If the JSON includes a top-level string field `locale` (tr, en, de, ru, zh, fr), write the entire response in that language; otherwise use Turkish.\n\n"
+                        <> input_json_text
+                      let timeout_ms =
+                        ai_config.profile_upstream_timeout_ms(
+                          ctx.db,
+                          profile_code,
+                        )
+                      case
+                        llm_chat.complete_with_temp_string(
+                          ctx.db,
+                          sys_prompt,
+                          user_msg,
+                          temp_str,
+                          timeout_ms,
+                        )
+                      {
+                        Ok(reply) -> {
+                          let out_obj =
+                            json.object([
+                              #("text", json.string(reply)),
+                              #(
+                                "profile_code",
+                                json.string(string.trim(profile_code)),
+                              ),
+                            ])
+                          let out_s = json.to_string(out_obj)
                           case
-                            deepseek_chat.chat_completion_single_with_config(
-                              cfg,
-                              sys_prompt,
-                              user_msg,
-                              temp,
-                              timeout_ms,
+                            pog.query(
+                              "update ai_jobs set status = 'succeeded', output_json = $2::jsonb, error = null, finished_at = now() where id = $1::uuid",
                             )
+                            |> pog.parameter(pog.text(jid))
+                            |> pog.parameter(pog.text(out_s))
+                            |> db_exec.execute(ctx.db)
                           {
-                            Ok(reply) -> {
-                              let out_obj =
-                                json.object([
-                                  #("text", json.string(reply)),
-                                  #(
-                                    "profile_code",
-                                    json.string(string.trim(profile_code)),
-                                  ),
-                                ])
-                              let out_s = json.to_string(out_obj)
-                              case
-                                pog.query(
-                                  "update ai_jobs set status = 'succeeded', output_json = $2::jsonb, error = null, finished_at = now() where id = $1::uuid",
-                                )
-                                |> pog.parameter(pog.text(jid))
-                                |> pog.parameter(pog.text(out_s))
-                                |> db_exec.execute(ctx.db)
-                              {
-                                Error(_) -> Error("ai_job_success_update_failed")
-                                Ok(_) -> Ok(Nil)
-                              }
-                            }
-                            Error(e) -> {
-                              let _ = fail_job(ctx.db, jid, e)
-                              Ok(Nil)
-                            }
+                            Error(_) -> Error("ai_job_success_update_failed")
+                            Ok(_) -> Ok(Nil)
                           }
+                        }
+                        Error(e) -> {
+                          let _ = fail_job(ctx.db, jid, e)
+                          Ok(Nil)
                         }
                       }
                     }

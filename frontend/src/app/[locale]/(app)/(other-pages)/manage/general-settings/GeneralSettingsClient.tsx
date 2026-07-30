@@ -9,19 +9,25 @@ import { useLocaleSegment } from '@/contexts/locale-context'
 import { useVitrinHref } from '@/hooks/use-vitrin-href'
 import { getStoredAuthToken } from '@/lib/auth-storage'
 import {
+  createAiApiKey,
   createCurrency,
+  deleteAiApiKey,
   getActivePaymentProvider,
   getSitePublicConfig,
+  listAiApiKeys,
   listAiFeatureProfiles,
   listAiProviders,
   listCurrencies,
   listProductCategories,
   listSiteSettings,
+  patchAiApiKey,
+  patchAiProvider,
   patchCurrencyActive,
   putCurrencyOrder,
   refreshTcmbRates,
   setActivePaymentProvider,
   upsertSiteSettingFromPanel,
+  type AiApiKeySlot,
   type CurrencyRow,
   type ProductCategoryRow,
 } from '@/lib/travel-api'
@@ -292,12 +298,13 @@ export default function GeneralSettingsClient({ embedded = false }: GeneralSetti
   const [socialXUrl, setSocialXUrl] = useState('')
   const [socialYoutubeUrl, setSocialYoutubeUrl] = useState('')
 
-  /** site_settings key `ai` — DeepSeek anahtarı/modeli + süreler; süre yalnız buradan (5–10000 sn). */
+  /** site_settings key `ai` — DeepSeek/Gemini anahtar-model + süreler; süre yalnız buradan (5–10000 sn). */
   const [aiRest, setAiRest] = useState<Record<string, unknown>>({})
   const [deepseekApiKey, setDeepseekApiKey] = useState('')
   const [openaiApiKey, setOpenaiApiKey] = useState('')
   const [deepseekModel, setDeepseekModel] = useState('deepseek-chat')
   const [deepseekApiUrl, setDeepseekApiUrl] = useState('https://api.deepseek.com/v1/chat/completions')
+  const [geminiModel, setGeminiModel] = useState('gemini-2.0-flash')
   const [requestTimeoutSec, setRequestTimeoutSec] = useState('300')
   const [moduleTimeoutsSec, setModuleTimeoutsSec] = useState<Record<string, string>>(() => {
     const o: Record<string, string> = {}
@@ -312,6 +319,11 @@ export default function GeneralSettingsClient({ embedded = false }: GeneralSetti
     { code: string; display_name: string; is_active: boolean }[]
   >([])
   const [aiProfilesList, setAiProfilesList] = useState<{ code: string; temperature: string }[]>([])
+  const [geminiKeys, setGeminiKeys] = useState<AiApiKeySlot[]>([])
+  const [geminiKeyLabel, setGeminiKeyLabel] = useState('')
+  const [geminiKeyValue, setGeminiKeyValue] = useState('')
+  const [geminiKeyBusy, setGeminiKeyBusy] = useState(false)
+  const [providerToggleBusy, setProviderToggleBusy] = useState<string | null>(null)
 
   type TabId = (typeof SETTINGS_TABS)[number]['id']
   const validTabIds = SETTINGS_TABS.map((t) => t.id) as TabId[]
@@ -319,33 +331,34 @@ export default function GeneralSettingsClient({ embedded = false }: GeneralSetti
   /** URL tab parametresi — ayrı state + useEffect ile senkronlamak yerine doğrudan türetilir (mount uyarılarını önler). */
   const activeTab: TabId = paramTab && validTabIds.includes(paramTab) ? paramTab : 'kimlik'
 
-  useEffect(() => {
-    if (activeTab !== 'ai') return
+  const reloadAiMeta = useCallback(async () => {
     const token = getStoredAuthToken()
     if (!token) return
-    let cancel = false
     setAiMetaLoading(true)
-    void (async () => {
-      try {
-        const [p, f] = await Promise.all([listAiProviders(token), listAiFeatureProfiles(token)])
-        if (cancel) return
-        setAiProvidersList(
-          p.providers.map((x) => ({ code: x.code, display_name: x.display_name, is_active: x.is_active })),
-        )
-        setAiProfilesList(f.profiles.map((x) => ({ code: x.code, temperature: x.temperature })))
-      } catch {
-        if (!cancel) {
-          setAiProvidersList([])
-          setAiProfilesList([])
-        }
-      } finally {
-        if (!cancel) setAiMetaLoading(false)
-      }
-    })()
-    return () => {
-      cancel = true
+    try {
+      const [p, f, keysRes] = await Promise.all([
+        listAiProviders(token),
+        listAiFeatureProfiles(token),
+        listAiApiKeys(token, 'gemini').catch(() => ({ keys: [] as AiApiKeySlot[] })),
+      ])
+      setAiProvidersList(
+        p.providers.map((x) => ({ code: x.code, display_name: x.display_name, is_active: x.is_active })),
+      )
+      setAiProfilesList(f.profiles.map((x) => ({ code: x.code, temperature: x.temperature })))
+      setGeminiKeys(keysRes.keys)
+    } catch {
+      setAiProvidersList([])
+      setAiProfilesList([])
+      setGeminiKeys([])
+    } finally {
+      setAiMetaLoading(false)
     }
-  }, [activeTab])
+  }, [])
+
+  useEffect(() => {
+    if (activeTab !== 'ai') return
+    void reloadAiMeta()
+  }, [activeTab, reloadAiMeta])
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -500,6 +513,11 @@ export default function GeneralSettingsClient({ embedded = false }: GeneralSetti
                 ? obj.deepseek_api_url.trim()
                 : 'https://api.deepseek.com/v1/chat/completions',
             )
+            setGeminiModel(
+              typeof obj.gemini_model === 'string' && obj.gemini_model.trim()
+                ? obj.gemini_model.trim()
+                : 'gemini-2.0-flash',
+            )
             setRequestTimeoutSec(String(requestTimeoutSecFromAiJson(obj)))
             setModuleTimeoutsSec((prev) => {
               const next = { ...prev }
@@ -523,6 +541,7 @@ export default function GeneralSettingsClient({ embedded = false }: GeneralSetti
             setOpenaiApiKey('')
             setDeepseekModel('deepseek-chat')
             setDeepseekApiUrl('https://api.deepseek.com/v1/chat/completions')
+            setGeminiModel('gemini-2.0-flash')
             setRequestTimeoutSec('300')
             setModuleTimeoutsSec(() => {
               const o: Record<string, string> = {}
@@ -571,6 +590,110 @@ export default function GeneralSettingsClient({ embedded = false }: GeneralSetti
     }
   }
 
+  async function toggleAiProvider(code: string, is_active: boolean) {
+    const token = getStoredAuthToken()
+    if (!token) {
+      setStatus({ kind: 'err', text: 'Oturum gerekli.' })
+      return
+    }
+    setProviderToggleBusy(code)
+    setStatus({ kind: 'idle' })
+    try {
+      const res = await patchAiProvider(token, code, { is_active })
+      setAiProvidersList((prev) =>
+        prev.map((p) =>
+          p.code === res.provider.code
+            ? { ...p, is_active: res.provider.is_active, display_name: res.provider.display_name }
+            : p,
+        ),
+      )
+      setStatus({
+        kind: 'ok',
+        text: `${res.provider.display_name || code} ${is_active ? 'aktif' : 'pasif'} edildi.`,
+      })
+    } catch (e) {
+      setStatus({ kind: 'err', text: formatManageApiCatch(e, 'Sağlayıcı güncellenemedi') })
+    } finally {
+      setProviderToggleBusy(null)
+    }
+  }
+
+  async function addGeminiKey() {
+    const token = getStoredAuthToken()
+    if (!token) {
+      setStatus({ kind: 'err', text: 'Oturum gerekli.' })
+      return
+    }
+    const key = geminiKeyValue.trim()
+    if (!key) {
+      setStatus({ kind: 'err', text: 'Gemini API anahtarı girin.' })
+      return
+    }
+    setGeminiKeyBusy(true)
+    setStatus({ kind: 'idle' })
+    try {
+      await createAiApiKey(token, {
+        provider_code: 'gemini',
+        api_key: key,
+        label: geminiKeyLabel.trim() || `Hesap ${geminiKeys.length + 1}`,
+        sort_order: geminiKeys.length,
+      })
+      setGeminiKeyValue('')
+      setGeminiKeyLabel('')
+      await reloadAiMeta()
+      setStatus({ kind: 'ok', text: 'Gemini anahtarı eklendi.' })
+    } catch (e) {
+      setStatus({ kind: 'err', text: formatManageApiCatch(e, 'Anahtar eklenemedi') })
+    } finally {
+      setGeminiKeyBusy(false)
+    }
+  }
+
+  async function setGeminiKeyEnabled(id: string, is_enabled: boolean) {
+    const token = getStoredAuthToken()
+    if (!token) return
+    setGeminiKeyBusy(true)
+    try {
+      await patchAiApiKey(token, id, { set_enabled: true, is_enabled })
+      await reloadAiMeta()
+    } catch (e) {
+      setStatus({ kind: 'err', text: formatManageApiCatch(e, 'Anahtar güncellenemedi') })
+    } finally {
+      setGeminiKeyBusy(false)
+    }
+  }
+
+  async function clearGeminiKeyExhausted(id: string) {
+    const token = getStoredAuthToken()
+    if (!token) return
+    setGeminiKeyBusy(true)
+    try {
+      await patchAiApiKey(token, id, { clear_exhausted: true })
+      await reloadAiMeta()
+      setStatus({ kind: 'ok', text: 'Kota kilidi temizlendi.' })
+    } catch (e) {
+      setStatus({ kind: 'err', text: formatManageApiCatch(e, 'Kota kilidi temizlenemedi') })
+    } finally {
+      setGeminiKeyBusy(false)
+    }
+  }
+
+  async function removeGeminiKey(id: string) {
+    const token = getStoredAuthToken()
+    if (!token) return
+    if (!window.confirm('Bu Gemini anahtarını silmek istiyor musunuz?')) return
+    setGeminiKeyBusy(true)
+    try {
+      await deleteAiApiKey(token, id)
+      await reloadAiMeta()
+      setStatus({ kind: 'ok', text: 'Anahtar silindi.' })
+    } catch (e) {
+      setStatus({ kind: 'err', text: formatManageApiCatch(e, 'Anahtar silinemedi') })
+    } finally {
+      setGeminiKeyBusy(false)
+    }
+  }
+
   async function saveAiSettings() {
     setAiSaving(true)
     setStatus({ kind: 'idle' })
@@ -597,6 +720,7 @@ export default function GeneralSettingsClient({ embedded = false }: GeneralSetti
         openai_api_key: openaiApiKey.trim(),
         deepseek_model: deepseekModel.trim() || 'deepseek-chat',
         deepseek_api_url: deepseekApiUrl.trim() || 'https://api.deepseek.com/v1/chat/completions',
+        gemini_model: geminiModel.trim() || 'gemini-2.0-flash',
         request_timeout_sec: rtParsed,
         module_timeouts_sec,
       }
@@ -1782,15 +1906,180 @@ export default function GeneralSettingsClient({ embedded = false }: GeneralSetti
               <div>
                 <h2 className="text-base font-semibold">Yapay zeka API anahtarları</h2>
                 <p className="text-sm text-neutral-500">
-                  Blog çevirisi, paneldeki yapay zeka çağrıları ve sosyal medya AI kapak üretimi için. Ortam değişkeni{' '}
-                  <code className="font-mono text-xs">DEEPSEEK_API_KEY</code> tanımlıysa o önceliklidir; boşsa
-                  buradaki DeepSeek anahtarı kullanılır. OpenAI anahtarı sosyal kapak üretiminde kullanılır. Aşağıdaki
-                  &quot;chat&quot; ifadeleri API adıdır: aynı uç nokta ve model çeviri, özet vb. metin görevleri için de
-                  kullanılır; yalnızca sohbet anlamına gelmez.
+                  Öncelik: Google Gemini (ücretsiz AI Studio anahtarları, kota bitince sıradaki hesaba geçilir). DeepSeek
+                  silinmez; pasife alınabilir ve Gemini yoksa / tükenirse yedek olarak kullanılır. OpenAI sosyal kapak
+                  üretimi içindir.
                 </p>
               </div>
             </div>
+
+            <div className="mb-6 space-y-3 rounded-lg border border-emerald-200/80 bg-emerald-50/40 p-4 dark:border-emerald-900/50 dark:bg-emerald-950/20">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <h3 className="text-sm font-semibold text-neutral-900 dark:text-white">Google Gemini (AI Studio)</h3>
+                  <p className="mt-0.5 text-xs text-neutral-500">
+                    Farklı hesaplardan ücretsiz API key ekleyin (~1500 RPD/hesap). Limit bitince otomatik sıradaki key.
+                  </p>
+                </div>
+                {(() => {
+                  const gemini = aiProvidersList.find((p) => p.code === 'gemini')
+                  const active = gemini?.is_active ?? true
+                  return (
+                    <button
+                      type="button"
+                      disabled={providerToggleBusy === 'gemini' || aiMetaLoading}
+                      onClick={() => void toggleAiProvider('gemini', !active)}
+                      className={clsx(
+                        'shrink-0 rounded-lg px-3 py-1.5 text-xs font-semibold transition disabled:opacity-50',
+                        active
+                          ? 'bg-emerald-600 text-white hover:bg-emerald-700'
+                          : 'bg-neutral-200 text-neutral-700 hover:bg-neutral-300 dark:bg-neutral-700 dark:text-neutral-200',
+                      )}
+                    >
+                      {providerToggleBusy === 'gemini' ? '…' : active ? 'Aktif' : 'Pasif'}
+                    </button>
+                  )
+                })()}
+              </div>
+              <Field className="block max-w-md">
+                <Label>Gemini model</Label>
+                <Input
+                  className="mt-1 font-mono text-sm"
+                  value={geminiModel}
+                  onChange={(e) => setGeminiModel(e.target.value)}
+                  placeholder="gemini-2.0-flash"
+                />
+                <p className="mt-1 text-xs text-neutral-400">
+                  Örn. <code className="font-mono">gemini-2.0-flash</code> —{' '}
+                  <a
+                    href="https://aistudio.google.com/apikey"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-primary-600 underline"
+                  >
+                    AI Studio anahtarları
+                  </a>
+                </p>
+              </Field>
+              <ul className="space-y-2">
+                {geminiKeys.length === 0 ? (
+                  <li className="text-xs text-neutral-500">Henüz Gemini anahtarı yok.</li>
+                ) : (
+                  geminiKeys.map((k) => (
+                    <li
+                      key={k.id}
+                      className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-neutral-200 bg-white px-3 py-2 text-sm dark:border-neutral-700 dark:bg-neutral-900/60"
+                    >
+                      <div className="min-w-0">
+                        <div className="font-medium text-neutral-900 dark:text-white">{k.label || 'Anahtar'}</div>
+                        <div className="font-mono text-[11px] text-neutral-500">{k.api_key_masked}</div>
+                        {!k.is_available && k.exhausted_until ? (
+                          <div className="mt-0.5 text-[11px] text-amber-700 dark:text-amber-300">
+                            Kota / kilit: {k.exhausted_until}
+                          </div>
+                        ) : null}
+                      </div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span
+                          className={clsx(
+                            'rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase',
+                            k.is_available
+                              ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300'
+                              : 'bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-200',
+                          )}
+                        >
+                          {k.is_available ? 'Hazır' : k.is_enabled ? 'Tükendi' : 'Kapalı'}
+                        </span>
+                        <button
+                          type="button"
+                          disabled={geminiKeyBusy}
+                          onClick={() => void setGeminiKeyEnabled(k.id, !k.is_enabled)}
+                          className="rounded border border-neutral-200 px-2 py-1 text-[11px] font-medium dark:border-neutral-600"
+                        >
+                          {k.is_enabled ? 'Pasifleştir' : 'Etkinleştir'}
+                        </button>
+                        {k.exhausted_until ? (
+                          <button
+                            type="button"
+                            disabled={geminiKeyBusy}
+                            onClick={() => void clearGeminiKeyExhausted(k.id)}
+                            className="rounded border border-neutral-200 px-2 py-1 text-[11px] font-medium dark:border-neutral-600"
+                          >
+                            Kilidi aç
+                          </button>
+                        ) : null}
+                        <button
+                          type="button"
+                          disabled={geminiKeyBusy}
+                          onClick={() => void removeGeminiKey(k.id)}
+                          className="rounded border border-red-200 px-2 py-1 text-[11px] font-medium text-red-700 dark:border-red-900 dark:text-red-300"
+                        >
+                          Sil
+                        </button>
+                      </div>
+                    </li>
+                  ))
+                )}
+              </ul>
+              <div className="grid gap-3 sm:grid-cols-[1fr_2fr_auto]">
+                <Field>
+                  <Label>Etiket</Label>
+                  <Input
+                    className="mt-1 text-sm"
+                    value={geminiKeyLabel}
+                    onChange={(e) => setGeminiKeyLabel(e.target.value)}
+                    placeholder="Hesap 1"
+                  />
+                </Field>
+                <Field>
+                  <Label>API anahtarı</Label>
+                  <Input
+                    type="password"
+                    className="mt-1 font-mono text-sm"
+                    value={geminiKeyValue}
+                    onChange={(e) => setGeminiKeyValue(e.target.value)}
+                    autoComplete="off"
+                    placeholder="AIza…"
+                  />
+                </Field>
+                <div className="flex items-end">
+                  <ButtonPrimary
+                    type="button"
+                    disabled={geminiKeyBusy || !geminiKeyValue.trim()}
+                    onClick={() => void addGeminiKey()}
+                  >
+                    {geminiKeyBusy ? '…' : 'Ekle'}
+                  </ButtonPrimary>
+                </div>
+              </div>
+            </div>
+
             <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+              <div className="sm:col-span-2 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-neutral-200 px-3 py-3 dark:border-neutral-700">
+                <div>
+                  <div className="text-sm font-semibold text-neutral-900 dark:text-white">DeepSeek (yedek)</div>
+                  <p className="text-xs text-neutral-500">Silinmez; pasife alınırsa yalnızca Gemini kullanılır.</p>
+                </div>
+                {(() => {
+                  const ds = aiProvidersList.find((p) => p.code === 'deepseek')
+                  const active = ds?.is_active ?? true
+                  return (
+                    <button
+                      type="button"
+                      disabled={providerToggleBusy === 'deepseek' || aiMetaLoading}
+                      onClick={() => void toggleAiProvider('deepseek', !active)}
+                      className={clsx(
+                        'shrink-0 rounded-lg px-3 py-1.5 text-xs font-semibold transition disabled:opacity-50',
+                        active
+                          ? 'bg-emerald-600 text-white hover:bg-emerald-700'
+                          : 'bg-neutral-200 text-neutral-700 hover:bg-neutral-300 dark:bg-neutral-700 dark:text-neutral-200',
+                      )}
+                    >
+                      {providerToggleBusy === 'deepseek' ? '…' : active ? 'Aktif' : 'Pasif'}
+                    </button>
+                  )
+                })()}
+              </div>
               <Field className="block sm:col-span-2">
                 <Label>DeepSeek API anahtarı</Label>
                 <Input
@@ -1826,7 +2115,7 @@ export default function GeneralSettingsClient({ embedded = false }: GeneralSetti
                 </p>
               </Field>
               <Field className="block">
-                <Label>Model</Label>
+                <Label>DeepSeek model</Label>
                 <Input
                   className="mt-1 font-mono"
                   value={deepseekModel}
@@ -1840,7 +2129,7 @@ export default function GeneralSettingsClient({ embedded = false }: GeneralSetti
                 </p>
               </Field>
               <Field className="block">
-                <Label>API URL</Label>
+                <Label>DeepSeek API URL</Label>
                 <Input
                   className="mt-1 font-mono text-sm"
                   value={deepseekApiUrl}
@@ -1943,8 +2232,7 @@ export default function GeneralSettingsClient({ embedded = false }: GeneralSetti
               Sağlayıcılar ve özellik profilleri
             </h2>
             <p className="mb-4 text-xs text-neutral-500 dark:text-neutral-400">
-              Veritabanındaki kayıtların özeti (salt okunur). Düzenleme için veritabanı / AI yönetim akışlarını
-              kullanın.
+              DeepSeek / Gemini aktif-pasif anahtarları yukarıdaki bölümde. Burada özellik profilleri özetidir.
             </p>
             {aiMetaLoading ? (
               <div className="flex items-center gap-2 text-sm text-neutral-400">
