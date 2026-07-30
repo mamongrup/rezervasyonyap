@@ -53,6 +53,7 @@ const HeroSearchForm = ({
       locale={locale}
       categoryBarLayout={categoryBarLayout}
       activeSlugs={activeSlugs}
+      staySearchTargetPath={staySearchTargetPath}
     />
   )
 }

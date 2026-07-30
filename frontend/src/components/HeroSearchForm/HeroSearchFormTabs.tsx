@@ -39,15 +39,15 @@ export const formTabs: {
   name: ListingType
   icon: IconSvgElement
   href: string
-  formComponent: ComponentType<{ formStyle: 'default' | 'small' }>
+  formComponent: ComponentType<{ formStyle: 'default' | 'small'; searchTargetPath?: string }>
 }[] = [
-  { name: 'Stays', icon: House03Icon, href: '/', formComponent: StaySearchFormLazy },
-  { name: 'Cars', icon: Car05Icon, href: '/car', formComponent: RentalCarSearchFormLazy },
+  { name: 'Stays', icon: House03Icon, href: '/oteller', formComponent: StaySearchFormLazy },
+  { name: 'Cars', icon: Car05Icon, href: '/arac-kiralama', formComponent: RentalCarSearchFormLazy },
   {
     name: 'Experiences',
     icon: HotAirBalloonFreeIcons,
-    href: '/experience',
+    href: '/turlar',
     formComponent: ExperiencesSearchFormLazy,
   },
-  { name: 'Flights', icon: Airplane02Icon, href: '/ucak-bileti/all', formComponent: FlightSearchFormLazy },
+  { name: 'Flights', icon: Airplane02Icon, href: '/ucak-bileti', formComponent: FlightSearchFormLazy },
 ]

@@ -5,6 +5,7 @@
  */
 
 import { getStoredAuthToken } from '@/lib/auth-storage'
+import { guestSearchTotalFromRecord } from '@/lib/guest-search-defaults'
 import { ensureCarRentalCheckout } from '@/lib/yolcu360-cars'
 import { getAuthMe } from '@/lib/travel-api'
 
@@ -146,10 +147,10 @@ export function readHeroSearchPlanBFirstMatching(
 }
 
 const DEFAULT_PATH_BY_VERTICAL: Record<HeroSearchVertical, string> = {
-  stay: '/stay-categories-map/all',
-  car: '/car-categories-map/all',
-  experience: '/experience-categories-map/all',
-  flight: '/flight-categories/all',
+  stay: '/oteller/all',
+  car: '/arac-kiralama/all',
+  experience: '/turlar/all',
+  flight: '/ucak-bileti/all',
 }
 
 function locationQueryValue(vertical: HeroSearchVertical, params: Record<string, string>): string | undefined {
@@ -180,11 +181,37 @@ function buildSearchQuery(vertical: HeroSearchVertical, params: Record<string, s
       break
     }
     case 'flight': {
-      const from = params['flying-from-location']
-      const to = params['flying-to-location']
+      const from = params['flying-from-location'] ?? params.locationPickup
+      const to = params['flying-to-location'] ?? params.locationDropOff
       if (from) qs.set('from', from)
       if (to) qs.set('to', to)
-      if (params.checkin) qs.set('checkin', params.checkin)
+      const date = params.checkin || params.date
+      if (date) qs.set('date', date)
+      if (params.checkout) qs.set('checkout', params.checkout)
+      if (params.guests_total) qs.set('guests', params.guests_total)
+      else if (params.guestAdults) qs.set('guests', params.guestAdults)
+      if (params.trip_type === 'oneWay' || params.trip_type === 'roundTrip') {
+        qs.set('trip', params.trip_type)
+      } else if (params.trip_type === 'One-way') {
+        qs.set('trip', 'oneWay')
+      } else if (params.trip_type === 'Round-trip') {
+        qs.set('trip', 'roundTrip')
+      }
+      if (params.flight_class) qs.set('class', params.flight_class)
+      break
+    }
+    case 'experience': {
+      const loc = params.location
+      if (loc) qs.set('location', loc)
+      if (params.checkin) qs.set('date', params.checkin)
+      else if (params.date) qs.set('date', params.date)
+      {
+        const guests =
+          params.guests_total && Number.parseInt(params.guests_total, 10) > 0
+            ? Number.parseInt(params.guests_total, 10)
+            : guestSearchTotalFromRecord(params)
+        if (guests > 0) qs.set('guests', String(guests))
+      }
       break
     }
     default: {
@@ -192,7 +219,13 @@ function buildSearchQuery(vertical: HeroSearchVertical, params: Record<string, s
       if (loc) qs.set('location', loc)
       if (params.checkin) qs.set('checkin', params.checkin)
       if (params.checkout) qs.set('checkout', params.checkout)
-      if (params.guestAdults) qs.set('guests', params.guestAdults)
+      {
+        const guests =
+          params.guests_total && Number.parseInt(params.guests_total, 10) > 0
+            ? Number.parseInt(params.guests_total, 10)
+            : guestSearchTotalFromRecord(params)
+        if (guests > 0) qs.set('guests', String(guests))
+      }
       break
     }
   }

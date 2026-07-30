@@ -2,37 +2,54 @@
 
 import { DEFAULT_GUESTS_EXPERIENCE, guestSearchTotalFromRecord } from '@/lib/guest-search-defaults'
 import { formDataToStringRecord, runHeroSearchPlanEffects } from '@/lib/hero-search-plan'
+import { heroSearchResultsPathFromRestPath } from '@/lib/hero-search-target'
+import { stripLocalePrefix } from '@/lib/i18n-config'
+import { useVitrinHref } from '@/hooks/use-vitrin-href'
 import { useAppLocale } from '@/hooks/useAppLocale'
 import { TourLocationInputField } from './ui/TourLocationInputField'
 import clsx from 'clsx'
 import Form from 'next/form'
-import { useRouter } from 'next/navigation'
-import { useEffect } from 'react'
+import { usePathname, useRouter } from 'next/navigation'
+import { useEffect, useMemo } from 'react'
 import { ButtonSubmit, DateRangeField, GuestNumberField, VerticalDividerLine } from './ui'
 
 interface Props {
   className?: string
   formStyle: 'default' | 'small'
+  /** Örn. `/aktiviteler/all` — verilmezse pathname’den çıkarılır */
+  searchTargetPath?: string
 }
 
-export const ExperiencesSearchForm = ({ className, formStyle = 'default' }: Props) => {
+export const ExperiencesSearchForm = ({
+  className,
+  formStyle = 'default',
+  searchTargetPath: searchTargetPathProp,
+}: Props) => {
   const { messages } = useAppLocale()
   const hf = messages.HeroSearchForm
   const router = useRouter()
+  const pathname = usePathname()
+  const vitrinHref = useVitrinHref()
+
+  const searchTargetPath = useMemo(() => {
+    if (searchTargetPathProp?.trim()) return searchTargetPathProp.trim()
+    const { restPath } = stripLocalePrefix(pathname ?? '/')
+    return heroSearchResultsPathFromRestPath(restPath)
+  }, [pathname, searchTargetPathProp])
 
   useEffect(() => {
-    router.prefetch('/turlar/all')
-  }, [router])
+    router.prefetch(vitrinHref(searchTargetPath))
+  }, [router, searchTargetPath, vitrinHref])
 
   /** Hub seçilince → direkt navigasyon (tarih/kişi gerekmez) */
   const handleHubSelect = (path: string) => {
-    router.push(path)
+    router.push(vitrinHref(path))
   }
 
   const handleFormSubmit = (formData: FormData) => {
     const formDataEntries = Object.fromEntries(formData.entries())
     const params = formDataToStringRecord(formData)
-    runHeroSearchPlanEffects('experience', params, '/turlar/all')
+    runHeroSearchPlanEffects('experience', params, searchTargetPath)
     const location = formDataEntries['location'] as string
     const checkin = formDataEntries['checkin'] as string
     const guests = guestSearchTotalFromRecord(formDataEntries)
@@ -41,7 +58,7 @@ export const ExperiencesSearchForm = ({ className, formStyle = 'default' }: Prop
     if (checkin) searchParams.set('date', checkin)
     if (guests > 0) searchParams.set('guests', String(guests))
     const qs = searchParams.toString()
-    router.push('/turlar/all' + (qs ? `?${qs}` : ''))
+    router.push(vitrinHref(searchTargetPath) + (qs ? `?${qs}` : ''))
   }
 
   return (
@@ -51,7 +68,7 @@ export const ExperiencesSearchForm = ({ className, formStyle = 'default' }: Prop
         className,
         formStyle === 'small' && 'custom-shadow-1',
         formStyle === 'default' &&
-          'shadow-[0_8px_30px_rgba(15,23,42,0.08)] ring-1 ring-black/5 dark:shadow-2xl dark:ring-white/10 pr-[4.25rem] sm:pr-[4.5rem]'
+          'shadow-[0_8px_30px_rgba(15,23,42,0.08)] ring-1 ring-black/5 dark:shadow-2xl dark:ring-white/10 pr-[4.25rem] sm:pr-[4.5rem]',
       )}
       action={handleFormSubmit}
     >
