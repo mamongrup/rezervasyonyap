@@ -38,6 +38,24 @@ describe('applyBrandingDomainOverrides', () => {
       logo_text_line2_color: '#c2410c',
     })
   })
+
+  it('applies a partial color override without losing the other logo fields', () => {
+    const withPartialOverride = {
+      ...branding,
+      domain_overrides: {
+        'rezervasyonyap.tr': {
+          logo_text_line2_color: '#004cff',
+        },
+      },
+    }
+
+    expect(applyBrandingDomainOverrides(withPartialOverride, 'www.rezervasyonyap.tr')).toMatchObject({
+      logo_text_line1: 'Rezervasyon',
+      logo_text_line2: 'Yap',
+      logo_text_line1_color: '#171717',
+      logo_text_line2_color: '#004cff',
+    })
+  })
 })
 
 describe('sanitizeDomainOverrides', () => {

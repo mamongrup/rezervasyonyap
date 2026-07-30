@@ -476,28 +476,16 @@ const Logo: React.FC<LogoProps> = ({ className = 'w-auto', src, darkSrc, alt, in
         <span className="inline-flex items-baseline gap-1 leading-none whitespace-nowrap">
           {line1 && (
             <span
-              className="text-[18px] font-bold tracking-tight text-[color:var(--logo-line1)] dark:text-[color:var(--logo-line1-dark)]"
-              style={
-                {
-                  '--logo-line1': line1Color,
-                  '--logo-line1-dark': line1Color === '#171717' || line1Color.toLowerCase() === '#000000'
-                    ? '#ffffff'
-                    : line1Color,
-                } as React.CSSProperties
-              }
+              className="text-[18px] font-bold tracking-tight"
+              style={{ color: line1Color }}
             >
               {line1}
             </span>
           )}
           {line2 && (
             <span
-              className="text-[18px] font-semibold tracking-tight text-[color:var(--logo-line2)] dark:text-[color:var(--logo-line2-dark)]"
-              style={
-                {
-                  '--logo-line2': line2Color,
-                  '--logo-line2-dark': line2Color,
-                } as React.CSSProperties
-              }
+              className="text-[18px] font-semibold tracking-tight"
+              style={{ color: line2Color }}
             >
               {line2}
             </span>
