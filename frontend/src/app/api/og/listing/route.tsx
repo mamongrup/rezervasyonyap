@@ -1,5 +1,5 @@
 import { getExperienceListingByHandle, getStayListingByHandle } from '@/data/listings'
-import { apiOriginForFetch } from '@/lib/api-origin'
+import { apiOriginForFetch, isSameDeploymentSiteHost, hostApexKey } from '@/lib/api-origin'
 import { applyBrandingDomainOverrides } from '@/lib/branding-for-host'
 import { normalizeCatalogVertical } from '@/lib/catalog-listing-vertical'
 import { getPublicSiteUrl, toAbsoluteSiteUrl } from '@/lib/site-branding-seo'
@@ -178,46 +178,66 @@ function truncate(s: string, max: number): string {
   return `${t.slice(0, max - 1)}…`
 }
 
-/** WhatsApp/Facebook link önizlemesi — temiz kapak; metin overlay yok. */
-function cleanListingOgImageResponse(bgUrl: string | null) {
-  return new ImageResponse(
-    (
-      <div
-        style={{
-          width: '100%',
-          height: '100%',
-          display: 'flex',
-          position: 'relative',
-          background: '#0f172a',
-        }}
-      >
-        {bgUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={bgUrl}
-            alt=""
-            width={OG_W}
-            height={OG_H}
-            style={{
-              position: 'absolute',
-              inset: 0,
-              width: '100%',
-              height: '100%',
-              objectFit: 'cover',
-            }}
-          />
-        ) : null}
-      </div>
-    ),
-    {
-      width: OG_W,
-      height: OG_H,
-      headers: {
-        // WhatsApp OG önbelleği agresif; sürüm değişince yeniden çekilsin
-        'Cache-Control': 'public, max-age=3600, stale-while-revalidate=86400',
+/** WhatsApp/Facebook link önizlemesi — temiz kapak JPEG (&lt;~250KB). ImageResponse PNG ~1.5MB WA’da düşer. */
+async function cleanListingOgJpegResponse(
+  bgUrlRaw: string | null,
+  pageBase: string,
+): Promise<Response> {
+  const headers = {
+    'Content-Type': 'image/jpeg',
+    'Cache-Control': 'public, max-age=3600, stale-while-revalidate=86400',
+  }
+
+  if (!bgUrlRaw) {
+    // Koyu placeholder JPEG
+    const placeholder = await sharp({
+      create: {
+        width: OG_W,
+        height: OG_H,
+        channels: 3,
+        background: { r: 15, g: 23, b: 42 },
       },
-    },
-  )
+    })
+      .jpeg({ quality: 80, mozjpeg: true })
+      .toBuffer()
+    return new Response(new Uint8Array(placeholder), { status: 200, headers })
+  }
+
+  try {
+    const fetchUrl = rewriteLoopbackUploadUrl(bgUrlRaw, pageBase)
+    const res = await fetchWithTimeout(fetchUrl, 5000)
+    if (!res.ok) throw new Error(`cover_fetch_${res.status}`)
+    const input = Buffer.from(await res.arrayBuffer())
+    const jpeg = await sharp(input, { failOn: 'none', limitInputPixels: false })
+      .rotate()
+      .resize({
+        width: OG_W,
+        height: OG_H,
+        fit: 'cover',
+        position: 'center',
+      })
+      .jpeg({ quality: 82, mozjpeg: true })
+      .toBuffer()
+    return new Response(new Uint8Array(jpeg), {
+      status: 200,
+      headers: {
+        ...headers,
+        'Content-Length': String(jpeg.length),
+      },
+    })
+  } catch {
+    const placeholder = await sharp({
+      create: {
+        width: OG_W,
+        height: OG_H,
+        channels: 3,
+        background: { r: 15, g: 23, b: 42 },
+      },
+    })
+      .jpeg({ quality: 80, mozjpeg: true })
+      .toBuffer()
+    return new Response(new Uint8Array(placeholder), { status: 200, headers })
+  }
 }
 
 function titleFontSize(title: string): number {
@@ -262,6 +282,12 @@ function rewriteLoopbackUploadUrl(url: string, fallbackBase: string): string {
 }
 
 function requestOriginBase(req: NextRequest): string {
+  // Marka host (com.tr / reservationinturkey.com) paylaşımında OG görseli aynı host’tan gelsin.
+  const rawHost = req.headers.get('x-forwarded-host') ?? req.headers.get('host') ?? ''
+  const hostOnly = rawHost.split(',')[0]?.trim().split(':')[0]?.trim() ?? ''
+  if (hostOnly && isSameDeploymentSiteHost(hostOnly)) {
+    return `https://${hostApexKey(hostOnly)}`
+  }
   const configured = getPublicSiteUrl()
   if (configured) return configured
   const u = new URL(req.url)
@@ -795,13 +821,7 @@ export async function GET(req: NextRequest) {
       })
     }
 
-    const bgUrl = await imageDataUrlForOg(
-      bgUrlRaw,
-      { width: OG_W, height: OG_H, fit: 'cover' },
-      base,
-    )
-
-    return cleanListingOgImageResponse(bgUrl)
+    return cleanListingOgJpegResponse(bgUrlRaw, base)
   }
 
   const listing = await getExperienceListingByHandle(handle, locale)
@@ -839,13 +859,7 @@ export async function GET(req: NextRequest) {
     })
   }
 
-  const bgUrl = await imageDataUrlForOg(
-    bgUrlRaw,
-    { width: OG_W, height: OG_H, fit: 'cover' },
-    base,
-  )
-
-  return cleanListingOgImageResponse(bgUrl)
+  return cleanListingOgJpegResponse(bgUrlRaw, base)
 }
 
 

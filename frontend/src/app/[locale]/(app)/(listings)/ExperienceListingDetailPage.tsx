@@ -46,6 +46,7 @@ import { sanitizeRichCmsHtml } from '@/lib/sanitize-cms-html'
 import { buildExperienceListingDetailJsonLd } from '@/lib/seo/listing-detail-jsonld'
 import { getSitePublicConfig } from '@/lib/site-public-config'
 import { buildListingOgImageUrl } from '@/lib/social-share/listing-og-image-url'
+import { resolveCanonicalBaseUrl } from '@/lib/resolve-canonical-base-url'
 import { listingMetaDescription, stripHtml } from '@/lib/social-share/strip-html'
 import { normalizeStayLocationPin } from '@/lib/stay-location-display'
 import { resolveTourCountryCards } from '@/lib/tour-countries-resolve'
@@ -302,7 +303,8 @@ export async function generateExperienceListingMetadata({
   }
 
   const plainDesc = listingMetaDescription(listing.title, listing.description)
-  const ogImage = buildListingOgImageUrl({ kind: 'experience', handle, locale })
+  const siteBase = await resolveCanonicalBaseUrl()
+  const ogImage = buildListingOgImageUrl({ kind: 'experience', handle, locale, siteBase })
 
   return {
     title: listing.title,
@@ -311,7 +313,7 @@ export async function generateExperienceListingMetadata({
       ? {
           title: listing.title,
           description: plainDesc.slice(0, 200),
-          images: [{ url: ogImage, width: 1200, height: 630, alt: listing.title }],
+          images: [{ url: ogImage, width: 1200, height: 630, alt: listing.title, type: 'image/jpeg' }],
         }
       : undefined,
     twitter: ogImage

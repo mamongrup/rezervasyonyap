@@ -11,6 +11,7 @@ import { getStayListingByHandle } from '@/data/listings'
 import { fetchCategoryListings } from '@/lib/listings-fetcher'
 import { getSitePublicConfig as getSitePublicConfigSync, mergeBrandingIntoEnvContact } from '@/lib/site-public-config'
 import { buildListingOgImageUrl } from '@/lib/social-share/listing-og-image-url'
+import { resolveCanonicalBaseUrl } from '@/lib/resolve-canonical-base-url'
 import { sanitizeRichCmsHtml } from '@/lib/sanitize-cms-html'
 import { cleanTatilbudurDescriptionHtml } from '@/lib/tatilbudur-description-clean'
 import { parsePublicMinistryLicenseRef } from '@/lib/ministry-license-ref'
@@ -202,7 +203,8 @@ export async function generateStayListingMetadata({
   const listing = await getStayListingByHandle(handle, locale, expectedVertical)
   if (!listing) return { title: getMessages(locale).listing.detailPage.notFoundTitle }
   const plainDesc = listingMetaDescription(listing.title, listing.description)
-  const ogImage = buildListingOgImageUrl({ kind: 'stay', handle, locale })
+  const siteBase = await resolveCanonicalBaseUrl()
+  const ogImage = buildListingOgImageUrl({ kind: 'stay', handle, locale, siteBase })
   return {
     title: listing.title,
     description: plainDesc.slice(0, 160),
@@ -210,7 +212,7 @@ export async function generateStayListingMetadata({
       ? {
           title: listing.title,
           description: plainDesc.slice(0, 200),
-          images: [{ url: ogImage, width: 1200, height: 630, alt: listing.title }],
+          images: [{ url: ogImage, width: 1200, height: 630, alt: listing.title, type: 'image/jpeg' }],
         }
       : undefined,
     twitter: ogImage
