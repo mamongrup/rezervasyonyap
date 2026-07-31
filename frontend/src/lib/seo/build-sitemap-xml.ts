@@ -16,10 +16,9 @@ import { vitrinHref } from '@/lib/vitrin-href'
 import { fetchActiveLocaleCodes } from '@/lib/i18n-server'
 
 /**
- * Host’a göre URL üretildiği için marka domainleri arasında cache karışmasın.
- * `/sitemap.xml` → kategori index; `/sitemap/{hotel|tour|…}.xml` → kategori haritası.
+ * Next 16 + `generateSitemaps()` kök `/sitemap.xml` index üretmiyor (404).
+ * Bu modül route handler’larla index + segment XML üretir.
  */
-export const dynamic = 'force-dynamic'
 
 const cachedSeoSitemapEntries = cache(async (): Promise<SitemapEntry[]> => {
   try {
@@ -47,7 +46,7 @@ function pathForEntry(e: SitemapEntry): string {
 }
 
 /** Göreli `/uploads/...` veya ham storage key → mutlak HTTPS URL. */
-function absoluteSitemapImages(siteBase: string, images: string[] | null | undefined): string[] {
+export function absoluteSitemapImages(siteBase: string, images: string[] | null | undefined): string[] {
   if (!images?.length) return []
   const out: string[] = []
   const seen = new Set<string>()
@@ -74,7 +73,11 @@ async function pushLocalizedUrls(
   siteBase: string,
   localeCodes: string[],
   path: string,
-  opts?: { changeFrequency?: MetadataRoute.Sitemap[number]['changeFrequency']; priority?: number; images?: string[] },
+  opts?: {
+    changeFrequency?: MetadataRoute.Sitemap[number]['changeFrequency']
+    priority?: number
+    images?: string[]
+  },
 ): Promise<void> {
   for (const loc of localeCodes) {
     out.push({
@@ -86,15 +89,42 @@ async function pushLocalizedUrls(
   }
 }
 
-export async function generateSitemaps() {
-  return allSitemapSegmentIds().map((id) => ({ id }))
+export function normalizeSitemapSegmentParam(raw: string): string {
+  const t = raw.trim()
+  return t.toLowerCase().endsWith('.xml') ? t.slice(0, -4) : t
 }
 
-export default async function sitemap(props: {
-  id: Promise<string>
-}): Promise<MetadataRoute.Sitemap> {
-  const rawId = await props.id
-  if (!isSitemapSegmentId(rawId)) return []
+export function escapeXmlText(raw: string): string {
+  return raw
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&apos;')
+}
+
+/** Kök `/sitemap.xml` — kategori segmentlerine işaret eden sitemap index. */
+export async function buildSitemapIndexXml(): Promise<string | null> {
+  const base = (await resolveCanonicalBaseUrl()).replace(/\/$/, '')
+  if (!base) return null
+  const lines = [
+    '<?xml version="1.0" encoding="UTF-8"?>',
+    '<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">',
+  ]
+  for (const id of allSitemapSegmentIds()) {
+    lines.push('  <sitemap>')
+    lines.push(`    <loc>${escapeXmlText(`${base}/sitemap/${id}.xml`)}</loc>`)
+    lines.push('  </sitemap>')
+  }
+  lines.push('</sitemapindex>')
+  return `${lines.join('\n')}\n`
+}
+
+export async function buildSegmentSitemapEntries(
+  segmentRaw: string,
+): Promise<MetadataRoute.Sitemap | null> {
+  const rawId = normalizeSitemapSegmentParam(segmentRaw)
+  if (!isSitemapSegmentId(rawId)) return null
 
   const segment: SitemapSegmentId = rawId
   const base = (await resolveCanonicalBaseUrl()).replace(/\/$/, '')
@@ -129,3 +159,42 @@ export default async function sitemap(props: {
 
   return out
 }
+
+export function sitemapEntriesToXml(entries: MetadataRoute.Sitemap): string {
+  const hasImages = entries.some((e) => Array.isArray(e.images) && e.images.length > 0)
+  const ns = hasImages
+    ? 'xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:image="http://www.google.com/schemas/sitemap-image/1.1"'
+    : 'xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"'
+  const parts: string[] = [`<?xml version="1.0" encoding="UTF-8"?>`, `<urlset ${ns}>`]
+  for (const e of entries) {
+    parts.push('<url>')
+    parts.push(`<loc>${escapeXmlText(e.url)}</loc>`)
+    if (e.lastModified) {
+      const lm =
+        e.lastModified instanceof Date ? e.lastModified.toISOString() : String(e.lastModified)
+      parts.push(`<lastmod>${escapeXmlText(lm)}</lastmod>`)
+    }
+    if (e.changeFrequency) {
+      parts.push(`<changefreq>${escapeXmlText(e.changeFrequency)}</changefreq>`)
+    }
+    if (typeof e.priority === 'number') {
+      parts.push(`<priority>${e.priority}</priority>`)
+    }
+    if (Array.isArray(e.images)) {
+      for (const img of e.images) {
+        if (!img) continue
+        parts.push('<image:image>')
+        parts.push(`<image:loc>${escapeXmlText(img)}</image:loc>`)
+        parts.push('</image:image>')
+      }
+    }
+    parts.push('</url>')
+  }
+  parts.push('</urlset>')
+  return `${parts.join('')}\n`
+}
+
+export const SITEMAP_XML_HEADERS = {
+  'Content-Type': 'application/xml; charset=utf-8',
+  'Cache-Control': 'public, s-maxage=3600, stale-while-revalidate=86400',
+} as const

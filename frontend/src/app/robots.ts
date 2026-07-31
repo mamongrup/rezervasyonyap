@@ -53,7 +53,14 @@ export default async function robots(): Promise<MetadataRoute.Robots> {
         // önceliği) Googlebot / sosyal crawler'ların şu uçlara erişmesini sağlar:
         // - share-jpeg: Meta/Instagram paylaşım görselleri
         // - og/listing (+ og/ad): Open Graph / Twitter kart + Google görsel keşfi
-        allow: ['/', '/api/social/share-jpeg', '/api/og/listing', '/api/og/ad'],
+        // `/api` kapalı; GSC’ye gönderilen API sitemap ve OG/share uçları açık.
+        allow: [
+          '/',
+          '/api/social/share-jpeg',
+          '/api/og/listing',
+          '/api/og/ad',
+          '/api/v1/seo/sitemap.xml',
+        ],
         disallow: withLocalizedVariants(PRIVATE_SEGMENTS),
       },
     ],
