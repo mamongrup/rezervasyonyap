@@ -1,5 +1,10 @@
 #!/usr/bin/env bash
-# AI işçisi: POST /api/v1/ai/worker/run-steps (ilçe DeepSeek + bölge batch + yer blog batch).
+# AI işçisi: POST /api/v1/ai/worker/run-steps
+#   - Autopilot / workflow watchdog (AI Genel Müdür hattı)
+#   - İlan içerik (TR → i18n → SEO)
+#   - İlçe travel ideas, bölge blog, mekan blog
+#   - Gezi rotası + mavi yolculuk kuyrukları
+#   - Supervisor (özel gün / digest; due ise ~günde 1)
 #
 # Gerekli: /etc/rezervasyonyap/backend.env içinde TRAVEL_AI_WORKER_SECRET (veya ortamda export).
 #

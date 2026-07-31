@@ -21,7 +21,24 @@ chmod +x \
   "$APP_ROOT/deploy/scripts/ai-worker-run-steps.sh" \
   "$APP_ROOT/deploy/scripts/social-process-pending.sh" \
   "$APP_ROOT/deploy/scripts/seed-ai-content-queues.sh" \
+  "$APP_ROOT/deploy/apply-sql.sh" \
   2>/dev/null || true
+
+# AI Genel Müdürü + güvenli içerik müdür/işçilerini aktif et (idempotent).
+# Para/fiyat/iade otomatikleri 376 içinde kapalı kalır.
+if [[ "${SKIP_AI_CONTINUOUS_PRODUCTION:-0}" != "1" ]]; then
+  SQL_376="$APP_ROOT/backend/priv/sql/modules/376_ai_continuous_production.sql"
+  if [[ -f "$SQL_376" && -x "$APP_ROOT/deploy/apply-sql.sh" ]]; then
+    log "AI sürekli üretim kadrosu (376) uygulanıyor…"
+    if bash "$APP_ROOT/deploy/apply-sql.sh" "$SQL_376"; then
+      ok "müdür + güvenli AI kadrosu aktif (autopilot açık)"
+    else
+      warn "376 SQL uygulanamadı — ai_agents status kontrol edin"
+    fi
+  fi
+else
+  log "SKIP_AI_CONTINUOUS_PRODUCTION=1 — kadro aktivasyonu atlandı"
+fi
 
 if [[ -f "$APP_ROOT/deploy/systemd/travel-ai-worker.service" && -f "$APP_ROOT/deploy/systemd/travel-ai-worker.timer" ]]; then
   cp -f "$APP_ROOT/deploy/systemd/travel-ai-worker.service" /etc/systemd/system/

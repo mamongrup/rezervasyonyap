@@ -6,7 +6,9 @@
 //// POST /api/v1/ai/worker/run-steps
 //// Query (isteğe bağlı):
 //// - `loops` — 1–15, varsayılan 1; her döngüde etkin hatlar için bir deneme
-//// - `district=0` | `region=0` | `place=0` — ilgili hattı kapatır (varsayılan: hepsi açık)
+//// - `district=0` | `region=0` | `place=0` | `trip=0` | `blue=0` | `supervisor=0`
+////   — ilgili hattı kapatır (varsayılan: hepsi açık)
+//// - `workflow=0` — autopilot/watchdog kapatır
 
 import backend/context.{type Context}
 import envoy
@@ -20,6 +22,8 @@ import travel/ai/ai_watchdog
 import travel/ai/district_ideas_http
 import travel/ai/listing_content_http
 import travel/ai/region_content_http
+import travel/ai/trip_routes_http
+import travel/ai_agents/agent_center_http
 import travel/identity/admin_gate
 import wisp.{type Request, type Response}
 
@@ -90,6 +94,24 @@ fn query_loops(req: Request) -> Int {
   }
 }
 
+fn tick_result(
+  want: Bool,
+  ran: Int,
+  idle: Int,
+  errs: List(String),
+  try_fn: fn() -> Result(Bool, String),
+) -> #(Int, Int, List(String)) {
+  case want {
+    False -> #(ran, idle, errs)
+    True ->
+      case try_fn() {
+        Ok(True) -> #(ran + 1, idle, errs)
+        Ok(False) -> #(ran, idle + 1, errs)
+        Error(e) -> #(ran, idle, [e, ..errs])
+      }
+  }
+}
+
 fn run_watchdog_loop(
   ctx: Context,
   loops_left: Int,
@@ -111,68 +133,66 @@ fn run_watchdog_loop(
   }
 }
 
+type StepsAcc {
+  StepsAcc(
+    district_ran: Int,
+    district_idle: Int,
+    district_errs: List(String),
+    region_ran: Int,
+    region_idle: Int,
+    region_errs: List(String),
+    place_ran: Int,
+    place_idle: Int,
+    place_errs: List(String),
+    trip_ran: Int,
+    trip_idle: Int,
+    trip_errs: List(String),
+    blue_ran: Int,
+    blue_idle: Int,
+    blue_errs: List(String),
+  )
+}
+
+fn empty_steps_acc() -> StepsAcc {
+  StepsAcc(0, 0, [], 0, 0, [], 0, 0, [], 0, 0, [], 0, 0, [])
+}
+
 fn run_steps_loop(
   ctx: Context,
   loops_left: Int,
   want_district: Bool,
   want_region: Bool,
   want_place: Bool,
-  district_ran: Int,
-  district_idle: Int,
-  district_errs: List(String),
-  region_ran: Int,
-  region_idle: Int,
-  region_errs: List(String),
-  place_ran: Int,
-  place_idle: Int,
-  place_errs: List(String),
-) -> #(Int, Int, List(String), Int, Int, List(String), Int, Int, List(String)) {
+  want_trip: Bool,
+  want_blue: Bool,
+  acc: StepsAcc,
+) -> StepsAcc {
   case loops_left < 1 {
-    True -> #(
-      district_ran,
-      district_idle,
-      district_errs,
-      region_ran,
-      region_idle,
-      region_errs,
-      place_ran,
-      place_idle,
-      place_errs,
-    )
+    True -> acc
     False -> {
-      // İlan içerik editörü zamanlayıcının doğal bir parçasıdır. Sonuç diğer
-      // içerik hatlarını engellemez; başarısız batch kendi hatasını saklar.
+      // İlan içerik editörü zamanlayıcının doğal bir parçasıdır.
       let _ = listing_content_http.worker_try_listing_content(ctx)
 
-      let #(dr, di, de) = case want_district {
-        False -> #(district_ran, district_idle, district_errs)
-        True ->
-          case district_ideas_http.worker_try_district_travel_ideas(ctx) {
-            Ok(True) -> #(district_ran + 1, district_idle, district_errs)
-            Ok(False) -> #(district_ran, district_idle + 1, district_errs)
-            Error(e) -> #(district_ran, district_idle, [e, ..district_errs])
-          }
-      }
-
-      let #(rr2, ri2, re2) = case want_region {
-        False -> #(region_ran, region_idle, region_errs)
-        True ->
-          case region_content_http.worker_try_region_geo_batch(ctx) {
-            Ok(True) -> #(region_ran + 1, region_idle, region_errs)
-            Ok(False) -> #(region_ran, region_idle + 1, region_errs)
-            Error(e) -> #(region_ran, region_idle, [e, ..region_errs])
-          }
-      }
-
-      let #(pr2, pi2, pe2) = case want_place {
-        False -> #(place_ran, place_idle, place_errs)
-        True ->
-          case region_content_http.worker_try_place_blog_batch(ctx) {
-            Ok(True) -> #(place_ran + 1, place_idle, place_errs)
-            Ok(False) -> #(place_ran, place_idle + 1, place_errs)
-            Error(e) -> #(place_ran, place_idle, [e, ..place_errs])
-          }
-      }
+      let #(dr, di, de) =
+        tick_result(want_district, acc.district_ran, acc.district_idle, acc.district_errs, fn() {
+          district_ideas_http.worker_try_district_travel_ideas(ctx)
+        })
+      let #(rr, ri, re) =
+        tick_result(want_region, acc.region_ran, acc.region_idle, acc.region_errs, fn() {
+          region_content_http.worker_try_region_geo_batch(ctx)
+        })
+      let #(pr, pi, pe) =
+        tick_result(want_place, acc.place_ran, acc.place_idle, acc.place_errs, fn() {
+          region_content_http.worker_try_place_blog_batch(ctx)
+        })
+      let #(tr, ti, te) =
+        tick_result(want_trip, acc.trip_ran, acc.trip_idle, acc.trip_errs, fn() {
+          trip_routes_http.worker_try_route_job(ctx, trip_routes_http.TripPlanner)
+        })
+      let #(br, bi, be) =
+        tick_result(want_blue, acc.blue_ran, acc.blue_idle, acc.blue_errs, fn() {
+          trip_routes_http.worker_try_route_job(ctx, trip_routes_http.BlueCruiseRoutes)
+        })
 
       run_steps_loop(
         ctx,
@@ -180,18 +200,20 @@ fn run_steps_loop(
         want_district,
         want_region,
         want_place,
-        dr,
-        di,
-        de,
-        rr2,
-        ri2,
-        re2,
-        pr2,
-        pi2,
-        pe2,
+        want_trip,
+        want_blue,
+        StepsAcc(dr, di, de, rr, ri, re, pr, pi, pe, tr, ti, te, br, bi, be),
       )
     }
   }
+}
+
+fn lane_json(processed: Int, idle: Int, errors: List(String)) -> json.Json {
+  json.object([
+    #("processed", json.int(processed)),
+    #("idle_ticks", json.int(idle)),
+    #("errors", json.array(list.reverse(errors), json.string)),
+  ])
 }
 
 /// POST /api/v1/ai/worker/run-steps — `TRAVEL_AI_WORKER_SECRET` + header
@@ -206,40 +228,35 @@ pub fn post_run_steps(req: Request, ctx: Context) -> Response {
           False -> #(0, 0, [])
           True -> run_watchdog_loop(ctx, loops, 0, 0, [])
         }
+
       let want_district = query_enabled(req, "district")
       let want_region = query_enabled(req, "region")
       let want_place = query_enabled(req, "place")
+      let want_trip = query_enabled(req, "trip")
+      let want_blue = query_enabled(req, "blue")
+      let want_supervisor = query_enabled(req, "supervisor")
 
-      let #(
-        district_processed,
-        district_idle_ticks,
-        district_errors,
-        region_processed,
-        region_idle_ticks,
-        region_errors,
-        place_processed,
-        place_idle_ticks,
-        place_errors,
-      ) =
+      let acc =
         run_steps_loop(
           ctx,
           loops,
           want_district,
           want_region,
           want_place,
-          0,
-          0,
-          [],
-          0,
-          0,
-          [],
-          0,
-          0,
-          [],
+          want_trip,
+          want_blue,
+          empty_steps_acc(),
         )
 
-      let err_list = fn(xs: List(String)) {
-        json.array(list.reverse(xs), json.string)
+      // Genel müdür / supervisor: günde ~1 tur (due kontrolü içeride)
+      let #(sup_processed, sup_idle, sup_errors) = case want_supervisor {
+        False -> #(0, 0, [])
+        True ->
+          case agent_center_http.worker_try_supervisor_due(ctx) {
+            Ok(True) -> #(1, 0, [])
+            Ok(False) -> #(0, 1, [])
+            Error(e) -> #(0, 0, [e])
+          }
       }
 
       let body =
@@ -247,36 +264,14 @@ pub fn post_run_steps(req: Request, ctx: Context) -> Response {
           #("loops", json.int(loops)),
           #(
             "workflow_watchdog",
-            json.object([
-              #("processed", json.int(watchdog_processed)),
-              #("idle_ticks", json.int(watchdog_idle)),
-              #("errors", json.array(watchdog_errors, json.string)),
-            ]),
+            lane_json(watchdog_processed, watchdog_idle, watchdog_errors),
           ),
-          #(
-            "district_travel_ideas",
-            json.object([
-              #("processed", json.int(district_processed)),
-              #("idle_ticks", json.int(district_idle_ticks)),
-              #("errors", err_list(district_errors)),
-            ]),
-          ),
-          #(
-            "region_content",
-            json.object([
-              #("processed", json.int(region_processed)),
-              #("idle_ticks", json.int(region_idle_ticks)),
-              #("errors", err_list(region_errors)),
-            ]),
-          ),
-          #(
-            "place_blogs",
-            json.object([
-              #("processed", json.int(place_processed)),
-              #("idle_ticks", json.int(place_idle_ticks)),
-              #("errors", err_list(place_errors)),
-            ]),
-          ),
+          #("district_travel_ideas", lane_json(acc.district_ran, acc.district_idle, acc.district_errs)),
+          #("region_content", lane_json(acc.region_ran, acc.region_idle, acc.region_errs)),
+          #("place_blogs", lane_json(acc.place_ran, acc.place_idle, acc.place_errs)),
+          #("trip_planner", lane_json(acc.trip_ran, acc.trip_idle, acc.trip_errs)),
+          #("blue_cruise_routes", lane_json(acc.blue_ran, acc.blue_idle, acc.blue_errs)),
+          #("supervisor", lane_json(sup_processed, sup_idle, sup_errors)),
         ])
         |> json.to_string
       wisp.json_response(body, 200)
@@ -296,6 +291,8 @@ pub fn post_start_background(req: Request, ctx: Context) -> Response {
       let want_district = query_enabled(req, "district")
       let want_region = query_enabled(req, "region")
       let want_place = query_enabled(req, "place")
+      let want_trip = query_enabled(req, "trip")
+      let want_blue = query_enabled(req, "blue")
 
       let body =
         json.object([
@@ -304,12 +301,14 @@ pub fn post_start_background(req: Request, ctx: Context) -> Response {
           #(
             "message",
             json.string(
-              "AI kuyrukları travel-ai-worker.timer ile arka planda işlenir; panel kapansa da zamanlayıcı devam eder.",
+              "AI kuyrukları travel-ai-worker.timer ile arka planda işlenir; panel kapansa da zamanlayıcı devam eder. Müdür/supervisor ve içerik hatları run-steps içinde çalışır.",
             ),
           ),
           #("district", json.bool(want_district)),
           #("region", json.bool(want_region)),
           #("place", json.bool(want_place)),
+          #("trip", json.bool(want_trip)),
+          #("blue", json.bool(want_blue)),
         ])
         |> json.to_string
       wisp.json_response(body, 202)

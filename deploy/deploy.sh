@@ -381,6 +381,18 @@ main() {
     fail "AI Autopilot orchestrator SQL modülü bulunamadı."
   fi
 
+  # Genel müdür + güvenli içerik kadrosunu aktif et (para/fiyat oto kapalı kalır).
+  if [[ "${SKIP_AI_CONTINUOUS_PRODUCTION:-0}" == "1" ]]; then
+    warn "SKIP_AI_CONTINUOUS_PRODUCTION=1 — AI müdür/kadrosu aktivasyonu atlandı."
+  elif [[ -f "$APP_ROOT/backend/priv/sql/modules/376_ai_continuous_production.sql" ]]; then
+    step "AI sürekli üretim kadrosu (müdür + güvenli işçiler)"
+    bash "$APP_ROOT/deploy/apply-sql.sh" \
+      "$APP_ROOT/backend/priv/sql/modules/376_ai_continuous_production.sql" \
+      || warn "376 continuous production SQL uygulanamadı — müdürler paused kalabilir"
+  else
+    warn "376_ai_continuous_production.sql bulunamadı"
+  fi
+
   if [[ "${SKIP_AI_WORKER_TIMER:-0}" == "1" ]]; then
     warn "SKIP_AI_WORKER_TIMER=1 — AI watchdog ve kuyruk worker timer kurulumu atlandı."
   elif [[ -f "$APP_ROOT/deploy/systemd/travel-ai-worker.service" && -f "$APP_ROOT/deploy/systemd/travel-ai-worker.timer" ]]; then

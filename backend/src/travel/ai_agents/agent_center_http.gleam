@@ -1,9 +1,11 @@
 //// DeepSeek Agent Merkezi — supervisor ve özel gün popup önerileri.
 
 import backend/context.{type Context}
+import envoy
 import gleam/bit_array
 import gleam/dynamic/decode
 import gleam/http
+import gleam/http/request
 import gleam/int
 import gleam/json
 import gleam/list
@@ -19,6 +21,34 @@ import wisp.{type Request, type Response}
 const popup_profile = "special_day_popup_agent"
 const supervisor_profile = "supervisor_agent"
 const special_day_agent = "special_day_popup"
+const ai_worker_secret_header = "x-travel-ai-worker-secret"
+
+fn auth_ai_worker_secret(req: Request) -> Result(Nil, Response) {
+  case envoy.get("TRAVEL_AI_WORKER_SECRET") {
+    Error(_) -> Error(json_err(503, "worker_secret_not_configured"))
+    Ok(raw) ->
+      case string.trim(raw) {
+        "" -> Error(json_err(503, "worker_secret_not_configured"))
+        expected ->
+          case request.get_header(req, ai_worker_secret_header) {
+            Error(_) -> Error(json_err(401, "unauthorized"))
+            Ok(provided) ->
+              case string.trim(provided) == expected {
+                True -> Ok(Nil)
+                False -> Error(json_err(401, "unauthorized"))
+              }
+          }
+      }
+  }
+}
+
+/// Panel admin oturumu veya sunucu AI worker secret'ı.
+fn auth_admin_or_ai_worker(req: Request, ctx: Context) -> Result(Nil, Response) {
+  case admin_gate.require_admin_users_read(req, ctx) {
+    Ok(_) -> Ok(Nil)
+    Error(_) -> auth_ai_worker_secret(req)
+  }
+}
 
 fn content_health_row() -> decode.Decoder(#(Int, Int, Int, Int, Int, Int)) {
   use region_pending <- decode.field(0, decode.int)
@@ -501,16 +531,19 @@ pub fn run_supervisor(req: Request, ctx: Context) -> Response {
   }
 }
 
-/// POST /api/v1/agents/supervisor/run-due — cron tarafından güvenle çağrılabilir; günde bir kez çalışır.
+/// POST /api/v1/agents/supervisor/run-due — timer/cron veya admin; günde ~1 kez.
+/// Auth: admin oturumu VEYA `x-travel-ai-worker-secret`.
 pub fn run_supervisor_due(req: Request, ctx: Context) -> Response {
   use <- wisp.require_method(req, http.Post)
-  case admin_gate.require_admin_users_read(req, ctx) {
+  case auth_admin_or_ai_worker(req, ctx) {
     Error(r) -> r
     Ok(_) ->
       case supervisor_due(ctx) {
         Error(e) -> json_err(500, e)
         Ok(False) -> {
-          let body = json.object([#("due", json.bool(False))]) |> json.to_string
+          let body =
+            json.object([#("due", json.bool(False)), #("ran", json.bool(False))])
+            |> json.to_string
           wisp.json_response(body, 200)
         }
         Ok(True) ->
@@ -518,6 +551,23 @@ pub fn run_supervisor_due(req: Request, ctx: Context) -> Response {
             Error(e) -> json_err(500, e)
             Ok(run_id) -> run_supervisor_for_run(ctx, run_id)
           }
+      }
+  }
+}
+
+/// Systemd AI worker içinden: supervisor due ise bir tur çalıştırır.
+/// `Ok(True)` = koştu, `Ok(False)` = due değil / kapalı.
+pub fn worker_try_supervisor_due(ctx: Context) -> Result(Bool, String) {
+  case supervisor_due(ctx) {
+    Error(e) -> Error(e)
+    Ok(False) -> Ok(False)
+    Ok(True) ->
+      case create_supervisor_run(ctx, "scheduled", "{\"source\":\"ai_worker_timer\"}") {
+        Error(e) -> Error(e)
+        Ok(run_id) -> {
+          let _ = run_supervisor_for_run(ctx, run_id)
+          Ok(True)
+        }
       }
   }
 }
