@@ -1,5 +1,6 @@
 'use client'
 import { formatManageApiCatch } from '@/lib/manage-api-error-tr'
+import { isMetaAuthError } from '@/lib/social-meta-auth'
 import {
   createSocialJob,
   clearSocialJobs,
@@ -1273,6 +1274,23 @@ export default function AdminSocialSection() {
         }
 
         const failedResult = out.results?.find((r) => !r.ok)
+        const authFail = out.results?.find((r) => r.error && isMetaAuthError(r.error))
+        if (authFail) {
+          setBulk({
+            phase: 'error',
+            batch,
+            totalProcessed,
+            totalPosted,
+            totalFailed,
+            message: formatManageApiCatch(
+              new Error(authFail.error ?? 'meta_access_token_invalid'),
+              'meta_access_token_invalid',
+            ),
+            countdown: 0,
+          })
+          break
+        }
+
         const rateLimited =
           out.processed > 0 && out.posted === 0 && out.failed === 0 && Boolean(failedResult)
 
@@ -1417,13 +1435,17 @@ export default function AdminSocialSection() {
               countdown: 0,
             })
           } else if (status.phase === 'error') {
+            const rawErr = status.lastError ?? status.message ?? 'meta_access_token_invalid'
             setBulk({
               phase: 'error',
               batch: status.batch,
               totalProcessed: status.totalProcessed,
               totalPosted: status.totalPosted,
               totalFailed: status.totalFailed,
-              message: status.lastError ?? status.message ?? 'Arka plan worker hatası.',
+              // Worker'ın Türkçe message'ını tercih et; ham Graph hatasını çevir.
+              message:
+                status.message?.trim() ||
+                formatManageApiCatch(new Error(rawErr), 'meta_access_token_invalid'),
               countdown: 0,
             })
           }
@@ -1626,6 +1648,11 @@ export default function AdminSocialSection() {
             {bulk.phase === 'rate_limited' && (
               <p className="mt-1 text-xs opacity-80">
                 Facebook/Instagram/Pinterest kısa süreli işlem limitine takıldı — otomatik olarak bekleyip tekrar denenecek, bir şey yapmanıza gerek yok.
+              </p>
+            )}
+            {bulk.phase === 'error' && bulk.message && isMetaAuthError(bulk.message) && (
+              <p className="mt-1 text-xs opacity-80">
+                Yönetim → Sosyal Medya → API Ayarları → Meta bölümünden yeni uzun ömürlü Page Access Token kaydedin; ardından buradan tekrar işleyin. Bekleyen işler silinmedi.
               </p>
             )}
           </div>

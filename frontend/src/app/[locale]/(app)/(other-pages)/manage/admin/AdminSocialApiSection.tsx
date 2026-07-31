@@ -292,9 +292,15 @@ function ToggleField({
 function MetaForm({
   s,
   onChange,
+  onTest,
+  testing,
+  testMsg,
 }: {
   s: MetaSettings
   onChange: (k: keyof MetaSettings, v: string | boolean) => void
+  onTest: () => void
+  testing: boolean
+  testMsg: { ok: boolean; text: string } | null
 }) {
   return (
     <div className="space-y-4">
@@ -311,8 +317,29 @@ function MetaForm({
         value={s.page_access_token}
         onChange={(v) => onChange('page_access_token', v)}
         placeholder="EAAxxxxx..."
-        hint="Meta Business Suite → Araçlar → Graph API Explorer → Uzun Ömürlü Token Üret"
+        hint="Meta Business Suite → Araçlar → Graph API Explorer → Uzun Ömürlü Token Üret. Şifre değişince veya Facebook oturumu güvenlik nedeniyle düşürülünce token geçersiz olur — yenileyip kaydedin."
       />
+      <div className="flex flex-wrap items-center gap-3">
+        <button
+          type="button"
+          onClick={onTest}
+          disabled={testing || !s.page_id.trim() || !s.page_access_token.trim()}
+          className="flex items-center gap-1.5 rounded-xl border border-[color:var(--manage-card-border)] px-3 py-2 text-sm font-medium text-[color:var(--manage-text)] hover:bg-[color:var(--manage-hover-bg)] disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          {testing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
+          {testing ? 'Doğrulanıyor…' : 'Bağlantıyı test et'}
+        </button>
+        {testMsg && (
+          <p
+            className={[
+              'text-xs',
+              testMsg.ok ? 'text-emerald-700 dark:text-emerald-400' : 'text-red-700 dark:text-red-300',
+            ].join(' ')}
+          >
+            {testMsg.text}
+          </p>
+        )}
+      </div>
       <ToggleField label="Yeni ilanlarda otomatik paylaş" checked={s.auto_post} onChange={(v) => onChange('auto_post', v)} hint="Ilan yayınlandığında Instagram ve Facebook sayfasına otomatik gönderi paylaşılır." />
     </div>
   )
@@ -425,6 +452,8 @@ export default function AdminSocialApiSection() {
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [metaTesting, setMetaTesting] = useState(false)
+  const [metaTestMsg, setMetaTestMsg] = useState<{ ok: boolean; text: string } | null>(null)
 
   const token = getStoredAuthToken() ?? ''
 
@@ -462,17 +491,80 @@ export default function AdminSocialApiSection() {
 
   useEffect(() => { void load() }, [load])
 
+  async function testMetaConnection() {
+    if (!token) return
+    setMetaTesting(true)
+    setMetaTestMsg(null)
+    try {
+      const res = await fetch('/api/social/meta-validate', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          page_id: settings.meta.page_id,
+          page_access_token: settings.meta.page_access_token,
+          instagram_account_id: settings.meta.instagram_account_id,
+        }),
+      })
+      const data = (await res.json().catch(() => ({}))) as {
+        ok?: boolean
+        error?: string
+        page_name?: string
+        instagram_username?: string
+      }
+      if (!res.ok || !data.ok) {
+        setMetaTestMsg({
+          ok: false,
+          text: formatManageApiCatch(new Error(data.error ?? 'meta_access_token_invalid'), 'meta_access_token_invalid'),
+        })
+        return
+      }
+      const parts = [
+        data.page_name ? `Sayfa: ${data.page_name}` : 'Sayfa token geçerli',
+        data.instagram_username ? `Instagram: @${data.instagram_username}` : null,
+      ].filter(Boolean)
+      setMetaTestMsg({ ok: true, text: parts.join(' · ') })
+    } catch (e) {
+      setMetaTestMsg({ ok: false, text: formatManageApiCatch(e, 'meta_access_token_invalid') })
+    } finally {
+      setMetaTesting(false)
+    }
+  }
+
   async function save() {
     if (!token) return
     setSaving(true)
     setError(null)
     setSaved(false)
     try {
+      const metaReady =
+        settings.meta.page_id.trim() !== '' && settings.meta.page_access_token.trim() !== ''
+      if (metaReady) {
+        const res = await fetch('/api/social/meta-validate', {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            page_id: settings.meta.page_id,
+            page_access_token: settings.meta.page_access_token,
+            instagram_account_id: settings.meta.instagram_account_id,
+          }),
+        })
+        const data = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string }
+        if (!res.ok || !data.ok) {
+          throw new Error(data.error ?? 'meta_access_token_invalid')
+        }
+      }
       await upsertSiteSetting(token, {
         key: 'social_api',
         value_json: JSON.stringify(settings),
       })
       setSaved(true)
+      setMetaTestMsg(null)
       setTimeout(() => setSaved(false), 3000)
     } catch (e) {
       setError(formatManageApiCatch(e, 'save_failed'))
@@ -760,6 +852,9 @@ export default function AdminSocialApiSection() {
                       <MetaForm
                         s={settings.meta}
                         onChange={(k, v) => updatePlatform('meta', k, v)}
+                        onTest={() => void testMetaConnection()}
+                        testing={metaTesting}
+                        testMsg={metaTestMsg}
                       />
                     )}
                     {platform.id === 'twitter' && (
@@ -808,9 +903,9 @@ export default function AdminSocialApiSection() {
           <li>• Sosyal medya worker&apos;ı her 10 dakikada kuyruğa villa/yat/aktivite ekler ve bekleyen paylaşımları işler (<strong>auto_post</strong> + API anahtarları gerekir).</li>
           <li>• İlan formunda <strong>Sosyal paylaşım açık</strong> + <strong>Yapay zeka caption</strong> işaretli ilanlar döngüye girer.</li>
           <li>• <strong>Yapay zeka</strong> başlık, açıklama, en iyi 10 görsel ve paylaşım metnini üretir (Instagram carousel / Facebook çoklu foto).</li>
-          <li>• <strong>Meta (Instagram/Facebook)</strong>: Graph API v17+ gerekir; sayfa token&apos;ı 60 günde bir uzun ömürlüye çevrilmeli.</li>
+          <li>• <strong>Meta (Instagram/Facebook)</strong>: Graph API v17+ gerekir; sayfa token&apos;ı 60 günde bir uzun ömürlüye çevrilmeli. Şifre/oturum değişiminde token düşer — &quot;Bağlantıyı test et&quot; ile doğrulayın.</li>
           <li>• <strong>Twitter/X</strong>: v2 API &quot;Free&quot; planında ayda 500 tweet yazma hakkı var.</li>
-          <li>• Herhangi bir platform için token süresi dolduğunda paylaşım kuyruğu &quot;failed&quot; durumuna geçer, admin panelinden takip edebilirsiniz.</li>
+          <li>• Meta token geçersizse worker durur; bekleyen işler silinmez. Yeni token kaydedildikten sonra Paylaşım Geçmişi&apos;nden tekrar işleyin.</li>
         </ul>
       </div>
     </div>

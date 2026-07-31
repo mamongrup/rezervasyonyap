@@ -73,6 +73,13 @@ while true; do
   failed="$(node -e "const fs=require('fs'); const p=JSON.parse(fs.readFileSync(process.argv[1],'utf8')); console.log(Number(p.failed||0))" "$TMP" 2>/dev/null || echo 0)"
   last_err="$(node -e "const fs=require('fs'); const p=JSON.parse(fs.readFileSync(process.argv[1],'utf8')); const r=(p.results||[]).find(x=>x&&!x.ok); console.log(r&&r.error?String(r.error).slice(0,160):'')" "$TMP" 2>/dev/null || echo "")"
   echo "[OK] social-process-pending batch ${batch} HTTP ${code} processed=${processed} posted=${posted} failed=${failed}"
+
+  # Geçersiz / iptal edilmiş Meta token — kuyruğu yakmadan dur (token yenilenene kadar).
+  if [[ -n "$last_err" ]] && echo "$last_err" | grep -qiE 'error validating access token|session has been invalidated|session has expired|password has been changed|invalid oauth|#190|meta_token_invalid|meta_access_token_invalid|facebook_page_token'; then
+    echo "[FAIL] Meta erisim anahtari gecersiz — token yenilenene kadar duruluyor: ${last_err}" >&2
+    exit 1
+  fi
+
   # Yalnızca gerçek Meta rate-limit (#613 vb.) için uzun bekle — kapak/medya hatasında Timer TimeoutStartSec’i aşma.
   if [[ "$processed" -gt 0 && "$posted" -eq 0 && "$failed" -eq 0 && -n "$last_err" ]]; then
     if echo "$last_err" | grep -qiE 'rate.?limit|#613|user request limit|too many calls'; then

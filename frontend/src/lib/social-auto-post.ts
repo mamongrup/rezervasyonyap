@@ -6,7 +6,10 @@
 import { getPublicSiteUrl } from '@/lib/site-branding-seo'
 import { preferListingGalleryFullAsset } from '@/lib/listing-gallery-display-url'
 import { buildListingOgImageUrl } from '@/lib/social-share/listing-og-image-url'
+import { isMetaAuthError } from '@/lib/social-meta-auth'
 import { generateAndStoreListingReelVideo } from '@/lib/social-video-generate'
+
+export { isMetaAuthError }
 
 const FB_GRAPH = 'https://graph.facebook.com/v18.0'
 const PINTEREST_API = 'https://api.pinterest.com/v5/pins'
@@ -237,31 +240,78 @@ function isTransientSocialAssetError(message: string): boolean {
   return message === 'social_cover_unavailable' || message === 'social_share_images_unreachable'
 }
 
-/** Meta Page/User token süresi dolmuş veya iptal edilmiş — yeniden denemek işe yaramaz. */
-export function isMetaAuthError(message: string): boolean {
-  const m = message.toLowerCase()
-  return (
-    m.includes('error validating access token') ||
-    m.includes('session has expired') ||
-    m.includes('session has been invalidated') ||
-    m.includes('invalid oauth') ||
-    m.includes('oauth exception') ||
-    m.includes('(#190)') ||
-    (m.includes('access token') && m.includes('expired')) ||
-    m === 'invalid_session'
+async function validateFacebookPageToken(pageId: string, token: string): Promise<{ id: string; name?: string }> {
+  const res = await fetch(
+    `${FB_GRAPH}/${encodeURIComponent(pageId)}?fields=id,name&access_token=${encodeURIComponent(token)}`,
+    { cache: 'no-store' },
   )
-}
-
-async function validateFacebookPageToken(pageId: string, token: string): Promise<void> {
-  const res = await fetch(`${FB_GRAPH}/${encodeURIComponent(pageId)}?fields=id,name&access_token=${encodeURIComponent(token)}`, {
-    cache: 'no-store',
-  })
-  const data = (await res.json().catch(() => ({}))) as { id?: string; error?: { message?: string } }
+  const data = (await res.json().catch(() => ({}))) as {
+    id?: string
+    name?: string
+    error?: { message?: string }
+  }
   if (!res.ok || data.error) {
     throw new Error(data.error?.message ?? 'facebook_page_token_invalid')
   }
-  if (data.id && data.id !== pageId) {
+  if (!data.id || data.id !== pageId) {
     throw new Error('facebook_page_token_mismatch')
+  }
+  return { id: data.id, name: data.name }
+}
+
+/** Admin panelinden Meta sayfa token'ını doğrular (kaydetmeden önce test). */
+export async function validateMetaPageCredentials(meta: {
+  page_id?: string
+  page_access_token?: string
+  instagram_account_id?: string
+}): Promise<{
+  ok: boolean
+  page_id?: string
+  page_name?: string
+  instagram_id?: string
+  instagram_username?: string
+  error?: string
+}> {
+  try {
+    const pageId = meta.page_id?.trim() ?? ''
+    const rawToken = meta.page_access_token?.trim() ?? ''
+    if (!pageId || !rawToken) {
+      return { ok: false, error: 'facebook_not_configured' }
+    }
+    const pageToken = await resolveFacebookPageAccessToken(pageId, rawToken)
+    const page = await validateFacebookPageToken(pageId, pageToken)
+    const igId = meta.instagram_account_id?.trim() ?? ''
+    let instagramUsername: string | undefined
+    if (igId) {
+      const igRes = await fetch(
+        `${FB_GRAPH}/${encodeURIComponent(igId)}?fields=id,username&access_token=${encodeURIComponent(pageToken)}`,
+        { cache: 'no-store' },
+      )
+      const igData = (await igRes.json().catch(() => ({}))) as {
+        id?: string
+        username?: string
+        error?: { message?: string }
+      }
+      if (!igRes.ok || igData.error) {
+        return {
+          ok: false,
+          page_id: page.id,
+          page_name: page.name,
+          error: igData.error?.message ?? 'instagram_account_token_invalid',
+        }
+      }
+      instagramUsername = igData.username
+    }
+    return {
+      ok: true,
+      page_id: page.id,
+      page_name: page.name,
+      instagram_id: igId || undefined,
+      instagram_username: instagramUsername,
+    }
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e)
+    return { ok: false, error: msg }
   }
 }
 
@@ -984,9 +1034,11 @@ export async function processOneSocialJob(
       return { ok: false, network: job.network, post_type: job.post_type, job_id: job.id, error: msg }
     }
     if (isMetaAuthError(msg)) {
+      // Token yenilenene kadar kuyruğu "failed" yapma — iş pending kalsın,
+      // worker/timer döngüsü auth hatasında durur; token düzelince yeniden dener.
       try {
         await patchSocialJob(apiOrigin, secret, job.id, {
-          status: 'failed',
+          status: 'pending',
           error_message: `meta_token_invalid: ${msg}`.slice(0, 2000),
           caption_ai_generated: caption || undefined,
         })

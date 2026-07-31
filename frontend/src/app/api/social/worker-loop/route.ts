@@ -121,8 +121,9 @@ async function runWorkerLoop(
       if (authFail) {
         state.phase = 'error'
         state.message =
-          'Meta (Facebook/Instagram) erişim anahtarı geçersiz veya süresi doldu. Yönetim → Sosyal Medya API ayarlarından Page Access Token yenileyin.'
-        state.lastError = authFail.error ?? 'meta_access_token_invalid'
+          'Meta (Facebook/Instagram) erişim anahtarı geçersiz veya süresi doldu. Yönetim → Sosyal Medya → API Ayarları bölümünden yeni Page Access Token kaydedin, ardından tekrar deneyin.'
+        // Panel Türkçe mesajı göstersin; ham Graph hatası yalnızca teşhis için kodda kalsın.
+        state.lastError = 'meta_access_token_invalid'
         break
       }
 

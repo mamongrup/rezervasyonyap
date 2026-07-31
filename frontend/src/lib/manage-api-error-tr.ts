@@ -4,6 +4,8 @@
  * Bilinmeyen kodlar için genel mesaj + teknik kod (destek için).
  */
 
+import { isMetaAuthError } from '@/lib/social-meta-auth'
+
 const TR_BY_CODE: Record<string, string> = {
   // Kimlik / yetki
   NEXT_PUBLIC_API_URL_missing:
@@ -412,6 +414,9 @@ export function formatManageApiError(raw: string): string {
   const key = raw.trim()
   if (!key) return 'Bilinmeyen hata.'
   const low = key.toLowerCase()
+  if (isMetaAuthError(key)) {
+    return TR_BY_CODE.meta_access_token_invalid
+  }
   if (
     low.includes('failed to fetch') ||
     low.includes('networkerror') ||
