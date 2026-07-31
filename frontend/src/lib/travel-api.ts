@@ -12114,6 +12114,7 @@ export async function processNextDistrictIdea(
 export interface ListingContentStats {
   total_listings: number
   listings_need_work: number
+  need_work_ok: boolean
   category_code: string
   batches: Record<string, number>
   pending_phases: Record<string, number>
@@ -12134,6 +12135,7 @@ export async function getListingContentStats(
   return {
     total_listings: coerceInt(raw.total_listings),
     listings_need_work: coerceInt(raw.listings_need_work),
+    need_work_ok: raw.need_work_ok !== false,
     category_code: typeof raw.category_code === 'string' ? raw.category_code : categoryCode,
     batches: stringRecordInts(raw.batches),
     pending_phases: stringRecordInts(raw.pending_phases),

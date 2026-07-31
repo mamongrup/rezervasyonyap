@@ -467,7 +467,10 @@ fn clean_ai_description(raw: String) -> String {
 }
 
 fn need_work_sql() -> String {
-  // Tek TR çeviri satırı + dil/SEO eksikleri — tekrarlı correlated subquery yok (timeout önler).
+  // Panel stats / queue / worker seed — regex YOK (üretimde holiday_home COUNT
+  // 20s+ timeout → listing_content_need_failed / find_failed).
+  // Kalite (HTML yapı, İngilizce ham metin) Gleam worker’da zaten kontrol edilir.
+  // position() + length + count karşılaştırması PK index’leriyle ucuz.
   "
   (
     not exists (
@@ -477,38 +480,37 @@ fn need_work_sql() -> String {
       where lt.listing_id = l.id
         and lower(lo.code) = 'tr'
         and length(coalesce(lt.description, '')) >= 120
-        and lower(coalesce(lt.description, '')) not like '%&nbsp%'
-        and lower(coalesce(lt.description, '')) not like '%&amp;nbsp%'
-        and lower(coalesce(lt.description, '')) ~ '<p([[:space:]]|>)'
-        and lower(coalesce(lt.description, '')) ~ '<(h2|h3|ul|ol)([[:space:]]|>)'
-        and lower(coalesce(lt.description, '')) !~ '\\m(the|and|with|from|located|featuring|complimentary|nearest|breakfast)\\M'
+        and position('&nbsp' in lower(coalesce(lt.description, ''))) = 0
+        and position('<p' in lower(coalesce(lt.description, ''))) > 0
     )
-    or exists (
-      select 1 from locales lo
+    or (
+      select count(*)::int
+      from listing_translations lt
+      join locales lo on lo.id = lt.locale_id
+      where lt.listing_id = l.id
+        and coalesce(lo.is_active, true) = true
+        and lower(lo.code) <> 'tr'
+        and length(coalesce(lt.title, '')) > 0
+        and length(coalesce(lt.description, '')) > 80
+        and position('&nbsp' in lower(coalesce(lt.description, ''))) = 0
+        and position('<p' in lower(coalesce(lt.description, ''))) > 0
+    ) < (
+      select count(*)::int from locales lo
       where coalesce(lo.is_active, true) = true
-        and lower(lo.code) != 'tr'
-        and not exists (
-          select 1 from listing_translations lt
-          where lt.listing_id = l.id
-            and lt.locale_id = lo.id
-            and length(coalesce(lt.title, '')) > 0
-            and length(coalesce(lt.description, '')) > 80
-            and lower(coalesce(lt.description, '')) ~ '<p([[:space:]]|>)'
-            and lower(coalesce(lt.description, '')) ~ '<(h2|h3|ul|ol)([[:space:]]|>)'
-            and lower(coalesce(lt.description, '')) not like '%&nbsp%'
-        )
+        and lower(lo.code) <> 'tr'
     )
-    or exists (
-      select 1 from locales lo
+    or (
+      select count(*)::int
+      from seo_metadata sm
+      join locales lo on lo.id = sm.locale_id
+      where sm.entity_type = 'listing'
+        and sm.entity_id = l.id
+        and coalesce(lo.is_active, true) = true
+        and length(coalesce(sm.title, '')) > 10
+        and length(coalesce(sm.description, '')) > 40
+    ) < (
+      select count(*)::int from locales lo
       where coalesce(lo.is_active, true) = true
-        and not exists (
-          select 1 from seo_metadata sm
-          where sm.entity_type = 'listing'
-            and sm.entity_id = l.id
-            and sm.locale_id = lo.id
-            and length(coalesce(sm.title, '')) > 10
-            and length(coalesce(sm.description, '')) > 40
-        )
     )
   )
   "
@@ -556,13 +558,13 @@ pub fn stats(req: Request, ctx: Context) -> Response {
         case cat == "" {
           True ->
             pog.query(sql)
-            |> pog.timeout(20_000)
+            |> pog.timeout(30_000)
             |> pog.returning(int_col0)
             |> db_exec.execute(ctx.db)
           False ->
             pog.query(sql)
             |> pog.parameter(pog.text(cat))
-            |> pog.timeout(20_000)
+            |> pog.timeout(30_000)
             |> pog.returning(int_col0)
             |> db_exec.execute(ctx.db)
         }
@@ -575,63 +577,64 @@ pub fn stats(req: Request, ctx: Context) -> Response {
             [n] -> n
             _ -> 0
           }
-          case run_count(need_sql) {
-            Error(_) -> json_err(500, "listing_content_need_failed")
-            Ok(need_ret) -> {
-              let need_work = case need_ret.rows {
-                [n] -> n
-                _ -> 0
+          // need_work timeout olsa bile kuyruk sayaçları gelsin — panel tamamen kilitlenmesin.
+          let #(need_work, need_ok) = case run_count(need_sql) {
+            Error(_) -> #(-1, False)
+            Ok(need_ret) ->
+              case need_ret.rows {
+                [n] -> #(n, True)
+                _ -> #(0, True)
               }
-              let batches_q = case cat == "" {
+          }
+          let batches_q = case cat == "" {
+            True ->
+              pog.query(batches_sql)
+              |> pog.returning(batch_count_row())
+              |> db_exec.execute(ctx.db)
+            False ->
+              pog.query(batches_sql)
+              |> pog.parameter(pog.text(cat))
+              |> pog.returning(batch_count_row())
+              |> db_exec.execute(ctx.db)
+          }
+          case batches_q {
+            Error(_) -> json_err(500, "listing_content_batches_failed")
+            Ok(batch_ret) -> {
+              let batch_counts =
+                list.map(batch_ret.rows, fn(row) {
+                  let #(status, cnt) = row
+                  #(status, json.int(cnt))
+                })
+              let phases_q = case cat == "" {
                 True ->
-                  pog.query(batches_sql)
-                  |> pog.returning(batch_count_row())
+                  pog.query(phases_sql)
+                  |> pog.returning(phase_count_row())
                   |> db_exec.execute(ctx.db)
                 False ->
-                  pog.query(batches_sql)
+                  pog.query(phases_sql)
                   |> pog.parameter(pog.text(cat))
-                  |> pog.returning(batch_count_row())
+                  |> pog.returning(phase_count_row())
                   |> db_exec.execute(ctx.db)
               }
-              case batches_q {
-                Error(_) -> json_err(500, "listing_content_batches_failed")
-                Ok(batch_ret) -> {
-                  let batch_counts =
-                    list.map(batch_ret.rows, fn(row) {
-                      let #(status, cnt) = row
-                      #(status, json.int(cnt))
+              case phases_q {
+                Error(_) -> json_err(500, "listing_content_phases_failed")
+                Ok(phase_ret) -> {
+                  let phase_counts =
+                    list.map(phase_ret.rows, fn(row) {
+                      let #(phase, cnt) = row
+                      #(phase, json.int(cnt))
                     })
-                  let phases_q = case cat == "" {
-                    True ->
-                      pog.query(phases_sql)
-                      |> pog.returning(phase_count_row())
-                      |> db_exec.execute(ctx.db)
-                    False ->
-                      pog.query(phases_sql)
-                      |> pog.parameter(pog.text(cat))
-                      |> pog.returning(phase_count_row())
-                      |> db_exec.execute(ctx.db)
-                  }
-                  case phases_q {
-                    Error(_) -> json_err(500, "listing_content_phases_failed")
-                    Ok(phase_ret) -> {
-                      let phase_counts =
-                        list.map(phase_ret.rows, fn(row) {
-                          let #(phase, cnt) = row
-                          #(phase, json.int(cnt))
-                        })
-                      let body =
-                        json.object([
-                          #("total_listings", json.int(total)),
-                          #("listings_need_work", json.int(need_work)),
-                          #("category_code", json.string(cat)),
-                          #("batches", json.object(batch_counts)),
-                          #("pending_phases", json.object(phase_counts)),
-                        ])
-                        |> json.to_string
-                      wisp.json_response(body, 200)
-                    }
-                  }
+                  let body =
+                    json.object([
+                      #("total_listings", json.int(total)),
+                      #("listings_need_work", json.int(need_work)),
+                      #("need_work_ok", json.bool(need_ok)),
+                      #("category_code", json.string(cat)),
+                      #("batches", json.object(batch_counts)),
+                      #("pending_phases", json.object(phase_counts)),
+                    ])
+                    |> json.to_string
+                  wisp.json_response(body, 200)
                 }
               }
             }
@@ -669,8 +672,9 @@ pub fn queue_all(req: Request, ctx: Context) -> Response {
             True -> " and " <> need_work_sql()
             False -> ""
           }
+          // Tek sütun + limit 100: ağır scan + 500 satır decode üretimi timeout’a düşmesin.
           let find_sql = "
-            select l.id::text, pc.code
+            select l.id::text
             from listings l
             join product_categories pc on pc.id = l.category_id
             where pc.code = $1
@@ -682,11 +686,12 @@ pub fn queue_all(req: Request, ctx: Context) -> Response {
                   and b.status in ('pending','running')
               )
             order by l.updated_at desc
-            limit 500
+            limit 100
             "
           case
             pog.query(find_sql)
             |> pog.parameter(pog.text(cat))
+            |> pog.timeout(30_000)
             |> pog.returning(row_dec.col0_string())
             |> db_exec.execute(ctx.db)
           {
@@ -1745,6 +1750,7 @@ pub fn worker_try_listing_content(ctx: Context) -> Result(Bool, String) {
             <> "order by case pc.code when 'holiday_home' then 0 when 'yacht_charter' then 1 when 'hotel' then 2 when 'activity' then 3 when 'cruise' then 4 when 'ferry' then 5 when 'transfer' then 6 when 'car_rental' then 7 when 'flight' then 8 else 9 end, l.updated_at desc limit 1 returning id::text"
           case
             pog.query(seed_sql)
+            |> pog.timeout(30_000)
             |> pog.returning(row_dec.col0_string())
             |> db_exec.execute(ctx.db)
           {

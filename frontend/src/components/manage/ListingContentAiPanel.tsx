@@ -198,6 +198,12 @@ export default function ListingContentAiPanel() {
           {loadErr}
         </p>
       )}
+      {stats && stats.need_work_ok === false && !loadErr ? (
+        <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-200">
+          Eksik içerik sayısı şu an hesaplanamadı; kuyruk ve toplam ilan sayıları yine de görünür. «Kuyruğa
+          al» ile devam edebilirsiniz.
+        </p>
+      ) : null}
       {runErr && (
         <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-200">
           {runErr}
@@ -327,7 +333,9 @@ export default function ListingContentAiPanel() {
               </div>
               <div>
                 <dt className="text-neutral-500">Eksik içerik</dt>
-                <dd className="font-semibold text-amber-700 dark:text-amber-300">{stats.listings_need_work}</dd>
+                <dd className="font-semibold text-amber-700 dark:text-amber-300">
+                  {stats.need_work_ok === false ? '—' : stats.listings_need_work}
+                </dd>
               </div>
               <div>
                 <dt className="text-neutral-500">Kuyruk (bekleyen)</dt>

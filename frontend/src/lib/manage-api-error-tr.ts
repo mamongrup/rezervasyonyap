@@ -267,6 +267,7 @@ const TR_BY_CODE: Record<string, string> = {
   region_content_stats_failed: 'Bölge içerik istatistikleri yüklenemedi.',
   listing_content_stats_failed: 'İlan içerik istatistikleri yüklenemedi.',
   listing_content_need_failed: 'Eksik içerik sayısı hesaplanamadı (sorgu zaman aşımı veya veritabanı). Sayfayı yenileyin.',
+  listing_content_find_failed: 'Kuyruğa alınacak ilanlar bulunamadı (sorgu zaman aşımı). Kategoriyi yeniden seçip tekrar deneyin.',
   listing_content_queue_failed: 'İlan içerik kuyruğu oluşturulamadı.',
   listing_content_process_failed: 'İlan içerik işlemi başarısız.',
   seo_sitemap_500: 'Site haritası özeti alınamadı (sunucu / veritabanı zaman aşımı).',
