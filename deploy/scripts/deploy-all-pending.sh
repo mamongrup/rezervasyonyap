@@ -3,6 +3,7 @@
 #   - medya CDN onarımı (SQL 382–387 + isteğe bağlı AVIF)
 #   - otel oda-kapsamlı fiyat backfill
 #   - sosyal paylaşım kategori sırası (SQL 388)
+#   - AI: Gemini key pool + referans müsaitlik scrape/schedule (SQL 396–398)
 #   - tatil evi AI slogan başlık temizliği (SQL 389)
 #   - Gülbay Villa kaynak içerik onarımı (SQL 390 + scrape)
 #   - API + Next tam deploy + verify
@@ -17,7 +18,7 @@
 #   SKIP_GIT_SYNC=1 SKIP_IMAGE_FIX=1 SKIP_HOTEL_PRICE_BACKFILL=1
 #   SKIP_STAY_DISTANCES=1 SKIP_AKDENIZVILLAM_REPAIR=1
 #   SKIP_VILLA_TITLE_SQL=1 SKIP_GULBAY_SQL=1
-#   SKIP_SOCIAL_SQL=1 SKIP_DEPLOY=1 SKIP_VERIFY=1
+#   SKIP_SOCIAL_SQL=1 SKIP_AI_SQL=1 SKIP_DEPLOY=1 SKIP_VERIFY=1
 #   SKIP_SOCIAL_RESTART=1
 #   REHOST_EXTERNAL=1   # CDN görsellerini yerel AVIF'e al (uzun)
 #
@@ -81,6 +82,25 @@ if [[ "${SKIP_SOCIAL_SQL:-0}" != "1" ]]; then
   fi
 else
   warn "SKIP_SOCIAL_SQL=1"
+fi
+
+# Önceki AI deploy (Gemini pool + referans müsaitlik) — idempotent; uygulanmadıysa buradan geçer.
+if [[ "${SKIP_AI_SQL:-0}" != "1" ]]; then
+  step "AI SQL (396 Gemini key pool, 397 availability scrape, 398 schedule)"
+  for sql in \
+    backend/priv/sql/modules/396_ai_gemini_key_pool.sql \
+    backend/priv/sql/modules/397_ai_listing_availability_scrape.sql \
+    backend/priv/sql/modules/398_import_schedule_listing_availability.sql
+  do
+    if [[ -f "$sql" ]]; then
+      ./deploy/apply-sql.sh "$sql" || fail "$(basename "$sql")"
+      ok "$(basename "$sql")"
+    else
+      warn "$sql yok — atlandı"
+    fi
+  done
+else
+  warn "SKIP_AI_SQL=1"
 fi
 
 if [[ "${SKIP_VILLA_TITLE_SQL:-0}" != "1" ]]; then
@@ -194,6 +214,7 @@ echo "  - görseller 382–387"
 echo "  - otel oda fiyatları"
 echo "  - mesafeler / akdenizvillam"
 echo "  - villa başlık 389 + gulbay 390"
+echo "  - AI 396–398 (Gemini pool + referans müsaitlik)"
 echo "  - sosyal sıra villa→yat→aktivite→tur→gemi→otel"
 echo "  - travel-api + travel-web"
 echo "============================================"
