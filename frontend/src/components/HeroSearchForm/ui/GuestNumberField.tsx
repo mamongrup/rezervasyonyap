@@ -90,6 +90,10 @@ export const GuestNumberField: FC<Props> = ({
   }
   const totalGuests = totalGuestCount(guests)
   const summary = formatStayGuestSummary(locale, guests)
+  const ageHint =
+    askChildAges && childAges.length > 0
+      ? ` · ${childAges.map((a) => `${a}`).join(', ')} yaş`
+      : ''
 
   return (
     <Popover className={`group relative z-10 flex ${className}`}>
@@ -116,7 +120,7 @@ export const GuestNumberField: FC<Props> = ({
                 {totalGuests || ''} {hf.Guests}
               </span>
               <span className="mt-0.5 block text-xs leading-tight font-normal text-neutral-700 dark:text-neutral-300">
-                {totalGuests ? summary : hf['Add guests']}
+                {totalGuests ? `${summary}${ageHint}` : hf['Add guests']}
               </span>
             </div>
           </PopoverButton>
