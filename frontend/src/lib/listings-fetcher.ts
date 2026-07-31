@@ -98,6 +98,11 @@ export interface SearchQuery {
   /** Eski URL uyumluluğu; backend seçilen kesin tarih aralığını uygular. */
   flex_days?: string
   guests?: string
+  guestAdults?: string
+  guestChildren?: string
+  guestInfants?: string
+  /** Virgülle çocuk yaşları (ör. 4,7) — detay/checkout fiyatı için */
+  childAges?: string
   page?: string
   /** Araç kiralama formu */
   drop_off?: string
@@ -164,6 +169,10 @@ export function parseSearchParamsFromUrl(
     last_minute: g('last_minute'),
     flex_days: g('flex_days'),
     guests: g('guests'),
+    guestAdults: g('guestAdults'),
+    guestChildren: g('guestChildren'),
+    guestInfants: g('guestInfants'),
+    childAges: g('childAges'),
     page: g('page'),
     drop_off: g('drop_off'),
     from: g('from'),

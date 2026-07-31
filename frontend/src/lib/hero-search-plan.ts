@@ -5,7 +5,7 @@
  */
 
 import { getStoredAuthToken } from '@/lib/auth-storage'
-import { guestSearchTotalFromRecord } from '@/lib/guest-search-defaults'
+import { appendStayGuestSearchParams, guestSearchTotalFromRecord } from '@/lib/guest-search-defaults'
 import { ensureCarRentalCheckout } from '@/lib/yolcu360-cars'
 import { getAuthMe } from '@/lib/travel-api'
 
@@ -219,12 +219,10 @@ function buildSearchQuery(vertical: HeroSearchVertical, params: Record<string, s
       if (loc) qs.set('location', loc)
       if (params.checkin) qs.set('checkin', params.checkin)
       if (params.checkout) qs.set('checkout', params.checkout)
-      {
-        const guests =
-          params.guests_total && Number.parseInt(params.guests_total, 10) > 0
-            ? Number.parseInt(params.guests_total, 10)
-            : guestSearchTotalFromRecord(params)
-        if (guests > 0) qs.set('guests', String(guests))
+      if (params.guests_total && Number.parseInt(params.guests_total, 10) > 0) {
+        qs.set('guests', String(Number.parseInt(params.guests_total, 10)))
+      } else {
+        appendStayGuestSearchParams(qs, params)
       }
       break
     }

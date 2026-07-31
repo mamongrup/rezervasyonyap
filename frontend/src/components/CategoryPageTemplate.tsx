@@ -84,6 +84,10 @@ export interface ActiveSearchSummary {
   checkin?: string
   checkout?: string
   guests?: string
+  guestAdults?: string
+  guestChildren?: string
+  guestInfants?: string
+  childAges?: string
   regionLabel?: string
   /** Tatil evi tur tipi etiketi (villalar → Villalar). Varsa "Bölge" yerine "Tür" rozeti */
   propertyTypeLabel?: string
@@ -426,6 +430,10 @@ export default async function CategoryPageTemplate({
               checkin: activeSearch.checkin,
               checkout: activeSearch.checkout,
               guests: activeSearch.guests,
+              guestAdults: activeSearch.guestAdults,
+              guestChildren: activeSearch.guestChildren,
+              guestInfants: activeSearch.guestInfants,
+              childAges: activeSearch.childAges,
             }
           : undefined
       }

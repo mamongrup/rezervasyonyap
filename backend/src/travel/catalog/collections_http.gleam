@@ -133,12 +133,18 @@ fn listing_half_day_stay_calendar_filter_sql() -> String {
   <> ")) "
 }
 
-/// Otel - ayni oda tipi tum gecelerde musait olmali ve misafir kapasitesini karsilamali.
+/// Otel — misafir kapasitesi: tek oda yeterli VEYA tüm odaların kapasite toplamı yeterli;
+/// seçilen gecelerde en az bir uygun oda tipi kalmalı.
+/// Oda kaydı olmayan oteller (yalnızca katalog) tarih/misafir aramasında elenmez.
 fn hotel_room_stay_filter_sql() -> String {
-  "and ($8::text is null and $9::text is null and $32::text is null or pc.code != 'hotel' or exists ( "
+  "and ($8::text is null and $9::text is null and $32::text is null or pc.code != 'hotel' "
+  <> "or not exists (select 1 from hotel_rooms hr0 where hr0.listing_id = l.id) "
+  <> "or exists ( "
   <> "  select 1 from hotel_rooms hr "
   <> "  where hr.listing_id = l.id "
-  <> "    and ($32::text is null or coalesce(hr.capacity, 1) >= nullif($32::text, '')::int) "
+  <> "    and ($32::text is null or coalesce(hr.capacity, 1) >= nullif($32::text, '')::int "
+  <> "      or (select coalesce(sum(coalesce(hr2.capacity, 1)), 0) from hotel_rooms hr2 where hr2.listing_id = l.id) "
+  <> "         >= nullif($32::text, '')::int) "
   <> "    and ($8::text is null or $9::text is null or not exists ( "
   <> "      select 1 "
   <> "      from generate_series($8::date, ($9::date - interval '1 day')::date, interval '1 day') d(day) "

@@ -1,7 +1,12 @@
 'use client'
 
 import { useVitrinHref } from '@/hooks/use-vitrin-href'
-import { DEFAULT_GUESTS_STAY, totalGuestCount } from '@/lib/guest-search-defaults'
+import {
+  appendStayGuestSearchParams,
+  formatStayGuestSummary,
+  guestsObjectFromSearchRecord,
+  totalGuestCount,
+} from '@/lib/guest-search-defaults'
 import { formDataToStringRecord, runHeroSearchPlanEffects } from '@/lib/hero-search-plan'
 import { stripLocalePrefix } from '@/lib/i18n-config'
 import { staySearchResultsPathFromRestPath } from '@/lib/stay-search-target'
@@ -36,18 +41,20 @@ const StaySearchFormMobile = () => {
   const datesPanelRef = useRef<HTMLDivElement>(null)
   const guestsPanelRef = useRef<HTMLDivElement>(null)
   //
-  const prefillLocation = urlSearch.get('location')?.trim() ?? ''
-  const prefillGuestsRaw = urlSearch.get('guests')?.trim()
-  const prefillGuestAdults =
-    prefillGuestsRaw && Number.isFinite(parseInt(prefillGuestsRaw, 10))
-      ? parseInt(prefillGuestsRaw, 10)
-      : DEFAULT_GUESTS_STAY.guestAdults
+  const prefillGuests = useMemo(
+    () =>
+      guestsObjectFromSearchRecord({
+        guests: urlSearch.get('guests'),
+        guestAdults: urlSearch.get('guestAdults'),
+        guestChildren: urlSearch.get('guestChildren'),
+        guestInfants: urlSearch.get('guestInfants'),
+        childAges: urlSearch.get('childAges'),
+      }),
+    [urlSearch],
+  )
 
-  const [locationInputTo, setLocationInputTo] = useState(prefillLocation)
-  const [guestInput, setGuestInput] = useState<GuestsObject>({
-    ...DEFAULT_GUESTS_STAY,
-    guestAdults: prefillGuestAdults,
-  })
+  const [locationInputTo, setLocationInputTo] = useState(() => urlSearch.get('location')?.trim() ?? '')
+  const [guestInput, setGuestInput] = useState<GuestsObject>(prefillGuests)
   const [startDate, setStartDate] = useState<Date | null>(() =>
     parseLocalYmd(urlSearch.get('checkin')?.trim()),
   )
@@ -61,13 +68,15 @@ const StaySearchFormMobile = () => {
     const co = parseLocalYmd(urlSearch.get('checkout')?.trim())
     if (ci) setStartDate(ci)
     if (co) setEndDate(co)
-    const g = urlSearch.get('guests')?.trim()
-    if (g) {
-      const n = parseInt(g, 10)
-      if (Number.isFinite(n) && n >= 1) {
-        setGuestInput((prev) => ({ ...prev, guestAdults: n }))
-      }
-    }
+    setGuestInput(
+      guestsObjectFromSearchRecord({
+        guests: urlSearch.get('guests'),
+        guestAdults: urlSearch.get('guestAdults'),
+        guestChildren: urlSearch.get('guestChildren'),
+        guestInfants: urlSearch.get('guestInfants'),
+        childAges: urlSearch.get('childAges'),
+      }),
+    )
   }, [urlSearch])
   const router = useRouter()
   const params = useParams()
@@ -97,9 +106,12 @@ const StaySearchFormMobile = () => {
       ...formDataToStringRecord(formData),
       date_range_label:
         startDate && endDate ? converSelectedDateToString([startDate, endDate]) : '',
-      guestAdults: String(guestInput.guestAdults),
-      guestChildren: String(guestInput.guestChildren),
-      guestInfants: String(guestInput.guestInfants),
+      guestAdults: String(guestInput.guestAdults ?? 0),
+      guestChildren: String(guestInput.guestChildren ?? 0),
+      guestInfants: String(guestInput.guestInfants ?? 0),
+      ...(guestInput.childAges && guestInput.childAges.length > 0
+        ? { childAges: guestInput.childAges.join(',') }
+        : {}),
     }
     runHeroSearchPlanEffects('stay', params, searchTargetPath)
     const location = formDataEntries['location'] as string
@@ -107,8 +119,12 @@ const StaySearchFormMobile = () => {
     if (location) qs.set('location', location)
     if (params.checkin) qs.set('checkin', params.checkin)
     if (params.checkout) qs.set('checkout', params.checkout)
-    const guests = totalGuestCount(guestInput)
-    if (guests > 0) qs.set('guests', String(guests))
+    appendStayGuestSearchParams(qs, {
+      guestAdults: params.guestAdults,
+      guestChildren: params.guestChildren,
+      guestInfants: params.guestInfants,
+      childAges: params.childAges,
+    })
     const qstr = qs.toString()
     router.push(staySearchHref + (qstr ? `?${qstr}` : ''))
   }
@@ -116,7 +132,7 @@ const StaySearchFormMobile = () => {
   //
   const totalGuests = totalGuestCount(guestInput)
   const guestStringConverted = totalGuests
-    ? `${totalGuests} ${m.HeroSearchForm['Guests']}`
+    ? formatStayGuestSummary(locale, guestInput)
     : m.HeroSearchForm['Add guests']
 
   return (
@@ -163,7 +179,7 @@ const StaySearchFormMobile = () => {
           headingTitle={m.HeroSearchForm['Who']}
           headingValue={guestStringConverted}
         >
-          <GuestsInput defaultValue={guestInput} onChange={setGuestInput} />
+          <GuestsInput defaultValue={guestInput} onChange={setGuestInput} askChildAges />
         </FieldPanelContainer>
       </div>
     </Form>

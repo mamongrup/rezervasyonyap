@@ -89,6 +89,7 @@ export const ExperiencesSearchForm = ({
         clearDataButtonClassName={clsx(formStyle === 'small' && 'sm:end-18', formStyle === 'default' && 'sm:end-22')}
         fieldStyle={formStyle}
         guestDefaults={DEFAULT_GUESTS_EXPERIENCE}
+        askChildAges={false}
       />
 
       <ButtonSubmit fieldStyle={formStyle} className="z-10" />

@@ -1,7 +1,11 @@
 'use client'
 
 import { useVitrinHref } from '@/hooks/use-vitrin-href'
-import { DEFAULT_GUESTS_STAY, guestSearchTotalFromRecord } from '@/lib/guest-search-defaults'
+import {
+  appendStayGuestSearchParams,
+  DEFAULT_GUESTS_STAY,
+  guestsObjectFromSearchRecord,
+} from '@/lib/guest-search-defaults'
 import { formDataToStringRecord, runHeroSearchPlanEffects } from '@/lib/hero-search-plan'
 import { staySearchResultsPathFromRestPath } from '@/lib/stay-search-target'
 import { stripLocalePrefix } from '@/lib/i18n-config'
@@ -16,6 +20,10 @@ export type StaySearchPrefill = {
   checkin?: string
   checkout?: string
   guests?: string
+  guestAdults?: string
+  guestChildren?: string
+  guestInfants?: string
+  childAges?: string
 }
 
 interface Props {
@@ -35,15 +43,15 @@ function mergePrefill(
     checkin: searchPrefill?.checkin?.trim() || fromUrl.checkin,
     checkout: searchPrefill?.checkout?.trim() || fromUrl.checkout,
     guests: searchPrefill?.guests?.trim() || fromUrl.guests,
+    guestAdults: searchPrefill?.guestAdults?.trim() || fromUrl.guestAdults,
+    guestChildren: searchPrefill?.guestChildren?.trim() || fromUrl.guestChildren,
+    guestInfants: searchPrefill?.guestInfants?.trim() || fromUrl.guestInfants,
+    childAges: searchPrefill?.childAges?.trim() || fromUrl.childAges,
   }
 }
 
 function guestDefaultsFromPrefill(prefill: StaySearchPrefill) {
-  const raw = prefill.guests
-  if (!raw) return DEFAULT_GUESTS_STAY
-  const n = parseInt(raw, 10)
-  if (!Number.isFinite(n) || n < 1) return DEFAULT_GUESTS_STAY
-  return { ...DEFAULT_GUESTS_STAY, guestAdults: n }
+  return guestsObjectFromSearchRecord(prefill, DEFAULT_GUESTS_STAY)
 }
 
 function StaySearchFormFields({
@@ -81,12 +89,11 @@ function StaySearchFormFields({
     const location = formDataEntries['location'] as string
     const checkin = formDataEntries['checkin'] as string
     const checkout = formDataEntries['checkout'] as string
-    const guests = guestSearchTotalFromRecord(formDataEntries)
     const searchParams = new URLSearchParams()
     if (location) searchParams.set('location', location)
     if (checkin) searchParams.set('checkin', checkin)
     if (checkout) searchParams.set('checkout', checkout)
-    if (guests > 0) searchParams.set('guests', String(guests))
+    appendStayGuestSearchParams(searchParams, formDataEntries)
     const qs = searchParams.toString()
     router.push(vitrinHref(searchTargetPath) + (qs ? `?${qs}` : ''))
   }
@@ -135,6 +142,10 @@ function StaySearchFormWithUrl(props: Props) {
     checkin: urlSearchParams.get('checkin')?.trim() || undefined,
     checkout: urlSearchParams.get('checkout')?.trim() || undefined,
     guests: urlSearchParams.get('guests')?.trim() || undefined,
+    guestAdults: urlSearchParams.get('guestAdults')?.trim() || undefined,
+    guestChildren: urlSearchParams.get('guestChildren')?.trim() || undefined,
+    guestInfants: urlSearchParams.get('guestInfants')?.trim() || undefined,
+    childAges: urlSearchParams.get('childAges')?.trim() || undefined,
   }
   return <StaySearchFormFields {...props} urlSearch={fromUrl} />
 }
@@ -150,6 +161,10 @@ export const StaySearchForm = (props: Props) => {
             checkin: props.searchPrefill?.checkin,
             checkout: props.searchPrefill?.checkout,
             guests: props.searchPrefill?.guests,
+            guestAdults: props.searchPrefill?.guestAdults,
+            guestChildren: props.searchPrefill?.guestChildren,
+            guestInfants: props.searchPrefill?.guestInfants,
+            childAges: props.searchPrefill?.childAges,
           }}
         />
       }
