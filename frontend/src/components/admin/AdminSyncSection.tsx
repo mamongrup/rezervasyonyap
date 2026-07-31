@@ -10,7 +10,14 @@ import { fetchSiteSettingsFromPanel, startAiWorkerBackground, upsertSiteSettingF
 // Types
 // ──────────────────────────────────────────────────────────
 
-type SyncProvider = 'wtatil' | 'travelrobot' | 'turna' | 'yolcu360' | 'tatilsepeti' | 'tatilbudur'
+type SyncProvider =
+  | 'wtatil'
+  | 'travelrobot'
+  | 'turna'
+  | 'yolcu360'
+  | 'tatilsepeti'
+  | 'tatilbudur'
+  | 'listing_availability'
 
 interface SyncJob {
   id: string
@@ -31,6 +38,7 @@ interface ImportSchedule {
   yolcu360: number[]
   tatilsepeti: number[]
   tatilbudur: number[]
+  listing_availability: number[]
 }
 
 const PROVIDERS: { key: SyncProvider; label: string; desc: string }[] = [
@@ -40,6 +48,12 @@ const PROVIDERS: { key: SyncProvider; label: string; desc: string }[] = [
   { key: 'yolcu360', label: 'Yolcu360 (Araç)', desc: 'Yolcu360 araç kiralama ilanlarını içe aktarır' },
   { key: 'tatilsepeti', label: 'Tatil Sepeti (Otel)', desc: 'Türkiye otellerini oda tipleri, fiyatları ve özellikleriyle günceller' },
   { key: 'tatilbudur', label: 'Tatilbudur (Otel)', desc: 'İzinli partner feed’indeki otel, oda, fiyat ve özellikleri günceller' },
+  {
+    key: 'listing_availability',
+    label: 'Referans müsaitlik (AI)',
+    desc:
+      'Referans/müsaitlik URL’si olan ilanlarda dolu/boş günleri AI ile eşitler. Saatler UTC (TR=UTC+3; gece 01:00 TR → 22).',
+  },
 ]
 
 const EMPTY_SCHEDULE: ImportSchedule = {
@@ -49,6 +63,7 @@ const EMPTY_SCHEDULE: ImportSchedule = {
   yolcu360: [],
   tatilsepeti: [],
   tatilbudur: [],
+  listing_availability: [22],
 }
 
 const SETTINGS_KEY = 'import_schedule'
@@ -343,7 +358,9 @@ export default function AdminSyncSection() {
         if (row?.value_json) {
           const v = typeof row.value_json === 'string' ? JSON.parse(row.value_json) : row.value_json
           if (v && typeof v === 'object') {
-            setSchedule({ ...EMPTY_SCHEDULE, ...v })
+            const merged = { ...EMPTY_SCHEDULE, ...v } as ImportSchedule
+            if (!Array.isArray(merged.listing_availability)) merged.listing_availability = [22]
+            setSchedule(merged)
           }
         }
       } catch {
@@ -363,7 +380,21 @@ export default function AdminSyncSection() {
     setSavingSchedule(true)
     setScheduleMsg(null)
     try {
-      const updated = { ...schedule }
+      // DB'deki diğer anahtarları (listing_reference vb.) koru
+      let existing: Record<string, unknown> = {}
+      try {
+        const data = await fetchSiteSettingsFromPanel({ scope: 'platform', key: SETTINGS_KEY })
+        const row = Array.isArray(data.settings)
+          ? data.settings.find((s) => s.key === SETTINGS_KEY)
+          : null
+        if (row?.value_json) {
+          const v = typeof row.value_json === 'string' ? JSON.parse(row.value_json) : row.value_json
+          if (v && typeof v === 'object') existing = v as Record<string, unknown>
+        }
+      } catch {
+        /* ignore */
+      }
+      const updated = { ...existing, ...schedule }
       await upsertSiteSettingFromPanel({
         key: SETTINGS_KEY,
         value_json: JSON.stringify(updated),

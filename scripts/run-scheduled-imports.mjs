@@ -31,6 +31,7 @@ const PROVIDER_SCRIPTS = {
   tatilsepeti: 'scripts/import-tatilsepeti-hotels.mjs',
   tatilbudur: 'scripts/import-tatilbudur-hotels.mjs',
   listing_reference: 'scripts/sync-listing-reference-sources.mjs',
+  listing_availability: 'scripts/sync-listing-availability-from-source.mjs',
 }
 
 const args = new Set(process.argv.slice(2))
@@ -126,7 +127,9 @@ async function main() {
 
       const hours = Array.isArray(schedule[provider])
         ? schedule[provider]
-        : (provider === 'listing_reference' ? [1, 7, 13, 19] : [])
+        : (provider === 'listing_reference'
+          ? [1, 7, 13, 19]
+          : (provider === 'listing_availability' ? [22] : []))
       const shouldRun = FORCE_ALL || hours.includes(nowHour)
 
       if (!shouldRun) {

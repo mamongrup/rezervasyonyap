@@ -4,7 +4,7 @@
  * POST — import işini başlat (job oluştur + arka planda script başlat)
  * GET  — son iş durumunu döndür
  *
- * Provider değerleri: wtatil | travelrobot | turna | yolcu360 | tatilsepeti | tatilbudur
+ * Provider değerleri: wtatil | travelrobot | turna | yolcu360 | tatilsepeti | tatilbudur | listing_availability
  */
 
 import { NextRequest, NextResponse } from 'next/server'
@@ -24,6 +24,7 @@ const PROVIDER_SCRIPTS: Record<string, string> = {
   yolcu360: 'scripts/import-yolcu360-cars.mjs',
   tatilsepeti: 'scripts/import-tatilsepeti-hotels.mjs',
   tatilbudur: 'scripts/import-tatilbudur-hotels.mjs',
+  listing_availability: 'scripts/sync-listing-availability-from-source.mjs',
 }
 
 async function getToken(): Promise<string | null> {

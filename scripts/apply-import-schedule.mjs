@@ -29,6 +29,8 @@ const schedule = {
   tatilsepeti: parseHoursEnv('IMPORT_SCHEDULE_TATILSEPETI', [0]),
   tatilbudur: parseHoursEnv('IMPORT_SCHEDULE_TATILBUDUR', []),
   listing_reference: parseHoursEnv('IMPORT_SCHEDULE_LISTING_REFERENCE', [1, 7, 13, 19]),
+  // UTC 22 = TR gece 01:00 (UTC+3). Panelden değiştirilebilir.
+  listing_availability: parseHoursEnv('IMPORT_SCHEDULE_LISTING_AVAILABILITY', [22]),
 }
 
 console.log(dryRun ? '[dry-run] import_schedule:' : 'Kaydediliyor import_schedule:')
