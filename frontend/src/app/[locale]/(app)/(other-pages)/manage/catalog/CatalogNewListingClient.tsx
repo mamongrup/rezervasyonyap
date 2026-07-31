@@ -726,9 +726,12 @@ export default function CatalogNewListingClient({
   const [referenceSearchBusy, setReferenceSearchBusy] = useState(false)
   const [availScrapeBusy, setAvailScrapeBusy] = useState(false)
   const [availScrapeMsg, setAvailScrapeMsg] = useState<string | null>(null)
+  const [availScrapeReopen, setAvailScrapeReopen] = useState(true)
   const [availScrapePreview, setAvailScrapePreview] = useState<{
     blocked_day_count: number
     blocked_days: string[]
+    reopen_day_count: number
+    reopen_days: string[]
     notes: string
     source_url: string
     insufficient_data: boolean
@@ -2231,6 +2234,7 @@ export default function CatalogNewListingClient({
           listingId: editListingId,
           url,
           apply,
+          reopen: availScrapeReopen,
           from: calFrom || undefined,
           to: calTo || undefined,
           organizationId: needOrg && orgId.trim() ? orgId.trim() : undefined,
@@ -2246,6 +2250,8 @@ export default function CatalogNewListingClient({
         source_url?: string
         blocked_day_count?: number
         blocked_days?: string[]
+        reopen_day_count?: number
+        reopen_days?: string[]
       }
       if (!res.ok) {
         throw new Error(data.message || data.error || 'Kaynak müsaitlik okunamadı')
@@ -2253,20 +2259,28 @@ export default function CatalogNewListingClient({
       setAvailScrapePreview({
         blocked_day_count: data.blocked_day_count ?? 0,
         blocked_days: data.blocked_days ?? [],
+        reopen_day_count: data.reopen_day_count ?? 0,
+        reopen_days: data.reopen_days ?? [],
         notes: data.notes ?? '',
         source_url: data.source_url ?? url,
         insufficient_data: Boolean(data.insufficient_data),
       })
+      const closeN = data.blocked_day_count ?? 0
+      const openN = data.reopen_day_count ?? 0
       if (apply) {
         setAvailScrapeMsg(
-          `${data.blocked_day_count ?? 0} gün kapalı olarak yazıldı. Takvimi yenileyin.`,
+          data.insufficient_data
+            ? 'Kaynakta güvenilir takvim verisi yok; değişiklik yazılmadı.'
+            : `${closeN} gün kapatıldı, ${openN} gün açıldı. Takvim yenilendi.`,
         )
         await loadCalendar()
       } else {
         setAvailScrapeMsg(
           data.insufficient_data
-            ? 'Kullanılabilir takvim verisi zayıf veya yok. JS takvimlerde çoğu zaman HTML boş gelir; iCal varsa onu kullanın.'
-            : `${data.blocked_day_count ?? 0} dolu gün bulundu. Kontrol edip «Takvime uygula» deyin.`,
+            ? 'Kullanılabilir takvim verisi zayıf veya yok. JS takvimlerde HTML boş gelebilir; iCal varsa onu kullanın.'
+            : `Önizleme: ${closeN} gün kapatılacak` +
+                (availScrapeReopen ? `, ${openN} gün açılacak` : ' (açma kapalı)') +
+                '. Kontrol edip «Takvime uygula» deyin.',
         )
       }
     } catch (e) {
@@ -4709,9 +4723,18 @@ export default function CatalogNewListingClient({
                           Kaynaktan müsaitlik (AI)
                         </h3>
                         <p className="mt-1 text-xs text-neutral-600 dark:text-neutral-400">
-                          Referans / müsaitlik sayfasındaki HTML’den dolu tarihleri çıkarır; yalnızca gün kapatır (açmaz).
-                          JS ile çizilen takvimlerde veri gelmeyebilir — varsa iCal tercih edin.
+                          Referans sayfasındaki dolu günleri kapatır; kaynakta yeniden açılanları da (işaretliyse) açar.
+                          JS takvimlerde HTML boş gelebilir — varsa iCal tercih edin. Elle kapattığınız günler de açılabilir.
                         </p>
+                        <label className="mt-2 flex items-center gap-2 text-xs text-neutral-700 dark:text-neutral-300">
+                          <input
+                            type="checkbox"
+                            checked={availScrapeReopen}
+                            onChange={(e) => setAvailScrapeReopen(e.target.checked)}
+                            className="rounded border-neutral-300"
+                          />
+                          Kaynakta müsait görünen kapalı günleri de aç
+                        </label>
                         <div className="mt-3 flex flex-wrap gap-2">
                           <button
                             type="button"
@@ -4727,7 +4750,9 @@ export default function CatalogNewListingClient({
                               availScrapeBusy ||
                               !editListingId ||
                               !availScrapePreview ||
-                              availScrapePreview.blocked_day_count < 1
+                              availScrapePreview.insufficient_data ||
+                              (availScrapePreview.blocked_day_count < 1 &&
+                                (!availScrapeReopen || availScrapePreview.reopen_day_count < 1))
                             }
                             onClick={() => void scrapeAvailabilityFromSource(true)}
                             className="rounded-xl bg-emerald-600 px-3 py-2 text-sm font-semibold text-white disabled:opacity-40"
@@ -4738,13 +4763,27 @@ export default function CatalogNewListingClient({
                         {availScrapeMsg ? (
                           <p className="mt-2 text-xs text-amber-800 dark:text-amber-200">{availScrapeMsg}</p>
                         ) : null}
-                        {availScrapePreview && availScrapePreview.blocked_day_count > 0 ? (
-                          <p className="mt-2 font-mono text-[11px] text-neutral-500">
-                            {availScrapePreview.blocked_days.slice(0, 12).join(', ')}
-                            {availScrapePreview.blocked_days.length > 12
-                              ? ` … (+${availScrapePreview.blocked_days.length - 12})`
-                              : ''}
-                          </p>
+                        {availScrapePreview &&
+                        (availScrapePreview.blocked_day_count > 0 ||
+                          availScrapePreview.reopen_day_count > 0) ? (
+                          <div className="mt-2 space-y-1 font-mono text-[11px] text-neutral-500">
+                            {availScrapePreview.blocked_day_count > 0 ? (
+                              <p>
+                                Kapat: {availScrapePreview.blocked_days.slice(0, 8).join(', ')}
+                                {availScrapePreview.blocked_days.length > 8
+                                  ? ` … (+${availScrapePreview.blocked_days.length - 8})`
+                                  : ''}
+                              </p>
+                            ) : null}
+                            {availScrapePreview.reopen_day_count > 0 ? (
+                              <p>
+                                Aç: {availScrapePreview.reopen_days.slice(0, 8).join(', ')}
+                                {availScrapePreview.reopen_days.length > 8
+                                  ? ` … (+${availScrapePreview.reopen_days.length - 8})`
+                                  : ''}
+                              </p>
+                            ) : null}
+                          </div>
                         ) : null}
                       </div>
                     ) : null}

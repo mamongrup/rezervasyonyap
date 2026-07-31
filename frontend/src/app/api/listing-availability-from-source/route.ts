@@ -7,6 +7,7 @@ import { apiOriginForFetch } from '@/lib/api-origin'
 import {
   createAiJob,
   getAiJob,
+  getListingAvailabilityCalendar,
   getListingMeta,
   putListingAvailabilityCalendar,
   runAiJob,
@@ -172,6 +173,8 @@ export async function POST(req: NextRequest) {
       listingId?: string
       url?: string
       apply?: boolean
+      /** Kaynakta artık dolu görünmeyen, bizde kapalı günleri aç (varsayılan true) */
+      reopen?: boolean
       from?: string
       to?: string
       organizationId?: string
@@ -180,6 +183,7 @@ export async function POST(req: NextRequest) {
     if (!listingId) return NextResponse.json({ error: 'listing_id_required' }, { status: 400 })
 
     const apply = body.apply === true
+    const reopen = body.reopen !== false
     const today = new Date()
     const defaultFrom = ymd(today)
     const defaultTo = ymd(new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth() + 6, today.getUTCDate())))
@@ -300,24 +304,58 @@ export async function POST(req: NextRequest) {
       for (const d of days) daySet.add(d)
     }
     const blockedDays = [...daySet].sort()
+    const aiInsufficient = Boolean(parsed.insufficient_data)
+
+    // Bizde kapalı ama kaynakta dolu listesinde olmayan günler → açılabilir adaylar
+    let reopenDays: string[] = []
+    if (!aiInsufficient && reopen) {
+      try {
+        const current = await getListingAvailabilityCalendar(
+          token,
+          listingId,
+          { from: windowFrom, to: windowTo },
+          orgQ,
+        )
+        reopenDays = (current.days || [])
+          .filter((d) => {
+            const closed = !(d.am_available ?? d.is_available) && !(d.pm_available ?? d.is_available)
+            return closed && !daySet.has(d.day)
+          })
+          .map((d) => d.day)
+          .sort()
+      } catch {
+        reopenDays = []
+      }
+    }
 
     let applied = false
-    if (apply && blockedDays.length > 0) {
-      await putListingAvailabilityCalendar(
-        token,
-        listingId,
-        {
-          days: blockedDays.map((day) => ({
-            day,
-            is_available: false,
-            am_available: false,
-            pm_available: false,
-            price_override: '',
-            day_status: null,
-          })),
-        },
-        orgQ,
-      )
+    if (apply && !aiInsufficient && (blockedDays.length > 0 || reopenDays.length > 0)) {
+      const patch: {
+        day: string
+        is_available: boolean
+        am_available: boolean
+        pm_available: boolean
+        price_override: string
+        day_status: null
+      }[] = [
+        ...blockedDays.map((day) => ({
+          day,
+          is_available: false,
+          am_available: false,
+          pm_available: false,
+          price_override: '',
+          day_status: null,
+        })),
+        ...reopenDays.map((day) => ({
+          day,
+          is_available: true,
+          am_available: true,
+          pm_available: true,
+          price_override: '',
+          day_status: null,
+        })),
+      ]
+      await putListingAvailabilityCalendar(token, listingId, { days: patch }, orgQ)
       applied = true
     }
 
@@ -327,11 +365,14 @@ export async function POST(req: NextRequest) {
       source_url: finalUrl,
       applied,
       dry_run: !apply,
-      insufficient_data: Boolean(parsed.insufficient_data) || blockedDays.length === 0,
+      reopen,
+      insufficient_data: aiInsufficient,
       notes: String(parsed.notes || '').slice(0, 500),
       blocked_ranges: acceptedRanges,
       blocked_days: blockedDays,
       blocked_day_count: blockedDays.length,
+      reopen_days: reopenDays,
+      reopen_day_count: reopenDays.length,
       window_from: windowFrom,
       window_to: windowTo,
     })
