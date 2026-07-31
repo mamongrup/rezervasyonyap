@@ -724,6 +724,15 @@ export default function CatalogNewListingClient({
   const [referenceCandidates, setReferenceCandidates] = useState<Array<{ url: string; title: string; snippet: string; score?: number; reason?: string }>>([])
   const [selectedReferenceUrls, setSelectedReferenceUrls] = useState<string[]>([])
   const [referenceSearchBusy, setReferenceSearchBusy] = useState(false)
+  const [availScrapeBusy, setAvailScrapeBusy] = useState(false)
+  const [availScrapeMsg, setAvailScrapeMsg] = useState<string | null>(null)
+  const [availScrapePreview, setAvailScrapePreview] = useState<{
+    blocked_day_count: number
+    blocked_days: string[]
+    notes: string
+    source_url: string
+    insufficient_data: boolean
+  } | null>(null)
   /** İlan oluşmadan önce yüklenen galeri anahtarları; kayıtta `addListingImage` ile bağlanır */
   const [pendingGalleryKeys, setPendingGalleryKeys] = useState<string[]>([])
   /** Tatil evi düzenle: sunucudaki sıralı görseller (önizleme); yükleme ayrı galeri sayfasında */
@@ -2199,6 +2208,72 @@ export default function CatalogNewListingClient({
       setCalSaveMsg({ ok: false, text: 'Takvim kaydedilemedi.' })
     } finally {
       setCalBusy(null)
+    }
+  }
+
+  async function scrapeAvailabilityFromSource(apply: boolean) {
+    if (!editListingId) {
+      setAvailScrapeMsg('Önce ilanı kaydedin.')
+      return
+    }
+    const url = (sourceAvailabilityUrl || sourceReferenceUrl || sourcePriceUrl).trim()
+    if (!url) {
+      setAvailScrapeMsg('Referans veya müsaitlik bağlantısı gerekli (Kaynak adımı).')
+      return
+    }
+    setAvailScrapeBusy(true)
+    setAvailScrapeMsg(null)
+    try {
+      const res = await fetch('/api/listing-availability-from-source', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          listingId: editListingId,
+          url,
+          apply,
+          from: calFrom || undefined,
+          to: calTo || undefined,
+          organizationId: needOrg && orgId.trim() ? orgId.trim() : undefined,
+        }),
+      })
+      const data = (await res.json()) as {
+        error?: string
+        message?: string
+        ok?: boolean
+        applied?: boolean
+        insufficient_data?: boolean
+        notes?: string
+        source_url?: string
+        blocked_day_count?: number
+        blocked_days?: string[]
+      }
+      if (!res.ok) {
+        throw new Error(data.message || data.error || 'Kaynak müsaitlik okunamadı')
+      }
+      setAvailScrapePreview({
+        blocked_day_count: data.blocked_day_count ?? 0,
+        blocked_days: data.blocked_days ?? [],
+        notes: data.notes ?? '',
+        source_url: data.source_url ?? url,
+        insufficient_data: Boolean(data.insufficient_data),
+      })
+      if (apply) {
+        setAvailScrapeMsg(
+          `${data.blocked_day_count ?? 0} gün kapalı olarak yazıldı. Takvimi yenileyin.`,
+        )
+        await loadCalendar()
+      } else {
+        setAvailScrapeMsg(
+          data.insufficient_data
+            ? 'Kullanılabilir takvim verisi zayıf veya yok. JS takvimlerde çoğu zaman HTML boş gelir; iCal varsa onu kullanın.'
+            : `${data.blocked_day_count ?? 0} dolu gün bulundu. Kontrol edip «Takvime uygula» deyin.`,
+        )
+      }
+    } catch (e) {
+      setAvailScrapeMsg(e instanceof Error ? e.message : 'Kaynak müsaitlik okunamadı')
+      setAvailScrapePreview(null)
+    } finally {
+      setAvailScrapeBusy(false)
     }
   }
 
@@ -4628,6 +4703,51 @@ export default function CatalogNewListingClient({
                     {/* ── Müsaitlik Takvimi ── */}
                     {calSubTab === 'calendar' && (
                       <>
+                    {!isHotel ? (
+                      <div className="mb-4 rounded-xl border border-amber-200/80 bg-amber-50/50 p-4 dark:border-amber-900/40 dark:bg-amber-950/20">
+                        <h3 className="text-sm font-semibold text-neutral-900 dark:text-white">
+                          Kaynaktan müsaitlik (AI)
+                        </h3>
+                        <p className="mt-1 text-xs text-neutral-600 dark:text-neutral-400">
+                          Referans / müsaitlik sayfasındaki HTML’den dolu tarihleri çıkarır; yalnızca gün kapatır (açmaz).
+                          JS ile çizilen takvimlerde veri gelmeyebilir — varsa iCal tercih edin.
+                        </p>
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          <button
+                            type="button"
+                            disabled={availScrapeBusy || !editListingId}
+                            onClick={() => void scrapeAvailabilityFromSource(false)}
+                            className="rounded-xl border border-neutral-300 bg-white px-3 py-2 text-sm font-semibold disabled:opacity-50 dark:border-neutral-600 dark:bg-neutral-900"
+                          >
+                            {availScrapeBusy ? 'Okunuyor…' : '1. Önizle'}
+                          </button>
+                          <button
+                            type="button"
+                            disabled={
+                              availScrapeBusy ||
+                              !editListingId ||
+                              !availScrapePreview ||
+                              availScrapePreview.blocked_day_count < 1
+                            }
+                            onClick={() => void scrapeAvailabilityFromSource(true)}
+                            className="rounded-xl bg-emerald-600 px-3 py-2 text-sm font-semibold text-white disabled:opacity-40"
+                          >
+                            2. Takvime uygula
+                          </button>
+                        </div>
+                        {availScrapeMsg ? (
+                          <p className="mt-2 text-xs text-amber-800 dark:text-amber-200">{availScrapeMsg}</p>
+                        ) : null}
+                        {availScrapePreview && availScrapePreview.blocked_day_count > 0 ? (
+                          <p className="mt-2 font-mono text-[11px] text-neutral-500">
+                            {availScrapePreview.blocked_days.slice(0, 12).join(', ')}
+                            {availScrapePreview.blocked_days.length > 12
+                              ? ` … (+${availScrapePreview.blocked_days.length - 12})`
+                              : ''}
+                          </p>
+                        ) : null}
+                      </div>
+                    ) : null}
                     {isHotel ? (
                       <HotelRoomAvailabilityEditor
                         listingId={editListingId}

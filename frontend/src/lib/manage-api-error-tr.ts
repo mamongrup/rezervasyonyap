@@ -237,6 +237,11 @@ const TR_BY_CODE: Record<string, string> = {
   deepseek_provider_inactive:
     'DeepSeek sağlayıcı pasif. Gemini anahtarları da kullanılamıyorsa Ayarlar → Yapay zeka’dan DeepSeek’i açın.',
   llm_unavailable: 'Yapay zeka yanıtı üretilemedi (Gemini ve DeepSeek kullanılamıyor). Anahtar ve kota durumunu kontrol edin.',
+  ics_use_ical_tab:
+    'Bu bağlantı iCal/ICS. Takvim & Sezon → iCal Senkronizasyon sekmesini kullanın.',
+  source_url_missing: 'Önce ilan referans veya müsaitlik bağlantısını kaydedin.',
+  listing_availability_ai_failed: 'Kaynak müsaitlik AI görevi başarısız. Gemini/DeepSeek anahtar ve kotayı kontrol edin.',
+  ai_json_parse_failed: 'AI yanıtı işlenemedi. Tekrar deneyin veya iCal kullanın.',
   job_not_queued: 'AI işi zaten işlenmiş veya kilitli.',
   ai_job_lock_failed: 'AI işi başlatılamadı (veritabanı).',
   region_content_unexpected_job_rows: 'AI iş kaydı beklenmedik.',
