@@ -1,5 +1,4 @@
 import { Footer2TrustBadge } from '@/components/Footer2TrustBadge'
-import { brandSiteLabel, brandSitesExcludingHost } from '@/lib/brand-sites'
 import { getFooterSiteConfig } from '@/lib/footer-site-config'
 import { pickI18nWithLegacy } from '@/lib/i18n-field'
 import { getSitePublicConfig, mergeBrandingIntoEnvContact } from '@/lib/site-public-config'
@@ -7,7 +6,6 @@ import { vitrinHref } from '@/lib/vitrin-href'
 import { cn } from '@/lib/utils'
 import { getMessages } from '@/utils/getT'
 import Logo, { type BrandingConfig } from '@/shared/Logo'
-import { headers } from 'next/headers'
 import { use, type JSX, type SVGProps } from 'react'
 
 function socialIcon(name: string): (props: SVGProps<SVGSVGElement>) => JSX.Element {
@@ -112,31 +110,6 @@ export default function Footer2({ locale, branding }: Footer2Props) {
     ),
   )
 
-  const sisterSites = use(
-    (async () => {
-      try {
-        const h = await headers()
-        const host = (h.get('x-forwarded-host') ?? h.get('host') ?? '').split(',')[0]?.trim() ?? ''
-        return brandSitesExcludingHost(host)
-      } catch {
-        return brandSitesExcludingHost('rezervasyonyap.tr')
-      }
-    })(),
-  )
-
-  const brandsHeading =
-    locale.toLowerCase().startsWith('en')
-      ? 'Our sites'
-      : locale.toLowerCase().startsWith('de')
-        ? 'Unsere Websites'
-        : locale.toLowerCase().startsWith('fr')
-          ? 'Nos sites'
-          : locale.toLowerCase().startsWith('ru')
-            ? 'Наши сайты'
-            : locale.toLowerCase().startsWith('zh')
-              ? '我们的网站'
-              : 'Sitelerimiz'
-
   return (
     <footer className="min-w-0 overflow-x-clip border-t border-neutral-200 bg-white dark:border-neutral-700 dark:bg-neutral-950">
       {/* Üstte nefes payı; altta yasal satırdan sonra gereksiz boşluk olmaması için pb daha küçük */}
@@ -196,25 +169,6 @@ export default function Footer2({ locale, branding }: Footer2Props) {
             ))}
           </div>
         </div>
-
-        {sisterSites.length > 0 ? (
-          <nav
-            aria-label={brandsHeading}
-            className="mt-12 flex min-w-0 flex-col gap-2 border-t border-gray-900/10 pt-8 dark:border-gray-700 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-6 sm:gap-y-2"
-          >
-            <span className={cn(headingCls, 'sm:mr-2')}>{brandsHeading}</span>
-            {sisterSites.map((site) => (
-              <a
-                key={site.apex}
-                href={site.origin}
-                className={cn(linkCls, 'break-words')}
-                rel="noopener"
-              >
-                {brandSiteLabel(site, locale)}
-              </a>
-            ))}
-          </nav>
-        ) : null}
 
         <div className="mt-16 flex min-w-0 flex-col items-start gap-4 border-t border-gray-900/10 pt-8 sm:mt-20 sm:flex-row sm:items-center sm:justify-between lg:mt-24 dark:border-gray-700">
           <p className="min-w-0 max-w-full break-words text-sm/6 text-gray-500 dark:text-neutral-400">

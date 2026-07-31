@@ -73,7 +73,7 @@ const FooterQuickNavigation = () => {
     }
   }, [hideOnManage])
 
-  // Yönetim / personel: vitrin mobil alt barı yok (Footer2 de HideOnManageStaff ile gizlenir).
+  // Yönetim / personel: vitrin mobil alt barı yok (site Footer2 panelde görünür).
   if (hideOnManage) return null
 
   function openSupportMenu() {

@@ -10,35 +10,37 @@ import { Suspense } from 'react'
 /**
  * Non-critical layout widgets deferred until after hydration.
  * FooterQuickNavigation mounts immediately; site config (Footer2, cookies) suspends separately.
- * /manage ve /staff: vitrin Footer2 + cookie banner yok (panel kendi kabuğunu kullanır).
+ * Footer2 vitrin + yönetim panelinde görünür; cookie banner yalnızca vitrinde.
  */
 type Props = { locale: string }
 
-async function FooterConfigWidgets({ locale }: Props) {
+async function SiteFooter({ locale }: Props) {
   const [config, hostname] = await Promise.all([getCachedSiteConfig(), getRequestHostname()])
-  const ui = config?.ui as Record<string, unknown> | null | undefined
-  const cc = ui?.cookie_consent as Record<string, unknown> | undefined
-  const bannerEnabled = cc?.banner_enabled !== false
   const branding = applyBrandingDomainOverrides(
     (config?.branding as Record<string, unknown> | null) ?? {},
     hostname,
   )
+  return <Footer2 locale={locale} branding={branding} />
+}
 
-  return (
-    <>
-      <Footer2 locale={locale} branding={branding} />
-      <CookieConsentBanner locale={locale} bannerEnabled={bannerEnabled} />
-    </>
-  )
+async function CookieWidget({ locale }: Props) {
+  const config = await getCachedSiteConfig()
+  const ui = config?.ui as Record<string, unknown> | null | undefined
+  const cc = ui?.cookie_consent as Record<string, unknown> | undefined
+  const bannerEnabled = cc?.banner_enabled !== false
+  return <CookieConsentBanner locale={locale} bannerEnabled={bannerEnabled} />
 }
 
 export function DeferredFooterWidgets({ locale }: Props) {
   return (
     <>
       <FooterQuickNavigation />
+      <Suspense fallback={null}>
+        <SiteFooter locale={locale} />
+      </Suspense>
       <HideOnManageStaff>
         <Suspense fallback={null}>
-          <FooterConfigWidgets locale={locale} />
+          <CookieWidget locale={locale} />
         </Suspense>
       </HideOnManageStaff>
     </>

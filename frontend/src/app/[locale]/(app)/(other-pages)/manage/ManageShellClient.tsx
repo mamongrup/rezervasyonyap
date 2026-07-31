@@ -9,7 +9,7 @@ import ManagePanelTopBar from './ManagePanelTopBar'
 import { ManageSubnav } from './ManageSubnav'
 
 /**
- * Site geneli `ApplicationLayout` Header’ı korunur; vitrin Footer2 /manage ve /staff’ta gizlenir.
+ * Site geneli `ApplicationLayout` Header + Footer2 korunur (panelde de site alt bilgisi görünür).
  * Burada yalnızca panel yan menüsü + içerik alanı var.
  * İkinci savunma katmanı: middleware geçmişse de burada token/rol kontrolü yapılır.
  */
