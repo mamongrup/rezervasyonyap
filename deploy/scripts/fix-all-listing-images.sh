@@ -20,6 +20,9 @@ fi
 step() { echo ""; echo "==> $*"; }
 
 step "SQL CDN uzantı onarımları (382–387)"
+# featured_image_url UPDATE → trg_ai_listings_change → ai_enqueue_content → ai_work_items kilidi.
+# Bakımda enqueue atlanır (app.ai_apply=1).
+export APPLY_SQL_SKIP_AI_ENQUEUE="${APPLY_SQL_SKIP_AI_ENQUEUE:-1}"
 for f in \
   backend/priv/sql/modules/382_repair_listing_image_ext_after_partial_avif.sql \
   backend/priv/sql/modules/383_repair_external_cdn_image_extensions.sql \
@@ -32,8 +35,18 @@ do
     echo "  apply $f"
     bash deploy/apply-sql.sh "$f" || {
       echo "WARN: apply-sql failed for $f — trying psql fallback if PG* set"
-      if [[ -n "${PGDATABASE:-}" ]]; then
-        psql -v ON_ERROR_STOP=1 -f "$f"
+      if [[ -n "${PGDATABASE:-}" || -n "${DATABASE_URL:-}" ]]; then
+        if [[ -n "${DATABASE_URL:-}" ]]; then
+          {
+            echo "SELECT set_config('app.ai_apply', '1', false);"
+            cat "$f"
+          } | psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f -
+        else
+          {
+            echo "SELECT set_config('app.ai_apply', '1', false);"
+            cat "$f"
+          } | psql -v ON_ERROR_STOP=1 -f -
+        fi
       else
         echo "ERROR: could not apply $f"
         exit 1

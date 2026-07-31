@@ -81,20 +81,36 @@ if [[ "$loaded_env" -eq 1 ]] && [[ -z "${DATABASE_URL:-}" ]] && [[ -z "${PGPASSW
 fi
 
 if [[ -n "${DATABASE_URL:-}" ]]; then
-  if [[ "$SQL_MODE" == "command" ]]; then
-    psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -c "$SQL_COMMAND"
-  else
-    psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f "$SQL_FILE"
-  fi
+  PSQL=(psql "$DATABASE_URL" -v ON_ERROR_STOP=1)
 else
   export PGHOST="${PGHOST:-127.0.0.1}"
   export PGPORT="${PGPORT:-5432}"
   export PGUSER="${PGUSER:-postgres}"
   export PGDATABASE="${PGDATABASE:-travel}"
-  if [[ "$SQL_MODE" == "command" ]]; then
-    psql -v ON_ERROR_STOP=1 -c "$SQL_COMMAND"
+  PSQL=(psql -v ON_ERROR_STOP=1)
+fi
+
+# Toplu bakım (görsel URL vb.): AI trigger enqueue kilidini atla (app.ai_apply=1).
+# Örnek: APPLY_SQL_SKIP_AI_ENQUEUE=1 ./deploy/apply-sql.sh modules/387_....sql
+PREAMBLE=""
+if [[ "${APPLY_SQL_SKIP_AI_ENQUEUE:-0}" == "1" ]]; then
+  PREAMBLE="SELECT set_config('app.ai_apply', '1', false);"
+fi
+
+if [[ "$SQL_MODE" == "command" ]]; then
+  if [[ -n "$PREAMBLE" ]]; then
+    "${PSQL[@]}" -c "$PREAMBLE" -c "$SQL_COMMAND"
   else
-    psql -v ON_ERROR_STOP=1 -f "$SQL_FILE"
+    "${PSQL[@]}" -c "$SQL_COMMAND"
+  fi
+else
+  if [[ -n "$PREAMBLE" ]]; then
+    {
+      echo "$PREAMBLE"
+      cat "$SQL_FILE"
+    } | "${PSQL[@]}" -f -
+  else
+    "${PSQL[@]}" -f "$SQL_FILE"
   fi
 fi
 

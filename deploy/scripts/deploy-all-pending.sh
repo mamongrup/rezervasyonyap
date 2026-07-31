@@ -20,6 +20,7 @@
 #   SKIP_VILLA_TITLE_SQL=1 SKIP_GULBAY_SQL=1
 #   SKIP_SOCIAL_SQL=1 SKIP_AI_SQL=1 SKIP_DEPLOY=1 SKIP_VERIFY=1
 #   SKIP_SOCIAL_RESTART=1
+#   IMAGE_FIX_STRICT=1   # görsel onarım kilidi deploy'u düşürsün (varsayılan: uyar + devam)
 #   REHOST_EXTERNAL=1   # CDN görsellerini yerel AVIF'e al (uzun)
 #
 set -euo pipefail
@@ -64,9 +65,14 @@ fi
 
 if [[ "${SKIP_IMAGE_FIX:-0}" != "1" ]]; then
   step "ilan görselleri CDN onarımı (382–387)"
-  REHOST_EXTERNAL="${REHOST_EXTERNAL:-0}" ./deploy/scripts/fix-all-listing-images.sh \
-    || fail "fix-all-listing-images.sh başarısız"
-  ok "görsel onarım"
+  # Varsayılan: görsel onarım kilidi tüm deploy'u düşürmesin (IMAGE_FIX_STRICT=1 ile eski davranış).
+  if REHOST_EXTERNAL="${REHOST_EXTERNAL:-0}" ./deploy/scripts/fix-all-listing-images.sh; then
+    ok "görsel onarım"
+  elif [[ "${IMAGE_FIX_STRICT:-0}" == "1" ]]; then
+    fail "fix-all-listing-images.sh başarısız"
+  else
+    warn "fix-all-listing-images.sh başarısız — devam (SKIP_IMAGE_FIX=1 veya IMAGE_FIX_STRICT=1)"
+  fi
 else
   warn "SKIP_IMAGE_FIX=1"
 fi
