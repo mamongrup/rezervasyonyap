@@ -14,6 +14,7 @@
 #   SKIP_SOCIAL_WORKER_TIMER=1 ./deploy/deploy.sh             # sosyal paylaşım worker timer kurulumunu atla
 #   SKIP_DB_CONN_GUARD=1 ./deploy/deploy.sh                   # PostgreSQL orphan bağlantı temizliğini atla
 #   SKIP_AI_OPERATIONS_SCHEMA=1 ./deploy/deploy.sh             # AI operasyon amiri SQL modülünü atla
+#   SKIP_AI_CONTINUOUS_PRODUCTION=1 ./deploy/deploy.sh         # 376 müdür/kadrosu aktivasyonunu atla
 #   SKIP_MULTIDOMAIN_ENV=1 ./deploy/deploy.sh                 # çoklu domain frontend env güncellemesini atla
 #   TRAVEL_DB_CONN_THRESHOLD=30 ./deploy/deploy.sh             # bağlantı guard eşiği
 #   FORCE_NPM_CI=1 ./deploy/deploy.sh                         # node_modules'u zorla yenile
