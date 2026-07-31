@@ -1,4 +1,5 @@
 import type { FreeformBannerDocV2 } from '@/lib/freeform-banner-spec'
+import { preferUploadsAvifUrl } from '@/lib/prefer-hero-avif'
 import { sanitizeHeroInlineHtml } from '@/lib/sanitize-cms-html'
 import clsx from 'clsx'
 import Image from 'next/image'
@@ -25,7 +26,7 @@ function MosaicSlot({
   sizes: string
   priority?: boolean
 }) {
-  const t = src.trim()
+  const t = preferUploadsAvifUrl(src.trim())
   if (!t) {
     return <div className="absolute inset-0 bg-neutral-200 dark:bg-neutral-700" aria-hidden />
   }

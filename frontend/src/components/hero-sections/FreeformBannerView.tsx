@@ -1,4 +1,5 @@
 import type { FreeformBannerDocV2 } from '@/lib/freeform-banner-spec'
+import { preferUploadsAvifUrl } from '@/lib/prefer-hero-avif'
 import clsx from 'clsx'
 import Image from 'next/image'
 import DeferredHeroLayerImage from './DeferredHeroLayerImage'
@@ -82,7 +83,7 @@ export default function FreeformBannerView({
           const urlIdx =
             typeof si === 'number' && Number.isFinite(si) ? Math.min(2, Math.max(0, Math.round(si))) : i
           const rawSrc = (imageUrls[urlIdx] ?? layer.src ?? '').trim()
-          const src = rawSrc
+          const src = preferUploadsAvifUrl(rawSrc)
           const has = src !== ''
           const bx = bounds
             ? ((layer.x - bounds.minX) / bounds.bw) * 100

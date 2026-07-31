@@ -59,6 +59,7 @@ import { resolveCategoryDisplay } from '@/lib/localized-category'
 import { vitrinHref } from '@/lib/vitrin-href'
 import { buildListingsItemListJsonLd } from '@/lib/seo/listings-itemlist-jsonld'
 import { panelImagesToFreeformUrls } from '@/lib/hero-gallery-slots'
+import { preferHeroAvifTriple } from '@/lib/prefer-hero-avif'
 import { DEFAULT_REGION_HERO_FREEFORM } from '@/lib/region-hero-freeform-defaults'
 import { MapsLocation01Icon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
@@ -373,7 +374,7 @@ export default async function CategoryPageTemplate({
    * `0=sağ, 1=sol üst, 2=sol alt` → `[mosaic[2], mosaic[0], mosaic[1]]`
    * @see `app/(home-pages)/page.tsx` (`mosaicForRegionHero`)
    */
-  const mosaicForRegionHero = panelImagesToFreeformUrls(mosaicImages)
+  const mosaicForRegionHero = preferHeroAvifTriple(panelImagesToFreeformUrls(mosaicImages))
 
   const countFormatted = convertNumbThousand(count)
   const heroDescription = (
