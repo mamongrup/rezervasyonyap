@@ -20,6 +20,16 @@ describe('hero-search-target', () => {
     expect(heroSearchResultsPathFromRestPath('/turlar/all')).toBe('/turlar/all')
   })
 
+  it('maps experience/car map routes to same category /all (not turlar fallback)', () => {
+    expect(heroSearchVerticalFromRestPath('/aktiviteler-harita')).toBe('experience')
+    expect(heroSearchResultsPathFromRestPath('/aktiviteler-harita')).toBe('/aktiviteler/all')
+    expect(heroSearchResultsPathFromRestPath('/kruvaziyer-harita/all')).toBe('/kruvaziyer/all')
+    expect(heroSearchResultsPathFromRestPath('/hac-umre-harita')).toBe('/hac-umre/all')
+    expect(heroSearchResultsPathFromRestPath('/feribot-harita')).toBe('/feribot/all')
+    expect(heroSearchResultsPathFromRestPath('/transfer-harita')).toBe('/transfer/all')
+    expect(heroSearchResultsPathFromRestPath('/oteller-harita')).toBe('/oteller/all')
+  })
+
   it('maps car / ferry / transfer', () => {
     expect(heroSearchVerticalFromRestPath('/arac-kiralama/all')).toBe('car')
     expect(heroSearchResultsPathFromRestPath('/feribot/all')).toBe('/feribot/all')

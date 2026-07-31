@@ -72,7 +72,20 @@ export default async function Page({
                 from: liveFrom,
                 to: liveTo,
                 date: liveDate!,
-                adults: query.guests ? parseInt(String(query.guests), 10) || 1 : 1,
+                adults: (() => {
+                  const a = query.guestAdults ? parseInt(String(query.guestAdults), 10) : NaN
+                  if (Number.isFinite(a) && a >= 1) return a
+                  const g = query.guests ? parseInt(String(query.guests), 10) : NaN
+                  return Number.isFinite(g) && g >= 1 ? g : 1
+                })(),
+                children: (() => {
+                  const c = query.guestChildren ? parseInt(String(query.guestChildren), 10) : NaN
+                  return Number.isFinite(c) && c > 0 ? c : 0
+                })(),
+                infants: (() => {
+                  const i = query.guestInfants ? parseInt(String(query.guestInfants), 10) : NaN
+                  return Number.isFinite(i) && i > 0 ? i : 0
+                })(),
                 cabinClass: query.class,
                 trip: query.trip,
               }}
@@ -97,6 +110,9 @@ export default async function Page({
         checkin: query.checkin,
         checkout: query.checkout,
         guests: query.guests,
+        guestAdults: query.guestAdults,
+        guestChildren: query.guestChildren,
+        guestInfants: query.guestInfants,
         from: query.from,
         to: query.to,
         regionLabel,

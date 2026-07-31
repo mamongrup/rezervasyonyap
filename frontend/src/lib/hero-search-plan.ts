@@ -189,7 +189,19 @@ function buildSearchQuery(vertical: HeroSearchVertical, params: Record<string, s
       if (date) qs.set('date', date)
       if (params.checkout) qs.set('checkout', params.checkout)
       if (params.guests_total) qs.set('guests', params.guests_total)
-      else if (params.guestAdults) qs.set('guests', params.guestAdults)
+      else if (params.guestAdults || params.guestChildren || params.guestInfants) {
+        const total = guestSearchTotalFromRecord(params)
+        if (total > 0) qs.set('guests', String(total))
+      } else if (params.guestAdults) qs.set('guests', params.guestAdults)
+      if (params.guestAdults && Number.parseInt(params.guestAdults, 10) > 0) {
+        qs.set('guestAdults', params.guestAdults)
+      }
+      if (params.guestChildren && Number.parseInt(params.guestChildren, 10) > 0) {
+        qs.set('guestChildren', params.guestChildren)
+      }
+      if (params.guestInfants && Number.parseInt(params.guestInfants, 10) > 0) {
+        qs.set('guestInfants', params.guestInfants)
+      }
       if (params.trip_type === 'oneWay' || params.trip_type === 'roundTrip') {
         qs.set('trip', params.trip_type)
       } else if (params.trip_type === 'One-way') {

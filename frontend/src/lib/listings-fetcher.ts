@@ -813,9 +813,10 @@ export async function fetchCategoryListings(
   ])
 
   if (apiSearch.result) {
-    const detailSearchQuery = isStayRentalCategory(categoryCode)
-      ? buildStayDetailSearchQuery(effectiveQuery)
-      : undefined
+    const detailSearchQuery =
+      isStayRentalCategory(categoryCode) || categoryCode === 'hotel'
+        ? buildStayDetailSearchQuery(effectiveQuery)
+        : undefined
     const mapOpts: MapPublicListingItemOpts = {
       locale: locale || 'tr',
       holidayPropertyTypeItems: holidayPtItems.length > 0 ? holidayPtItems : undefined,

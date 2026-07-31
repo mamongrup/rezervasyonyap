@@ -51,6 +51,9 @@ const FlightSearchFormInner: FC<Props> = ({
   const urlTrip = searchParams.get('trip')
   const urlClass = searchParams.get('class')
   const urlGuests = searchParams.get('guests')
+  const urlGuestAdults = searchParams.get('guestAdults')
+  const urlGuestChildren = searchParams.get('guestChildren')
+  const urlGuestInfants = searchParams.get('guestInfants')
   const urlFrom = searchParams.get('from') ?? ''
   const urlTo = searchParams.get('to') ?? ''
   const urlDate = searchParams.get('date') ?? searchParams.get('checkin') ?? ''
@@ -70,11 +73,19 @@ const FlightSearchFormInner: FC<Props> = ({
   )
 
   const [guestAdultsInputValue, setGuestAdultsInputValue] = useState(() => {
+    const fromAdults = urlGuestAdults ? parseInt(urlGuestAdults, 10) : NaN
+    if (Number.isFinite(fromAdults) && fromAdults > 0) return fromAdults
     const n = urlGuests ? parseInt(urlGuests, 10) : NaN
     return Number.isFinite(n) && n > 0 ? n : DEFAULT_GUESTS_STAY.guestAdults
   })
-  const [guestChildrenInputValue, setGuestChildrenInputValue] = useState(DEFAULT_GUESTS_STAY.guestChildren)
-  const [guestInfantsInputValue, setGuestInfantsInputValue] = useState(DEFAULT_GUESTS_STAY.guestInfants)
+  const [guestChildrenInputValue, setGuestChildrenInputValue] = useState(() => {
+    const n = urlGuestChildren ? parseInt(urlGuestChildren, 10) : NaN
+    return Number.isFinite(n) && n > 0 ? n : 0
+  })
+  const [guestInfantsInputValue, setGuestInfantsInputValue] = useState(() => {
+    const n = urlGuestInfants ? parseInt(urlGuestInfants, 10) : NaN
+    return Number.isFinite(n) && n > 0 ? n : 0
+  })
   const router = useRouter()
 
   const defaultStartDate = useMemo(() => urlDate || undefined, [urlDate])
@@ -123,6 +134,13 @@ const FlightSearchFormInner: FC<Props> = ({
         }),
       ),
     )
+    if ((guestAdultsInputValue ?? 0) > 0) nextParams.set('guestAdults', String(guestAdultsInputValue))
+    if ((guestChildrenInputValue ?? 0) > 0) {
+      nextParams.set('guestChildren', String(guestChildrenInputValue))
+    }
+    if ((guestInfantsInputValue ?? 0) > 0) {
+      nextParams.set('guestInfants', String(guestInfantsInputValue))
+    }
     nextParams.set('trip', tripType)
     nextParams.set('class', flightClassState)
     const qs = nextParams.toString()

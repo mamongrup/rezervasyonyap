@@ -9,22 +9,50 @@ import { useAppLocale } from '@/hooks/useAppLocale'
 import { TourLocationInputField } from './ui/TourLocationInputField'
 import clsx from 'clsx'
 import Form from 'next/form'
-import { usePathname, useRouter } from 'next/navigation'
-import { useEffect, useMemo } from 'react'
+import { usePathname, useRouter, useSearchParams } from 'next/navigation'
+import { Suspense, useEffect, useMemo } from 'react'
 import { ButtonSubmit, DateRangeField, GuestNumberField, VerticalDividerLine } from './ui'
+
+export type ExperienceSearchPrefill = {
+  location?: string
+  date?: string
+  guests?: string
+}
 
 interface Props {
   className?: string
   formStyle: 'default' | 'small'
   /** Örn. `/aktiviteler/all` — verilmezse pathname’den çıkarılır */
   searchTargetPath?: string
+  searchPrefill?: ExperienceSearchPrefill
 }
 
-export const ExperiencesSearchForm = ({
+function mergePrefill(
+  searchPrefill: ExperienceSearchPrefill | undefined,
+  fromUrl: ExperienceSearchPrefill,
+): ExperienceSearchPrefill {
+  return {
+    location: searchPrefill?.location?.trim() || fromUrl.location,
+    date: searchPrefill?.date?.trim() || fromUrl.date,
+    guests: searchPrefill?.guests?.trim() || fromUrl.guests,
+  }
+}
+
+function guestDefaultsFromPrefill(prefill: ExperienceSearchPrefill) {
+  const raw = prefill.guests
+  if (!raw) return DEFAULT_GUESTS_EXPERIENCE
+  const n = parseInt(raw, 10)
+  if (!Number.isFinite(n) || n < 1) return DEFAULT_GUESTS_EXPERIENCE
+  return { ...DEFAULT_GUESTS_EXPERIENCE, guestAdults: n }
+}
+
+function ExperiencesSearchFormFields({
   className,
   formStyle = 'default',
   searchTargetPath: searchTargetPathProp,
-}: Props) => {
+  searchPrefill,
+  urlSearch,
+}: Props & { urlSearch: ExperienceSearchPrefill }) {
   const { messages } = useAppLocale()
   const hf = messages.HeroSearchForm
   const router = useRouter()
@@ -36,6 +64,12 @@ export const ExperiencesSearchForm = ({
     const { restPath } = stripLocalePrefix(pathname ?? '/')
     return heroSearchResultsPathFromRestPath(restPath)
   }, [pathname, searchTargetPathProp])
+
+  const prefill = useMemo(
+    () => mergePrefill(searchPrefill, urlSearch),
+    [searchPrefill, urlSearch],
+  )
+  const guestDefaults = useMemo(() => guestDefaultsFromPrefill(prefill), [prefill])
 
   useEffect(() => {
     router.prefetch(vitrinHref(searchTargetPath))
@@ -75,6 +109,7 @@ export const ExperiencesSearchForm = ({
       <TourLocationInputField
         className="hero-search-form__field-after flex-5/12"
         fieldStyle={formStyle}
+        defaultName={prefill.location}
         onHubSelect={handleHubSelect}
       />
       <VerticalDividerLine />
@@ -82,17 +117,50 @@ export const ExperiencesSearchForm = ({
         className="hero-search-form__field-before hero-search-form__field-after flex-4/12"
         fieldStyle={formStyle}
         description={hf['Date range']}
+        defaultStartDate={prefill.date}
       />
       <VerticalDividerLine />
       <GuestNumberField
         className="hero-search-form__field-before flex-4/12"
         clearDataButtonClassName={clsx(formStyle === 'small' && 'sm:end-18', formStyle === 'default' && 'sm:end-22')}
         fieldStyle={formStyle}
-        guestDefaults={DEFAULT_GUESTS_EXPERIENCE}
+        guestDefaults={guestDefaults}
         askChildAges={false}
       />
 
       <ButtonSubmit fieldStyle={formStyle} className="z-10" />
     </Form>
+  )
+}
+
+function ExperiencesSearchFormWithUrl(props: Props) {
+  const urlSearchParams = useSearchParams()
+  const fromUrl: ExperienceSearchPrefill = {
+    location: urlSearchParams.get('location')?.trim() || undefined,
+    date:
+      urlSearchParams.get('date')?.trim() ||
+      urlSearchParams.get('checkin')?.trim() ||
+      undefined,
+    guests: urlSearchParams.get('guests')?.trim() || undefined,
+  }
+  return <ExperiencesSearchFormFields {...props} urlSearch={fromUrl} />
+}
+
+export const ExperiencesSearchForm = (props: Props) => {
+  return (
+    <Suspense
+      fallback={
+        <ExperiencesSearchFormFields
+          {...props}
+          urlSearch={{
+            location: props.searchPrefill?.location,
+            date: props.searchPrefill?.date,
+            guests: props.searchPrefill?.guests,
+          }}
+        />
+      }
+    >
+      <ExperiencesSearchFormWithUrl {...props} />
+    </Suspense>
   )
 }

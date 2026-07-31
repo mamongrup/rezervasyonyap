@@ -10,6 +10,28 @@ function cleanRestPath(restPath: string): string {
   return (restPath.split('?')[0] ?? restPath).trim() || '/'
 }
 
+const EXPERIENCE_PREFIXES = [
+  '/turlar',
+  '/aktiviteler',
+  '/kruvaziyer',
+  '/hac-umre',
+  '/vize',
+  '/plaj-sezlong',
+  '/sinema-biletleri',
+  '/etkinlikler',
+  '/restoran-rezervasyon',
+] as const
+
+function pathMatchesCategoryPrefix(path: string, prefix: string): boolean {
+  return (
+    path === prefix ||
+    path.startsWith(`${prefix}/`) ||
+    path === `${prefix}-harita` ||
+    path.startsWith(`${prefix}-harita/`) ||
+    path.includes(`${prefix}-harita`)
+  )
+}
+
 /** Mevcut vitrin yolundan hero dikeyi (mobil form seçimi). */
 export function heroSearchVerticalFromRestPath(restPath: string): HeroSearchVertical {
   const path = cleanRestPath(restPath)
@@ -18,22 +40,13 @@ export function heroSearchVerticalFromRestPath(restPath: string): HeroSearchVert
     path.startsWith('/arac-kiralama') ||
     path.includes('/arac-kiralama') ||
     path.startsWith('/feribot') ||
+    path.includes('/feribot') ||
     path.startsWith('/transfer') ||
-    path.includes('/arac-kiralama-harita')
+    path.includes('/transfer')
   ) {
     return 'car'
   }
-  if (
-    path.startsWith('/turlar') ||
-    path.startsWith('/aktiviteler') ||
-    path.startsWith('/kruvaziyer') ||
-    path.startsWith('/hac-umre') ||
-    path.startsWith('/vize') ||
-    path.startsWith('/plaj-sezlong') ||
-    path.startsWith('/sinema-biletleri') ||
-    path.startsWith('/etkinlikler') ||
-    path.startsWith('/restoran-rezervasyon')
-  ) {
+  if (EXPERIENCE_PREFIXES.some((prefix) => pathMatchesCategoryPrefix(path, prefix))) {
     return 'experience'
   }
   return 'stay'
@@ -42,7 +55,7 @@ export function heroSearchVerticalFromRestPath(restPath: string): HeroSearchVert
 /**
  * Pathname’den sonuç listesi yolu.
  * Ana sayfa `/` → stay varsayılanı `/oteller/all`.
- * Kategori sayfasındayken o kategorinin `/all` yolu.
+ * Kategori / harita sayfasındayken o kategorinin `/all` yolu.
  */
 export function heroSearchResultsPathFromRestPath(restPath: string): string {
   const path = cleanRestPath(restPath)
@@ -55,25 +68,13 @@ export function heroSearchResultsPathFromRestPath(restPath: string): string {
   if (vertical === 'flight') return '/ucak-bileti/all'
 
   if (vertical === 'car') {
-    if (path.startsWith('/feribot')) return '/feribot/all'
-    if (path.startsWith('/transfer')) return '/transfer/all'
+    if (path.startsWith('/feribot') || path.includes('/feribot-harita')) return '/feribot/all'
+    if (path.startsWith('/transfer') || path.includes('/transfer-harita')) return '/transfer/all'
     return '/arac-kiralama/all'
   }
 
-  // experience — bulunduğun kategori /all; tanınmazsa turlar
-  const experiencePrefixes = [
-    '/turlar',
-    '/aktiviteler',
-    '/kruvaziyer',
-    '/hac-umre',
-    '/vize',
-    '/plaj-sezlong',
-    '/sinema-biletleri',
-    '/etkinlikler',
-    '/restoran-rezervasyon',
-  ] as const
-  for (const prefix of experiencePrefixes) {
-    if (path === prefix || path.startsWith(`${prefix}/`)) {
+  for (const prefix of EXPERIENCE_PREFIXES) {
+    if (pathMatchesCategoryPrefix(path, prefix)) {
       return `${prefix}/all`
     }
   }
