@@ -48,20 +48,17 @@ export default function CustomerSupportFloatMenu() {
         setWhatsapp(merged.whatsappE164)
         setPhoneDisplay(resolveDisplayPhone(merged.phone))
         if (!ready) return
-        // Mobilde Tawk yalnızca «Canlı Destek» tıklanınca yüklenir — otomatik warm
-        // varsayılan yeşil balonu (unread badge ile) ortada flash yaptırıyordu.
-        const isDesktop =
-          typeof window !== 'undefined' && window.matchMedia('(min-width: 1024px)').matches
-        if (!isDesktop) return
+        // Monitoring yedek warm (TawkWidgetLoader birincil). Balon CSS + hideWidget
+        // ile gizli kalır — mobil dahil tüm viewport’larda ziyaretçi sayılır.
         const warm = () => {
           if (cancelled) return
           void ensureTawkScriptLoaded()
         }
         const scheduleWarm = () => {
-          warmTimer = setTimeout(warm, 8000)
+          warmTimer = setTimeout(warm, 5000)
         }
         if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
-          idleId = window.requestIdleCallback(scheduleWarm, { timeout: 12000 })
+          idleId = window.requestIdleCallback(scheduleWarm, { timeout: 8000 })
         } else {
           scheduleWarm()
         }

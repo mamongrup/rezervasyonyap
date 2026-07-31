@@ -100,30 +100,35 @@ export function isTawkLoadFailed(): boolean {
 function injectTawkHideStyle(): void {
   if (typeof document === 'undefined') return
   const existing = document.getElementById('tawk-hide-style')
+  // display:none / off-screen translate TÜM tawk iframe’lerinde socket’i
+  // öldürebilir → Monitoring’de ziyaretçi görünmez. Görünür UI’yi gizle;
+  // bağlantı iframe’i layout’ta 1×1 kalsın (visibility/opacity).
   const css = `
-    /* Kullanıcı «Canlı Destek»e basmadan Tawk UI yok — unread badge flash'ını da keser */
-    html:not(.tawk-open) #tawkchat-container,
+    /* Kullanıcı «Canlı Destek»e basmadan Tawk balonu yok — Monitoring ping korunur */
     html:not(.tawk-open) #tawkchat-minified-container,
     html:not(.tawk-open) #tawkchat-minified-box,
-    html:not(.tawk-open) #tawkchat-status-frame-container,
-    html:not(.tawk-open) .tawkchat-container,
     html:not(.tawk-open) .tawk-min-container,
     html:not(.tawk-open) .widget-visible,
-    html:not(.tawk-open) iframe[title="chat widget"],
-    html:not(.tawk-open) iframe[title*="tawk" i],
-    html:not(.tawk-open) iframe[src*="tawk.to"],
-    html:not(.tawk-open) iframe[src*="embed.tawk.to"],
-    html:not(.tawk-open) div[id^="tawk-"],
     html:not(.tawk-open) div[class*="tawk-button"],
     html:not(.tawk-open) div[class*="tawk-min-"] {
-      display: none !important;
       visibility: hidden !important;
       opacity: 0 !important;
       pointer-events: none !important;
-      transform: translate(-9999px, -9999px) !important;
-      max-width: 0 !important;
-      max-height: 0 !important;
+      width: 1px !important;
+      height: 1px !important;
+      max-width: 1px !important;
+      max-height: 1px !important;
       overflow: hidden !important;
+      clip: rect(0 0 0 0) !important;
+      clip-path: inset(50%) !important;
+    }
+    html:not(.tawk-open) #tawkchat-container,
+    html:not(.tawk-open) .tawkchat-container,
+    html:not(.tawk-open) iframe[title="chat widget"],
+    html:not(.tawk-open) iframe[title*="tawk" i] {
+      visibility: hidden !important;
+      opacity: 0 !important;
+      pointer-events: none !important;
     }
   `
   if (existing) {
