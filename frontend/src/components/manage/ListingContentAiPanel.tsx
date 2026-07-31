@@ -176,18 +176,19 @@ export default function ListingContentAiPanel() {
             </h1>
             <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-400">
               Seçilen kategorideki ilanlar önce Türkçe editör kalite kontrolünden geçer. Ardından en, de, ru,
-              zh ve fr çevirileri ile her dilde ayrı SEO meta başlık/açıklaması hazırlanır.
+              zh ve fr çevirileri ile her dilde ayrı SEO meta başlık/açıklaması hazırlanır. Birincil model{' '}
+              <strong>Gemini</strong> (Ayarlar → Yapay zeka key havuzu); DeepSeek isteğe bağlı yedektir.
             </p>
             <p className="mt-2 text-xs text-emerald-800 dark:text-emerald-300">
               Otel, villa, yat, aktivite, tur, gemi turu, feribot, araç kiralama ve uçak bileti içerikleri sunucu
               zamanlayıcısı tarafından eksik/kalitesiz kayıt kalmayana kadar otomatik işlenir.
             </p>
             <p className="mt-2 text-xs text-violet-800 dark:text-violet-300">
-              DeepSeek aktif olmalı (
+              Gemini key havuzu dolu olmalı (
               <Link href={vitrinPath('/manage/admin/settings?tab=ai')} className="underline">
                 Yapay zeka ayarları
               </Link>
-              ).
+              ). DeepSeek isteğe bağlı yedektir.
             </p>
           </div>
         </div>
@@ -378,7 +379,7 @@ export default function ListingContentAiPanel() {
           ) : null}
           {stats && (stats.batches.running ?? 0) > 0 ? (
             <p className="mt-4 rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-sm text-sky-900 dark:border-sky-900/50 dark:bg-sky-950/30 dark:text-sky-200">
-              {(stats.batches.running ?? 0)} iş şu an çalışıyor. Uzun sürerse DeepSeek yanıtını
+              {(stats.batches.running ?? 0)} iş şu an çalışıyor. Uzun sürerse Gemini/DeepSeek yanıtını
               bekliyor olabilir; takılı kaldıysa <strong>Takılı sıfırla</strong> deneyin.
             </p>
           ) : null}

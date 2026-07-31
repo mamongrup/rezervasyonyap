@@ -365,7 +365,7 @@ pub fn patch_worker_job(req: Request, ctx: Context, job_id: String) -> Response 
                 Error(_) -> json_err(400, "invalid_json")
                 Ok(#(status_raw, post_id_opt, err_opt, cap_opt)) -> {
                   let status = string.lowercase(string.trim(status_raw))
-                  case status == "posted" || status == "failed" {
+                  case status == "posted" || status == "failed" || status == "pending" {
                     False -> json_err(400, "invalid_status")
                     True -> {
                       let p_post = case post_id_opt {
@@ -392,9 +392,10 @@ pub fn patch_worker_job(req: Request, ctx: Context, job_id: String) -> Response 
                             False -> pog.text(string.trim(s))
                           }
                       }
-                      let posted_at_sql = case status == "posted" {
-                        True -> "now()"
-                        False -> "null"
+                      let posted_at_sql = case status {
+                        "posted" -> "now()"
+                        "pending" -> "posted_at"
+                        _ -> "null"
                       }
                       case
                         pog.query(

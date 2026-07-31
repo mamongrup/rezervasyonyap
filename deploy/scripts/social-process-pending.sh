@@ -73,12 +73,17 @@ while true; do
   failed="$(node -e "const fs=require('fs'); const p=JSON.parse(fs.readFileSync(process.argv[1],'utf8')); console.log(Number(p.failed||0))" "$TMP" 2>/dev/null || echo 0)"
   last_err="$(node -e "const fs=require('fs'); const p=JSON.parse(fs.readFileSync(process.argv[1],'utf8')); const r=(p.results||[]).find(x=>x&&!x.ok); console.log(r&&r.error?String(r.error).slice(0,160):'')" "$TMP" 2>/dev/null || echo "")"
   echo "[OK] social-process-pending batch ${batch} HTTP ${code} processed=${processed} posted=${posted} failed=${failed}"
+  # Yalnızca gerçek Meta rate-limit (#613 vb.) için uzun bekle — kapak/medya hatasında Timer TimeoutStartSec’i aşma.
   if [[ "$processed" -gt 0 && "$posted" -eq 0 && "$failed" -eq 0 && -n "$last_err" ]]; then
-    echo "[WARN] Meta limit — iş pending kaldı: ${last_err}" >&2
-    echo "[WARN] ${RATE_LIMIT_SLEEP}s bekleniyor, sonra tekrar denenecek..." >&2
-    sleep "$RATE_LIMIT_SLEEP"
-    batch=$((batch + 1))
-    continue
+    if echo "$last_err" | grep -qiE 'rate.?limit|#613|user request limit|too many calls'; then
+      echo "[WARN] Meta limit — iş pending kaldı: ${last_err}" >&2
+      echo "[WARN] ${RATE_LIMIT_SLEEP}s bekleniyor, sonra tekrar denenecek..." >&2
+      sleep "$RATE_LIMIT_SLEEP"
+      batch=$((batch + 1))
+      continue
+    fi
+    echo "[WARN] pending (kapak/medya veya geçici): ${last_err} — sonraki timer turunda yeniden denenecek" >&2
+    exit 0
   fi
 
   if [[ "${WORKER_VERBOSE:-0}" == "1" ]]; then

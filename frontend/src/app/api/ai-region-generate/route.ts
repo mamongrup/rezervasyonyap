@@ -1,5 +1,5 @@
 import { apiOriginForFetch } from '@/lib/api-origin'
-import { resolveDeepseekConfigForManage } from '@/lib/manage-deepseek-config'
+import { completeManageLlm } from '@/lib/manage-llm-complete'
 import { SITE_LOCALE_CATALOG } from '@/lib/i18n-catalog-locales'
 import { NextRequest, NextResponse } from 'next/server'
 
@@ -31,46 +31,12 @@ function localeName(code: string): string {
   return LOCALE_NAMES[code] ?? code.toUpperCase()
 }
 
-/** AI'dan JSON blob almak için istek */
-async function askAI(cfg: { url: string; apiKey: string; model: string; timeoutMs: number }, systemPrompt: string, userMsg: string): Promise<string> {
-  const controller = new AbortController()
-  const timeoutId = setTimeout(() => controller.abort(), cfg.timeoutMs)
-  try {
-    const res = await fetch(cfg.url, {
-      method: 'POST',
-      signal: controller.signal,
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${cfg.apiKey}`,
-      },
-      body: JSON.stringify({
-        model: cfg.model,
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userMsg },
-        ],
-        temperature: 0.5,
-        max_tokens: 8192,
-      }),
-    })
-    if (!res.ok) {
-      const err = await res.text()
-      console.error('[ai-region-generate] DeepSeek error:', res.status, err)
-      throw new Error('deepseek_error')
-    }
-    const data = (await res.json()) as {
-      choices?: Array<{ message?: { content?: string } }>
-    }
-    const text = data.choices?.[0]?.message?.content?.trim() ?? ''
-    if (!text) throw new Error('empty_response')
-    return text
-  } catch (e) {
-    const name = e instanceof Error ? e.name : ''
-    if (name === 'AbortError') throw new Error('upstream_timeout')
-    throw e
-  } finally {
-    clearTimeout(timeoutId)
-  }
+async function askAI(token: string, systemPrompt: string, userMsg: string): Promise<string> {
+  return completeManageLlm(token, {
+    system: systemPrompt,
+    user: userMsg,
+    temperature: 0.5,
+  })
 }
 
 export async function POST(req: NextRequest) {
@@ -103,14 +69,6 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'network_error' }, { status: 502 })
     }
 
-    const cfg = await resolveDeepseekConfigForManage(token)
-    if (!cfg) {
-      return NextResponse.json(
-        { error: 'ai_not_configured', message: 'DeepSeek anahtarı yapılandırılmamış.' },
-        { status: 503 },
-      )
-    }
-
     let body: RegionGenerateBody
     try {
       body = (await req.json()) as RegionGenerateBody
@@ -123,14 +81,12 @@ export async function POST(req: NextRequest) {
     }
 
     const formattedName = body.name.trim()
-    const regionTypeTr = body.regionType === 'country' ? 'ülke' : body.regionType === 'province' ? 'il' : body.regionType === 'district' ? 'ilçe' : 'destinasyon'
     const locationDesc = [
       formattedName,
       body.provinceName ? `, ${body.provinceName}` : '',
       body.countryName ? `, ${body.countryName}` : '',
     ].join('')
 
-    // Adım 1: Tanıtım yazısı (Türkçe, HTML)
     const descSystemPrompt = `Sen profesyonel bir turizm içerik yazarısın. Verilen bölge için SEO uyumlu, özgün bir tanıtım yazısı yaz.
 Kurallar:
 - Türkçe yaz, 4-6 paragraf olsun
@@ -141,9 +97,8 @@ Kurallar:
 
     const userDesc = `${locationDesc} için turizm tanıtım yazısı yaz.`
 
-    const descriptionHtml = await askAI(cfg, descSystemPrompt, userDesc)
+    const descriptionHtml = await askAI(token, descSystemPrompt, userDesc)
 
-    // Adım 2: Çeviriler (en, ru, ar, de için başlık + açıklama)
     const targetLocales = SUPPORTED_LOCALES.filter((l) => l !== 'tr')
     const translations: Record<string, { name: string; description: string }> = {}
 
@@ -158,8 +113,7 @@ Tanıtım yazısı:
 ${descriptionHtml}`
 
       try {
-        const raw = await askAI(cfg, translateSystem, translateUser)
-        // JSON parse
+        const raw = await askAI(token, translateSystem, translateUser)
         const cleaned = raw.replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim()
         const parsed = JSON.parse(cleaned) as { name?: string; description?: string }
         translations[locale] = {
@@ -167,7 +121,6 @@ ${descriptionHtml}`
           description: parsed.description || descriptionHtml,
         }
       } catch {
-        // Çeviri başarısız olursa orijinali kullan
         translations[locale] = {
           name: formattedName,
           description: descriptionHtml,
@@ -175,7 +128,6 @@ ${descriptionHtml}`
       }
     }
 
-    // Adım 3: Gezilecek yerler (travel_ideas_json formatında)
     const ideasSystemPrompt = `Sen bir seyahat rehberi yazarısın. Verilen bölge için gezilecek yerleri, mekanları listele.
 Yanıtı sadece JSON array olarak döndür, başka metin ekleme:
 [
@@ -190,7 +142,7 @@ En az 5, en fazla 10 mekan öner. Hepsi gerçekçi olsun. image alanını boş b
 
     let travelIdeas: Array<{ name: string; description: string; category: string; image: string }> = []
     try {
-      const ideasRaw = await askAI(cfg, ideasSystemPrompt, `${locationDesc} için gezilecek yerler öner.`)
+      const ideasRaw = await askAI(token, ideasSystemPrompt, `${locationDesc} için gezilecek yerler öner.`)
       const cleaned = ideasRaw.replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim()
       travelIdeas = JSON.parse(cleaned) as typeof travelIdeas
       if (!Array.isArray(travelIdeas)) travelIdeas = []
@@ -212,7 +164,21 @@ En az 5, en fazla 10 mekan öner. Hepsi gerçekçi olsun. image alanını boş b
     if (msg === 'upstream_timeout') {
       return NextResponse.json({ error: msg, message: 'AI sağlayıcı zaman aşımına uğradı.' }, { status: 504 })
     }
-    if (msg === 'deepseek_error' || msg === 'network_error') {
+    if (
+      msg.includes('llm_unavailable') ||
+      msg.includes('gemini_no_available_keys') ||
+      msg === 'ai_not_configured'
+    ) {
+      return NextResponse.json(
+        {
+          error: 'ai_not_configured',
+          message:
+            'Gemini anahtar havuzu boş veya tüm sağlayıcılar pasif. Ayarlar → Yapay zeka’dan Gemini key ekleyin.',
+        },
+        { status: 503 },
+      )
+    }
+    if (msg === 'network_error' || msg.startsWith('llm_http_') || msg.startsWith('gemini_')) {
       return NextResponse.json({ error: msg, message: 'AI sağlayıcısına ulaşılamadı.' }, { status: 502 })
     }
     return NextResponse.json({ error: 'ai_generation_failed', message: 'İçerik oluşturulamadı.' }, { status: 500 })

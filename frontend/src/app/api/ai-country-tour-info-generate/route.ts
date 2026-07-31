@@ -4,7 +4,7 @@ import {
   parseCountryTourInfo,
   type CountryTourInfo,
 } from '@/lib/country-tour-info'
-import { resolveDeepseekConfigForManage } from '@/lib/manage-deepseek-config'
+import { completeManageLlm } from '@/lib/manage-llm-complete'
 import { NextRequest, NextResponse } from 'next/server'
 
 export const dynamic = 'force-dynamic'
@@ -22,45 +22,12 @@ type Body = {
   skipIntro?: boolean
 }
 
-type AiCfg = { url: string; apiKey: string; model: string; timeoutMs: number }
-
-async function askAI(cfg: AiCfg, systemPrompt: string, userMsg: string, maxTokens = 2048): Promise<string> {
-  const controller = new AbortController()
-  const timeoutId = setTimeout(() => controller.abort(), cfg.timeoutMs)
-  try {
-    const res = await fetch(cfg.url, {
-      method: 'POST',
-      signal: controller.signal,
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${cfg.apiKey}`,
-      },
-      body: JSON.stringify({
-        model: cfg.model,
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userMsg },
-        ],
-        temperature: 0.35,
-        max_tokens: maxTokens,
-      }),
-    })
-    if (!res.ok) {
-      const err = await res.text()
-      console.error('[ai-country-tour-info] DeepSeek error:', res.status, err)
-      throw new Error('deepseek_error')
-    }
-    const data = (await res.json()) as { choices?: Array<{ message?: { content?: string } }> }
-    const text = data.choices?.[0]?.message?.content?.trim() ?? ''
-    if (!text) throw new Error('empty_response')
-    return text
-  } catch (e) {
-    const name = e instanceof Error ? e.name : ''
-    if (name === 'AbortError') throw new Error('upstream_timeout')
-    throw e
-  } finally {
-    clearTimeout(timeoutId)
-  }
+async function askAI(token: string, systemPrompt: string, userMsg: string): Promise<string> {
+  return completeManageLlm(token, {
+    system: systemPrompt,
+    user: userMsg,
+    temperature: 0.35,
+  })
 }
 
 function parseAiCountryJson(raw: string): CountryTourInfo {
@@ -99,7 +66,7 @@ function mergeTranslations(
   })
 }
 
-async function generateCountryIntro(cfg: AiCfg, countryName: string, iso2?: string): Promise<string> {
+async function generateCountryIntro(token: string, countryName: string, iso2?: string): Promise<string> {
   const systemPrompt = `Sen profesyonel bir turizm içerik yazarısın. Türkiye'den çıkan tur paketleri için ülke tanıtım yazısı yazıyorsun.
 
 Kurallar:
@@ -110,11 +77,11 @@ Kurallar:
 - Sadece HTML içeriği döndür, markdown veya açıklama ekleme`
 
   const userMsg = `${countryName}${iso2 ? ` (${iso2})` : ''} için turistlerin okuyacağı ülke tanıtım yazısını HTML olarak yaz.`
-  return askAI(cfg, systemPrompt, userMsg, 4096)
+  return askAI(token, systemPrompt, userMsg)
 }
 
 async function generateCountryPracticalInfo(
-  cfg: AiCfg,
+  token: string,
   countryName: string,
   iso2?: string,
 ): Promise<CountryTourInfo> {
@@ -140,7 +107,7 @@ Kurallar:
 - general_description en fazla 320 karakter olsun`
 
   const userMsg = `${countryName}${iso2 ? ` (${iso2})` : ''} için turistlere yönelik pratik ülke bilgilerini JSON olarak üret.`
-  const raw = await askAI(cfg, systemPrompt, userMsg)
+  const raw = await askAI(token, systemPrompt, userMsg)
   return parseAiCountryJson(raw)
 }
 
@@ -171,14 +138,6 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'network_error' }, { status: 502 })
     }
 
-    const cfg = await resolveDeepseekConfigForManage(token)
-    if (!cfg) {
-      return NextResponse.json(
-        { error: 'ai_not_configured', message: 'DeepSeek anahtarı yapılandırılmamış.' },
-        { status: 503 },
-      )
-    }
-
     let body: Body
     try {
       body = (await req.json()) as Body
@@ -195,7 +154,7 @@ export async function POST(req: NextRequest) {
 
     let merged: CountryTourInfo = parseCountryTourInfo(body.existingCountryInfo ?? '{}')
     if (!body.introOnly) {
-      const generated = await generateCountryPracticalInfo(cfg, countryName, iso2)
+      const generated = await generateCountryPracticalInfo(token, countryName, iso2)
       const existing = parseCountryTourInfo(body.existingCountryInfo ?? '{}')
       merged = mergeCountryTourInfo(existing, generated)
     }
@@ -205,7 +164,7 @@ export async function POST(req: NextRequest) {
     let metaDescription = ''
 
     if (!body.skipIntro) {
-      descriptionHtml = await generateCountryIntro(cfg, countryName, iso2)
+      descriptionHtml = await generateCountryIntro(token, countryName, iso2)
       const plain = stripHtmlPlain(descriptionHtml)
       metaDescription = plain.length > 160 ? `${plain.slice(0, 157).trimEnd()}…` : plain
     }

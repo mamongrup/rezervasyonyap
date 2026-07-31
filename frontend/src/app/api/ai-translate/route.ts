@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto'
 import { apiOriginForFetch } from '@/lib/api-origin'
-import { resolveDeepseekConfigForManage } from '@/lib/manage-deepseek-config'
+import { completeManageLlm } from '@/lib/manage-llm-complete'
 import { defaultLocale, isAppLocale } from '@/lib/i18n-config'
 import { SITE_LOCALE_CATALOG } from '@/lib/i18n-catalog-locales'
 import { NextRequest, NextResponse } from 'next/server'
@@ -88,21 +88,6 @@ function checkRateLimit(key: string): { ok: boolean; retryAfterSec?: number } {
   return { ok: true }
 }
 
-function maxTokensForContext(ctx: string): number {
-  switch (ctx) {
-    case 'short_label':
-      return 256
-    case 'title':
-      return 1024
-    case 'seo':
-      return 2048
-    case 'excerpt':
-      return 4096
-    default:
-      return 32_768
-  }
-}
-
 async function userHasAdminTranslate(token: string): Promise<boolean> {
   const apiBase = apiOriginForFetch()
   if (!apiBase) return false
@@ -152,18 +137,6 @@ export async function POST(req: NextRequest) {
         { status: 413 },
       )
     }
-  }
-
-  const cfg = await resolveDeepseekConfigForManage(token)
-  if (!cfg) {
-    return NextResponse.json(
-      {
-        error: 'ai_not_configured',
-        message:
-          'DEEPSEEK_API_KEY ortam değişkeni tanımlı değil veya Ayarlar → Yapay zeka bölümünde anahtar kayıtlı değil.',
-      },
-      { status: 503 },
-    )
   }
 
   let body: TranslateBody
@@ -256,49 +229,29 @@ export async function POST(req: NextRequest) {
     ? polishSystemPrompt
     : `You are a professional translator. Translate from ${localeName(sourceLocale)} into ${localeName(targetLocale)}. ${contextHintTranslate} Return only the translation, no explanations or notes.`
 
-  const maxTokens = maxTokensForContext(context)
-
-  const controller = new AbortController()
-  const timeoutId = setTimeout(() => controller.abort(), cfg.timeoutMs)
   try {
-    const res = await fetch(cfg.url, {
-      method: 'POST',
-      signal: controller.signal,
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${cfg.apiKey}`,
-      },
-      body: JSON.stringify({
-        model: cfg.model,
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: text.trim() },
-        ],
-        temperature: 0.3,
-        max_tokens: maxTokens,
-      }),
+    const translated = await completeManageLlm(token, {
+      system: systemPrompt,
+      user: text.trim(),
+      temperature: 0.3,
     })
-
-    if (!res.ok) {
-      const err = await res.text()
-      console.error('[ai-translate] DeepSeek error:', res.status, err)
-      return NextResponse.json({ error: 'deepseek_error', status: res.status }, { status: 502 })
-    }
-
-    const data = (await res.json()) as {
-      choices?: Array<{ message?: { content?: string } }>
-    }
-    const translated = data.choices?.[0]?.message?.content?.trim() ?? ''
-
     return NextResponse.json({ translated })
   } catch (e) {
-    const name = e instanceof Error ? e.name : ''
-    if (name === 'AbortError') {
-      return NextResponse.json({ error: 'upstream_timeout', timeoutMs: cfg.timeoutMs }, { status: 504 })
+    const msg = e instanceof Error ? e.message : 'network_error'
+    if (msg === 'upstream_timeout') {
+      return NextResponse.json({ error: 'upstream_timeout' }, { status: 504 })
     }
-    console.error('[ai-translate] fetch error:', e)
-    return NextResponse.json({ error: 'network_error' }, { status: 502 })
-  } finally {
-    clearTimeout(timeoutId)
+    if (msg.includes('gemini_no_available_keys') || msg.includes('llm_unavailable') || msg === 'ai_not_configured') {
+      return NextResponse.json(
+        {
+          error: 'ai_not_configured',
+          message:
+            'Gemini anahtar havuzu boş veya tüm sağlayıcılar pasif. Ayarlar → Yapay zeka’dan Gemini key ekleyin; DeepSeek isteğe bağlı yedektir.',
+        },
+        { status: 503 },
+      )
+    }
+    console.error('[ai-translate] llm error:', msg)
+    return NextResponse.json({ error: msg.slice(0, 160) }, { status: 502 })
   }
 }

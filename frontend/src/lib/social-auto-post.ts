@@ -422,7 +422,7 @@ export async function patchSocialJob(
   secret: string,
   jobId: string,
   body: {
-    status: 'posted' | 'failed'
+    status: 'posted' | 'failed' | 'pending'
     external_post_id?: string
     error_message?: string
     caption_ai_generated?: string
@@ -971,7 +971,16 @@ export async function processOneSocialJob(
     }
     if (isTransientSocialAssetError(msg)) {
       // Kapak veya medya proxy'si gecici olarak hazir degil. Isi failed yapma;
-      // pending kalsin ve zamanlayici sonraki turda yeniden denesin.
+      // pending kalsin, error_message yaz ki panelde görünsün.
+      try {
+        await patchSocialJob(apiOrigin, secret, job.id, {
+          status: 'pending',
+          error_message: msg.slice(0, 2000),
+          caption_ai_generated: caption || undefined,
+        })
+      } catch {
+        /* ignore */
+      }
       return { ok: false, network: job.network, post_type: job.post_type, job_id: job.id, error: msg }
     }
     if (isMetaAuthError(msg)) {

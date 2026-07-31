@@ -13,6 +13,7 @@ import gleam/string
 import pog
 import travel/db/resilient_pog as db_exec
 import travel/ai/ai_job_run
+import travel/ai/llm_chat
 import travel/ai/ops_agent_enqueue
 import travel/ai/region_hierarchy_sync
 import travel/ai/region_provinces_sync
@@ -1181,6 +1182,70 @@ pub fn delete_ai_api_key(req: Request, ctx: Context, id: String) -> Response {
                 }
                 [] -> json_err(404, "unknown_api_key")
                 _ -> json_err(500, "unexpected")
+              }
+          }
+      }
+  }
+}
+
+fn complete_body_decoder() -> decode.Decoder(#(String, String, Float, Int)) {
+  decode.field("system", decode.string, fn(sys) {
+    decode.field("user", decode.string, fn(usr) {
+      decode.optional_field("temperature", 0.3, decode.float, fn(temp) {
+        decode.optional_field("timeout_ms", 90_000, decode.int, fn(to) {
+          decode.success(#(sys, usr, temp, to))
+        })
+      })
+    })
+  })
+}
+
+/// POST /api/v1/ai/complete — Gemini havuzu → DeepSeek (aktifse).
+/// Next yönetici rotaları (çeviri, bölge üretimi) tek LLM yolu için bunu kullanır.
+pub fn complete(req: Request, ctx: Context) -> Response {
+  use <- wisp.require_method(req, http.Post)
+  case admin_gate.require_admin_users_read(req, ctx) {
+    Error(r) -> r
+    Ok(_) ->
+      case read_body_string(req) {
+        Error(_) -> json_err(400, "empty_body")
+        Ok(body) ->
+          case string.trim(body) == "" {
+            True -> json_err(400, "empty_body")
+            False ->
+              case json.parse(body, complete_body_decoder()) {
+                Error(_) -> json_err(400, "invalid_json")
+                Ok(#(sys, usr, temp, timeout_ms)) -> {
+                  let system = string.trim(sys)
+                  let user = string.trim(usr)
+                  case system == "" || user == "" {
+                    True -> json_err(400, "system_and_user_required")
+                    False -> {
+                      let to = case timeout_ms < 5000 {
+                        True -> 5000
+                        False ->
+                          case timeout_ms > 300_000 {
+                            True -> 300_000
+                            False -> timeout_ms
+                          }
+                      }
+                      case
+                        llm_chat.complete(ctx.db, system, user, temp, to)
+                      {
+                        Error(e) -> json_err(502, e)
+                        Ok(text) -> {
+                          let out =
+                            json.object([
+                              #("text", json.string(text)),
+                              #("ok", json.bool(True)),
+                            ])
+                            |> json.to_string
+                          wisp.json_response(out, 200)
+                        }
+                      }
+                    }
+                  }
+                }
               }
           }
       }

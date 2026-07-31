@@ -1449,9 +1449,9 @@ export default function AdminAiSection() {
             <Bot className="h-5 w-5" />
           </div>
           <div className="min-w-0 flex-1">
-            <h2 className="text-base font-semibold text-neutral-900 dark:text-white">DeepSeek Agent Merkezi</h2>
+            <h2 className="text-base font-semibold text-neutral-900 dark:text-white">AI Agent Merkezi</h2>
             <p className="mt-1 text-sm text-neutral-500 dark:text-neutral-400">
-              Supervisor yaklaşan özel günleri takip eder, DeepSeek ile popup önerisi üretir ve canlı yayına almadan önce onaya düşürür.
+              Supervisor yaklaşan özel günleri takip eder, Gemini (yedek: DeepSeek) ile popup önerisi üretir ve canlı yayına almadan önce onaya düşürür.
             </p>
           </div>
         </div>

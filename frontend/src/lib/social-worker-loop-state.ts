@@ -61,7 +61,21 @@ export async function readWorkerLoopState(): Promise<WorkerLoopState> {
   try {
     const raw = await fs.readFile(STATE_FILE, 'utf8')
     const parsed = JSON.parse(raw) as Partial<WorkerLoopState>
-    return { ...defaultWorkerLoopState(), ...parsed }
+    const state = { ...defaultWorkerLoopState(), ...parsed }
+    // Node çökmesi / deploy sonrası takılı running=true → admin loop yeniden başlayamasın.
+    if (state.running && state.startedAt) {
+      const started = Date.parse(state.startedAt)
+      if (Number.isFinite(started) && Date.now() - started > 45 * 60_000) {
+        return {
+          ...defaultWorkerLoopState(),
+          phase: 'error',
+          lastError: 'stale_worker_loop_reset',
+          message: 'Önceki worker oturumu zaman aşımına uğradı; durum sıfırlandı.',
+          finishedAt: new Date().toISOString(),
+        }
+      }
+    }
+    return state
   } catch {
     return defaultWorkerLoopState()
   }

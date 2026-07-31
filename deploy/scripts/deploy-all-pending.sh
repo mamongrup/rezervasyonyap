@@ -92,11 +92,12 @@ fi
 
 # Önceki AI deploy (Gemini pool + referans müsaitlik) — idempotent; uygulanmadıysa buradan geçer.
 if [[ "${SKIP_AI_SQL:-0}" != "1" ]]; then
-  step "AI SQL (396 Gemini key pool, 397 availability scrape, 398 schedule)"
+  step "AI SQL (396 Gemini key pool, 397–398 availability, 399 Gemini primary)"
   for sql in \
     backend/priv/sql/modules/396_ai_gemini_key_pool.sql \
     backend/priv/sql/modules/397_ai_listing_availability_scrape.sql \
-    backend/priv/sql/modules/398_import_schedule_listing_availability.sql
+    backend/priv/sql/modules/398_import_schedule_listing_availability.sql \
+    backend/priv/sql/modules/399_ai_gemini_primary_deepseek_optional.sql
   do
     if [[ -f "$sql" ]]; then
       ./deploy/apply-sql.sh "$sql" || fail "$(basename "$sql")"

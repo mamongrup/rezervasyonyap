@@ -1665,6 +1665,9 @@ fn dispatch(req: Request, ctx: Context) -> Response {
     http.Get, ["api", "v1", "ai", "providers"] ->
       ai_http.list_ai_providers(req, ctx)
 
+    http.Post, ["api", "v1", "ai", "complete"] ->
+      ai_http.complete(req, ctx)
+
     http.Patch, ["api", "v1", "ai", "providers", pcode] ->
       ai_http.patch_ai_provider(req, ctx, pcode)
 

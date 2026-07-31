@@ -1,7 +1,7 @@
 import { apiOriginForFetch } from '@/lib/api-origin'
 import { resolveTranslatorTimeoutMs } from '@/lib/ai-upstream-timeouts'
 
-/** Çeviri ve panel Vision istekleri için aynı DeepSeek kaynağı (env + platform ayarı). */
+/** Çeviri dışı (Vision vb.) için DeepSeek — yalnızca sağlayıcı aktifse. */
 export type ManageDeepseekConfig = {
   apiKey: string
   model: string
@@ -27,9 +27,32 @@ async function loadAiSettings(token: string): Promise<Record<string, unknown> | 
   }
 }
 
+async function isDeepseekProviderActive(token: string): Promise<boolean> {
+  const apiBase = apiOriginForFetch()
+  if (!apiBase) return false
+  try {
+    const r = await fetch(`${apiBase}/api/v1/ai/providers`, {
+      headers: { Authorization: `Bearer ${token}` },
+      cache: 'no-store',
+    })
+    if (!r.ok) return false
+    const data = (await r.json()) as { providers?: Array<{ code?: string; is_active?: boolean }> }
+    const ds = (data.providers ?? []).find((p) => p.code === 'deepseek')
+    return ds?.is_active === true
+  } catch {
+    return false
+  }
+}
+
+/**
+ * DeepSeek yapılandırması — panelde DeepSeek pasifse null (Gemini birincil).
+ * Metin üretimi için `completeManageLlm` tercih edin.
+ */
 export async function resolveDeepseekConfigForManage(
   token: string,
 ): Promise<ManageDeepseekConfig | null> {
+  if (!(await isDeepseekProviderActive(token))) return null
+
   const apiBase = apiOriginForFetch()
   const settings = await loadAiSettings(token)
 
