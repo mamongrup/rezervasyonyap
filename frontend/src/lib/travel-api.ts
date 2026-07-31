@@ -11830,6 +11830,33 @@ export async function getAiControlCenterOverview(token: string): Promise<AiContr
   return json(res)
 }
 
+/** Duraklatılmış AI müdür/işçilerini güvenli modda aktifleştirir. */
+export async function activateAiWorkforce(token: string): Promise<{
+  ok?: boolean
+  active_agents?: number
+  paused_agents?: number
+  runtime_paused?: number
+  runtime_ready?: number
+  error?: string
+}> {
+  const b = base()
+  if (!b) throw new Error('NEXT_PUBLIC_API_URL_missing')
+  const res = await fetch(`${b}/api/v1/ai/control-center/activate-workforce`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+  })
+  const data = (await res.json().catch(() => ({}))) as {
+    ok?: boolean
+    active_agents?: number
+    paused_agents?: number
+    runtime_paused?: number
+    runtime_ready?: number
+    error?: string
+  }
+  if (!res.ok) throw new Error(data.error ?? `ai_activate_workforce_${res.status}`)
+  return data
+}
+
 export async function listSupplierAnnouncements(token: string): Promise<{ announcements: PortalAnnouncement[] }> {
   const b = base()
   if (!b) throw new Error('NEXT_PUBLIC_API_URL_missing')

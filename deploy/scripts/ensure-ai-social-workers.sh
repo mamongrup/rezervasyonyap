@@ -25,17 +25,19 @@ chmod +x \
   2>/dev/null || true
 
 # AI Genel Müdürü + güvenli içerik müdür/işçilerini aktif et (idempotent).
-# Para/fiyat/iade otomatikleri 376 içinde kapalı kalır.
+# Para/fiyat/iade otomatikleri kapalı kalır.
 if [[ "${SKIP_AI_CONTINUOUS_PRODUCTION:-0}" != "1" ]]; then
-  SQL_376="$APP_ROOT/backend/priv/sql/modules/376_ai_continuous_production.sql"
-  if [[ -f "$SQL_376" && -x "$APP_ROOT/deploy/apply-sql.sh" ]]; then
-    log "AI sürekli üretim kadrosu (376) uygulanıyor…"
-    if bash "$APP_ROOT/deploy/apply-sql.sh" "$SQL_376"; then
-      ok "müdür + güvenli AI kadrosu aktif (autopilot açık)"
-    else
-      warn "376 SQL uygulanamadı — ai_agents status kontrol edin"
+  for sql_mod in \
+    "$APP_ROOT/backend/priv/sql/modules/376_ai_continuous_production.sql" \
+    "$APP_ROOT/backend/priv/sql/modules/400_ai_activate_paused_workforce.sql"
+  do
+    if [[ -f "$sql_mod" && -x "$APP_ROOT/deploy/apply-sql.sh" ]]; then
+      log "AI kadro SQL: $(basename "$sql_mod")"
+      bash "$APP_ROOT/deploy/apply-sql.sh" "$sql_mod" \
+        || warn "$(basename "$sql_mod") uygulanamadı"
     fi
-  fi
+  done
+  ok "müdür + güvenli AI kadrosu aktivasyonu denendi"
 else
   log "SKIP_AI_CONTINUOUS_PRODUCTION=1 — kadro aktivasyonu atlandı"
 fi

@@ -241,6 +241,7 @@ modules/396_ai_gemini_key_pool.sql
 modules/397_ai_listing_availability_scrape.sql
 modules/398_import_schedule_listing_availability.sql
 modules/399_ai_gemini_primary_deepseek_optional.sql
+modules/400_ai_activate_paused_workforce.sql
 
 # Kurulum doğrulama (install_order’a dahil değil — elle çalıştırın):
 #   psql -U postgres -d travel -f priv/sql/check_installation.sql

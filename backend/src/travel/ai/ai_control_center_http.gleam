@@ -1,19 +1,58 @@
 import backend/context.{type Context}
 import gleam/http
+import gleam/json
 import pog
 import travel/db/decode_helpers as row_dec
 import travel/db/resilient_pog as db_exec
 import travel/identity/admin_gate
 import wisp.{type Request, type Response}
 
+fn json_err(status: Int, msg: String) -> Response {
+  let body =
+    json.object([#("error", json.string(msg))])
+    |> json.to_string
+  wisp.json_response(body, status)
+}
+
 pub fn overview(req: Request, ctx: Context) -> Response {
   use <- wisp.require_method(req, http.Get)
   case admin_gate.require_admin_users_read(req, ctx) {
     Error(r) -> r
-    Ok(_) -> case pog.query(sql) |> pog.returning(row_dec.col0_string()) |> db_exec.execute(ctx.db) {
-      Error(_) -> wisp.json_response("{\"error\":\"ai_control_center_failed\"}",500)
-      Ok(ret) -> case ret.rows { [body] -> wisp.json_response(body,200) _ -> wisp.json_response("{\"error\":\"unexpected_rows\"}",500) }
-    }
+    Ok(_) ->
+      case
+        pog.query(sql)
+        |> pog.returning(row_dec.col0_string())
+        |> db_exec.execute(ctx.db)
+      {
+        Error(_) -> json_err(500, "ai_control_center_failed")
+        Ok(ret) ->
+          case ret.rows {
+            [body] -> wisp.json_response(body, 200)
+            _ -> json_err(500, "unexpected_rows")
+          }
+      }
+  }
+}
+
+/// POST /api/v1/ai/control-center/activate-workforce
+/// Duraklatılmış müdür/işçileri güvenli modda açar (para/fiyat oto kapalı).
+pub fn activate_workforce(req: Request, ctx: Context) -> Response {
+  use <- wisp.require_method(req, http.Post)
+  case admin_gate.require_admin_users_read(req, ctx) {
+    Error(r) -> r
+    Ok(_) ->
+      case
+        pog.query("select ai_activate_safe_workforce()")
+        |> pog.returning(row_dec.col0_string())
+        |> db_exec.execute(ctx.db)
+      {
+        Error(_) -> json_err(500, "ai_activate_workforce_failed")
+        Ok(ret) ->
+          case ret.rows {
+            [body] -> wisp.json_response(body, 200)
+            _ -> json_err(500, "unexpected_rows")
+          }
+      }
   }
 }
 

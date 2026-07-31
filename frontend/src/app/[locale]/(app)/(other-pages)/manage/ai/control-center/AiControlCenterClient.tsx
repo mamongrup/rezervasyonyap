@@ -1,7 +1,12 @@
 'use client'
 
 import { getStoredAuthToken } from '@/lib/auth-storage'
-import { getAiControlCenterOverview, type AiControlCenterOverview } from '@/lib/travel-api'
+import { formatManageApiCatch } from '@/lib/manage-api-error-tr'
+import {
+  activateAiWorkforce,
+  getAiControlCenterOverview,
+  type AiControlCenterOverview,
+} from '@/lib/travel-api'
 import {
   Activity,
   AlertTriangle,
@@ -9,11 +14,12 @@ import {
   CircleDollarSign,
   Database,
   HeartPulse,
+  Play,
   RefreshCw,
   ShieldCheck,
 } from 'lucide-react'
 import type { ElementType } from 'react'
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 
 const healthLabels: Record<string, string> = {
   healthy: 'Sağlıklı',
@@ -35,6 +41,8 @@ export default function AiControlCenterClient() {
   const [data, setData] = useState<AiControlCenterOverview | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
+  const [activating, setActivating] = useState(false)
+  const [activateMsg, setActivateMsg] = useState<string | null>(null)
 
   const load = useCallback(async () => {
     const token = getStoredAuthToken()
@@ -52,6 +60,29 @@ export default function AiControlCenterClient() {
 
   useEffect(() => { void load() }, [load])
 
+  const pausedCount = useMemo(
+    () => data?.agents.filter((a) => a.health_status === 'paused' || a.status !== 'active').length ?? 0,
+    [data],
+  )
+
+  async function activatePaused() {
+    const token = getStoredAuthToken()
+    if (!token || activating) return
+    setActivating(true)
+    setActivateMsg(null)
+    try {
+      const r = await activateAiWorkforce(token)
+      setActivateMsg(
+        `Kadrosu aktif: ${r.active_agents ?? '—'} ajan · hazır: ${r.runtime_ready ?? '—'} · duraklatılan: ${r.runtime_paused ?? 0}`,
+      )
+      await load()
+    } catch (e) {
+      setActivateMsg(formatManageApiCatch(e, 'ai_activate_workforce_failed'))
+    } finally {
+      setActivating(false)
+    }
+  }
+
   const cards: Array<[string, string | number, ElementType]> = data ? [
     ['Kuyruk', data.counts.queued + data.counts.running, Activity],
     ['Onay', data.counts.awaiting_approval, ShieldCheck],
@@ -63,16 +94,34 @@ export default function AiControlCenterClient() {
   ] : []
 
   return <div className="p-6 lg:p-8">
-    <div className="mb-6 flex items-start justify-between gap-3">
+    <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
       <div>
         <p className="text-xs font-semibold uppercase tracking-wide text-violet-600">AI işletim sistemi</p>
         <h1 className="mt-1 text-2xl font-bold">Kontrol Merkezi</h1>
         <p className="mt-1 text-sm text-neutral-500">Operasyon amiri, ajan sağlığı, kalite, maliyet ve istisnalar.</p>
       </div>
-      <button onClick={() => void load()} className="flex items-center gap-2 rounded-xl bg-violet-600 px-3 py-2 text-sm font-semibold text-white">
-        <RefreshCw className={loading ? 'size-4 animate-spin' : 'size-4'} />Yenile
-      </button>
+      <div className="flex flex-wrap items-center gap-2">
+        {pausedCount > 0 ? (
+          <button
+            type="button"
+            onClick={() => void activatePaused()}
+            disabled={activating}
+            className="flex items-center gap-2 rounded-xl bg-emerald-600 px-3 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-60"
+          >
+            <Play className={activating ? 'size-4 animate-pulse' : 'size-4'} />
+            {activating ? 'Aktifleştiriliyor…' : `Duraklatılanları aç (${pausedCount})`}
+          </button>
+        ) : null}
+        <button onClick={() => void load()} className="flex items-center gap-2 rounded-xl bg-violet-600 px-3 py-2 text-sm font-semibold text-white">
+          <RefreshCw className={loading ? 'size-4 animate-spin' : 'size-4'} />Yenile
+        </button>
+      </div>
     </div>
+    {activateMsg ? (
+      <p className="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-200">
+        {activateMsg}
+      </p>
+    ) : null}
 
     {error ? <p className="mb-4 rounded-xl bg-red-50 p-3 text-sm text-red-700">{error}</p> : null}
     {data ? <>

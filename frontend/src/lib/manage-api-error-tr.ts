@@ -363,6 +363,10 @@ const TR_BY_CODE: Record<string, string> = {
   social_worker_loop_status_500: 'Arka plan sosyal worker durumu alınamadı.',
   social_worker_loop_status_404: 'Arka plan sosyal worker bulunamadı. Frontend güncel değilse deploy sonrası tekrar deneyin.',
   social_worker_loop_stop_500: 'Arka plan sosyal worker durdurulamadı.',
+  ai_activate_workforce_failed:
+    'AI kadrosu aktifleştirilemedi. 400 migration uygulandı mı ve travel-api güncel mi kontrol edin.',
+  ai_activate_workforce_500:
+    'AI kadrosu aktifleştirilemedi (sunucu hatası). travel-api loguna bakın.',
   meta_access_token_invalid:
     'Meta (Facebook/Instagram) erişim anahtarı geçersiz veya süresi doldu. Yönetim → Sosyal Medya API ayarlarından yeni Page Access Token kaydedin.',
   meta_token_invalid:

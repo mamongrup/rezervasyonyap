@@ -1833,6 +1833,8 @@ fn dispatch(req: Request, ctx: Context) -> Response {
 
     http.Get, ["api", "v1", "ai", "control-center", "overview"] ->
       ai_control_center_http.overview(req, ctx)
+    http.Post, ["api", "v1", "ai", "control-center", "activate-workforce"] ->
+      ai_control_center_http.activate_workforce(req, ctx)
 
     http.Get, ["api", "v1", "ai", "content", entity_type, entity_id, "versions"]
     -> content_lifecycle_http.list_versions(req, ctx, entity_type, entity_id)
