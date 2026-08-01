@@ -174,24 +174,42 @@ fn run_steps_loop(
       let _ = listing_content_http.worker_try_listing_content(ctx)
 
       let #(dr, di, de) =
-        tick_result(want_district, acc.district_ran, acc.district_idle, acc.district_errs, fn() {
-          district_ideas_http.worker_try_district_travel_ideas(ctx)
-        })
+        tick_result(
+          want_district,
+          acc.district_ran,
+          acc.district_idle,
+          acc.district_errs,
+          fn() { district_ideas_http.worker_try_district_travel_ideas(ctx) },
+        )
       let #(rr, ri, re) =
-        tick_result(want_region, acc.region_ran, acc.region_idle, acc.region_errs, fn() {
-          region_content_http.worker_try_region_geo_batch(ctx)
-        })
+        tick_result(
+          want_region,
+          acc.region_ran,
+          acc.region_idle,
+          acc.region_errs,
+          fn() { region_content_http.worker_try_region_geo_batch(ctx) },
+        )
       let #(pr, pi, pe) =
-        tick_result(want_place, acc.place_ran, acc.place_idle, acc.place_errs, fn() {
-          region_content_http.worker_try_place_blog_batch(ctx)
-        })
+        tick_result(
+          want_place,
+          acc.place_ran,
+          acc.place_idle,
+          acc.place_errs,
+          fn() { region_content_http.worker_try_place_blog_batch(ctx) },
+        )
       let #(tr, ti, te) =
         tick_result(want_trip, acc.trip_ran, acc.trip_idle, acc.trip_errs, fn() {
-          trip_routes_http.worker_try_route_job(ctx, trip_routes_http.TripPlanner)
+          trip_routes_http.worker_try_route_job(
+            ctx,
+            trip_routes_http.TripPlanner,
+          )
         })
       let #(br, bi, be) =
         tick_result(want_blue, acc.blue_ran, acc.blue_idle, acc.blue_errs, fn() {
-          trip_routes_http.worker_try_route_job(ctx, trip_routes_http.BlueCruiseRoutes)
+          trip_routes_http.worker_try_route_job(
+            ctx,
+            trip_routes_http.BlueCruiseRoutes,
+          )
         })
 
       run_steps_loop(
@@ -223,11 +241,12 @@ pub fn post_run_steps(req: Request, ctx: Context) -> Response {
     Error(r) -> r
     Ok(_) -> {
       let loops = query_loops(req)
-      let #(watchdog_processed, watchdog_idle, watchdog_errors) =
-        case query_enabled(req, "workflow") {
-          False -> #(0, 0, [])
-          True -> run_watchdog_loop(ctx, loops, 0, 0, [])
-        }
+      let #(watchdog_processed, watchdog_idle, watchdog_errors) = case
+        query_enabled(req, "workflow")
+      {
+        False -> #(0, 0, [])
+        True -> run_watchdog_loop(ctx, loops, 0, 0, [])
+      }
 
       let want_district = query_enabled(req, "district")
       let want_region = query_enabled(req, "region")
@@ -266,11 +285,30 @@ pub fn post_run_steps(req: Request, ctx: Context) -> Response {
             "workflow_watchdog",
             lane_json(watchdog_processed, watchdog_idle, watchdog_errors),
           ),
-          #("district_travel_ideas", lane_json(acc.district_ran, acc.district_idle, acc.district_errs)),
-          #("region_content", lane_json(acc.region_ran, acc.region_idle, acc.region_errs)),
-          #("place_blogs", lane_json(acc.place_ran, acc.place_idle, acc.place_errs)),
-          #("trip_planner", lane_json(acc.trip_ran, acc.trip_idle, acc.trip_errs)),
-          #("blue_cruise_routes", lane_json(acc.blue_ran, acc.blue_idle, acc.blue_errs)),
+          #(
+            "manager_orchestrator",
+            lane_json(watchdog_processed, watchdog_idle, watchdog_errors),
+          ),
+          #(
+            "district_travel_ideas",
+            lane_json(acc.district_ran, acc.district_idle, acc.district_errs),
+          ),
+          #(
+            "region_content",
+            lane_json(acc.region_ran, acc.region_idle, acc.region_errs),
+          ),
+          #(
+            "place_blogs",
+            lane_json(acc.place_ran, acc.place_idle, acc.place_errs),
+          ),
+          #(
+            "trip_planner",
+            lane_json(acc.trip_ran, acc.trip_idle, acc.trip_errs),
+          ),
+          #(
+            "blue_cruise_routes",
+            lane_json(acc.blue_ran, acc.blue_idle, acc.blue_errs),
+          ),
           #("supervisor", lane_json(sup_processed, sup_idle, sup_errors)),
         ])
         |> json.to_string
