@@ -398,6 +398,18 @@ main() {
         "$APP_ROOT/backend/priv/sql/modules/400_ai_activate_paused_workforce.sql" \
         || warn "400 activate workforce SQL uygulanamadı — panelden 'Duraklatılanları aç' deneyin"
     fi
+    if [[ -f "$APP_ROOT/backend/priv/sql/modules/401_ai_enable_all_with_provider_fallback.sql" ]]; then
+      step "AI sağlayıcı sırası: Gemini havuzu → DeepSeek yedek (401)"
+      bash "$APP_ROOT/deploy/apply-sql.sh" \
+        "$APP_ROOT/backend/priv/sql/modules/401_ai_enable_all_with_provider_fallback.sql" \
+        || warn "401 AI sağlayıcı aktivasyonu uygulanamadı"
+    fi
+    if [[ -f "$APP_ROOT/backend/priv/sql/modules/402_ai_manager_continuous_orchestration.sql" ]]; then
+      step "AI Genel Müdürü sürekli orkestrasyon (402)"
+      bash "$APP_ROOT/deploy/apply-sql.sh" \
+        "$APP_ROOT/backend/priv/sql/modules/402_ai_manager_continuous_orchestration.sql" \
+        || warn "402 AI müdür orkestrasyonu uygulanamadı"
+    fi
   fi
 
   if [[ "${SKIP_AI_WORKER_TIMER:-0}" == "1" ]]; then
