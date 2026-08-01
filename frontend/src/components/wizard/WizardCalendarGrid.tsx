@@ -180,9 +180,10 @@ interface WizardCalendarGridProps {
   rows: MergedCalendarRow[]
   onChange: (rows: MergedCalendarRow[]) => void
   currencyCode?: string
+  showBulkActions?: boolean
 }
 
-export default function WizardCalendarGrid({ rows, onChange, currencyCode = 'TRY' }: WizardCalendarGridProps) {
+export default function WizardCalendarGrid({ rows, onChange, currencyCode = 'TRY', showBulkActions = true }: WizardCalendarGridProps) {
   const today = isoToday()
   const [viewYear, setViewYear] = useState(() => {
     const d = new Date()
@@ -275,7 +276,7 @@ export default function WizardCalendarGrid({ rows, onChange, currencyCode = 'TRY
       onMouseLeave={handleMouseUp}
     >
       {/* Bulk actions */}
-      <div className="mb-4 flex flex-wrap items-center gap-2">
+      {showBulkActions && <div className="mb-4 flex flex-wrap items-center gap-2">
         <span className="text-xs font-semibold text-neutral-500 dark:text-neutral-400">Toplu işlem:</span>
         <button
           type="button"
@@ -311,7 +312,7 @@ export default function WizardCalendarGrid({ rows, onChange, currencyCode = 'TRY
         >
           Hft. sonları aç
         </button>
-      </div>
+      </div>}
 
       {/* Legend */}
       <div className="mb-4 flex flex-wrap items-center gap-4 text-xs text-neutral-500 dark:text-neutral-400">

@@ -5037,7 +5037,7 @@ export default function CatalogNewListingClient({
                         )}
                         {calLoaded && (
                           <>
-                            <WizardCalendarGrid rows={calRows} onChange={setCalRows} currencyCode={currency} />
+                            <WizardCalendarGrid rows={calRows} onChange={setCalRows} currencyCode={currency} showBulkActions={false} />
                             <div className="mt-5 flex flex-wrap items-center gap-3 border-t border-neutral-100 pt-4 dark:border-neutral-700">
                               <button type="button" onClick={() => void saveCalendar()} disabled={calBusy === 'save'}
                                 className="flex items-center gap-2 rounded-xl bg-primary-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-primary-700 disabled:opacity-50"
