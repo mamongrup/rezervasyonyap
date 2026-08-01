@@ -180,8 +180,9 @@ export default function ListingContentAiPanel() {
               <strong>Gemini</strong> (Ayarlar → Yapay zeka key havuzu); DeepSeek isteğe bağlı yedektir.
             </p>
             <p className="mt-2 text-xs text-emerald-800 dark:text-emerald-300">
-              Otel, villa, yat, aktivite, tur, gemi turu, feribot, araç kiralama ve uçak bileti içerikleri sunucu
-              zamanlayıcısı tarafından eksik/kalitesiz kayıt kalmayana kadar otomatik işlenir.
+              Yayındaki otel, villa, yat, tur, aktivite ve diğer tüm aktif kategori ilanları sunucu
+              zamanlayıcısı tarafından eksik/kalitesiz SEO kaydı kalmayana kadar otomatik işlenir. Yeni aktif
+              kategoriler de ayrıca kod değişikliği gerektirmeden bu taramaya dahil edilir.
             </p>
             <p className="mt-2 text-xs text-violet-800 dark:text-violet-300">
               Gemini key havuzu dolu olmalı (

@@ -527,10 +527,10 @@ pub fn stats(req: Request, ctx: Context) -> Response {
         False -> " and pc.code = $1 "
       }
       let total_sql =
-        "select count(*)::int from listings l join product_categories pc on pc.id = l.category_id where l.status in ('draft','published')"
+        "select count(*)::int from listings l join product_categories pc on pc.id = l.category_id where l.status = 'published' and coalesce(pc.is_active, true) = true"
         <> cat_filter
       let need_sql =
-        "select count(*)::int from listings l join product_categories pc on pc.id = l.category_id where l.status in ('draft','published')"
+        "select count(*)::int from listings l join product_categories pc on pc.id = l.category_id where l.status = 'published' and coalesce(pc.is_active, true) = true"
         <> cat_filter
         <> " and "
         <> need_work_sql()
@@ -678,7 +678,8 @@ pub fn queue_all(req: Request, ctx: Context) -> Response {
             from listings l
             join product_categories pc on pc.id = l.category_id
             where pc.code = $1
-              and l.status in ('draft','published')
+              and coalesce(pc.is_active, true) = true
+              and l.status = 'published'
               " <> incomplete_filter <> "
               and not exists (
                 select 1 from ai_listing_content_batches b
@@ -1710,8 +1711,8 @@ fn run_batch_core(
 }
 
 /// Sunucu AI zamanlayıcısı için tek adımlık içerik editörü. Önce mevcut kuyruğu
-/// işler; kuyruk boşsa öncelikli satış kategorilerindeki eksik, yanlış dilde,
-/// düz yazı veya SEO/çeviri eksiği bulunan bir ilanı otomatik kuyruğa alır.
+/// işler; kuyruk boşsa aktif ürün kategorilerindeki yayında olan ve eksik, yanlış
+/// dilde, düz yazı veya SEO/çeviri eksiği bulunan bir ilanı otomatik kuyruğa alır.
 pub fn worker_try_listing_content(ctx: Context) -> Result(Bool, String) {
   let pick_sql =
     "with reset_stale as ("
@@ -1742,12 +1743,11 @@ pub fn worker_try_listing_content(ctx: Context) -> Result(Bool, String) {
             "insert into ai_listing_content_batches (listing_id, category_code, phase, status, overwrite) "
             <> "select l.id, pc.code, 'tr_description', 'pending', false from listings l "
             <> "join product_categories pc on pc.id = l.category_id "
-            <> "where pc.code in ('holiday_home','yacht_charter','activity','tour','cruise','hotel','ferry','transfer','car_rental','flight') "
-            <> "and l.status in ('draft','published') and "
+            <> "where coalesce(pc.is_active, true) = true and l.status = 'published' and "
             <> need_work_sql()
             <> "and not exists (select 1 from ai_listing_content_batches b where b.listing_id = l.id and b.status in ('pending','running')) "
             <> "and not exists (select 1 from ai_listing_content_batches b where b.listing_id = l.id and b.status = 'failed' and b.updated_at > now() - interval '6 hours') "
-            <> "order by case pc.code when 'holiday_home' then 0 when 'yacht_charter' then 1 when 'hotel' then 2 when 'activity' then 3 when 'cruise' then 4 when 'ferry' then 5 when 'transfer' then 6 when 'car_rental' then 7 when 'flight' then 8 else 9 end, l.updated_at desc limit 1 returning id::text"
+            <> "order by l.updated_at desc, pc.code limit 1 returning id::text"
           case
             pog.query(seed_sql)
             |> pog.timeout(30_000)
