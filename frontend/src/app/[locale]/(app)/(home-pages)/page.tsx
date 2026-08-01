@@ -220,7 +220,7 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
         />
       </div>
 
-      <div className={`${heroBelowContentClassName} overflow-x-hidden`}>
+      <div className={`${heroBelowContentClassName} overflow-x-hidden lg:-mt-32`}>
         <div className="container mb-10 flex justify-center px-4 sm:px-0">
           <HeroLastSearchRow locale={locale} />
         </div>
