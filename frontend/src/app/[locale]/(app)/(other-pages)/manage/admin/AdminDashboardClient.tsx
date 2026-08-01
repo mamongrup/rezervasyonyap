@@ -7,6 +7,7 @@ import {
   getAuthMe,
   getStaffInvoices,
   getStaffReservations,
+  listAdminTcVerificationRequests,
   listSeoNotFoundLogs,
   type StaffInvoiceRow,
   type StaffReservationRow,
@@ -341,6 +342,7 @@ export default function AdminDashboardClient() {
   const [invoices, setInvoices] = useState<StaffInvoiceRow[]>([])
   const [reservations, setReservations] = useState<StaffReservationRow[]>([])
   const [notFoundCount, setNotFoundCount] = useState(0)
+  const [pendingTcVerificationCount, setPendingTcVerificationCount] = useState(0)
   const [publishedListings, setPublishedListings] = useState(0)
   const [loading, setLoading] = useState(true)
   const monthLabels = useMemo(() => buildMonthLabels(6), [])
@@ -356,17 +358,20 @@ export default function AdminDashboardClient() {
       const perms = Array.isArray(me.permissions) ? me.permissions : []
       const roles = Array.isArray(me.roles) ? me.roles : []
       const admin = isFullAdminUser(perms, roles)
-      const [invRes, resRes, seoRes, statsRes] = await Promise.allSettled([
+      const [invRes, resRes, seoRes, statsRes, tcVerificationRes] = await Promise.allSettled([
         getStaffInvoices(token),
         admin ? getAdminReservations(token, { limit: 200 }) : getStaffReservations(token),
         listSeoNotFoundLogs(token),
         admin ? getAdminCatalogDashboardStats(token) : Promise.resolve({ published_listings: 0 }),
+        admin ? listAdminTcVerificationRequests(token) : Promise.resolve({ requests: [] }),
       ])
       if (invRes.status === 'fulfilled') setInvoices(invRes.value.invoices)
       if (resRes.status === 'fulfilled') setReservations(resRes.value.reservations)
       if (seoRes.status === 'fulfilled') setNotFoundCount(seoRes.value.logs.length)
       if (statsRes.status === 'fulfilled')
         setPublishedListings(Math.max(0, Number(statsRes.value.published_listings ?? 0)))
+      if (tcVerificationRes.status === 'fulfilled')
+        setPendingTcVerificationCount(tcVerificationRes.value.requests.length)
     } catch {
       /* ignore */
     } finally {
@@ -395,6 +400,7 @@ export default function AdminDashboardClient() {
 
   // Attention items
   const attentionItems = [
+    pendingTcVerificationCount > 0 && { label: 'Onay bekleyen TC kimlik başvurusu', count: pendingTcVerificationCount, href: '/manage/admin/tc-verifications', color: 'text-orange-700 dark:text-orange-300', bg: 'bg-orange-50 dark:bg-orange-950/20', border: 'border-orange-300 dark:border-orange-900/40' },
     pendingReservations > 0 && { label: 'Onay bekleyen rezervasyon', count: pendingReservations, href: '/manage/reservations', color: 'text-amber-600', bg: 'bg-amber-50 dark:bg-amber-950/20', border: 'border-amber-200 dark:border-amber-900/30' },
     notFoundCount > 0 && { label: '404 kırık bağlantı', count: notFoundCount, href: '/manage/seo/404', color: 'text-red-600', bg: 'bg-red-50 dark:bg-red-950/20', border: 'border-red-200 dark:border-red-900/30' },
   ].filter(Boolean) as { label: string; count: number; href: string; color: string; bg: string; border: string }[]
@@ -463,6 +469,7 @@ export default function AdminDashboardClient() {
           { label: 'Bugün giriş yapacak', value: confirmedToday, color: '#10b981' },
           { label: 'Toplam rezervasyon', value: reservations.length || totalReservations, color: '#3b82f6' },
           { label: 'Bekleyen onay', value: pendingReservations, color: '#f59e0b' },
+          { label: 'Kimlik onayı bekleyen', value: pendingTcVerificationCount, color: '#ea580c' },
         ].map((s) => (
           <div key={s.label} className="rounded-2xl border border-[color:var(--manage-card-border)] bg-[color:var(--manage-card-bg)] px-4 py-2.5 shadow-sm backdrop-blur-sm">
             <p className="text-xl font-bold" style={{ color: s.color }}>{s.value}</p>
@@ -479,8 +486,13 @@ export default function AdminDashboardClient() {
             <Link
               key={action.href}
               href={normalizeHrefForLocale(locale, vitrinPath(action.href.startsWith('/') ? action.href : `/${action.href}`))}
-              className="flex flex-col items-center gap-2 rounded-2xl border border-[color:var(--manage-card-border)] bg-[color:var(--manage-card-bg)] p-4 text-center shadow-sm backdrop-blur-sm transition-all hover:border-[color:var(--manage-primary-border)] hover:shadow-md"
+              className="relative flex flex-col items-center gap-2 rounded-2xl border border-[color:var(--manage-card-border)] bg-[color:var(--manage-card-bg)] p-4 text-center shadow-sm backdrop-blur-sm transition-all hover:border-[color:var(--manage-primary-border)] hover:shadow-md"
             >
+              {action.href === '/manage/admin/tc-verifications' && pendingTcVerificationCount > 0 ? (
+                <span className="absolute right-2 top-2 flex min-w-5 items-center justify-center rounded-full bg-orange-600 px-1.5 py-0.5 text-[10px] font-bold text-white shadow-sm" aria-label={`${pendingTcVerificationCount} onay bekleyen TC kimlik başvurusu`}>
+                  {pendingTcVerificationCount}
+                </span>
+              ) : null}
               <div className="flex h-10 w-10 items-center justify-center rounded-xl" style={{ backgroundColor: `${action.color}18` }}>
                 <action.icon className="h-5 w-5" style={{ color: action.color }} />
               </div>
