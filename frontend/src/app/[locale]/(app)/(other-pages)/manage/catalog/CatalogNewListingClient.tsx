@@ -592,6 +592,7 @@ export default function CatalogNewListingClient({
   const [ruleRaw, setRuleRaw] = useState('')
   const [showRawJson, setShowRawJson] = useState(false)
   const [ruleBusy, setRuleBusy] = useState(false)
+  const [ruleMsg, setRuleMsg] = useState<{ ok: boolean; text: string } | null>(null)
 
   // ── Yemek Planları (meal plans) ──
   const [mealPlans, setMealPlans] = useState<MealPlanItem[]>([])
@@ -2306,31 +2307,64 @@ export default function CatalogNewListingClient({
     setRuleRaw('')
   }
 
-  async function addRule(e: React.FormEvent) {
-    e.preventDefault()
+  async function addRule() {
     const token = getStoredAuthToken()
     if (!token || !editListingId) return
     const ruleJson = showRawJson
       ? ruleRaw.trim()
       : buildRuleJson(ruleBase, ruleWeekend, ruleMinNights, ruleLabel, ruleWeeklyTotal, ruleCompareAt)
-    if (!ruleJson || ruleJson === '{}') return
+    if (!ruleJson || ruleJson === '{}') {
+      setRuleMsg({ ok: false, text: 'En az bir fiyat alanı girin.' })
+      return
+    }
+    try {
+      JSON.parse(ruleJson)
+    } catch {
+      setRuleMsg({ ok: false, text: 'Fiyat kuralı JSON biçimi geçersiz.' })
+      return
+    }
+    if (ruleFrom.trim() && ruleTo.trim() && ruleTo.trim() < ruleFrom.trim()) {
+      setRuleMsg({ ok: false, text: 'Bitiş tarihi başlangıç tarihinden önce olamaz.' })
+      return
+    }
+    setRuleMsg(null)
     setRuleBusy(true)
     try {
-      await createListingPriceRule(token, editListingId, { rule_json: ruleJson, valid_from: ruleFrom.trim() || undefined, valid_to: ruleTo.trim() || undefined }, orgParam2)
-      const fresh = await listListingPriceRules(token, editListingId, orgParam2)
-      setRules(fresh.rules)
+      const validFrom = ruleFrom.trim() || undefined
+      const validTo = ruleTo.trim() || undefined
+      const created = await createListingPriceRule(token, editListingId, { rule_json: ruleJson, valid_from: validFrom, valid_to: validTo }, orgParam2)
+      setRules((prev) => [
+        ...prev,
+        { id: created.id, rule_json: ruleJson, valid_from: validFrom ?? null, valid_to: validTo ?? null },
+      ])
       ruleReset()
-    } catch { /* silent */ } finally { setRuleBusy(false) }
+      setRuleMsg({ ok: true, text: 'Dönem fiyatı kaydedildi.' })
+      void listListingPriceRules(token, editListingId, orgParam2)
+        .then((fresh) => setRules(fresh.rules))
+        .catch(() => {})
+    } catch (e) {
+      setRuleMsg({
+        ok: false,
+        text: e instanceof Error ? formatManageApiError(e.message) : 'Dönem fiyatı kaydedilemedi.',
+      })
+    } finally { setRuleBusy(false) }
   }
 
   async function deleteRule(id: string) {
     const token = getStoredAuthToken()
     if (!token || !editListingId || !confirm('Bu fiyat dönemini silmek istiyor musunuz?')) return
+    setRuleMsg(null)
     setRuleBusy(true)
     try {
       await deleteListingPriceRule(token, editListingId, id, orgParam2)
       setRules((prev) => prev.filter((r) => r.id !== id))
-    } catch { /* silent */ } finally { setRuleBusy(false) }
+      setRuleMsg({ ok: true, text: 'Dönem fiyatı silindi.' })
+    } catch (e) {
+      setRuleMsg({
+        ok: false,
+        text: e instanceof Error ? formatManageApiError(e.message) : 'Dönem fiyatı silinemedi.',
+      })
+    } finally { setRuleBusy(false) }
   }
 
   // ── Yemek Planları handlers ──
@@ -2827,6 +2861,61 @@ export default function CatalogNewListingClient({
       }
 
       // 4. Temel ilan alanları
+      // Dönem alanları ana formun parçası olduğu için sabit "Kaydet" düğmesi
+      // ekrandaki fiyat taslağını da kaydetmelidir.
+      const hasPendingRule = showRawJson
+        ? ruleRaw.trim().length > 0
+        : [ruleBase, ruleWeekend, ruleWeeklyTotal, ruleCompareAt].some(
+            (value) => value.trim().length > 0,
+          )
+      if (hasPendingRule) {
+        const ruleJson = showRawJson
+          ? ruleRaw.trim()
+          : buildRuleJson(
+              ruleBase,
+              ruleWeekend,
+              ruleMinNights,
+              ruleLabel,
+              ruleWeeklyTotal,
+              ruleCompareAt,
+            )
+        try {
+          JSON.parse(ruleJson)
+        } catch {
+          throw new Error('Fiyat kuralı JSON biçimi geçersiz.')
+        }
+        if (ruleFrom.trim() && ruleTo.trim() && ruleTo.trim() < ruleFrom.trim()) {
+          throw new Error('Bitiş tarihi başlangıç tarihinden önce olamaz.')
+        }
+        const createdRule = await saveRequiredStep(
+          'Dönem fiyatı kaydı',
+          createListingPriceRule(
+            token,
+            lid,
+            {
+              rule_json: ruleJson,
+              valid_from: ruleFrom.trim() || undefined,
+              valid_to: ruleTo.trim() || undefined,
+            },
+            orgParam,
+          ),
+        )
+        setRules((prev) => [
+          ...prev,
+          {
+            id: createdRule.id,
+            rule_json: ruleJson,
+            valid_from: ruleFrom.trim() || null,
+            valid_to: ruleTo.trim() || null,
+          },
+        ])
+        ruleReset()
+        setRuleMsg({ ok: true, text: 'Dönem fiyatı kaydedildi.' })
+        void listListingPriceRules(token, lid, orgParam)
+          .then((fresh) => setRules(fresh.rules))
+          .catch(() => {})
+      }
+
       const basicsBody: Parameters<typeof patchListingBasics>[2] = { status }
       const msn = !isHotel ? basicsIntField(minStayNights) : null
       if (msn) basicsBody.min_stay_nights = msn
@@ -4932,7 +5021,7 @@ export default function CatalogNewListingClient({
                         {/* Yeni kural formu */}
                         <div className="rounded-xl border border-dashed border-neutral-300 p-5 dark:border-neutral-600">
                           <h3 className="mb-4 text-sm font-semibold text-neutral-700 dark:text-neutral-200">Yeni Dönem Ekle</h3>
-                          <form onSubmit={(e) => void addRule(e)} className="space-y-4">
+                          <div className="space-y-4">
                             {!showRawJson ? (
                               <div className="grid gap-4 sm:grid-cols-2">
                                 <Field className="block">
@@ -4984,14 +5073,19 @@ export default function CatalogNewListingClient({
                               </div>
                             )}
                             <div className="flex flex-wrap items-center gap-3">
-                              <ButtonPrimary type="submit" disabled={ruleBusy}>
+                              <ButtonPrimary type="button" onClick={() => void addRule()} disabled={ruleBusy}>
                                 {ruleBusy ? '…' : 'Dönem Ekle'}
                               </ButtonPrimary>
                               <button type="button" onClick={() => setShowRawJson((v) => !v)} className="text-xs text-neutral-500 underline">
                                 {showRawJson ? 'Form görünümü' : 'Ham JSON'}
                               </button>
+                              {ruleMsg && (
+                                <span className={`text-sm font-medium ${ruleMsg.ok ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}`}>
+                                  {ruleMsg.text}
+                                </span>
+                              )}
                             </div>
-                          </form>
+                          </div>
                         </div>
                       </div>
                     )}
