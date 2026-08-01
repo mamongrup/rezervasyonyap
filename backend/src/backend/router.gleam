@@ -366,6 +366,9 @@ fn dispatch(req: Request, ctx: Context) -> Response {
     http.Post, ["api", "v1", "catalog", "listings", lid, "price-rules"] ->
       catalog_http.create_listing_price_rule(req, ctx, lid)
 
+    http.Put, ["api", "v1", "catalog", "listings", lid, "price-rules", rid]
+    -> catalog_http.update_listing_price_rule(req, ctx, lid, rid)
+
     http.Delete, ["api", "v1", "catalog", "listings", lid, "price-rules", rid]
     -> catalog_http.delete_listing_price_rule(req, ctx, lid, rid)
 

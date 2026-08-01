@@ -44,6 +44,7 @@ import {
   createListingExternalBooking,
   deleteListingExternalBooking,
   deleteListingPriceRule,
+  updateListingPriceRule,
   deleteManageMealPlan,
   deleteIcalFeed,
   syncIcalFeed,
@@ -593,6 +594,7 @@ export default function CatalogNewListingClient({
   const [showRawJson, setShowRawJson] = useState(false)
   const [ruleBusy, setRuleBusy] = useState(false)
   const [ruleMsg, setRuleMsg] = useState<{ ok: boolean; text: string } | null>(null)
+  const [ruleEditId, setRuleEditId] = useState<string | null>(null)
 
   // ── Yemek Planları (meal plans) ──
   const [mealPlans, setMealPlans] = useState<MealPlanItem[]>([])
@@ -2296,6 +2298,7 @@ export default function CatalogNewListingClient({
   const orgParam2 = needOrg && orgId.trim() ? { organizationId: orgId.trim() } : undefined
 
   function ruleReset() {
+    setRuleEditId(null)
     setRuleLabel('')
     setRuleBase('')
     setRuleWeekend('')
@@ -2305,6 +2308,22 @@ export default function CatalogNewListingClient({
     setRuleFrom('')
     setRuleTo('')
     setRuleRaw('')
+  }
+
+  function editRule(rule: ListingPriceRuleRow) {
+    const parsed = parseRuleJson(rule.rule_json)
+    setRuleEditId(rule.id)
+    setRuleLabel(parsed.label)
+    setRuleBase(parsed.base)
+    setRuleWeekend(parsed.weekend)
+    setRuleWeeklyTotal(parsed.weekly)
+    setRuleCompareAt(parsed.compareAt)
+    setRuleMinNights(parsed.minNights)
+    setRuleFrom(rule.valid_from ?? '')
+    setRuleTo(rule.valid_to ?? '')
+    setRuleRaw(rule.rule_json)
+    setShowRawJson(false)
+    setRuleMsg(null)
   }
 
   async function addRule() {
@@ -2332,13 +2351,22 @@ export default function CatalogNewListingClient({
     try {
       const validFrom = ruleFrom.trim() || undefined
       const validTo = ruleTo.trim() || undefined
-      const created = await createListingPriceRule(token, editListingId, { rule_json: ruleJson, valid_from: validFrom, valid_to: validTo }, orgParam2)
-      setRules((prev) => [
-        ...prev,
-        { id: created.id, rule_json: ruleJson, valid_from: validFrom ?? null, valid_to: validTo ?? null },
-      ])
+      if (ruleEditId) {
+        await updateListingPriceRule(token, editListingId, ruleEditId, { rule_json: ruleJson, valid_from: validFrom, valid_to: validTo }, orgParam2)
+        setRules((prev) => prev.map((rule) =>
+          rule.id === ruleEditId
+            ? { ...rule, rule_json: ruleJson, valid_from: validFrom ?? null, valid_to: validTo ?? null }
+            : rule,
+        ))
+      } else {
+        const created = await createListingPriceRule(token, editListingId, { rule_json: ruleJson, valid_from: validFrom, valid_to: validTo }, orgParam2)
+        setRules((prev) => [
+          ...prev,
+          { id: created.id, rule_json: ruleJson, valid_from: validFrom ?? null, valid_to: validTo ?? null },
+        ])
+      }
       ruleReset()
-      setRuleMsg({ ok: true, text: 'Dönem fiyatı kaydedildi.' })
+      setRuleMsg({ ok: true, text: ruleEditId ? 'Dönem fiyatı güncellendi.' : 'Dönem fiyatı kaydedildi.' })
       void listListingPriceRules(token, editListingId, orgParam2)
         .then((fresh) => setRules(fresh.rules))
         .catch(() => {})
@@ -2358,6 +2386,7 @@ export default function CatalogNewListingClient({
     try {
       await deleteListingPriceRule(token, editListingId, id, orgParam2)
       setRules((prev) => prev.filter((r) => r.id !== id))
+      if (ruleEditId === id) ruleReset()
       setRuleMsg({ ok: true, text: 'Dönem fiyatı silindi.' })
     } catch (e) {
       setRuleMsg({
@@ -2887,30 +2916,30 @@ export default function CatalogNewListingClient({
         if (ruleFrom.trim() && ruleTo.trim() && ruleTo.trim() < ruleFrom.trim()) {
           throw new Error('Bitiş tarihi başlangıç tarihinden önce olamaz.')
         }
-        const createdRule = await saveRequiredStep(
-          'Dönem fiyatı kaydı',
-          createListingPriceRule(
-            token,
-            lid,
-            {
-              rule_json: ruleJson,
-              valid_from: ruleFrom.trim() || undefined,
-              valid_to: ruleTo.trim() || undefined,
-            },
-            orgParam,
-          ),
-        )
-        setRules((prev) => [
-          ...prev,
-          {
-            id: createdRule.id,
-            rule_json: ruleJson,
-            valid_from: ruleFrom.trim() || null,
-            valid_to: ruleTo.trim() || null,
-          },
-        ])
+        const validFrom = ruleFrom.trim() || undefined
+        const validTo = ruleTo.trim() || undefined
+        if (ruleEditId) {
+          await saveRequiredStep(
+            'Dönem fiyatı güncelleme',
+            updateListingPriceRule(token, lid, ruleEditId, { rule_json: ruleJson, valid_from: validFrom, valid_to: validTo }, orgParam),
+          )
+          setRules((prev) => prev.map((rule) =>
+            rule.id === ruleEditId
+              ? { ...rule, rule_json: ruleJson, valid_from: validFrom ?? null, valid_to: validTo ?? null }
+              : rule,
+          ))
+        } else {
+          const createdRule = await saveRequiredStep(
+            'Dönem fiyatı kaydı',
+            createListingPriceRule(token, lid, { rule_json: ruleJson, valid_from: validFrom, valid_to: validTo }, orgParam),
+          )
+          setRules((prev) => [
+            ...prev,
+            { id: createdRule.id, rule_json: ruleJson, valid_from: validFrom ?? null, valid_to: validTo ?? null },
+          ])
+        }
         ruleReset()
-        setRuleMsg({ ok: true, text: 'Dönem fiyatı kaydedildi.' })
+        setRuleMsg({ ok: true, text: ruleEditId ? 'Dönem fiyatı güncellendi.' : 'Dönem fiyatı kaydedildi.' })
         void listListingPriceRules(token, lid, orgParam)
           .then((fresh) => setRules(fresh.rules))
           .catch(() => {})
@@ -5006,8 +5035,13 @@ export default function CatalogNewListingClient({
                                   {parsed.weekend && <span className="text-sm text-blue-700 dark:text-blue-300">Hft.sonu: <span className="font-mono">{parsed.weekend}</span></span>}
                                   {parsed.minNights && <span className="text-xs text-neutral-500">Min. {parsed.minNights} gece</span>}
                                   {(r.valid_from || r.valid_to) && <span className="font-mono text-xs text-neutral-500">{r.valid_from ?? '∞'} → {r.valid_to ?? '∞'}</span>}
+                                  <button type="button" onClick={() => editRule(r)} disabled={ruleBusy}
+                                    className="ml-auto text-xs text-primary-600 underline dark:text-primary-400 disabled:opacity-50"
+                                  >
+                                    Düzenle
+                                  </button>
                                   <button type="button" onClick={() => void deleteRule(r.id)} disabled={ruleBusy}
-                                    className="ml-auto text-xs text-red-600 underline dark:text-red-400 disabled:opacity-50"
+                                    className="text-xs text-red-600 underline dark:text-red-400 disabled:opacity-50"
                                   >
                                     Sil
                                   </button>
@@ -5020,7 +5054,9 @@ export default function CatalogNewListingClient({
 
                         {/* Yeni kural formu */}
                         <div className="rounded-xl border border-dashed border-neutral-300 p-5 dark:border-neutral-600">
-                          <h3 className="mb-4 text-sm font-semibold text-neutral-700 dark:text-neutral-200">Yeni Dönem Ekle</h3>
+                          <h3 className="mb-4 text-sm font-semibold text-neutral-700 dark:text-neutral-200">
+                            {ruleEditId ? 'Dönem Fiyatını Düzenle' : 'Yeni Dönem Ekle'}
+                          </h3>
                           <div className="space-y-4">
                             {!showRawJson ? (
                               <div className="grid gap-4 sm:grid-cols-2">
@@ -5074,8 +5110,13 @@ export default function CatalogNewListingClient({
                             )}
                             <div className="flex flex-wrap items-center gap-3">
                               <ButtonPrimary type="button" onClick={() => void addRule()} disabled={ruleBusy}>
-                                {ruleBusy ? '…' : 'Dönem Ekle'}
+                                {ruleBusy ? '…' : ruleEditId ? 'Değişiklikleri Kaydet' : 'Dönem Ekle'}
                               </ButtonPrimary>
+                              {ruleEditId && (
+                                <button type="button" onClick={ruleReset} disabled={ruleBusy} className="text-xs text-neutral-500 underline disabled:opacity-50">
+                                  Düzenlemeyi İptal Et
+                                </button>
+                              )}
                               <button type="button" onClick={() => setShowRawJson((v) => !v)} className="text-xs text-neutral-500 underline">
                                 {showRawJson ? 'Form görünümü' : 'Ham JSON'}
                               </button>

@@ -3182,6 +3182,14 @@ fn price_rule_row() -> decode.Decoder(#(String, String, String, String)) {
   decode.success(#(id, rj, vf, vt))
 }
 
+fn refresh_one_listing_vitrin_price(ctx: Context, listing_id: String) -> Nil {
+  let _ =
+    pog.query("select refresh_listing_vitrin_prices_for($1::uuid)")
+    |> pog.parameter(pog.text(listing_id))
+    |> db_exec.execute(ctx.db)
+  Nil
+}
+
 /// GET /api/v1/catalog/listings/:id/price-rules
 pub fn list_listing_price_rules(req: Request, ctx: Context, listing_id: String) -> Response {
   use <- wisp.require_method(req, http.Get)
@@ -3298,6 +3306,7 @@ pub fn create_listing_price_rule(req: Request, ctx: Context, listing_id: String)
                             Ok(r) ->
                               case r.rows {
                                 [id] -> {
+                                  refresh_one_listing_vitrin_price(ctx, listing_id)
                                   let out =
                                     json.object([#("id", json.string(id))])
                                     |> json.to_string
@@ -4423,6 +4432,67 @@ pub fn put_listing_meta(
   }
 }
 
+/// PUT /api/v1/catalog/listings/:id/price-rules/:rule_id
+pub fn update_listing_price_rule(
+  req: Request,
+  ctx: Context,
+  listing_id: String,
+  rule_id: String,
+) -> Response {
+  use <- wisp.require_method(req, http.Put)
+  case resolve_manage_listings_scope(req, ctx) {
+    Error(r) -> r
+    Ok(#(_, org_id)) ->
+      case listing_in_manage_org(ctx.db, listing_id, org_id) {
+        Error(_) -> json_err(500, "listing_scope_check_failed")
+        Ok(False) -> json_err(404, "listing_not_found")
+        Ok(True) ->
+          case read_body_string(req) {
+            Error(_) -> json_err(400, "empty_body")
+            Ok(body) ->
+              case json.parse(body, create_price_rule_decoder()) {
+                Error(_) -> json_err(400, "invalid_json")
+                Ok(#(rj, vf_opt, vt_opt)) -> {
+                  let vf_res = case vf_opt {
+                    None -> Ok(pog.null())
+                    Some(s) -> result.map(parse_iso_date_ymd(s), fn(d) { pog.calendar_date(d) })
+                  }
+                  let vt_res = case vt_opt {
+                    None -> Ok(pog.null())
+                    Some(s) -> result.map(parse_iso_date_ymd(s), fn(d) { pog.calendar_date(d) })
+                  }
+                  case rj == "", vf_res, vt_res {
+                    True, _, _ -> json_err(400, "rule_json_required")
+                    False, Ok(vf_p), Ok(vt_p) ->
+                      case
+                        pog.query(
+                          "update listing_price_rules set rule_json = ($3::text)::jsonb, valid_from = $4::date, valid_to = $5::date where id = $1::uuid and listing_id = $2::uuid",
+                        )
+                        |> pog.parameter(pog.text(string.trim(rule_id)))
+                        |> pog.parameter(pog.text(listing_id))
+                        |> pog.parameter(pog.text(rj))
+                        |> pog.parameter(vf_p)
+                        |> pog.parameter(vt_p)
+                        |> db_exec.execute(ctx.db)
+                      {
+                        Error(_) -> json_err(500, "price_rule_update_failed")
+                        Ok(ret) -> case ret.count {
+                          0 -> json_err(404, "not_found")
+                          _ -> {
+                            refresh_one_listing_vitrin_price(ctx, listing_id)
+                            wisp.json_response("{\"ok\":true}", 200)
+                          }
+                        }
+                      }
+                    False, _, _ -> json_err(400, "invalid_date_format")
+                  }
+                }
+              }
+          }
+      }
+  }
+}
+
 /// DELETE /api/v1/catalog/listings/:id/price-rules/:rule_id
 pub fn delete_listing_price_rule(
   req: Request,
@@ -4450,7 +4520,10 @@ pub fn delete_listing_price_rule(
             Ok(ret) ->
               case ret.count {
                 0 -> json_err(404, "not_found")
-                _ -> wisp.json_response("{\"ok\":true}", 200)
+                _ -> {
+                  refresh_one_listing_vitrin_price(ctx, listing_id)
+                  wisp.json_response("{\"ok\":true}", 200)
+                }
               }
           }
       }

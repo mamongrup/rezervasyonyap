@@ -2359,6 +2359,30 @@ export async function deleteListingPriceRule(
   return json(res)
 }
 
+export async function updateListingPriceRule(
+  token: string,
+  listingId: string,
+  ruleId: string,
+  body: { rule_json: string; valid_from?: string; valid_to?: string },
+  params?: { organizationId?: string },
+): Promise<{ ok: boolean }> {
+  const b = base()
+  if (!b) throw new Error('NEXT_PUBLIC_API_URL_missing')
+  const res = await fetch(
+    `${b}/api/v1/catalog/listings/${encodeURIComponent(listingId)}/price-rules/${encodeURIComponent(ruleId)}${catalogListingQs(params)}`,
+    {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify(body),
+    },
+  )
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}))
+    throw new Error((err as { error?: string }).error ?? `price_rule_update_${res.status}`)
+  }
+  return json(res)
+}
+
 export type ListingExternalBookingRow = {
   id: string
   stay_from: string
