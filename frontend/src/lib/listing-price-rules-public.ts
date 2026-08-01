@@ -30,6 +30,9 @@ export type ParsedPriceRuleJson = {
   compareAtMeals: string
   roomOnly: string
   mealsIncluded: string
+  discountNightly: string
+  discountFrom: string
+  discountTo: string
 }
 
 function pickStr(obj: Record<string, unknown>, keys: string[]): string {
@@ -74,6 +77,9 @@ export function parseListingPriceRuleJson(json: string): ParsedPriceRuleJson {
         'full_board_nightly',
         'with_meals_nightly',
       ]),
+      discountNightly: pickStr(obj, ['discount_nightly', 'campaign_nightly']),
+      discountFrom: pickStr(obj, ['discount_from', 'campaign_from']),
+      discountTo: pickStr(obj, ['discount_to', 'campaign_to']),
     }
   } catch {
     return {
@@ -86,6 +92,9 @@ export function parseListingPriceRuleJson(json: string): ParsedPriceRuleJson {
       compareAtMeals: '',
       roomOnly: '',
       mealsIncluded: '',
+      discountNightly: '',
+      discountFrom: '',
+      discountTo: '',
     }
   }
 }
@@ -128,6 +137,17 @@ function formatLongDate(iso: string, locale: string): string {
     month: 'long',
     year: 'numeric',
   }).format(d)
+}
+
+function discountPeriodLabel(locale: string): string {
+  switch (locale.trim().toLowerCase()) {
+    case 'tr': return 'İndirim'
+    case 'de': return 'Rabatt'
+    case 'fr': return 'Réduction'
+    case 'ru': return 'Скидка'
+    case 'zh': return '优惠'
+    default: return 'Discount'
+  }
 }
 
 export type SeasonalPricingCopy = {
@@ -211,7 +231,14 @@ function salePriceSignature(parsed: ParsedPriceRuleJson): string {
   const nightly = baseN ?? roN ?? miN
   if (nightly == null) return ''
   const round = (n: number | null) => (n == null ? '' : String(Math.round(n * 100) / 100))
-  return [round(nightly), round(roN), round(miN)].join('|')
+  return [
+    round(nightly),
+    round(roN),
+    round(miN),
+    parsed.discountNightly,
+    parsed.discountFrom,
+    parsed.discountTo,
+  ].join('|')
 }
 
 function minIsoDate(a: string | null, b: string | null): string | null {
@@ -370,6 +397,29 @@ export function buildSeasonalPricingTableRows(
         mealsIncludedCompareAtNightly: miCompare,
         mealsIncludedCompareAtWeekly: miCompare != null ? miCompare * 7 : null,
       })
+      const discountNightly = parseAmount(parsed.discountNightly)
+      if (
+        discountNightly != null &&
+        discountNightly > 0 &&
+        discountNightly < Math.min(ro, mi) &&
+        parsed.discountFrom &&
+        parsed.discountTo
+      ) {
+        out.push({
+          periodLabel: `${discountPeriodLabel(locale)}: ${formatLongDate(parsed.discountFrom, locale)} ${msg.rangeSep} ${formatLongDate(parsed.discountTo, locale)}`,
+          nightlyAmount: discountNightly,
+          weeklyAmount: discountNightly * 7,
+          listingCurrency: code,
+          roomOnlyNightly: discountNightly,
+          roomOnlyWeekly: discountNightly * 7,
+          mealsIncludedNightly: discountNightly,
+          mealsIncludedWeekly: discountNightly * 7,
+          roomOnlyCompareAtNightly: ro,
+          roomOnlyCompareAtWeekly: ro * 7,
+          mealsIncludedCompareAtNightly: mi,
+          mealsIncludedCompareAtWeekly: mi * 7,
+        })
+      }
       continue
     }
 
@@ -386,6 +436,24 @@ export function buildSeasonalPricingTableRows(
       compareAtNightly: compareNightly,
       compareAtWeekly: compareNightly != null ? compareNightly * 7 : null,
     })
+
+    const discountNightly = parseAmount(parsed.discountNightly)
+    if (
+      discountNightly != null &&
+      discountNightly > 0 &&
+      discountNightly < nightlyNum &&
+      parsed.discountFrom &&
+      parsed.discountTo
+    ) {
+      out.push({
+        periodLabel: `${discountPeriodLabel(locale)}: ${formatLongDate(parsed.discountFrom, locale)} ${msg.rangeSep} ${formatLongDate(parsed.discountTo, locale)}`,
+        nightlyAmount: discountNightly,
+        weeklyAmount: discountNightly * 7,
+        listingCurrency: code,
+        compareAtNightly: nightlyNum,
+        compareAtWeekly: nightlyNum * 7,
+      })
+    }
   }
   return out
 }

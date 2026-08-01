@@ -41,10 +41,23 @@ export function resolveNightlyFromPriceRulesForDate(
       parseListingPriceRuleAmount(parsed.roomOnly) ??
       parseListingPriceRuleAmount(parsed.mealsIncluded)
     const weekend = parseListingPriceRuleAmount(parsed.weekend)
-    const nightly =
+    const regularNightly =
       isWeekendNight(date) && weekend != null && weekend > 0
         ? weekend
         : base
+    const discountNightly = parseListingPriceRuleAmount(parsed.discountNightly)
+    const discountActive =
+      Boolean(parsed.discountFrom && parsed.discountTo) &&
+      ymd >= parsed.discountFrom &&
+      ymd <= parsed.discountTo
+    const nightly =
+      discountActive &&
+      discountNightly != null &&
+      discountNightly > 0 &&
+      regularNightly != null &&
+      discountNightly < regularNightly
+        ? discountNightly
+        : regularNightly
     if (nightly == null || !Number.isFinite(nightly) || nightly <= 0) continue
 
     const vf = rule.valid_from?.trim() ?? ''

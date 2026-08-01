@@ -89,4 +89,28 @@ describe('buildSeasonalPricingTableRows', () => {
     expect(rows[1].periodLabel).toMatch(/31\s+Ağustos/)
     expect(rows[1].nightlyAmount).toBe(67045)
   })
+
+  it('adds a dated discounted row with the regular price struck through', () => {
+    const rows = buildSeasonalPricingTableRows(
+      [{
+        id: 'discount',
+        valid_from: '2026-07-01',
+        valid_to: '2026-08-31',
+        rule_json: JSON.stringify({
+          base_nightly: '18000',
+          discount_nightly: '14500',
+          discount_from: '2026-07-10',
+          discount_to: '2026-07-20',
+        }),
+      }],
+      'tr',
+      'TRY',
+      msg,
+    )
+
+    expect(rows).toHaveLength(2)
+    expect(rows[1].periodLabel).toMatch(/İndirim/)
+    expect(rows[1].nightlyAmount).toBe(14500)
+    expect(rows[1].compareAtNightly).toBe(18000)
+  })
 })

@@ -216,6 +216,9 @@ function parseRuleJson(json: string): {
   label: string
   weekly: string
   compareAt: string
+  discountNightly: string
+  discountFrom: string
+  discountTo: string
 } {
   try {
     const obj = JSON.parse(json) as Record<string, unknown>
@@ -228,9 +231,12 @@ function parseRuleJson(json: string): {
       compareAt: String(
         obj.compare_at_nightly ?? obj.list_nightly ?? obj.original_nightly ?? obj.msrp_nightly ?? '',
       ),
+      discountNightly: String(obj.discount_nightly ?? obj.campaign_nightly ?? ''),
+      discountFrom: String(obj.discount_from ?? obj.campaign_from ?? ''),
+      discountTo: String(obj.discount_to ?? obj.campaign_to ?? ''),
     }
   } catch {
-    return { base: '', weekend: '', minNights: '', label: '', weekly: '', compareAt: '' }
+    return { base: '', weekend: '', minNights: '', label: '', weekly: '', compareAt: '', discountNightly: '', discountFrom: '', discountTo: '' }
   }
 }
 
@@ -241,6 +247,9 @@ function buildRuleJson(
   label: string,
   weeklyTotal: string,
   compareAt: string,
+  discountNightly = '',
+  discountFrom = '',
+  discountTo = '',
 ): string {
   const obj: Record<string, string | number> = {}
   if (label.trim()) obj.label = label.trim()
@@ -248,6 +257,9 @@ function buildRuleJson(
   if (weekend.trim()) obj.weekend_nightly = weekend.trim()
   if (weeklyTotal.trim()) obj.weekly_total = weeklyTotal.trim()
   if (compareAt.trim()) obj.compare_at_nightly = compareAt.trim()
+  if (discountNightly.trim()) obj.discount_nightly = discountNightly.trim()
+  if (discountFrom.trim()) obj.discount_from = discountFrom.trim()
+  if (discountTo.trim()) obj.discount_to = discountTo.trim()
   if (minNights.trim()) obj.min_nights = parseInt(minNights.trim(), 10)
   return JSON.stringify(obj)
 }
@@ -587,6 +599,9 @@ export default function CatalogNewListingClient({
   const [ruleWeekend, setRuleWeekend] = useState('')
   const [ruleWeeklyTotal, setRuleWeeklyTotal] = useState('')
   const [ruleCompareAt, setRuleCompareAt] = useState('')
+  const [ruleDiscountNightly, setRuleDiscountNightly] = useState('')
+  const [ruleDiscountFrom, setRuleDiscountFrom] = useState('')
+  const [ruleDiscountTo, setRuleDiscountTo] = useState('')
   const [ruleMinNights, setRuleMinNights] = useState('')
   const [ruleFrom, setRuleFrom] = useState('')
   const [ruleTo, setRuleTo] = useState('')
@@ -2304,6 +2319,9 @@ export default function CatalogNewListingClient({
     setRuleWeekend('')
     setRuleWeeklyTotal('')
     setRuleCompareAt('')
+    setRuleDiscountNightly('')
+    setRuleDiscountFrom('')
+    setRuleDiscountTo('')
     setRuleMinNights('')
     setRuleFrom('')
     setRuleTo('')
@@ -2318,6 +2336,9 @@ export default function CatalogNewListingClient({
     setRuleWeekend(parsed.weekend)
     setRuleWeeklyTotal(parsed.weekly)
     setRuleCompareAt(parsed.compareAt)
+    setRuleDiscountNightly(parsed.discountNightly)
+    setRuleDiscountFrom(parsed.discountFrom)
+    setRuleDiscountTo(parsed.discountTo)
     setRuleMinNights(parsed.minNights)
     setRuleFrom(rule.valid_from ?? '')
     setRuleTo(rule.valid_to ?? '')
@@ -2331,7 +2352,7 @@ export default function CatalogNewListingClient({
     if (!token || !editListingId) return
     const ruleJson = showRawJson
       ? ruleRaw.trim()
-      : buildRuleJson(ruleBase, ruleWeekend, ruleMinNights, ruleLabel, ruleWeeklyTotal, ruleCompareAt)
+      : buildRuleJson(ruleBase, ruleWeekend, ruleMinNights, ruleLabel, ruleWeeklyTotal, ruleCompareAt, ruleDiscountNightly, ruleDiscountFrom, ruleDiscountTo)
     if (!ruleJson || ruleJson === '{}') {
       setRuleMsg({ ok: false, text: 'En az bir fiyat alanı girin.' })
       return
@@ -2344,6 +2365,14 @@ export default function CatalogNewListingClient({
     }
     if (ruleFrom.trim() && ruleTo.trim() && ruleTo.trim() < ruleFrom.trim()) {
       setRuleMsg({ ok: false, text: 'Bitiş tarihi başlangıç tarihinden önce olamaz.' })
+      return
+    }
+    if (ruleDiscountNightly.trim() && (!ruleDiscountFrom.trim() || !ruleDiscountTo.trim())) {
+      setRuleMsg({ ok: false, text: 'İndirimli fiyat için başlangıç ve bitiş tarihlerini girin.' })
+      return
+    }
+    if (ruleDiscountFrom.trim() && ruleDiscountTo.trim() && ruleDiscountTo.trim() < ruleDiscountFrom.trim()) {
+      setRuleMsg({ ok: false, text: 'İndirim bitiş tarihi başlangıç tarihinden önce olamaz.' })
       return
     }
     setRuleMsg(null)
@@ -2894,7 +2923,7 @@ export default function CatalogNewListingClient({
       // ekrandaki fiyat taslağını da kaydetmelidir.
       const hasPendingRule = showRawJson
         ? ruleRaw.trim().length > 0
-        : [ruleBase, ruleWeekend, ruleWeeklyTotal, ruleCompareAt].some(
+        : [ruleBase, ruleWeekend, ruleWeeklyTotal, ruleCompareAt, ruleDiscountNightly].some(
             (value) => value.trim().length > 0,
           )
       if (hasPendingRule) {
@@ -2907,6 +2936,9 @@ export default function CatalogNewListingClient({
               ruleLabel,
               ruleWeeklyTotal,
               ruleCompareAt,
+              ruleDiscountNightly,
+              ruleDiscountFrom,
+              ruleDiscountTo,
             )
         try {
           JSON.parse(ruleJson)
@@ -2915,6 +2947,12 @@ export default function CatalogNewListingClient({
         }
         if (ruleFrom.trim() && ruleTo.trim() && ruleTo.trim() < ruleFrom.trim()) {
           throw new Error('Bitiş tarihi başlangıç tarihinden önce olamaz.')
+        }
+        if (ruleDiscountNightly.trim() && (!ruleDiscountFrom.trim() || !ruleDiscountTo.trim())) {
+          throw new Error('İndirimli fiyat için başlangıç ve bitiş tarihlerini girin.')
+        }
+        if (ruleDiscountFrom.trim() && ruleDiscountTo.trim() && ruleDiscountTo.trim() < ruleDiscountFrom.trim()) {
+          throw new Error('İndirim bitiş tarihi başlangıç tarihinden önce olamaz.')
         }
         const validFrom = ruleFrom.trim() || undefined
         const validTo = ruleTo.trim() || undefined
@@ -5034,6 +5072,11 @@ export default function CatalogNewListingClient({
                                   {parsed.weekly && <span className="text-sm font-medium text-emerald-800 dark:text-emerald-200">Haftalık: <span className="font-mono">{parsed.weekly}</span></span>}
                                   {parsed.weekend && <span className="text-sm text-blue-700 dark:text-blue-300">Hft.sonu: <span className="font-mono">{parsed.weekend}</span></span>}
                                   {parsed.minNights && <span className="text-xs text-neutral-500">Min. {parsed.minNights} gece</span>}
+                                  {parsed.discountNightly && parsed.discountFrom && parsed.discountTo && (
+                                    <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-semibold text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-200">
+                                      İndirim: {parsed.discountNightly} · {parsed.discountFrom} → {parsed.discountTo}
+                                    </span>
+                                  )}
                                   {(r.valid_from || r.valid_to) && <span className="font-mono text-xs text-neutral-500">{r.valid_from ?? '∞'} → {r.valid_to ?? '∞'}</span>}
                                   <button type="button" onClick={() => editRule(r)} disabled={ruleBusy}
                                     className="ml-auto text-xs text-primary-600 underline dark:text-primary-400 disabled:opacity-50"
@@ -5087,6 +5130,24 @@ export default function CatalogNewListingClient({
                                   <Label>Haftalık Toplam (opsiyonel)</Label>
                                   <Input type="text" inputMode="decimal" className="mt-1 font-mono" value={ruleWeeklyTotal} onChange={(e) => setRuleWeeklyTotal(e.target.value)} placeholder="70000" />
                                 </Field>
+                                <div className="sm:col-span-2 rounded-xl border border-emerald-200 bg-emerald-50/60 p-4 dark:border-emerald-900 dark:bg-emerald-950/20">
+                                  <p className="mb-3 text-sm font-semibold text-emerald-900 dark:text-emerald-200">Tarih Aralıklı İndirim</p>
+                                  <div className="grid gap-4 sm:grid-cols-3">
+                                    <Field className="block">
+                                      <Label>İndirimli Gecelik</Label>
+                                      <Input type="text" inputMode="decimal" className="mt-1 font-mono" value={ruleDiscountNightly} onChange={(e) => setRuleDiscountNightly(e.target.value)} placeholder="2200" />
+                                    </Field>
+                                    <Field className="block">
+                                      <Label>İndirim Başlangıcı</Label>
+                                      <Input type="date" className="mt-1" value={ruleDiscountFrom} onChange={(e) => setRuleDiscountFrom(e.target.value)} />
+                                    </Field>
+                                    <Field className="block">
+                                      <Label>İndirim Bitişi</Label>
+                                      <Input type="date" className="mt-1" value={ruleDiscountTo} onChange={(e) => setRuleDiscountTo(e.target.value)} />
+                                    </Field>
+                                  </div>
+                                  <p className="mt-2 text-xs text-emerald-800/80 dark:text-emerald-300/80">Bu tarihlerde normal gecelik fiyatın üzeri çizilir ve indirimli fiyat uygulanır.</p>
+                                </div>
                                 <Field className="block">
                                   <Label>Başlangıç Tarihi</Label>
                                   <Input type="date" className="mt-1" value={ruleFrom} onChange={(e) => setRuleFrom(e.target.value)} />

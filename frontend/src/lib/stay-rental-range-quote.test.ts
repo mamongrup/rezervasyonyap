@@ -30,6 +30,23 @@ describe('resolveNightlyFromPriceRulesForDate', () => {
     const d = new Date(2026, 4, 10)
     expect(resolveNightlyFromPriceRulesForDate(rules, d)).toBe(7000)
   })
+
+  it('applies a lower campaign price only inside its date range', () => {
+    const campaignRules: ListingPriceRuleRow[] = [{
+      id: 'campaign',
+      valid_from: '2026-07-01',
+      valid_to: '2026-08-31',
+      rule_json: JSON.stringify({
+        base_nightly: '18000',
+        discount_nightly: '14500',
+        discount_from: '2026-07-10',
+        discount_to: '2026-07-20',
+      }),
+    }]
+
+    expect(resolveNightlyFromPriceRulesForDate(campaignRules, new Date(2026, 6, 15))).toBe(14500)
+    expect(resolveNightlyFromPriceRulesForDate(campaignRules, new Date(2026, 6, 25))).toBe(18000)
+  })
 })
 
 describe('computeStayRentalLodgingQuote', () => {

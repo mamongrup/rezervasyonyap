@@ -48,7 +48,7 @@ fn read_body_string(req: Request) -> Result(String, Nil) {
 
 /// `listing_price_rules.rule_json` içindeki olası gecelik alanları — min/max alt sorgularında paylaşılır.
 fn listing_price_rule_nightly_lateral_values_sql() -> String {
-  "(values (case when replace(trim(coalesce(r.rule_json->>'base_nightly', '')), ',', '.') ~ '^[0-9]+(\\.[0-9]{1,2})?$' then replace(trim(coalesce(r.rule_json->>'base_nightly', '')), ',', '.')::numeric end), (case when replace(trim(coalesce(r.rule_json->>'base_price', '')), ',', '.') ~ '^[0-9]+(\\.[0-9]{1,2})?$' then replace(trim(coalesce(r.rule_json->>'base_price', '')), ',', '.')::numeric end), (case when replace(trim(coalesce(r.rule_json->>'room_only_nightly', '')), ',', '.') ~ '^[0-9]+(\\.[0-9]{1,2})?$' then replace(trim(coalesce(r.rule_json->>'room_only_nightly', '')), ',', '.')::numeric end), (case when replace(trim(coalesce(r.rule_json->>'yemeksiz_nightly', '')), ',', '.') ~ '^[0-9]+(\\.[0-9]{1,2})?$' then replace(trim(coalesce(r.rule_json->>'yemeksiz_nightly', '')), ',', '.')::numeric end), (case when replace(trim(coalesce(r.rule_json->>'meals_included_nightly', '')), ',', '.') ~ '^[0-9]+(\\.[0-9]{1,2})?$' then replace(trim(coalesce(r.rule_json->>'meals_included_nightly', '')), ',', '.')::numeric end), (case when replace(trim(coalesce(r.rule_json->>'weekend_nightly', '')), ',', '.') ~ '^[0-9]+(\\.[0-9]{1,2})?$' then replace(trim(coalesce(r.rule_json->>'weekend_nightly', '')), ',', '.')::numeric end))"
+  "(values (case when replace(trim(coalesce(r.rule_json->>'base_nightly', '')), ',', '.') ~ '^[0-9]+(\\.[0-9]{1,2})?$' then replace(trim(coalesce(r.rule_json->>'base_nightly', '')), ',', '.')::numeric end), (case when replace(trim(coalesce(r.rule_json->>'base_price', '')), ',', '.') ~ '^[0-9]+(\\.[0-9]{1,2})?$' then replace(trim(coalesce(r.rule_json->>'base_price', '')), ',', '.')::numeric end), (case when replace(trim(coalesce(r.rule_json->>'room_only_nightly', '')), ',', '.') ~ '^[0-9]+(\\.[0-9]{1,2})?$' then replace(trim(coalesce(r.rule_json->>'room_only_nightly', '')), ',', '.')::numeric end), (case when replace(trim(coalesce(r.rule_json->>'yemeksiz_nightly', '')), ',', '.') ~ '^[0-9]+(\\.[0-9]{1,2})?$' then replace(trim(coalesce(r.rule_json->>'yemeksiz_nightly', '')), ',', '.')::numeric end), (case when replace(trim(coalesce(r.rule_json->>'meals_included_nightly', '')), ',', '.') ~ '^[0-9]+(\\.[0-9]{1,2})?$' then replace(trim(coalesce(r.rule_json->>'meals_included_nightly', '')), ',', '.')::numeric end), (case when replace(trim(coalesce(r.rule_json->>'weekend_nightly', '')), ',', '.') ~ '^[0-9]+(\\.[0-9]{1,2})?$' then replace(trim(coalesce(r.rule_json->>'weekend_nightly', '')), ',', '.')::numeric end), (case when replace(trim(coalesce(r.rule_json->>'discount_nightly', '')), ',', '.') ~ '^[0-9]+(\\.[0-9]{1,2})?$' then replace(trim(coalesce(r.rule_json->>'discount_nightly', '')), ',', '.')::numeric end))"
 }
 
 /// Wtatil import: `listing_tour_details.program_days_json` → vitrin `price_from` (kişi başı).
@@ -388,7 +388,7 @@ fn holiday_home_rule_weekend_nightly_sql() -> String {
 /// Belirli bir gece (`gs.day`) için dönemsel kuraldan gecelik — hafta sonuysa
 /// ve hafta sonu geceliği tanımlıysa onu, aksi halde temel geceliği kullanır.
 fn holiday_home_rule_nightly_for_day_sql() -> String {
-  "case when extract(dow from gs.day::date) in (0, 6) and "
+  let regular = "case when extract(dow from gs.day::date) in (0, 6) and "
   <> holiday_home_rule_weekend_nightly_sql()
   <> " is not null and "
   <> holiday_home_rule_weekend_nightly_sql()
@@ -397,6 +397,13 @@ fn holiday_home_rule_nightly_for_day_sql() -> String {
   <> " else "
   <> holiday_home_rule_base_nightly_sql()
   <> " end"
+  let discount = holiday_home_rule_field_numeric_sql("discount_nightly")
+  "case when gs.day::date between "
+  <> "(case when (r.rule_json->>'discount_from') ~ '^\\d{4}-\\d{2}-\\d{2}$' then (r.rule_json->>'discount_from')::date end) and "
+  <> "(case when (r.rule_json->>'discount_to') ~ '^\\d{4}-\\d{2}-\\d{2}$' then (r.rule_json->>'discount_to')::date end) "
+  <> "and " <> discount <> " is not null and " <> discount <> " > 0 "
+  <> "and " <> discount <> " < (" <> regular <> ") then " <> discount
+  <> " else (" <> regular <> ") end"
 }
 
 /// `gs.day` gecesini kapsayan, en güncel (`valid_from`) ve gecelik değeri

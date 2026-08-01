@@ -141,8 +141,18 @@ function ruleMatchesRoom(
   return null
 }
 
-function nightlyFromRuleJson(ruleJson: string): number | null {
+function nightlyFromRuleJson(ruleJson: string, ymd: string): number | null {
   const parsed = parseListingPriceRuleJson(ruleJson)
+  const discount = parseListingPriceRuleAmount(parsed.discountNightly)
+  if (
+    discount != null &&
+    discount > 0 &&
+    parsed.discountFrom &&
+    parsed.discountTo &&
+    ymdInRange(ymd, parsed.discountFrom, parsed.discountTo)
+  ) {
+    return discount
+  }
   for (const raw of [parsed.base, parsed.roomOnly, parsed.mealsIncluded, parsed.weekend]) {
     const n = parseListingPriceRuleAmount(raw)
     if (n != null && n > 0) return n
@@ -176,7 +186,7 @@ function nightlyFromRulesForDay(
     const match = ruleMatchesRoom(rule.rule_json, room)
     if (match !== mode) continue
     if (!ymdInRange(ymd, rule.valid_from, rule.valid_to)) continue
-    const nightly = nightlyFromRuleJson(rule.rule_json)
+    const nightly = nightlyFromRuleJson(rule.rule_json, ymd)
     if (nightly == null) continue
     best = best == null ? nightly : Math.min(best, nightly)
   }
