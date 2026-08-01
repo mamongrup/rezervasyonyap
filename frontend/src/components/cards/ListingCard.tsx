@@ -17,6 +17,7 @@ import { getMessages } from '@/utils/getT'
 import { normalizeStayLocationPin } from '@/lib/stay-location-display'
 import { activityPriceFromAffix, isActivityListingCategory } from '@/lib/activity-listing-price-display'
 import { normalizeCatalogVertical } from '@/lib/catalog-listing-vertical'
+import { mergeStaySearchIntoDetailQuery } from '@/lib/listing-card-stay-search'
 import {
   detailPathForVertical,
   stayDetailPathForVertical,
@@ -72,8 +73,13 @@ const ListingCard: FC<ListingCardProps> = ({
 
   const pathHandle = handle.includes('?') ? handle.slice(0, handle.indexOf('?')) : handle
   const legacyQuery = handle.includes('?') ? handle.slice(handle.indexOf('?')) : ''
+  const vertical = normalizeCatalogVertical(listingVertical)
   const searchQuery = useMemo(() => {
     if (!pathHandle.startsWith('yolcu360-')) {
+      if (vertical === 'hotel' || vertical === 'holiday_home' || vertical === 'yacht_charter') {
+        const merged = mergeStaySearchIntoDetailQuery(data.detailSearchQuery, pageSearch)
+        if (merged) return `?${merged}`
+      }
       return data.detailSearchQuery ? `?${data.detailSearchQuery}` : legacyQuery
     }
     const qs = new URLSearchParams(data.detailSearchQuery ?? '')
@@ -102,8 +108,7 @@ const ListingCard: FC<ListingCardProps> = ({
     const s = qs.toString()
     if (s) return `?${s}`
     return data.detailSearchQuery ? `?${data.detailSearchQuery}` : legacyQuery
-  }, [data.detailSearchQuery, legacyQuery, pageSearch, pathHandle])
-  const vertical = normalizeCatalogVertical(listingVertical)
+  }, [data.detailSearchQuery, legacyQuery, pageSearch, pathHandle, vertical])
   const detailBase =
     vertical === 'hotel' || vertical === 'holiday_home' || vertical === 'yacht_charter'
       ? stayDetailPathForVertical(vertical)
