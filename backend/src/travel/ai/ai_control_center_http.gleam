@@ -42,7 +42,12 @@ pub fn activate_workforce(req: Request, ctx: Context) -> Response {
     Error(r) -> r
     Ok(_) ->
       case
-        pog.query("select ai_activate_safe_workforce()")
+        pog.query(
+          "with enabled_providers as ("
+          <> "update ai_providers set is_active = true "
+          <> "where code in ('gemini', 'deepseek') returning code"
+          <> ") select ai_activate_safe_workforce()",
+        )
         |> pog.returning(row_dec.col0_string())
         |> db_exec.execute(ctx.db)
       {
