@@ -4,6 +4,7 @@
  */
 import { NextRequest, NextResponse } from 'next/server'
 import { validateMetaPageCredentials } from '@/lib/social-auto-post'
+import { clearWorkerMetaAuthError } from '@/lib/social-worker-loop-state'
 import { verifyAdminToken } from '@/lib/security'
 
 export const runtime = 'nodejs'
@@ -46,6 +47,10 @@ export async function POST(req: NextRequest) {
       { status: 400 },
     )
   }
+
+  // Yeni token gerçekten seçilen sayfayı temsil ediyorsa önceki worker'ın
+  // kalıcı auth uyarısını kaldır. Bekleyen sosyal paylaşım işleri silinmez.
+  await clearWorkerMetaAuthError()
 
   return NextResponse.json(result)
 }

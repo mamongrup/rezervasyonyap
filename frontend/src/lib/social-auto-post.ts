@@ -242,7 +242,7 @@ function isTransientSocialAssetError(message: string): boolean {
 
 async function validateFacebookPageToken(pageId: string, token: string): Promise<{ id: string; name?: string }> {
   const res = await fetch(
-    `${FB_GRAPH}/${encodeURIComponent(pageId)}?fields=id,name&access_token=${encodeURIComponent(token)}`,
+    `${FB_GRAPH}/me?fields=id,name&access_token=${encodeURIComponent(token)}`,
     { cache: 'no-store' },
   )
   const data = (await res.json().catch(() => ({}))) as {
@@ -353,8 +353,11 @@ async function resolveFacebookPageAccessToken(pageId: string, token: string): Pr
   }
 
   // 3) Son çare: token zaten bir Page Access Token olabilir (eski kurulumlar).
+  //    Sayfa düğümünü doğrudan okumak yeterli değildir; App/User tokenları da
+  //    herkese açık sayfa kimliğini okuyabilir. `/me` yalnızca token gerçekten
+  //    seçilen sayfayı temsil ediyorsa aynı Page ID'yi döndürür.
   const pageRes = await fetch(
-    `${FB_GRAPH}/${encodeURIComponent(pageId)}?fields=id&access_token=${encodeURIComponent(raw)}`,
+    `${FB_GRAPH}/me?fields=id&access_token=${encodeURIComponent(raw)}`,
     { cache: 'no-store' },
   )
   const pageData = (await pageRes.json().catch(() => ({}))) as { id?: string; error?: { message?: string } }

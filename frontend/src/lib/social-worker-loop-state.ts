@@ -103,6 +103,20 @@ export async function clearWorkerStop(): Promise<void> {
   await fs.rm(STOP_FILE, { force: true }).catch(() => undefined)
 }
 
+/** Geçerli yeni Meta kimliği doğrulandıktan sonra eski token uyarısını temizler. */
+export async function clearWorkerMetaAuthError(): Promise<void> {
+  const state = await readWorkerLoopState()
+  if (state.running || state.phase !== 'error') return
+  const errorText = `${state.lastError ?? ''} ${state.message ?? ''}`.toLowerCase()
+  const isMetaAuthFailure =
+    errorText.includes('meta_access_token_invalid') ||
+    errorText.includes('meta_token_invalid') ||
+    errorText.includes('erişim anahtarı geçersiz') ||
+    errorText.includes('page access token')
+  if (!isMetaAuthFailure) return
+  await writeWorkerLoopState(defaultWorkerLoopState())
+}
+
 export async function shouldStopWorker(): Promise<boolean> {
   try {
     await fs.access(STOP_FILE)
