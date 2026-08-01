@@ -2219,14 +2219,19 @@ export default function CatalogNewListingClient({
             am_available: r.am_available,
             pm_available: r.pm_available,
             price_override: r.price_override.trim(),
-            day_status: r.day_status ?? null,
+            day_status: r.day_status || undefined,
           })),
         },
         orgParam,
       )
       setCalSaveMsg({ ok: true, text: 'Takvim kaydedildi.' })
-    } catch {
-      setCalSaveMsg({ ok: false, text: 'Takvim kaydedilemedi.' })
+    } catch (e) {
+      setCalSaveMsg({
+        ok: false,
+        text: e instanceof Error
+          ? `Takvim kaydedilemedi: ${formatManageApiError(e.message)}`
+          : 'Takvim kaydedilemedi.',
+      })
     } finally {
       setCalBusy(null)
     }

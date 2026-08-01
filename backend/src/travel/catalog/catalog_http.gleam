@@ -3074,8 +3074,8 @@ fn day_patch_decoder() -> decode.Decoder(#(String, Bool, Bool, Bool, String, Str
     decode.field("is_available", decode.bool, fn(ia) {
       decode.optional_field("am_available", None, decode.optional(decode.bool), fn(am_opt) {
         decode.optional_field("pm_available", None, decode.optional(decode.bool), fn(pm_opt) {
-          decode.optional_field("price_override", "", decode.string, fn(po) {
-            decode.optional_field("day_status", "", decode.string, fn(st_raw) {
+          decode.optional_field("price_override", None, decode.optional(decode.string), fn(po_opt) {
+            decode.optional_field("day_status", None, decode.optional(decode.string), fn(st_opt) {
               let am = case am_opt {
                 Some(a) -> a
                 None -> ia
@@ -3085,12 +3085,19 @@ fn day_patch_decoder() -> decode.Decoder(#(String, Bool, Bool, Bool, String, Str
                 None -> ia
               }
               let combined = am || pm
-              let st = string.trim(st_raw)
+              let po = case po_opt {
+                Some(value) -> string.trim(value)
+                None -> ""
+              }
+              let st = case st_opt {
+                Some(value) -> string.trim(value)
+                None -> ""
+              }
               let st_norm = case st {
                 "option" | "promo" -> st
                 _ -> ""
               }
-              decode.success(#(string.trim(day), combined, am, pm, string.trim(po), st_norm))
+              decode.success(#(string.trim(day), combined, am, pm, po, st_norm))
             })
           })
         })
