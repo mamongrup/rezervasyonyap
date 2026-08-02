@@ -9,6 +9,8 @@ import { appendStayGuestSearchParams, guestSearchTotalFromRecord } from '@/lib/g
 import { ensureCarRentalCheckout } from '@/lib/yolcu360-cars'
 import { getAuthMe } from '@/lib/travel-api'
 
+export const SEARCH_LOADING_EVENT = 'travel:search-loading'
+
 export type HeroSearchVertical = 'stay' | 'car' | 'experience' | 'flight'
 
 export type HeroSearchSnapshot = {
@@ -53,6 +55,8 @@ export function runHeroSearchPlanEffects(
   pathnameHint?: string,
 ): void {
   if (typeof window === 'undefined') return
+
+  window.dispatchEvent(new Event(SEARCH_LOADING_EVENT))
 
   const snapshot: HeroSearchSnapshot = {
     vertical,

@@ -1,4 +1,5 @@
 import { LocaleHtmlAttributes } from '@/components/LocaleHtmlAttributes'
+import SearchLoadingOverlay from '@/components/SearchLoadingOverlay'
 import { ThemeProvider } from '@/components/theme-provider'
 import { DirectionProvider } from '@/components/ui/direction'
 import { FavoritesProvider } from '@/context/FavoritesContext'
@@ -24,6 +25,7 @@ import '@/styles/tailwind.css'
 import type { Metadata, Viewport } from 'next'
 import type { SitePublicConfig } from '@/lib/travel-api'
 import { headers } from 'next/headers'
+import { Suspense } from 'react'
 
 const themeDirection =
   process.env.NEXT_PUBLIC_THEME_DIR === 'rtl' ? ('rtl' as const) : ('ltr' as const)
@@ -135,6 +137,9 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             <FavoritesProvider>
               <div>
                 <LocaleHtmlAttributes />
+                <Suspense fallback={null}>
+                  <SearchLoadingOverlay />
+                </Suspense>
                 {children}
               </div>
             </FavoritesProvider>
