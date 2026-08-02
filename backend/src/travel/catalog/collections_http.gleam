@@ -150,6 +150,40 @@ fn hotel_room_stay_filter_sql() -> String {
   <> ")) "
 }
 
+fn hotel_range_price_join_condition_sql() -> String {
+  "pc.code = 'hotel' and $8::text is not null and $9::text is not null and $9::date > $8::date"
+}
+
+/// Tarihli otel araması — seçili aralıkta kapasitesi/müsait bir oda tipinin en düşük
+/// geceliği. Takvim override'ı yoksa oda metası, ardından ilan vitrin fiyatı kullanılır.
+fn hotel_range_price_lateral_sql() -> String {
+  let required_units =
+    "greatest(1, ceil(coalesce(nullif($32::text, '')::numeric, 1) / greatest(coalesce(hr.capacity, 1), 1))::int)"
+  "left join lateral (select min(coalesce("
+  <> "(select min(hc.price_override) from hotel_room_availability_calendar hc "
+  <> "where hc.hotel_room_id = hr.id and hc.day >= $8::date and hc.day < $9::date "
+  <> "and hc.price_override is not null and hc.price_override > 0), "
+  <> safe_numeric_sql("hr.meta_json->>'nightly_price'")
+  <> ", "
+  <> safe_numeric_sql("hr.meta_json->>'nightlyPrice'")
+  <> ", "
+  <> safe_numeric_sql("hr.meta_json->>'price'")
+  <> ", "
+  <> safe_numeric_sql("hr.meta_json->>'base_nightly'")
+  <> ", nullif(l.vitrin_price, 0), nullif(l.first_charge_amount, 0)) * "
+  <> required_units
+  <> ") as min_nightly from hotel_rooms hr where hr.listing_id = l.id "
+  <> "and coalesce(hr.unit_count, 1) >= "
+  <> required_units
+  <> " and not exists (select 1 from generate_series($8::date, ($9::date - interval '1 day')::date, interval '1 day') gd(day) "
+  <> "join hotel_room_availability_calendar hac on hac.hotel_room_id = hr.id and hac.day = gd.day::date "
+  <> "where hac.available_units < "
+  <> required_units
+  <> ")) hotel_range_price on ("
+  <> hotel_range_price_join_condition_sql()
+  <> ") "
+}
+
 /// Seansli aktiviteler - secilen gunde aktif ve yeterli kapasiteli en az bir seans olmali.
 fn activity_session_search_filter_sql() -> String {
   "and ($8::text is null or pc.code != 'activity' or not coalesce(( "
@@ -1427,7 +1461,7 @@ fn search_listings_impl(
     <> "coalesce(case when trim(coalesce(l.featured_image_url, '')) = '' then null when trim(l.featured_image_url) ilike 'http%' then trim(l.featured_image_url) when trim(l.featured_image_url) like '/%' then trim(l.featured_image_url) else '/' || trim(l.featured_image_url) end, case when trim(coalesce(l.thumbnail_url, '')) = '' then null when trim(l.thumbnail_url) ilike 'http%' then trim(l.thumbnail_url) when trim(l.thumbnail_url) like '/%' then trim(l.thumbnail_url) else '/' || trim(l.thumbnail_url) end, (select case when trim(li.storage_key) is null or trim(li.storage_key) = '' then null when trim(li.storage_key) ilike 'http%' then trim(li.storage_key) when trim(li.storage_key) like '/%' then trim(li.storage_key) else '/' || trim(li.storage_key) end from listing_images li where li.listing_id = l.id order by li.sort_order asc, li.created_at asc limit 1), ''), "
     // Vitrin fiyat: önce önbellek (vitrin_price) — canlı lateral yalnızca cache boşsa.
     // Cache doluyken price_rule/meal lateralları yine join edilir ama price_from kısa yol alır.
-    <> "coalesce(nullif(l.vitrin_price::text, ''), case when pc.code = 'tour' then "
+    <> "coalesce(nullif(hotel_range_price.min_nightly::text, ''), nullif(l.vitrin_price::text, ''), case when pc.code = 'tour' then "
     <> tour_listing_vitrin_price_sql()
     <> " else null end, case when pc.code = 'activity' then "
     <> activity_listing_vitrin_price_sql()
@@ -1511,6 +1545,7 @@ fn search_listings_impl(
     <> listing_meal_plan_vitrin_lateral_sql_conditional()
     <> "left join lateral (select la.value_json as meta from listing_attributes la where la.listing_id = l.id and la.group_code = 'listing_meta' and la.key = 'v1' limit 1) lm on true "
     <> holiday_home_range_quote_lateral_sql()
+    <> hotel_range_price_lateral_sql()
     <> "left join lateral (select la.value_json from listing_attributes la where la.listing_id = l.id and la.group_code = 'hotel' and la.key = 'hotel_type_code' limit 1) hotel_attr on true "
     <> "left join lateral (select la.value_json from listing_attributes la where la.listing_id = l.id and la.group_code = 'hotel' and la.key = 'theme_code' limit 1) hotel_theme_attr on true "
     <> "left join lateral (select la.value_json from listing_attributes la where la.listing_id = l.id and la.group_code = 'hotel' and la.key = 'accommodation_code' limit 1) hotel_acc_attr on true "
@@ -1668,6 +1703,10 @@ fn search_listings_impl(
       ") range_quote on (" <> holiday_home_range_quote_join_condition_sql() <> ") ",
       ") range_quote on (false) ",
     )
+    |> string.replace(
+      ") hotel_range_price on (" <> hotel_range_price_join_condition_sql() <> ") ",
+      ") hotel_range_price on (false) ",
+    )
   let count_sql =
     "select count(*)::int "
     <> count_from_conditional
@@ -1790,6 +1829,10 @@ fn search_listings_impl(
       listing_search_from_where_sql,
       ") range_quote on (" <> holiday_home_range_quote_join_condition_sql() <> ") ",
       ") range_quote on (false) ",
+    )
+    |> string.replace(
+      ") hotel_range_price on (" <> hotel_range_price_join_condition_sql() <> ") ",
+      ") hotel_range_price on (false) ",
     )
     |> string.replace(
       ") price_rule on (pc.code in ('holiday_home', 'yacht_charter') or l.vitrin_price is null) ",

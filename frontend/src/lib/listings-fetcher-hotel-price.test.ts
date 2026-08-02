@@ -19,14 +19,11 @@ const hotel = {
 } satisfies PublicListingItem
 
 describe('dated hotel listing prices', () => {
-  it('does not present the all-season floor as the selected-stay price', () => {
-    const listing = mapPublicListingItemToListingBase(hotel, {
-      locale: 'tr',
-      suppressUndatedHotelPrice: true,
-    })
+  it('shows the dated minimum returned by the public listing API', () => {
+    const listing = mapPublicListingItemToListingBase(hotel, { locale: 'tr' })
 
-    expect(listing.priceAmount).toBeUndefined()
-    expect(listing.price).toBeUndefined()
+    expect(listing.priceAmount).toBe(1250)
+    expect(listing.price).toBeTruthy()
   })
 
   it('keeps the starting price when no dated quote is requested', () => {

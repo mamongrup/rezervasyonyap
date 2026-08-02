@@ -303,12 +303,6 @@ export type MapPublicListingItemOpts = {
   detailSearchQuery?: string
   /** Kart galerisi üst sınırı (varsayılan {@link LISTING_CARD_GALLERY_LIMIT}) */
   galleryLimit?: number
-  /**
-   * Otel aramasında tarih seçilmişse API'nin genel `price_from` değeri seçili
-   * konaklamanın fiyatı değildir. Tarih bazlı teklif alanı gelene kadar bu
-   * değerin kartta fiyatmış gibi gösterilmesini engeller.
-   */
-  suppressUndatedHotelPrice?: boolean
 }
 
 export function mapPublicListingItemToListingBase(
@@ -344,7 +338,6 @@ export function mapPublicListingItemToListingBase(
 
   const cat = item.category_code ?? ''
   const vertical = normalizeCatalogVertical(item.listing_vertical ?? cat)
-  const isHotel = cat === 'hotel' || vertical === 'hotel'
   const isStayRental =
     cat === 'holiday_home' ||
     cat === 'yacht_charter' ||
@@ -382,16 +375,6 @@ export function mapPublicListingItemToListingBase(
         { n: rangeNights },
       )
     }
-  }
-
-  // Otel `price_from`, tüm sezonların önbelleğe alınmış en düşük geceliğidir.
-  // Seçili tarihlerle yapılan aramada bunu göstermek yanlış bir teklif izlenimi
-  // yaratır (özellikle çocuklu aramalarda). API tarihli oda teklifi döndürmediği
-  // sürece fiyatı gizle; detay ekranı oda/tarih/yaş kurallarıyla hesaplar.
-  if (isHotel && opts?.suppressUndatedHotelPrice) {
-    priceAmount = undefined
-    priceAmountMax = undefined
-    price = undefined
   }
 
   const displayPropertyTypeLine =
@@ -837,8 +820,6 @@ export async function fetchCategoryListings(
       holidayPropertyTypeItems: holidayPtItems.length > 0 ? holidayPtItems : undefined,
       yachtPropertyTypeItems: yachtPtItems.length > 0 ? yachtPtItems : undefined,
       detailSearchQuery,
-      suppressUndatedHotelPrice:
-        categoryCode === 'hotel' && Boolean(effectiveQuery.checkin && effectiveQuery.checkout),
     }
     let rows = apiSearch.result.listings.map((it) => mapPublicListingItemToListingBase(it, mapOpts))
     if (categoryCode === 'flight') {
