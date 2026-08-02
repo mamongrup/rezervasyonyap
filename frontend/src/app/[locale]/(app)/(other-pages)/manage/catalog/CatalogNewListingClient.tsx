@@ -2996,6 +2996,7 @@ export default function CatalogNewListingClient({
       else if (editListingId) basicsBody.cleaning_fee_amount = '__null__'
       const deposit = basicsDecimalField(depositAmount)
       if (deposit) basicsBody.first_charge_amount = deposit
+      else if (editListingId) basicsBody.first_charge_amount = '__null__'
       const prepay = basicsDecimalField(
         prepaymentPercent.trim() || String(DEFAULT_LISTING_PREPAYMENT_PERCENT),
       )
@@ -3003,6 +3004,7 @@ export default function CatalogNewListingClient({
       const comm = basicsDecimalField(commissionPercent)
       if (comm) basicsBody.commission_percent = comm
       if (poolSizeLabel.trim()) basicsBody.pool_size_label = poolSizeLabel.trim()
+      else if (editListingId && isVilla) basicsBody.pool_size_label = '__null__'
       if (supplierPaymentNote.trim()) basicsBody.supplier_payment_note = supplierPaymentNote.trim()
       const cdn = basicsIntField(confirmDeadlineNormal)
       if (cdn) basicsBody.confirm_deadline_normal_h = cdn
@@ -3021,17 +3023,17 @@ export default function CatalogNewListingClient({
       await saveRequiredStep('Temel ilan bilgileri kaydı', patchListingBasics(token, lid, basicsBody, orgParam))
 
       // 5. İlan sahibi
-      if (ownerName.trim() || ownerBio.trim() || ownerPhone.trim() || ownerEmail.trim()) {
+      if (editListingId || ownerName.trim() || ownerBio.trim() || ownerPhone.trim() || ownerEmail.trim()) {
         await saveRequiredStep(
           'İlan sahibi kaydı',
           putListingOwnerContact(
             token,
             lid,
             {
-              contact_name: ownerName.trim() || undefined,
-              contact_bio: ownerBio.trim() || undefined,
-              contact_phone: ownerPhone.trim() || undefined,
-              contact_email: ownerEmail.trim() || undefined,
+              contact_name: ownerName.trim(),
+              contact_bio: ownerBio.trim(),
+              contact_phone: ownerPhone.trim(),
+              contact_email: ownerEmail.trim(),
             },
             orgParam,
           ),
@@ -3071,6 +3073,45 @@ export default function CatalogNewListingClient({
       if (isVilla && ownerAccountType.trim()) metaBody.owner_account_type = ownerAccountType.trim()
       if (isVilla && ownerResidenceAddress.trim())
         metaBody.owner_residence_address = ownerResidenceAddress.trim()
+      if (editListingId) {
+        const editableMeta: Record<string, string> = {
+          check_in_time: checkInTime,
+          check_out_time: checkOutTime,
+          youtube_url: youtubeUrl,
+          source_reference_url: sourceReferenceUrl,
+          source_images_url: sourceImagesUrl,
+          source_availability_url: sourceAvailabilityUrl,
+          source_price_url: sourcePriceUrl,
+          tourism_cert_no: ministryLicenseRef,
+          address,
+          lat,
+          lng,
+          min_short_stay_nights: shortStayMinNights,
+          short_stay_fee: shortStayFee,
+        }
+        if (isHotel) {
+          editableMeta.district_label = districtLabel
+          editableMeta.city = cityDisplay
+          editableMeta.province_city = provinceCity
+        }
+        if (!isHotel) {
+          editableMeta.bed_count = bedCount
+          editableMeta.bath_count = bathCount
+          editableMeta.max_guests = maxGuests
+          editableMeta.min_advance_booking_days = minAdvanceBookingDays
+          editableMeta.room_count = roomCount
+          editableMeta.square_meters = squareMeters
+        }
+        if (isVilla) {
+          editableMeta.property_type = propertyType
+          editableMeta.owner_tc_no = ownerTcNo
+          editableMeta.owner_bank_name = ownerBankName
+          editableMeta.owner_iban = ownerIban.replace(/\s/g, '')
+          editableMeta.owner_account_type = ownerAccountType
+          editableMeta.owner_residence_address = ownerResidenceAddress
+        }
+        for (const [key, value] of Object.entries(editableMeta)) metaBody[key] = value.trim()
+      }
       if (Object.keys(metaBody).length > 0) {
         const existingMeta = await getListingMeta(token, lid, orgParam)
         const nextMeta: ListingMeta = { ...existingMeta, ...metaBody }
