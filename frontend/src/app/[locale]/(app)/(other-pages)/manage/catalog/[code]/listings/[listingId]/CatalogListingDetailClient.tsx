@@ -964,12 +964,14 @@ export default function CatalogListingDetailClient({
   const locale = typeof params?.locale === 'string' ? params.locale : 'tr'
   const vitrinPath = useVitrinHref()
   const base = vitrinPath(`/manage/catalog/${encodeURIComponent(categoryCode)}`)
-  const transHref = `${base}/listings/${encodeURIComponent(listingId)}/translations`
   /** Tatil evi: ilan görselleri tam formda; çoklu iCal gelişmiş panelde kalır. */
   const showListingGalleryInMediaTab = categoryCode !== 'holiday_home'
 
   const [orgId, setOrgId] = useState('')
   const [needOrg, setNeedOrg] = useState(false)
+  const transHref = `${base}/listings/${encodeURIComponent(listingId)}/translations${
+    needOrg && orgId.trim() ? `?organization_id=${encodeURIComponent(orgId.trim())}` : ''
+  }`
   /** Yönetici `needOrg`/kurum UUID hydrate olmadan API çağrısı yapılmasın (scope query kaçağı). */
   const [manageIdentityReady, setManageIdentityReady] = useState(() => !getStoredAuthToken())
   const orgQ = useMemo(
@@ -1093,7 +1095,7 @@ export default function CatalogListingDetailClient({
     | 'vertical'
     | 'hotel'
     | 'meal_plans'
-  >(() => (categoryCode === 'holiday_home' ? 'calendar' : 'listing'))
+  >(() => (categoryCode === 'holiday_home' ? 'calendar' : categoryCode === 'hotel' ? 'hotel' : 'listing'))
 
   useEffect(() => {
     const token = getStoredAuthToken()
@@ -1861,7 +1863,7 @@ export default function CatalogListingDetailClient({
       Icon: categoryCode === 'holiday_home' ? Link2 : Images,
     },
     { id: 'vertical' as const, label: ui.tabs.vertical, Icon: Settings2 },
-    ...(categoryCode === 'hotel' ? [{ id: 'hotel' as const, label: ui.tabs.hotel, Icon: Hotel }] : []),
+    ...(categoryCode === 'hotel' ? [{ id: 'hotel' as const, label: 'Otel içeriği', Icon: Hotel }] : []),
     ...(MEAL_PLAN_CATS.has(categoryCode) ? [{ id: 'meal_plans' as const, label: ui.tabs.meal_plans, Icon: UtensilsCrossed }] : []),
   ]
 
@@ -3277,23 +3279,31 @@ export default function CatalogListingDetailClient({
       {activeTab === 'hotel' && categoryCode === 'hotel' && (
         <div className="mt-6 space-y-6">
           <div className="rounded-xl border border-primary-200 bg-primary-50/50 p-4 text-sm text-primary-950 dark:border-primary-900 dark:bg-primary-950/20 dark:text-primary-100">
-            <p className="font-medium">Vitrin eşlemesi</p>
-            <ul className="mt-2 list-inside list-disc space-y-1 text-primary-900/90 dark:text-primary-100/90">
-              <li>İlan bilgisi → başlık, açıklama, konum, bakanlık belgesi, iptal/ön ödeme</li>
-              <li>Otel profili → yıldız, otel tipi, tema, konaklama tipi</li>
-              <li>Kampanya / etkinlik → otel adı altı banner alanı</li>
-              <li>Oda tipleri + takvim → oda kartları ve sidebar fiyat/müsaitlik</li>
-              <li>Özellikler sekmesi → tesis olanakları (akordeon)</li>
-              <li>Vitrin metinleri → genel şartlar, ek tesis bölümleri, özel SSS</li>
-              <li>Yemek planları → pansiyon seçenekleri ve fiyat tablosu</li>
-              <li>Kurallar → konaklama kuralları + sözleşme</li>
-            </ul>
+            <p className="font-semibold">Otel düzenleme merkezi</p>
+            <p className="mt-1 text-primary-900/90 dark:text-primary-100/90">
+              API, IDE veya panelden eklenen oteller aynı alanları kullanır. Burada kaydettiğiniz içerik doğrudan otel vitrininde gösterilir.
+            </p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {['Tesis açıklaması', 'Odalar', 'Tesis aktivite ve etkinlikleri', 'Havuz ve plaj bilgisi', 'Konsept özellikleri', 'Kampanyalar'].map((label) => (
+                <span key={label} className="rounded-full border border-primary-200 bg-white/70 px-3 py-1 text-xs font-medium dark:border-primary-800 dark:bg-primary-950/40">{label}</span>
+              ))}
+            </div>
+          </div>
+
+          <div className="rounded-xl border border-neutral-200 p-5 dark:border-neutral-700">
+            <h2 className="text-base font-semibold text-neutral-900 dark:text-white">Tesis açıklaması</h2>
+            <p className="mt-1 max-w-2xl text-sm text-neutral-500 dark:text-neutral-400">
+              Tesis adı ve açıklamasını her vitrin dili için düzenleyin. Kaydedilen açıklama API içeriğinin yerine vitrinde gösterilir.
+            </p>
+            <Link href={transHref} className="mt-4 inline-flex rounded-xl bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700">
+              Tesis açıklamasını düzenle
+            </Link>
           </div>
 
           <div className="rounded-xl border border-neutral-200 p-5 dark:border-neutral-700">
             <h2 className="flex items-center gap-2 text-base font-semibold text-neutral-900 dark:text-white">
               <Hotel className="h-5 w-5 text-primary-600" />
-              Otel profili
+              Konsept özellikleri
             </h2>
             <div className="mt-4">
               <HotelFacetsEditor
@@ -3310,7 +3320,7 @@ export default function CatalogListingDetailClient({
 
 
           <div className="rounded-xl border border-neutral-200 p-5 dark:border-neutral-700">
-            <h2 className="text-base font-semibold text-neutral-900 dark:text-white">Otel sözleşmesi</h2>
+            <h2 className="text-base font-semibold text-neutral-900 dark:text-white">Yapılandırılmış tesis kuralları</h2>
             <div className="mt-4">
               <HotelContractEditor
                 listingId={listingId}
@@ -3321,7 +3331,7 @@ export default function CatalogListingDetailClient({
           </div>
 
           <div className="rounded-xl border border-neutral-200 p-5 dark:border-neutral-700">
-            <h2 className="text-base font-semibold text-neutral-900 dark:text-white">Vitrin metinleri</h2>
+            <h2 className="text-base font-semibold text-neutral-900 dark:text-white">Havuz ve plaj bilgisi</h2>
             <div className="mt-4">
               <HotelVitrinContentEditor listingId={listingId} organizationId={orgQ?.organizationId} />
             </div>
@@ -3329,7 +3339,7 @@ export default function CatalogListingDetailClient({
 
           <div className="rounded-xl border border-neutral-200 p-5 dark:border-neutral-700">
             <h2 className="text-base font-semibold text-neutral-900 dark:text-white">
-              Otel&apos;de geçerli kampanyalar
+              Kampanyalar
             </h2>
             <p className="mt-1 max-w-2xl text-sm text-neutral-500 dark:text-neutral-400">
               Bu otelin vitrin sayfasında (otel adının altında) yalnızca bu ilana özel kampanya kartları.

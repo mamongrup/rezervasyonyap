@@ -74,8 +74,12 @@ function parseStringArray(raw: unknown): string[] {
   return []
 }
 
-export function serializeHotelVitrinMeta(meta: HotelVitrinMeta): Record<string, unknown> {
+export function serializeHotelVitrinMeta(meta: HotelVitrinMeta, existing?: unknown): Record<string, unknown> {
+  // Provider imports can carry fields that this editor does not know about. Keep
+  // those fields intact and only replace the parts owned by the hotel editor.
+  const current = existing == null ? {} : unwrapVerticalMetaPayload(existing)
   return {
+    ...current,
     general_terms_html: meta.general_terms_html?.trim() || null,
     facility_sections: (meta.facility_sections ?? []).map((s) => ({
       id: s.id,

@@ -22,6 +22,16 @@ function emptySection(): HotelFacilityAccordionSection {
   return { id: `section_${Date.now()}`, title: '', items: [], bodyHtml: null }
 }
 
+const HOTEL_CORE_SECTIONS: HotelFacilityAccordionSection[] = [
+  { id: 'pool_beach', title: 'Havuz ve plaj bilgisi', items: [], bodyHtml: null },
+  { id: 'concept_features', title: 'Konsept özellikleri', items: [], bodyHtml: null },
+]
+
+function withHotelCoreSections(sections: HotelFacilityAccordionSection[]) {
+  const ids = new Set(sections.map((section) => section.id))
+  return [...HOTEL_CORE_SECTIONS.filter((section) => !ids.has(section.id)), ...sections]
+}
+
 function emptyFaq(): HotelVitrinFaqItem {
   return { q: '', a: '' }
 }
@@ -88,6 +98,7 @@ export default function HotelVitrinContentEditor({
   const [generalTermsHtml, setGeneralTermsHtml] = useState('')
   const [sections, setSections] = useState<HotelFacilityAccordionSection[]>([])
   const [faqItems, setFaqItems] = useState<HotelVitrinFaqItem[]>([])
+  const [sourceMeta, setSourceMeta] = useState<unknown>(null)
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null)
@@ -97,15 +108,16 @@ export default function HotelVitrinContentEditor({
     void getVerticalMeta(listingId, 'hotel')
       .then((raw) => {
         if (cancelled) return
+        setSourceMeta(raw)
         const parsed = parseHotelVitrinMeta(raw)
         setGeneralTermsHtml(parsed.general_terms_html ?? '')
-        setSections(parsed.facility_sections ?? [])
+        setSections(withHotelCoreSections(parsed.facility_sections ?? []))
         setFaqItems(parsed.faq_items ?? [])
       })
       .catch(() => {
         if (!cancelled) {
           setGeneralTermsHtml('')
-          setSections([])
+          setSections(withHotelCoreSections([]))
           setFaqItems([])
         }
       })
@@ -135,7 +147,7 @@ export default function HotelVitrinContentEditor({
           })),
         faq_items: faqItems.filter((item) => item.q.trim() && item.a.trim()),
       }
-      await putVerticalMeta(token, listingId, 'hotel', serializeHotelVitrinMeta(meta), orgParam)
+      await putVerticalMeta(token, listingId, 'hotel', serializeHotelVitrinMeta(meta, sourceMeta), orgParam)
       setMsg({ ok: true, text: lt.saved })
     } catch (e) {
       setMsg({
@@ -180,6 +192,7 @@ export default function HotelVitrinContentEditor({
               <Input
                 className="mt-1"
                 value={section.title}
+                disabled={section.id === 'pool_beach' || section.id === 'concept_features'}
                 onChange={(e) => {
                   const next = [...sections]
                   next[i] = { ...section, title: e.target.value }
@@ -216,14 +229,14 @@ export default function HotelVitrinContentEditor({
                 }}
               />
             </Field>
-            <button
+            {section.id !== 'pool_beach' && section.id !== 'concept_features' ? <button
               type="button"
               className="mt-2 inline-flex items-center gap-1 text-xs text-red-600 hover:underline dark:text-red-400"
               onClick={() => setSections(sections.filter((_, j) => j !== i))}
             >
               <Trash2 className="h-3.5 w-3.5" />
               Kaldır
-            </button>
+            </button> : null}
           </div>
         ))}
         <ButtonThird type="button" onClick={() => setSections([...sections, emptySection()])}>

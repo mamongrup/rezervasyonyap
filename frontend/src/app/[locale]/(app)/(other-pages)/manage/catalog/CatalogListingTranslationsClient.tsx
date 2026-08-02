@@ -26,7 +26,7 @@ import { ManageAiTranslateToolbar } from '@/components/manage/ManageAiTranslateT
 import { useManageAiLocaleRows } from '@/hooks/use-manage-ai-locales'
 import { callAiTranslate } from '@/lib/manage-content-ai'
 import Link from 'next/link'
-import { useParams } from 'next/navigation'
+import { useParams, useSearchParams } from 'next/navigation'
 import { Loader2, Sparkles } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 
@@ -59,6 +59,8 @@ export default function CatalogListingTranslationsClient({
 }) {
   const t = useManageT()
   const params = useParams()
+  const searchParams = useSearchParams()
+  const requestedOrganizationId = searchParams.get('organization_id')?.trim() ?? ''
   const locale = typeof params?.locale === 'string' ? params.locale : 'tr'
   const vitrinPath = useVitrinHref()
   const { allLocales, translateTargets, primaryLocale } = useManageAiLocaleRows()
@@ -92,7 +94,7 @@ export default function CatalogListingTranslationsClient({
           roles.some((r) => r.role_code === 'admin') ||
           perms.some((p) => p === 'admin.users.read' || p.startsWith('admin.'))
         if (admin) {
-          const resolved = initCatalogManageOrganizationFromMe(me)
+          const resolved = requestedOrganizationId || initCatalogManageOrganizationFromMe(me)
           setOrgId(resolved)
           // Org ID otomatik çözüldüyse alanı gösterme
           setNeedOrg(!resolved.trim())
@@ -100,7 +102,7 @@ export default function CatalogListingTranslationsClient({
       })
       .catch(() => {})
       .finally(() => setScopeReady(true))
-  }, [])
+  }, [requestedOrganizationId])
 
   const load = useCallback(async () => {
     if (!scopeReady) return
