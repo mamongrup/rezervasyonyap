@@ -26,7 +26,7 @@ export function stayRentalCapacitySummary(
   if (maxGuests != null && maxGuests > 0) parts.push(`${maxGuests} ${copy.guests}`)
   if (bedrooms != null && bedrooms > 0) parts.push(`${bedrooms} ${roomLabel}`)
   if (bathrooms != null && bathrooms > 0) parts.push(`${bathrooms} ${copy.bathrooms}`)
-  return parts.length > 0 ? parts.join(' ') : null
+  return parts.length > 0 ? parts.join(' · ') : null
 }
 
 /**
@@ -36,7 +36,7 @@ export function stayRentalCapacitySummary(
 export function holidayHomeCapacitySummary(
   d: Partial<Pick<TListingHolidayHome, 'maxGuests' | 'bedrooms' | 'bathrooms'>>,
   copy: HolidayHomeCapacityCopy,
-  alwaysShow = true,
+  alwaysShow = false,
 ): string | null {
   const { maxGuests, bedrooms, bathrooms } = d
   const g = maxGuests != null && maxGuests > 0 ? String(maxGuests) : '—'
@@ -49,5 +49,5 @@ export function holidayHomeCapacitySummary(
   if (maxGuests != null && maxGuests > 0) parts.push(`${maxGuests} ${copy.guests}`)
   if (bedrooms != null && bedrooms > 0) parts.push(`${bedrooms} ${copy.rooms}`)
   if (bathrooms != null && bathrooms > 0) parts.push(`${bathrooms} ${copy.bathrooms}`)
-  return parts.length > 0 ? parts.join(' ') : null
+  return parts.length > 0 ? parts.join(' · ') : null
 }

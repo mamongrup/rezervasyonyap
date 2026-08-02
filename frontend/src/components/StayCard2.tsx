@@ -56,7 +56,7 @@ const StayCard2: FC<StayCard2Props> = ({ size = 'default', className = '', data 
 
   const holidayCapacityLine =
     listingVertical === 'holiday_home'
-      ? holidayHomeCapacitySummary(data as TListingHolidayHome, messages.listing.capacitySpec, true)
+      ? holidayHomeCapacitySummary(data as TListingHolidayHome, messages.listing.capacitySpec, false)
       : null
 
   const detailBase = detailPathForVertical(normalizeCatalogVertical(listingVertical))

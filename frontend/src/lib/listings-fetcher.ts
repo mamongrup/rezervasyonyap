@@ -235,12 +235,10 @@ function splitCsvText(v: string | null | undefined): string[] | undefined {
   return arr.length > 0 ? arr : undefined
 }
 
-/** «Oda» kutusu: önce `room_count`, boşsa `bed_count` (eski / eksik meta uyumu). */
+/** «Oda» sayısı yalnız `room_count` alanından gelir; yatak sayısı oda sayısı değildir. */
 function metaRoomCountForDisplay(item: PublicListingItem): string | undefined {
   const rc = item.room_count != null ? String(item.room_count).trim() : ''
-  const bc = item.bed_count != null ? String(item.bed_count).trim() : ''
-  const pick = rc || bc
-  return pick !== '' ? pick : undefined
+  return rc !== '' ? rc : undefined
 }
 
 function parseFirstChargeAmount(raw: string | null | undefined): number | undefined {

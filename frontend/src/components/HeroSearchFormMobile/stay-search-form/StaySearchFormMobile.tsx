@@ -12,7 +12,7 @@ import { stripLocalePrefix } from '@/lib/i18n-config'
 import { staySearchResultsPathFromRestPath } from '@/lib/stay-search-target'
 import { GuestsObject } from '@/type'
 import converSelectedDateToString from '@/utils/converSelectedDateToString'
-import { parseLocalYmd } from '@/utils/format-local-ymd'
+import { formatLocalYmd, parseLocalYmd } from '@/utils/format-local-ymd'
 import { getMessages } from '@/utils/getT'
 import Form from 'next/form'
 import dynamic from 'next/dynamic'
@@ -66,8 +66,8 @@ const StaySearchFormMobile = () => {
     setLocationInputTo(urlSearch.get('location')?.trim() ?? '')
     const ci = parseLocalYmd(urlSearch.get('checkin')?.trim())
     const co = parseLocalYmd(urlSearch.get('checkout')?.trim())
-    if (ci) setStartDate(ci)
-    if (co) setEndDate(co)
+    setStartDate(ci)
+    setEndDate(co)
     setGuestInput(
       guestsObjectFromSearchRecord({
         guests: urlSearch.get('guests'),
@@ -99,11 +99,14 @@ const StaySearchFormMobile = () => {
     const [start, end] = dates
     setStartDate(start)
     setEndDate(end)
+    if (start && end) setFieldNameShow('guests')
   }
   const handleFormSubmit = (formData: FormData) => {
-    const formDataEntries = Object.fromEntries(formData.entries())
     const params: Record<string, string> = {
       ...formDataToStringRecord(formData),
+      location: locationInputTo.trim(),
+      checkin: startDate ? formatLocalYmd(startDate) : '',
+      checkout: endDate ? formatLocalYmd(endDate) : '',
       date_range_label:
         startDate && endDate ? converSelectedDateToString([startDate, endDate]) : '',
       guestAdults: String(guestInput.guestAdults ?? 0),
@@ -114,9 +117,8 @@ const StaySearchFormMobile = () => {
         : {}),
     }
     runHeroSearchPlanEffects('stay', params, searchTargetPath)
-    const location = formDataEntries['location'] as string
     const qs = new URLSearchParams()
-    if (location) qs.set('location', location)
+    if (params.location) qs.set('location', params.location)
     if (params.checkin) qs.set('checkin', params.checkin)
     if (params.checkout) qs.set('checkout', params.checkout)
     appendStayGuestSearchParams(qs, {
