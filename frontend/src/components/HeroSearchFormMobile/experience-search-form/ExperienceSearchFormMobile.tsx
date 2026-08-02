@@ -2,6 +2,7 @@
 
 import { DEFAULT_GUESTS_EXPERIENCE, totalGuestCount } from '@/lib/guest-search-defaults'
 import { formDataToStringRecord, runHeroSearchPlanEffects } from '@/lib/hero-search-plan'
+import { withSearchResultsAnchor } from '@/lib/search-results-anchor'
 import { heroSearchResultsPathFromRestPath } from '@/lib/hero-search-target'
 import { stripLocalePrefix } from '@/lib/i18n-config'
 import { useVitrinHref } from '@/hooks/use-vitrin-href'
@@ -62,7 +63,7 @@ const ExperienceSearchFormMobile = ({ searchTargetPath: searchTargetPathProp }: 
     const guests = totalGuestCount(guestInput)
     if (guests > 0) qs.set('guests', String(guests))
     const qstr = qs.toString()
-    router.push(vitrinHref(searchTargetPath) + (qstr ? `?${qstr}` : ''))
+    router.push(withSearchResultsAnchor(vitrinHref(searchTargetPath) + (qstr ? `?${qstr}` : '')))
   }
 
   const totalGuests = totalGuestCount(guestInput)

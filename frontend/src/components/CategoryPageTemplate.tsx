@@ -463,7 +463,10 @@ export default async function CategoryPageTemplate({
       activeSearch.vitrinTab)
 
   const searchResultsSection = hideListingsOnLanding && isAll && !hasActiveSearch ? null : (
-    <div className={`${heroBelowContentClassName} container mt-10 lg:mt-16`}>
+    <div
+      id="search-results"
+      className={`${heroBelowContentClassName} container mt-10 scroll-mt-24 lg:mt-16`}
+    >
       <div className="flex flex-wrap items-end justify-between gap-x-2.5 gap-y-4">
         <div>
           <h2 className="text-xl font-semibold text-neutral-900 dark:text-white">

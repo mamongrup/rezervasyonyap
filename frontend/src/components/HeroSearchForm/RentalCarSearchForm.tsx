@@ -3,6 +3,7 @@
 import { ensureCarRentalCheckout } from '@/lib/yolcu360-cars'
 import { normalizeYolcu360PickupQuery } from '@/lib/yolcu360-location-query'
 import { formDataToStringRecord, runHeroSearchPlanEffects } from '@/lib/hero-search-plan'
+import { withSearchResultsAnchor } from '@/lib/search-results-anchor'
 import { heroSearchResultsPathFromRestPath } from '@/lib/hero-search-target'
 import { stripLocalePrefix } from '@/lib/i18n-config'
 import { useVitrinHref } from '@/hooks/use-vitrin-href'
@@ -87,7 +88,7 @@ const RentalCarSearchFormInner: FC<Props> = ({
     if (checkout) nextParams.set('checkout', checkout)
     nextParams.set('drop_off', dropOffLocationType)
     const qs = nextParams.toString()
-    router.push(vitrinHref(searchTargetPath) + (qs ? `?${qs}` : ''))
+    router.push(withSearchResultsAnchor(vitrinHref(searchTargetPath) + (qs ? `?${qs}` : '')))
   }
 
   const isDdropOffdifferent = dropOffLocationType === 'different'

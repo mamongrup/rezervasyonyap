@@ -7,6 +7,7 @@ import {
   guestsObjectFromSearchRecord,
 } from '@/lib/guest-search-defaults'
 import { formDataToStringRecord, runHeroSearchPlanEffects } from '@/lib/hero-search-plan'
+import { withSearchResultsAnchor } from '@/lib/search-results-anchor'
 import { staySearchResultsPathFromRestPath } from '@/lib/stay-search-target'
 import { stripLocalePrefix } from '@/lib/i18n-config'
 import clsx from 'clsx'
@@ -95,7 +96,7 @@ function StaySearchFormFields({
     if (checkout) searchParams.set('checkout', checkout)
     appendStayGuestSearchParams(searchParams, formDataEntries)
     const qs = searchParams.toString()
-    router.push(vitrinHref(searchTargetPath) + (qs ? `?${qs}` : ''))
+    router.push(withSearchResultsAnchor(vitrinHref(searchTargetPath) + (qs ? `?${qs}` : '')))
   }
 
   return (

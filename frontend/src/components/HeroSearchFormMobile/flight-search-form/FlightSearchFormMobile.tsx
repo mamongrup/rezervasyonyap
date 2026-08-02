@@ -2,6 +2,7 @@
 
 import { DEFAULT_GUESTS_STAY, totalGuestCount } from '@/lib/guest-search-defaults'
 import { formDataToStringRecord, runHeroSearchPlanEffects } from '@/lib/hero-search-plan'
+import { withSearchResultsAnchor } from '@/lib/search-results-anchor'
 import { heroSearchResultsPathFromRestPath } from '@/lib/hero-search-target'
 import { stripLocalePrefix } from '@/lib/i18n-config'
 import { useVitrinHref } from '@/hooks/use-vitrin-href'
@@ -82,7 +83,7 @@ const FlightSearchFormMobile = ({ searchTargetPath: searchTargetPathProp }: Prop
     qs.set('trip', tripApi)
     qs.set('class', flightClassState)
     const qstr = qs.toString()
-    router.push(vitrinHref(searchTargetPath) + (qstr ? `?${qstr}` : ''))
+    router.push(withSearchResultsAnchor(vitrinHref(searchTargetPath) + (qstr ? `?${qstr}` : '')))
   }
 
   const onChangeDate = (dates: [Date | null, Date | null]) => {

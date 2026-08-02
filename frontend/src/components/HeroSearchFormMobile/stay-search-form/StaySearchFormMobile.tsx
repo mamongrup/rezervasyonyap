@@ -8,6 +8,7 @@ import {
   totalGuestCount,
 } from '@/lib/guest-search-defaults'
 import { formDataToStringRecord, runHeroSearchPlanEffects } from '@/lib/hero-search-plan'
+import { withSearchResultsAnchor } from '@/lib/search-results-anchor'
 import { stripLocalePrefix } from '@/lib/i18n-config'
 import { staySearchResultsPathFromRestPath } from '@/lib/stay-search-target'
 import { GuestsObject } from '@/type'
@@ -127,7 +128,7 @@ const StaySearchFormMobile = () => {
       childAges: params.childAges,
     })
     const qstr = qs.toString()
-    router.push(staySearchHref + (qstr ? `?${qstr}` : ''))
+    router.push(withSearchResultsAnchor(staySearchHref + (qstr ? `?${qstr}` : '')))
   }
 
   //

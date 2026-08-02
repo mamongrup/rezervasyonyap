@@ -2,6 +2,7 @@
 
 import { DEFAULT_GUESTS_EXPERIENCE, guestSearchTotalFromRecord } from '@/lib/guest-search-defaults'
 import { formDataToStringRecord, runHeroSearchPlanEffects } from '@/lib/hero-search-plan'
+import { withSearchResultsAnchor } from '@/lib/search-results-anchor'
 import { heroSearchResultsPathFromRestPath } from '@/lib/hero-search-target'
 import { stripLocalePrefix } from '@/lib/i18n-config'
 import { useVitrinHref } from '@/hooks/use-vitrin-href'
@@ -92,7 +93,7 @@ function ExperiencesSearchFormFields({
     if (checkin) searchParams.set('date', checkin)
     if (guests > 0) searchParams.set('guests', String(guests))
     const qs = searchParams.toString()
-    router.push(vitrinHref(searchTargetPath) + (qs ? `?${qs}` : ''))
+    router.push(withSearchResultsAnchor(vitrinHref(searchTargetPath) + (qs ? `?${qs}` : '')))
   }
 
   return (

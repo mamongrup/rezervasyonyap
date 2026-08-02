@@ -3,6 +3,7 @@
 import NcInputNumber from '@/components/NcInputNumber'
 import { DEFAULT_GUESTS_STAY, totalGuestCount } from '@/lib/guest-search-defaults'
 import { formDataToStringRecord, runHeroSearchPlanEffects } from '@/lib/hero-search-plan'
+import { withSearchResultsAnchor } from '@/lib/search-results-anchor'
 import { heroSearchResultsPathFromRestPath } from '@/lib/hero-search-target'
 import { stripLocalePrefix } from '@/lib/i18n-config'
 import { useVitrinHref } from '@/hooks/use-vitrin-href'
@@ -144,7 +145,7 @@ const FlightSearchFormInner: FC<Props> = ({
     nextParams.set('trip', tripType)
     nextParams.set('class', flightClassState)
     const qs = nextParams.toString()
-    router.push(vitrinHref(searchTargetPath) + (qs ? `?${qs}` : ''))
+    router.push(withSearchResultsAnchor(vitrinHref(searchTargetPath) + (qs ? `?${qs}` : '')))
   }
 
   const totalGuests = totalGuestCount({

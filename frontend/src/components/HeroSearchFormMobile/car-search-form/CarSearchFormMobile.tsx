@@ -3,6 +3,7 @@
 import { ensureCarRentalCheckout } from '@/lib/yolcu360-cars'
 import { normalizeYolcu360PickupQuery } from '@/lib/yolcu360-location-query'
 import { formDataToStringRecord, runHeroSearchPlanEffects } from '@/lib/hero-search-plan'
+import { withSearchResultsAnchor } from '@/lib/search-results-anchor'
 import { heroSearchResultsPathFromRestPath } from '@/lib/hero-search-target'
 import { stripLocalePrefix } from '@/lib/i18n-config'
 import { useVitrinHref } from '@/hooks/use-vitrin-href'
@@ -107,7 +108,7 @@ function CarSearchFormMobileInner({ searchTargetPath: searchTargetPathProp }: Pr
     if (checkout) qs.set('checkout', checkout)
     qs.set('drop_off', dropOffLocationType)
     const qstr = qs.toString()
-    router.push(vitrinHref(searchTargetPath) + (qstr ? `?${qstr}` : ''))
+    router.push(withSearchResultsAnchor(vitrinHref(searchTargetPath) + (qstr ? `?${qstr}` : '')))
   }
 
   return (
