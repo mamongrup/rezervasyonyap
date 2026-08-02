@@ -19,6 +19,9 @@ export const zh: AppMessages = {
   HeroSearchForm: {
     ...en.HeroSearchForm,
     searchingLocations: '搜索中…',
+    Destinations: '目的地',
+    Listings: '房源',
+    'Search destinations': '搜索城市、地区或房源',
     Economy: '经济舱',
     Business: '商务舱',
     Multiple: '多选',
@@ -1098,6 +1101,7 @@ export const zh: AppMessages = {
     },
     location: {
       destinationsHeading: '目的地',
+      listingsHeading: '房源',
       popularDestinationsHeading: '热门目的地',
     },
     car: {

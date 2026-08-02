@@ -1,8 +1,12 @@
 'use client'
 
+import type { SearchSuggestion } from '@/app/api/listing-search/route'
+import type { LocationSuggestion } from '@/app/api/location-search/route'
 import { useInteractOutside } from '@/hooks/useInteractOutside'
-import { Divider } from '@/shared/divider'
+import { useVitrinHref } from '@/hooks/use-vitrin-href'
 import { useAppLocale } from '@/hooks/useAppLocale'
+import { SEARCH_MIN_QUERY_LEN } from '@/lib/search-listings-display'
+import { Divider } from '@/shared/divider'
 import {
   Combobox,
   ComboboxInput,
@@ -11,6 +15,7 @@ import {
 } from '@headlessui/react'
 import {
   BeachIcon,
+  Building03Icon,
   EiffelTowerIcon,
   HutIcon,
   LakeIcon,
@@ -20,14 +25,18 @@ import {
 } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon, IconSvgElement } from '@hugeicons/react'
 import clsx from 'clsx'
+import { useRouter } from 'next/navigation'
 import { FC, useCallback, useEffect, useRef, useState } from 'react'
 import { ClearDataButton } from './ClearDataButton'
-import type { LocationSuggestion } from '@/app/api/location-search/route'
 
 type Suggest = {
   id: string
   name: string
   icon?: IconSvgElement
+  /** İlan önerisi: seçilince detay sayfasına gider */
+  href?: string
+  subtitle?: string
+  kind?: 'location' | 'listing'
 }
 
 // Popüler şehirler — API yüklenene kadar gösterilir
@@ -41,7 +50,18 @@ const POPULAR_SUGGESTS: Suggest[] = [
 ]
 
 function apiToSuggest(s: LocationSuggestion): Suggest {
-  return { id: s.id, name: s.name }
+  return { id: s.id, name: s.name, kind: 'location' }
+}
+
+function listingToSuggest(s: SearchSuggestion): Suggest {
+  return {
+    id: `listing-${s.id}`,
+    name: s.title,
+    subtitle: s.subtitle,
+    href: s.href,
+    icon: Building03Icon,
+    kind: 'listing',
+  }
 }
 
 const styles = {
@@ -86,10 +106,14 @@ export const LocationInputField: FC<Props> = ({
   locationSearchType,
   defaultName,
 }) => {
-  const { messages } = useAppLocale()
+  const { messages, locale } = useAppLocale()
   const hf = messages.HeroSearchForm
-  const resolvedPlaceholder = placeholder ?? hf.Location
+  const isCar = locationSearchType === 'car'
+  const resolvedPlaceholder =
+    placeholder ?? (isCar ? hf['City or Airport'] : hf['Search destinations'])
   const resolvedDescription = description ?? hf['Where are you going?']
+  const router = useRouter()
+  const vitrinHref = useVitrinHref()
 
   const containerRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -99,10 +123,9 @@ export const LocationInputField: FC<Props> = ({
     return n ? { id: 'prefill', name: n } : null
   })
   const [searchResults, setSearchResults] = useState<Suggest[]>([])
+  const [listingResults, setListingResults] = useState<Suggest[]>([])
   const [loadingSearch, setLoadingSearch] = useState(false)
-
-  const locationSearchQs =
-    locationSearchType === 'car' ? '?type=car' : ''
+  const locationSearchQs = isCar ? '?type=car' : ''
 
   // Açılışta popüler şehirleri yükle
   const [initSuggests, setInitSuggests] = useState<Suggest[]>(POPULAR_SUGGESTS)
@@ -131,28 +154,58 @@ export const LocationInputField: FC<Props> = ({
   useInteractOutside(containerRef, closePopover)
 
   const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const listingAbortRef = useRef<AbortController | null>(null)
 
-  const runLocationSearch = useCallback(async (q: string) => {
-    if (!q.trim()) {
+  const runCombinedSearch = useCallback(async (q: string) => {
+    const trimmed = q.trim()
+    if (!trimmed) {
       setSearchResults([])
+      setListingResults([])
       return
     }
     setLoadingSearch(true)
+    listingAbortRef.current?.abort()
+    const listingController = new AbortController()
+    listingAbortRef.current = listingController
     try {
-      const typeQs = locationSearchType === 'car' ? '&type=car' : ''
-      const r = await fetch(`/api/location-search?q=${encodeURIComponent(q)}${typeQs}`)
-      const d = (await r.json()) as { suggestions: LocationSuggestion[] }
-      setSearchResults((d.suggestions ?? []).map(apiToSuggest))
-    } catch {
-      setSearchResults([])
+      const typeQs = isCar ? '&type=car' : ''
+      const locationPromise = fetch(
+        `/api/location-search?q=${encodeURIComponent(trimmed)}${typeQs}`,
+      )
+        .then((r) => r.json() as Promise<{ suggestions: LocationSuggestion[] }>)
+        .then((d) => (d.suggestions ?? []).map(apiToSuggest))
+        .catch(() => [] as Suggest[])
+
+      const listingPromise =
+        !isCar && trimmed.length >= SEARCH_MIN_QUERY_LEN
+          ? fetch(
+              `/api/listing-search?q=${encodeURIComponent(trimmed)}&locale=${locale}&limit=6`,
+              { signal: listingController.signal },
+            )
+              .then((r) => r.json() as Promise<{ suggestions: SearchSuggestion[] }>)
+              .then((d) =>
+                (d.suggestions ?? [])
+                  .filter((s) => s.type === 'listing')
+                  .map(listingToSuggest),
+              )
+              .catch((error) => {
+                if (error instanceof DOMException && error.name === 'AbortError') return null
+                return [] as Suggest[]
+              })
+          : Promise.resolve([] as Suggest[])
+
+      const [locations, listings] = await Promise.all([locationPromise, listingPromise])
+      setSearchResults(locations)
+      if (listings != null) setListingResults(listings)
     } finally {
       setLoadingSearch(false)
     }
-  }, [locationSearchType])
+  }, [isCar, locale])
 
   useEffect(
     () => () => {
       if (searchDebounceRef.current != null) clearTimeout(searchDebounceRef.current)
+      listingAbortRef.current?.abort()
     },
     [],
   )
@@ -161,9 +214,9 @@ export const LocationInputField: FC<Props> = ({
     if (searchDebounceRef.current != null) clearTimeout(searchDebounceRef.current)
     searchDebounceRef.current = setTimeout(() => {
       searchDebounceRef.current = null
-      void runLocationSearch(q)
-    }, 300)
-  }, [runLocationSearch])
+      void runCombinedSearch(q)
+    }, 280)
+  }, [runCombinedSearch])
 
   const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     setShowPopover(true)
@@ -175,11 +228,18 @@ export const LocationInputField: FC<Props> = ({
       if (searchDebounceRef.current != null) clearTimeout(searchDebounceRef.current)
       setSelected(null)
       setSearchResults([])
+      setListingResults([])
     }
   }, [scheduleLocationSearch])
 
   const isShowInitSuggests = !selected?.id
-  const suggestsToShow = isShowInitSuggests ? initSuggests : (searchResults.length ? searchResults : initSuggests)
+  const locationSuggests = isShowInitSuggests
+    ? initSuggests
+    : searchResults.length
+      ? searchResults
+      : initSuggests
+  const showListings = !isShowInitSuggests && !isCar && listingResults.length > 0
+
   return (
     <div
       className={`group relative z-10 flex ${className}`}
@@ -191,6 +251,11 @@ export const LocationInputField: FC<Props> = ({
       <Combobox
         value={selected}
         onChange={(value) => {
+          if (value?.href) {
+            setShowPopover(false)
+            router.push(vitrinHref(value.href))
+            return
+          }
           setSelected(value || { id: '', name: '' })
           // Close the popover when a value is selected
           if (value?.id) {
@@ -241,6 +306,7 @@ export const LocationInputField: FC<Props> = ({
               onClick={() => {
                 setSelected({ id: '', name: '' })
                 setShowPopover(false)
+                setListingResults([])
                 inputRef.current?.focus()
               }}
             />
@@ -265,7 +331,12 @@ export const LocationInputField: FC<Props> = ({
             {loadingSearch && (
               <p className="px-8 py-3 text-xs text-neutral-400">{hf.searchingLocations}</p>
             )}
-            {suggestsToShow.map((item) => (
+            {!isShowInitSuggests && locationSuggests.length > 0 ? (
+              <p className="mt-1 mb-1 px-4 text-xs/6 font-semibold text-neutral-500 sm:px-8 dark:text-neutral-400">
+                {hf.Destinations}
+              </p>
+            ) : null}
+            {locationSuggests.map((item) => (
               <ComboboxOption
                 key={item.id}
                 value={item}
@@ -278,6 +349,34 @@ export const LocationInputField: FC<Props> = ({
                 <span className="block font-medium text-neutral-700 dark:text-neutral-200">{item.name}</span>
               </ComboboxOption>
             ))}
+            {showListings ? (
+              <>
+                <Divider className="my-2 opacity-50" />
+                <p className="mt-1 mb-1 px-4 text-xs/6 font-semibold text-neutral-500 sm:px-8 dark:text-neutral-400">
+                  {hf.Listings}
+                </p>
+                {listingResults.map((item) => (
+                  <ComboboxOption
+                    key={item.id}
+                    value={item}
+                    className="flex items-center gap-3 p-4 data-focus:bg-neutral-100 sm:gap-4.5 sm:px-8 dark:data-focus:bg-neutral-700"
+                  >
+                    <HugeiconsIcon
+                      icon={item.icon || Building03Icon}
+                      className="size-4 shrink-0 text-neutral-400 sm:size-6 dark:text-neutral-500"
+                    />
+                    <span className="min-w-0">
+                      <span className="block truncate font-medium text-neutral-700 dark:text-neutral-200">
+                        {item.name}
+                      </span>
+                      {item.subtitle ? (
+                        <span className="block truncate text-xs text-neutral-500">{item.subtitle}</span>
+                      ) : null}
+                    </span>
+                  </ComboboxOption>
+                ))}
+              </>
+            ) : null}
           </ComboboxOptions>
         ) : null}
       </Combobox>

@@ -146,7 +146,8 @@ export const tr = {
     When: 'Ne zaman?',
     "When's your trip?": 'Tarihleri seçin',
     Destinations: 'Destinasyonlar',
-    'Search destinations': 'Şehir veya bölge ara',
+    Listings: 'İlanlar',
+    'Search destinations': 'Şehir, bölge veya ilan ara',
     'Popular destinations': 'Popüler destinasyonlar',
     Who: 'Misafirler',
     "Who's coming?": 'Kaç misafir?',
@@ -1935,6 +1936,7 @@ export const tr = {
     },
     location: {
       destinationsHeading: 'Destinasyonlar',
+      listingsHeading: 'İlanlar',
       popularDestinationsHeading: 'Popüler destinasyonlar',
     },
     car: {

@@ -19,6 +19,9 @@ export const ru: AppMessages = {
   HeroSearchForm: {
     ...en.HeroSearchForm,
     searchingLocations: 'Поиск…',
+    Destinations: 'Направления',
+    Listings: 'Объявления',
+    'Search destinations': 'Город, регион или объект',
     Economy: 'Эконом',
     Business: 'Бизнес',
     Multiple: 'Несколько',
@@ -1116,6 +1119,7 @@ export const ru: AppMessages = {
     },
     location: {
       destinationsHeading: 'Направления',
+      listingsHeading: 'Объявления',
       popularDestinationsHeading: 'Популярные направления',
     },
     car: {

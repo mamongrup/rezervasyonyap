@@ -152,7 +152,8 @@ export const en = {
     When: 'When',
     "When's your trip?": "When's your trip?",
     Destinations: 'Destinations',
-    'Search destinations': 'Search destinations',
+    Listings: 'Listings',
+    'Search destinations': 'Search city, region or listing',
     'Popular destinations': 'Popular destinations',
     Who: 'Who',
     "Who's coming?": "Who's coming?",
@@ -1994,6 +1995,7 @@ export const en = {
     },
     location: {
       destinationsHeading: 'Destinations',
+      listingsHeading: 'Listings',
       popularDestinationsHeading: 'Popular destinations',
     },
     car: {

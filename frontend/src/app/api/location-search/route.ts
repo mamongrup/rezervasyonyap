@@ -81,6 +81,61 @@ function defaultSuggestions(): LocationSuggestion[] {
 
 // ─── GET ─────────────────────────────────────────────────────────────────────
 
+/** Gerçek destinasyon araması — `locations/regions?search` country_id ister; `pages?q=` çalışır. */
+async function locationPageSuggestions(
+  q: string,
+  apiBase: string,
+  limit = 8,
+): Promise<LocationSuggestion[]> {
+  try {
+    const url =
+      `${apiBase}/api/v1/locations/pages` +
+      `?q=${encodeURIComponent(q)}&limit=${limit}`
+    const res = await fetch(url, { next: { revalidate: 60 } })
+    if (!res.ok) return []
+    const data = (await res.json()) as {
+      pages?: Array<{
+        id: string
+        title: string | null
+        slug_path: string
+        is_published?: boolean
+        region_type?: string
+      }>
+    }
+    const pages = data.pages ?? []
+    return pages
+      .filter((p) => p.is_published !== false)
+      .flatMap((p) => {
+        const slugTail = p.slug_path.split('/').filter(Boolean).pop() ?? p.slug_path
+        const name = (p.title?.trim() || slugTail || '').trim()
+        if (!name) return []
+        const type: LocationSuggestion['type'] =
+          p.region_type === 'district' ? 'district' : 'region'
+        return [{ id: String(p.id), name, type }]
+      })
+      .slice(0, limit)
+  } catch {
+    return []
+  }
+}
+
+function mergeLocationSuggestions(
+  primary: LocationSuggestion[],
+  fallback: LocationSuggestion[],
+  limit = 8,
+): LocationSuggestion[] {
+  const seen = new Set<string>()
+  const out: LocationSuggestion[] = []
+  for (const s of [...primary, ...fallback]) {
+    const key = s.name.toLocaleLowerCase('tr')
+    if (!key || seen.has(key)) continue
+    seen.add(key)
+    out.push(s)
+    if (out.length >= limit) break
+  }
+  return out
+}
+
 /** Yolcu360 locations proxy — araç kiralama için teslim/iade noktaları */
 async function yolcu360Suggestions(q: string, apiBase: string): Promise<LocationSuggestion[]> {
   try {
@@ -203,64 +258,28 @@ export async function GET(req: NextRequest) {
   // Tur araması — hub eşleşmesi + destinasyon karışık
   if (isTourSearch) {
     const hubMatches = tourHubSuggestions(q)
-
-    // Backend destinasyon araması
-    let destinationResults: LocationSuggestion[] = []
-    if (apiBase) {
-      try {
-        const url = `${apiBase}/api/v1/locations/regions?search=${encodeURIComponent(q)}&per_page=5`
-        const res = await fetch(url, { next: { revalidate: 60 } })
-        if (res.ok) {
-          const data = (await res.json()) as {
-            regions?: { id: string; name: string }[]
-            data?: { id: string; name: string }[]
-          }
-          const regions = data.regions ?? data.data ?? []
-          destinationResults = regions.map((r) => ({ id: r.id, name: r.name, type: 'region' as const }))
-        }
-      } catch { /* sessiz */ }
-    }
-
-    // Destinasyon bulunamazsa statik fallback
-    if (destinationResults.length === 0) {
-      destinationResults = staticFallback(q)
-    }
+    const destinationResults = apiBase
+      ? mergeLocationSuggestions(
+          await locationPageSuggestions(q, apiBase, 5),
+          staticFallback(q),
+          4,
+        )
+      : staticFallback(q).slice(0, 4)
 
     // Hub önce, max 4 hub + max 4 destinasyon
-    const suggestions = [...hubMatches, ...destinationResults.slice(0, 4)]
+    const suggestions = [...hubMatches, ...destinationResults]
     return NextResponse.json({ suggestions })
   }
 
-  // Genel bölge araması
+  // Genel bölge / destinasyon araması (konaklama hero)
   if (!apiBase) {
     return NextResponse.json({ suggestions: staticFallback(q) })
   }
 
-  try {
-    const url = `${apiBase}/api/v1/locations/regions?search=${encodeURIComponent(q)}&per_page=8`
-    const res = await fetch(url, { next: { revalidate: 60 } })
-
-    if (!res.ok) throw new Error(`api_${res.status}`)
-
-    const data = (await res.json()) as {
-      regions?: { id: string; name: string; slug: string }[]
-      data?: { id: string; name: string; slug: string }[]
-    }
-
-    const regions = data.regions ?? data.data ?? []
-
-    if (regions.length === 0) {
-      return NextResponse.json({ suggestions: staticFallback(q) })
-    }
-
-    const suggestions: LocationSuggestion[] = regions.map((r) => ({
-      id: r.id,
-      name: r.name,
-      type: 'region',
-    }))
-
-    return NextResponse.json({ suggestions })
-  } catch {
-    return NextResponse.json({ suggestions: staticFallback(q) })
-  }
+  const suggestions = mergeLocationSuggestions(
+    await locationPageSuggestions(q, apiBase, 8),
+    staticFallback(q),
+    8,
+  )
+  return NextResponse.json({ suggestions })
 }
