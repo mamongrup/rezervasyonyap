@@ -33,16 +33,16 @@ function CustomerSupportBadge({ className, iconClassName = 'size-7' }: { classNa
 
 function SupportOptionIcon({ tone, children }: { tone: 'ai' | 'live' | 'wa' | 'phone'; children: ReactNode }) {
   if (tone === 'phone') {
-    return <DeskPhoneBadge className="size-11" iconClassName="size-5" />
+    return <DeskPhoneBadge className="size-10 sm:size-11" iconClassName="size-5" />
   }
   return (
     <span
       className={clsx(
-        'flex size-11 shrink-0 items-center justify-center rounded-2xl shadow-sm ring-1 ring-black/5',
+        'flex size-10 shrink-0 items-center justify-center rounded-2xl shadow-sm ring-1 ring-black/5 sm:size-11',
         tone === 'ai' &&
           'bg-gradient-to-br from-primary-500 to-primary-700 text-white dark:from-primary-400 dark:to-primary-600',
         tone === 'live' && 'bg-gradient-to-br from-sky-500 to-blue-600 text-white',
-        tone === 'wa' && 'bg-gradient-to-br from-[#25D366] to-[#128C7E] text-white'
+        tone === 'wa' && 'bg-gradient-to-br from-[#25D366] to-[#128C7E] text-white',
       )}
     >
       {children}
@@ -143,16 +143,23 @@ export default function FooterCustomerSupportSheet({ open, onClose, locale }: Pr
   return (
     <Dialog open={open} onClose={onClose} className={vitrinOverlayDialogClassName}>
       <DialogBackdrop className="fixed inset-0 bg-neutral-950/50 backdrop-blur-[2px] duration-300 ease-out data-closed:opacity-0" />
-      <div className="fixed inset-x-0 bottom-0 flex justify-center pb-above-mobile-nav lg:hidden">
+      {/* Alt nav + safe-area üstünde; kısa viewport’ta max-height ile ekrandan taşmayı engelle */}
+      <div className="fixed inset-x-0 bottom-0 z-[1] flex items-end justify-center pb-above-mobile-nav lg:hidden">
         <DialogPanel
           transition
-          className="w-full max-w-lg overflow-hidden rounded-t-[1.75rem] bg-white/95 shadow-[0_-12px_40px_rgba(0,0,0,0.12)] ring-1 ring-black/5 backdrop-blur-xl duration-300 ease-out dark:bg-neutral-900/95 dark:ring-white/10 data-closed:translate-y-10 data-closed:opacity-0"
+          className={clsx(
+            'flex w-full max-w-lg flex-col overflow-hidden rounded-t-[1.75rem]',
+            'max-h-[min(85dvh,calc(100dvh-5.5rem-var(--travel-safe-bottom,0px)-var(--travel-safe-top,0px)))]',
+            'bg-white/95 shadow-[0_-12px_40px_rgba(0,0,0,0.12)] ring-1 ring-black/5 backdrop-blur-xl',
+            'duration-300 ease-out dark:bg-neutral-900/95 dark:ring-white/10',
+            'data-closed:translate-y-10 data-closed:opacity-0',
+          )}
         >
-          <div className="mx-auto mt-3 h-1 w-12 rounded-full bg-neutral-300/80 dark:bg-neutral-600" />
+          <div className="mx-auto mt-2.5 h-1 w-12 shrink-0 rounded-full bg-neutral-300/80 dark:bg-neutral-600" />
 
-          <div className="border-b border-neutral-100 px-5 pt-4 pb-4 dark:border-neutral-800">
+          <div className="shrink-0 border-b border-neutral-100 px-5 pt-3 pb-3 dark:border-neutral-800">
             <div className="flex items-center gap-3">
-              <CustomerSupportBadge className="size-10 shadow-md" iconClassName="size-5" />
+              <CustomerSupportBadge className="size-9 shadow-md sm:size-10" iconClassName="size-4.5 sm:size-5" />
               <div className="min-w-0">
                 <DialogTitle className="text-base font-semibold tracking-tight text-neutral-900 dark:text-white">
                   {bn.supportMenuTitle}
@@ -162,20 +169,20 @@ export default function FooterCustomerSupportSheet({ open, onClose, locale }: Pr
             </div>
           </div>
 
-          <ul className="space-y-2 px-4 py-4">
+          <ul className="min-h-0 flex-1 space-y-1.5 overflow-y-auto overscroll-contain px-4 py-3 sm:space-y-2 sm:py-4">
             {items.map((item) => (
               <li key={item.key}>
                 <button
                   type="button"
                   onClick={item.onClick}
                   className={clsx(
-                    'group flex w-full items-center gap-3.5 rounded-2xl px-3 py-3.5 text-start transition-all',
+                    'group flex w-full items-center gap-3 rounded-2xl px-3 py-2.5 text-start transition-all sm:gap-3.5 sm:py-3.5',
                     'bg-neutral-50/90 hover:bg-neutral-100 active:scale-[0.99]',
-                    'dark:bg-neutral-800/60 dark:hover:bg-neutral-800'
+                    'dark:bg-neutral-800/60 dark:hover:bg-neutral-800',
                   )}
                 >
                   <SupportOptionIcon tone={item.tone}>{item.icon}</SupportOptionIcon>
-                  <span className="min-w-0 flex-1 text-[15px] font-semibold tracking-tight text-neutral-900 dark:text-white">
+                  <span className="min-w-0 flex-1 truncate text-[15px] font-semibold tracking-tight text-neutral-900 dark:text-white">
                     {item.label}
                   </span>
                   <ChevronRight
@@ -187,7 +194,7 @@ export default function FooterCustomerSupportSheet({ open, onClose, locale }: Pr
             ))}
           </ul>
 
-          <div className="border-t border-neutral-100 px-4 py-3 dark:border-neutral-800">
+          <div className="shrink-0 border-t border-neutral-100 px-4 py-2.5 pb-[max(0.625rem,env(safe-area-inset-bottom,0px))] dark:border-neutral-800 sm:py-3">
             <button
               type="button"
               onClick={onClose}
