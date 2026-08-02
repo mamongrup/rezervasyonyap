@@ -1526,9 +1526,9 @@ export const en = {
       rulesGap:
         'Gap fill: when enabled, stays shorter than the minimum night rule are allowed if they only fill an available gap between other bookings.',
       legendAvailable: 'Available',
-      legendCheckin: 'Check-in (afternoon occupied)',
-      legendCheckout: 'Check-out (morning occupied)',
-      legendTurnover: 'Changeover (check-out AM / check-in PM)',
+      legendCheckin: 'Afternoon booked (check-in day)',
+      legendCheckout: 'Morning booked (check-out day)',
+      legendTurnover: 'Same-day check-out and check-in',
       legendBlocked: 'Unavailable',
       legendOption: 'Option (hold)',
       legendPromo: 'Special offer',

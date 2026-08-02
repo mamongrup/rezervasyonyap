@@ -14,47 +14,110 @@ interface Props {
 }
 
 const STATUS_CLASS: Record<ListingDayVisualStatus, string> = {
-  available: 'font-normal text-neutral-900 dark:text-neutral-100',
+  available: 'font-medium text-neutral-900 dark:text-neutral-100',
   blocked:
-    'font-normal text-neutral-300 line-through decoration-neutral-300 decoration-1 dark:text-neutral-500 dark:decoration-neutral-500',
-  turnover: 'font-normal text-neutral-900 dark:text-neutral-100',
-  checkout: 'font-normal text-neutral-900 dark:text-neutral-100',
-  checkin: 'font-normal text-neutral-900 dark:text-neutral-100',
-  option: 'font-normal ring-2 ring-amber-400/90 bg-amber-50/80 dark:bg-amber-950/30',
-  promo: 'font-normal ring-2 ring-emerald-500/80 bg-emerald-50/90 dark:bg-emerald-950/35',
+    'font-medium text-neutral-300 line-through decoration-neutral-300 decoration-1 dark:text-neutral-500 dark:decoration-neutral-500',
+  turnover: 'font-medium text-neutral-900 dark:text-neutral-100',
+  checkout: 'font-semibold text-neutral-900 dark:text-white',
+  checkin: 'font-semibold text-neutral-900 dark:text-white',
+  option: 'font-medium ring-2 ring-amber-400/90 bg-amber-50/80 dark:bg-amber-950/30',
+  promo: 'font-medium ring-2 ring-emerald-500/80 bg-emerald-50/90 dark:bg-emerald-950/35',
 }
 
-const HALF_BG: Record<'checkout' | 'checkin', string> = {
-  /** Çıkış — sol alt dolu (sabah dolu) */
-  checkout:
-    'bg-[linear-gradient(45deg,rgba(148,163,184,0.42)_50%,transparent_50%)] dark:bg-[linear-gradient(45deg,rgba(100,116,139,0.55)_50%,transparent_50%)]',
-  /** Giriş — sağ üst dolu (öğleden sonra dolu) */
-  checkin:
-    'bg-[linear-gradient(225deg,rgba(148,163,184,0.42)_50%,transparent_50%)] dark:bg-[linear-gradient(225deg,rgba(100,116,139,0.55)_50%,transparent_50%)]',
+/**
+ * Temaya uygun dolu yarım — rose (rezerve), çapraz üçgen.
+ * checkout: sabah dolu (sol-üst üçgen) → öğleden sonra giriş açık
+ * checkin: öğleden sonra dolu (sağ-alt üçgen) → öğlene kadar çıkış açık
+ */
+export function HalfDayBookedFill({
+  kind,
+  className,
+}: {
+  kind: 'checkout' | 'checkin'
+  className?: string
+}) {
+  return (
+    <span
+      aria-hidden
+      className={clsx('pointer-events-none absolute inset-0 overflow-hidden', className)}
+    >
+      <span
+        className="absolute inset-0 bg-rose-500 dark:bg-rose-600"
+        style={{
+          clipPath:
+            kind === 'checkout'
+              ? 'polygon(0 0, 100% 0, 0 100%)'
+              : 'polygon(100% 0, 100% 100%, 0 100%)',
+        }}
+      />
+      {/* Çapraz ayırıcı çizgi — öğleden önce / sonra sınırı */}
+      <span
+        className="absolute inset-0"
+        style={{
+          background:
+            'linear-gradient(to bottom right, transparent calc(50% - 1.25px), rgb(255 255 255 / 0.95) calc(50% - 0.5px), rgb(255 255 255 / 0.95) calc(50% + 0.5px), transparent calc(50% + 1.25px))',
+        }}
+      />
+      <span
+        className="absolute inset-0 opacity-40 dark:opacity-50"
+        style={{
+          background:
+            'linear-gradient(to bottom right, transparent calc(50% - 2px), rgb(127 29 29 / 0.35) 50%, transparent calc(50% + 2px))',
+        }}
+      />
+    </span>
+  )
+}
+
+/** Legend / örnek kutu — kare çapraz yarım gün */
+export function HalfDayLegendSwatch({ kind }: { kind: 'checkout' | 'checkin' }) {
+  return (
+    <span
+      aria-hidden
+      className="relative inline-block size-4 shrink-0 overflow-hidden rounded-sm border border-neutral-200 bg-white shadow-sm dark:border-neutral-600 dark:bg-neutral-900"
+    >
+      <HalfDayBookedFill kind={kind} />
+    </span>
+  )
 }
 
 const DatePickerCustomDay: FC<Props> = ({ dayOfMonth, visualStatus = 'available' }) => {
   const fullyBlocked = visualStatus === 'blocked'
   const statusCls = STATUS_CLASS[visualStatus] ?? STATUS_CLASS.available
-  const halfBg =
-    visualStatus === 'checkout' || visualStatus === 'checkin' ? HALF_BG[visualStatus] : undefined
+  const halfKind =
+    visualStatus === 'checkout' || visualStatus === 'checkin' ? visualStatus : null
 
   return (
     <span
       className={clsx(
-        'react-datepicker__day_span relative inline-flex w-full items-center justify-center rounded-md',
+        'react-datepicker__day_span relative inline-flex w-full items-center justify-center overflow-hidden',
+        halfKind ? 'rounded-md' : 'rounded-md',
         statusCls,
-        halfBg,
         fullyBlocked && 'pointer-events-none',
+        halfKind && 'bg-white dark:bg-neutral-900',
       )}
     >
-      <span className="relative z-[1]">{dayOfMonth}</span>
+      {halfKind ? <HalfDayBookedFill kind={halfKind} className="rounded-md" /> : null}
+      <span
+        className={clsx(
+          'relative z-[1]',
+          halfKind && 'drop-shadow-[0_0_1px_rgba(255,255,255,0.9)]',
+        )}
+      >
+        {dayOfMonth}
+      </span>
       {visualStatus === 'turnover' ? (
         <span
           aria-hidden
           className="pointer-events-none absolute inset-0 overflow-hidden rounded-md"
         >
-          <span className="absolute top-[7px] left-[-2px] block h-0.5 w-[140%] rotate-45 bg-neutral-300 dark:bg-neutral-500" />
+          <span
+            className="absolute inset-0"
+            style={{
+              background:
+                'linear-gradient(to bottom right, transparent calc(50% - 1px), rgb(148 163 184) 50%, transparent calc(50% + 1px))',
+            }}
+          />
         </span>
       ) : null}
     </span>

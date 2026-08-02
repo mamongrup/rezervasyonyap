@@ -1,6 +1,7 @@
 'use client'
 
 import DatePickerCustomHeaderTwoMonth from '@/components/DatePickerCustomHeaderTwoMonth'
+import { HalfDayLegendSwatch } from '@/components/DatePickerCustomDay'
 import { formatLocalYmd } from '@/lib/date-format-local'
 import {
   listingAvailabilityByYmd,
@@ -255,37 +256,37 @@ export default function SectionDateRange({
         <li className="flex items-center gap-2.5">
           <span
             aria-hidden
-            className="inline-block size-4 shrink-0 rounded-full border-2 border-indigo-100 bg-white shadow-sm dark:border-neutral-600 dark:bg-neutral-900"
+            className="inline-block size-4 shrink-0 rounded-sm border border-neutral-200 bg-white shadow-sm dark:border-neutral-600 dark:bg-neutral-900"
           />
           <span className="text-sm font-semibold text-neutral-600 dark:text-neutral-400">{copy.legendAvailable}</span>
         </li>
         <li className="flex items-center gap-2.5">
-          <span
-            aria-hidden
-            className="relative inline-block size-4 shrink-0 overflow-hidden rounded-full border-2 border-indigo-100 bg-[linear-gradient(225deg,rgba(148,163,184,0.55)_50%,transparent_50%)] shadow-sm dark:border-neutral-600"
-          />
+          <HalfDayLegendSwatch kind="checkin" />
           <span className="text-sm font-semibold text-neutral-600 dark:text-neutral-400">{copy.legendCheckin}</span>
         </li>
         <li className="flex items-center gap-2.5">
-          <span
-            aria-hidden
-            className="relative inline-block size-4 shrink-0 overflow-hidden rounded-full border-2 border-indigo-100 bg-[linear-gradient(45deg,rgba(148,163,184,0.55)_50%,transparent_50%)] shadow-sm dark:border-neutral-600"
-          />
+          <HalfDayLegendSwatch kind="checkout" />
           <span className="text-sm font-semibold text-neutral-600 dark:text-neutral-400">{copy.legendCheckout}</span>
         </li>
         <li className="flex items-center gap-2.5">
           <span
             aria-hidden
-            className="relative inline-block size-4 shrink-0 overflow-hidden rounded-full border-2 border-indigo-100 bg-white shadow-sm dark:border-neutral-600 dark:bg-neutral-900"
+            className="relative inline-block size-4 shrink-0 overflow-hidden rounded-sm border border-neutral-200 bg-white shadow-sm dark:border-neutral-600 dark:bg-neutral-900"
           >
-            <span className="absolute top-[7px] left-[-2px] block h-0.5 w-[140%] rotate-45 bg-neutral-300 dark:bg-neutral-500" />
+            <span
+              className="absolute inset-0"
+              style={{
+                background:
+                  'linear-gradient(to bottom right, transparent calc(50% - 1px), rgb(148 163 184) 50%, transparent calc(50% + 1px))',
+              }}
+            />
           </span>
           <span className="text-sm font-semibold text-neutral-600 dark:text-neutral-400">{copy.legendTurnover}</span>
         </li>
         <li className="flex items-center gap-2.5">
           <span
             aria-hidden
-            className="inline-flex size-4 shrink-0 items-center justify-center rounded-full border-2 border-neutral-200 bg-neutral-100 text-[10px] font-medium text-neutral-300 line-through decoration-neutral-400 dark:border-neutral-600 dark:bg-neutral-800 dark:text-neutral-500"
+            className="inline-flex size-4 shrink-0 items-center justify-center rounded-sm border border-neutral-200 bg-neutral-200 text-[9px] font-medium text-neutral-400 line-through dark:border-neutral-600 dark:bg-neutral-700 dark:text-neutral-500"
           >
             11
           </span>
@@ -294,14 +295,14 @@ export default function SectionDateRange({
         <li className="flex items-center gap-2.5">
           <span
             aria-hidden
-            className="inline-block size-4 shrink-0 rounded-full border-2 border-amber-500 bg-amber-400 shadow-sm"
+            className="inline-block size-4 shrink-0 rounded-sm border border-amber-500 bg-amber-400 shadow-sm"
           />
           <span className="text-sm font-semibold text-neutral-600 dark:text-neutral-400">{copy.legendOption}</span>
         </li>
         <li className="flex items-center gap-2.5">
           <span
             aria-hidden
-            className="inline-block size-4 shrink-0 rounded-full border-2 border-emerald-600 bg-gradient-to-br from-emerald-500 to-emerald-600 shadow-sm"
+            className="inline-block size-4 shrink-0 rounded-sm border border-emerald-600 bg-gradient-to-br from-emerald-500 to-emerald-600 shadow-sm"
           />
           <span className="text-sm font-semibold text-neutral-600 dark:text-neutral-400">{copy.legendPromo}</span>
         </li>
