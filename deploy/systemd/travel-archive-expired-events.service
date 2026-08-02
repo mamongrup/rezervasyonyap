@@ -1,0 +1,13 @@
+[Unit]
+Description=Travel - archive expired events
+After=network-online.target postgresql.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/var/www/vhosts/rezervasyonyap.tr/httpdocs
+ExecStart=/bin/bash /var/www/vhosts/rezervasyonyap.tr/httpdocs/deploy/scripts/archive-expired-events.sh
+Nice=10
+
+[Install]
+WantedBy=multi-user.target

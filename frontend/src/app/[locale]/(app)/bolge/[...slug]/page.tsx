@@ -48,12 +48,14 @@ import { parseBlueCruiseRoutes, parseTripRoutes } from '@/lib/trip-routes-parse'
 import type { LocationPage } from '@/lib/travel-api'
 import {
   getLocationPageBySlug,
+  getVerticalMeta,
   listLocationCountries,
   listLocationDestinationChildren,
   listLocationDistricts,
   listLocationRegions,
   searchPublicListings,
 } from '@/lib/travel-api'
+import type { PublicListingItem } from '@/lib/travel-api'
 import { sanitizeRichCmsHtml } from '@/lib/sanitize-cms-html'
 import { vitrinHref } from '@/lib/vitrin-href'
 import { Divider } from '@/shared/divider'
@@ -262,6 +264,48 @@ async function getRegionPlaces(slug: string): Promise<RegionPlaceData | null> {
   }
 }
 
+type RegionEvent = {
+  listing: PublicListingItem
+  startsAt: string
+  endsAt: string
+  venueName: string
+}
+
+async function loadUpcomingRegionEvents(regionName: string, locale: string): Promise<RegionEvent[]> {
+  try {
+    const result = await searchPublicListings({
+      location: regionName,
+      categoryCode: 'event',
+      locale,
+      perPage: 24,
+    })
+    const now = Date.now()
+    const events = await Promise.all(
+      (result?.listings ?? []).map(async (listing) => {
+        const meta: Record<string, unknown> = await getVerticalMeta<Record<string, unknown>>(listing.id, 'event').catch(
+          () => ({} as Record<string, unknown>),
+        )
+        const startsAt = typeof meta.starts_at === 'string' ? meta.starts_at : ''
+        const endsAt = typeof meta.ends_at === 'string' ? meta.ends_at : ''
+        const expiry = Date.parse(endsAt || startsAt)
+        if (!Number.isFinite(expiry) || expiry < now) return null
+        return {
+          listing,
+          startsAt,
+          endsAt,
+          venueName: typeof meta.venue_name === 'string' ? meta.venue_name : '',
+        }
+      }),
+    )
+    return events
+      .filter((event): event is RegionEvent => event !== null)
+      .sort((a, b) => Date.parse(a.startsAt) - Date.parse(b.startsAt))
+      .slice(0, 8)
+  } catch {
+    return []
+  }
+}
+
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params
   const slugPath = slug.join('/')
@@ -344,7 +388,7 @@ export default async function RegionDetailPage({ params, searchParams }: Props) 
     filterQuery.price_max,
   )
 
-  const [listingsResult, subdivisionSlider, pbModules] = await Promise.all([
+  const [listingsResult, subdivisionSlider, pbModules, upcomingEvents] = await Promise.all([
     searchPublicListings({
       location: regionName,
       perPage: 12,
@@ -371,6 +415,7 @@ export default async function RegionDetailPage({ params, searchParams }: Props) 
     }),
     loadBolgeSubdivisionSlider(locale, slug, slugPath, pageData),
     getRegionDetailPageBuilderConfig(locale),
+    loadUpcomingRegionEvents(regionName, locale),
   ])
 
   const listings = listingsResult?.listings ?? []
@@ -608,6 +653,40 @@ export default async function RegionDetailPage({ params, searchParams }: Props) 
     </div>
   )
 
+  const eventsSlot = upcomingEvents.length > 0 ? (
+    <section className={clsx(heroBelowContentClassName, 'container mt-14 lg:mt-20')}>
+      <div className="mb-7 flex items-end justify-between gap-4">
+        <div>
+          <p className="text-sm font-semibold uppercase tracking-wider text-primary-600">Takviminize ekleyin</p>
+          <h2 className="mt-1 text-2xl font-semibold text-neutral-900 dark:text-white">
+            {regionName} etkinlikleri
+          </h2>
+          <p className="mt-1 text-sm text-neutral-500 dark:text-neutral-400">
+            Bölgede yaklaşan konser, festival, gösteri ve diğer etkinlikler.
+          </p>
+        </div>
+        <Link href={prefixLocale(locale, '/etkinlikler/all')} className="shrink-0 text-sm font-medium text-primary-700 hover:underline dark:text-primary-300">
+          Tüm etkinlikler
+        </Link>
+      </div>
+      <div className="grid grid-cols-1 gap-x-6 gap-y-10 sm:grid-cols-2 lg:grid-cols-4">
+        {upcomingEvents.map((event) => {
+          const card = mapPublicListingItemToListingBase(event.listing, { locale })
+          const date = new Intl.DateTimeFormat(locale, { day: 'numeric', month: 'long', year: 'numeric' }).format(new Date(event.startsAt))
+          return (
+            <article key={event.listing.id} className="min-w-0">
+              <div className="mb-2 flex min-h-6 flex-wrap items-center gap-2 text-xs">
+                <span className="rounded-full bg-primary-50 px-2.5 py-1 font-semibold text-primary-700 dark:bg-primary-950/40 dark:text-primary-300">{date}</span>
+                {event.venueName ? <span className="truncate text-neutral-500">{event.venueName}</span> : null}
+              </div>
+              <StayCard2 data={card} />
+            </article>
+          )
+        })}
+      </div>
+    </section>
+  ) : null
+
   /** Bölgeye Göre Keşfet: ülke→iller, il→ilçeler, ilçe→beldeler (`loadBolgeSubdivisionSlider`) */
   const exploreHotelsSlot =
     subdivisionSlider && subdivisionSlider.items.length > 0 ? (
@@ -790,6 +869,7 @@ export default async function RegionDetailPage({ params, searchParams }: Props) 
           }}
         />
       ) : null}
+      {eventsSlot}
     </main>
   )
 }

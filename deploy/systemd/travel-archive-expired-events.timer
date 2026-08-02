@@ -1,0 +1,12 @@
+[Unit]
+Description=Travel - daily expired event archive
+
+[Timer]
+OnCalendar=*-*-* 00:20:00
+AccuracySec=5min
+Persistent=true
+RandomizedDelaySec=5min
+Unit=travel-archive-expired-events.service
+
+[Install]
+WantedBy=timers.target

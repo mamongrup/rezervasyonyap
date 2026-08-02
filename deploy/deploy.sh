@@ -500,6 +500,17 @@ main() {
     warn "Next.js prune-cache systemd dosyaları bulunamadı."
   fi
 
+  if [[ -f "$APP_ROOT/deploy/systemd/travel-archive-expired-events.service" && -f "$APP_ROOT/deploy/systemd/travel-archive-expired-events.timer" ]]; then
+    step "Süresi dolan etkinlikleri arşivleme timer kurulumu"
+    cp "$APP_ROOT/deploy/systemd/travel-archive-expired-events.service" /etc/systemd/system/travel-archive-expired-events.service \
+      && cp "$APP_ROOT/deploy/systemd/travel-archive-expired-events.timer" /etc/systemd/system/travel-archive-expired-events.timer \
+      && chmod +x "$APP_ROOT/deploy/scripts/archive-expired-events.sh" \
+      && systemctl daemon-reload \
+      && systemctl enable --now travel-archive-expired-events.timer \
+      && ok "travel-archive-expired-events.timer etkin" \
+      || warn "Etkinlik arşivleme timer kurulamadı; elle: ./deploy/scripts/archive-expired-events.sh"
+  fi
+
   step "Servis restart"
   if [[ -f "$APP_ROOT/deploy/systemd/travel-web.service" ]]; then
     cp "$APP_ROOT/deploy/systemd/travel-web.service" /etc/systemd/system/travel-web.service \
