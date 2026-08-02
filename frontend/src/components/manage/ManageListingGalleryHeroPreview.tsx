@@ -2,11 +2,35 @@
 
 import clsx from 'clsx'
 import type { KeyboardEvent, MouseEvent, ReactNode } from 'react'
+import { useEffect, useState } from 'react'
 import { LayoutGrid } from 'lucide-react'
 import Link from 'next/link'
+import { storageKeyToPublicUrl } from '@/lib/listing-gallery-hero-order'
 
 function srcForKey(key: string) {
-  return key.startsWith('http') || key.startsWith('/') ? key : `/${key}`
+  return storageKeyToPublicUrl(key)
+}
+
+function GalleryPreviewImage({ storageKey }: { storageKey: string }) {
+  const src = srcForKey(storageKey)
+  const [failed, setFailed] = useState(false)
+  useEffect(() => setFailed(false), [src])
+
+  if (!src || failed) {
+    return (
+      <div className="absolute inset-0 flex items-center justify-center bg-neutral-200 px-3 text-center text-xs text-neutral-500 dark:bg-neutral-800 dark:text-neutral-400">
+        Görsel yüklenemedi
+      </div>
+    )
+  }
+  return (
+    <img
+      src={src}
+      alt=""
+      className="absolute inset-0 h-full w-full object-cover"
+      onError={() => setFailed(true)}
+    />
+  )
 }
 
 const DEFAULT_HINTS = ['Manzara', 'Havuz', 'Salon & mutfak', 'Yatak odası', 'Banyo'] as const
@@ -87,7 +111,7 @@ export function ManageListingGalleryHeroPreview({
         className,
       )}
     >
-      <div className="flex min-h-[200px] flex-col gap-px md:min-h-[260px] md:flex-row md:gap-px">
+      <div className="flex h-[220px] flex-col gap-px sm:h-[280px] md:flex-row md:gap-px">
         <div
           role={interactiveSlots && onSlotClick ? 'button' : undefined}
           tabIndex={interactiveSlots && onSlotClick ? 0 : undefined}
@@ -100,12 +124,12 @@ export function ManageListingGalleryHeroPreview({
               : undefined
           }
           className={clsx(
-            'relative aspect-[4/3] w-full bg-neutral-200 md:aspect-auto md:w-1/2 md:min-h-[260px] dark:bg-neutral-950',
+            'relative min-h-0 w-full flex-1 bg-neutral-200 md:w-1/2 dark:bg-neutral-950',
             tileInteractiveCls,
           )}
         >
           {main ? (
-            <img src={srcForKey(main)} alt="" className="absolute inset-0 h-full w-full object-cover" />
+            <GalleryPreviewImage storageKey={main} />
           ) : (
             <div className="flex h-full min-h-[140px] flex-col items-center justify-center gap-3 p-4 text-center">
               <p className="text-sm text-neutral-500 dark:text-neutral-400">{emptyHint}</p>
@@ -141,7 +165,7 @@ export function ManageListingGalleryHeroPreview({
           ) : null}
         </div>
 
-        <div className="grid w-full grid-cols-2 gap-px md:w-1/2 md:gap-px">
+        <div className="grid min-h-0 w-full flex-1 grid-cols-2 gap-px md:w-1/2 md:gap-px">
           {[0, 1, 2, 3].map((i) => {
             const u = quad[i]?.trim() ?? ''
             const hi = hints[i + 1]
@@ -159,12 +183,12 @@ export function ManageListingGalleryHeroPreview({
                     : undefined
                 }
                 className={clsx(
-                  'relative aspect-[4/3] bg-neutral-200 dark:bg-neutral-950',
+                  'relative min-h-0 bg-neutral-200 dark:bg-neutral-950',
                   tileInteractiveCls,
                 )}
               >
                 {u ? (
-                  <img src={srcForKey(u)} alt="" className="absolute inset-0 h-full w-full object-cover" />
+                  <GalleryPreviewImage storageKey={u} />
                 ) : (
                   <div className="flex h-full w-full flex-col items-center justify-center bg-neutral-100 dark:bg-neutral-800/80">
                     {interactiveSlots ? (
