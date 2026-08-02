@@ -22,6 +22,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import FieldPanelContainer from '../FieldPanelContainer'
 import GuestsInput from '../GuestsInput'
 import LocationInput from '../LocationInput'
+import FlexDateToggle from '../../HeroSearchForm/FlexDateToggle'
 const DatesRangeInput = dynamic(() => import('../DatesRangeInput'), {
   ssr: false,
   loading: () => <div className="h-72 animate-pulse rounded-xl bg-neutral-100 dark:bg-neutral-700/60" />,
@@ -121,6 +122,7 @@ const StaySearchFormMobile = () => {
     if (params.location) qs.set('location', params.location)
     if (params.checkin) qs.set('checkin', params.checkin)
     if (params.checkout) qs.set('checkout', params.checkout)
+    if (params.flex_days && params.flex_days !== '0') qs.set('flex_days', params.flex_days)
     appendStayGuestSearchParams(qs, {
       guestAdults: params.guestAdults,
       guestChildren: params.guestChildren,
@@ -174,6 +176,11 @@ const StaySearchFormMobile = () => {
             defaultEndDate={endDate}
             onChange={onChangeDate}
             onApply={() => setFieldNameShow('guests')}
+          />
+          <FlexDateToggle
+            key={urlSearch.get('flex_days') ?? '0'}
+            defaultValue={urlSearch.get('flex_days') === '7' ? 7 : urlSearch.get('flex_days') === '3' ? 3 : 0}
+            className="mt-3 w-full justify-center rounded-xl py-2.5"
           />
         </FieldPanelContainer>
       </div>
