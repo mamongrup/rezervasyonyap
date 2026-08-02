@@ -103,6 +103,7 @@ const FlightSearchFormMobile = ({ searchTargetPath: searchTargetPathProp }: Prop
         <LocationInput
           headingText={m.HeroSearchForm['Flying from']}
           imputName="flying-from-location"
+          locationSearchType="flight"
           defaultValue={locationInputPickUp}
           onChange={(value) => {
             setLocationInputPickUp(value)
@@ -120,6 +121,7 @@ const FlightSearchFormMobile = ({ searchTargetPath: searchTargetPathProp }: Prop
         <LocationInput
           headingText={m.HeroSearchForm['Flying to']}
           imputName="flying-to-location"
+          locationSearchType="flight"
           defaultValue={locationInputDropOff}
           onChange={(value) => {
             setLocationInputDropOff(value)

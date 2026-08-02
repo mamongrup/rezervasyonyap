@@ -95,3 +95,34 @@ export function categoryLabelForSearch(
   if (fromMessages) return fromMessages
   return code.replace(/_/g, ' ')
 }
+
+/**
+ * Hero / kategori yoluna göre `listing-search` için `category_code`.
+ * Ana sayfa veya bilinmeyen yol → `undefined` (tüm kategoriler).
+ */
+export function listingCategoryCodeForHeroPath(path: string): string | undefined {
+  const p = (path.split('?')[0] ?? path).trim() || '/'
+  if (p.startsWith('/oteller') || p.includes('/oteller-harita')) return 'hotel'
+  if (p.startsWith('/tatil-evleri') || p.includes('/tatil-evleri-harita')) return 'holiday_home'
+  if (p.startsWith('/yat-kiralama') || p.includes('/yat-kiralama-harita')) return 'yacht_charter'
+  if (
+    p.startsWith('/turlar') ||
+    p.includes('/turlar-harita') ||
+    p.startsWith('/hac-umre') ||
+    p.startsWith('/vize')
+  ) {
+    return 'tour'
+  }
+  if (p.startsWith('/kruvaziyer') || p.includes('/kruvaziyer-harita')) return 'cruise'
+  if (
+    p.startsWith('/aktiviteler') ||
+    p.includes('/aktiviteler-harita') ||
+    p.startsWith('/plaj-sezlong') ||
+    p.startsWith('/sinema-biletleri') ||
+    p.startsWith('/etkinlikler') ||
+    p.startsWith('/restoran-rezervasyon')
+  ) {
+    return 'activity'
+  }
+  return undefined
+}

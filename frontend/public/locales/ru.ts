@@ -1121,6 +1121,9 @@ export const ru: AppMessages = {
       destinationsHeading: 'Направления',
       listingsHeading: 'Объявления',
       popularDestinationsHeading: 'Популярные направления',
+      tourCategoriesHeading: 'Категории туров',
+      tourCategorySubtitle: 'Категория тура',
+      airportsHeading: 'Аэропорты',
     },
     car: {
       dropOffLocationAria: 'Тип пункта возврата',

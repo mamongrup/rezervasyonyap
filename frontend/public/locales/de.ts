@@ -1122,6 +1122,9 @@ export const de: AppMessages = {
       destinationsHeading: 'Reiseziele',
       listingsHeading: 'Unterkünfte',
       popularDestinationsHeading: 'Beliebte Reiseziele',
+      tourCategoriesHeading: 'Tourkategorien',
+      tourCategorySubtitle: 'Tourkategorie',
+      airportsHeading: 'Flughäfen',
     },
     car: {
       dropOffLocationAria: 'Art der Rückgabestation',

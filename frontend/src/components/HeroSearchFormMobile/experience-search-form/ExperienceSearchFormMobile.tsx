@@ -4,6 +4,7 @@ import { DEFAULT_GUESTS_EXPERIENCE, totalGuestCount } from '@/lib/guest-search-d
 import { formDataToStringRecord, runHeroSearchPlanEffects } from '@/lib/hero-search-plan'
 import { withSearchResultsAnchor } from '@/lib/search-results-anchor'
 import { heroSearchResultsPathFromRestPath } from '@/lib/hero-search-target'
+import { listingCategoryCodeForHeroPath } from '@/lib/search-listings-display'
 import { stripLocalePrefix } from '@/lib/i18n-config'
 import { useVitrinHref } from '@/hooks/use-vitrin-href'
 import { GuestsObject } from '@/type'
@@ -38,6 +39,11 @@ const ExperienceSearchFormMobile = ({ searchTargetPath: searchTargetPathProp }: 
     const { restPath } = stripLocalePrefix(pathname ?? '/')
     return heroSearchResultsPathFromRestPath(restPath)
   }, [pathname, searchTargetPathProp])
+
+  const listingCategoryCode = useMemo(
+    () => listingCategoryCodeForHeroPath(searchTargetPath) ?? 'tour',
+    [searchTargetPath],
+  )
 
   const onChangeDate = (dates: [Date | null, Date | null]) => {
     const [start, end] = dates
@@ -80,6 +86,8 @@ const ExperienceSearchFormMobile = ({ searchTargetPath: searchTargetPathProp }: 
       >
         <LocationInput
           defaultValue={locationInputTo}
+          locationSearchType="tour"
+          listingCategoryCode={listingCategoryCode}
           onChange={(value) => {
             setLocationInputTo(value)
             setFieldNameShow('dates')

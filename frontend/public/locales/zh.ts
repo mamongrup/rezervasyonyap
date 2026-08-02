@@ -1103,6 +1103,9 @@ export const zh: AppMessages = {
       destinationsHeading: '目的地',
       listingsHeading: '房源',
       popularDestinationsHeading: '热门目的地',
+      tourCategoriesHeading: '旅游分类',
+      tourCategorySubtitle: '旅游分类',
+      airportsHeading: '机场',
     },
     car: {
       dropOffLocationAria: '还车方式',

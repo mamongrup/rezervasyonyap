@@ -10,6 +10,7 @@ import {
 import { formDataToStringRecord, runHeroSearchPlanEffects } from '@/lib/hero-search-plan'
 import { withSearchResultsAnchor } from '@/lib/search-results-anchor'
 import { stripLocalePrefix } from '@/lib/i18n-config'
+import { listingCategoryCodeForHeroPath } from '@/lib/search-listings-display'
 import { shouldAskChildAgesForStaySearch, staySearchResultsPathFromRestPath } from '@/lib/stay-search-target'
 import { GuestsObject } from '@/type'
 import converSelectedDateToString from '@/utils/converSelectedDateToString'
@@ -38,6 +39,10 @@ const StaySearchFormMobile = () => {
   }, [pathname])
   const staySearchHref = vitrinHref(searchTargetPath)
   const askChildAges = shouldAskChildAgesForStaySearch(searchTargetPath)
+  const listingCategoryCode = useMemo(
+    () => listingCategoryCodeForHeroPath(searchTargetPath),
+    [searchTargetPath],
+  )
   //
   const [fieldNameShow, setFieldNameShow] = useState<'location' | 'dates' | 'guests'>('location')
   const locationPanelRef = useRef<HTMLDivElement>(null)
@@ -156,6 +161,7 @@ const StaySearchFormMobile = () => {
         >
           <LocationInput
             defaultValue={locationInputTo}
+            listingCategoryCode={listingCategoryCode}
             onChange={(value) => {
               setLocationInputTo(value)
               setFieldNameShow('dates')

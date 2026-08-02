@@ -4,6 +4,7 @@ import { DEFAULT_GUESTS_EXPERIENCE, guestSearchTotalFromRecord } from '@/lib/gue
 import { formDataToStringRecord, runHeroSearchPlanEffects } from '@/lib/hero-search-plan'
 import { withSearchResultsAnchor } from '@/lib/search-results-anchor'
 import { heroSearchResultsPathFromRestPath } from '@/lib/hero-search-target'
+import { listingCategoryCodeForHeroPath } from '@/lib/search-listings-display'
 import { stripLocalePrefix } from '@/lib/i18n-config'
 import { useVitrinHref } from '@/hooks/use-vitrin-href'
 import { useAppLocale } from '@/hooks/useAppLocale'
@@ -71,6 +72,10 @@ function ExperiencesSearchFormFields({
     [searchPrefill, urlSearch],
   )
   const guestDefaults = useMemo(() => guestDefaultsFromPrefill(prefill), [prefill])
+  const listingCategoryCode = useMemo(
+    () => listingCategoryCodeForHeroPath(searchTargetPath) ?? 'tour',
+    [searchTargetPath],
+  )
 
   useEffect(() => {
     router.prefetch(vitrinHref(searchTargetPath))
@@ -112,6 +117,7 @@ function ExperiencesSearchFormFields({
         fieldStyle={formStyle}
         defaultName={prefill.location}
         onHubSelect={handleHubSelect}
+        listingCategoryCode={listingCategoryCode}
       />
       <VerticalDividerLine />
       <DateRangeField

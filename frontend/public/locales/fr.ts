@@ -1122,6 +1122,9 @@ export const fr: AppMessages = {
       destinationsHeading: 'Destinations',
       listingsHeading: 'Annonces',
       popularDestinationsHeading: 'Destinations populaires',
+      tourCategoriesHeading: 'Catégories de circuits',
+      tourCategorySubtitle: 'Catégorie de circuit',
+      airportsHeading: 'Aéroports',
     },
     car: {
       dropOffLocationAria: 'Type de lieu de retour',

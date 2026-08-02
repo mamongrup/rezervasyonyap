@@ -8,6 +8,7 @@ import {
 } from '@/lib/guest-search-defaults'
 import { formDataToStringRecord, runHeroSearchPlanEffects } from '@/lib/hero-search-plan'
 import { withSearchResultsAnchor } from '@/lib/search-results-anchor'
+import { listingCategoryCodeForHeroPath } from '@/lib/search-listings-display'
 import { shouldAskChildAgesForStaySearch, staySearchResultsPathFromRestPath } from '@/lib/stay-search-target'
 import { stripLocalePrefix } from '@/lib/i18n-config'
 import clsx from 'clsx'
@@ -79,6 +80,10 @@ function StaySearchFormFields({
 
   const guestDefaults = useMemo(() => guestDefaultsFromPrefill(prefill), [prefill])
   const askChildAges = shouldAskChildAgesForStaySearch(searchTargetPath)
+  const listingCategoryCode = useMemo(
+    () => listingCategoryCodeForHeroPath(searchTargetPath),
+    [searchTargetPath],
+  )
 
   useEffect(() => {
     router.prefetch(vitrinHref(searchTargetPath))
@@ -115,6 +120,7 @@ function StaySearchFormFields({
         className="hero-search-form__field-after flex-5/12"
         fieldStyle={formStyle}
         defaultName={prefill.location}
+        listingCategoryCode={listingCategoryCode}
       />
       <VerticalDividerLine />
       <DateRangeField

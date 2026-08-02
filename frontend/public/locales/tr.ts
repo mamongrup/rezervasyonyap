@@ -1938,6 +1938,9 @@ export const tr = {
       destinationsHeading: 'Destinasyonlar',
       listingsHeading: 'İlanlar',
       popularDestinationsHeading: 'Popüler destinasyonlar',
+      tourCategoriesHeading: 'Tur kategorileri',
+      tourCategorySubtitle: 'Tur kategorisi',
+      airportsHeading: 'Havalimanları',
     },
     car: {
       dropOffLocationAria: 'İade noktası türü',

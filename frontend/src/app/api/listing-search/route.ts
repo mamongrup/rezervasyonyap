@@ -78,6 +78,7 @@ function suggestionImage(raw: string | null | undefined): string | undefined {
 export async function GET(req: NextRequest) {
   const q = (req.nextUrl.searchParams.get('q') ?? '').trim()
   const locale = (req.nextUrl.searchParams.get('locale') ?? 'tr').trim()
+  const categoryCode = (req.nextUrl.searchParams.get('category_code') ?? '').trim()
   const limit = Math.min(Number(req.nextUrl.searchParams.get('limit') ?? '8'), 20)
 
   if (q.length < SEARCH_MIN_QUERY_LEN) {
@@ -94,7 +95,8 @@ export async function GET(req: NextRequest) {
     const listingsUrl =
       `${apiBase}/api/v1/catalog/public/listings` +
       `?q=${encodeURIComponent(q)}&locale=${encodeURIComponent(locale)}` +
-      `&limit=${limit}&suggest=1`
+      `&limit=${limit}&suggest=1` +
+      (categoryCode ? `&category_code=${encodeURIComponent(categoryCode)}` : '')
 
     const [listingsSettled, collections, categoryLabels] = await Promise.all([
       fetch(listingsUrl, { signal, next: { revalidate: 60 } })

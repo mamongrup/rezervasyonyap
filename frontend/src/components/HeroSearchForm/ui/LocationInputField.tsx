@@ -93,6 +93,8 @@ interface Props {
   fieldStyle: 'default' | 'small'
   /** Araç kiralama: Yolcu360 konum önerileri (`/api/location-search?type=car`) */
   locationSearchType?: 'car'
+  /** listing-search kategori filtresi (hotel, holiday_home, yacht_charter, …) */
+  listingCategoryCode?: string
   /** URL veya son aramadan ön doldurma */
   defaultName?: string
 }
@@ -104,6 +106,7 @@ export const LocationInputField: FC<Props> = ({
   inputName = 'location',
   fieldStyle = 'default',
   locationSearchType,
+  listingCategoryCode,
   defaultName,
 }) => {
   const { messages, locale } = useAppLocale()
@@ -176,10 +179,13 @@ export const LocationInputField: FC<Props> = ({
         .then((d) => (d.suggestions ?? []).map(apiToSuggest))
         .catch(() => [] as Suggest[])
 
+      const catQs = listingCategoryCode
+        ? `&category_code=${encodeURIComponent(listingCategoryCode)}`
+        : ''
       const listingPromise =
         !isCar && trimmed.length >= SEARCH_MIN_QUERY_LEN
           ? fetch(
-              `/api/listing-search?q=${encodeURIComponent(trimmed)}&locale=${locale}&limit=6`,
+              `/api/listing-search?q=${encodeURIComponent(trimmed)}&locale=${locale}&limit=6${catQs}`,
               { signal: listingController.signal },
             )
               .then((r) => r.json() as Promise<{ suggestions: SearchSuggestion[] }>)
@@ -200,7 +206,7 @@ export const LocationInputField: FC<Props> = ({
     } finally {
       setLoadingSearch(false)
     }
-  }, [isCar, locale])
+  }, [isCar, listingCategoryCode, locale])
 
   useEffect(
     () => () => {

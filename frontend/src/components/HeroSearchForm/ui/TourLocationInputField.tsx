@@ -1,8 +1,12 @@
 'use client'
 
+import type { SearchSuggestion } from '@/app/api/listing-search/route'
+import type { LocationSuggestion } from '@/app/api/location-search/route'
 import { useInteractOutside } from '@/hooks/useInteractOutside'
-import { Divider } from '@/shared/divider'
+import { useVitrinHref } from '@/hooks/use-vitrin-href'
 import { useAppLocale } from '@/hooks/useAppLocale'
+import { SEARCH_MIN_QUERY_LEN } from '@/lib/search-listings-display'
+import { Divider } from '@/shared/divider'
 import {
   Combobox,
   ComboboxInput,
@@ -10,6 +14,7 @@ import {
   ComboboxOptions,
 } from '@headlessui/react'
 import {
+  Building03Icon,
   Location01Icon,
   MapPinIcon,
   MapsLocation01Icon,
@@ -17,15 +22,16 @@ import {
 } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
 import clsx from 'clsx'
+import { useRouter } from 'next/navigation'
 import { FC, useCallback, useEffect, useRef, useState } from 'react'
 import { ClearDataButton } from './ClearDataButton'
-import type { LocationSuggestion } from '@/app/api/location-search/route'
 
 /**
  * Tur arama için özelleştirilmiş konum alanı.
  * İki öneri türü döner:
  *  - tour_hub  → Hub kategorisi (Balkanlar, Batı Avrupa…) — seçince direkt navigate
  *  - region/static → Destinasyon (Budva, Paris…) — seçince form ile arama (tarih+kişi)
+ *  - listing → tur/aktivite ilanı — seçince detay sayfası
  *
  * `onHubSelect(path)` callback'i doldurulursa hub seçiminde çağrılır.
  */
@@ -33,8 +39,10 @@ import type { LocationSuggestion } from '@/app/api/location-search/route'
 export type TourSuggest = {
   id: string
   name: string
-  type: 'hub' | 'destination'
+  type: 'hub' | 'destination' | 'listing'
   hubPath?: string
+  href?: string
+  subtitle?: string
 }
 
 const styles = {
@@ -63,6 +71,16 @@ function apiToTourSuggest(s: LocationSuggestion): TourSuggest {
   return { id: s.id, name: s.name, type: 'destination' }
 }
 
+function listingToTourSuggest(s: SearchSuggestion): TourSuggest {
+  return {
+    id: `listing-${s.id}`,
+    name: s.title,
+    type: 'listing',
+    href: s.href,
+    subtitle: s.subtitle,
+  }
+}
+
 /** Varsayılan popüler tur destinasyonları (API yüklenene dek) */
 const DEFAULT_DEST: TourSuggest[] = [
   { id: 'd-istanbul', name: 'İstanbul', type: 'destination' },
@@ -78,6 +96,8 @@ interface Props {
   defaultName?: string
   /** Hub seçiminde çağrılır — parent router.push yapar */
   onHubSelect: (path: string) => void
+  /** listing-search kategori filtresi (tour / activity / cruise) */
+  listingCategoryCode?: string
 }
 
 export const TourLocationInputField: FC<Props> = ({
@@ -85,9 +105,12 @@ export const TourLocationInputField: FC<Props> = ({
   fieldStyle = 'default',
   defaultName,
   onHubSelect,
+  listingCategoryCode = 'tour',
 }) => {
-  const { messages } = useAppLocale()
+  const { messages, locale } = useAppLocale()
   const hf = messages.HeroSearchForm
+  const router = useRouter()
+  const vitrinHref = useVitrinHref()
 
   const containerRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -98,6 +121,7 @@ export const TourLocationInputField: FC<Props> = ({
   })
   const [hubs, setHubs] = useState<TourSuggest[]>([])
   const [destinations, setDestinations] = useState<TourSuggest[]>(DEFAULT_DEST)
+  const [listings, setListings] = useState<TourSuggest[]>([])
   const [loading, setLoading] = useState(false)
   const [hasSearched, setHasSearched] = useState(false)
 
@@ -128,22 +152,54 @@ export const TourLocationInputField: FC<Props> = ({
   useInteractOutside(containerRef, closePopover)
 
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const listingAbortRef = useRef<AbortController | null>(null)
 
   const runSearch = useCallback(async (q: string) => {
+    const trimmed = q.trim()
     setLoading(true)
+    listingAbortRef.current?.abort()
+    const listingController = new AbortController()
+    listingAbortRef.current = listingController
     try {
-      const r = await fetch(`/api/location-search?q=${encodeURIComponent(q)}&type=tour`)
-      const d = (await r.json()) as { suggestions: LocationSuggestion[] }
-      const all = (d.suggestions ?? []).map(apiToTourSuggest)
+      const locationPromise = fetch(
+        `/api/location-search?q=${encodeURIComponent(trimmed)}&type=tour`,
+      )
+        .then((r) => r.json() as Promise<{ suggestions: LocationSuggestion[] }>)
+        .then((d) => (d.suggestions ?? []).map(apiToTourSuggest))
+        .catch(() => [] as TourSuggest[])
+
+      const catQs = listingCategoryCode
+        ? `&category_code=${encodeURIComponent(listingCategoryCode)}`
+        : ''
+      const listingPromise =
+        trimmed.length >= SEARCH_MIN_QUERY_LEN
+          ? fetch(
+              `/api/listing-search?q=${encodeURIComponent(trimmed)}&locale=${locale}&limit=6${catQs}`,
+              { signal: listingController.signal },
+            )
+              .then((r) => r.json() as Promise<{ suggestions: SearchSuggestion[] }>)
+              .then((d) =>
+                (d.suggestions ?? [])
+                  .filter((s) => s.type === 'listing')
+                  .map(listingToTourSuggest),
+              )
+              .catch((error) => {
+                if (error instanceof DOMException && error.name === 'AbortError') return null
+                return [] as TourSuggest[]
+              })
+          : Promise.resolve([] as TourSuggest[])
+
+      const [all, listingRows] = await Promise.all([locationPromise, listingPromise])
       setHubs(all.filter((s) => s.type === 'hub'))
       setDestinations(all.filter((s) => s.type === 'destination'))
+      if (listingRows != null) setListings(listingRows)
       setHasSearched(true)
     } catch {
       setHasSearched(true)
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [listingCategoryCode, locale])
 
   const scheduleSearch = useCallback((q: string) => {
     if (debounceRef.current != null) clearTimeout(debounceRef.current)
@@ -153,7 +209,10 @@ export const TourLocationInputField: FC<Props> = ({
     }, 280)
   }, [runSearch])
 
-  useEffect(() => () => { if (debounceRef.current != null) clearTimeout(debounceRef.current) }, [])
+  useEffect(() => () => {
+    if (debounceRef.current != null) clearTimeout(debounceRef.current)
+    listingAbortRef.current?.abort()
+  }, [])
 
   const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     setShowPopover(true)
@@ -166,6 +225,7 @@ export const TourLocationInputField: FC<Props> = ({
       setSelected(null)
       setDestinations(DEFAULT_DEST)
       setHubs([])
+      setListings([])
       setHasSearched(false)
     }
   }, [scheduleSearch])
@@ -173,19 +233,24 @@ export const TourLocationInputField: FC<Props> = ({
   const handleSelect = useCallback((value: TourSuggest | null) => {
     if (!value) return
     if (value.type === 'hub' && value.hubPath) {
-      // Hub seçimi → direkt navigate, formu bypass et
       setShowPopover(false)
       onHubSelect(value.hubPath)
+      return
+    }
+    if (value.type === 'listing' && value.href) {
+      setShowPopover(false)
+      router.push(vitrinHref(value.href))
       return
     }
     setSelected(value)
     setShowPopover(false)
     setTimeout(() => inputRef.current?.blur(), 50)
-  }, [onHubSelect])
+  }, [onHubSelect, router, vitrinHref])
 
   const isInitView = !selected?.id || !hasSearched
   const showHubs = hubs.length > 0
   const showDests = destinations.length > 0
+  const showListings = !isInitView && listings.length > 0
 
   return (
     <div
@@ -217,11 +282,10 @@ export const TourLocationInputField: FC<Props> = ({
               aria-label="Tur konumu veya kategorisi"
               className={clsx(styles.input.base, styles.input[fieldStyle])}
               key={`tour-loc:${defaultName ?? ''}`}
-              placeholder={hf.Location}
+              placeholder={hf['Search destinations']}
               autoComplete="off"
               displayValue={(item?: TourSuggest) => {
                 if (!item?.name) return ''
-                // Hub adından " — KategoriAdı" kısmını sil (temiz görüntü)
                 return item.name.replace(/\s—\s.+$/, '')
               }}
               onChange={handleInputChange}
@@ -238,7 +302,7 @@ export const TourLocationInputField: FC<Props> = ({
                 selected?.name?.trim() && 'invisible pointer-events-none select-none',
               )}
             >
-              <span className="block truncate">Nereye gidiyorsunuz?</span>
+              <span className="block truncate">{hf['Where are you going?']}</span>
             </div>
 
             <ClearDataButton
@@ -247,6 +311,7 @@ export const TourLocationInputField: FC<Props> = ({
                 setSelected(null)
                 setDestinations(DEFAULT_DEST)
                 setHubs([])
+                setListings([])
                 setHasSearched(false)
                 setShowPopover(false)
                 inputRef.current?.focus()
@@ -268,11 +333,10 @@ export const TourLocationInputField: FC<Props> = ({
               <p className="px-8 py-3 text-xs text-neutral-400">{hf.searchingLocations}</p>
             )}
 
-            {/* Hub Kategorileri */}
             {showHubs && (
               <>
                 <p className="px-4 pb-1 pt-2 text-xs font-semibold uppercase tracking-wider text-neutral-400 sm:px-8">
-                  Tur Kategorileri
+                  {messages.mobile?.location?.tourCategoriesHeading ?? 'Tur kategorileri'}
                 </p>
                 {hubs.map((item) => (
                   <ComboboxOption
@@ -289,21 +353,23 @@ export const TourLocationInputField: FC<Props> = ({
                       <span className="block font-medium text-neutral-700 dark:text-neutral-200">
                         {item.name}
                       </span>
-                      <span className="text-xs text-neutral-400">Tur kategorisi</span>
+                      <span className="text-xs text-neutral-400">
+                        {messages.mobile?.location?.tourCategorySubtitle ?? 'Tur kategorisi'}
+                      </span>
                     </div>
                   </ComboboxOption>
                 ))}
               </>
             )}
 
-            {/* Ayraç */}
             {showHubs && showDests && <Divider className="my-1 opacity-40" />}
 
-            {/* Destinasyonlar */}
             {showDests && (
               <>
                 <p className="px-4 pb-1 pt-2 text-xs font-semibold uppercase tracking-wider text-neutral-400 sm:px-8">
-                  {isInitView ? 'Popüler destinasyonlar' : 'Destinasyonlar'}
+                  {isInitView
+                    ? (messages.mobile?.location?.popularDestinationsHeading ?? hf['Popular destinations'])
+                    : (messages.mobile?.location?.destinationsHeading ?? hf.Destinations)}
                 </p>
                 {destinations.map((item) => (
                   <ComboboxOption
@@ -323,6 +389,36 @@ export const TourLocationInputField: FC<Props> = ({
                 ))}
               </>
             )}
+
+            {showListings ? (
+              <>
+                <Divider className="my-1 opacity-40" />
+                <p className="px-4 pb-1 pt-2 text-xs font-semibold uppercase tracking-wider text-neutral-400 sm:px-8">
+                  {hf.Listings}
+                </p>
+                {listings.map((item) => (
+                  <ComboboxOption
+                    key={item.id}
+                    value={item}
+                    className="flex cursor-pointer items-center gap-3 p-4 data-focus:bg-neutral-100 sm:gap-4.5 sm:px-8 dark:data-focus:bg-neutral-700"
+                  >
+                    <HugeiconsIcon
+                      icon={Building03Icon}
+                      className="size-4 shrink-0 text-neutral-400 sm:size-5 dark:text-neutral-500"
+                      strokeWidth={1.75}
+                    />
+                    <span className="min-w-0">
+                      <span className="block truncate font-medium text-neutral-700 dark:text-neutral-200">
+                        {item.name}
+                      </span>
+                      {item.subtitle ? (
+                        <span className="block truncate text-xs text-neutral-500">{item.subtitle}</span>
+                      ) : null}
+                    </span>
+                  </ComboboxOption>
+                ))}
+              </>
+            ) : null}
           </ComboboxOptions>
         ) : null}
       </Combobox>

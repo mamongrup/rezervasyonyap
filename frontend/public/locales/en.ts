@@ -1997,6 +1997,9 @@ export const en = {
       destinationsHeading: 'Destinations',
       listingsHeading: 'Listings',
       popularDestinationsHeading: 'Popular destinations',
+      tourCategoriesHeading: 'Tour categories',
+      tourCategorySubtitle: 'Tour category',
+      airportsHeading: 'Airports',
     },
     car: {
       dropOffLocationAria: 'Drop-off location type',

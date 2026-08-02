@@ -4,13 +4,27 @@ import type { SearchSuggestion } from '@/app/api/listing-search/route'
 import type { LocationSuggestion } from '@/app/api/location-search/route'
 import { Search01Icon } from '@/components/Icons'
 import { useVitrinHref } from '@/hooks/use-vitrin-href'
+import {
+  airportDisplayName,
+  POPULAR_FLIGHT_AIRPORTS,
+  findAirportByCode,
+  searchFlightAirports,
+  type FlightAirport,
+} from '@/lib/flight-airports'
 import { SEARCH_MIN_QUERY_LEN } from '@/lib/search-listings-display'
 import { getMessages } from '@/utils/getT'
-import { Building03Icon, MapPinIcon } from '@hugeicons/core-free-icons'
+import {
+  Airplane01Icon,
+  Building03Icon,
+  MapPinIcon,
+  Route01Icon,
+} from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
 import clsx from 'clsx'
 import { useParams, useRouter } from 'next/navigation'
 import { FC, useCallback, useEffect, useRef, useState } from 'react'
+
+export type LocationSearchMode = 'stay' | 'car' | 'tour' | 'flight'
 
 interface Props {
   onClick?: () => void
@@ -19,8 +33,22 @@ interface Props {
   defaultValue?: string
   headingText?: string
   imputName?: string
-  /** Araç kiralama: Yolcu360 konum önerileri (`/api/location-search?type=car`) */
-  locationSearchType?: 'car'
+  /**
+   * stay: bölge + ilan
+   * tour: hub + destinasyon + tur/aktivite ilanı
+   * car: Yolcu360 / şehir
+   * flight: havalimanı IATA
+   */
+  locationSearchType?: LocationSearchMode
+  /** listing-search `category_code` (otel, tur, …) */
+  listingCategoryCode?: string
+}
+
+type PlaceRow = {
+  id: string
+  name: string
+  hubPath?: string
+  kind: 'place' | 'hub' | 'airport'
 }
 
 const POPULAR_DESTINATIONS_TR = [
@@ -30,13 +58,29 @@ const POPULAR_DESTINATIONS_MORE = [
   'Trabzon', 'Fethiye', 'Alanya', 'Marmaris', 'Çeşme',
 ]
 
+function airportRow(a: FlightAirport): PlaceRow {
+  return {
+    id: `airport-${a.code}`,
+    name: airportDisplayName(a),
+    kind: 'airport',
+  }
+}
+
+function placeFromSuggestion(s: LocationSuggestion): PlaceRow {
+  if (s.type === 'tour_hub') {
+    return { id: s.id, name: s.name, hubPath: s.hubPath, kind: 'hub' }
+  }
+  return { id: s.id, name: s.name, kind: 'place' }
+}
+
 const LocationInput: FC<Props> = ({
   onChange,
   className,
   defaultValue = '',
   headingText,
   imputName = 'location',
-  locationSearchType,
+  locationSearchType = 'stay',
+  listingCategoryCode,
 }) => {
   const params = useParams()
   const locale = typeof params?.locale === 'string' ? params.locale : 'tr'
@@ -47,8 +91,8 @@ const LocationInput: FC<Props> = ({
   const router = useRouter()
   const vitrinHref = useVitrinHref()
   const [value, setValue] = useState('')
-  const [apiPopular, setApiPopular] = useState<string[]>([])
-  const [apiResults, setApiResults] = useState<string[]>([])
+  const [placeResults, setPlaceResults] = useState<PlaceRow[]>([])
+  const [popularPlaces, setPopularPlaces] = useState<PlaceRow[]>([])
   const [listingResults, setListingResults] = useState<SearchSuggestion[]>([])
   const [loadingSearch, setLoadingSearch] = useState(false)
   const containerRef = useRef(null)
@@ -57,19 +101,31 @@ const LocationInput: FC<Props> = ({
   const listingAbortRef = useRef<AbortController | null>(null)
 
   const isCar = locationSearchType === 'car'
-  const locationSearchQs = isCar ? '?type=car' : ''
+  const isTour = locationSearchType === 'tour'
+  const isFlight = locationSearchType === 'flight'
+  const includeListings = !isCar && !isFlight
+
+  const locationSearchQs = isCar ? '?type=car' : isTour ? '?type=tour' : ''
 
   useEffect(() => {
     setValue(defaultValue)
   }, [defaultValue])
 
   useEffect(() => {
+    if (isFlight) {
+      setPopularPlaces(
+        POPULAR_FLIGHT_AIRPORTS.map((code) => findAirportByCode(code)).flatMap((a) =>
+          a ? [airportRow(a)] : [],
+        ),
+      )
+      return
+    }
     let cancelled = false
     fetch(`/api/location-search${locationSearchQs}`)
       .then((r) => r.json())
       .then((d: { suggestions: LocationSuggestion[] }) => {
         if (cancelled || !d.suggestions?.length) return
-        setApiPopular(d.suggestions.map((s) => s.name).filter(Boolean))
+        setPopularPlaces(d.suggestions.map(placeFromSuggestion))
       })
       .catch(() => {
         /* statik liste kalır */
@@ -77,7 +133,7 @@ const LocationInput: FC<Props> = ({
     return () => {
       cancelled = true
     }
-  }, [locationSearchQs])
+  }, [locationSearchQs, isFlight])
 
   useEffect(
     () => () => {
@@ -91,27 +147,43 @@ const LocationInput: FC<Props> = ({
     async (q: string) => {
       const trimmed = q.trim()
       if (!trimmed) {
-        setApiResults([])
+        setPlaceResults([])
         setListingResults([])
         return
       }
+
+      if (isFlight) {
+        setLoadingSearch(true)
+        try {
+          setPlaceResults(searchFlightAirports(trimmed, 10).map(airportRow))
+          setListingResults([])
+        } finally {
+          setLoadingSearch(false)
+        }
+        return
+      }
+
       setLoadingSearch(true)
       listingAbortRef.current?.abort()
       const listingController = new AbortController()
       listingAbortRef.current = listingController
       try {
-        const typeQs = isCar ? '&type=car' : ''
+        const typeQs = isCar ? '&type=car' : isTour ? '&type=tour' : ''
         const locationPromise = fetch(
           `/api/location-search?q=${encodeURIComponent(trimmed)}${typeQs}`,
         )
           .then((r) => r.json() as Promise<{ suggestions: LocationSuggestion[] }>)
-          .then((d) => (d.suggestions ?? []).map((s) => s.name).filter(Boolean))
-          .catch(() => [] as string[])
+          .then((d) => (d.suggestions ?? []).map(placeFromSuggestion))
+          .catch(() => [] as PlaceRow[])
 
+        const catQs =
+          listingCategoryCode
+            ? `&category_code=${encodeURIComponent(listingCategoryCode)}`
+            : ''
         const listingPromise =
-          !isCar && trimmed.length >= SEARCH_MIN_QUERY_LEN
+          includeListings && trimmed.length >= SEARCH_MIN_QUERY_LEN
             ? fetch(
-                `/api/listing-search?q=${encodeURIComponent(trimmed)}&locale=${locale}&limit=6`,
+                `/api/listing-search?q=${encodeURIComponent(trimmed)}&locale=${locale}&limit=6${catQs}`,
                 { signal: listingController.signal },
               )
                 .then((r) => r.json() as Promise<{ suggestions: SearchSuggestion[] }>)
@@ -122,14 +194,14 @@ const LocationInput: FC<Props> = ({
                 })
             : Promise.resolve([] as SearchSuggestion[])
 
-        const [locations, listings] = await Promise.all([locationPromise, listingPromise])
-        setApiResults(locations)
+        const [places, listings] = await Promise.all([locationPromise, listingPromise])
+        setPlaceResults(places)
         if (listings != null) setListingResults(listings)
       } finally {
         setLoadingSearch(false)
       }
     },
-    [isCar, locale],
+    [includeListings, isCar, isFlight, isTour, listingCategoryCode, locale],
   )
 
   const scheduleLocationSearch = useCallback(
@@ -143,11 +215,18 @@ const LocationInput: FC<Props> = ({
     [runCombinedSearch],
   )
 
-  const handleSelectLocation = (item: string) => {
-    // DO NOT REMOVE SETTIMEOUT FUNC
+  const handleSelectPlace = (item: PlaceRow) => {
+    if (item.kind === 'hub' && item.hubPath) {
+      router.push(vitrinHref(item.hubPath))
+      return
+    }
+    const next =
+      item.kind === 'airport'
+        ? (item.id.replace(/^airport-/, '') || item.name)
+        : item.name
     setTimeout(() => {
-      setValue(item)
-      onChange?.(item)
+      setValue(item.kind === 'airport' ? item.name : next)
+      onChange?.(next)
     }, 0)
   }
 
@@ -155,51 +234,78 @@ const LocationInput: FC<Props> = ({
     router.push(vitrinHref(href))
   }
 
+  const filteredStaticPlaces: PlaceRow[] = [...POPULAR_DESTINATIONS_TR, ...POPULAR_DESTINATIONS_MORE]
+    .filter((d) => d.toLocaleLowerCase(locale).includes(value.toLocaleLowerCase(locale)))
+    .map((name) => ({ id: `static-${name}`, name, kind: 'place' as const }))
+
   const popularItems =
-    apiPopular.length > 0 ? apiPopular.slice(0, isCar ? 12 : 5) : POPULAR_DESTINATIONS_TR
+    popularPlaces.length > 0
+      ? popularPlaces.slice(0, isCar || isFlight ? 12 : 6)
+      : POPULAR_DESTINATIONS_TR.map((name) => ({
+          id: `static-${name}`,
+          name,
+          kind: 'place' as const,
+        }))
 
-  const filteredStatic = [...POPULAR_DESTINATIONS_TR, ...POPULAR_DESTINATIONS_MORE].filter((d) =>
-    d.toLocaleLowerCase(locale).includes(value.toLocaleLowerCase(locale)),
-  )
+  const searchPlaces =
+    placeResults.length > 0
+      ? placeResults
+      : isCar || isFlight || isTour
+        ? placeResults
+        : filteredStaticPlaces
 
-  const searchItems =
-    apiResults.length > 0
-      ? apiResults
-      : isCar
-        ? []
-        : filteredStatic
+  const hubs = searchPlaces.filter((p) => p.kind === 'hub')
+  const destinations = searchPlaces.filter((p) => p.kind !== 'hub')
 
-  const renderLocationValues = ({ heading, items }: { heading: string; items: string[] }) => {
+  const renderPlaceGroup = ({
+    heading,
+    items,
+    hubStyle,
+  }: {
+    heading: string
+    items: PlaceRow[]
+    hubStyle?: boolean
+  }) => {
     if (items.length === 0) return null
     return (
-      <>
-        <p className="block text-base font-semibold">{heading || hf.Destinations}</p>
+      <div className="mb-5 last:mb-0">
+        <p className="block text-base font-semibold">{heading}</p>
         <div className="mt-3">
-          {items.map((item) => {
-            return (
-              <div
-                className="mb-1 flex cursor-pointer items-center gap-x-3 py-2 text-sm"
-                onClick={() => handleSelectLocation(item)}
-                key={item}
-              >
-                <HugeiconsIcon
-                  icon={MapPinIcon}
-                  className="h-5 w-5 text-neutral-500 dark:text-neutral-400"
-                  strokeWidth={1.75}
-                />
-                <span>{item}</span>
-              </div>
-            )
-          })}
+          {items.map((item) => (
+            <button
+              type="button"
+              key={item.id}
+              className="mb-1 flex w-full cursor-pointer items-center gap-x-3 py-2 text-start text-sm"
+              onClick={() => handleSelectPlace(item)}
+            >
+              <HugeiconsIcon
+                icon={
+                  hubStyle
+                    ? Route01Icon
+                    : isFlight
+                      ? Airplane01Icon
+                      : MapPinIcon
+                }
+                className={clsx(
+                  'h-5 w-5 shrink-0',
+                  hubStyle
+                    ? 'text-primary-500 dark:text-primary-400'
+                    : 'text-neutral-500 dark:text-neutral-400',
+                )}
+                strokeWidth={1.75}
+              />
+              <span className="min-w-0 truncate">{item.name.replace(/\s—\s.+$/, '')}</span>
+            </button>
+          ))}
         </div>
-      </>
+      </div>
     )
   }
 
   const renderListingValues = () => {
-    if (isCar || listingResults.length === 0) return null
+    if (!includeListings || listingResults.length === 0) return null
     return (
-      <div className={clsx(searchItems.length > 0 && 'mt-6')}>
+      <div>
         <p className="block text-base font-semibold">
           {loc.listingsHeading ?? hf.Listings}
         </p>
@@ -243,8 +349,14 @@ const LocationInput: FC<Props> = ({
   const showSearching =
     Boolean(value) &&
     loadingSearch &&
-    searchItems.length === 0 &&
+    searchPlaces.length === 0 &&
     listingResults.length === 0
+
+  const placeholder = isCar
+    ? hf['City or Airport']
+    : isFlight
+      ? hf['City or Airport']
+      : hf['Search destinations']
 
   return (
     <div className={clsx(className)} ref={containerRef}>
@@ -252,17 +364,13 @@ const LocationInput: FC<Props> = ({
       <div className="relative mt-5">
         <input
           className="block w-full truncate rounded-xl border border-neutral-300 bg-transparent px-4 py-3 pe-12 leading-none font-normal placeholder-neutral-500 placeholder:truncate focus:border-primary-300 focus:ring-3 focus:ring-primary-200/50 sm:text-sm dark:border-neutral-700 dark:bg-neutral-900 dark:placeholder-neutral-300 dark:focus:ring-primary-600/25"
-          placeholder={
-            isCar
-              ? hf['City or Airport']
-              : hf['Search destinations']
-          }
+          placeholder={placeholder}
           value={value}
           onChange={(e) => {
             const next = e.currentTarget.value
             setValue(next)
             if (!next.trim()) {
-              setApiResults([])
+              setPlaceResults([])
               setListingResults([])
             }
             scheduleLocationSearch(next)
@@ -278,26 +386,37 @@ const LocationInput: FC<Props> = ({
         </span>
       </div>
       <div className="mt-7">
-        {value
-          ? showSearching
-            ? (
-                <p className="text-sm text-neutral-500 dark:text-neutral-400">
-                  {hf.searchingLocations}
-                </p>
-              )
-            : (
-                <>
-                  {renderLocationValues({
-                    heading: loc.destinationsHeading,
-                    items: searchItems,
-                  })}
-                  {renderListingValues()}
-                </>
-              )
-          : renderLocationValues({
-              heading: loc.popularDestinationsHeading,
-              items: popularItems,
-            })}
+        {value ? (
+          showSearching ? (
+            <p className="text-sm text-neutral-500 dark:text-neutral-400">
+              {hf.searchingLocations}
+            </p>
+          ) : (
+            <>
+              {renderPlaceGroup({
+                heading: isTour
+                  ? (loc.tourCategoriesHeading ?? 'Tur kategorileri')
+                  : loc.destinationsHeading,
+                items: isTour ? hubs : [],
+                hubStyle: true,
+              })}
+              {renderPlaceGroup({
+                heading: isFlight
+                  ? (loc.airportsHeading ?? hf['City or Airport'])
+                  : loc.destinationsHeading,
+                items: isTour ? destinations : searchPlaces.filter((p) => p.kind !== 'hub'),
+              })}
+              {renderListingValues()}
+            </>
+          )
+        ) : (
+          renderPlaceGroup({
+            heading: isFlight
+              ? (loc.airportsHeading ?? hf['City or Airport'])
+              : loc.popularDestinationsHeading,
+            items: popularItems,
+          })
+        )}
       </div>
     </div>
   )
