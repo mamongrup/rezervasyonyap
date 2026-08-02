@@ -260,10 +260,13 @@ export function HotelStayBookingSidebar(props: SharedProps) {
     booking.activitySurchargesTotal,
   )
   const checkoutPayment = useCheckoutPaymentAmount(quote.currencyCode, perRoomCartPrice)
-  const startingNightlyPrice = quote.formatConverted(
+  // Başlangıç fiyatı = en uygun (min) oda; oda seçilince seçili odanın geceliği.
+  const startingNightlyAmount =
     booking.selectedRoomFallbackNightly > 0
       ? booking.selectedRoomFallbackNightly
-      : booking.fallbackNightly,
+      : booking.fallbackNightly
+  const startingNightlyPrice = quote.formatConverted(
+    startingNightlyAmount,
     quote.currencyCode,
   )
 
@@ -303,9 +306,7 @@ export function HotelStayBookingSidebar(props: SharedProps) {
       <div className="flex flex-wrap items-start gap-x-3 gap-y-2">
         <div className="flex min-w-0 flex-1 flex-wrap items-baseline gap-x-3 gap-y-1">
           <span className="text-2xl font-semibold text-neutral-900 sm:text-3xl dark:text-neutral-100">
-            {booking.selectedRoomFallbackNightly > 0 || booking.fallbackNightly > 0
-              ? startingNightlyPrice
-              : quote.displayMainPrice}
+            {startingNightlyAmount > 0 ? startingNightlyPrice : quote.displayMainPrice}
           </span>
           <span className="text-base text-neutral-500 dark:text-neutral-400">
             {messages.listing.sidebar.perNight}

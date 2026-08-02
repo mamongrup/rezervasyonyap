@@ -73,6 +73,7 @@ EXTRA = {
         "https://sunthalia-hotels-resorts-side.bookeder.com/",
     ],
     "leodikya-kirman-premium": [
+        "https://leodikya-resort-alanya.bookeder.com/",
         "https://kirman-leodikya-resort-and-spa.bookeder.com/",
         "https://kirman-leodikya-resort-spa.bookeder.com/",
     ],
@@ -100,6 +101,10 @@ EXTRA = {
 
 FALLBACK_TRY = {
     "bera-alanya-otel": 8800,  # existing alanya-side feed (yalnızca Bookeder yoksa)
+    # Bookeder otel sayfası yok / şehir listesine düşüyor — Momondo "den başlayan" (2026-08-02)
+    "queens-park-goynuk": 4350,
+    "lucida-beach-hotel": 5400,
+    "crystal-admiral-aqua-collection": 4150,
 }
 
 

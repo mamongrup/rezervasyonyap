@@ -88,7 +88,10 @@ import {
   type ListingPriceRuleRow,
 } from '@/lib/travel-api'
 import { roomGalleryFallback } from '@/lib/hotel-room-gallery-fallback'
-import { extractHotelRoomFeaturesFromMeta } from '@/lib/hotel-room-nightly'
+import {
+  extractHotelRoomFeaturesFromMeta,
+  minHotelRoomOwnedNightly,
+} from '@/lib/hotel-room-nightly'
 import type { TListingHolidayHome } from '@/types/listing-types'
 import type { RegionPlaceData } from '@/app/api/region-places/route'
 import { guessCalendarMonthsShownFromRequest } from '@/lib/calendar-months-shown-server'
@@ -795,6 +798,15 @@ export default async function StayListingDetailPageContent({
     return Math.min(...positives)
   })()
 
+  const roomOwnedNightlyCandidate = (() => {
+    if (vertical !== 'hotel') return undefined
+    const min = minHotelRoomOwnedNightly({
+      rooms: hotelBookingRooms,
+      priceRules: hotelPriceRules,
+    })
+    return min > 0 ? min : undefined
+  })()
+
   /** Arama `price_from` yemek planı minimumu bazen depozito ile aynı yanlış kayıtla gelir — kuralları önceliklendir */
   const nightlyEscapesDeposit = (n: number | undefined): n is number =>
     n != null &&
@@ -808,9 +820,11 @@ export default async function StayListingDetailPageContent({
       ? rulesNightlyCandidate
       : nightlyEscapesDeposit(mealPlanNightlyCandidate)
         ? mealPlanNightlyCandidate
-        : priceAmount != null && Number.isFinite(priceAmount) && priceAmount > 0
-          ? priceAmount
-          : rulesNightlyCandidate ?? mealPlanNightlyCandidate
+        : nightlyEscapesDeposit(roomOwnedNightlyCandidate)
+          ? roomOwnedNightlyCandidate
+          : priceAmount != null && Number.isFinite(priceAmount) && priceAmount > 0
+            ? priceAmount
+            : rulesNightlyCandidate ?? mealPlanNightlyCandidate ?? roomOwnedNightlyCandidate
 
   // Tatil evi + otel: kural min’i rezervasyon paneli fallback’ine yaz.
   const ruleFallbackForQuote =

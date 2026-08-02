@@ -925,6 +925,7 @@ export const tr = {
       roomUnitCount: '({count} oda)',
       guestCapacitySuffix: ' · {count} kişi',
       sidebarRoomStepTitle: 'Oda seçin',
+      bestPriceLabel: 'En uygun fiyat',
       selectRoomPrompt: 'Rezervasyon için oda seçin',
       selectedRoomLabel: 'Seçili oda',
       autoRoomCountNote: '{guests} misafir için {rooms} oda ayrıldı',

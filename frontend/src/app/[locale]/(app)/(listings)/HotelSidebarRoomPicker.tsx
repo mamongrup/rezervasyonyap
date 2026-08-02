@@ -3,6 +3,7 @@
 import { hotelRoomCapacityOrDefault } from '@/lib/accommodation-units'
 import { buildBoardTypeLabelsFromMessages, resolveHotelBoardTypeLabel } from '@/lib/hotel-room-board-type'
 import type { HotelRoomBookingOption } from '@/lib/hotel-room-availability-public'
+import { formatMoneyIntl } from '@/lib/parse-listing-price'
 import { getMessages } from '@/utils/getT'
 import { interpolate } from '@/utils/interpolate'
 import clsx from 'clsx'
@@ -13,19 +14,26 @@ function SidebarRoomOption({
   room,
   selected,
   locale,
+  nightly,
+  currencyCode,
   onSelect,
 }: {
   room: HotelRoomBookingOption
   selected: boolean
   locale: string
+  nightly: number
+  currencyCode: string
   onSelect: () => void
 }) {
-  const hb = getMessages(locale).listing.hotelBooking
+  const messages = getMessages(locale)
+  const hb = messages.listing.hotelBooking
   const boardLabels = buildBoardTypeLabelsFromMessages(
-    (getMessages(locale).listing.roomShowcase ?? {}) as Record<string, string>,
+    (messages.listing.roomShowcase ?? {}) as Record<string, string>,
   )
   const board = resolveHotelBoardTypeLabel(room.board_type, boardLabels)
   const cap = hotelRoomCapacityOrDefault(room.capacity)
+  const priceLabel =
+    nightly > 0 ? formatMoneyIntl(nightly, currencyCode || 'TRY') : null
 
   return (
     <button
@@ -50,7 +58,19 @@ function SidebarRoomOption({
         {selected ? <Check className="size-3" strokeWidth={3} /> : null}
       </span>
       <span className="min-w-0 flex-1">
-        <span className="block font-semibold leading-snug text-neutral-900 dark:text-white">{room.name}</span>
+        <span className="flex items-start justify-between gap-2">
+          <span className="block font-semibold leading-snug text-neutral-900 dark:text-white">
+            {room.name}
+          </span>
+          {priceLabel ? (
+            <span className="shrink-0 text-sm font-semibold tabular-nums text-neutral-900 dark:text-white">
+              {priceLabel}
+              <span className="ms-1 text-xs font-normal text-neutral-500 dark:text-neutral-400">
+                {messages.listing.sidebar.perNight}
+              </span>
+            </span>
+          ) : null}
+        </span>
         <span className="mt-1 block text-xs text-neutral-600 dark:text-neutral-400">
           {interpolate(hb.guestCapacitySuffix, { count: String(cap) })}
           {board ? ` · ${board}` : ''}
@@ -67,6 +87,14 @@ export default function HotelSidebarRoomPicker({ locale }: { locale: string }) {
 
   if (booking.rooms.length === 0) return null
 
+  const priced = booking.rooms
+    .map((room) => ({ room, nightly: booking.roomFallbackNightly(room) }))
+    .filter((x) => x.nightly > 0)
+  const cheapestId =
+    priced.length > 0
+      ? priced.reduce((best, cur) => (cur.nightly < best.nightly ? cur : best)).room.id
+      : null
+
   return (
     <div className="border-b border-neutral-200 px-3 py-3 dark:border-neutral-700">
       <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-neutral-500 dark:text-neutral-400">
@@ -79,8 +107,15 @@ export default function HotelSidebarRoomPicker({ locale }: { locale: string }) {
               room={room}
               selected={booking.selectedRoomId === room.id}
               locale={locale}
+              nightly={booking.roomFallbackNightly(room)}
+              currencyCode={booking.currencyCode}
               onSelect={() => booking.setSelectedRoomId(room.id)}
             />
+            {cheapestId === room.id && booking.rooms.length > 1 ? (
+              <p className="mt-1 ps-8 text-[11px] font-medium text-emerald-700 dark:text-emerald-300">
+                {hb.bestPriceLabel}
+              </p>
+            ) : null}
           </li>
         ))}
       </ul>

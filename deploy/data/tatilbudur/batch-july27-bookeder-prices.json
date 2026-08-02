@@ -13,8 +13,8 @@
   },
   "lucida-beach-hotel": {
     "bookeder": null,
-    "nightlyTryFloor": null,
-    "source": null,
+    "nightlyTryFloor": 5400,
+    "source": "momondo_from_price_2026-08-02",
     "usdTryRate": 40
   },
   "royal-atlantis-beach": {
@@ -37,14 +37,14 @@
   },
   "queens-park-goynuk": {
     "bookeder": null,
-    "nightlyTryFloor": null,
-    "source": null,
+    "nightlyTryFloor": 4350,
+    "source": "momondo_from_price_2026-08-02",
     "usdTryRate": 40
   },
   "crystal-admiral-aqua-collection": {
     "bookeder": null,
-    "nightlyTryFloor": null,
-    "source": null,
+    "nightlyTryFloor": 4150,
+    "source": "momondo_from_price_2026-08-02",
     "usdTryRate": 40
   },
   "ozkaymak-marina-hotel": {
@@ -84,9 +84,9 @@
     "usdTryRate": 40
   },
   "leodikya-kirman-premium": {
-    "bookeder": null,
-    "nightlyTryFloor": null,
-    "source": null,
+    "bookeder": "https://leodikya-resort-alanya.bookeder.com/",
+    "nightlyTryFloor": 14650,
+    "source": "bookeder_usd_ve_uzeri",
     "usdTryRate": 40
   },
   "caretta-beach-hotel": {

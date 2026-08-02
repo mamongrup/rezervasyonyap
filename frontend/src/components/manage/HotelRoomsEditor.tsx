@@ -42,6 +42,10 @@ export type HotelRoomDraft = {
   amenities: string
   paid_amenities: string
   room_score: string
+  /** Vitrin / başlangıç fiyatı — meta.price + price_rules’a yazılır */
+  nightly_price: string
+  /** Kaynak meta_json (seasonal_prices, provider id vb. korunur) */
+  meta_base: Record<string, unknown>
 }
 
 function emptyRow(): HotelRoomDraft {
@@ -60,6 +64,8 @@ function emptyRow(): HotelRoomDraft {
     amenities: '',
     paid_amenities: '',
     room_score: '',
+    nightly_price: '',
+    meta_base: {},
   }
 }
 
@@ -77,12 +83,38 @@ function arrayToLines(raw: unknown): string {
   return ''
 }
 
+function parseNightlyFromMeta(m: Record<string, unknown>): string {
+  const flat =
+    m.price ?? m.nightly_price ?? m.nightlyPrice ?? m.base_nightly
+  if (typeof flat === 'number' && Number.isFinite(flat) && flat > 0) return String(flat)
+  if (typeof flat === 'string' && flat.trim()) {
+    const n = Number.parseFloat(flat.trim().replace(',', '.'))
+    if (Number.isFinite(n) && n > 0) return String(n)
+  }
+  const seasonal = m.seasonal_prices ?? m.seasonalPrices ?? m.rates
+  if (Array.isArray(seasonal)) {
+    let min = 0
+    for (const raw of seasonal) {
+      if (!raw || typeof raw !== 'object') continue
+      const obj = raw as Record<string, unknown>
+      const n = Number(
+        obj.nightlyPrice ?? obj.nightly_price ?? obj.price ?? obj.amount ?? 0,
+      )
+      if (Number.isFinite(n) && n > 0) min = min === 0 ? n : Math.min(min, n)
+    }
+    if (min > 0) return String(min)
+  }
+  return ''
+}
+
 function parseMeta(metaJson: string): Omit<
   HotelRoomDraft,
   'key' | 'id' | 'name' | 'capacity' | 'board_type' | 'unit_count'
 > {
   try {
     const m = JSON.parse(metaJson || '{}') as Record<string, unknown>
+    const base =
+      m && typeof m === 'object' && !Array.isArray(m) ? { ...m } : ({} as Record<string, unknown>)
     return {
       beds: m.beds != null ? String(m.beds) : '',
       bed_type: typeof m.bed_type === 'string' ? m.bed_type : '',
@@ -98,6 +130,8 @@ function parseMeta(metaJson: string): Omit<
       amenities: arrayToLines(m.amenities),
       paid_amenities: arrayToLines(m.paid_amenities),
       room_score: m.room_score != null ? String(m.room_score) : m.score != null ? String(m.score) : '',
+      nightly_price: parseNightlyFromMeta(m),
+      meta_base: base,
     }
   } catch {
     return {
@@ -110,26 +144,58 @@ function parseMeta(metaJson: string): Omit<
       amenities: '',
       paid_amenities: '',
       room_score: '',
+      nightly_price: '',
+      meta_base: {},
     }
   }
 }
 
 function buildMeta(row: HotelRoomDraft): string {
-  const meta: Record<string, unknown> = {}
+  const meta: Record<string, unknown> = { ...(row.meta_base || {}) }
   if (row.beds.trim()) meta.beds = Number.parseInt(row.beds.trim(), 10) || row.beds.trim()
+  else delete meta.beds
   if (row.bed_type.trim()) meta.bed_type = row.bed_type.trim()
+  else delete meta.bed_type
   if (row.size_m2.trim()) meta.size_m2 = Number.parseFloat(row.size_m2.trim()) || row.size_m2.trim()
+  else {
+    delete meta.size_m2
+    delete meta.size_sqm
+  }
   if (row.description.trim()) meta.description = row.description.trim()
+  else delete meta.description
   if (row.image.trim()) meta.image = row.image.trim()
+  else {
+    delete meta.image
+    delete meta.hero_image
+  }
   const gallery = linesToArray(row.images)
   if (gallery.length > 0) meta.images = gallery
+  else delete meta.images
   const amenities = linesToArray(row.amenities)
   if (amenities.length > 0) meta.amenities = amenities
+  else delete meta.amenities
   const paid = linesToArray(row.paid_amenities)
   if (paid.length > 0) meta.paid_amenities = paid
+  else delete meta.paid_amenities
   if (row.room_score.trim()) {
     const score = Number.parseFloat(row.room_score.trim().replace(',', '.'))
     if (Number.isFinite(score)) meta.room_score = score
+  } else {
+    delete meta.room_score
+    delete meta.score
+  }
+  const nightlyRaw = row.nightly_price.trim().replace(',', '.')
+  if (nightlyRaw) {
+    const nightly = Number.parseFloat(nightlyRaw)
+    if (Number.isFinite(nightly) && nightly > 0) {
+      meta.price = nightly
+      meta.nightly_price = nightly
+    }
+  } else {
+    delete meta.price
+    delete meta.nightly_price
+    delete meta.nightlyPrice
+    delete meta.base_nightly
   }
   return JSON.stringify(meta)
 }
@@ -227,8 +293,9 @@ export default function HotelRoomsEditor({
   return (
     <div className="space-y-4">
       <p className="max-w-2xl text-sm text-neutral-600 dark:text-neutral-400">
-        Vitrindeki oda kartları bu kayıtlardan oluşur: kapasite, pansiyon, fotoğraflar, özellikler ve oda puanı dahil.
-        Müsaitlik ve gece fiyatını aşağıdaki takvim bölümünden yönetin.
+        Vitrindeki oda kartları bu kayıtlardan oluşur: kapasite, pansiyon, gecelik taban fiyat, fotoğraflar ve özellikler.
+        Günlük müsaitlik / fiyat override için aşağıdaki takvim bölümünü kullanın. En ucuz odanın geceliği ilan
+        başlangıç fiyatına yazılır.
       </p>
       <ul className="space-y-3">
         {rows.map((row, i) => (
@@ -300,6 +367,22 @@ export default function HotelRoomsEditor({
                     <option value={row.board_type}>{row.board_type}</option>
                   ) : null}
                 </select>
+              </Field>
+              <Field className="block">
+                <Label>Gecelik taban fiyat (TRY)</Label>
+                <Input
+                  type="number"
+                  min="0"
+                  step="1"
+                  className="mt-1"
+                  value={row.nightly_price}
+                  onChange={(e) => {
+                    const next = [...rows]
+                    next[i] = { ...row, nightly_price: e.target.value }
+                    setRows(next)
+                  }}
+                  placeholder="Örn. 4350"
+                />
               </Field>
               <Field className="block">
                 <Label>Yatak sayısı</Label>

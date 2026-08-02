@@ -632,6 +632,7 @@ export const zh: AppMessages = {
       roomUnitCount: '（{count} 间）',
       guestCapacitySuffix: ' · {count} 人',
       sidebarRoomStepTitle: '选择客房',
+      bestPriceLabel: '最优价格',
       selectRoomPrompt: '请选择客房以预订',
       selectedRoomLabel: '已选客房',
       autoRoomCountNote: '{guests} 位客人需 {rooms} 间客房',

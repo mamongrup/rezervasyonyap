@@ -640,6 +640,7 @@ export const fr: AppMessages = {
       roomUnitCount: '({count} chambres)',
       guestCapacitySuffix: ' · {count} personnes',
       sidebarRoomStepTitle: 'Choisir une chambre',
+      bestPriceLabel: 'Meilleur tarif',
       selectRoomPrompt: 'Choisissez une chambre pour réserver',
       selectedRoomLabel: 'Chambre sélectionnée',
       autoRoomCountNote: '{rooms} chambres pour {guests} personnes',

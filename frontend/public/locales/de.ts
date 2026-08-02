@@ -641,6 +641,7 @@ export const de: AppMessages = {
       roomUnitCount: '({count} Zimmer)',
       guestCapacitySuffix: ' · {count} Gäste',
       sidebarRoomStepTitle: 'Zimmer wählen',
+      bestPriceLabel: 'Bester Preis',
       selectRoomPrompt: 'Wählen Sie ein Zimmer zur Buchung',
       selectedRoomLabel: 'Ausgewähltes Zimmer',
       autoRoomCountNote: '{rooms} Zimmer für {guests} Gäste',

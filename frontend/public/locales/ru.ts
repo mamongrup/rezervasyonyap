@@ -640,6 +640,7 @@ export const ru: AppMessages = {
       roomUnitCount: '({count} ном.)',
       guestCapacitySuffix: ' · {count} гостей',
       sidebarRoomStepTitle: 'Выберите номер',
+      bestPriceLabel: 'Лучшая цена',
       selectRoomPrompt: 'Выберите номер для бронирования',
       selectedRoomLabel: 'Выбранный номер',
       autoRoomCountNote: '{rooms} номер(а) для {guests} гостей',

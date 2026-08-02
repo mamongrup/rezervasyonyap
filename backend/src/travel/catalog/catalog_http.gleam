@@ -2217,6 +2217,107 @@ fn hr_delete_stale_loop(
   }
 }
 
+/// Oda meta_json (price / seasonal_prices) → listing_price_rules + vitrin_price.
+/// IDE/panel ile eklenen otellerde başlangıç fiyatının boş kalmasını engeller.
+fn hr_sync_nightly_price_rules_from_rooms(
+  db: pog.Connection,
+  listing_id: String,
+) -> Result(Nil, Nil) {
+  case
+    pog.query(
+      "delete from listing_price_rules
+       where listing_id = $1::uuid
+         and coalesce(rule_json->>'source','') = 'manage_room_nightly'",
+    )
+    |> pog.parameter(pog.text(listing_id))
+    |> pog.execute(db)
+  {
+    Error(_) -> Error(Nil)
+    Ok(_) ->
+      case
+        pog.query(
+          "insert into listing_price_rules (listing_id, rule_json, valid_from, valid_to)
+           select
+             r.listing_id,
+             jsonb_build_object(
+               'source', 'manage_room_nightly',
+               'base_nightly', trim(to_char(r.nightly, 'FM999999999990.00')),
+               'base_price', trim(to_char(r.nightly, 'FM999999999990.00')),
+               'currency', 'TRY',
+               'room_name', r.name,
+               'room_type_id', r.id::text,
+               'board_type', coalesce(r.board_type, '')
+             ),
+             null::date,
+             null::date
+           from (
+             select
+               hr.id,
+               hr.listing_id,
+               hr.name,
+               hr.board_type,
+               coalesce(
+                 case
+                   when coalesce(nullif(trim(hr.meta_json->>'price'), ''), '')
+                        ~ '^[0-9]+([.,][0-9]{1,2})?$'
+                   then replace(trim(hr.meta_json->>'price'), ',', '.')::numeric
+                   else null
+                 end,
+                 case
+                   when coalesce(nullif(trim(hr.meta_json->>'nightly_price'), ''), '')
+                        ~ '^[0-9]+([.,][0-9]{1,2})?$'
+                   then replace(trim(hr.meta_json->>'nightly_price'), ',', '.')::numeric
+                   else null
+                 end,
+                 case
+                   when coalesce(nullif(trim(hr.meta_json->>'nightlyPrice'), ''), '')
+                        ~ '^[0-9]+([.,][0-9]{1,2})?$'
+                   then replace(trim(hr.meta_json->>'nightlyPrice'), ',', '.')::numeric
+                   else null
+                 end,
+                 (
+                   select min(
+                     case
+                       when coalesce(
+                         nullif(trim(elem->>'nightlyPrice'), ''),
+                         nullif(trim(elem->>'nightly_price'), ''),
+                         nullif(trim(elem->>'price'), '')
+                       ) ~ '^[0-9]+([.,][0-9]{1,2})?$'
+                       then replace(
+                         coalesce(
+                           nullif(trim(elem->>'nightlyPrice'), ''),
+                           nullif(trim(elem->>'nightly_price'), ''),
+                           nullif(trim(elem->>'price'), '')
+                         ),
+                         ',',
+                         '.'
+                       )::numeric
+                       else null
+                     end
+                   )
+                   from jsonb_array_elements(
+                     case
+                       when jsonb_typeof(hr.meta_json->'seasonal_prices') = 'array'
+                       then hr.meta_json->'seasonal_prices'
+                       else '[]'::jsonb
+                     end
+                   ) elem
+                 )
+               ) as nightly
+             from hotel_rooms hr
+             where hr.listing_id = $1::uuid
+           ) r
+           where r.nightly is not null and r.nightly > 0",
+        )
+        |> pog.parameter(pog.text(listing_id))
+        |> pog.execute(db)
+      {
+        Error(_) -> Error(Nil)
+        Ok(_) -> Ok(Nil)
+      }
+  }
+}
+
 /// PUT /api/v1/catalog/listings/:id/hotel-rooms — tüm oda listesini senkronize eder
 pub fn put_manage_hotel_rooms(req: Request, ctx: Context, listing_id: String) -> Response {
   use <- wisp.require_method(req, http.Put)
@@ -2235,11 +2336,22 @@ pub fn put_manage_hotel_rooms(req: Request, ctx: Context, listing_id: String) ->
                 Ok(rows) ->
                   case db_exec.transaction(ctx.db, fn(conn) {
                     case hr_sync_insert(conn, listing_id, rows, 0, []) {
-                      Ok(keep_ids) -> hr_delete_stale_rooms(conn, listing_id, keep_ids)
+                      Ok(keep_ids) ->
+                        case hr_delete_stale_rooms(conn, listing_id, keep_ids) {
+                          Ok(Nil) ->
+                            case hr_sync_nightly_price_rules_from_rooms(conn, listing_id) {
+                              Ok(Nil) -> Ok(Nil)
+                              Error(Nil) -> Error("hotel_room_price_rules_sync_failed")
+                            }
+                          Error(msg) -> Error(msg)
+                        }
                       Error(msg) -> Error(msg)
                     }
                   }) {
-                    Ok(Nil) -> wisp.json_response("{\"ok\":true}", 200)
+                    Ok(Nil) -> {
+                      refresh_one_listing_vitrin_price(ctx, listing_id)
+                      wisp.json_response("{\"ok\":true}", 200)
+                    }
                     Error(pog.TransactionQueryError(_)) ->
                       json_err(500, "hotel_rooms_transaction_failed")
                     Error(pog.TransactionRolledBack(msg)) -> json_err(400, msg)

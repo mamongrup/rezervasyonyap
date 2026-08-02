@@ -1409,6 +1409,7 @@ export const en = {
       roomUnitCount: '({count} rooms)',
       guestCapacitySuffix: ' · {count} guests',
       sidebarRoomStepTitle: 'Select room',
+      bestPriceLabel: 'Best price',
       selectRoomPrompt: 'Select a room to book',
       selectedRoomLabel: 'Selected room',
       autoRoomCountNote: '{rooms} rooms for {guests} guests',

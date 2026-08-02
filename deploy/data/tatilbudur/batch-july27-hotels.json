@@ -458,7 +458,15 @@
             "https://productcdn.tatilbudur.com/Otel/gallery/lucida-beach-hotel_6534_357956.jpg",
             "https://productcdn.tatilbudur.com/Otel/gallery/lucida-beach-hotel_6534_357890.jpg"
           ],
-          "rates": []
+          "rates": [
+            {
+              "validFrom": "2026-07-01",
+              "validTo": "2026-10-31",
+              "nightlyPrice": 5400,
+              "currency": "TRY",
+              "boardType": "Ultra Her Şey Dahil"
+            }
+          ]
         },
         {
           "id": "standart-oda",
@@ -472,7 +480,15 @@
             "https://productcdn.tatilbudur.com/Otel/gallery/lucida-beach-hotel_6534_357890.jpg",
             "https://productcdn.tatilbudur.com/Otel/gallery/lucida-beach-hotel_6534_357885.jpg"
           ],
-          "rates": []
+          "rates": [
+            {
+              "validFrom": "2026-07-01",
+              "validTo": "2026-10-31",
+              "nightlyPrice": 6050,
+              "currency": "TRY",
+              "boardType": "Ultra Her Şey Dahil"
+            }
+          ]
         },
         {
           "id": "ranzali-oda",
@@ -486,7 +502,15 @@
             "https://productcdn.tatilbudur.com/Otel/gallery/lucida-beach-hotel_6534_357885.jpg",
             "https://productcdn.tatilbudur.com/Otel/gallery/lucida-beach-hotel_6534_357884.jpg"
           ],
-          "rates": []
+          "rates": [
+            {
+              "validFrom": "2026-07-01",
+              "validTo": "2026-10-31",
+              "nightlyPrice": 6250,
+              "currency": "TRY",
+              "boardType": "Ultra Her Şey Dahil"
+            }
+          ]
         }
       ],
       "amenities": [
@@ -557,7 +581,8 @@
       "lng": null,
       "priceNote": "Fiyat tablosu başlığı var; canlı gecelik fiyatlar JS ile yükleniyor (statik HTML’de yok). Afişe edilen fiyatlar kontenjana ve döneme göre değişebilir.",
       "featuredImage": "https://productcdn.tatilbudur.com/Otel/gallery/lucida-beach-hotel_6534_357925.jpg",
-      "priceSource": "missing_bookeder_floor"
+      "priceSource": "momondo_from_price_2026-08-02=5400 TRY usd_try=40 window=2026-07-01..2026-10-31",
+      "priceOverrideTry": 5400
     },
     {
       "id": "royal-atlantis-beach",
@@ -1400,7 +1425,15 @@
             "https://productcdn.tatilbudur.com/Otel/gallery/queens-park-goynuk_9411_887289.jpg",
             "https://productcdn.tatilbudur.com/Otel/gallery/queens-park-goynuk_9411_887386.jpg"
           ],
-          "rates": []
+          "rates": [
+            {
+              "validFrom": "2026-07-01",
+              "validTo": "2026-10-31",
+              "nightlyPrice": 4350,
+              "currency": "TRY",
+              "boardType": "Ultra Her Şey Dahil"
+            }
+          ]
         },
         {
           "id": "hotel-standart-oda",
@@ -1414,7 +1447,15 @@
             "https://productcdn.tatilbudur.com/Otel/gallery/queens-park-goynuk_9411_887386.jpg",
             "https://productcdn.tatilbudur.com/Otel/gallery/queens-park-goynuk_9411_640088.jpg"
           ],
-          "rates": []
+          "rates": [
+            {
+              "validFrom": "2026-07-01",
+              "validTo": "2026-10-31",
+              "nightlyPrice": 4850,
+              "currency": "TRY",
+              "boardType": "Ultra Her Şey Dahil"
+            }
+          ]
         },
         {
           "id": "2-bant-ust-kopru-gecisli-aile-odasi",
@@ -1428,7 +1469,15 @@
             "https://productcdn.tatilbudur.com/Otel/gallery/queens-park-goynuk_9411_640088.jpg",
             "https://productcdn.tatilbudur.com/Otel/gallery/queens-park-goynuk_9411_640130.jpg"
           ],
-          "rates": []
+          "rates": [
+            {
+              "validFrom": "2026-07-01",
+              "validTo": "2026-10-31",
+              "nightlyPrice": 5850,
+              "currency": "TRY",
+              "boardType": "Ultra Her Şey Dahil"
+            }
+          ]
         },
         {
           "id": "hotel-family-oda",
@@ -1442,7 +1491,15 @@
             "https://productcdn.tatilbudur.com/Otel/gallery/queens-park-goynuk_9411_640130.jpg",
             "https://productcdn.tatilbudur.com/Otel/gallery/queens-park-goynuk_9411_887287.jpg"
           ],
-          "rates": []
+          "rates": [
+            {
+              "validFrom": "2026-07-01",
+              "validTo": "2026-10-31",
+              "nightlyPrice": 5850,
+              "currency": "TRY",
+              "boardType": "Ultra Her Şey Dahil"
+            }
+          ]
         }
       ],
       "amenities": [
@@ -1513,7 +1570,8 @@
       "lng": null,
       "priceNote": "Fiyat tablosu başlığı var; canlı gecelik fiyatlar JS ile yükleniyor (statik HTML’de yok). Afişe edilen fiyatlar kontenjana ve döneme göre değişebilir.",
       "featuredImage": "https://productcdn.tatilbudur.com/Otel/gallery/queens-park-goynuk_9411_640103.jpg",
-      "priceSource": "missing_bookeder_floor"
+      "priceSource": "momondo_from_price_2026-08-02=4350 TRY usd_try=40 window=2026-07-01..2026-10-31",
+      "priceOverrideTry": 4350
     },
     {
       "id": "crystal-admiral-aqua-collection",
@@ -1584,7 +1642,15 @@
             "https://productcdn.tatilbudur.com/Otel/gallery/crystal-admiral-aqua-collection_654_1003857.jpg",
             "https://productcdn.tatilbudur.com/Otel/gallery/crystal-admiral-aqua-collection_654_498438.jpg"
           ],
-          "rates": []
+          "rates": [
+            {
+              "validFrom": "2026-07-01",
+              "validTo": "2026-10-31",
+              "nightlyPrice": 4150,
+              "currency": "TRY",
+              "boardType": "Ultimate Her Şey Dahil"
+            }
+          ]
         },
         {
           "id": "kismi-deniz-manzarli-standart-oda",
@@ -1598,7 +1664,15 @@
             "https://productcdn.tatilbudur.com/Otel/gallery/crystal-admiral-aqua-collection_654_498438.jpg",
             "https://productcdn.tatilbudur.com/Otel/gallery/crystal-admiral-aqua-collection_654_1004367.jpg"
           ],
-          "rates": []
+          "rates": [
+            {
+              "validFrom": "2026-07-01",
+              "validTo": "2026-10-31",
+              "nightlyPrice": 4900,
+              "currency": "TRY",
+              "boardType": "Ultimate Her Şey Dahil"
+            }
+          ]
         },
         {
           "id": "kismi-deniz-manzarli-dublex-aile-odasi",
@@ -1612,7 +1686,15 @@
             "https://productcdn.tatilbudur.com/Otel/gallery/crystal-admiral-aqua-collection_654_1004367.jpg",
             "https://productcdn.tatilbudur.com/Otel/gallery/crystal-admiral-aqua-collection_654_1048238.jpg"
           ],
-          "rates": []
+          "rates": [
+            {
+              "validFrom": "2026-07-01",
+              "validTo": "2026-10-31",
+              "nightlyPrice": 5600,
+              "currency": "TRY",
+              "boardType": "Ultimate Her Şey Dahil"
+            }
+          ]
         },
         {
           "id": "kara-manzarali-dublex-aile-odasi",
@@ -1626,7 +1708,15 @@
             "https://productcdn.tatilbudur.com/Otel/gallery/crystal-admiral-aqua-collection_654_1048238.jpg",
             "https://productcdn.tatilbudur.com/Otel/gallery/crystal-admiral-aqua-collection_654_1004364.jpg"
           ],
-          "rates": []
+          "rates": [
+            {
+              "validFrom": "2026-07-01",
+              "validTo": "2026-10-31",
+              "nightlyPrice": 5600,
+              "currency": "TRY",
+              "boardType": "Ultimate Her Şey Dahil"
+            }
+          ]
         },
         {
           "id": "balayi-suiti",
@@ -1640,7 +1730,15 @@
             "https://productcdn.tatilbudur.com/Otel/gallery/crystal-admiral-aqua-collection_654_1004364.jpg",
             "https://productcdn.tatilbudur.com/Otel/gallery/crystal-admiral-aqua-collection_654_1004366.jpg"
           ],
-          "rates": []
+          "rates": [
+            {
+              "validFrom": "2026-07-01",
+              "validTo": "2026-10-31",
+              "nightlyPrice": 5600,
+              "currency": "TRY",
+              "boardType": "Ultimate Her Şey Dahil"
+            }
+          ]
         }
       ],
       "amenities": [
@@ -1725,7 +1823,8 @@
       "lng": null,
       "priceNote": "Fiyat tablosu başlığı var; canlı gecelik fiyatlar JS ile yükleniyor (statik HTML’de yok). Afişe edilen fiyatlar kontenjana ve döneme göre değişebilir.",
       "featuredImage": "https://productcdn.tatilbudur.com/Otel/gallery/crystal-admiral-aqua-collection_654_1004365.jpg",
-      "priceSource": "missing_bookeder_floor"
+      "priceSource": "momondo_from_price_2026-08-02=4150 TRY usd_try=40 window=2026-07-01..2026-10-31",
+      "priceOverrideTry": 4150
     },
     {
       "id": "ozkaymak-marina-hotel",
@@ -3128,7 +3227,15 @@
             "https://productcdn.tatilbudur.com/Otel/gallery/leodikya-kirman-premium_10737_768071.jpg",
             "https://productcdn.tatilbudur.com/Otel/gallery/leodikya-kirman-premium_10737_768086.jpg"
           ],
-          "rates": []
+          "rates": [
+            {
+              "validFrom": "2026-07-01",
+              "validTo": "2026-10-31",
+              "nightlyPrice": 14650,
+              "currency": "TRY",
+              "boardType": "Ultra Her Şey Dahil"
+            }
+          ]
         },
         {
           "id": "deniz-manzarali-standart-oda",
@@ -3142,7 +3249,15 @@
             "https://productcdn.tatilbudur.com/Otel/gallery/leodikya-kirman-premium_10737_768086.jpg",
             "https://productcdn.tatilbudur.com/Otel/gallery/leodikya-kirman-premium_10737_768100.jpg"
           ],
-          "rates": []
+          "rates": [
+            {
+              "validFrom": "2026-07-01",
+              "validTo": "2026-10-31",
+              "nightlyPrice": 17300,
+              "currency": "TRY",
+              "boardType": "Ultra Her Şey Dahil"
+            }
+          ]
         },
         {
           "id": "teras-jakuzili-standart-oda",
@@ -3156,7 +3271,15 @@
             "https://productcdn.tatilbudur.com/Otel/gallery/leodikya-kirman-premium_10737_768100.jpg",
             "https://productcdn.tatilbudur.com/Otel/gallery/leodikya-kirman-premium_10737_768077.jpg"
           ],
-          "rates": []
+          "rates": [
+            {
+              "validFrom": "2026-07-01",
+              "validTo": "2026-10-31",
+              "nightlyPrice": 17000,
+              "currency": "TRY",
+              "boardType": "Ultra Her Şey Dahil"
+            }
+          ]
         },
         {
           "id": "junior-suit-deniz-manzarali",
@@ -3170,7 +3293,15 @@
             "https://productcdn.tatilbudur.com/Otel/gallery/leodikya-kirman-premium_10737_768077.jpg",
             "https://productcdn.tatilbudur.com/Otel/gallery/leodikya-kirman-premium_10737_768073.jpg"
           ],
-          "rates": []
+          "rates": [
+            {
+              "validFrom": "2026-07-01",
+              "validTo": "2026-10-31",
+              "nightlyPrice": 19800,
+              "currency": "TRY",
+              "boardType": "Ultra Her Şey Dahil"
+            }
+          ]
         },
         {
           "id": "kara-manzarali-aile-odasi",
@@ -3184,7 +3315,15 @@
             "https://productcdn.tatilbudur.com/Otel/gallery/leodikya-kirman-premium_10737_768073.jpg",
             "https://productcdn.tatilbudur.com/Otel/gallery/leodikya-kirman-premium_10737_768072.jpg"
           ],
-          "rates": []
+          "rates": [
+            {
+              "validFrom": "2026-07-01",
+              "validTo": "2026-10-31",
+              "nightlyPrice": 19800,
+              "currency": "TRY",
+              "boardType": "Ultra Her Şey Dahil"
+            }
+          ]
         },
         {
           "id": "deniz-manzarali-aile-odasi",
@@ -3198,7 +3337,15 @@
             "https://productcdn.tatilbudur.com/Otel/gallery/leodikya-kirman-premium_10737_768072.jpg",
             "https://productcdn.tatilbudur.com/Otel/gallery/leodikya-kirman-premium_10737_768075.jpg"
           ],
-          "rates": []
+          "rates": [
+            {
+              "validFrom": "2026-07-01",
+              "validTo": "2026-10-31",
+              "nightlyPrice": 19800,
+              "currency": "TRY",
+              "boardType": "Ultra Her Şey Dahil"
+            }
+          ]
         }
       ],
       "amenities": [
@@ -3247,7 +3394,8 @@
       "lng": null,
       "priceNote": "Fiyat tablosu başlığı var; canlı gecelik fiyatlar JS ile yükleniyor (statik HTML’de yok). Afişe edilen fiyatlar kontenjana ve döneme göre değişebilir.",
       "featuredImage": "https://productcdn.tatilbudur.com/Otel/gallery/leodikya-kirman-premium_10737_768264.jpg",
-      "priceSource": "missing_bookeder_floor"
+      "priceSource": "bookeder_usd_ve_uzeri=14650 TRY usd_try=40 window=2026-07-01..2026-10-31",
+      "priceOverrideTry": 14650
     },
     {
       "id": "caretta-beach-hotel",
