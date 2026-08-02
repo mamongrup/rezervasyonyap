@@ -20,6 +20,7 @@ import {
 } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon, type IconSvgElement } from '@hugeicons/react'
 import clsx from 'clsx'
+import { useState } from 'react'
 
 const MOBILE_INLINE_CATEGORY_COUNT = 5
 
@@ -50,7 +51,7 @@ function inlineVisibilityClass(i: number): string {
   return 'hidden xl:flex'
 }
 
-// ─── Slug → ikon eşlemesi ────────────────────────────────────────────────────
+// ─── Slug → ikon eşlemesi (görsel yoksa yedek) ───────────────────────────────
 const SLUG_ICON: Record<string, IconSvgElement> = {
   oteller:        Building03Icon,
   'tatil-evleri': Home01Icon,
@@ -76,10 +77,56 @@ const OVERFLOW_TRIGGER_LABEL: Record<string, string> = {
   fr: 'Plus',
 }
 
+export type HeroCategoryImage = {
+  src: string
+  objectPosition?: string
+}
+
 // ─── Hero'da gösterilecek üst kategoriler — statik fallback ──────────────────
 const ALL_NAV_CATEGORIES = CATEGORY_REGISTRY.filter((c) => c.showInNav)
   .sort((a, b) => a.navOrder - b.navOrder)
 const ALL_CATEGORIES = [...CATEGORY_REGISTRY].sort((a, b) => a.navOrder - b.navOrder)
+
+function CategoryThumb({
+  slug,
+  image,
+  sizeClass,
+}: {
+  slug: string
+  image?: HeroCategoryImage
+  sizeClass: string
+}) {
+  const [broken, setBroken] = useState(false)
+  const Icon = SLUG_ICON[slug] ?? Home01Icon
+  const showPhoto = Boolean(image?.src) && !broken
+
+  return (
+    <span
+      className={clsx(
+        'relative flex items-center justify-center overflow-hidden rounded-full border transition-colors',
+        sizeClass,
+        showPhoto
+          ? 'border-neutral-200 bg-neutral-100 dark:border-neutral-600 dark:bg-neutral-800'
+          : 'border-neutral-200 bg-white text-neutral-400 hover:border-neutral-300 hover:text-neutral-500 dark:border-neutral-600 dark:bg-neutral-900 dark:text-neutral-500 dark:hover:border-neutral-500',
+      )}
+    >
+      {showPhoto ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={image!.src}
+          alt=""
+          className="size-full object-cover"
+          style={image?.objectPosition ? { objectPosition: image.objectPosition } : undefined}
+          loading="lazy"
+          decoding="async"
+          onError={() => setBroken(true)}
+        />
+      ) : (
+        <HugeiconsIcon icon={Icon} className="size-[1.15rem] sm:size-5" strokeWidth={1.5} />
+      )}
+    </span>
+  )
+}
 
 export function HeroMenuCategoryBar({
   locale,
@@ -88,6 +135,8 @@ export function HeroMenuCategoryBar({
   layout = 'default',
   /** Server component'ten gelen aktif slug listesi (sıralı). Verilirse API çağrısı yapılmaz. */
   activeSlugs,
+  /** Slug → gerçek kategori görseli (page-builder category-photos) */
+  categoryImages,
   /** Mobil modal: ilk 5 kategori satırda, kalanı "Menü" içinde gösterilir. */
   mobileMoreMenu = false,
   /**
@@ -100,6 +149,7 @@ export function HeroMenuCategoryBar({
   className?: string
   layout?: 'default' | 'spread'
   activeSlugs?: string[]
+  categoryImages?: Record<string, HeroCategoryImage>
   mobileMoreMenu?: boolean
   collapseOverflowAfterSlug?: string
 }) {
@@ -110,9 +160,10 @@ export function HeroMenuCategoryBar({
       ? new Map(activeSlugs.map((s, i) => [s, i]))
       : null
 
+  // activeSlugs verilince tam registry'den seç (ilanı olan ama showInNav=false olanlar da gelsin)
   const cats =
     slugOrder != null && slugOrder.size > 0
-      ? ALL_NAV_CATEGORIES
+      ? ALL_CATEGORIES
           .filter((c) => slugOrder.has(c.slug))
           .sort((a, b) => (slugOrder.get(a.slug) ?? a.navOrder) - (slugOrder.get(b.slug) ?? b.navOrder))
       : mobileMoreMenu
@@ -134,7 +185,11 @@ export function HeroMenuCategoryBar({
     if (idx >= 0) {
       inlineCats = cats.slice(0, idx + 1)
       const shown = new Set(inlineCats.map((c) => c.slug))
-      menuCats = ALL_CATEGORIES.filter((c) => !shown.has(c.slug))
+      // Menü: satırda olmayan aktif kategoriler + (aktif liste yoksa) diğer registry
+      menuCats =
+        slugOrder != null
+          ? cats.filter((c) => !shown.has(c.slug))
+          : ALL_CATEGORIES.filter((c) => !shown.has(c.slug))
       useResponsiveBreakpoints = false
     }
   } else if (mobileMoreMenu && !spread && cats.length > MOBILE_INLINE_CATEGORY_COUNT) {
@@ -151,7 +206,6 @@ export function HeroMenuCategoryBar({
     cat: CategoryRegistryEntry,
     extraClass: string,
   ) => {
-    const Icon = SLUG_ICON[cat.slug] ?? Home01Icon
     const label = heroCategoryInlineLabel(lc, cat.slug, lc === 'tr' ? cat.name : cat.namePlural)
     return (
       <Link
@@ -162,18 +216,11 @@ export function HeroMenuCategoryBar({
           spread ? clsx('min-w-0 flex-1 basis-0', extraClass) : clsx('shrink-0', extraClass),
         )}
       >
-        <span
-          className={clsx(
-            'flex size-10 items-center justify-center rounded-full border transition-colors sm:size-11',
-            'border-neutral-200 bg-white text-neutral-400 hover:border-neutral-300 hover:text-neutral-500 dark:border-neutral-600 dark:bg-neutral-900 dark:text-neutral-500 dark:hover:border-neutral-500',
-          )}
-        >
-          <HugeiconsIcon
-            icon={Icon}
-            className="size-[1.15rem] sm:size-5"
-            strokeWidth={1.5}
-          />
-        </span>
+        <CategoryThumb
+          slug={cat.slug}
+          image={categoryImages?.[cat.slug]}
+          sizeClass="size-10 sm:size-11"
+        />
         <span
           className={clsx(
             'text-center text-xs sm:text-sm',
@@ -215,7 +262,6 @@ export function HeroMenuCategoryBar({
       >
         <div className="grid grid-cols-2 gap-1">
           {menuCats.map((cat) => {
-            const Icon = SLUG_ICON[cat.slug] ?? Home01Icon
             const label = heroCategoryInlineLabel(lc, cat.slug, lc === 'tr' ? cat.name : cat.namePlural)
             return (
               <Link
@@ -223,9 +269,11 @@ export function HeroMenuCategoryBar({
                 href={vitrinHref(cat.categoryRoute)}
                 className="flex min-w-0 items-center gap-3 rounded-xl px-3 py-2.5 text-start hover:bg-neutral-100 dark:hover:bg-neutral-800"
               >
-                <span className="flex size-9 shrink-0 items-center justify-center rounded-full border border-neutral-200 text-neutral-500 dark:border-neutral-700 dark:text-neutral-400">
-                  <HugeiconsIcon icon={Icon} className="size-4.5" strokeWidth={1.5} />
-                </span>
+                <CategoryThumb
+                  slug={cat.slug}
+                  image={categoryImages?.[cat.slug]}
+                  sizeClass="size-9"
+                />
                 <span className="min-w-0 truncate text-sm font-medium text-neutral-700 dark:text-neutral-200">
                   {label}
                 </span>

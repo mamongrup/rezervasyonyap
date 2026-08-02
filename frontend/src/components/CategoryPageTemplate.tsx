@@ -20,6 +20,11 @@ import {
   heroMosaicShellClassName,
 } from '@/components/hero-sections/hero-below-header-classes'
 import HeroSearchDesktopOnly from '@/components/HeroSearchForm/HeroSearchDesktopOnly'
+import {
+  getHeroCategoryNavItems,
+  heroCategoryNavToActiveSlugs,
+  heroCategoryNavToImageMap,
+} from '@/lib/hero-category-nav'
 import SectionSliderRegions from '@/components/SectionSliderRegions'
 import type { RegionSliderItem } from '@/components/SectionSliderRegions'
 import type { CategoryRegistryEntry } from '@/data/category-registry'
@@ -417,12 +422,15 @@ export default async function CategoryPageTemplate({
     </>
   )
 
+  const heroCategoryNav = await getHeroCategoryNavItems()
   const searchForm = (
     <HeroSearchDesktopOnly
       initTab={category.heroSearchTab ?? 'Stays'}
       locale={locale}
       hideVerticalTabs
       collapseOverflowAfterSlug="arac-kiralama"
+      activeSlugs={heroCategoryNavToActiveSlugs(heroCategoryNav)}
+      categoryImages={heroCategoryNavToImageMap(heroCategoryNav)}
       staySearchTargetPath={`${category.categoryRoute}/all`}
       staySearchPrefill={
         activeSearch

@@ -1,6 +1,9 @@
 'use client'
 
-import { HeroMenuCategoryBar } from '@/components/HeroSearchForm/HeroMenuCategoryBar'
+import {
+  HeroMenuCategoryBar,
+  type HeroCategoryImage,
+} from '@/components/HeroSearchForm/HeroMenuCategoryBar'
 import ButtonPrimary from '@/shared/ButtonPrimary'
 import ButtonThird from '@/shared/ButtonThird'
 import { stripLocalePrefix } from '@/lib/i18n-config'
@@ -14,7 +17,7 @@ import { HugeiconsIcon } from '@hugeicons/react'
 import { useRegisterVitrinOverlay } from '@/components/aside/aside'
 import { Dialog, DialogPanel } from '@headlessui/react'
 import { usePathname } from 'next/navigation'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import StaySearchFormMobile from './stay-search-form/StaySearchFormMobile'
 import CarSearchFormMobile from './car-search-form/CarSearchFormMobile'
 import ExperienceSearchFormMobile from './experience-search-form/ExperienceSearchFormMobile'
@@ -29,8 +32,37 @@ type Props = {
 export default function HeroSearchFormMobileDialog({ open, onClose, locale }: Props) {
   useRegisterVitrinOverlay(open)
   const [contentKey, setContentKey] = useState(0)
+  const [activeSlugs, setActiveSlugs] = useState<string[] | undefined>(undefined)
+  const [categoryImages, setCategoryImages] = useState<
+    Record<string, HeroCategoryImage> | undefined
+  >(undefined)
   const msg = getMessages(locale)
   const pathname = usePathname()
+
+  useEffect(() => {
+    if (!open) return
+    let cancelled = false
+    fetch('/api/hero-category-nav')
+      .then((r) => r.json())
+      .then(
+        (d: {
+          activeSlugs?: string[]
+          categoryImages?: Record<string, HeroCategoryImage>
+        }) => {
+          if (cancelled) return
+          if (d.activeSlugs?.length) setActiveSlugs(d.activeSlugs)
+          if (d.categoryImages && Object.keys(d.categoryImages).length > 0) {
+            setCategoryImages(d.categoryImages)
+          }
+        },
+      )
+      .catch(() => {
+        /* statik kategori çubuğu kalır */
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [open])
 
   const { vertical, searchTargetPath } = useMemo(() => {
     const { restPath } = stripLocalePrefix(pathname ?? '/')
@@ -79,6 +111,8 @@ export default function HeroSearchFormMobileDialog({ open, onClose, locale }: Pr
                     locale={locale}
                     layout="default"
                     mobileMoreMenu
+                    activeSlugs={activeSlugs}
+                    categoryImages={categoryImages}
                     className="mb-0 justify-center gap-x-2 gap-y-2 sm:gap-x-6 sm:gap-y-3"
                   />
                 </div>

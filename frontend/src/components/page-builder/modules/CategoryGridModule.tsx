@@ -9,7 +9,10 @@ export interface CategoryGridModuleConfig {
 }
 
 export default async function CategoryGridModule({ config }: { config: CategoryGridModuleConfig }) {
-  const categories = await getPageBuilderTravelCategories(config.categoryThumbnails)
+  const allCategories = await getPageBuilderTravelCategories(config.categoryThumbnails)
+  const categories = allCategories.filter((c) => (c.count ?? 0) > 0)
+
+  if (categories.length === 0) return null
 
   return (
     <div>

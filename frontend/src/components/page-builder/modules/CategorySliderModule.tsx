@@ -50,7 +50,9 @@ function resolveSliderCategories(
 }
 
 export default async function CategorySliderModule({ config }: { config: CategorySliderModuleConfig }) {
-  const categories = await getPageBuilderTravelCategories(config.categoryThumbnails)
+  const allCategories = await getPageBuilderTravelCategories(config.categoryThumbnails)
+  // İlanı olmayan kategorileri vitrinden çıkar (gerçek fotoğraflı kartlar kalsın)
+  const categories = allCategories.filter((c) => (c.count ?? 0) > 0)
 
   const slice = config.slice ?? 'first6'
   const displayed = resolveSliderCategories(categories, slice, config.categoryLimit)
