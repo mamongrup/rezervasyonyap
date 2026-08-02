@@ -12,3 +12,9 @@ export function staySearchResultsPathFromRestPath(restPath: string): string {
   }
   return '/oteller/all'
 }
+
+/** Çocuk yaşı otel rezervasyonu için gerekir; villa/tatil evi aramasında sorulmaz. */
+export function shouldAskChildAgesForStaySearch(searchTargetPath: string): boolean {
+  const path = (searchTargetPath.split('?')[0] ?? searchTargetPath).trim()
+  return path.startsWith('/oteller')
+}

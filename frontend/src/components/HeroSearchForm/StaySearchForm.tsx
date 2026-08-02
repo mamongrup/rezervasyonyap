@@ -8,7 +8,7 @@ import {
 } from '@/lib/guest-search-defaults'
 import { formDataToStringRecord, runHeroSearchPlanEffects } from '@/lib/hero-search-plan'
 import { withSearchResultsAnchor } from '@/lib/search-results-anchor'
-import { staySearchResultsPathFromRestPath } from '@/lib/stay-search-target'
+import { shouldAskChildAgesForStaySearch, staySearchResultsPathFromRestPath } from '@/lib/stay-search-target'
 import { stripLocalePrefix } from '@/lib/i18n-config'
 import clsx from 'clsx'
 import Form from 'next/form'
@@ -78,6 +78,7 @@ function StaySearchFormFields({
   )
 
   const guestDefaults = useMemo(() => guestDefaultsFromPrefill(prefill), [prefill])
+  const askChildAges = shouldAskChildAgesForStaySearch(searchTargetPath)
 
   useEffect(() => {
     router.prefetch(vitrinHref(searchTargetPath))
@@ -128,6 +129,7 @@ function StaySearchFormFields({
         clearDataButtonClassName={clsx(formStyle === 'small' && 'sm:end-18', formStyle === 'default' && 'sm:end-22')}
         fieldStyle={formStyle}
         guestDefaults={guestDefaults}
+        askChildAges={askChildAges}
       />
 
       <ButtonSubmit fieldStyle={formStyle} className="z-10" />

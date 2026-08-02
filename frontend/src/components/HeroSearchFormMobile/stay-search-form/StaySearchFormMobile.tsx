@@ -10,7 +10,7 @@ import {
 import { formDataToStringRecord, runHeroSearchPlanEffects } from '@/lib/hero-search-plan'
 import { withSearchResultsAnchor } from '@/lib/search-results-anchor'
 import { stripLocalePrefix } from '@/lib/i18n-config'
-import { staySearchResultsPathFromRestPath } from '@/lib/stay-search-target'
+import { shouldAskChildAgesForStaySearch, staySearchResultsPathFromRestPath } from '@/lib/stay-search-target'
 import { GuestsObject } from '@/type'
 import converSelectedDateToString from '@/utils/converSelectedDateToString'
 import { formatLocalYmd, parseLocalYmd } from '@/utils/format-local-ymd'
@@ -37,6 +37,7 @@ const StaySearchFormMobile = () => {
     return staySearchResultsPathFromRestPath(restPath)
   }, [pathname])
   const staySearchHref = vitrinHref(searchTargetPath)
+  const askChildAges = shouldAskChildAgesForStaySearch(searchTargetPath)
   //
   const [fieldNameShow, setFieldNameShow] = useState<'location' | 'dates' | 'guests'>('location')
   const locationPanelRef = useRef<HTMLDivElement>(null)
@@ -113,7 +114,7 @@ const StaySearchFormMobile = () => {
       guestAdults: String(guestInput.guestAdults ?? 0),
       guestChildren: String(guestInput.guestChildren ?? 0),
       guestInfants: String(guestInput.guestInfants ?? 0),
-      ...(guestInput.childAges && guestInput.childAges.length > 0
+      ...(askChildAges && guestInput.childAges && guestInput.childAges.length > 0
         ? { childAges: guestInput.childAges.join(',') }
         : {}),
     }
@@ -193,7 +194,7 @@ const StaySearchFormMobile = () => {
           headingTitle={m.HeroSearchForm['Who']}
           headingValue={guestStringConverted}
         >
-          <GuestsInput defaultValue={guestInput} onChange={setGuestInput} askChildAges />
+          <GuestsInput defaultValue={guestInput} onChange={setGuestInput} askChildAges={askChildAges} />
         </FieldPanelContainer>
       </div>
     </Form>
