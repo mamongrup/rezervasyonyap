@@ -188,6 +188,7 @@ export default async function PageBuilderRenderer({
     ...m,
     config: resolveLocalizedDeep(m.config, locale) as PageBuilderModule['config'],
   })) as PageBuilderModule[]
+  const firstFeaturedPlacesId = enabledResolved.find((module) => module.type === 'featured_places')?.id
   const needsCategoryThumbnails = enabled.some(
     (m) =>
       m.type === 'category_slider' ||
@@ -481,6 +482,7 @@ export default async function PageBuilderRenderer({
                   key={module.id}
                   config={module.config}
                   locale={locale}
+                  priority={module.id === firstFeaturedPlacesId}
                 />
               )
             }

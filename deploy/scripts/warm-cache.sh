@@ -37,6 +37,17 @@ PATHS=(
   "/ucak-bileti/all"
 )
 
+# Anasayfadaki ilan vitrinleri ayrı API uçlarıyla yüklenir. Yalnız `/` ısıtılırsa
+# ilk gerçek ziyaretçi bu katalog sorgularını bekler.
+HOMEPAGE_FEATURED_CATEGORIES=(
+  "oteller"
+  "tatil-evleri"
+  "yat-kiralama"
+  "turlar"
+  "aktiviteler"
+  "feribot"
+)
+
 # Locale prefix'i yalnızca tr değilse ekle (tr prefix'siz servis edilir).
 prefix=""
 if [[ "$LOCALE" != "tr" ]]; then
@@ -62,6 +73,21 @@ for ((r = 1; r <= WARM_ROUNDS; r++)); do
       printf "   [WARN] %-28s HTTP=%s %ss\n" "${prefix}${p}" "$code" "$secs"
     fi
   done
+done
+
+echo "==> anasayfa ilan vitrinleri ısıtılıyor"
+for ((r = 1; r <= WARM_ROUNDS; r++)); do
+  pids=()
+  for category in "${HOMEPAGE_FEATURED_CATEGORIES[@]}"; do
+    url="${WEB_ORIGIN}/api/homepage-featured?category=${category}&locale=${LOCALE}&include_last_minute=0"
+    (
+      out="$(curl -sS -o /dev/null -w "%{http_code} %{time_total}" \
+        --connect-timeout 5 --max-time "$MAX_TIME" "$url" 2>/dev/null || echo "000 0")"
+      printf "   [featured] %-20s HTTP=%s %ss\n" "$category" "${out%% *}" "${out##* }"
+    ) &
+    pids+=("$!")
+  done
+  for pid in "${pids[@]}"; do wait "$pid" || true; done
 done
 
 echo "==> warm-cache bitti: $ok/$total sayfa 200"

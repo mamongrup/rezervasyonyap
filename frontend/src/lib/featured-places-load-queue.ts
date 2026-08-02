@@ -1,10 +1,10 @@
 /**
  * Anasayfa deferred `featured_places` — aynı anda çok `/api/homepage-featured`
  * (otel + last_minute + feribot + …) travel-api havuzunu doldurup takılma üretir.
- * En fazla 2 paralel istek; `priority` kuyruğun önüne alır (öne çıkan oteller).
+ * En fazla 3 paralel istek; `priority` kuyruğun önüne alır (öne çıkan oteller).
  */
 
-const MAX_PARALLEL = 2
+const MAX_PARALLEL = 3
 let active = 0
 const waiters: Array<() => void> = []
 
