@@ -99,7 +99,6 @@ const StaySearchFormMobile = () => {
     const [start, end] = dates
     setStartDate(start)
     setEndDate(end)
-    if (start && end) setFieldNameShow('guests')
   }
   const handleFormSubmit = (formData: FormData) => {
     const params: Record<string, string> = {
@@ -169,7 +168,12 @@ const StaySearchFormMobile = () => {
           headingTitle={m.HeroSearchForm['When']}
           headingValue={startDate ? converSelectedDateToString([startDate, endDate]) : m.HeroSearchForm['Add dates']}
         >
-          <DatesRangeInput defaultStartDate={startDate} defaultEndDate={endDate} onChange={onChangeDate} />
+          <DatesRangeInput
+            defaultStartDate={startDate}
+            defaultEndDate={endDate}
+            onChange={onChangeDate}
+            onApply={() => setFieldNameShow('guests')}
+          />
         </FieldPanelContainer>
       </div>
 

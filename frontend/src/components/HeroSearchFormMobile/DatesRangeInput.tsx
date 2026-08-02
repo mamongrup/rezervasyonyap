@@ -17,9 +17,11 @@ interface Props {
   onChange?: (value: [Date | null, Date | null]) => void
   defaultStartDate?: Date | null
   defaultEndDate?: Date | null
+  /** Tarihleri üst forma aktardıktan sonra sonraki panele geçmek için. */
+  onApply?: () => void
 }
 
-const StayDatesRangeInput: FC<Props> = ({ className, defaultEndDate, defaultStartDate, onChange }) => {
+const StayDatesRangeInput: FC<Props> = ({ className, defaultEndDate, defaultStartDate, onChange, onApply }) => {
   const params = useParams()
   const locale = typeof params?.locale === 'string' ? params.locale : 'tr'
   const m = getMessages(locale)
@@ -27,20 +29,29 @@ const StayDatesRangeInput: FC<Props> = ({ className, defaultEndDate, defaultStar
   const [endDate, setEndDate] = useState<Date | null>(defaultEndDate ?? null)
 
   useEffect(() => {
-    if (defaultStartDate) setStartDate(defaultStartDate)
+    setStartDate(defaultStartDate ?? null)
   }, [defaultStartDate])
 
   useEffect(() => {
-    if (defaultEndDate) setEndDate(defaultEndDate)
+    setEndDate(defaultEndDate ?? null)
   }, [defaultEndDate])
 
   const onChangeDate = (dates: [Date | null, Date | null]) => {
     const [start, end] = dates
     setStartDate(start)
     setEndDate(end)
-    if (onChange) {
-      onChange([start, end])
-    }
+  }
+
+  const clearDates = () => {
+    setStartDate(null)
+    setEndDate(null)
+    onChange?.([null, null])
+  }
+
+  const applyDates = () => {
+    if (!startDate || !endDate) return
+    onChange?.([startDate, endDate])
+    onApply?.()
   }
 
   return (
@@ -65,6 +76,23 @@ const StayDatesRangeInput: FC<Props> = ({ className, defaultEndDate, defaultStar
               renderDayContents={(day, date) => <DatePickerCustomDay dayOfMonth={day} date={date} />}
             />
           </div>
+        </div>
+        <div className="flex items-center justify-between gap-3 border-t border-neutral-200 pt-4 dark:border-neutral-700">
+          <button
+            type="button"
+            onClick={clearDates}
+            className="min-h-11 rounded-xl px-4 text-sm font-medium text-neutral-700 hover:bg-neutral-100 dark:text-neutral-200 dark:hover:bg-neutral-700"
+          >
+            {m.categoryPage.listingFilters.clear}
+          </button>
+          <button
+            type="button"
+            onClick={applyDates}
+            disabled={!startDate || !endDate}
+            className="min-h-11 rounded-xl bg-primary-600 px-6 text-sm font-semibold text-white hover:bg-primary-700 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            {m.categoryPage.listingFilters.apply}
+          </button>
         </div>
       </div>
 
