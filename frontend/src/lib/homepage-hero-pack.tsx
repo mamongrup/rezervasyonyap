@@ -9,7 +9,6 @@ import { panelImagesToFreeformUrls } from '@/lib/hero-gallery-slots'
 import {
   getHeroCategoryNavItems,
   heroCategoryNavToActiveSlugs,
-  heroCategoryNavToImageMap,
 } from '@/lib/hero-category-nav'
 import { resolveHeroLcpImageUrl } from '@/lib/hero-lcp-url'
 import { getHomepageDefaultModules } from '@/lib/page-builder-default-modules'
@@ -110,7 +109,6 @@ export async function loadHomepageHeroPack(locale: string, m: AppMessages): Prom
       hideVerticalTabs
       collapseOverflowAfterSlug="arac-kiralama"
       activeSlugs={heroCategoryNavToActiveSlugs(heroCategoryNav)}
-      categoryImages={heroCategoryNavToImageMap(heroCategoryNav)}
     />
   )
 

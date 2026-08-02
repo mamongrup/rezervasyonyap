@@ -23,7 +23,6 @@ import HeroSearchDesktopOnly from '@/components/HeroSearchForm/HeroSearchDesktop
 import {
   getHeroCategoryNavItems,
   heroCategoryNavToActiveSlugs,
-  heroCategoryNavToImageMap,
 } from '@/lib/hero-category-nav'
 import SectionSliderRegions from '@/components/SectionSliderRegions'
 import type { RegionSliderItem } from '@/components/SectionSliderRegions'
@@ -430,7 +429,6 @@ export default async function CategoryPageTemplate({
       hideVerticalTabs
       collapseOverflowAfterSlug="arac-kiralama"
       activeSlugs={heroCategoryNavToActiveSlugs(heroCategoryNav)}
-      categoryImages={heroCategoryNavToImageMap(heroCategoryNav)}
       staySearchTargetPath={`${category.categoryRoute}/all`}
       staySearchPrefill={
         activeSearch

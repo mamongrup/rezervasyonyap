@@ -18,7 +18,6 @@ import { getHomepageConfig } from '@/data/page-builder-config'
 import {
   getHeroCategoryNavItems,
   heroCategoryNavToActiveSlugs,
-  heroCategoryNavToImageMap,
 } from '@/lib/hero-category-nav'
 import { getHomepageDefaultModules } from '@/lib/page-builder-default-modules'
 import { panelImagesToFreeformUrls } from '@/lib/hero-gallery-slots'
@@ -181,7 +180,6 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
       hideVerticalTabs
       collapseOverflowAfterSlug="arac-kiralama"
       activeSlugs={heroCategoryNavToActiveSlugs(heroCategoryNav)}
-      categoryImages={heroCategoryNavToImageMap(heroCategoryNav)}
     />
   )
 
