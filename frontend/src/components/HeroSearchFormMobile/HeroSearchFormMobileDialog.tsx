@@ -14,7 +14,7 @@ import { HugeiconsIcon } from '@hugeicons/react'
 import { useRegisterVitrinOverlay } from '@/components/aside/aside'
 import { Dialog, DialogPanel } from '@headlessui/react'
 import { usePathname } from 'next/navigation'
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import StaySearchFormMobile from './stay-search-form/StaySearchFormMobile'
 import CarSearchFormMobile from './car-search-form/CarSearchFormMobile'
 import ExperienceSearchFormMobile from './experience-search-form/ExperienceSearchFormMobile'
@@ -29,26 +29,8 @@ type Props = {
 export default function HeroSearchFormMobileDialog({ open, onClose, locale }: Props) {
   useRegisterVitrinOverlay(open)
   const [contentKey, setContentKey] = useState(0)
-  const [activeSlugs, setActiveSlugs] = useState<string[] | undefined>(undefined)
   const msg = getMessages(locale)
   const pathname = usePathname()
-
-  useEffect(() => {
-    if (!open) return
-    let cancelled = false
-    fetch('/api/hero-category-nav')
-      .then((r) => r.json())
-      .then((d: { activeSlugs?: string[] }) => {
-        if (cancelled) return
-        if (d.activeSlugs?.length) setActiveSlugs(d.activeSlugs)
-      })
-      .catch(() => {
-        /* statik kategori çubuğu kalır */
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [open])
 
   const { vertical, searchTargetPath } = useMemo(() => {
     const { restPath } = stripLocalePrefix(pathname ?? '/')
@@ -97,7 +79,6 @@ export default function HeroSearchFormMobileDialog({ open, onClose, locale }: Pr
                     locale={locale}
                     layout="default"
                     mobileMoreMenu
-                    activeSlugs={activeSlugs}
                     className="mb-0 justify-center gap-x-2 gap-y-2 sm:gap-x-6 sm:gap-y-3"
                   />
                 </div>

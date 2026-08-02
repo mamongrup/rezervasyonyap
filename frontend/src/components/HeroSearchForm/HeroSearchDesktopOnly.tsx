@@ -4,7 +4,6 @@ import type { ListingType } from '@/type'
 import dynamic from 'next/dynamic'
 import { HeroSearchFormHome } from './HeroSearchFormHome'
 import { HeroSearchFormSkeleton } from './HeroSearchFormSkeleton'
-import type { HeroCategoryImage } from './HeroMenuCategoryBar'
 import type { StaySearchPrefill } from './StaySearchForm'
 
 /** Dikey tab’lı form (nadir): Headless UI + sekme panelleri — ayrı chunk */
@@ -27,7 +26,6 @@ export default function HeroSearchDesktopOnly({
   hideVerticalTabs = false,
   categoryBarLayout = 'default',
   activeSlugs,
-  categoryImages,
   collapseOverflowAfterSlug,
   staySearchTargetPath,
   staySearchPrefill,
@@ -37,7 +35,6 @@ export default function HeroSearchDesktopOnly({
   hideVerticalTabs?: boolean
   categoryBarLayout?: 'default' | 'spread'
   activeSlugs?: string[]
-  categoryImages?: Record<string, HeroCategoryImage>
   collapseOverflowAfterSlug?: string
   staySearchTargetPath?: string
   staySearchPrefill?: StaySearchPrefill
@@ -49,7 +46,6 @@ export default function HeroSearchDesktopOnly({
         locale={locale}
         categoryBarLayout={categoryBarLayout}
         activeSlugs={activeSlugs}
-        categoryImages={categoryImages}
         collapseOverflowAfterSlug={collapseOverflowAfterSlug}
         staySearchTargetPath={staySearchTargetPath}
         staySearchPrefill={staySearchPrefill}
@@ -64,7 +60,6 @@ export default function HeroSearchDesktopOnly({
       hideVerticalTabs={false}
       categoryBarLayout={categoryBarLayout}
       activeSlugs={activeSlugs}
-      categoryImages={categoryImages}
       collapseOverflowAfterSlug={collapseOverflowAfterSlug}
       staySearchTargetPath={staySearchTargetPath}
       staySearchPrefill={staySearchPrefill}

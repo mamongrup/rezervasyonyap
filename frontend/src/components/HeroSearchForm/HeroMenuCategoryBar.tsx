@@ -52,18 +52,18 @@ function inlineVisibilityClass(i: number): string {
 
 // ─── Slug → ikon eşlemesi ────────────────────────────────────────────────────
 const SLUG_ICON: Record<string, IconSvgElement> = {
-  oteller: Building03Icon,
+  oteller:        Building03Icon,
   'tatil-evleri': Home01Icon,
   'yat-kiralama': AnchorIcon,
-  turlar: Compass01Icon,
-  aktiviteler: HotAirBalloonFreeIcons,
-  kruvaziyer: FerryBoatIcon,
-  'hac-umre': Building03Icon,
-  vize: LegalDocument01Icon,
-  'ucak-bileti': Airplane02Icon,
+  turlar:         Compass01Icon,
+  aktiviteler:    HotAirBalloonFreeIcons,
+  kruvaziyer:      FerryBoatIcon,
+  'hac-umre':      Building03Icon,
+  vize:           LegalDocument01Icon,
+  'ucak-bileti':  Airplane02Icon,
   'arac-kiralama': Car05Icon,
-  feribot: FerryBoatIcon,
-  transfer: Bus01Icon,
+  feribot:        FerryBoatIcon,
+  transfer:       Bus01Icon,
 }
 
 /** Hamburger tetikleyici — masaüstü hero “diğer kategoriler” */
@@ -76,16 +76,9 @@ const OVERFLOW_TRIGGER_LABEL: Record<string, string> = {
   fr: 'Plus',
 }
 
-/** @deprecated Fotoğraflı kategori thumbs kaldırıldı — tip geri uyumluluk için duruyor. */
-export type HeroCategoryImage = {
-  src: string
-  objectPosition?: string
-}
-
 // ─── Hero'da gösterilecek üst kategoriler — statik fallback ──────────────────
-const ALL_NAV_CATEGORIES = CATEGORY_REGISTRY.filter((c) => c.showInNav).sort(
-  (a, b) => a.navOrder - b.navOrder,
-)
+const ALL_NAV_CATEGORIES = CATEGORY_REGISTRY.filter((c) => c.showInNav)
+  .sort((a, b) => a.navOrder - b.navOrder)
 const ALL_CATEGORIES = [...CATEGORY_REGISTRY].sort((a, b) => a.navOrder - b.navOrder)
 
 export function HeroMenuCategoryBar({
@@ -107,8 +100,6 @@ export function HeroMenuCategoryBar({
   className?: string
   layout?: 'default' | 'spread'
   activeSlugs?: string[]
-  /** Yok sayılır — hero kategoriler vektör ikon kullanır. */
-  categoryImages?: Record<string, HeroCategoryImage>
   mobileMoreMenu?: boolean
   collapseOverflowAfterSlug?: string
 }) {
@@ -119,12 +110,11 @@ export function HeroMenuCategoryBar({
       ? new Map(activeSlugs.map((s, i) => [s, i]))
       : null
 
-  // activeSlugs verilince tam registry'den seç (ilanı olan ama showInNav=false olanlar da gelsin)
   const cats =
     slugOrder != null && slugOrder.size > 0
-      ? ALL_CATEGORIES.filter((c) => slugOrder.has(c.slug)).sort(
-          (a, b) => (slugOrder.get(a.slug) ?? a.navOrder) - (slugOrder.get(b.slug) ?? b.navOrder),
-        )
+      ? ALL_NAV_CATEGORIES
+          .filter((c) => slugOrder.has(c.slug))
+          .sort((a, b) => (slugOrder.get(a.slug) ?? a.navOrder) - (slugOrder.get(b.slug) ?? b.navOrder))
       : mobileMoreMenu
         ? ALL_CATEGORIES
         : ALL_NAV_CATEGORIES
@@ -144,10 +134,7 @@ export function HeroMenuCategoryBar({
     if (idx >= 0) {
       inlineCats = cats.slice(0, idx + 1)
       const shown = new Set(inlineCats.map((c) => c.slug))
-      menuCats =
-        slugOrder != null
-          ? cats.filter((c) => !shown.has(c.slug))
-          : ALL_CATEGORIES.filter((c) => !shown.has(c.slug))
+      menuCats = ALL_CATEGORIES.filter((c) => !shown.has(c.slug))
       useResponsiveBreakpoints = false
     }
   } else if (mobileMoreMenu && !spread && cats.length > MOBILE_INLINE_CATEGORY_COUNT) {
@@ -156,23 +143,14 @@ export function HeroMenuCategoryBar({
     useResponsiveBreakpoints = false
   }
 
-  const iconCircle = (Icon: IconSvgElement, sizeClass = 'size-10 sm:size-11') => (
-    <span
-      className={clsx(
-        'flex items-center justify-center rounded-full border transition-colors',
-        sizeClass,
-        'border-neutral-200 bg-white text-neutral-400 hover:border-neutral-300 hover:text-neutral-500 dark:border-neutral-600 dark:bg-neutral-900 dark:text-neutral-500 dark:hover:border-neutral-500',
-      )}
-    >
-      <HugeiconsIcon icon={Icon} className="size-[1.15rem] sm:size-5" strokeWidth={1.5} />
-    </span>
-  )
-
   /**
    * `extraClass`: `inlineVisibilityClass(i)` — mobilde ikon sayısı sınırlı kalır.
    * Spread modunda da aynı sınıflar kullanılır; yoksa tüm kategoriler tek satırda “patlar”.
    */
-  const catLink = (cat: CategoryRegistryEntry, extraClass: string) => {
+  const catLink = (
+    cat: CategoryRegistryEntry,
+    extraClass: string,
+  ) => {
     const Icon = SLUG_ICON[cat.slug] ?? Home01Icon
     const label = heroCategoryInlineLabel(lc, cat.slug, lc === 'tr' ? cat.name : cat.namePlural)
     return (
@@ -180,11 +158,22 @@ export function HeroMenuCategoryBar({
         key={cat.slug}
         href={vitrinHref(cat.categoryRoute)}
         className={clsx(
-          'group/tab flex cursor-pointer flex-col items-center gap-1.5 sm:gap-2',
+          'group/tab cursor-pointer flex flex-col items-center gap-1.5 sm:gap-2',
           spread ? clsx('min-w-0 flex-1 basis-0', extraClass) : clsx('shrink-0', extraClass),
         )}
       >
-        {iconCircle(Icon)}
+        <span
+          className={clsx(
+            'flex size-10 items-center justify-center rounded-full border transition-colors sm:size-11',
+            'border-neutral-200 bg-white text-neutral-400 hover:border-neutral-300 hover:text-neutral-500 dark:border-neutral-600 dark:bg-neutral-900 dark:text-neutral-500 dark:hover:border-neutral-500',
+          )}
+        >
+          <HugeiconsIcon
+            icon={Icon}
+            className="size-[1.15rem] sm:size-5"
+            strokeWidth={1.5}
+          />
+        </span>
         <span
           className={clsx(
             'text-center text-xs sm:text-sm',
@@ -198,7 +187,8 @@ export function HeroMenuCategoryBar({
     )
   }
 
-  const overflowTriggerText = OVERFLOW_TRIGGER_LABEL[lc] ?? OVERFLOW_TRIGGER_LABEL.en
+  const overflowTriggerText =
+    OVERFLOW_TRIGGER_LABEL[lc] ?? OVERFLOW_TRIGGER_LABEL.en
 
   const moreMenu = menuCats.length ? (
     <Popover className="relative flex shrink-0 flex-col items-center gap-1.5 sm:gap-2">
@@ -206,7 +196,14 @@ export function HeroMenuCategoryBar({
         className="group/tab flex cursor-pointer flex-col items-center gap-1.5 rounded-lg outline-none focus:outline-hidden sm:gap-2"
         aria-label={useCollapseDesktop ? overflowTriggerText : 'Menü'}
       >
-        {iconCircle(Menu01Icon)}
+        <span
+          className={clsx(
+            'flex size-10 items-center justify-center rounded-full border transition-colors sm:size-11',
+            'border-neutral-200 bg-white text-neutral-400 hover:border-neutral-300 hover:text-neutral-500 dark:border-neutral-600 dark:bg-neutral-900 dark:text-neutral-500 dark:hover:border-neutral-500',
+          )}
+        >
+          <HugeiconsIcon icon={Menu01Icon} className="size-[1.15rem] sm:size-5" strokeWidth={1.5} />
+        </span>
         <span className="max-w-[5.5rem] truncate text-center text-xs font-normal text-neutral-500 hover:text-neutral-600 sm:text-sm dark:text-neutral-400 dark:hover:text-neutral-300">
           {useCollapseDesktop ? overflowTriggerText : 'Menü'}
         </span>
@@ -219,18 +216,16 @@ export function HeroMenuCategoryBar({
         <div className="grid grid-cols-2 gap-1">
           {menuCats.map((cat) => {
             const Icon = SLUG_ICON[cat.slug] ?? Home01Icon
-            const label = heroCategoryInlineLabel(
-              lc,
-              cat.slug,
-              lc === 'tr' ? cat.name : cat.namePlural,
-            )
+            const label = heroCategoryInlineLabel(lc, cat.slug, lc === 'tr' ? cat.name : cat.namePlural)
             return (
               <Link
                 key={cat.slug}
                 href={vitrinHref(cat.categoryRoute)}
                 className="flex min-w-0 items-center gap-3 rounded-xl px-3 py-2.5 text-start hover:bg-neutral-100 dark:hover:bg-neutral-800"
               >
-                {iconCircle(Icon, 'size-9')}
+                <span className="flex size-9 shrink-0 items-center justify-center rounded-full border border-neutral-200 text-neutral-500 dark:border-neutral-700 dark:text-neutral-400">
+                  <HugeiconsIcon icon={Icon} className="size-4.5" strokeWidth={1.5} />
+                </span>
                 <span className="min-w-0 truncate text-sm font-medium text-neutral-700 dark:text-neutral-200">
                   {label}
                 </span>

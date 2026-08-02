@@ -2,7 +2,7 @@
 
 import { ListingType } from '@/type'
 import clsx from 'clsx'
-import { HeroMenuCategoryBar, type HeroCategoryImage } from './HeroMenuCategoryBar'
+import { HeroMenuCategoryBar } from './HeroMenuCategoryBar'
 import { formTabs } from './HeroSearchFormTabs'
 import { StaySearchForm, type StaySearchPrefill } from './StaySearchForm'
 
@@ -17,7 +17,6 @@ export function HeroSearchFormHome({
   locale = 'tr',
   categoryBarLayout = 'default',
   activeSlugs,
-  categoryImages,
   collapseOverflowAfterSlug,
   staySearchTargetPath,
   staySearchPrefill,
@@ -27,7 +26,6 @@ export function HeroSearchFormHome({
   locale?: string
   categoryBarLayout?: 'default' | 'spread'
   activeSlugs?: string[]
-  categoryImages?: Record<string, HeroCategoryImage>
   /** Örn. ana sayfa: `arac-kiralama` sonrası kalan kayıtlı kategoriler hamburger menüde */
   collapseOverflowAfterSlug?: string
   /** Stay / experience / car / flight ortak sonuç yolu (`/kategori/all`) */
@@ -43,7 +41,6 @@ export function HeroSearchFormHome({
         locale={locale}
         layout={categoryBarLayout}
         activeSlugs={activeSlugs}
-        categoryImages={categoryImages}
         collapseOverflowAfterSlug={collapseOverflowAfterSlug}
       />
       {initTab === 'Stays' ? (

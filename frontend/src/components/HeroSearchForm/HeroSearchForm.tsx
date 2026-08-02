@@ -2,7 +2,6 @@
 
 import { ListingType } from '@/type'
 import dynamic from 'next/dynamic'
-import type { HeroCategoryImage } from './HeroMenuCategoryBar'
 import { HeroSearchFormHome } from './HeroSearchFormHome'
 import type { StaySearchPrefill } from './StaySearchForm'
 
@@ -18,7 +17,6 @@ const HeroSearchForm = ({
   categoryBarLayout = 'default',
   /** Server component'ten pre-fetch edilen aktif hero slug listesi */
   activeSlugs,
-  categoryImages,
   collapseOverflowAfterSlug,
   staySearchTargetPath,
   staySearchPrefill,
@@ -30,7 +28,6 @@ const HeroSearchForm = ({
   hideVerticalTabs?: boolean
   categoryBarLayout?: 'default' | 'spread'
   activeSlugs?: string[]
-  categoryImages?: Record<string, HeroCategoryImage>
   collapseOverflowAfterSlug?: string
   staySearchTargetPath?: string
   staySearchPrefill?: StaySearchPrefill
@@ -43,7 +40,6 @@ const HeroSearchForm = ({
         locale={locale}
         categoryBarLayout={categoryBarLayout}
         activeSlugs={activeSlugs}
-        categoryImages={categoryImages}
         collapseOverflowAfterSlug={collapseOverflowAfterSlug}
         staySearchTargetPath={staySearchTargetPath}
         staySearchPrefill={staySearchPrefill}

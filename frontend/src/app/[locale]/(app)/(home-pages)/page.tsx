@@ -15,10 +15,6 @@ import {
 import HeroSearchDesktopOnly from '@/components/HeroSearchForm/HeroSearchDesktopOnly'
 import { CATEGORY_REGISTRY } from '@/data/category-registry'
 import { getHomepageConfig } from '@/data/page-builder-config'
-import {
-  getHeroCategoryNavItems,
-  heroCategoryNavToActiveSlugs,
-} from '@/lib/hero-category-nav'
 import { getHomepageDefaultModules } from '@/lib/page-builder-default-modules'
 import { panelImagesToFreeformUrls } from '@/lib/hero-gallery-slots'
 import { resolveHeroLcpImageUrl } from '@/lib/hero-lcp-url'
@@ -172,14 +168,12 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
   const categoryPageHref = await vitrinHref(locale, `${HOME_CATEGORY.categoryRoute}/all`)
   const heroCtaHref = (heroModuleCfg?.ctaHref as string | undefined)?.trim() || categoryPageHref
 
-  const heroCategoryNav = await getHeroCategoryNavItems()
   const searchForm = (
     <HeroSearchDesktopOnly
       initTab="Stays"
       locale={locale}
       hideVerticalTabs
       collapseOverflowAfterSlug="arac-kiralama"
-      activeSlugs={heroCategoryNavToActiveSlugs(heroCategoryNav)}
     />
   )
 
