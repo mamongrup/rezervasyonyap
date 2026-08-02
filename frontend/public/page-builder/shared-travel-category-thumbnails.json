@@ -1,53 +1,53 @@
 {
-  "version": 1,
-  "updatedAt": "2026-06-24T12:55:00.000Z",
+  "version": 2,
+  "updatedAt": "2026-08-02T16:32:00.000Z",
   "thumbnails": {
     "oteller": {
-      "src": "/page-builder/category-cards/oteller-card.svg",
+      "src": "/page-builder/category-photos/oteller.webp",
       "objectPosition": "50% 52%"
     },
     "tatil-evleri": {
-      "src": "/page-builder/category-cards/tatil-evleri-card.svg",
+      "src": "/page-builder/category-photos/tatil-evleri.webp",
       "objectPosition": "50% 52%"
     },
     "yat-kiralama": {
-      "src": "/page-builder/category-cards/yat-kiralama-card.svg",
+      "src": "/page-builder/category-photos/yat-kiralama.webp",
       "objectPosition": "50% 50%"
     },
     "turlar": {
-      "src": "/page-builder/category-cards/turlar-card.svg",
+      "src": "/page-builder/category-photos/turlar.webp",
       "objectPosition": "50% 50%"
     },
     "aktiviteler": {
-      "src": "/page-builder/category-cards/aktiviteler-card.svg",
+      "src": "/page-builder/category-photos/aktiviteler.webp",
       "objectPosition": "50% 50%"
     },
     "kruvaziyer": {
-      "src": "/page-builder/category-cards/kruvaziyer-card.svg",
+      "src": "/page-builder/category-photos/kruvaziyer.webp",
       "objectPosition": "50% 50%"
     },
     "hac-umre": {
-      "src": "/page-builder/category-cards/hac-umre-card.svg",
+      "src": "/page-builder/category-photos/hac-umre.webp",
       "objectPosition": "50% 50%"
     },
     "vize": {
-      "src": "/page-builder/category-cards/vize-card.svg",
+      "src": "/page-builder/category-photos/vize.webp",
       "objectPosition": "50% 50%"
     },
     "ucak-bileti": {
-      "src": "/page-builder/category-cards/ucak-bileti-card.svg",
+      "src": "/page-builder/category-photos/ucak-bileti.webp",
       "objectPosition": "50% 50%"
     },
     "arac-kiralama": {
-      "src": "/page-builder/category-cards/arac-kiralama-card.svg",
+      "src": "/page-builder/category-photos/arac-kiralama.webp",
       "objectPosition": "50% 50%"
     },
     "feribot": {
-      "src": "/page-builder/category-cards/feribot-card.svg",
+      "src": "/page-builder/category-photos/feribot.webp",
       "objectPosition": "50% 50%"
     },
     "transfer": {
-      "src": "/page-builder/category-cards/transfer-card.svg",
+      "src": "/page-builder/category-photos/transfer.webp",
       "objectPosition": "50% 50%"
     }
   }
