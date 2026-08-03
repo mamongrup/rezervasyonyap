@@ -64,6 +64,15 @@ if [[ -f "$BACKEND_ENV" ]]; then
 fi
 
 cd "$APP_ROOT"
+# pg scripts/ altında; sharp frontend'de (AVIF dönüşümü)
+if [[ ! -d "$APP_ROOT/scripts/node_modules/pg" ]]; then
+  echo "→ scripts/npm: pg kuruluyor…"
+  (cd "$APP_ROOT/scripts" && npm install --omit=dev --no-fund --no-audit)
+fi
+if [[ ! -d "$APP_ROOT/frontend/node_modules/sharp" ]]; then
+  echo "Uyari: frontend/node_modules/sharp yok — AVIF donusumu basarisiz olabilir."
+fi
+
 echo "→ Rehost basliyor… args=${NODE_ARGS[*]:-(all)} log=$LOG"
 nohup setsid node scripts/rehost-external-listing-images-avif.mjs "${NODE_ARGS[@]}" \
   >>"$LOG" 2>&1 </dev/null &

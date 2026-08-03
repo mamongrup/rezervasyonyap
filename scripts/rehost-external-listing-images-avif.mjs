@@ -6,12 +6,12 @@
  *   node scripts/rehost-external-listing-images-avif.mjs --hosts=fairystonetravel.com
  *   node scripts/rehost-external-listing-images-avif.mjs --category=activity
  *
- * Ortam: PGHOST PGUSER PGDATABASE PGPASSWORD (yoksa yerel travel/postgres)
+ * Ortam: backend.env / DATABASE_URL veya PG* (createPgClient)
  */
 
-import { createRequire } from 'node:module'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { createPgClient } from './lib/pg-client.mjs'
 import {
   downloadGalleryImages,
   isExternalImageKey,
@@ -20,7 +20,6 @@ import {
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const uploadsRoot = path.join(root, 'frontend', 'public', 'uploads')
-const pg = createRequire(path.join(root, 'frontend/package.json'))('pg')
 
 const dryRun = process.argv.includes('--dry-run')
 const limitArg = process.argv.find((a) => a.startsWith('--limit='))
@@ -46,7 +45,6 @@ const HOST_REPAIR = [
   { re: /fairystonetravel\.com/i, fix: (u) => u.replace(/\.avif(\?|$)/i, '.jpg$1') },
   { re: /upload\.wikimedia\.org/i, fix: (u) => u.replace(/\.avif(\?|$)/i, '.jpg$1') },
   { re: /yolcu360\.com/i, fix: (u) => u.replace(/\.avif(\?|$)/i, '.png$1') },
-  // Otel CDN — uzantı genelde zaten doğru; yine de yanlış .avif sonekini düzelt.
   { re: /i\.travelapi\.com/i, fix: (u) => u.replace(/\.avif(\?|$)/i, '.jpg$1') },
   { re: /photos\.hotelbeds\.com/i, fix: (u) => u.replace(/\.avif(\?|$)/i, '.jpg$1') },
   { re: /aegeanhotels\.net/i, fix: (u) => u.replace(/\.avif(\?|$)/i, '.jpg$1') },
@@ -86,13 +84,7 @@ const hostSqlPatterns = [
   'kplus\\.com\\.tr',
 ]
 
-const client = new pg.Client({
-  host: process.env.PGHOST || '127.0.0.1',
-  port: Number(process.env.PGPORT || 5432),
-  user: process.env.PGUSER || 'postgres',
-  password: process.env.PGPASSWORD || '',
-  database: process.env.PGDATABASE || 'travel',
-})
+const client = createPgClient()
 await client.connect()
 
 const hostUrlOr = hostSqlPatterns.map((p) => `e.url ~* '${p}'`).join('\n      OR ')
