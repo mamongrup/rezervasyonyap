@@ -1,9 +1,17 @@
 /** Meta Page/User token süresi dolmuş veya iptal edilmiş — yeniden denemek işe yaramaz. */
 export function isMetaAuthError(message: string): boolean {
   const m = message.toLowerCase()
+  // Oturum/JWT süre aşımı Meta token değil — yanlış çeviriyi önle.
+  if (
+    m === 'invalid_session' ||
+    m.includes('unauthorized') ||
+    m.includes('session expired') ||
+    (m.includes('session has expired') && !m.includes('access token'))
+  ) {
+    return false
+  }
   return (
     m.includes('error validating access token') ||
-    m.includes('session has expired') ||
     m.includes('session has been invalidated') ||
     m.includes('password has been changed') ||
     m.includes('invalid oauth') ||
@@ -18,6 +26,6 @@ export function isMetaAuthError(message: string): boolean {
     m.includes('page access token yenileyin') ||
     m.includes('page access token kaydedin') ||
     (m.includes('access token') && (m.includes('expired') || m.includes('invalidated'))) ||
-    m === 'invalid_session'
+    m.includes('facebook/instagram') && m.includes('erişim anahtarı')
   )
 }

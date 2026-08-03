@@ -1653,6 +1653,27 @@ fn load_locale_title_desc(
   }
 }
 
+/// Phase runner Ok(Nil) = bu adım başarılı; sonraki aşama adı DB'deki güncel
+/// `phase` alanından okunmalı. Aksi halde her çeviri/SEO dili yanlışlıkla
+/// `translations→seo` / `seo→done` gibi görünür (panel yanıltıcı günlük).
+fn read_batch_phase(conn: pog.Connection, batch_id: String) -> String {
+  case
+    pog.query(
+      "select phase from ai_listing_content_batches where id = $1::uuid limit 1",
+    )
+    |> pog.parameter(pog.text(string.trim(batch_id)))
+    |> pog.returning(row_dec.col0_string())
+    |> db_exec.execute(conn)
+  {
+    Error(_) -> "unknown"
+    Ok(ret) ->
+      case ret.rows {
+        [p] -> p
+        _ -> "unknown"
+      }
+  }
+}
+
 fn run_batch_core(
   ctx: Context,
   batch: #(String, String, String, String, Bool),
@@ -1680,7 +1701,8 @@ fn run_batch_core(
               fail_batch(ctx.db, batch_id, e)
               Error(e)
             }
-            Ok(Nil) -> Ok(#(listing_id, "translations", True))
+            Ok(Nil) ->
+              Ok(#(listing_id, read_batch_phase(ctx.db, batch_id), True))
           }
         "translations" ->
           case
@@ -1690,7 +1712,8 @@ fn run_batch_core(
               fail_batch(ctx.db, batch_id, e)
               Error(e)
             }
-            Ok(Nil) -> Ok(#(listing_id, "seo", True))
+            Ok(Nil) ->
+              Ok(#(listing_id, read_batch_phase(ctx.db, batch_id), True))
           }
         "seo" ->
           case
@@ -1700,7 +1723,8 @@ fn run_batch_core(
               fail_batch(ctx.db, batch_id, e)
               Error(e)
             }
-            Ok(Nil) -> Ok(#(listing_id, "done", True))
+            Ok(Nil) ->
+              Ok(#(listing_id, read_batch_phase(ctx.db, batch_id), True))
           }
         _ -> {
           let _ = advance_batch(ctx.db, batch_id, "done", "done")

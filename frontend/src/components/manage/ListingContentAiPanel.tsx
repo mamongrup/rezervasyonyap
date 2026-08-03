@@ -125,9 +125,13 @@ export default function ListingContentAiPanel() {
           continue
         }
         processed += 1
-        appendLog(
-          `✓ ${r.listing_id?.slice(0, 8) ?? '…'} — ${r.phase ?? '?'} → ${r.next_phase ?? '?'}`,
-        )
+        const from = r.phase ?? '?'
+        const to = r.next_phase ?? '?'
+        if (from === to) {
+          appendLog(`✓ ${r.listing_id?.slice(0, 8) ?? '…'} — ${from} (bir dil/adım tamam, aşama devam ediyor)`)
+        } else {
+          appendLog(`✓ ${r.listing_id?.slice(0, 8) ?? '…'} — ${from} → ${to}`)
+        }
         await loadStats()
       }
       if (limit > 0 && processed >= limit) {
@@ -162,6 +166,13 @@ export default function ListingContentAiPanel() {
   const pendingTotal =
     (stats?.batches.pending ?? 0) + (stats?.batches.running ?? 0)
   const phasePending = stats?.pending_phases ?? {}
+  const trPending = phasePending.tr_description ?? 0
+  const midPipeline =
+    (phasePending.translations ?? 0) + (phasePending.seo ?? 0) > 0
+  const doneCount = stats?.batches.done ?? 0
+  // "Üretim başlamadı" yalnızca tüm kuyruk hâlâ ilk aşamadaysa doğru.
+  const queueIdleUnstarted =
+    pendingTotal > 0 && doneCount === 0 && !running && !midPipeline && trPending === pendingTotal
 
   return (
     <div className="space-y-6">
@@ -370,12 +381,19 @@ export default function ListingContentAiPanel() {
               </div>
             </dl>
           ) : null}
-          {stats && pendingTotal > 0 && (stats.batches.done ?? 0) === 0 && !running ? (
+          {stats && queueIdleUnstarted ? (
             <p className="mt-4 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-900 dark:border-emerald-900/50 dark:bg-emerald-950/30 dark:text-emerald-200">
               <strong>{pendingTotal} ilan kuyrukta.</strong> Kuyruğa alma tamamlandı; üretim henüz
               başlamadı. Devam etmek için <strong>İşle (sıradaki)</strong> düğmesine tıklayın.
               Her adım tek bir AI çağrısıdır (süre sınırı yok); tam bir ilan TR + 5 çeviri + 6 SEO
               adımı ister. Hatalı ilanlar atlanır, kuyruk devam eder.
+            </p>
+          ) : null}
+          {stats && pendingTotal > 0 && midPipeline && !running ? (
+            <p className="mt-4 rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-sm text-sky-900 dark:border-sky-900/50 dark:bg-sky-950/30 dark:text-sky-200">
+              Kuyruk işleniyor / yarıda: çoğu ilan çeviri veya SEO aşamasında. <strong>Tamamlanan</strong>{' '}
+              yalnızca bir ilanın tüm dilleri bitince artar — ara adımlar günlükte görünür ama sayacı
+              yükseltmez. Devam için <strong>İşle (sıradaki)</strong>.
             </p>
           ) : null}
           {stats && (stats.batches.running ?? 0) > 0 ? (
