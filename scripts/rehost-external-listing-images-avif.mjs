@@ -3,7 +3,8 @@
  *
  *   node scripts/rehost-external-listing-images-avif.mjs --dry-run
  *   node scripts/rehost-external-listing-images-avif.mjs --limit=50
- *   node scripts/rehost-external-listing-images-avif.mjs --hosts=bookeder.com,reserwation.com
+ *   node scripts/rehost-external-listing-images-avif.mjs --hosts=fairystonetravel.com
+ *   node scripts/rehost-external-listing-images-avif.mjs --category=activity
  *
  * Ortam: PGHOST PGUSER PGDATABASE PGPASSWORD (yoksa yerel travel/postgres)
  */
@@ -25,6 +26,8 @@ const dryRun = process.argv.includes('--dry-run')
 const limitArg = process.argv.find((a) => a.startsWith('--limit='))
 const limit = limitArg ? Number(limitArg.split('=')[1]) : 0
 const hostsArg = process.argv.find((a) => a.startsWith('--hosts='))
+const categoryArg = process.argv.find((a) => a.startsWith('--category='))
+const categoryFilter = categoryArg ? categoryArg.split('=')[1].trim().toLowerCase() : ''
 const hostFilter = hostsArg
   ? hostsArg
       .split('=')[1]
@@ -43,6 +46,11 @@ const HOST_REPAIR = [
   { re: /fairystonetravel\.com/i, fix: (u) => u.replace(/\.avif(\?|$)/i, '.jpg$1') },
   { re: /upload\.wikimedia\.org/i, fix: (u) => u.replace(/\.avif(\?|$)/i, '.jpg$1') },
   { re: /yolcu360\.com/i, fix: (u) => u.replace(/\.avif(\?|$)/i, '.png$1') },
+  // Otel CDN — uzantı genelde zaten doğru; yine de yanlış .avif sonekini düzelt.
+  { re: /i\.travelapi\.com/i, fix: (u) => u.replace(/\.avif(\?|$)/i, '.jpg$1') },
+  { re: /photos\.hotelbeds\.com/i, fix: (u) => u.replace(/\.avif(\?|$)/i, '.jpg$1') },
+  { re: /aegeanhotels\.net/i, fix: (u) => u.replace(/\.avif(\?|$)/i, '.jpg$1') },
+  { re: /cdn\.kplus\.com\.tr/i, fix: (u) => u.replace(/\.avif(\?|$)/i, '.jpg$1') },
 ]
 
 function repairUrl(url) {
@@ -65,6 +73,19 @@ function hostAllowed(url) {
   }
 }
 
+const hostSqlPatterns = [
+  'bookeder\\.com',
+  'tatilbudur\\.com',
+  'reserwation\\.com',
+  'fairystonetravel\\.com',
+  'wikimedia\\.org',
+  'yolcu360\\.com',
+  'travelapi\\.com',
+  'hotelbeds\\.com',
+  'aegeanhotels\\.net',
+  'kplus\\.com\\.tr',
+]
+
 const client = new pg.Client({
   host: process.env.PGHOST || '127.0.0.1',
   port: Number(process.env.PGPORT || 5432),
@@ -74,31 +95,53 @@ const client = new pg.Client({
 })
 await client.connect()
 
-const listings = await client.query(`
-  SELECT l.id, l.slug, l.featured_image_url, pc.code AS category_code
-  FROM listings l
-  JOIN product_categories pc ON pc.id = l.category_id
-  WHERE l.featured_image_url ~* '^https?://'
-    AND (
-      l.featured_image_url ~* 'bookeder\\.com'
-      OR l.featured_image_url ~* 'tatilbudur\\.com'
-      OR l.featured_image_url ~* 'reserwation\\.com'
-      OR l.featured_image_url ~* 'fairystonetravel\\.com'
-      OR l.featured_image_url ~* 'wikimedia\\.org'
-      OR l.featured_image_url ~* 'yolcu360\\.com'
-    )
-  ORDER BY l.updated_at DESC NULLS LAST
-  ${limit > 0 ? `LIMIT ${Number(limit)}` : ''}
-`)
+const hostUrlOr = hostSqlPatterns.map((p) => `e.url ~* '${p}'`).join('\n      OR ')
+const params = []
+let catClause = ''
+if (categoryFilter) {
+  params.push(categoryFilter)
+  catClause = `AND e.category_code = $${params.length}`
+}
 
-console.log(`candidates=${listings.rows.length} dryRun=${dryRun}`)
+const listings = await client.query(
+  `
+  WITH e AS (
+    SELECT l.id, l.slug, l.featured_image_url, pc.code AS category_code, l.updated_at,
+           coalesce(l.featured_image_url, '') AS url
+    FROM listings l
+    JOIN product_categories pc ON pc.id = l.category_id
+    WHERE l.status = 'published'
+      AND coalesce(l.featured_image_url, '') ~* '^https?://'
+    UNION ALL
+    SELECT l.id, l.slug, l.featured_image_url, pc.code AS category_code, l.updated_at,
+           li.storage_key AS url
+    FROM listing_images li
+    JOIN listings l ON l.id = li.listing_id
+    JOIN product_categories pc ON pc.id = l.category_id
+    WHERE l.status = 'published'
+      AND li.storage_key ~* '^https?://'
+  )
+  SELECT id, slug, featured_image_url, category_code, max(updated_at) AS updated_at
+  FROM e
+  WHERE (
+      ${hostUrlOr}
+    )
+    ${catClause}
+  GROUP BY id, slug, featured_image_url, category_code
+  ORDER BY max(updated_at) DESC NULLS LAST
+  ${limit > 0 ? `LIMIT ${Number(limit)}` : ''}
+`,
+  params,
+)
+
+console.log(
+  `candidates=${listings.rows.length} dryRun=${dryRun} category=${categoryFilter || '*'} hosts=${hostFilter?.join(',') || 'default'}`,
+)
 
 let ok = 0
 let fail = 0
+let skipped = 0
 for (const row of listings.rows) {
-  const feat = String(row.featured_image_url || '').trim()
-  if (!isExternalImageKey(feat) || !hostAllowed(feat)) continue
-
   const imgs = await client.query(
     `SELECT storage_key FROM listing_images WHERE listing_id = $1::uuid ORDER BY sort_order ASC, created_at ASC`,
     [row.id],
@@ -106,16 +149,19 @@ for (const row of listings.rows) {
   const sources = []
   const seen = new Set()
   const push = (u) => {
-    const r = repairUrl(u)
+    const raw = String(u || '').trim()
+    if (!isExternalImageKey(raw)) return
+    const r = repairUrl(raw)
     if (!r || seen.has(r) || !hostAllowed(r)) return
     seen.add(r)
     sources.push(r)
   }
-  push(feat)
-  for (const im of imgs.rows) {
-    if (isExternalImageKey(im.storage_key)) push(im.storage_key)
+  push(row.featured_image_url)
+  for (const im of imgs.rows) push(im.storage_key)
+  if (!sources.length) {
+    skipped += 1
+    continue
   }
-  if (!sources.length) continue
 
   if (dryRun) {
     console.log(`[dry] ${row.slug} images=${sources.length} cat=${row.category_code}`)
@@ -128,7 +174,9 @@ for (const row of listings.rows) {
       ? { Referer: 'https://commons.wikimedia.org/', 'User-Agent': 'Mozilla/5.0' }
       : /yolcu360/i.test(sources[0] || '')
         ? { Referer: 'https://www.yolcu360.com/', 'User-Agent': 'Mozilla/5.0' }
-        : { 'User-Agent': 'Mozilla/5.0' }
+        : /fairystone/i.test(sources[0] || '')
+          ? { Referer: 'https://fairystonetravel.com/', 'User-Agent': 'Mozilla/5.0' }
+          : { 'User-Agent': 'Mozilla/5.0' }
 
     const saved = await downloadGalleryImages(sources, row.slug, uploadsRoot, {
       categoryCode: row.category_code,
@@ -149,12 +197,17 @@ for (const row of listings.rows) {
       `DELETE FROM listing_images WHERE listing_id = $1::uuid AND storage_key ~* '^https?://'`,
       [row.id],
     )
+    const maxSort = await client.query(
+      `SELECT coalesce(max(sort_order), -1)::int AS m FROM listing_images WHERE listing_id = $1::uuid`,
+      [row.id],
+    )
+    const baseSort = Number(maxSort.rows[0]?.m ?? -1) + 1
     for (let i = 0; i < saved.length; i++) {
       const key = String(saved[i].storageKey || '').replace(/^\/+/, '')
       await client.query(
         `INSERT INTO listing_images (listing_id, storage_key, sort_order, original_mime)
          VALUES ($1::uuid, $2, $3, 'image/avif')`,
-        [row.id, key, Number(saved[i].sort ?? i)],
+        [row.id, key, baseSort + Number(saved[i].sort ?? i)],
       )
     }
     ok += 1
@@ -165,5 +218,5 @@ for (const row of listings.rows) {
   }
 }
 
-console.log(JSON.stringify({ ok, fail, dryRun }, null, 2))
+console.log(JSON.stringify({ ok, fail, skipped, dryRun }, null, 2))
 await client.end()

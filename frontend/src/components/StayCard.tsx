@@ -21,9 +21,10 @@ interface StayCardProps {
   className?: string
   data: TListingBase
   size?: 'default' | 'small'
+  priority?: boolean
 }
 
-const StayCard: FC<StayCardProps> = ({ size = 'default', className = '', data }) => {
+const StayCard: FC<StayCardProps> = ({ size = 'default', className = '', data, priority = false }) => {
   const vitrinHref = useVitrinHref()
   const {
     galleryImgs,
@@ -55,11 +56,13 @@ const StayCard: FC<StayCardProps> = ({ size = 'default', className = '', data })
   const [imageSrc, setImageSrc] = useState(initialSrc)
   const [tried, setTried] = useState<string[]>(() => (initialSrc ? [initialSrc] : []))
   const [brokenImage, setBrokenImage] = useState(false)
+  const [imageLoaded, setImageLoaded] = useState(false)
 
   useEffect(() => {
     setImageSrc(initialSrc)
     setTried(initialSrc ? [initialSrc] : [])
     setBrokenImage(false)
+    setImageLoaded(false)
   }, [initialSrc])
 
   const showRemoteImage = Boolean(imageSrc) && !brokenImage
@@ -69,7 +72,9 @@ const StayCard: FC<StayCardProps> = ({ size = 'default', className = '', data })
       <div className="relative w-full">
         <Link href={listingHref} className="block">
           <div
-            className={`relative w-full overflow-hidden rounded-xl`}
+            className={`relative w-full overflow-hidden rounded-xl bg-neutral-200 dark:bg-neutral-700${
+              showRemoteImage && !imageLoaded ? ' animate-pulse' : ''
+            }`}
             style={{ paddingBottom: '75%' }}
           >
             {showRemoteImage ? (
@@ -77,22 +82,26 @@ const StayCard: FC<StayCardProps> = ({ size = 'default', className = '', data })
                 src={imageSrc}
                 fill
                 alt={title ?? 'listing'}
-                className="object-cover transition-transform duration-300 group-hover:scale-105"
+                className={`object-cover transition-[transform,opacity] duration-300 group-hover:scale-105 ${
+                  imageLoaded ? 'opacity-100' : 'opacity-0'
+                }`}
                 sizes="(max-width: 640px) 92vw, (max-width: 1024px) 46vw, (max-width: 1280px) 31vw, 24vw"
                 unoptimized={shouldUnoptimizeListingImage(imageSrc)}
+                priority={priority}
+                loading={priority ? 'eager' : 'lazy'}
+                onLoad={() => setImageLoaded(true)}
                 onError={() => {
                   const next = nextListingImageUrlFallback(imageSrc, new Set(tried))
                   if (next) {
                     setTried((prev) => [...prev, next])
                     setImageSrc(next)
+                    setImageLoaded(false)
                     return
                   }
                   setBrokenImage(true)
                 }}
               />
-            ) : (
-              <div className="absolute inset-0 bg-neutral-200 dark:bg-neutral-700" aria-hidden />
-            )}
+            ) : null}
           </div>
         </Link>
         <BtnLikeIcon isLiked={like} className="absolute end-3 top-3 z-1" />

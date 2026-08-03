@@ -152,8 +152,8 @@ const SectionGridFeaturePlaces: FC<SectionGridFeaturePlacesProps> = ({
       <div
         className={`mt-8 grid gap-x-6 gap-y-8 sm:grid-cols-2 md:gap-x-8 md:gap-y-12 lg:grid-cols-3 xl:grid-cols-4 ${gridClass}`}
       >
-        {displayListings.map((stay) => (
-          <CardName key={stay.id} data={stay} />
+        {displayListings.map((stay, index) => (
+          <CardName key={stay.id} data={stay} priority={index < 4} />
         ))}
       </div>
       <div className="mt-16 flex items-center justify-center">
