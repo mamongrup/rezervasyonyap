@@ -335,7 +335,8 @@ const TR_BY_CODE: Record<string, string> = {
   yolcu360_location_details_invalid: 'Yolcu360 konum detayı okunamadı (koordinat eksik).',
   yolcu360_api_error: 'Yolcu360 API hata döndü.',
   yolcu360_http_failed: 'Yolcu360 API’ye bağlanılamadı.',
-  forbidden: 'Bu işlem için yetkiniz yok (admin.integrations.write).',
+  // Genel 403 — hangi izin eksik olduğu endpoint'e göre değişir; tek bir izin kodu yazma.
+  forbidden: 'Bu işlem için yetkiniz yok. Oturumu yenileyip tekrar deneyin; sorun sürerse yönetici rolünüze admin.social.write / ilgili izin atanmış mı kontrol edin.',
   template_create_failed: 'Şablon oluşturulamadı.',
   job_create_failed: 'Görev oluşturulamadı.',
   patch_failed: 'Güncelleme başarısız.',
