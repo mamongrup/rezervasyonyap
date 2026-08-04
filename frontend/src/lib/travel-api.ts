@@ -4956,6 +4956,20 @@ export type SocialShareJob = {
   created_at: string
 }
 
+export type SocialJobCounts = {
+  all: number
+  pending: number
+  posted: number
+  failed: number
+}
+
+export type SocialJobSummary = {
+  all: SocialJobCounts
+  feed: SocialJobCounts
+  story: SocialJobCounts
+  reel: SocialJobCounts
+}
+
 export type SocialWorkerProcessResult = {
   ok: boolean
   enqueued?: number
@@ -4994,7 +5008,7 @@ export type SocialWorkerLoopStatus = {
 export async function listSocialJobs(
   token: string,
   params?: { status?: string; postType?: SocialPostType; limit?: number },
-): Promise<{ jobs: SocialShareJob[] }> {
+): Promise<{ jobs: SocialShareJob[]; summary?: SocialJobSummary }> {
   const b = base()
   if (!b) throw new Error('NEXT_PUBLIC_API_URL_missing')
   const q = new URLSearchParams()

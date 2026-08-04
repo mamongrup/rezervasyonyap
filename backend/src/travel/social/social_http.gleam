@@ -384,6 +384,128 @@ fn job_to_json(
   ])
 }
 
+fn job_counts_row() ->
+  decode.Decoder(
+    #(
+      Int,
+      Int,
+      Int,
+      Int,
+      Int,
+      Int,
+      Int,
+      Int,
+      Int,
+      Int,
+      Int,
+      Int,
+      Int,
+      Int,
+      Int,
+      Int,
+    ),
+  ) {
+  use all_count <- decode.field(0, decode.int)
+  use all_pending <- decode.field(1, decode.int)
+  use all_posted <- decode.field(2, decode.int)
+  use all_failed <- decode.field(3, decode.int)
+  use feed_all <- decode.field(4, decode.int)
+  use feed_pending <- decode.field(5, decode.int)
+  use feed_posted <- decode.field(6, decode.int)
+  use feed_failed <- decode.field(7, decode.int)
+  use story_all <- decode.field(8, decode.int)
+  use story_pending <- decode.field(9, decode.int)
+  use story_posted <- decode.field(10, decode.int)
+  use story_failed <- decode.field(11, decode.int)
+  use reel_all <- decode.field(12, decode.int)
+  use reel_pending <- decode.field(13, decode.int)
+  use reel_posted <- decode.field(14, decode.int)
+  use reel_failed <- decode.field(15, decode.int)
+  decode.success(#(
+    all_count,
+    all_pending,
+    all_posted,
+    all_failed,
+    feed_all,
+    feed_pending,
+    feed_posted,
+    feed_failed,
+    story_all,
+    story_pending,
+    story_posted,
+    story_failed,
+    reel_all,
+    reel_pending,
+    reel_posted,
+    reel_failed,
+  ))
+}
+
+fn job_counts_bucket(all_count: Int, pending: Int, posted: Int, failed: Int) -> json.Json {
+  json.object([
+    #("all", json.int(all_count)),
+    #("pending", json.int(pending)),
+    #("posted", json.int(posted)),
+    #("failed", json.int(failed)),
+  ])
+}
+
+fn get_job_counts(
+  ctx: Context,
+) -> Result(
+  #(
+    Int,
+    Int,
+    Int,
+    Int,
+    Int,
+    Int,
+    Int,
+    Int,
+    Int,
+    Int,
+    Int,
+    Int,
+    Int,
+    Int,
+    Int,
+    Int,
+  ),
+  Nil,
+) {
+  case
+    pog.query(
+      "select "
+      <> "count(*)::int, "
+      <> "count(*) filter (where status = 'pending')::int, "
+      <> "count(*) filter (where status = 'posted')::int, "
+      <> "count(*) filter (where status = 'failed')::int, "
+      <> "count(*) filter (where post_type = 'feed')::int, "
+      <> "count(*) filter (where post_type = 'feed' and status = 'pending')::int, "
+      <> "count(*) filter (where post_type = 'feed' and status = 'posted')::int, "
+      <> "count(*) filter (where post_type = 'feed' and status = 'failed')::int, "
+      <> "count(*) filter (where post_type = 'story')::int, "
+      <> "count(*) filter (where post_type = 'story' and status = 'pending')::int, "
+      <> "count(*) filter (where post_type = 'story' and status = 'posted')::int, "
+      <> "count(*) filter (where post_type = 'story' and status = 'failed')::int, "
+      <> "count(*) filter (where post_type = 'reel')::int, "
+      <> "count(*) filter (where post_type = 'reel' and status = 'pending')::int, "
+      <> "count(*) filter (where post_type = 'reel' and status = 'posted')::int, "
+      <> "count(*) filter (where post_type = 'reel' and status = 'failed')::int "
+      <> "from social_share_jobs",
+    )
+    |> pog.returning(job_counts_row())
+    |> db_exec.execute(ctx.db)
+  {
+    Ok(ret) ->
+      case ret.rows {
+        [counts] -> Ok(counts)
+        _ -> Error(Nil)
+      }
+    Error(_) -> Error(Nil)
+  }
+}
+
 /// GET /api/v1/social/jobs?status=pending&post_type=feed&limit=100
 pub fn list_jobs(req: Request, ctx: Context) -> Response {
   use <- wisp.require_method(req, http.Get)
@@ -425,6 +547,10 @@ fn list_jobs_inner(req: Request, ctx: Context) -> Response {
     }
     Error(_) -> 50
   }
+  let summary = case get_job_counts(ctx) {
+    Ok(counts) -> counts
+    Error(_) -> return json_err(500, "jobs_count_query_failed")
+  }
   let sel =
     "select id::text, entity_type, entity_id::text, network::text, coalesce(template_id::text, ''), status::text, coalesce(caption_ai_generated, ''), coalesce(array_to_string(image_keys, chr(31)), ''), coalesce(error_message, ''), created_at::text, post_type::text from social_share_jobs "
   case status_filter == "" {
@@ -441,7 +567,7 @@ fn list_jobs_inner(req: Request, ctx: Context) -> Response {
             |> db_exec.execute(ctx.db)
           {
             Error(_) -> json_err(500, "jobs_query_failed")
-            Ok(ret) -> jobs_response(ret.rows)
+            Ok(ret) -> jobs_response(ret.rows, summary)
           }
         False ->
           case valid_post_type(post_type_filter) {
@@ -458,7 +584,7 @@ fn list_jobs_inner(req: Request, ctx: Context) -> Response {
                 |> db_exec.execute(ctx.db)
               {
                 Error(_) -> json_err(500, "jobs_query_failed")
-                Ok(ret) -> jobs_response(ret.rows)
+                Ok(ret) -> jobs_response(ret.rows, summary)
               }
           }
       }
@@ -476,7 +602,7 @@ fn list_jobs_inner(req: Request, ctx: Context) -> Response {
             |> db_exec.execute(ctx.db)
           {
             Error(_) -> json_err(500, "jobs_query_failed")
-            Ok(ret) -> jobs_response(ret.rows)
+            Ok(ret) -> jobs_response(ret.rows, summary)
           }
         False ->
           case valid_post_type(post_type_filter) {
@@ -494,7 +620,7 @@ fn list_jobs_inner(req: Request, ctx: Context) -> Response {
                 |> db_exec.execute(ctx.db)
               {
                 Error(_) -> json_err(500, "jobs_query_failed")
-                Ok(ret) -> jobs_response(ret.rows)
+                Ok(ret) -> jobs_response(ret.rows, summary)
               }
           }
       }
@@ -628,10 +754,57 @@ fn jobs_response(
   rows: List(
     #(String, String, String, String, String, String, String, String, String, String, String),
   ),
+  summary: #(
+    Int,
+    Int,
+    Int,
+    Int,
+    Int,
+    Int,
+    Int,
+    Int,
+    Int,
+    Int,
+    Int,
+    Int,
+    Int,
+    Int,
+    Int,
+    Int,
+  ),
 ) -> Response {
   let arr = list.map(rows, job_to_json)
+  let #(
+    all_count,
+    all_pending,
+    all_posted,
+    all_failed,
+    feed_all,
+    feed_pending,
+    feed_posted,
+    feed_failed,
+    story_all,
+    story_pending,
+    story_posted,
+    story_failed,
+    reel_all,
+    reel_pending,
+    reel_posted,
+    reel_failed,
+  ) = summary
   let body =
-    json.object([#("jobs", json.array(from: arr, of: fn(x) { x }))])
+    json.object([
+      #("jobs", json.array(from: arr, of: fn(x) { x })),
+      #(
+        "summary",
+        json.object([
+          #("all", job_counts_bucket(all_count, all_pending, all_posted, all_failed)),
+          #("feed", job_counts_bucket(feed_all, feed_pending, feed_posted, feed_failed)),
+          #("story", job_counts_bucket(story_all, story_pending, story_posted, story_failed)),
+          #("reel", job_counts_bucket(reel_all, reel_pending, reel_posted, reel_failed)),
+        ]),
+      ),
+    ])
     |> json.to_string
   wisp.json_response(body, 200)
 }

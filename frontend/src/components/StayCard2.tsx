@@ -4,11 +4,11 @@ import ListingPrice from '@/components/ListingPrice'
 import BtnLikeIcon from '@/components/BtnLikeIcon'
 import SaleOffBadge from '@/components/SaleOffBadge'
 import StartRating from '@/components/StartRating'
+import { listingCardImageCandidates } from '@/lib/listing-card-image-candidates'
 import { displayListingCategoryLine } from '@/lib/listing-category-display'
 import { holidayHomeCapacitySummary } from '@/lib/holiday-home-capacity-summary'
 import { nextListingImageUrlFallback } from '@/lib/listing-image-url-fallbacks'
 import { shouldUnoptimizeListingImage } from '@/lib/listing-image-optimization'
-import { preferListingCardImageUrl } from '@/lib/prefer-listing-card-image'
 import type { TListingBase, TListingHolidayHome } from '@/types/listing-types'
 import { Badge } from '@/shared/Badge'
 import { getMessages } from '@/utils/getT'
@@ -18,7 +18,7 @@ import clsx from 'clsx'
 import Image from 'next/image'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
-import { FC, useEffect, useState } from 'react'
+import { FC, useEffect, useMemo, useState } from 'react'
 import { useVitrinHref } from '@/hooks/use-vitrin-href'
 import { normalizeCatalogVertical } from '@/lib/catalog-listing-vertical'
 import { detailPathForVertical } from '@/lib/listing-detail-routes'
@@ -63,18 +63,19 @@ const StayCard2: FC<StayCard2Props> = ({ size = 'default', className = '', data,
 
   const detailBase = detailPathForVertical(normalizeCatalogVertical(listingVertical))
   const listingHref = vitrinHref(`${detailBase}/${listingHandle}`)
-  const imgSrcRaw =
-    (galleryImgs?.[0] && typeof galleryImgs[0] === 'string'
-      ? galleryImgs[0]
-      : (galleryImgs?.[0] as { src: string } | undefined)?.src) || featuredImage
-  const trimmedRaw = typeof imgSrcRaw === 'string' ? imgSrcRaw.trim() : ''
-  const initialSrc = preferListingCardImageUrl(trimmedRaw)
+  const imageCandidates = useMemo(
+    () => listingCardImageCandidates(galleryImgs, featuredImage),
+    [galleryImgs, featuredImage],
+  )
+  const initialSrc = imageCandidates[0] ?? ''
+  const [candidateIndex, setCandidateIndex] = useState(0)
   const [imageSrc, setImageSrc] = useState(initialSrc)
   const [tried, setTried] = useState<string[]>(() => (initialSrc ? [initialSrc] : []))
   const [brokenImage, setBrokenImage] = useState(false)
   const [imageLoaded, setImageLoaded] = useState(false)
 
   useEffect(() => {
+    setCandidateIndex(0)
     setImageSrc(initialSrc)
     setTried(initialSrc ? [initialSrc] : [])
     setBrokenImage(false)
@@ -113,6 +114,15 @@ const StayCard2: FC<StayCard2Props> = ({ size = 'default', className = '', data,
                   if (next) {
                     setTried((prev) => [...prev, next])
                     setImageSrc(next)
+                    setImageLoaded(false)
+                    return
+                  }
+                  const nextCandidateIndex = candidateIndex + 1
+                  const nextCandidate = imageCandidates[nextCandidateIndex]
+                  if (nextCandidate) {
+                    setCandidateIndex(nextCandidateIndex)
+                    setTried((prev) => [...prev, nextCandidate])
+                    setImageSrc(nextCandidate)
                     setImageLoaded(false)
                     return
                   }

@@ -18,6 +18,7 @@ import {
   stopSocialWorkerLoop,
   type ManageListingRow,
   type SocialNetwork,
+  type SocialJobSummary,
   type SocialPostType,
   type SocialShareJob,
   type SocialTemplate,
@@ -1138,6 +1139,13 @@ const STATUS_COLORS: Record<string, string> = {
 
 type QueuePostTypeFilter = 'all' | 'feed' | 'story' | 'reel'
 
+const EMPTY_JOB_SUMMARY: SocialJobSummary = {
+  all: { all: 0, pending: 0, posted: 0, failed: 0 },
+  feed: { all: 0, pending: 0, posted: 0, failed: 0 },
+  story: { all: 0, pending: 0, posted: 0, failed: 0 },
+  reel: { all: 0, pending: 0, posted: 0, failed: 0 },
+}
+
 function normalizeJobPostType(job: SocialShareJob): Exclude<QueuePostTypeFilter, 'all'> {
   return job.post_type === 'story' || job.post_type === 'reel' ? job.post_type : 'feed'
 }
@@ -1184,6 +1192,7 @@ function JobRow({ j }: { j: SocialShareJob }) {
 
 export default function AdminSocialSection() {
   const [jobs, setJobs] = useState<SocialShareJob[]>([])
+  const [jobSummary, setJobSummary] = useState<SocialJobSummary>(EMPTY_JOB_SUMMARY)
   const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'posted' | 'failed'>('all')
   const [postTypeFilter, setPostTypeFilter] = useState<QueuePostTypeFilter>('all')
   const [loadErr, setLoadErr] = useState<string | null>(null)
@@ -1203,6 +1212,7 @@ export default function AdminSocialSection() {
         limit: 1000,
       })
       setJobs(j.jobs)
+      setJobSummary(j.summary ?? EMPTY_JOB_SUMMARY)
     } catch (e) {
       setLoadErr(formatManageApiCatch(e, 'social_load_failed'))
     } finally {
@@ -1537,18 +1547,13 @@ export default function AdminSocialSection() {
       ? jobs
       : jobs.filter((j) => normalizeJobPostType(j) === postTypeFilter)
 
-  const counts = {
-    all: jobsByPostType.length,
-    pending: jobsByPostType.filter((j) => j.status === 'pending').length,
-    posted: jobsByPostType.filter((j) => j.status === 'posted').length,
-    failed: jobsByPostType.filter((j) => j.status === 'failed').length,
-  }
+  const counts = postTypeFilter === 'all' ? jobSummary.all : jobSummary[postTypeFilter]
 
   const postTypeCounts = {
-    all: jobs.length,
-    feed: jobs.filter((j) => normalizeJobPostType(j) === 'feed').length,
-    story: jobs.filter((j) => normalizeJobPostType(j) === 'story').length,
-    reel: jobs.filter((j) => normalizeJobPostType(j) === 'reel').length,
+    all: jobSummary.all.all,
+    feed: jobSummary.feed.all,
+    story: jobSummary.story.all,
+    reel: jobSummary.reel.all,
   }
 
   const visibleJobs =
