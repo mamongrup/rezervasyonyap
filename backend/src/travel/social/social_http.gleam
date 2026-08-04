@@ -549,7 +549,9 @@ fn list_jobs_inner(req: Request, ctx: Context) -> Response {
   }
   let summary = case get_job_counts(ctx) {
     Ok(counts) -> counts
-    Error(_) -> return json_err(500, "jobs_count_query_failed")
+    Error(_) -> {
+      return json_err(500, "jobs_count_query_failed")
+    }
   }
   let sel =
     "select id::text, entity_type, entity_id::text, network::text, coalesce(template_id::text, ''), status::text, coalesce(caption_ai_generated, ''), coalesce(array_to_string(image_keys, chr(31)), ''), coalesce(error_message, ''), created_at::text, post_type::text from social_share_jobs "
