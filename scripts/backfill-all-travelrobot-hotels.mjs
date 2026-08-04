@@ -5,11 +5,13 @@
  *   node scripts/backfill-all-travelrobot-hotels.mjs --dry-run --limit 5
  *   node scripts/backfill-all-travelrobot-hotels.mjs --batch-size 50 --offset 0
  *   node scripts/backfill-all-travelrobot-hotels.mjs --priceless-only --batch-size 25
+ *   node scripts/backfill-all-travelrobot-hotels.mjs --broken-images-only --no-with-rooms --batch-size 50
  *   node scripts/backfill-all-travelrobot-hotels.mjs --code KTR63888 --with-rooms
  *   node scripts/backfill-all-travelrobot-hotels.mjs --with-i18n --batch-size 20
  *   node scripts/backfill-all-travelrobot-hotels.mjs --no-with-rooms --batch-size 100
  *
  * Önce eksiklik raporu: node scripts/audit-travelrobot-hotel-gaps.mjs
+ * Kırık galeri (restore noHttps): --broken-images-only — tüm kataloğu gezmeyin.
  */
 
 import { createTravelrobotToken, loadTravelrobotConfig } from './lib/travelrobot-api.mjs'
@@ -23,6 +25,7 @@ const DRY_RUN = args.has('--dry-run')
 const WITH_I18N = args.has('--with-i18n')
 const WITH_ROOMS = !args.has('--no-with-rooms')
 const PRICELESS_ONLY = args.has('--priceless-only')
+const BROKEN_IMAGES_ONLY = args.has('--broken-images-only')
 const codeIdx = process.argv.indexOf('--code')
 const CODE = codeIdx >= 0 ? String(process.argv[codeIdx + 1] || '').trim() : ''
 const batchIdx = process.argv.indexOf('--batch-size')
@@ -48,6 +51,31 @@ function pricelessWhereSql() {
        )`
 }
 
+/** Yerel /uploads, boş kapak veya yanlış CDN .avif — restore’un noHttps kümesi. */
+function brokenImagesWhereSql() {
+  if (!BROKEN_IMAGES_ONLY) return ''
+  return `
+       AND (
+         coalesce(l.featured_image_url, '') = ''
+         OR l.featured_image_url ~ '^/'
+         OR l.featured_image_url ~* 'travelapi\\.com.*\\.avif'
+         OR l.featured_image_url ~* 'hotelbeds\\.com.*\\.avif'
+         OR EXISTS (
+           SELECT 1 FROM listing_images li
+           WHERE li.listing_id = l.id
+             AND (
+               li.storage_key ~ '^/'
+               OR li.storage_key ~* 'travelapi\\.com.*\\.avif'
+               OR li.storage_key ~* 'hotelbeds\\.com.*\\.avif'
+             )
+         )
+       )`
+}
+
+function filterWhereSql() {
+  return `${pricelessWhereSql()}${brokenImagesWhereSql()}`
+}
+
 function codeWhereSql(params) {
   if (!CODE) return ''
   params.push(CODE)
@@ -64,7 +92,7 @@ async function countHotels(pg) {
      WHERE l.external_provider_code = 'travelrobot'
        AND lhd.travelrobot_hotel_code IS NOT NULL
        AND trim(lhd.travelrobot_hotel_code) <> ''
-       ${pricelessWhereSql()}
+       ${filterWhereSql()}
        ${codeWhereSql(params)}`,
     params,
   )
@@ -87,7 +115,7 @@ async function loadHotels(pg, orgId, offset, limit) {
        AND l.external_provider_code = 'travelrobot'
        AND lhd.travelrobot_hotel_code IS NOT NULL
        AND trim(lhd.travelrobot_hotel_code) <> ''
-       ${pricelessWhereSql()}
+       ${filterWhereSql()}
        ${CODE ? ` AND lhd.travelrobot_hotel_code = $4` : ''}
      ORDER BY l.updated_at ASC, l.slug ASC
      OFFSET $2
@@ -121,7 +149,7 @@ function catalogRow(item) {
 async function main() {
   const effectiveBatch = LIMIT > 0 ? LIMIT : BATCH
   cliLog(
-    `Tam backfill — offset=${OFFSET}, batch=${effectiveBatch}, rooms=${WITH_ROOMS}, i18n=${WITH_I18N}, pricelessOnly=${PRICELESS_ONLY}, code=${CODE || '-'}, dry-run=${DRY_RUN}`,
+    `Tam backfill — offset=${OFFSET}, batch=${effectiveBatch}, rooms=${WITH_ROOMS}, i18n=${WITH_I18N}, pricelessOnly=${PRICELESS_ONLY}, brokenImagesOnly=${BROKEN_IMAGES_ONLY}, code=${CODE || '-'}, dry-run=${DRY_RUN}`,
   )
 
   cliLog('Panel ayarları yükleniyor…')
@@ -199,9 +227,15 @@ async function main() {
       : `Batch bitti — ${ok} güncellendi, ${fail} hata. Kalan ~${remaining} otel.`
     cliLog(msg)
     if (!DRY_RUN && remaining > 0) {
-      const suggestedOffset = PRICELESS_ONLY ? 0 : nextOffset
+      // Filtreli modda güncellenen satırlar kümeden düşer → offset 0 ile tekrarla
+      const suggestedOffset = PRICELESS_ONLY || BROKEN_IMAGES_ONLY ? 0 : nextOffset
+      const flags =
+        (PRICELESS_ONLY ? ' --priceless-only' : '') +
+        (BROKEN_IMAGES_ONLY ? ' --broken-images-only' : '') +
+        (WITH_I18N ? ' --with-i18n' : '') +
+        (!WITH_ROOMS ? ' --no-with-rooms' : '')
       cliLog(
-        `Sonraki batch:\n  node scripts/backfill-all-travelrobot-hotels.mjs --offset ${suggestedOffset} --batch-size ${effectiveBatch}${PRICELESS_ONLY ? ' --priceless-only' : ''}${WITH_I18N ? ' --with-i18n' : ''}${!WITH_ROOMS ? ' --no-with-rooms' : ''}`,
+        `Sonraki batch:\n  node scripts/backfill-all-travelrobot-hotels.mjs --offset ${suggestedOffset} --batch-size ${effectiveBatch}${flags}`,
       )
     }
     if (!DRY_RUN && remaining === 0) {
