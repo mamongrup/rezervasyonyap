@@ -58,7 +58,7 @@ export function preferListingGalleryFullAsset(src: string): string {
   let s = rewriteAegeanHotelsImageToBookeder(src.trim())
   if (!s) return s
 
-  // Harici CDN: 379 sonrası yanlış .avif (ve 382 blanket .JPEG) onarımı
+  // Harici CDN + TatilBudur kırık yerel rehost → productcdn
   s = repairExternalListingImageExt(s)
 
   const qIdx = s.indexOf('?')
@@ -70,6 +70,7 @@ export function preferListingGalleryFullAsset(src: string): string {
   const path = s.slice(0, pathEnd)
   const suffix = s.slice(pathEnd)
 
+  // CDN'e çevrildiyse yerel AVIF yükseltmesine girme
   if (!path.toLowerCase().includes('/uploads/')) return s
 
   let upgraded = path

@@ -45,8 +45,36 @@ const CDN_AVIF_REPAIR: Array<{ test: (host: string) => boolean; to: string }> = 
   },
 ]
 
+/**
+ * TatilBudur rehost: diskte olmayan `/uploads/listings/ilanlar/oteller/…`
+ * → productcdn aynı stem `.jpg` (HTTP 200). Sıra öneki `00-` vb. düşülür.
+ */
+export function restoreTatilbudurLocalUploadToCdn(src: string): string {
+  const raw = src.trim()
+  if (!raw) return raw
+
+  let path = raw
+  try {
+    if (/^https?:\/\//i.test(raw)) {
+      const u = new URL(raw)
+      // Yalnız kendi origin /uploads yollarını CDN'e çevir
+      if (!/\/uploads\/listings\/ilanlar\/oteller\//i.test(u.pathname)) return raw
+      path = u.pathname
+    }
+  } catch {
+    return raw
+  }
+
+  const m = path.match(
+    /\/uploads\/listings\/ilanlar\/oteller\/[^/]+\/(?:\d+-)?([^/?#]+)\.(?:avif|webp|jpe?g|png)$/i,
+  )
+  if (!m?.[1]) return raw
+  return `https://productcdn.tatilbudur.com/Otel/855x426/${m[1]}.jpg`
+}
+
 export function repairExternalListingImageExt(src: string): string {
-  const s = src.trim()
+  const restored = restoreTatilbudurLocalUploadToCdn(src.trim())
+  const s = restored
   if (!s || !/^https?:\/\//i.test(s)) return s
   try {
     const host = new URL(s).hostname.toLowerCase()

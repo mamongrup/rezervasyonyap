@@ -2,9 +2,27 @@ import { describe, expect, it } from 'vitest'
 import {
   nextListingImageUrlFallback,
   repairExternalListingImageExt,
+  restoreTatilbudurLocalUploadToCdn,
 } from './listing-image-url-fallbacks'
 
 describe('listing-image-url-fallbacks', () => {
+  it('restores TatilBudur local rehost path to productcdn jpg', () => {
+    expect(
+      restoreTatilbudurLocalUploadToCdn(
+        '/uploads/listings/ilanlar/oteller/kaya-villas-exclusive/00-kaya-villas-exclusive_16109_996345.avif',
+      ),
+    ).toBe(
+      'https://productcdn.tatilbudur.com/Otel/855x426/kaya-villas-exclusive_16109_996345.jpg',
+    )
+    expect(
+      repairExternalListingImageExt(
+        '/uploads/listings/ilanlar/oteller/mivara-luxury-resort-spa/00-mivara-luxury-resort-spa_3634_795847.avif',
+      ),
+    ).toBe(
+      'https://productcdn.tatilbudur.com/Otel/855x426/mivara-luxury-resort-spa_3634_795847.jpg',
+    )
+  })
+
   it('repairs Bookeder .avif to .JPEG', () => {
     const src =
       'https://bookeder.com/data/Photos/Big/17201/1720157/1720157310/img-silence-villas-fethiye-1.avif'

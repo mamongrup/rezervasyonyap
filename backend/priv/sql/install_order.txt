@@ -245,6 +245,7 @@ modules/400_ai_activate_paused_workforce.sql
 modules/401_ai_enable_all_with_provider_fallback.sql
 modules/402_ai_manager_continuous_orchestration.sql
 modules/403_repair_travelapi_hotelbeds_avif.sql
+modules/404_repair_tatilbudur_rehost_to_cdn.sql
 
 # Kurulum doğrulama (install_order’a dahil değil — elle çalıştırın):
 #   psql -U postgres -d travel -f priv/sql/check_installation.sql
