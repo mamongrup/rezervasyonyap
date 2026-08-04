@@ -547,85 +547,84 @@ fn list_jobs_inner(req: Request, ctx: Context) -> Response {
     }
     Error(_) -> 50
   }
-  let summary = case get_job_counts(ctx) {
-    Ok(counts) -> counts
-    Error(_) -> {
-      return json_err(500, "jobs_count_query_failed")
-    }
-  }
-  let sel =
-    "select id::text, entity_type, entity_id::text, network::text, coalesce(template_id::text, ''), status::text, coalesce(caption_ai_generated, ''), coalesce(array_to_string(image_keys, chr(31)), ''), coalesce(error_message, ''), created_at::text, post_type::text from social_share_jobs "
-  case status_filter == "" {
-    True ->
-      case post_type_filter == "" {
+  case get_job_counts(ctx) {
+    Error(_) -> json_err(500, "jobs_count_query_failed")
+    Ok(summary) -> {
+      let sel =
+        "select id::text, entity_type, entity_id::text, network::text, coalesce(template_id::text, ''), status::text, coalesce(caption_ai_generated, ''), coalesce(array_to_string(image_keys, chr(31)), ''), coalesce(error_message, ''), created_at::text, post_type::text from social_share_jobs "
+      case status_filter == "" {
         True ->
-          case
-            pog.query(
-              sel
-              <> "order by created_at desc limit "
-              <> int.to_string(limit),
-            )
-            |> pog.returning(job_row())
-            |> db_exec.execute(ctx.db)
-          {
-            Error(_) -> json_err(500, "jobs_query_failed")
-            Ok(ret) -> jobs_response(ret.rows, summary)
-          }
-        False ->
-          case valid_post_type(post_type_filter) {
-            False -> json_err(400, "invalid_post_type")
+          case post_type_filter == "" {
             True ->
               case
                 pog.query(
                   sel
-                  <> "where post_type = $1 order by created_at desc limit "
+                  <> "order by created_at desc limit "
                   <> int.to_string(limit),
                 )
-                |> pog.parameter(pog.text(post_type_filter))
                 |> pog.returning(job_row())
                 |> db_exec.execute(ctx.db)
               {
                 Error(_) -> json_err(500, "jobs_query_failed")
                 Ok(ret) -> jobs_response(ret.rows, summary)
               }
-          }
-      }
-    False ->
-      case post_type_filter == "" {
-        True ->
-          case
-            pog.query(
-              sel
-              <> "where status = $1 order by created_at desc limit "
-              <> int.to_string(limit),
-            )
-            |> pog.parameter(pog.text(status_filter))
-            |> pog.returning(job_row())
-            |> db_exec.execute(ctx.db)
-          {
-            Error(_) -> json_err(500, "jobs_query_failed")
-            Ok(ret) -> jobs_response(ret.rows, summary)
+            False ->
+              case valid_post_type(post_type_filter) {
+                False -> json_err(400, "invalid_post_type")
+                True ->
+                  case
+                    pog.query(
+                      sel
+                      <> "where post_type = $1 order by created_at desc limit "
+                      <> int.to_string(limit),
+                    )
+                    |> pog.parameter(pog.text(post_type_filter))
+                    |> pog.returning(job_row())
+                    |> db_exec.execute(ctx.db)
+                  {
+                    Error(_) -> json_err(500, "jobs_query_failed")
+                    Ok(ret) -> jobs_response(ret.rows, summary)
+                  }
+              }
           }
         False ->
-          case valid_post_type(post_type_filter) {
-            False -> json_err(400, "invalid_post_type")
+          case post_type_filter == "" {
             True ->
               case
                 pog.query(
                   sel
-                  <> "where status = $1 and post_type = $2 order by created_at desc limit "
+                  <> "where status = $1 order by created_at desc limit "
                   <> int.to_string(limit),
                 )
                 |> pog.parameter(pog.text(status_filter))
-                |> pog.parameter(pog.text(post_type_filter))
                 |> pog.returning(job_row())
                 |> db_exec.execute(ctx.db)
               {
                 Error(_) -> json_err(500, "jobs_query_failed")
                 Ok(ret) -> jobs_response(ret.rows, summary)
               }
+            False ->
+              case valid_post_type(post_type_filter) {
+                False -> json_err(400, "invalid_post_type")
+                True ->
+                  case
+                    pog.query(
+                      sel
+                      <> "where status = $1 and post_type = $2 order by created_at desc limit "
+                      <> int.to_string(limit),
+                    )
+                    |> pog.parameter(pog.text(status_filter))
+                    |> pog.parameter(pog.text(post_type_filter))
+                    |> pog.returning(job_row())
+                    |> db_exec.execute(ctx.db)
+                  {
+                    Error(_) -> json_err(500, "jobs_query_failed")
+                    Ok(ret) -> jobs_response(ret.rows, summary)
+                  }
+              }
           }
       }
+    }
   }
 }
 
