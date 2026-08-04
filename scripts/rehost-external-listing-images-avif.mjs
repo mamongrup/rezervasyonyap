@@ -12,6 +12,7 @@
  */
 
 import path from 'node:path'
+import { existsSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { createPgClient } from './lib/pg-client.mjs'
 import {
@@ -191,6 +192,18 @@ for (const row of listings.rows) {
     if (!saved?.length) {
       fail += 1
       console.warn(`[fail] ${row.slug} no files saved`)
+      continue
+    }
+    // DB'yi CDN URL'lerinden koparmadan önce dosyaların gerçekten diskte olduğunu doğrula.
+    const missing = []
+    for (const item of saved) {
+      const key = String(item.storageKey || '').replace(/^\/+/, '')
+      const abs = path.join(root, 'frontend', 'public', key)
+      if (!existsSync(abs)) missing.push(key)
+    }
+    if (missing.length) {
+      fail += 1
+      console.warn(`[fail] ${row.slug} missing on disk after write: ${missing.slice(0, 3).join(', ')}`)
       continue
     }
     const coverRaw = String(saved[0].storageKey || '').replace(/^\/+/, '')

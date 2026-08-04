@@ -97,12 +97,15 @@ git_sync_ref() {
       || true
     # Onceki deploy'dan kalan izlenmeyen script dosyalari `git checkout`i bloklar
     # (ornek: scripts/debug-hotel-book.mjs). Checkout oncesi temizle.
+    # uploads/** mutlaka korunmalı — eski `uploads/` exclude alt dosyaları silip
+    # rehost edilmiş AVIF'leri yok ediyordu (DB yerel yol, disk 404 → gri kart).
     git clean -fd \
-      --exclude=frontend/public/uploads/ \
-      --exclude=frontend/.env.local \
-      --exclude=frontend/.env.development.local \
-      --exclude=frontend/.env.production.local \
-      --exclude=frontend/.env
+      -e 'frontend/public/uploads' \
+      -e 'frontend/public/uploads/**' \
+      -e 'frontend/.env.local' \
+      -e 'frontend/.env.development.local' \
+      -e 'frontend/.env.production.local' \
+      -e 'frontend/.env'
   else
     warn "GIT_SYNC_KEEP_LOCAL=1 — yerel degisiklikler korunuyor; checkout takilirsa stash/commit yapin."
   fi
@@ -120,11 +123,12 @@ git_sync_ref() {
   fi
   # Checkout sonrasi kalan izlenmeyen dosyalar (or. test loglari).
   git clean -fd \
-    --exclude=frontend/public/uploads/ \
-    --exclude=frontend/.env.local \
-    --exclude=frontend/.env.development.local \
-    --exclude=frontend/.env.production.local \
-    --exclude=frontend/.env
+    -e 'frontend/public/uploads' \
+    -e 'frontend/public/uploads/**' \
+    -e 'frontend/.env.local' \
+    -e 'frontend/.env.development.local' \
+    -e 'frontend/.env.production.local' \
+    -e 'frontend/.env'
 }
 
 main() {
