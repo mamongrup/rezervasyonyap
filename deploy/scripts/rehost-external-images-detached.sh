@@ -4,6 +4,7 @@
 #   chmod +x deploy/scripts/rehost-external-images-detached.sh
 #   ./deploy/scripts/rehost-external-images-detached.sh
 #   ./deploy/scripts/rehost-external-images-detached.sh --category=activity --hosts=fairystonetravel.com
+#   ./deploy/scripts/rehost-external-images-detached.sh --source=manual
 #   ./deploy/scripts/rehost-external-images-detached.sh status
 #   ./deploy/scripts/rehost-external-images-detached.sh tail
 #   ./deploy/scripts/rehost-external-images-detached.sh wait

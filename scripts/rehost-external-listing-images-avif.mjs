@@ -5,7 +5,9 @@
  *   node scripts/rehost-external-listing-images-avif.mjs --limit=50
  *   node scripts/rehost-external-listing-images-avif.mjs --hosts=fairystonetravel.com
  *   node scripts/rehost-external-listing-images-avif.mjs --category=activity
+ *   node scripts/rehost-external-listing-images-avif.mjs --source=manual
  *
+ * --source=manual → yalnızca panel/IDE ile eklenen ilanlar (API import otel/araç hariç).
  * Ortam: backend.env / DATABASE_URL veya PG* (createPgClient)
  */
 
@@ -27,6 +29,8 @@ const limit = limitArg ? Number(limitArg.split('=')[1]) : 0
 const hostsArg = process.argv.find((a) => a.startsWith('--hosts='))
 const categoryArg = process.argv.find((a) => a.startsWith('--category='))
 const categoryFilter = categoryArg ? categoryArg.split('=')[1].trim().toLowerCase() : ''
+const sourceArg = process.argv.find((a) => a.startsWith('--source='))
+const sourceFilter = sourceArg ? sourceArg.split('=')[1].trim().toLowerCase() : ''
 const hostFilter = hostsArg
   ? hostsArg
       .split('=')[1]
@@ -34,6 +38,10 @@ const hostFilter = hostsArg
       .map((h) => h.trim().toLowerCase())
       .filter(Boolean)
   : null
+if (sourceFilter && !['manual', 'api', 'hybrid'].includes(sourceFilter)) {
+  console.error(`Geçersiz --source=${sourceFilter} (manual|api|hybrid)`)
+  process.exit(1)
+}
 
 const HOST_REPAIR = [
   { re: /bookeder\.com/i, fix: (u) => u.replace(/\.avif(\?|$)/i, '.JPEG$1') },
@@ -89,23 +97,29 @@ await client.connect()
 
 const hostUrlOr = hostSqlPatterns.map((p) => `e.url ~* '${p}'`).join('\n      OR ')
 const params = []
-let catClause = ''
+let extraClause = ''
 if (categoryFilter) {
   params.push(categoryFilter)
-  catClause = `AND e.category_code = $${params.length}`
+  extraClause += ` AND e.category_code = $${params.length}`
+}
+if (sourceFilter) {
+  params.push(sourceFilter)
+  extraClause += ` AND e.listing_source = $${params.length}`
 }
 
 const listings = await client.query(
   `
   WITH e AS (
-    SELECT l.id, l.slug, l.featured_image_url, pc.code AS category_code, l.updated_at,
+    SELECT l.id, l.slug, l.featured_image_url, pc.code AS category_code,
+           coalesce(l.listing_source, 'manual') AS listing_source, l.updated_at,
            coalesce(l.featured_image_url, '') AS url
     FROM listings l
     JOIN product_categories pc ON pc.id = l.category_id
     WHERE l.status = 'published'
       AND coalesce(l.featured_image_url, '') ~* '^https?://'
     UNION ALL
-    SELECT l.id, l.slug, l.featured_image_url, pc.code AS category_code, l.updated_at,
+    SELECT l.id, l.slug, l.featured_image_url, pc.code AS category_code,
+           coalesce(l.listing_source, 'manual') AS listing_source, l.updated_at,
            li.storage_key AS url
     FROM listing_images li
     JOIN listings l ON l.id = li.listing_id
@@ -113,13 +127,13 @@ const listings = await client.query(
     WHERE l.status = 'published'
       AND li.storage_key ~* '^https?://'
   )
-  SELECT id, slug, featured_image_url, category_code, max(updated_at) AS updated_at
+  SELECT id, slug, featured_image_url, category_code, listing_source, max(updated_at) AS updated_at
   FROM e
   WHERE (
       ${hostUrlOr}
     )
-    ${catClause}
-  GROUP BY id, slug, featured_image_url, category_code
+    ${extraClause}
+  GROUP BY id, slug, featured_image_url, category_code, listing_source
   ORDER BY max(updated_at) DESC NULLS LAST
   ${limit > 0 ? `LIMIT ${Number(limit)}` : ''}
 `,
@@ -127,7 +141,7 @@ const listings = await client.query(
 )
 
 console.log(
-  `candidates=${listings.rows.length} dryRun=${dryRun} category=${categoryFilter || '*'} hosts=${hostFilter?.join(',') || 'default'}`,
+  `candidates=${listings.rows.length} dryRun=${dryRun} category=${categoryFilter || '*'} source=${sourceFilter || '*'} hosts=${hostFilter?.join(',') || 'default'}`,
 )
 
 let ok = 0
