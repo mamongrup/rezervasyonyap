@@ -10,6 +10,7 @@ const PROXY_HOST_SUFFIXES = [
   // productcdn.tatilbudur.com: VPS egress sık 504; tarayıcı doğrudan 200 — proxy etme.
   'aegeanhotels.net',
   'reserwation.com',
+  'gezinomi.com',
   'upload.wikimedia.org',
   'integration-static.yolcu360.com',
   'static.yolcu360.com',
@@ -56,6 +57,7 @@ export function isAllowedListingExtImageHost(hostname: string): boolean {
     'i.travelapi.com',
     'photos.hotelbeds.com',
     'cdn.kplus.com.tr',
+    'images.gezinomi.com',
     'pics.avs.io',
     'integration-static.yolcu360.com',
     'static.yolcu360.com',

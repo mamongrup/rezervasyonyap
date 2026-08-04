@@ -1,16 +1,16 @@
 #!/usr/bin/env node
 /**
- * WTatil turlar — rehost sonrası kırık yerel /uploads galeriyi
- * listing_attributes wtatil/snapshot içindeki HTTPS (reserwation) URL'lerine geri yazar.
+ * WTatil turlar — kırık yerel /uploads veya bulanık -thumbnail kapakları
+ * listing_attributes wtatil/snapshot HTTPS galerisine (tam boy tercih) geri yazar.
  *
  *   node scripts/restore-wtatil-images-from-snapshot.mjs --dry-run --limit 20
- *   node scripts/restore-wtatil-images-from-snapshot.mjs --batch-size 200
- *   node scripts/restore-wtatil-images-from-snapshot.mjs --slug bangkok-pattaya-phuket-…-wt-10588
+ *   node scripts/restore-wtatil-images-from-snapshot.mjs --force --batch-size 200
+ *   node scripts/restore-wtatil-images-from-snapshot.mjs --slug …-wt-10588
  *
- * Kapak için hızlı SQL: modules/405_repair_wtatil_tour_images_from_snapshot.sql
- * Snapshot'ta HTTPS yoksa: node scripts/import-wtatil-tours.mjs (API yenileme)
+ * Ardından Gezinomi ile zenginleştir (tur kodu eşleşmesi, CDN URL — indirme yok):
+ *   node scripts/import-gezinomi-tour-images.mjs --cdn --few-only --min-images 4
  *
- * Ortam: PG* / backend.env (createPgClient)
+ * Ortam: set -a && . /etc/rezervasyonyap/backend.env && set +a
  */
 
 import { imageUrlsFromWtatilTour } from './lib/wtatil-listing-db.mjs'
@@ -19,6 +19,7 @@ import { cliLog } from './lib/cli-log.mjs'
 
 const args = new Set(process.argv.slice(2))
 const DRY_RUN = args.has('--dry-run')
+const FORCE = args.has('--force')
 const limitIdx = process.argv.indexOf('--limit')
 const LIMIT = limitIdx >= 0 ? Number(process.argv[limitIdx + 1]) : 0
 const batchIdx = process.argv.indexOf('--batch-size')
@@ -47,6 +48,25 @@ function isHttpsCdn(url) {
   return /^https:\/\//i.test(String(url || '').trim())
 }
 
+function isThumbnailUrl(url) {
+  return /-thumbnail\.(jpe?g|png|webp|avif)(\?|#|$)/i.test(String(url || ''))
+}
+
+/** Tam boy önce; yalnızca thumbnail varsa onlar. */
+function orderFullSizeFirst(urls) {
+  const full = []
+  const thumbs = []
+  const seen = new Set()
+  for (const raw of urls) {
+    const u = repairCdnExt(raw)
+    if (!isHttpsCdn(u) || seen.has(u)) continue
+    seen.add(u)
+    if (isThumbnailUrl(u)) thumbs.push(u)
+    else full.push(u)
+  }
+  return full.length ? [...full, ...thumbs] : thumbs
+}
+
 function parseSnapshotTour(raw) {
   if (!raw) return null
   try {
@@ -58,7 +78,7 @@ function parseSnapshotTour(raw) {
 }
 
 async function upsertGallery(pg, listingId, urls) {
-  const list = [...new Set(urls.map(repairCdnExt).filter(isHttpsCdn))]
+  const list = orderFullSizeFirst(urls)
   if (!list.length) return 0
   await pg.query(
     `UPDATE listings SET featured_image_url = $2, thumbnail_url = $2, updated_at = now() WHERE id = $1::uuid`,
@@ -77,19 +97,29 @@ async function upsertGallery(pg, listingId, urls) {
 
 async function loadBrokenTours(pg, { offset, limit }) {
   const params = []
-  let whereExtra = `
+  // storage_key çoğu zaman leading slash'sız: uploads/listings/...
+  let whereExtra = FORCE
+    ? ''
+    : `
        AND (
          coalesce(l.featured_image_url, '') = ''
-         OR l.featured_image_url ~ '^/'
+         OR l.featured_image_url ~* '(^|/)uploads/'
+         OR l.featured_image_url ~* '-thumbnail\\.'
          OR l.featured_image_url ~* 'reserwation\\.com.*\\.avif'
          OR EXISTS (
            SELECT 1 FROM listing_images li
            WHERE li.listing_id = l.id
              AND (
-               li.storage_key ~ '^/'
+               li.storage_key ~* '(^|/)uploads/'
+               OR li.storage_key !~* '^https?://'
                OR li.storage_key ~* 'reserwation\\.com.*\\.avif'
              )
          )
+         OR (
+           SELECT count(*)::int FROM listing_images li
+           WHERE li.listing_id = l.id AND li.storage_key ~* '^https?://'
+             AND li.storage_key !~* '-thumbnail\\.'
+         ) < 2
        )`
   if (SLUG) {
     params.push(SLUG)
@@ -125,6 +155,7 @@ async function main() {
     images: 0,
     noSnapshot: 0,
     noHttps: 0,
+    thumbOnly: 0,
   }
 
   let offset = OFFSET
@@ -132,7 +163,7 @@ async function main() {
 
   try {
     cliLog(
-      `restore-wtatil-images-from-snapshot ${DRY_RUN ? '(dry-run) ' : ''}batch=${BATCH} offset=${OFFSET}` +
+      `restore-wtatil-images-from-snapshot ${DRY_RUN ? '(dry-run) ' : ''}${FORCE ? '(force) ' : ''}batch=${BATCH} offset=${OFFSET}` +
         (SLUG ? ` slug=${SLUG}` : ''),
     )
 
@@ -149,33 +180,38 @@ async function main() {
           cliLog(`[SKIP] ${row.slug} — snapshot yok`)
           continue
         }
-        const httpsUrls = [...new Set(imageUrlsFromWtatilTour(tour).map(repairCdnExt).filter(isHttpsCdn))]
+        const httpsUrls = orderFullSizeFirst(imageUrlsFromWtatilTour(tour))
         if (!httpsUrls.length) {
           stats.noHttps += 1
           cliLog(`[SKIP] ${row.slug} — snapshot'ta HTTPS yok`)
           continue
         }
+        const fullCount = httpsUrls.filter((u) => !isThumbnailUrl(u)).length
+        if (!fullCount) stats.thumbOnly += 1
 
         if (DRY_RUN) {
           stats.restored += 1
           stats.images += httpsUrls.length
-          cliLog(`[DRY] ${row.slug} → ${httpsUrls.length} CDN | ${httpsUrls[0].slice(0, 90)}…`)
+          cliLog(
+            `[DRY] ${row.slug} → ${httpsUrls.length} CDN (tam:${fullCount}) | ${httpsUrls[0].slice(0, 90)}…`,
+          )
           continue
         }
 
         const n = await upsertGallery(pg, row.listing_id, httpsUrls)
         stats.restored += 1
         stats.images += n
-        cliLog(`[OK] ${row.slug} görsel:${n}`)
+        cliLog(`[OK] ${row.slug} görsel:${n} tam:${fullCount}`)
       }
 
       if (rows.length < take) break
-      offset += rows.length
+      // Filtreli kümeden düşen satırlar → offset 0 ile ilerle (FORCE değilse)
+      offset = FORCE ? offset + rows.length : 0
     }
 
     cliLog(
       `Özet: scanned=${stats.scanned} restored=${stats.restored} images=${stats.images}` +
-        ` noSnapshot=${stats.noSnapshot} noHttps=${stats.noHttps}`,
+        ` noSnapshot=${stats.noSnapshot} noHttps=${stats.noHttps} thumbOnly=${stats.thumbOnly}`,
     )
   } finally {
     await pg.end()

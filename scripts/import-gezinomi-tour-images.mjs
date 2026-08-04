@@ -7,7 +7,10 @@
  *   node scripts/import-gezinomi-tour-images.mjs --few-only --skip-existing
  *   node scripts/import-gezinomi-tour-images.mjs --playwright
  *   node scripts/import-gezinomi-tour-images.mjs --min-images 4 --limit 50
+ *   node scripts/import-gezinomi-tour-images.mjs --cdn --few-only --min-images 4
  *   node scripts/import-gezinomi-tour-images.mjs --compare-periods
+ *
+ * `--cdn`: Gezinomi HTTPS galeriyi DB'ye yazar (yerel AVIF indirmez — disk silinse de kırılmaz).
  *
  * Ortam: AVIF_QUALITY=90, MAX_WIDTH=1600, PG*, GEIZINOMI_DELAY_MS=800
  */
@@ -37,6 +40,7 @@ const args = new Set(process.argv.slice(2))
 const DRY_RUN = args.has('--dry-run')
 const SKIP_EXISTING = args.has('--skip-existing')
 const FEW_ONLY = args.has('--few-only')
+const USE_CDN = args.has('--cdn')
 const USE_PLAYWRIGHT = args.has('--playwright')
 const COMPARE_PERIODS = args.has('--compare-periods')
 const limitIdx = process.argv.indexOf('--limit')
@@ -117,6 +121,29 @@ async function savePeriodAudit(pgClient, listingId, meta) {
 }
 
 async function replaceListingImages(pgClient, listingId, slug, imageUrls, { dryRun }) {
+  if (USE_CDN) {
+    const list = [...new Set((imageUrls || []).map((u) => String(u || '').trim()).filter((u) => /^https:\/\//i.test(u)))]
+    if (!list.length) return 0
+    if (dryRun) {
+      stats.imagesOk += list.length
+      return list.length
+    }
+    await pgClient.query(`DELETE FROM listing_images WHERE listing_id = $1::uuid`, [listingId])
+    for (let i = 0; i < list.length; i++) {
+      await pgClient.query(
+        `INSERT INTO listing_images (listing_id, sort_order, storage_key, original_mime)
+         VALUES ($1::uuid, $2, $3, 'image/jpeg')`,
+        [listingId, i, list[i]],
+      )
+      stats.imagesOk++
+    }
+    await pgClient.query(
+      `UPDATE listings SET featured_image_url = $2, thumbnail_url = $2, updated_at = now() WHERE id = $1::uuid`,
+      [listingId, list[0]],
+    )
+    return list.length
+  }
+
   const saved = []
   for (let i = 0; i < imageUrls.length; i++) {
     const sourceUrl = imageUrls[i]
@@ -183,7 +210,16 @@ async function loadListings(pgClient) {
     sql += ` AND l.slug = $${params.length}`
   }
   if (MIN_IMAGES > 0) {
-    sql += ` AND (SELECT count(*) FROM listing_images li WHERE li.listing_id = l.id) < $${params.length + 1}`
+    if (USE_CDN) {
+      sql += ` AND (
+        SELECT count(*)::int FROM listing_images li
+        WHERE li.listing_id = l.id
+          AND li.storage_key ~* '^https?://'
+          AND li.storage_key !~* '-thumbnail\\.'
+      ) < $${params.length + 1}`
+    } else {
+      sql += ` AND (SELECT count(*) FROM listing_images li WHERE li.listing_id = l.id) < $${params.length + 1}`
+    }
     params.push(MIN_IMAGES)
   }
   sql += ` ORDER BY image_count ASC, l.slug`
@@ -202,7 +238,9 @@ async function scrapeGallery(ctx, match, title) {
 }
 
 async function main() {
-  console.log(`[gezinomi-import ${IMPORT_VERSION}] kaynak=TourDetail API, Playwright=${USE_PLAYWRIGHT ? 'evet' : 'hayır'}`)
+  console.log(
+    `[gezinomi-import ${IMPORT_VERSION}] kaynak=TourDetail API, mode=${USE_CDN ? 'cdn-url' : 'local-avif'}, Playwright=${USE_PLAYWRIGHT ? 'evet' : 'hayır'}`,
+  )
 
   const pgClient = createPgClient()
   await pgClient.connect()
@@ -328,9 +366,9 @@ async function main() {
     `${stats.noGallery} galeri yok`,
     COMPARE_PERIODS ? `${stats.periodOk} dönem uyumlu` : null,
     COMPARE_PERIODS ? `${stats.periodMismatch} dönem farkı` : null,
-    `${stats.imagesOk} avif`,
+    USE_CDN ? `${stats.imagesOk} cdn-url` : `${stats.imagesOk} avif`,
     `${stats.imagesFail} hata`,
-    `${(stats.bytesAvif / 1024 / 1024).toFixed(1)} MB`,
+    USE_CDN ? null : `${(stats.bytesAvif / 1024 / 1024).toFixed(1)} MB`,
   ]
     .filter(Boolean)
     .join(', ')

@@ -61,6 +61,11 @@ export function preferListingGalleryFullAsset(src: string): string {
   // Harici CDN + TatilBudur kırık yerel rehost → productcdn
   s = repairExternalListingImageExt(s)
 
+  // Reserwation: kapak çoğu zaman -thumbnail; mümkünse tam boy dene (404 → onError fallback)
+  if (/^https?:\/\/([^/]+\.)?reserwation\.com\//i.test(s) && /-thumbnail\./i.test(s)) {
+    s = s.replace(/-thumbnail\./i, '.')
+  }
+
   const qIdx = s.indexOf('?')
   const hIdx = s.indexOf('#')
   const pathEnd = Math.min(

@@ -73,6 +73,8 @@ export async function GET(req: NextRequest) {
       } else if (host.includes('tatilbudur.com')) {
         upstreamHeaders.Referer = 'https://www.tatilbudur.com/'
         upstreamHeaders.Accept = 'image/webp,image/apng,image/*,*/*;q=0.8'
+      } else if (host.includes('gezinomi.com')) {
+        upstreamHeaders.Referer = 'https://www.gezinomi.com/'
       } else if (host === 'bookeder.com' || host.endsWith('.bookeder.com')) {
         upstreamHeaders.Referer = 'https://bookeder.com/'
       }

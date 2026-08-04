@@ -239,6 +239,12 @@ const nextConfig = {
       },
       {
         protocol: 'https',
+        hostname: 'images.gezinomi.com',
+        port: '',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
         hostname: 'cdn.kplus.com.tr',
         port: '',
         pathname: '/**',

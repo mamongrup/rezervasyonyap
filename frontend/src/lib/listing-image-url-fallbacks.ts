@@ -129,6 +129,13 @@ export function nextListingImageUrlFallback(
     if (!tried.has(candidate)) return candidate
   }
 
+  // Reserwation bulanık -thumbnail → tam boy (yoksa sonraki kardeş uzantı)
+  if (/-thumbnail\.(jpe?g|png|webp|avif)(\?|#|$)/i.test(working)) {
+    const full = working.replace(/-thumbnail\./i, '.')
+    const candidate = isProxy ? proxyPrefix + encodeURIComponent(full) : full
+    if (!tried.has(candidate)) return candidate
+  }
+
   const qIdx = working.indexOf('?')
   const hIdx = working.indexOf('#')
   const pathEnd = Math.min(
