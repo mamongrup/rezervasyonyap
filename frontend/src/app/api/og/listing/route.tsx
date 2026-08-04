@@ -315,35 +315,6 @@ async function fetchWithTimeout(url: string, timeoutMs: number): Promise<Respons
   }
 }
 
-async function imageDataUrlForOg(
-  url: string | null,
-  opts: { width: number; height: number; fit: 'cover' | 'inside' },
-  pageBase?: string,
-): Promise<string | null> {
-  if (!url) return null
-  const fetchUrl = pageBase ? rewriteLoopbackUploadUrl(url, pageBase) : url
-  try {
-    const res = await fetchWithTimeout(fetchUrl, 3500)
-    if (!res.ok) return null
-    const input = Buffer.from(await res.arrayBuffer())
-    // Satori yalnızca png/jpeg/gif destekler — avif/webp burada PNG'ye çevrilir.
-    const output = await sharp(input, { failOn: 'none', limitInputPixels: false })
-      .rotate()
-      .resize({
-        width: opts.width,
-        height: opts.height,
-        fit: opts.fit,
-        withoutEnlargement: opts.fit === 'inside',
-        background: { r: 255, g: 255, b: 255, alpha: 0 },
-      })
-      .png()
-      .toBuffer()
-    return `data:image/png;base64,${output.toString('base64')}`
-  } catch {
-    return null
-  }
-}
-
 /** Satori dinamik font indirme (₺ vb.) 400 veriyor — ASCII/para birimi metnine indir. */
 function sanitizeOgText(value: string): string {
   return value
@@ -441,7 +412,6 @@ async function socialListingImage({
   themes: string[]
   pageBase: string
   branding: {
-    logoUrl: string | null
     phone: string
     tursabNo: string
   }
@@ -679,31 +649,7 @@ async function socialListingImage({
             lineHeight: 1.08,
           }}
         >
-          {branding.logoUrl ? (
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'flex-start',
-                width: scaleSocialTemplate(340),
-                padding: '6px 10px',
-                borderRadius: 12,
-                background: 'rgba(255,255,255,0.96)',
-                boxShadow: '0 8px 18px rgba(0,0,0,0.14)',
-              }}
-            >
-              <img
-                src={branding.logoUrl}
-                alt="Logo"
-                width={scaleSocialTemplate(300)}
-                height={scaleSocialTemplate(84)}
-                style={{
-                  objectFit: 'contain',
-                  opacity: 1,
-                }}
-              />
-            </div>
-          ) : null}
+          {/* Logo şablonda (üst sol) zaten var — altta tekrar basma. */}
           <div style={{ display: 'flex', fontSize: 28, fontWeight: 800, color: '#0f2b52' }}>
             Mamon Plus Travel Agency
           </div>
@@ -740,17 +686,11 @@ export async function GET(req: NextRequest) {
   const base = requestOriginBase(req)
 
   const rawBranding = await fetchOgBranding(base)
+  // Sosyal kapak: logo şablonda (üst sol); altta yalnız acente metni.
+  // OG JPEG yolu logo kullanmaz — logo data-URL yükünü atla.
   const branding = {
-    ...rawBranding,
-    logoUrl: await imageDataUrlForOg(
-      rawBranding.logoUrl,
-      {
-        width: 330,
-        height: 92,
-        fit: 'inside',
-      },
-      base,
-    ),
+    phone: rawBranding.phone,
+    tursabNo: rawBranding.tursabNo,
   }
 
   const fallbackListingId = searchParams.get('listing_id')?.trim() || null
