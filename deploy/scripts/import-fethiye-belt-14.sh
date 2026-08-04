@@ -30,6 +30,10 @@ source "$APP_ROOT/deploy/scripts/lib/psql-env.sh"
 
 psql_travel -v ON_ERROR_STOP=1 <<'SQL'
 -- Konum + listing_meta + kaynak URL + pansiyon + AI kuyruğu (14 otel)
+-- CTE yalnızca tek statement'te yaşar; sonraki INSERT/UPDATE için TEMP TABLE gerekir.
+BEGIN;
+
+CREATE TEMP TABLE targets ON COMMIT DROP AS
 WITH feed(ref, location_name, district, city, province, address, lat, lng, source_url, meal_code, meal_label, meal_label_en) AS (
   VALUES
     ('oyster-residences', 'Ölüdeniz, Fethiye, Muğla', 'Ölüdeniz', 'Fethiye', 'Muğla',
@@ -74,14 +78,13 @@ WITH feed(ref, location_name, district, city, province, address, lat, lng, sourc
     ('silence-villas', 'Kargı, Fethiye, Muğla', 'Kargı', 'Fethiye', 'Muğla',
       'Kargı Mahallesi Zafer Sokak No:39/A, Fethiye/Muğla', 36.685849, 29.081465,
       'https://www.etstur.com/Silence-Villas', 'bed_breakfast', 'Oda Kahvaltı', 'Bed & Breakfast')
-),
-targets AS (
-  SELECT l.id AS listing_id, f.*
-  FROM feed f
-  JOIN listings l
-    ON l.external_provider_code = 'tatilbudur'
-   AND l.external_listing_ref = f.ref
 )
+SELECT l.id AS listing_id, f.*
+FROM feed f
+JOIN listings l
+  ON l.external_provider_code = 'tatilbudur'
+ AND l.external_listing_ref = f.ref;
+
 UPDATE listings l
 SET
   location_name = t.location_name,
@@ -200,6 +203,8 @@ LEFT JOIN listing_images li ON li.listing_id = l.id
 LEFT JOIN hotel_rooms hr ON hr.listing_id = l.id
 GROUP BY l.id, l.external_listing_ref, l.slug, l.status, l.vitrin_price, l.location_name
 ORDER BY l.external_listing_ref;
+
+COMMIT;
 SQL
 
 echo "[OK] Fethiye kuşağı 14 otel içe aktarıldı."

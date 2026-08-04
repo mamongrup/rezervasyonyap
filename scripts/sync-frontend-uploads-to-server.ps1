@@ -4,17 +4,21 @@
 # Gereksinim: Windows OpenSSH İstemcisi (scp). Ayarlar -> Uygulamalar -> İsteğe bağlı özellikler.
 #
 # Örnek:
-#   .\scripts\sync-frontend-uploads-to-server.ps1 -Server 50.114.185.100 -User root
-#   .\scripts\sync-frontend-uploads-to-server.ps1 -Server 50.114.185.100 -User root -Port 22
+#   .\scripts\sync-frontend-uploads-to-server.ps1 -Server 50.114.185.100 -User PLESK_USER
+#   .\scripts\sync-frontend-uploads-to-server.ps1 -Server 50.114.185.100 -User PLESK_USER -Port 22
 #
-# İlk seferde sunucuda: mkdir -p /opt/rezervasyonyap/frontend/public/uploads
+# İlk seferde sunucuda:
+#   mkdir -p /var/www/vhosts/rezervasyonyap.tr/httpdocs/frontend/public/uploads
+#
+# Not: root SSH genelde kapalı; Plesk sistem kullanıcısı kullanın (docs/WINSCP-YUKLEME-100.md).
+# Vitrin Next WorkingDirectory = httpdocs/frontend — /opt altına yüklemek 404 üretir.
 
 param(
     [Parameter(Mandatory = $true)]
     [string]$Server,
     [string]$User = 'root',
     [int]$Port = 22,
-    [string]$RemotePublicParent = '/opt/rezervasyonyap/frontend/public'
+    [string]$RemotePublicParent = '/var/www/vhosts/rezervasyonyap.tr/httpdocs/frontend/public'
 )
 
 $ErrorActionPreference = 'Stop'

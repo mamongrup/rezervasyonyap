@@ -22,7 +22,9 @@ import {
 } from './lib/wtatil-image-download.mjs'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
-const uploadsRoot = path.join(root, 'frontend', 'public', 'uploads')
+// listingUploadDir(uploadsRoot, …) → …/ilanlar/{kategori}/{slug}
+// DB storage_key = uploads/listings/ilanlar/… → dosya public/uploads/listings/ilanlar/…
+const uploadsRoot = path.join(root, 'frontend', 'public', 'uploads', 'listings')
 
 const dryRun = process.argv.includes('--dry-run')
 const limitArg = process.argv.find((a) => a.startsWith('--limit='))
