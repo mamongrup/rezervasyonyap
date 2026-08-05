@@ -551,6 +551,21 @@ main() {
     warn "İlan kaynak senkronizasyon systemd dosyaları bulunamadı."
   fi
 
+  if [[ "${SKIP_HOLIDAY_NEARBY_POIS_TIMER:-0}" == "1" ]]; then
+    warn "SKIP_HOLIDAY_NEARBY_POIS_TIMER=1 — tüm villa mesafe yenileme zamanlayıcısı atlandı."
+  elif [[ -f "$APP_ROOT/deploy/systemd/travel-holiday-nearby-pois.service" && -f "$APP_ROOT/deploy/systemd/travel-holiday-nearby-pois.timer" ]]; then
+    step "Tüm villa yakın mekan ve mesafe timer kurulumu"
+    cp "$APP_ROOT/deploy/systemd/travel-holiday-nearby-pois.service" /etc/systemd/system/travel-holiday-nearby-pois.service \
+      && cp "$APP_ROOT/deploy/systemd/travel-holiday-nearby-pois.timer" /etc/systemd/system/travel-holiday-nearby-pois.timer \
+      && systemctl daemon-reload \
+      && systemctl enable --now travel-holiday-nearby-pois.timer \
+      && systemctl start --no-block travel-holiday-nearby-pois.service \
+      && ok "travel-holiday-nearby-pois.timer etkin" \
+      || warn "travel-holiday-nearby-pois.timer kurulamadı; systemd/log kontrol edin."
+  else
+    warn "Tüm villa mesafe systemd dosyaları bulunamadı."
+  fi
+
   if [[ "${SKIP_WARM_CACHE_TIMER:-0}" == "1" ]]; then
     warn "SKIP_WARM_CACHE_TIMER=1 — vitrin önbellek ısıtma timer kurulumu atlandı."
   elif [[ -f "$APP_ROOT/deploy/systemd/travel-warm-cache.service" && -f "$APP_ROOT/deploy/systemd/travel-warm-cache.timer" ]]; then
