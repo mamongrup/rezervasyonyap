@@ -26,6 +26,9 @@ import { categoryLabelTr } from '@/lib/catalog-category-ui'
 import { isStayRentalCategory } from '@/lib/stay-rental-categories'
 import { DEFAULT_LISTING_PREPAYMENT_PERCENT } from '@/lib/listing-prepayment'
 import { managePublicDetailPathForVertical } from '@/lib/stay-detail-routes'
+import { DETAIL_SEGMENT_BY_VERTICAL } from '@/lib/listing-detail-routes'
+import { notifyCatalogRevalidate } from '@/lib/notify-catalog-revalidate'
+import { SLUG_TO_CODE } from '@/lib/listings-fetcher'
 import { useVitrinHref } from '@/hooks/use-vitrin-href'
 import { getStoredAuthProfile, getStoredAuthToken } from '@/lib/auth-storage'
 import {
@@ -3315,6 +3318,20 @@ export default function CatalogNewListingClient({
       }
       if (!editListingId) {
         router.push(`${manageUrl}?step=${currentStep}`)
+      }
+      {
+        const handle = slugifyListingSlug(slug.trim())
+        const categorySlug =
+          Object.entries(SLUG_TO_CODE).find(([, code]) => code === categoryCode)?.[0] ?? ''
+        const detailSegment =
+          DETAIL_SEGMENT_BY_VERTICAL[catalogVertical as keyof typeof DETAIL_SEGMENT_BY_VERTICAL] ?? ''
+        if (handle || categorySlug) {
+          notifyCatalogRevalidate({
+            handle: handle || undefined,
+            category_slug: categorySlug || undefined,
+            detail_segment: detailSegment || undefined,
+          })
+        }
       }
       router.refresh()
     } catch (e) {

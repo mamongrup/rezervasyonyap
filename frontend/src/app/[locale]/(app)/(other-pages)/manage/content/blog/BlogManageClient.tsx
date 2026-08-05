@@ -11,6 +11,7 @@ import {
   type BlogCategory,
   type BlogPost,
 } from '@/lib/travel-api'
+import { notifyCatalogRevalidate } from '@/lib/notify-catalog-revalidate'
 import clsx from 'clsx'
 import {
   Calendar,
@@ -285,6 +286,7 @@ export default function BlogManageClient() {
     try {
       await deleteBlogPost(token, id)
       setPosts((prev) => prev.filter((p) => p.id !== id))
+      notifyCatalogRevalidate({ blog: true })
     } catch (e) {
       setError(formatManageApiCatch(e, 'Silinemedi'))
     } finally {

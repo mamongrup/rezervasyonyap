@@ -1,6 +1,9 @@
 import { ApplicationLayout } from '../application-layout'
 import type { ReactNode } from 'react'
 
+/** Bölge vitrin sayfaları — ISR; panel kaydı `revalidateLocationPagePaths` ile bust eder. */
+export const revalidate = 300
+
 export default async function Layout({
   children,
   params,

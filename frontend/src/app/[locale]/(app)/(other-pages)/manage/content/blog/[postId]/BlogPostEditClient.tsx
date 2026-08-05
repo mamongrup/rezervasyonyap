@@ -10,6 +10,7 @@ import { ManageStickyLangBar } from '@/components/manage/ManageStickyLangBar'
 import { ManageStickyFormFooter } from '@/components/manage/ManageStickyFormFooter'
 import { useVitrinHref } from '@/hooks/use-vitrin-href'
 import { callAiTranslate } from '@/lib/manage-content-ai'
+import { notifyCatalogRevalidate } from '@/lib/notify-catalog-revalidate'
 import {
   MANAGE_FORM_CONTAINER_CLASS,
   ManageFormListingSection,
@@ -570,6 +571,7 @@ export default function BlogPostEditClient({
       setPost((prev) =>
         prev ? { ...prev, published_at: isPublished ? null : new Date().toISOString() } : prev,
       )
+      notifyCatalogRevalidate({ blog: true, blog_slug: (post.slug || slug).trim() || undefined })
       showSaved(isPublished ? 'Taslağa alındı' : 'Yayınlandı!')
     } catch (e) {
       setError(formatManageApiCatch(e, 'Durum değiştirilemedi'))
@@ -634,6 +636,7 @@ export default function BlogPostEditClient({
         return [...prev, entry]
       })
       showSaved('Tüm değişiklikler kaydedildi')
+      notifyCatalogRevalidate({ blog: true, blog_slug: slug.trim() || undefined })
       if (submitIntentRef.current === 'save-show' && typeof window !== 'undefined') {
         window.open(previewHref, '_blank', 'noopener,noreferrer')
       }
