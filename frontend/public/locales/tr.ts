@@ -1998,13 +1998,14 @@ export const tr = {
       squareMeters: 'm²',
       maxGuests: 'Maks misafir',
       minAdvanceBookingDays: 'En erken rezervasyon (gün)',
-      minShortStayNights: 'Kısa konaklama min gece',
+      minShortStayNights: 'Min. konaklama (eşik)',
       shortStayFee: 'Kısa konaklama ücreti',
       pricingCardTitle: 'Fiyatlandırma ve ücretler',
       pricingShortStayHeading: 'Kısa konaklama ücreti',
-      pricingShortStayIntro: 'Minimum gecenin altında kalınırsa bu tutar alınır.',
+      pricingShortStayIntro:
+        'Temel Bilgiler’deki min. konaklama gecesinin altında kalınırsa bu tutar bir kez alınır.',
       shortStayFeeHint:
-        'Yalnızca yukarıdaki minimum geceden kısa konaklamalarda uygulanır; boş bırakılırsa ücret yok.',
+        'Eşik ayrı girilmez; Min. konaklama alanındaki değer kullanılır. Boş bırakılırsa ücret yok.',
       pricingCleaningHint:
         'Boş bırakılırsa tahsil edilmez. Vitrinde ek ücretler bölümünde gösterilir.',
       youtubeUrl: 'YouTube URL',

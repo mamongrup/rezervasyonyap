@@ -2055,13 +2055,14 @@ export const en = {
       squareMeters: 'Square meters',
       maxGuests: 'Max guests',
       minAdvanceBookingDays: 'Min advance booking (days)',
-      minShortStayNights: 'Min short-stay nights',
+      minShortStayNights: 'Min. stay threshold',
       shortStayFee: 'Short-stay fee',
       pricingCardTitle: 'Pricing & fees',
       pricingShortStayHeading: 'Short-stay fee',
-      pricingShortStayIntro: 'Charged when the guest stays fewer nights than the threshold below.',
+      pricingShortStayIntro:
+        'Charged once when the stay is shorter than the Min. stay nights set in listing basics.',
       shortStayFeeHint:
-        'Applies only when the stay is shorter than the minimum short-stay nights; leave empty for no fee.',
+        'No separate threshold — uses Min. stay nights. Leave empty for no fee.',
       pricingCleaningHint: 'Leave empty to charge nothing. Shown on the public listing under additional charges.',
       youtubeUrl: 'YouTube URL',
       address: 'Address',

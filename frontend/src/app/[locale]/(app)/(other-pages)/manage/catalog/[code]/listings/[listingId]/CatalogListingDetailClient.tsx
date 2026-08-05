@@ -1083,7 +1083,6 @@ export default function CatalogListingDetailClient({
   const [lat, setLat] = useState('')
   const [lng, setLng] = useState('')
   const [minAdvanceBookingDays, setMinAdvanceBookingDays] = useState('')
-  const [minShortStayNights, setMinShortStayNights] = useState('')
   const [shortStayFee, setShortStayFee] = useState('')
   const MEAL_PLAN_CATS = new Set(['hotel', 'holiday_home', 'yacht_charter'])
   const CALENDAR_INIT_CATS = new Set(['hotel', 'holiday_home', 'yacht_charter'])
@@ -1222,8 +1221,11 @@ export default function CatalogListingDetailClient({
         setLat(metaTxt(meta.lat))
         setLng(metaTxt(meta.lng))
         setMinAdvanceBookingDays(meta.min_advance_booking_days ?? '')
-        setMinShortStayNights(meta.min_short_stay_nights ?? '')
         setShortStayFee(meta.short_stay_fee ?? '')
+        const legacyShortMin = (meta.min_short_stay_nights ?? '').trim()
+        if (legacyShortMin) {
+          setMinStayNights((prev) => (prev.trim() ? prev : legacyShortMin))
+        }
       }
     } catch {
       /* ignore */
@@ -1446,7 +1448,8 @@ export default function CatalogListingDetailClient({
       assignTrim('lat', String(lat ?? ''))
       assignTrim('lng', String(lng ?? ''))
       assignTrim('min_advance_booking_days', minAdvanceBookingDays)
-      assignTrim('min_short_stay_nights', minShortStayNights)
+      // Kısa konaklama eşiği = tek Min. konaklama alanı
+      assignTrim('min_short_stay_nights', minStayNights)
       assignTrim('short_stay_fee', shortStayFee)
       if (typeof prev.youtube_url === 'string' && prev.youtube_url.trim()) {
         next.youtube_url = prev.youtube_url.trim()
@@ -2066,28 +2069,23 @@ export default function CatalogListingDetailClient({
               </h3>
               <p className="mt-0.5 text-xs text-neutral-500 dark:text-neutral-400">
                 {ui.listingForm.pricingShortStayIntro}
+                {minStayNights.trim() ? ` (${minStayNights.trim()})` : ''}
               </p>
-              <div className="mt-4 grid gap-4 sm:grid-cols-2">
-                <Field className="block">
-                  <Label>{ui.listingForm.minShortStayNights}</Label>
-                  <Input className="mt-1" value={minShortStayNights} onChange={(e) => setMinShortStayNights(e.target.value)} />
-                </Field>
-                <Field className="block">
-                  <Label>
-                    {ui.listingForm.shortStayFee} ({listingCurrencyCode})
-                  </Label>
-                  <Input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    className="mt-1"
-                    value={shortStayFee}
-                    onChange={(e) => setShortStayFee(e.target.value)}
-                    placeholder="500"
-                  />
-                  <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">{ui.listingForm.shortStayFeeHint}</p>
-                </Field>
-              </div>
+              <Field className="mt-4 block max-w-md">
+                <Label>
+                  {ui.listingForm.shortStayFee} ({listingCurrencyCode})
+                </Label>
+                <Input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  className="mt-1"
+                  value={shortStayFee}
+                  onChange={(e) => setShortStayFee(e.target.value)}
+                  placeholder="500"
+                />
+                <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">{ui.listingForm.shortStayFeeHint}</p>
+              </Field>
             </div>
           </div>
 
