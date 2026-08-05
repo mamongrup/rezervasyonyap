@@ -3,7 +3,9 @@ import {
   buildDistanceColumnsFromRegionPlaces,
   buildHotelDistanceColumnsFromFacilitySections,
   buildHotelListingDistanceColumns,
+  classifyDistanceItem,
   hotelDistanceColumnsHaveItems,
+  limitDistanceItemsByCategory,
   mergeHotelDistanceColumns,
 } from './hotel-detail-demo-content'
 
@@ -56,6 +58,42 @@ describe('buildHotelListingDistanceColumns', () => {
       'Otogar',
       'Antalya Havalimanı',
     ])
+  })
+
+  it('keeps beaches, essentials and transport in their own subcategories', () => {
+    const result = buildHotelListingDistanceColumns({
+      nearbyPois: [
+        { title: 'Limanağzı Plajı', summary: 'Plaj', category: 'beach', distance_km: 3.3, lat: 1, lng: 1 },
+        { title: 'Muhtar Alışveriş Merkezi', summary: 'Süpermarket', category: 'market', distance_km: 2.8, lat: 1, lng: 1 },
+        { title: 'Kaş Otogar', summary: 'Otogar', category: 'bus_station', distance_km: 3.1, lat: 1, lng: 1 },
+      ],
+      servicePois: { amenities: [], transport: [] },
+    })
+
+    expect(result.historic[0]).toMatchObject({ name: 'Limanağzı Plajı', category: 'beach' })
+    expect(result.surroundings[0]).toMatchObject({ name: 'Muhtar Alışveriş Merkezi', category: 'market' })
+    expect(result.transport[0]).toMatchObject({ name: 'Kaş Otogar', category: 'bus_station' })
+  })
+})
+
+describe('distance subcategory limits', () => {
+  it('selects three automatic items, popular extras and all manual additions', () => {
+    const result = limitDistanceItemsByCategory([
+      { name: 'A', distanceKm: 1, category: 'beach', popularity: 100 },
+      { name: 'B', distanceKm: 2, category: 'beach', popularity: 95 },
+      { name: 'C', distanceKm: 3, category: 'beach', popularity: 92 },
+      { name: 'D', distanceKm: 4, category: 'beach', popularity: 90 },
+      { name: 'E', distanceKm: 5, category: 'beach', popularity: 40 },
+      { name: 'Manuel', distanceKm: 6, category: 'beach', manual: true },
+    ])
+    expect(result.map((item) => item.name)).toEqual(['A', 'B', 'C', 'D', 'Manuel'])
+  })
+
+  it('recognizes Turkish names without mixing columns', () => {
+    expect(classifyDistanceItem('Limanağzı Plajı')).toMatchObject({ column: 'historic', category: 'beach' })
+    expect(classifyDistanceItem('Muhtar Alışveriş Merkezi')).toMatchObject({ column: 'surroundings', category: 'market' })
+    expect(classifyDistanceItem('Myra Antik Kenti')).toMatchObject({ column: 'historic', category: 'ruins' })
+    expect(classifyDistanceItem('Kaş Limanı')).toMatchObject({ column: 'transport', category: 'port' })
   })
 })
 

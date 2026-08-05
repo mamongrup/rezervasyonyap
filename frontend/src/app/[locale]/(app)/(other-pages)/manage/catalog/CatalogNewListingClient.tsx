@@ -115,6 +115,7 @@ import {
   type MealPlanCode,
   type MealPlanItem,
   type NearbyPoi,
+  type NearbyPoiCategory,
   type PriceLineItem,
   type ListingMeta,
 } from '@/lib/travel-api'
@@ -172,6 +173,20 @@ import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import clsx from 'clsx'
 import WizardStepNav, { type WizardStep } from '@/components/wizard/WizardStepNav'
+
+const NEARBY_POI_CATEGORY_OPTIONS: { value: NearbyPoiCategory; label: string }[] = [
+  { value: 'beach', label: 'Gezilecek Yerler / Plaj' },
+  { value: 'ruins', label: 'Gezilecek Yerler / Ören Yeri' },
+  { value: 'historic', label: 'Gezilecek Yerler / Tarihi Alan' },
+  { value: 'market', label: 'Temel İhtiyaçlar / Market' },
+  { value: 'restaurant', label: 'Temel İhtiyaçlar / Restoran' },
+  { value: 'hospital', label: 'Temel İhtiyaçlar / Hastane' },
+  { value: 'pharmacy', label: 'Temel İhtiyaçlar / Eczane' },
+  { value: 'airport', label: 'Ulaşım / Havalimanı' },
+  { value: 'bus_station', label: 'Ulaşım / Otogar' },
+  { value: 'port', label: 'Ulaşım / Liman' },
+  { value: 'other', label: 'Diğer' },
+]
 
 /** Arama / paylaşım — `upsertSeoMetadata` ile kayıt (listing) */
 type ListingSeoDraft = {
@@ -785,6 +800,8 @@ export default function CatalogNewListingClient({
   const [mapsApiKey, setMapsApiKey] = useState('')
   const [newPoiName, setNewPoiName] = useState('')
   const [newPoiNote, setNewPoiNote] = useState('')
+  const [newPoiCategory, setNewPoiCategory] = useState<NearbyPoiCategory>('beach')
+  const [newPoiDistance, setNewPoiDistance] = useState('')
   const [newPoiLink, setNewPoiLink] = useState('')
   const [newPoiImage, setNewPoiImage] = useState('')
 
@@ -1740,6 +1757,7 @@ export default function CatalogNewListingClient({
         address: string
         types: string[]
         rating?: number
+        userRatingsTotal?: number
         placeId: string
         photoRef?: string
         lat: number
@@ -1747,28 +1765,47 @@ export default function CatalogNewListingClient({
         distanceKm: number
       }
 
-      const placeRowToPoi = (p: PlaceRow): NearbyPoi => ({
-        title: p.name,
-        summary: [
-          p.address,
-          p.rating ? `Puan: ${p.rating}/5` : '',
-          (p.types ?? [])
-            .filter((t) => !['point_of_interest', 'establishment'].includes(t))
-            .slice(0, 2)
-            .map((t) => t.replace(/_/g, ' '))
-            .join(', '),
-        ]
-          .filter(Boolean)
-          .join(' — '),
-        image: p.photoRef
-          ? buildPlacePhotoProxySrc(p.photoRef, 800)
-          : undefined,
-        link: `https://www.google.com/maps/place/?q=place_id:${p.placeId}`,
-        place_id: p.placeId,
-        lat: p.lat,
-        lng: p.lng,
-        distance_km: Math.round(p.distanceKm * 10) / 10,
-      })
+      const placeRowToPoi = (p: PlaceRow): NearbyPoi => {
+        const placeText = `${p.name} ${(p.types ?? []).join(' ')}`.toLocaleLowerCase('tr')
+        let category: NearbyPoiCategory = 'historic'
+        if (/beach|plaj/.test(placeText)) category = 'beach'
+        else if (/archae|ruins|ören|antik/.test(placeText)) category = 'ruins'
+        else if (/restaurant|cafe|food/.test(placeText)) category = 'restaurant'
+        else if (/hospital|clinic/.test(placeText)) category = 'hospital'
+        else if (/pharmacy/.test(placeText)) category = 'pharmacy'
+        else if (/supermarket|grocery|store|shopping/.test(placeText)) category = 'market'
+        else if (/airport/.test(placeText)) category = 'airport'
+        else if (/bus_station|transit_station/.test(placeText)) category = 'bus_station'
+        else if (/ferry|port|marina/.test(placeText)) category = 'port'
+
+        return {
+          title: p.name,
+          summary: [
+            p.address,
+            p.rating ? `Puan: ${p.rating}/5` : '',
+            (p.types ?? [])
+              .filter((t) => !['point_of_interest', 'establishment'].includes(t))
+              .slice(0, 2)
+              .map((t) => t.replace(/_/g, ' '))
+              .join(', '),
+          ]
+            .filter(Boolean)
+            .join(' — '),
+          category,
+          popularity: Math.min(
+            100,
+            Math.round((p.rating ?? 3.5) * 16 + Math.log10((p.userRatingsTotal ?? 0) + 1) * 8),
+          ),
+          image: p.photoRef
+            ? buildPlacePhotoProxySrc(p.photoRef, 800)
+            : undefined,
+          link: `https://www.google.com/maps/place/?q=place_id:${p.placeId}`,
+          place_id: p.placeId,
+          lat: p.lat,
+          lng: p.lng,
+          distance_km: Math.round(p.distanceKm * 10) / 10,
+        }
+      }
 
       // Places Nearby sunucu anahtarı kullanır (GOOGLE_MAPS_SERVER_API_KEY).
       // Tarayıcı / panel Maps JS anahtarını gövdeye göndermeyin — referrer kısıtı REQUEST_DENIED üretir.
@@ -1776,7 +1813,16 @@ export default function CatalogNewListingClient({
       let googleError: string | null = null
       let usedGooglePlaces = false
 
-      const googleTypes = ['tourist_attraction', 'park', 'natural_feature', 'museum']
+      const googleTypes = [
+        'tourist_attraction',
+        'museum',
+        'supermarket',
+        'restaurant',
+        'hospital',
+        'pharmacy',
+        'airport',
+        'bus_station',
+      ]
       const byPlaceId = new Map<string, PlaceRow>()
       for (const googleType of googleTypes) {
         try {
@@ -1887,18 +1933,23 @@ export default function CatalogNewListingClient({
 
   function addManualPoi() {
     if (!newPoiName.trim()) return
+    const manualDistance = Number(newPoiDistance.replace(',', '.'))
+    if (!Number.isFinite(manualDistance) || manualDistance <= 0) return
     const poi: NearbyPoi = {
       title: newPoiName.trim(),
       summary: newPoiNote.trim() || undefined,
+      category: newPoiCategory,
+      manual: true,
       link: newPoiLink.trim() || undefined,
       image: newPoiImage.trim() || undefined,
       lat: parseFloat(lat) || 0,
       lng: parseFloat(lng) || 0,
-      distance_km: 0,
+      distance_km: manualDistance,
     }
     void saveNearbyPois([...nearbyPois, poi])
     setNewPoiName('')
     setNewPoiNote('')
+    setNewPoiDistance('')
     setNewPoiLink('')
     setNewPoiImage('')
   }
@@ -3781,12 +3832,36 @@ export default function CatalogNewListingClient({
                 />
               </div>
               <div>
+                <label className="mb-1 block text-[11px] font-medium text-neutral-600 dark:text-neutral-400">Bölüm / alt başlık</label>
+                <select
+                  value={newPoiCategory}
+                  onChange={(e) => setNewPoiCategory(e.target.value as NearbyPoiCategory)}
+                  className="w-full rounded-xl border border-neutral-200 bg-white px-3 py-2 text-xs text-neutral-900 focus:border-primary-400 focus:outline-none focus:ring-1 focus:ring-primary-400 dark:border-neutral-700 dark:bg-neutral-900 dark:text-white"
+                >
+                  {NEARBY_POI_CATEGORY_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>{option.label}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
                 <label className="mb-1 block text-[11px] font-medium text-neutral-600 dark:text-neutral-400">Kısa açıklama</label>
                 <input
                   type="text"
                   value={newPoiNote}
                   onChange={(e) => setNewPoiNote(e.target.value)}
                   placeholder="ör. Tarihi Rum köyü, 3 km"
+                  className="w-full rounded-xl border border-neutral-200 bg-white px-3 py-2 text-xs text-neutral-900 placeholder:text-neutral-400 focus:border-primary-400 focus:outline-none focus:ring-1 focus:ring-primary-400 dark:border-neutral-700 dark:bg-neutral-900 dark:text-white"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-[11px] font-medium text-neutral-600 dark:text-neutral-400">Mesafe (km)</label>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.1"
+                  value={newPoiDistance}
+                  onChange={(e) => setNewPoiDistance(e.target.value)}
+                  placeholder="ör. 4.2"
                   className="w-full rounded-xl border border-neutral-200 bg-white px-3 py-2 text-xs text-neutral-900 placeholder:text-neutral-400 focus:border-primary-400 focus:outline-none focus:ring-1 focus:ring-primary-400 dark:border-neutral-700 dark:bg-neutral-900 dark:text-white"
                 />
               </div>
@@ -3814,7 +3889,11 @@ export default function CatalogNewListingClient({
                 <button
                   type="button"
                   onClick={addManualPoi}
-                  disabled={!newPoiName.trim()}
+                  disabled={
+                    !newPoiName.trim() ||
+                    !Number.isFinite(Number(newPoiDistance.replace(',', '.'))) ||
+                    Number(newPoiDistance.replace(',', '.')) <= 0
+                  }
                   className="inline-flex items-center gap-1.5 rounded-xl bg-primary-600 px-4 py-2 text-xs font-semibold text-white shadow-sm hover:bg-primary-700 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" className="h-3.5 w-3.5">

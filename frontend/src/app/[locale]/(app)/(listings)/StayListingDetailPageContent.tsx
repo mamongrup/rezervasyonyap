@@ -579,7 +579,7 @@ export default async function StayListingDetailPageContent({
             transport: [],
           },
           holidayRegionDistanceFallback,
-          8,
+          30,
         )
       : listingDistanceColumnsRaw
   const hasListingDistanceColumns = hotelDistanceColumnsHaveItems(listingDistanceColumns)

@@ -499,6 +499,12 @@ main() {
         "$APP_ROOT/backend/priv/sql/modules/420_seed_kas_holiday_home_nearby_distances.sql" \
         || warn "420 Kaş holiday-home nearby distances SQL uygulanamadı"
     fi
+    if [[ -f "$APP_ROOT/backend/priv/sql/modules/421_group_kas_nearby_pois_by_category.sql" ]]; then
+      step "Kaş/Kalkan yakın mekan alt kategori ve popülerlik grupları (421)"
+      bash "$APP_ROOT/deploy/apply-sql.sh" \
+        "$APP_ROOT/backend/priv/sql/modules/421_group_kas_nearby_pois_by_category.sql" \
+        || warn "421 grouped Kaş nearby POIs SQL uygulanamadı"
+    fi
   fi
 
   if [[ "${SKIP_AI_WORKER_TIMER:-0}" == "1" ]]; then

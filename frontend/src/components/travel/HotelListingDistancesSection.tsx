@@ -1,11 +1,110 @@
 import type { ReactNode } from 'react'
 import { Info, Landmark, PlaneTakeoff, ShoppingBasket } from 'lucide-react'
+import type { NearbyPoiCategory } from '@/lib/travel-api'
 import { getMessages } from '@/utils/getT'
 import { interpolate } from '@/utils/interpolate'
 
 export type HotelDistanceItem = {
   name: string
   distanceKm: number
+  category?: NearbyPoiCategory
+  popularity?: number
+  manual?: boolean
+}
+
+const CATEGORY_ORDER: NearbyPoiCategory[] = [
+  'beach',
+  'ruins',
+  'historic',
+  'market',
+  'restaurant',
+  'hospital',
+  'pharmacy',
+  'airport',
+  'bus_station',
+  'port',
+  'other',
+]
+
+const CATEGORY_LABELS: Record<string, Record<NearbyPoiCategory, string>> = {
+  tr: {
+    beach: 'Plajlar',
+    ruins: 'Ören Yerleri',
+    historic: 'Tarihi Alanlar',
+    market: 'Marketler',
+    restaurant: 'Restoranlar',
+    hospital: 'Hastaneler',
+    pharmacy: 'Eczaneler',
+    airport: 'Havalimanları',
+    bus_station: 'Otogarlar',
+    port: 'Limanlar',
+    other: 'Diğer Mekanlar',
+  },
+  en: {
+    beach: 'Beaches',
+    ruins: 'Archaeological Sites',
+    historic: 'Historic Sites',
+    market: 'Markets',
+    restaurant: 'Restaurants',
+    hospital: 'Hospitals',
+    pharmacy: 'Pharmacies',
+    airport: 'Airports',
+    bus_station: 'Bus Terminals',
+    port: 'Ports',
+    other: 'Other Places',
+  },
+  de: {
+    beach: 'Strände',
+    ruins: 'Archäologische Stätten',
+    historic: 'Historische Stätten',
+    market: 'Märkte',
+    restaurant: 'Restaurants',
+    hospital: 'Krankenhäuser',
+    pharmacy: 'Apotheken',
+    airport: 'Flughäfen',
+    bus_station: 'Busbahnhöfe',
+    port: 'Häfen',
+    other: 'Weitere Orte',
+  },
+  ru: {
+    beach: 'Пляжи',
+    ruins: 'Археологические памятники',
+    historic: 'Исторические места',
+    market: 'Магазины',
+    restaurant: 'Рестораны',
+    hospital: 'Больницы',
+    pharmacy: 'Аптеки',
+    airport: 'Аэропорты',
+    bus_station: 'Автовокзалы',
+    port: 'Порты',
+    other: 'Другие места',
+  },
+  zh: {
+    beach: '海滩',
+    ruins: '考古遗址',
+    historic: '历史景点',
+    market: '市场',
+    restaurant: '餐厅',
+    hospital: '医院',
+    pharmacy: '药店',
+    airport: '机场',
+    bus_station: '汽车站',
+    port: '港口',
+    other: '其他地点',
+  },
+  fr: {
+    beach: 'Plages',
+    ruins: 'Sites archéologiques',
+    historic: 'Sites historiques',
+    market: 'Marchés',
+    restaurant: 'Restaurants',
+    hospital: 'Hôpitaux',
+    pharmacy: 'Pharmacies',
+    airport: 'Aéroports',
+    bus_station: 'Gares routières',
+    port: 'Ports',
+    other: 'Autres lieux',
+  },
 }
 
 function formatDistance(locale: string, km: number): string {
@@ -27,6 +126,11 @@ function DistanceColumn({
   locale: string
 }) {
   if (!items.length) return null
+  const labels = CATEGORY_LABELS[locale] ?? CATEGORY_LABELS.en
+  const grouped = CATEGORY_ORDER.map((category) => ({
+    category,
+    items: items.filter((item) => (item.category ?? 'other') === category),
+  })).filter((group) => group.items.length > 0)
 
   return (
     <div className="min-w-0 overflow-hidden rounded-2xl border border-neutral-200/80 bg-white dark:border-neutral-800 dark:bg-neutral-900/40">
@@ -36,21 +140,30 @@ function DistanceColumn({
           {title}
         </h3>
       </div>
-      <ul className="divide-y divide-neutral-100 dark:divide-neutral-800">
-        {items.map((item, index) => (
-          <li
-            key={`${title}-${item.name}-${index}`}
-            className="flex items-baseline justify-between gap-3 px-4 py-2.5"
-          >
-            <span className="min-w-0 text-sm leading-snug text-neutral-700 dark:text-neutral-300">
-              {item.name}
-            </span>
-            <span className="shrink-0 text-sm font-semibold tabular-nums text-neutral-900 dark:text-white">
-              {formatDistance(locale, item.distanceKm)}
-            </span>
-          </li>
+      <div className="divide-y divide-neutral-100 dark:divide-neutral-800">
+        {grouped.map((group) => (
+          <section key={`${title}-${group.category}`}>
+            <h4 className="bg-neutral-50/60 px-4 py-2 text-[11px] font-semibold uppercase tracking-wide text-neutral-500 dark:bg-neutral-900/30 dark:text-neutral-400">
+              {labels[group.category]}
+            </h4>
+            <ul className="divide-y divide-neutral-100 dark:divide-neutral-800">
+              {group.items.map((item, index) => (
+                <li
+                  key={`${title}-${group.category}-${item.name}-${index}`}
+                  className="flex items-baseline justify-between gap-3 px-4 py-2.5"
+                >
+                  <span className="min-w-0 text-sm leading-snug text-neutral-700 dark:text-neutral-300">
+                    {item.name}
+                  </span>
+                  <span className="shrink-0 text-sm font-semibold tabular-nums text-neutral-900 dark:text-white">
+                    {formatDistance(locale, item.distanceKm)}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </section>
         ))}
-      </ul>
+      </div>
     </div>
   )
 }

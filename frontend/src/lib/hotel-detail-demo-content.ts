@@ -2,7 +2,12 @@
 import type { ListingReviewCriteriaSummary } from '@/lib/listing-review-criteria'
 import type { HotelDistanceItem } from '@/components/travel/HotelListingDistancesSection'
 import type { HotelFacilityAccordionSection } from '@/lib/hotel-facility-sections'
-import type { ListingServicePois, NearbyPoi, HotelListingActivity } from '@/lib/travel-api'
+import type {
+  ListingServicePois,
+  NearbyPoi,
+  NearbyPoiCategory,
+  HotelListingActivity,
+} from '@/lib/travel-api'
 
 export const HOTEL_DEMO_LISTING_HANDLE = 'astan-hotel-galata-tr-KTR137972'
 export const HOTEL_DEMO_LISTING_ID = '2e9d326a-3cf4-40a8-9a30-bfde1efe5b0a'
@@ -156,7 +161,11 @@ export const HOTEL_DEMO_DISTANCES: {
   ],
 }
 
-type HotelDistanceColumns = typeof HOTEL_DEMO_DISTANCES
+type HotelDistanceColumns = {
+  historic: HotelDistanceItem[]
+  surroundings: HotelDistanceItem[]
+  transport: HotelDistanceItem[]
+}
 
 const TRANSPORT_DISTANCE_PATTERN =
   /airport|havaliman|aeropuerto|aéroport|flughafen|аэропорт|机场|station|terminal|metro|subway|tram|train|railway|otogar|bus|ferry|port|harbour|harbor|marina|liman/i
@@ -165,11 +174,52 @@ const ESSENTIAL_DISTANCE_PATTERN =
 const ATTRACTION_DISTANCE_PATTERN =
   /museum|müze|park|mosque|cami|church|kilise|stadium|stadyum|gallery|galeri|culture|kültür|congress|kongre|statue|heykel|sarcoph|lahit|beach|plaj|tower|kule|square|meydan|historic|tarih|castle|kale|palace|saray|theater|tiyatro/i
 
-function classifyDistanceName(name: string): keyof HotelDistanceColumns {
-  if (TRANSPORT_DISTANCE_PATTERN.test(name)) return 'transport'
-  if (ESSENTIAL_DISTANCE_PATTERN.test(name)) return 'surroundings'
-  if (ATTRACTION_DISTANCE_PATTERN.test(name)) return 'historic'
-  return 'historic'
+const DISTANCE_CATEGORY_COLUMN: Record<NearbyPoiCategory, keyof HotelDistanceColumns> = {
+  beach: 'historic',
+  ruins: 'historic',
+  historic: 'historic',
+  market: 'surroundings',
+  restaurant: 'surroundings',
+  hospital: 'surroundings',
+  pharmacy: 'surroundings',
+  airport: 'transport',
+  bus_station: 'transport',
+  port: 'transport',
+  other: 'historic',
+}
+
+const VALID_DISTANCE_CATEGORIES = new Set<NearbyPoiCategory>(
+  Object.keys(DISTANCE_CATEGORY_COLUMN) as NearbyPoiCategory[],
+)
+
+export function classifyDistanceItem(
+  name: string,
+  summary = '',
+  explicitCategory?: string,
+): { column: keyof HotelDistanceColumns; category: NearbyPoiCategory } {
+  if (explicitCategory && VALID_DISTANCE_CATEGORIES.has(explicitCategory as NearbyPoiCategory)) {
+    const category = explicitCategory as NearbyPoiCategory
+    return { column: DISTANCE_CATEGORY_COLUMN[category], category }
+  }
+
+  const text = `${name} ${summary}`
+  let category: NearbyPoiCategory
+  // Belirgin türler önce: Limanağzı Plajı, "liman" içerdiği halde plajdır.
+  if (/beach|plaj/i.test(text)) category = 'beach'
+  else if (/archae|ören|antik kent|ancient city|ruins?|harabe|nekropol|sarkof|lahit/i.test(text)) category = 'ruins'
+  else if (ATTRACTION_DISTANCE_PATTERN.test(text)) category = 'historic'
+  else if (/restaurant|restoran|lokanta|meyhane|cafe|kafe/i.test(text)) category = 'restaurant'
+  else if (/hospital|hastane|clinic|klinik|medical|sağlık/i.test(text)) category = 'hospital'
+  else if (/pharmacy|eczane/i.test(text)) category = 'pharmacy'
+  else if (/market|supermarket|grocery|alışveriş|\bbim\b|\ba101\b|migros|carrefour|\bdia\b|\bşok\b/i.test(text)) category = 'market'
+  else if (/airport|havaliman|aeropuerto|aéroport|flughafen|аэропорт|机场/i.test(text)) category = 'airport'
+  else if (/otogar|bus station|bus terminal|автовокзал|汽车站/i.test(text)) category = 'bus_station'
+  else if (/ferry|port|harbour|harbor|marina|liman/i.test(text)) category = 'port'
+  else if (TRANSPORT_DISTANCE_PATTERN.test(text)) category = 'port'
+  else if (ESSENTIAL_DISTANCE_PATTERN.test(text)) category = 'market'
+  else category = 'historic'
+
+  return { column: DISTANCE_CATEGORY_COLUMN[category], category }
 }
 
 function parseProviderDistanceItem(raw: string): HotelDistanceItem | null {
@@ -196,7 +246,8 @@ export function buildHotelDistanceColumnsFromFacilitySections(
       const key = item.name.toLocaleLowerCase('tr').replace(/\s+/g, ' ')
       if (seen.has(key)) continue
       seen.add(key)
-      result[classifyDistanceName(item.name)].push(item)
+      const classified = classifyDistanceItem(item.name)
+      result[classified.column].push({ ...item, category: classified.category })
     }
   }
   for (const items of Object.values(result)) items.sort((a, b) => a.distanceKm - b.distanceKm)
@@ -223,6 +274,40 @@ function mergeDistanceItems(
   return out.sort((a, b) => a.distanceKm - b.distanceKm).slice(0, limit)
 }
 
+/** Her alt türden 2–3 otomatik sonuç; yüksek popülerlikte en fazla 5. Manuel ekler daima korunur. */
+export function limitDistanceItemsByCategory(
+  items: HotelDistanceItem[],
+  baseLimit = 3,
+  popularLimit = 5,
+): HotelDistanceItem[] {
+  const byCategory = new Map<NearbyPoiCategory, HotelDistanceItem[]>()
+  for (const item of items) {
+    const category = item.category ?? 'other'
+    byCategory.set(category, [...(byCategory.get(category) ?? []), item])
+  }
+
+  const selected: HotelDistanceItem[] = []
+  for (const categoryItems of byCategory.values()) {
+    const manual = categoryItems.filter((item) => item.manual)
+    const automatic = categoryItems
+      .filter((item) => !item.manual)
+      .sort(
+        (a, b) =>
+          (b.popularity ?? 0) - (a.popularity ?? 0) ||
+          a.distanceKm - b.distanceKm ||
+          a.name.localeCompare(b.name, 'tr'),
+      )
+    const base = automatic.slice(0, baseLimit)
+    const popularExtra = automatic
+      .slice(baseLimit)
+      .filter((item) => (item.popularity ?? 0) >= 90)
+      .slice(0, Math.max(0, popularLimit - base.length))
+    selected.push(...manual, ...base, ...popularExtra)
+  }
+
+  return selected.sort((a, b) => a.distanceKm - b.distanceKm)
+}
+
 export function buildHotelListingDistanceColumns(input: {
   nearbyPois: NearbyPoi[]
   servicePois: ListingServicePois
@@ -237,65 +322,97 @@ export function buildHotelListingDistanceColumns(input: {
   )
 
   const nearbyColumns: HotelDistanceColumns = { historic: [], surroundings: [], transport: [] }
-  for (const poi of sortedNearby.slice(0, 18)) {
+  for (const poi of sortedNearby.slice(0, 60)) {
     const name = String(poi.title ?? '').trim()
     if (!name) continue
-    nearbyColumns[classifyDistanceName(name)].push({
+    const classified = classifyDistanceItem(name, poi.summary, poi.category)
+    nearbyColumns[classified.column].push({
       name,
       distanceKm: poi.distance_km ?? 0,
+      category: classified.category,
+      popularity: poi.popularity,
+      manual: poi.manual,
     })
   }
 
-  let historic = nearbyColumns.historic.slice(0, 6)
-  let surroundings = nearbyColumns.surroundings.slice(0, 6)
-  let transport = nearbyColumns.transport.slice(0, 6)
+  let historic = limitDistanceItemsByCategory(nearbyColumns.historic)
+  let surroundings = limitDistanceItemsByCategory(nearbyColumns.surroundings)
+  let transport = limitDistanceItemsByCategory(nearbyColumns.transport)
 
   if (input.servicePois.amenities.length > 0) {
     surroundings = mergeDistanceItems(
       surroundings,
-      input.servicePois.amenities.map((poi) => ({
-        name: poi.label?.trim() || poi.type,
-        distanceKm: poi.distance_km,
-      })),
-      6,
+      input.servicePois.amenities.map((poi) => {
+        const name = poi.label?.trim() || poi.type
+        return {
+          name,
+          distanceKm: poi.distance_km,
+          category: classifyDistanceItem(name, poi.type).category,
+        }
+      }),
+      16,
     )
+    surroundings = limitDistanceItemsByCategory(surroundings)
   }
 
   if (input.servicePois.transport.length > 0) {
     transport = mergeDistanceItems(
       transport,
-      input.servicePois.transport.map((poi) => ({
-        name: poi.label?.trim() || poi.type,
-        distanceKm: poi.distance_km,
-      })),
-      6,
+      input.servicePois.transport.map((poi) => {
+        const name = poi.label?.trim() || poi.type
+        return {
+          name,
+          distanceKm: poi.distance_km,
+          category: classifyDistanceItem(name, poi.type).category,
+        }
+      }),
+      16,
     )
+    transport = limitDistanceItemsByCategory(transport)
   }
 
   if (input.useDemoFallback) {
-    if (historic.length === 0) historic = [...HOTEL_DEMO_DISTANCES.historic]
-    if (surroundings.length === 0) surroundings = [...HOTEL_DEMO_DISTANCES.surroundings]
-    if (transport.length === 0) transport = [...HOTEL_DEMO_DISTANCES.transport]
+    if (historic.length === 0) {
+      historic = HOTEL_DEMO_DISTANCES.historic.map((item) => ({
+        ...item,
+        category: classifyDistanceItem(item.name).category,
+      }))
+    }
+    if (surroundings.length === 0) {
+      surroundings = HOTEL_DEMO_DISTANCES.surroundings.map((item) => ({
+        ...item,
+        category: classifyDistanceItem(item.name).category,
+      }))
+    }
+    if (transport.length === 0) {
+      transport = HOTEL_DEMO_DISTANCES.transport.map((item) => ({
+        ...item,
+        category: classifyDistanceItem(item.name).category,
+      }))
+    }
   }
 
   return { historic, surroundings, transport }
 }
 
-const TRANSPORT_GOOGLE_TYPES =
-  /airport|bus_station|train_station|subway_station|transit|taxi|ferry|light_rail/i
-const ESSENTIAL_GOOGLE_TYPES =
-  /supermarket|convenience|grocery|pharmacy|hospital|atm|bank|shopping_mall|store/i
-const ATTRACTION_GOOGLE_TYPES =
-  /tourist|museum|park|beach|aquarium|zoo|art_gallery|church|mosque|hindu|synagogue|castle|landmark|point_of_interest/i
-
-function classifyGoogleType(googleType: string, categoryId: string, name: string): keyof HotelDistanceColumns {
+function classifyGoogleType(
+  googleType: string,
+  categoryId: string,
+  name: string,
+): { column: keyof HotelDistanceColumns; category: NearbyPoiCategory } {
   const gt = `${googleType} ${categoryId}`
-  if (TRANSPORT_GOOGLE_TYPES.test(gt) || TRANSPORT_DISTANCE_PATTERN.test(name)) return 'transport'
-  if (ESSENTIAL_GOOGLE_TYPES.test(gt) || ESSENTIAL_DISTANCE_PATTERN.test(name)) return 'surroundings'
-  if (ATTRACTION_GOOGLE_TYPES.test(gt) || ATTRACTION_DISTANCE_PATTERN.test(name)) return 'historic'
-  if (/ulaşım|transport|transfer/i.test(categoryId)) return 'transport'
-  if (/ihtiyaç|essentials|yeme|restoran|market/i.test(categoryId)) return 'surroundings'
-  return 'historic'
+  let explicit: NearbyPoiCategory | undefined
+  if (/beach/.test(gt)) explicit = 'beach'
+  else if (/archaeological|ruins|historic/.test(gt)) explicit = 'ruins'
+  else if (/museum|tourist|landmark|castle/.test(gt)) explicit = 'historic'
+  else if (/restaurant|cafe|yeme/.test(gt)) explicit = 'restaurant'
+  else if (/hospital|clinic/.test(gt)) explicit = 'hospital'
+  else if (/pharmacy/.test(gt)) explicit = 'pharmacy'
+  else if (/supermarket|convenience|grocery|shopping_mall|store|market/.test(gt)) explicit = 'market'
+  else if (/airport/.test(gt)) explicit = 'airport'
+  else if (/bus_station|transit|train|subway|light_rail|otogar/.test(gt)) explicit = 'bus_station'
+  else if (/ferry|port|marina|liman/.test(gt)) explicit = 'port'
+  return classifyDistanceItem(name, gt, explicit)
 }
 
 /**
@@ -331,27 +448,34 @@ export function buildDistanceColumnsFromRegionPlaces(
         const key = distanceItemKey(name)
         if (!key || seen.has(key)) continue
         seen.add(key)
-        buckets[classifyGoogleType(tp.googleType, cat.id, name)].push({ name, distanceKm: km })
+        const classified = classifyGoogleType(tp.googleType, cat.id, name)
+        buckets[classified.column].push({ name, distanceKm: km, category: classified.category })
       }
     }
   }
 
   return {
-    historic: buckets.historic.sort((a, b) => a.distanceKm - b.distanceKm).slice(0, maxPer),
-    surroundings: buckets.surroundings.sort((a, b) => a.distanceKm - b.distanceKm).slice(0, maxPer),
-    transport: buckets.transport.sort((a, b) => a.distanceKm - b.distanceKm).slice(0, maxPer),
+    historic: limitDistanceItemsByCategory(buckets.historic).slice(0, maxPer),
+    surroundings: limitDistanceItemsByCategory(buckets.surroundings).slice(0, maxPer),
+    transport: limitDistanceItemsByCategory(buckets.transport).slice(0, maxPer),
   }
 }
 
 export function mergeHotelDistanceColumns(
   primary: HotelDistanceColumns,
   fallback: HotelDistanceColumns,
-  limit = 8,
+  limit = 30,
 ): HotelDistanceColumns {
   return {
-    historic: mergeDistanceItems(primary.historic, fallback.historic, limit),
-    surroundings: mergeDistanceItems(primary.surroundings, fallback.surroundings, limit),
-    transport: mergeDistanceItems(primary.transport, fallback.transport, limit),
+    historic: limitDistanceItemsByCategory(
+      mergeDistanceItems(primary.historic, fallback.historic, limit),
+    ),
+    surroundings: limitDistanceItemsByCategory(
+      mergeDistanceItems(primary.surroundings, fallback.surroundings, limit),
+    ),
+    transport: limitDistanceItemsByCategory(
+      mergeDistanceItems(primary.transport, fallback.transport, limit),
+    ),
   }
 }
 

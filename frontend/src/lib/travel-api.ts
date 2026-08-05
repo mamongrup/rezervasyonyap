@@ -12586,9 +12586,25 @@ export async function saveDistrictPlaces(
 // İlan yakın mekan (POI) mesafe hesabı
 // ---------------------------------------------------------------------------
 
+export type NearbyPoiCategory =
+  | 'beach'
+  | 'ruins'
+  | 'historic'
+  | 'market'
+  | 'restaurant'
+  | 'hospital'
+  | 'pharmacy'
+  | 'airport'
+  | 'bus_station'
+  | 'port'
+  | 'other'
+
 export interface NearbyPoi {
   title: string
   summary?: string
+  category?: NearbyPoiCategory
+  popularity?: number
+  manual?: boolean
   image?: string
   link?: string
   blog_slug?: string
