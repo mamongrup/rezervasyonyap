@@ -487,6 +487,12 @@ main() {
         "$APP_ROOT/backend/priv/sql/modules/418_repair_listing_turkish_html_apostrophe.sql" \
         || warn "418 Turkish HTML apostrophe repair SQL uygulanamadı"
     fi
+    if [[ -f "$APP_ROOT/backend/priv/sql/modules/419_repair_remaining_holiday_home_turkish_ascii.sql" ]]; then
+      step "Villa açıklamalarında kalan Türkçe charset kalıpları (419)"
+      bash "$APP_ROOT/deploy/apply-sql.sh" \
+        "$APP_ROOT/backend/priv/sql/modules/419_repair_remaining_holiday_home_turkish_ascii.sql" \
+        || warn "419 remaining Turkish holiday-home repair SQL uygulanamadı"
+    fi
   fi
 
   if [[ "${SKIP_AI_WORKER_TIMER:-0}" == "1" ]]; then

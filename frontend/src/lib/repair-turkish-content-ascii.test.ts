@@ -79,4 +79,19 @@ Villamızın bahçesinde g?zel bir havuz. ?zel havuz ve ?cret alınmaz.`
     expect(fixed).toContain('uydu alıcısı')
     expect(fixed).not.toContain('?')
   })
+
+  it('repairs remaining Şimşek Villa 1 and Çavdır Egemen patterns', () => {
+    const raw = `Tam donanımlı mutfa?? ve konuklarım?zın kullanacağı alan.
+Villa ?im?e?in bahçesinde ta? barbekü bulunur.
+Çavdır mevkiinde konnumlanm?? olup tüm ihtiyaçlarınızı? kar??layacak şekilde hazırlanmıştır.`
+    const fixed = repairTurkishContentAscii(raw)
+
+    expect(fixed).toContain('Tam donanımlı mutfağı')
+    expect(fixed).toContain('konuklarımızın')
+    expect(fixed).toContain('Villa Şimşeğin')
+    expect(fixed).toContain('taş barbekü')
+    expect(fixed).toContain('konumlanmış')
+    expect(fixed).toContain('tüm ihtiyaçlarınızı karşılayacak')
+    expect(fixed).not.toContain('?')
+  })
 })
