@@ -250,6 +250,7 @@ modules/405_repair_wtatil_tour_images_from_snapshot.sql
 modules/406_repair_wtatil_featured_fullsize.sql
 modules/407_ai_continuous_seo_listing_seed.sql
 modules/408_seo_metadata_upsert_unique.sql
+modules/409_holiday_home_select_all_price_lines.sql
 
 # Kurulum doğrulama (install_order’a dahil değil — elle çalıştırın):
 #   psql -U postgres -d travel -f priv/sql/check_installation.sql

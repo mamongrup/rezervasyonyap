@@ -836,7 +836,14 @@ function ListingPriceLinesSection({
     ])
       .then(([r, s]) => {
         setItems(r.items.filter((i) => i.is_active))
-        setSelected(new Set(s.item_ids))
+        const ids = s.item_ids ?? []
+        // Tatil evi: kayıtlı seçim yoksa katalogdaki tüm aktif kalemleri işaretli göster
+        // (kalıcı yazım migration 409 + Kaydet ile; burada UI tutarlılığı)
+        if (ids.length === 0 && categoryCode === 'holiday_home') {
+          setSelected(new Set(r.items.filter((i) => i.is_active).map((i) => i.id)))
+        } else {
+          setSelected(new Set(ids))
+        }
       })
       .catch(() => {
         setItems([])

@@ -426,6 +426,12 @@ main() {
         "$APP_ROOT/backend/priv/sql/modules/408_seo_metadata_upsert_unique.sql" \
         || warn "408 seo_metadata unique SQL uygulanamadı"
     fi
+    if [[ -f "$APP_ROOT/backend/priv/sql/modules/409_holiday_home_select_all_price_lines.sql" ]]; then
+      step "Tatil evi dahil/hariç tüm kalemler (409)"
+      bash "$APP_ROOT/deploy/apply-sql.sh" \
+        "$APP_ROOT/backend/priv/sql/modules/409_holiday_home_select_all_price_lines.sql" \
+        || warn "409 holiday_home price lines SQL uygulanamadı"
+    fi
   fi
 
   if [[ "${SKIP_AI_WORKER_TIMER:-0}" == "1" ]]; then

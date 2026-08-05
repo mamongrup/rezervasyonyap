@@ -841,6 +841,8 @@ export default function CatalogNewListingClient({
   const nearbyPoisHydratedRef = useRef(false)
   /** Tatil evi düzenlemede yeni iCal URL’si yalnızca hydrate’de olmayan adres için eklenir (çift kayıt önlenir). */
   const icalUrlsAtHydrateRef = useRef<Set<string>>(new Set())
+  /** Yeni tatil evinde dahil/hariç katalogu gelince bir kez tüm kalemleri işaretle. */
+  const priceLineDefaultsAppliedRef = useRef(false)
   const [editListingReady, setEditListingReady] = useState(() => !editListingId)
 
   const isVilla = categoryCode === 'holiday_home'
@@ -1021,6 +1023,30 @@ export default function CatalogNewListingClient({
       .then((r) => setPriceLineCatalog(r.items.filter((i) => i.is_active)))
       .catch(() => setPriceLineCatalog([]))
   }, [isStayRentalWizard, categoryCode, locale, needOrg, orgId])
+
+  // Villa: katalogdaki tüm aktif dahil/hariç kalemlerini varsayılan seç
+  // - yeni ilan: her zaman
+  // - düzenleme: kayıtlı seçim boşsa (migration öncesi / eksik kayıt)
+  useEffect(() => {
+    if (!isVilla) return
+    if (priceLineCatalog.length === 0) return
+    if (!editListingId) {
+      if (priceLineDefaultsAppliedRef.current) return
+      priceLineDefaultsAppliedRef.current = true
+      setSelectedPriceLineIds(new Set(priceLineCatalog.map((i) => i.id)))
+      return
+    }
+    if (!editListingReady) return
+    if (priceLineDefaultsAppliedRef.current) return
+    setSelectedPriceLineIds((prev) => {
+      if (prev.size > 0) {
+        priceLineDefaultsAppliedRef.current = true
+        return prev
+      }
+      priceLineDefaultsAppliedRef.current = true
+      return new Set(priceLineCatalog.map((i) => i.id))
+    })
+  }, [isVilla, editListingId, editListingReady, priceLineCatalog])
 
   useEffect(() => {
     getPublicCurrencies()
