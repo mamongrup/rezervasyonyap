@@ -2,6 +2,7 @@
 
 import { type HeaderCurrencyItem, TNavigationItem } from '@/data/navigation'
 import { getStoredAuthToken } from '@/lib/auth-storage'
+import { notifySearchLoading } from '@/lib/hero-search-plan'
 import { normalizeHrefForLocale } from '@/lib/i18n-config'
 import {
   detectRole,
@@ -160,6 +161,7 @@ const SidebarNavigation: React.FC<Props> = ({ data, currencies, locale }) => {
     const searchQuery = String(formData.get('search') ?? '').trim()
     handleClose()
     const base = vitrinPath('/ara')
+    notifySearchLoading()
     router.push(searchQuery ? `${base}?q=${encodeURIComponent(searchQuery)}` : base)
   }
 

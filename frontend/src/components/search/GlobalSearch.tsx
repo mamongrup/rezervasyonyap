@@ -3,6 +3,7 @@
 import type { SearchSuggestion } from '@/app/api/listing-search/route'
 import { useRegisterVitrinOverlay } from '@/components/aside/aside'
 import { useVitrinHref } from '@/hooks/use-vitrin-href'
+import { notifySearchLoading } from '@/lib/hero-search-plan'
 import clsx from 'clsx'
 import { ArrowRight, Layers, Loader2, MapPin, Search, Tag, X } from 'lucide-react'
 import Link from 'next/link'
@@ -159,9 +160,11 @@ export function SearchModal({ onClose, locale }: { onClose: () => void; locale: 
       setSelectedIdx((i) => Math.max(i - 1, -1))
     } else if (e.key === 'Enter') {
       if (selectedIdx >= 0 && suggestions[selectedIdx]) {
+        notifySearchLoading()
         router.push(vitrinPath(suggestions[selectedIdx].href))
         onClose()
       } else if (query.trim()) {
+        notifySearchLoading()
         router.push(`${vitrinPath('/ara')}?q=${encodeURIComponent(query.trim())}`)
         onClose()
       }
@@ -246,7 +249,10 @@ export function SearchModal({ onClose, locale }: { onClose: () => void; locale: 
                 </p>
                 <Link
                   href={`${vitrinPath('/ara')}?q=${encodeURIComponent(query)}`}
-                  onClick={onClose}
+                  onClick={() => {
+                    notifySearchLoading()
+                    onClose()
+                  }}
                   className="mt-3 inline-block text-sm text-link-muted-underline"
                 >
                   Tüm listelemelerde ara →
@@ -272,7 +278,10 @@ export function SearchModal({ onClose, locale }: { onClose: () => void; locale: 
                   <li key={s.id}>
                     <Link
                       href={vitrinPath(s.href)}
-                      onClick={onClose}
+                      onClick={() => {
+                        notifySearchLoading()
+                        onClose()
+                      }}
                       className={clsx(
                         'group flex items-center gap-4 rounded-2xl px-3 py-3 transition-colors hover:bg-neutral-100/80 dark:hover:bg-neutral-800',
                         selectedIdx === idx &&
@@ -310,7 +319,10 @@ export function SearchModal({ onClose, locale }: { onClose: () => void; locale: 
                   <li className="border-t border-neutral-100 dark:border-neutral-800">
                     <Link
                       href={`${vitrinPath('/ara')}?q=${encodeURIComponent(query)}`}
-                      onClick={onClose}
+                      onClick={() => {
+                        notifySearchLoading()
+                        onClose()
+                      }}
                       className="group m-1 flex items-center gap-2 rounded-2xl px-4 py-3.5 text-sm font-semibold text-primary-700 transition hover:bg-primary-50 dark:text-primary-300 dark:hover:bg-primary-950/30"
                     >
                       <Search className="size-4" />

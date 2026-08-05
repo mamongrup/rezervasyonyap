@@ -1,6 +1,7 @@
 'use client'
 
 import { useVitrinHref } from '@/hooks/use-vitrin-href'
+import { notifySearchLoading } from '@/lib/hero-search-plan'
 import { getMessages } from '@/utils/getT'
 import { Divider } from '@/shared/divider'
 import { CloseButton, Popover, PopoverButton, PopoverPanel } from '@headlessui/react'
@@ -21,6 +22,7 @@ const SearchBtnPopover = () => {
     e.preventDefault()
     const q = inputRef.current?.value.trim() ?? ''
     const base = vitrinPath('/ara')
+    notifySearchLoading()
     router.push(q ? `${base}?q=${encodeURIComponent(q)}` : base)
   }
 

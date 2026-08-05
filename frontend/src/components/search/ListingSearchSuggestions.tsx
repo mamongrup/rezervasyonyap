@@ -2,6 +2,7 @@
 
 import type { SearchSuggestion } from '@/app/api/listing-search/route'
 import { useVitrinHref } from '@/hooks/use-vitrin-href'
+import { notifySearchLoading } from '@/lib/hero-search-plan'
 import { SEARCH_MIN_QUERY_LEN } from '@/lib/search-listings-display'
 import { Link } from '@/shared/link'
 import clsx from 'clsx'
@@ -127,7 +128,10 @@ export default function ListingSearchSuggestions({
           {showViewAllLink ? (
             <Link
               href={`${vitrinPath('/ara')}?q=${encodeURIComponent(trimmed)}`}
-              onClick={onNavigate}
+              onClick={() => {
+                notifySearchLoading()
+                onNavigate?.()
+              }}
               className="mt-2 block text-link-muted-underline"
             >
               Tüm sonuçlarda ara →
@@ -142,7 +146,10 @@ export default function ListingSearchSuggestions({
             <li key={`${s.type}-${s.id}`}>
               <Link
                 href={vitrinPath(s.href)}
-                onClick={onNavigate}
+                onClick={() => {
+                  notifySearchLoading()
+                  onNavigate?.()
+                }}
                 className="flex items-center gap-3 px-3 py-2.5 transition hover:bg-neutral-50 dark:hover:bg-neutral-800/80"
               >
                 <SuggestThumb src={s.image} />
@@ -163,6 +170,7 @@ export default function ListingSearchSuggestions({
                 type="button"
                 onClick={() => {
                   onNavigate?.()
+                  notifySearchLoading()
                   router.push(`${vitrinPath('/ara')}?q=${encodeURIComponent(trimmed)}`)
                 }}
                 className="flex w-full items-center gap-2 px-3 py-2.5 text-sm text-link-muted hover:bg-neutral-50 dark:hover:bg-neutral-800/80"

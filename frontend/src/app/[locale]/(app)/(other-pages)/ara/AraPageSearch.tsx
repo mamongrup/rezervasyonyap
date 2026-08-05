@@ -2,6 +2,7 @@
 
 import ListingSearchSuggestions from '@/components/search/ListingSearchSuggestions'
 import { SEARCH_MIN_QUERY_LEN } from '@/lib/search-listings-display'
+import { notifySearchLoading } from '@/lib/hero-search-plan'
 import { useVitrinHref } from '@/hooks/use-vitrin-href'
 import { Search } from 'lucide-react'
 import Form from 'next/form'
@@ -52,6 +53,7 @@ export default function AraPageSearch({ locale, initialQuery = '' }: Props) {
     const q = String(formData.get('q') ?? '').trim()
     const base = vitrinPath('/ara')
     setPanelOpen(false)
+    notifySearchLoading()
     router.push(q ? `${base}?q=${encodeURIComponent(q)}` : base)
   }
 

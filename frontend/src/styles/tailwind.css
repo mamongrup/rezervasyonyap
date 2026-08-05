@@ -424,3 +424,56 @@
 .pac-container {
   z-index: 10050 !important;
 }
+
+/* Arama beklerken — Traveler tarzı 3 yatay çizgi */
+@keyframes travel-search-bar-slide {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  50% {
+    transform: translateX(1.75rem);
+  }
+}
+
+.travel-search-bars {
+  display: flex;
+  width: 4.75rem;
+  flex-direction: column;
+  justify-content: center;
+  gap: 0.55rem;
+  overflow: hidden;
+}
+
+.travel-search-bars > span {
+  display: block;
+  height: 0.375rem;
+  border-radius: 9999px;
+  animation: travel-search-bar-slide 1.35s ease-in-out infinite;
+}
+
+.travel-search-bars > span:nth-child(1) {
+  width: 58%;
+  background: #fa5636;
+  animation-delay: 0s;
+}
+
+.travel-search-bars > span:nth-child(2) {
+  width: 92%;
+  margin-inline-start: auto;
+  background: #5191fa;
+  animation-delay: -0.22s;
+}
+
+.travel-search-bars > span:nth-child(3) {
+  width: 42%;
+  background: #ffb23d;
+  animation-delay: -0.44s;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .travel-search-bars > span {
+    animation: none;
+  }
+}
+

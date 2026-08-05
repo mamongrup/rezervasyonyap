@@ -11,6 +11,12 @@ import { getAuthMe } from '@/lib/travel-api'
 
 export const SEARCH_LOADING_EVENT = 'travel:search-loading'
 
+/** Hero / metin araması `router.push` öncesi — tam ekran 3 çizgi loader. */
+export function notifySearchLoading(): void {
+  if (typeof window === 'undefined') return
+  window.dispatchEvent(new Event(SEARCH_LOADING_EVENT))
+}
+
 export type HeroSearchVertical = 'stay' | 'car' | 'experience' | 'flight'
 
 export type HeroSearchSnapshot = {
@@ -56,7 +62,7 @@ export function runHeroSearchPlanEffects(
 ): void {
   if (typeof window === 'undefined') return
 
-  window.dispatchEvent(new Event(SEARCH_LOADING_EVENT))
+  notifySearchLoading()
 
   const snapshot: HeroSearchSnapshot = {
     vertical,
