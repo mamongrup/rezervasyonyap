@@ -119,6 +119,7 @@ import {
   type ListingMeta,
 } from '@/lib/travel-api'
 import { repairTurkishLocationAscii } from '@/lib/repair-turkish-location-ascii'
+import { repairTurkishContentAscii } from '@/lib/repair-turkish-content-ascii'
 import { mergeCalendarRows, type MergedCalendarRow } from '@/lib/listing-availability-calendar-merge'
 import WizardCalendarGrid from '@/components/wizard/WizardCalendarGrid'
 import HolidayHomeBedroomsEditor from '@/components/manage/HolidayHomeBedroomsEditor'
@@ -1433,8 +1434,8 @@ export default function CatalogNewListingClient({
           const next = { ...prev }
           for (const tr of trans.translations) {
             next[tr.locale_code] = {
-              title: tr.title ?? '',
-              description: tr.description ?? '',
+              title: repairTurkishContentAscii(tr.title ?? ''),
+              description: repairTurkishContentAscii(tr.description ?? ''),
             }
           }
           return next
@@ -1450,10 +1451,10 @@ export default function CatalogNewListingClient({
             trans.translations.find((item) => item.locale_code === 'tr') ??
             trans.translations.find((item) => item.title?.trim() || item.description?.trim())
           if (selectedTranslation) {
-            setTitle(selectedTranslation.title ?? '')
-            setDescription(selectedTranslation.description ?? '')
+            setTitle(repairTurkishContentAscii(selectedTranslation.title ?? ''))
+            setDescription(repairTurkishContentAscii(selectedTranslation.description ?? ''))
           } else if (row?.title?.trim()) {
-            setTitle(row.title.trim())
+            setTitle(repairTurkishContentAscii(row.title.trim()))
           }
         }
 
@@ -1691,9 +1692,9 @@ export default function CatalogNewListingClient({
           for (const [code, md] of seoPairs) {
             if (!md) continue
             next[code] = {
-              title: md.title ?? '',
-              description: md.description ?? '',
-              keywords: md.keywords ?? '',
+              title: repairTurkishContentAscii(md.title ?? ''),
+              description: repairTurkishContentAscii(md.description ?? ''),
+              keywords: repairTurkishContentAscii(md.keywords ?? ''),
               canonical_path: md.canonical_path ?? '',
               og_image_storage_key: md.og_image_storage_key ?? '',
               robots: md.robots ?? '',

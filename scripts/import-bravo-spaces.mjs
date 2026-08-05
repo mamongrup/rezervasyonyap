@@ -39,6 +39,7 @@ import {
   BRAVO_RULE_SLUG_TO_CODE,
   loadBravoOwnerContact,
 } from './lib/bravo-holiday-home-map.mjs'
+import { repairBravoTurkishAscii } from './lib/bravo-turkish-ascii-repair.mjs'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const TRAVEL_ROOT = path.resolve(__dirname, '..')
@@ -465,7 +466,9 @@ async function importOne(pgClient, mysql, space, mediaMap, stats) {
   const slug = normalizeSlug(space.slug, legacyId)
   const status = space.status === 'publish' ? 'published' : 'draft'
   const currency = normalizeCurrency(space.currency)
-  const locationName = await loadLocationName(mysql, space.location_id)
+  const locationName = repairBravoTurkishAscii(
+    (await loadLocationName(mysql, space.location_id)) || '',
+  )
 
   const existing = await findExistingListing(pgClient, slug, legacyId)
   let listingId = existing?.id
@@ -554,7 +557,12 @@ async function importOne(pgClient, mysql, space, mediaMap, stats) {
        ON CONFLICT (listing_id, locale_id) DO UPDATE SET
          title = EXCLUDED.title,
          description = EXCLUDED.description`,
-      [listingId, LOCALE_TR, space.title || slug, space.content || ''],
+      [
+        listingId,
+        LOCALE_TR,
+        repairBravoTurkishAscii(space.title || slug),
+        repairBravoTurkishAscii(space.content || ''),
+      ],
     )
 
     const ownerContact =

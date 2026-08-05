@@ -444,6 +444,18 @@ main() {
         "$APP_ROOT/backend/priv/sql/modules/411_normalize_listing_region_display.sql" \
         || warn "411 region_display normalize SQL uygulanamadı"
     fi
+    if [[ -f "$APP_ROOT/backend/priv/sql/modules/412_repair_listing_turkish_ascii_content.sql" ]]; then
+      step "Türkçe başlık/açıklama charset onarımı (412)"
+      bash "$APP_ROOT/deploy/apply-sql.sh" \
+        "$APP_ROOT/backend/priv/sql/modules/412_repair_listing_turkish_ascii_content.sql" \
+        || warn "412 turkish content repair SQL uygulanamadı"
+    fi
+    if [[ -f "$APP_ROOT/backend/priv/sql/modules/413_ai_listing_content_seed_charset_dirty.sql" ]]; then
+      step "AI içerik seed: charset/? ve Genel Kurallar kapısı (413)"
+      bash "$APP_ROOT/deploy/apply-sql.sh" \
+        "$APP_ROOT/backend/priv/sql/modules/413_ai_listing_content_seed_charset_dirty.sql" \
+        || warn "413 AI listing content seed SQL uygulanamadı"
+    fi
   fi
 
   if [[ "${SKIP_AI_WORKER_TIMER:-0}" == "1" ]]; then

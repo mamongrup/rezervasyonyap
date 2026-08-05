@@ -9,6 +9,7 @@ import {
   writeStoredCatalogOrganizationId,
 } from '@/lib/catalog-manage-organization'
 import { useManageT } from '@/lib/manage-i18n-context'
+import { repairTurkishContentAscii } from '@/lib/repair-turkish-content-ascii'
 import {
   getAuthMe,
   getManageListingTranslations,
@@ -129,7 +130,10 @@ export default function CatalogListingTranslationsClient({
       setRows(r.translations)
       const d: Record<string, { title: string; description: string }> = {}
       for (const x of r.translations) {
-        d[x.locale_code] = { title: x.title, description: x.description ?? '' }
+        d[x.locale_code] = {
+          title: repairTurkishContentAscii(x.title),
+          description: repairTurkishContentAscii(x.description ?? ''),
+        }
       }
       setDraft(d)
       const seo: Record<string, SeoDraftRow> = {}
@@ -143,9 +147,9 @@ export default function CatalogListingTranslationsClient({
             })
             if (metadata) {
               seo[row.locale_code] = {
-                title: metadata.title ?? '',
-                description: metadata.description ?? '',
-                keywords: metadata.keywords ?? '',
+                title: repairTurkishContentAscii(metadata.title ?? ''),
+                description: repairTurkishContentAscii(metadata.description ?? ''),
+                keywords: repairTurkishContentAscii(metadata.keywords ?? ''),
                 canonical_path: metadata.canonical_path ?? '',
                 og_image_storage_key: metadata.og_image_storage_key ?? '',
                 robots: metadata.robots ?? '',

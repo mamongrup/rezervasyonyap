@@ -1,11 +1,10 @@
 /**
- * Bravo aktarımında Türkçe harfler ASCII `?` ile değiştirilmiş (charset kaybı).
- * Tersine çevrilemez encoding dönüşümü değil; bilinen kalıplar ile onarım.
- * Uzun / spesifik kalıplar önce (sıra önemli).
+ * Aktarımda Türkçe harfler ASCII `?` olmuş başlık/açıklama metinlerini onarır.
+ * Sunucu migration 412 ve scripts/lib/bravo-turkish-ascii-repair.mjs ile aynı kalıplar.
+ * Üret: node scripts/generate-repair-turkish-content-ascii-ts.mjs
  */
 
-/** Uzun / spesifik kalıplar önce — villa + aktivite ortak sözlük */
-export const BRAVO_TURKISH_ASCII_PAIRS = [
+const CONTENT_ASCII_PAIRS: [string, string][] = [
   ["&uuml;rl&uuml;?&uuml;", "&uuml;rl&uuml;ğ&uuml;"],
   ["g&ouml;z&uuml;kmedi?i", "g&ouml;z&uuml;kmediği"],
   ["ge&ccedil;irece?iniz", "ge&ccedil;ireceğiniz"],
@@ -351,23 +350,12 @@ export const BRAVO_TURKISH_ASCII_PAIRS = [
   ["Ya?", "Yaş"],
 ]
 
-export function repairBravoTurkishAscii(input) {
-  if (input == null) return input
+export function repairTurkishContentAscii(input: string | null | undefined): string {
+  if (input == null) return ''
   let out = String(input)
-  for (const [from, to] of BRAVO_TURKISH_ASCII_PAIRS) {
+  for (const [from, to] of CONTENT_ASCII_PAIRS) {
     if (from === to) continue
     if (out.includes(from)) out = out.split(from).join(to)
   }
   return out
-}
-
-export function repairBravoTurkishDeep(value) {
-  if (typeof value === 'string') return repairBravoTurkishAscii(value)
-  if (Array.isArray(value)) return value.map(repairBravoTurkishDeep)
-  if (value && typeof value === 'object') {
-    const out = {}
-    for (const [k, v] of Object.entries(value)) out[k] = repairBravoTurkishDeep(v)
-    return out
-  }
-  return value
 }

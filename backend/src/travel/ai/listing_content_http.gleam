@@ -430,7 +430,15 @@ fn looks_like_english_description(raw: String) -> Bool {
 /// bu kayıt editör ajanından yeniden geçmelidir.
 fn looks_like_dirty_description(raw: String) -> Bool {
   let text = string.lowercase(raw)
-  string.contains(text, "&nbsp") || string.contains(text, "&amp;nbsp")
+  // HTML entity sızıntısı veya açıklamaya gömülü kurallar bloğu →
+  // editoryal / SEO yeniden yazımı gerekir (AGENTS.md).
+  // Not: çıplak `?` kontrolü yok — «Nedir?» gibi meşru soru işaretleri
+  // charset onarımından sonra sonsuz AI döngüsü yaratırdı. Charset
+  // migration 412 + panel hydrate ile onarılır.
+  string.contains(text, "&nbsp")
+  || string.contains(text, "&amp;nbsp")
+  || string.contains(text, "genel kurallar")
+  || string.contains(text, "genel şartlar")
 }
 
 /// Uzun olsa bile tek parça sağlayıcı metni kullanıcı dostu sayılmaz. En az bir
@@ -481,6 +489,7 @@ fn need_work_sql() -> String {
         and lower(lo.code) = 'tr'
         and length(coalesce(lt.description, '')) >= 120
         and position('&nbsp' in lower(coalesce(lt.description, ''))) = 0
+        and position('genel kurallar' in lower(coalesce(lt.description, ''))) = 0
         and position('<p' in lower(coalesce(lt.description, ''))) > 0
     )
     or (

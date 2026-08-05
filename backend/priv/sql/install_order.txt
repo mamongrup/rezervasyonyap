@@ -253,6 +253,8 @@ modules/408_seo_metadata_upsert_unique.sql
 modules/409_holiday_home_select_all_price_lines.sql
 modules/410_repair_listing_turkish_ascii_locations.sql
 modules/411_normalize_listing_region_display.sql
+modules/412_repair_listing_turkish_ascii_content.sql
+modules/413_ai_listing_content_seed_charset_dirty.sql
 
 # Kurulum doğrulama (install_order’a dahil değil — elle çalıştırın):
 #   psql -U postgres -d travel -f priv/sql/check_installation.sql
