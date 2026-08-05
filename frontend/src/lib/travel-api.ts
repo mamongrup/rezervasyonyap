@@ -10590,6 +10590,8 @@ export interface ListingMeta {
   city?: string
   /** Vitrin konum: il (ör. Muğla, Antalya) */
   province_city?: string
+  /** Standart vitrin satırı: «semt, ilçe, il» — location_name ile senkron */
+  region_display?: string
   /** İlan bilgilerinin alındığı harici kaynak ve otomatik kontrol bağlantıları. */
   source_reference_url?: string
   source_images_url?: string
@@ -10643,6 +10645,7 @@ const LISTING_META_PUT_KEYS = new Set([
   'district_label',
   'city',
   'province_city',
+  'region_display',
   'source_reference_url',
   'source_images_url',
   'source_availability_url',

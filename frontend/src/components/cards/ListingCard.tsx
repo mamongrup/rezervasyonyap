@@ -14,7 +14,7 @@ import { FC, useMemo } from 'react'
 import { useParams, useSearchParams } from 'next/navigation'
 import { useVitrinHref } from '@/hooks/use-vitrin-href'
 import { getMessages } from '@/utils/getT'
-import { normalizeStayLocationPin } from '@/lib/stay-location-display'
+import { listingHasPhysicalRegion, normalizeStayLocationPin } from '@/lib/stay-location-display'
 import { activityPriceFromAffix, isActivityListingCategory } from '@/lib/activity-listing-price-display'
 import { normalizeCatalogVertical } from '@/lib/catalog-listing-vertical'
 import { mergeStaySearchIntoDetailQuery } from '@/lib/listing-card-stay-search'
@@ -165,10 +165,9 @@ const ListingCard: FC<ListingCardProps> = ({
       : null
   const extraInfo = config.extraInfo ? config.extraInfo(data, locale) : null
   const metaLines = config.metaLines ? config.metaLines(data, locale).filter(Boolean) : []
-  const isHolidayHomeCard =
-    data.listingVertical === 'holiday_home' || config.linkBase.includes('/tatil-evi')
-  const normalizedAddress =
-    isHolidayHomeCard ? normalizeStayLocationPin(address) : address
+  const normalizedAddress = listingHasPhysicalRegion(data.listingVertical)
+    ? normalizeStayLocationPin(address)
+    : address
 
   // Yemek planı rozeti
   const mealBadge =

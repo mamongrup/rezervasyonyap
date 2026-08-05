@@ -1,5 +1,22 @@
 import { resolveYachtLocationPin } from '@/lib/yacht-location-resolve'
 
+/** Fiziksel pin + vitrin bölge satırı olan kategoriler (semt, ilçe, il). */
+export const PHYSICAL_REGION_CATEGORY_CODES = [
+  'hotel',
+  'holiday_home',
+  'yacht_charter',
+  'tour',
+  'activity',
+  'cruise',
+] as const
+
+export type PhysicalRegionCategoryCode = (typeof PHYSICAL_REGION_CATEGORY_CODES)[number]
+
+export function listingHasPhysicalRegion(code: string | null | undefined): boolean {
+  const c = String(code ?? '').trim().toLowerCase()
+  return (PHYSICAL_REGION_CATEGORY_CODES as readonly string[]).includes(c)
+}
+
 /** Marina / adres satırından kategori pazarlama eklerini temizle (ör. "Fethiye Yat Kiralama" → "Fethiye"). */
 export function stripStayLocationMarketingSuffix(segment: string): string {
   let s = String(segment ?? '').trim()
@@ -45,7 +62,7 @@ function trimLocationPart(value: string | null | undefined): string {
   return String(value ?? '').trim()
 }
 
-/** Vitrin başlığı altı — «bölge, ilçe, il» sırası. */
+/** Vitrin başlığı altı — standart kalıp: «semt / bölge, ilçe, il». */
 export function formatListingLocationHierarchy(parts: ListingLocationHierarchy): string {
   const candidates = [
     trimLocationPart(parts.area),
@@ -60,6 +77,22 @@ export function formatListingLocationHierarchy(parts: ListingLocationHierarchy):
     }
   }
   return deduped.join(', ')
+}
+
+/**
+ * Panel / API kayıt — `region_display` ve `location_name` için tek kaynak.
+ * Sıra: district_label (semt), city (ilçe), province_city (il).
+ */
+export function buildListingRegionDisplay(parts: {
+  district_label?: string | null
+  city?: string | null
+  province_city?: string | null
+}): string {
+  return formatListingLocationHierarchy({
+    area: parts.district_label,
+    district: parts.city,
+    province: parts.province_city,
+  })
 }
 
 /** Kart / detay konum satırı — virgülle ayrılmış parçaları sadeleştirir. */

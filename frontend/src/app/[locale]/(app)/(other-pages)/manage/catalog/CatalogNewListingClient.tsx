@@ -136,6 +136,7 @@ import {
 import { listingImageSubPath, slugifyMediaSegment } from '@/lib/upload-media-paths'
 import { buildPlacePhotoProxySrc } from '@/lib/nearby-poi-image'
 import { slugifyListingSlug } from '@/lib/slug-latin-tr'
+import { buildListingRegionDisplay, listingHasPhysicalRegion } from '@/lib/stay-location-display'
 import { MANAGE_FORM_CONTAINER_CLASS } from '@/components/manage/ManageFormShell'
 import { HeroSlotPickerModal } from '@/components/manage/HeroSlotPickerModal'
 import { ManageListingGalleryHeroPreview } from '@/components/manage/ManageListingGalleryHeroPreview'
@@ -849,6 +850,7 @@ export default function CatalogNewListingClient({
   const isVilla = categoryCode === 'holiday_home'
   const isHotel = categoryCode === 'hotel'
   const isYacht = categoryCode === 'yacht_charter'
+  const hasPhysicalRegion = listingHasPhysicalRegion(categoryCode)
   const isStayRentalWizard = isStayRentalCategory(categoryCode)
   /** Tatil evi / yat / otel — tesis galerisi aynı listing_images kaynağından */
   const usesFacilityGallery = isStayRentalWizard || isHotel
@@ -3092,12 +3094,16 @@ export default function CatalogNewListingClient({
       metaBody.source_price_url = sourcePriceUrl.trim()
       if (ministryLicenseRef.trim()) metaBody.tourism_cert_no = ministryLicenseRef.trim()
       if (address.trim()) metaBody.address = address.trim()
-      if (isHotel || isVilla) {
+      if (hasPhysicalRegion) {
         if (districtLabel.trim()) metaBody.district_label = districtLabel.trim()
         if (cityDisplay.trim()) metaBody.city = cityDisplay.trim()
         if (provinceCity.trim()) metaBody.province_city = provinceCity.trim()
-        const regionParts = [districtLabel, cityDisplay, provinceCity].map((s) => s.trim()).filter(Boolean)
-        if (regionParts.length > 0) metaBody.region_display = regionParts.join(', ')
+        const regionLine = buildListingRegionDisplay({
+          district_label: districtLabel,
+          city: cityDisplay,
+          province_city: provinceCity,
+        })
+        if (regionLine) metaBody.region_display = regionLine
       }
       if (lat.trim()) metaBody.lat = lat.trim()
       if (lng.trim()) metaBody.lng = lng.trim()
@@ -3127,12 +3133,15 @@ export default function CatalogNewListingClient({
           min_short_stay_nights: minStayNights,
           short_stay_fee: shortStayFee,
         }
-        if (isHotel || isVilla) {
+        if (hasPhysicalRegion) {
           editableMeta.district_label = districtLabel
           editableMeta.city = cityDisplay
           editableMeta.province_city = provinceCity
-          const regionParts = [districtLabel, cityDisplay, provinceCity].map((s) => s.trim()).filter(Boolean)
-          editableMeta.region_display = regionParts.join(', ')
+          editableMeta.region_display = buildListingRegionDisplay({
+            district_label: districtLabel,
+            city: cityDisplay,
+            province_city: provinceCity,
+          })
         }
         if (!isHotel) {
           editableMeta.bed_count = bedCount
@@ -3452,13 +3461,13 @@ export default function CatalogNewListingClient({
 
   const locationSection = (
     <Section title="Konum" subtitle="Adres, harita ve vitrinde görünen bölge bilgisi">
-      {isHotel || isVilla ? (
+      {hasPhysicalRegion ? (
         <div className="mb-4 space-y-3 rounded-xl border border-neutral-200 p-4 dark:border-neutral-700">
           <p className="text-sm font-medium text-neutral-800 dark:text-neutral-200">
-            Vitrin konumu {isVilla ? '(arama ve bölge filtresi)' : '(otel adı altında)'}
+            Vitrin konumu (arama ve kart satırı)
           </p>
           <p className="text-xs text-neutral-500">
-            Sıra: semt / bölge, ilçe, il — örn. {isVilla ? 'Kalkan, Kaş, Antalya' : 'Galata, Beyoğlu, İstanbul'}
+            Standart kalıp — semt / bölge, ilçe, il (ör. Kalkan, Kaş, Antalya)
           </p>
           <Grid3>
             <Field className="block">
@@ -3467,7 +3476,7 @@ export default function CatalogNewListingClient({
                 className="mt-1"
                 value={districtLabel}
                 onChange={(e) => setDistrictLabel(e.target.value)}
-                placeholder={isVilla ? 'Kalkan' : 'Galata'}
+                placeholder="Kalkan"
               />
             </Field>
             <Field className="block">
@@ -3476,7 +3485,7 @@ export default function CatalogNewListingClient({
                 className="mt-1"
                 value={cityDisplay}
                 onChange={(e) => setCityDisplay(e.target.value)}
-                placeholder={isVilla ? 'Kaş' : 'Beyoğlu'}
+                placeholder="Kaş"
               />
             </Field>
             <Field className="block">
@@ -3485,7 +3494,7 @@ export default function CatalogNewListingClient({
                 className="mt-1"
                 value={provinceCity}
                 onChange={(e) => setProvinceCity(e.target.value)}
-                placeholder={isVilla ? 'Antalya' : 'İstanbul'}
+                placeholder="Antalya"
               />
             </Field>
           </Grid3>

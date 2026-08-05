@@ -438,6 +438,12 @@ main() {
         "$APP_ROOT/backend/priv/sql/modules/410_repair_listing_turkish_ascii_locations.sql" \
         || warn "410 turkish location repair SQL uygulanamadı"
     fi
+    if [[ -f "$APP_ROOT/backend/priv/sql/modules/411_normalize_listing_region_display.sql" ]]; then
+      step "Standart bölge kalıbı region_display (411)"
+      bash "$APP_ROOT/deploy/apply-sql.sh" \
+        "$APP_ROOT/backend/priv/sql/modules/411_normalize_listing_region_display.sql" \
+        || warn "411 region_display normalize SQL uygulanamadı"
+    fi
   fi
 
   if [[ "${SKIP_AI_WORKER_TIMER:-0}" == "1" ]]; then

@@ -14,6 +14,7 @@ import {
   writeStoredCatalogOrganizationId,
 } from '@/lib/catalog-manage-organization'
 import { mergeCalendarRows, type MergedCalendarRow } from '@/lib/listing-availability-calendar-merge'
+import { buildListingRegionDisplay, listingHasPhysicalRegion } from '@/lib/stay-location-display'
 import HotelRoomsEditor from '@/components/manage/HotelRoomsEditor'
 import HotelRoomAvailabilityEditor from '@/components/manage/HotelRoomAvailabilityEditor'
 import HotelPromotionsEditor from '@/components/manage/HotelPromotionsEditor'
@@ -1452,6 +1453,15 @@ export default function CatalogListingDetailClient({
       assignTrim('district_label', districtLabel)
       assignTrim('city', cityDisplay)
       assignTrim('province_city', provinceCity)
+      {
+        const regionLine = buildListingRegionDisplay({
+          district_label: districtLabel,
+          city: cityDisplay,
+          province_city: provinceCity,
+        })
+        if (regionLine) (next as Record<string, string>).region_display = regionLine
+        else delete (next as Record<string, unknown>).region_display
+      }
       assignTrim('lat', String(lat ?? ''))
       assignTrim('lng', String(lng ?? ''))
       assignTrim('min_advance_booking_days', minAdvanceBookingDays)
@@ -2160,13 +2170,13 @@ export default function CatalogListingDetailClient({
                 <Input className="mt-1" value={lng} onChange={(e) => setLng(e.target.value)} />
               </Field>
             </div>
-            {categoryCode === 'holiday_home' || categoryCode === 'hotel' ? (
+            {listingHasPhysicalRegion(categoryCode) ? (
               <div className="mt-4 space-y-3 rounded-xl border border-neutral-200 p-4 dark:border-neutral-700">
                 <p className="text-sm font-medium text-neutral-800 dark:text-neutral-200">
-                  Vitrin konumu (kartta görünen)
+                  Vitrin konumu (kartta ve aramada görünen)
                 </p>
                 <p className="text-xs text-neutral-500">
-                  Sıra: bölge (semt), ilçe, il — örn. Galata, Beyoğlu, İstanbul
+                  Standart kalıp — semt / bölge, ilçe, il (ör. Kalkan, Kaş, Antalya)
                 </p>
                 {categoryCode === 'holiday_home' && destinationOptions.length > 0 ? (
                   <Field className="block">
@@ -2195,16 +2205,16 @@ export default function CatalogListingDetailClient({
                 ) : null}
                 <div className="grid gap-3 sm:grid-cols-3">
                   <Field className="block">
-                    <Label>Semt / mahalle</Label>
-                    <Input className="mt-1" value={districtLabel} onChange={(e) => setDistrictLabel(e.target.value)} placeholder="Ölüdeniz" />
+                    <Label>Semt / bölge</Label>
+                    <Input className="mt-1" value={districtLabel} onChange={(e) => setDistrictLabel(e.target.value)} placeholder="Kalkan" />
                   </Field>
                   <Field className="block">
                     <Label>İlçe</Label>
-                    <Input className="mt-1" value={cityDisplay} onChange={(e) => setCityDisplay(e.target.value)} placeholder="Fethiye" />
+                    <Input className="mt-1" value={cityDisplay} onChange={(e) => setCityDisplay(e.target.value)} placeholder="Kaş" />
                   </Field>
                   <Field className="block">
                     <Label>İl</Label>
-                    <Input className="mt-1" value={provinceCity} onChange={(e) => setProvinceCity(e.target.value)} placeholder="Muğla" />
+                    <Input className="mt-1" value={provinceCity} onChange={(e) => setProvinceCity(e.target.value)} placeholder="Antalya" />
                   </Field>
                 </div>
               </div>

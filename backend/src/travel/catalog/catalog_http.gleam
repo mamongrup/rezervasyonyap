@@ -4445,8 +4445,7 @@ type ListingMetaAddrPin {
 }
 
 fn listing_meta_addr_from(meta: Dict(String, Dynamic)) -> ListingMetaAddrPin {
-  // Vitrin location_name: bölge satırı (semt, ilçe, il) varsa onu kullan;
-  // yoksa gerçek adres. Arama / öneriler location_name + meta üzerinden gider.
+  // Standart kalıp: region_display → (semt, ilçe, il) → address
   let from_key = fn(key: String) -> Result(String, Nil) {
     case dict.get(meta, key) {
       Error(_) -> Error(Nil)
@@ -4463,15 +4462,39 @@ fn listing_meta_addr_from(meta: Dict(String, Dynamic)) -> ListingMetaAddrPin {
         }
     }
   }
+  let compose_region = fn() -> Result(String, Nil) {
+    let parts =
+      [from_key("district_label"), from_key("city"), from_key("province_city")]
+      |> list.filter_map(fn(r) { r })
+    case parts {
+      [] -> Error(Nil)
+      _ -> {
+        // Tekrarlayan parçaları düş (Kaş, Kaş, Antalya → Kaş, Antalya)
+        let deduped =
+          list.fold(parts, [], fn(acc, part) {
+            let lower = string.lowercase(part)
+            case list.any(acc, fn(existing) { string.lowercase(existing) == lower }) {
+              True -> acc
+              False -> list.append(acc, [part])
+            }
+          })
+        Ok(string.join(deduped, with: ", "))
+      }
+    }
+  }
   case from_key("region_display") {
     Ok(s) -> AddrText(s)
     Error(_) ->
-      case from_key("address") {
+      case compose_region() {
         Ok(s) -> AddrText(s)
         Error(_) ->
-          case dict.get(meta, "address") {
-            Error(_) -> AddrSkip
-            Ok(_) -> AddrClear
+          case from_key("address") {
+            Ok(s) -> AddrText(s)
+            Error(_) ->
+              case dict.get(meta, "address") {
+                Error(_) -> AddrSkip
+                Ok(_) -> AddrClear
+              }
           }
       }
   }
