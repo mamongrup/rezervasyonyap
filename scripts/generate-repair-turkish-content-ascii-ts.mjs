@@ -27,7 +27,7 @@ body = body
   .replace(/BRAVO_TURKISH_ASCII_PAIRS/g, 'CONTENT_ASCII_PAIRS')
   .replace(/export function repairBravoTurkishAscii\(input\) \{[\s\S]*?\n\}\n\n/, '')
 
-const src = `/**
+let src = `/**
  * Aktarımda Türkçe harfler ASCII \`?\` olmuş başlık/açıklama metinlerini onarır.
  * ç/ğ/ı/ö/ş/ü ve Ç/Ğ/İ/Ö/Ş/Ü (kelime başı + morfoloji).
  * Sunucu migration 416 ve scripts/lib/bravo-turkish-ascii-repair.mjs ile aynı kalıplar.

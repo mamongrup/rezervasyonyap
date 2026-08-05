@@ -7,6 +7,13 @@
 /** Uzun / spesifik kalıplar önce — villa + aktivite ortak sözlük */
 export const BRAVO_TURKISH_ASCII_PAIRS = [
   // —— v3: tüm Türkçe harfler (ç/ğ/ı/ö/ş/ü + büyük) — ?zel/g?zel çakışmasını önlemek için önde ——
+  ["Kaş&rsquo;?n", "Kaş&rsquo;ın"],
+  ["KAŞ&RSQUO;?N", "KAŞ&RSQUO;IN"],
+  ["Kaş&#39;?n", "Kaş&#39;ın"],
+  ["Kaş&apos;?n", "Kaş&apos;ın"],
+  ["alıcıs?", "alıcısı"],
+  ["Alıcıs?", "Alıcısı"],
+  ["ALICIS?", "ALICISI"],
   ["g?zel", "güzel"],
   ["G?zel", "Güzel"],
   ["G?ZEL", "GÜZEL"],

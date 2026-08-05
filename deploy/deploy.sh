@@ -481,6 +481,12 @@ main() {
         "$APP_ROOT/backend/priv/sql/modules/417_repair_listing_turkish_ascii_content_v4.sql" \
         || warn "417 turkish content repair v4 SQL uygulanamadı"
     fi
+    if [[ -f "$APP_ROOT/backend/priv/sql/modules/418_repair_listing_turkish_html_apostrophe.sql" ]]; then
+      step "Türkçe HTML apostrof/entity charset onarımı (418)"
+      bash "$APP_ROOT/deploy/apply-sql.sh" \
+        "$APP_ROOT/backend/priv/sql/modules/418_repair_listing_turkish_html_apostrophe.sql" \
+        || warn "418 Turkish HTML apostrophe repair SQL uygulanamadı"
+    fi
   fi
 
   if [[ "${SKIP_AI_WORKER_TIMER:-0}" == "1" ]]; then

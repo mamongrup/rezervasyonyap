@@ -258,6 +258,7 @@ modules/413_ai_listing_content_seed_charset_dirty.sql
 modules/414_ai_seo_keywords_required.sql
 modules/415_repair_listing_turkish_ascii_content_v2.sql
 modules/417_repair_listing_turkish_ascii_content_v4.sql
+modules/418_repair_listing_turkish_html_apostrophe.sql
 
 # Kurulum doğrulama (install_order’a dahil değil — elle çalıştırın):
 #   psql -U postgres -d travel -f priv/sql/check_installation.sql

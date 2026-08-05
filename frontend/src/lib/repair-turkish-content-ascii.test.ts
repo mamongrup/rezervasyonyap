@@ -69,4 +69,14 @@ Villamızın bahçesinde g?zel bir havuz. ?zel havuz ve ?cret alınmaz.`
     expect(fixed).toContain('Nedir?')
     expect(fixed).not.toMatch(/Nedirı/)
   })
+
+  it('repairs Turkish characters hidden behind HTML apostrophe entities', () => {
+    const raw =
+      '<p>Villa Şimşek 2, Kaş&rsquo;?n Bayındır bölgesindedir. TV ve uydu alıcıs? bulunur.</p>'
+    const fixed = repairTurkishContentAscii(raw)
+
+    expect(fixed).toContain('Kaş&rsquo;ın')
+    expect(fixed).toContain('uydu alıcısı')
+    expect(fixed).not.toContain('?')
+  })
 })

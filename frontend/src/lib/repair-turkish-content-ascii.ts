@@ -6,6 +6,13 @@
  */
 
 const CONTENT_ASCII_PAIRS: [string, string][] = [
+  ["Kaş&rsquo;?n", "Kaş&rsquo;ın"],
+  ["KAŞ&RSQUO;?N", "KAŞ&RSQUO;IN"],
+  ["Kaş&#39;?n", "Kaş&#39;ın"],
+  ["Kaş&apos;?n", "Kaş&apos;ın"],
+  ["alıcıs?", "alıcısı"],
+  ["Alıcıs?", "Alıcısı"],
+  ["ALICIS?", "ALICISI"],
   ["g?zel", "güzel"],
   ["G?zel", "Güzel"],
   ["G?ZEL", "GÜZEL"],
