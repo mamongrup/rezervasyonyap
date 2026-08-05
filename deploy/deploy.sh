@@ -456,6 +456,12 @@ main() {
         "$APP_ROOT/backend/priv/sql/modules/413_ai_listing_content_seed_charset_dirty.sql" \
         || warn "413 AI listing content seed SQL uygulanamadı"
     fi
+    if [[ -f "$APP_ROOT/backend/priv/sql/modules/414_ai_seo_keywords_required.sql" ]]; then
+      step "SEO anahtar kelime zorunluluğu (414)"
+      bash "$APP_ROOT/deploy/apply-sql.sh" \
+        "$APP_ROOT/backend/priv/sql/modules/414_ai_seo_keywords_required.sql" \
+        || warn "414 SEO keywords required SQL uygulanamadı"
+    fi
   fi
 
   if [[ "${SKIP_AI_WORKER_TIMER:-0}" == "1" ]]; then

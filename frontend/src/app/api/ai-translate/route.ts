@@ -12,7 +12,7 @@ type TranslateBody = {
   text: string
   targetLocale: string
   sourceLocale?: string
-  context?: 'title' | 'excerpt' | 'body' | 'seo' | 'short_label'
+  context?: 'title' | 'excerpt' | 'body' | 'seo' | 'seo_keywords' | 'short_label'
   /** Bölge / sayfa yolu — içerik polish modunda iç link önerisi için (ör. turkiye/antalya) */
   pageSlug?: string
 }
@@ -41,7 +41,14 @@ function canonicalLocaleCode(raw: string): string | null {
   return null
 }
 
-const VALID_CONTEXTS = new Set(['title', 'excerpt', 'body', 'seo', 'short_label'])
+const VALID_CONTEXTS = new Set([
+  'title',
+  'excerpt',
+  'body',
+  'seo',
+  'seo_keywords',
+  'short_label',
+])
 
 /** Blog yönetimi ile aynı: `blog_http` `admin_gate.require_admin_users_read`. */
 const ADMIN_TRANSLATE_PERM = 'admin.users.read'
@@ -153,10 +160,11 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  const context: 'title' | 'excerpt' | 'body' | 'seo' | 'short_label' =
+  const context: 'title' | 'excerpt' | 'body' | 'seo' | 'seo_keywords' | 'short_label' =
     rawContext === 'title' ||
     rawContext === 'excerpt' ||
     rawContext === 'seo' ||
+    rawContext === 'seo_keywords' ||
     rawContext === 'short_label'
       ? rawContext
       : 'body'
@@ -198,9 +206,11 @@ export async function POST(req: NextRequest) {
         ? 'This is a blog excerpt: 2–3 fluent sentences.'
         : context === 'seo'
           ? 'This is SEO meta text: concise and keyword-aware.'
-          : context === 'short_label'
-            ? 'This is a SHORT travel/booking UI text (a label, attribute, feature or house-rule sentence, typically 1-15 words) used in a vacation rental / villa platform. Examples: "Ek Temizlik" → "Extra Cleaning"; "Havuz ısıtma" → "Pool Heating"; "Tüp Kullanımı" → "Gas Bottle Usage"; "Ulaşım Hizmeti" → "Transfer Service"; "Erken Rezervasyon" → "Early Booking"; "İçeride sigara içilmez" → "No smoking indoors"; "Evcil hayvan kabul edilmez" → "Pets not allowed"; "Etkinlik / parti yasak" → "No events or parties". Translate the literal meaning faithfully; keep it concise; use natural sentence-case for short rules and Title Case for short labels where appropriate; do NOT invent extra words; do NOT add quotes, surrounding punctuation, parentheses or commentary; do NOT translate brand names. Output ONLY the translated text, nothing else.'
-            : 'This is blog HTML body: preserve tags and structure; translate visible text only.'
+          : context === 'seo_keywords'
+            ? 'This is a comma-separated SEO keyword list for a travel/vacation rental listing. Translate each phrase naturally into the target language; keep 5–8 items; output ONLY a comma-separated list (no numbering, quotes, or commentary).'
+            : context === 'short_label'
+              ? 'This is a SHORT travel/booking UI text (a label, attribute, feature or house-rule sentence, typically 1-15 words) used in a vacation rental / villa platform. Examples: "Ek Temizlik" → "Extra Cleaning"; "Havuz ısıtma" → "Pool Heating"; "Tüp Kullanımı" → "Gas Bottle Usage"; "Ulaşım Hizmeti" → "Transfer Service"; "Erken Rezervasyon" → "Early Booking"; "İçeride sigara içilmez" → "No smoking indoors"; "Evcil hayvan kabul edilmez" → "Pets not allowed"; "Etkinlik / parti yasak" → "No events or parties". Translate the literal meaning faithfully; keep it concise; use natural sentence-case for short rules and Title Case for short labels where appropriate; do NOT invent extra words; do NOT add quotes, surrounding punctuation, parentheses or commentary; do NOT translate brand names. Output ONLY the translated text, nothing else.'
+              : 'This is blog HTML body: preserve tags and structure; translate visible text only.'
 
   const slug = typeof body.pageSlug === 'string' ? body.pageSlug.trim() : ''
   const linkHint =
@@ -215,6 +225,8 @@ export async function POST(req: NextRequest) {
         return `You are a professional travel SEO copywriter writing in ${langName}. Improve the given region or destination title: fix grammar and spelling, follow capitalization norms for ${langName}, keep it concise (max 70 characters). Return only the improved title — no quotes, labels, or explanation.`
       case 'seo':
         return `You are an SEO specialist writing in ${langName}. Improve this meta title or meta description for a travel destination: natural wording, relevant keywords, respect typical length (title ~70 chars, description ~160 chars when the input looks like a description). Return only the improved text, no prefixes.`
+      case 'seo_keywords':
+        return `You are an SEO specialist writing in ${langName} for a vacation rental / travel listing. From the given title and description, produce 5–8 natural search phrases a guest would type (location, property type, amenities, trip intent). Output ONLY a single comma-separated line in ${langName}. No numbering, no quotes, no hashtags, no keyword stuffing, no duplicate phrases. Never leave the list empty.`
       case 'excerpt':
         return `You are a professional editor writing in ${langName}. Improve this short excerpt: grammar, clarity, SEO-friendly phrasing. Return only the improved text.`
       case 'short_label':

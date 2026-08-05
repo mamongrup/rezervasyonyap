@@ -56,6 +56,7 @@ WITH target_listings AS (
           AND lower(lo.code) = wanted.locale_code
           AND length(coalesce(sm.title, '')) > 10
           AND length(coalesce(sm.description, '')) > 40
+          AND length(trim(coalesce(sm.keywords, ''))) >= 8
       )
     ) AS seo_ready
   FROM listings l

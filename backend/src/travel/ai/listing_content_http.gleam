@@ -35,6 +35,8 @@ const min_seo_title_chars = 10
 
 const min_seo_desc_chars = 40
 
+const min_seo_keywords_chars = 8
+
 /// Tüm dış sağlayıcı ve toplu içe aktarımlarda bağlayıcı editoryal standart.
 /// Aynı metnin farklı dil alanlarına kopyalanması tamamlanmış çeviri sayılmaz.
 fn imported_content_standard() -> String {
@@ -517,6 +519,7 @@ fn need_work_sql() -> String {
         and coalesce(lo.is_active, true) = true
         and length(coalesce(sm.title, '')) > 10
         and length(coalesce(sm.description, '')) > 40
+        and length(trim(coalesce(sm.keywords, ''))) >= 8
     ) < (
       select count(*)::int from locales lo
       where coalesce(lo.is_active, true) = true
@@ -1125,12 +1128,14 @@ fn locale_has_seo(
     pog.query(
       "select 1 from seo_metadata sm join locales lo on lo.id = sm.locale_id "
       <> "where sm.entity_type = 'listing' and sm.entity_id = $1::uuid and lower(lo.code) = lower($2) "
-      <> "and length(coalesce(sm.title,'')) > $3 and length(coalesce(sm.description,'')) > $4 limit 1",
+      <> "and length(coalesce(sm.title,'')) > $3 and length(coalesce(sm.description,'')) > $4 "
+      <> "and length(trim(coalesce(sm.keywords,''))) >= $5 limit 1",
     )
     |> pog.parameter(pog.text(listing_id))
     |> pog.parameter(pog.text(locale_code))
     |> pog.parameter(pog.int(min_seo_title_chars))
     |> pog.parameter(pog.int(min_seo_desc_chars))
+    |> pog.parameter(pog.int(min_seo_keywords_chars))
     |> pog.returning(row_dec.col0_int())
     |> pog.execute(conn)
   {
@@ -1519,7 +1524,7 @@ fn run_seo_phase(
                     "instruction",
                     json.string(
                       imported_content_standard()
-                      <> " Bu dilde, içeriğin gerçek diline uygun benzersiz arama sonucu meta başlık (en fazla 70 karakter) ve meta açıklama (en fazla 160 karakter) yaz. Başka dilde metin bırakma; doğal arama niyetini gözet ve anahtar kelime doldurma yapma. JSON: {\"meta_title\":\"...\",\"meta_description\":\"...\",\"keywords\":\"virgülle\"}",
+                      <> " Bu dilde benzersiz arama sonucu meta başlık (en fazla 70 karakter), meta açıklama (en fazla 160 karakter) ve 5-8 doğal arama ifadesi (virgülle ayrılmış keywords) yaz. Keywords boş bırakılamaz; anahtar kelime doldurma yapma, tekrar etme. Başka dilde metin bırakma. JSON: {\"meta_title\":\"...\",\"meta_description\":\"...\",\"keywords\":\"ifade1, ifade2, ...\"}",
                     ),
                   ),
                 ])
@@ -1611,23 +1616,33 @@ fn persist_seo(
   meta_desc: String,
   raw: String,
 ) -> Result(Nil, String) {
-  let kw = case json_field_string(raw, "keywords") {
+  let kw_raw = case json_field_string(raw, "keywords") {
     Ok(k) -> k
-    Error(_) -> ""
+    Error(_) ->
+      case extract_json_string_field_loose(raw, "keywords") {
+        Ok(k) -> k
+        Error(_) -> ""
+      }
   }
-  let mt = string.slice(meta_title, 0, 70)
-  let md = string.slice(meta_desc, 0, 160)
-  case upsert_seo(ctx.db, listing_id, locale_code, mt, md, kw) {
-    Error(e) -> Error(e)
-    Ok(Nil) ->
-      case mark_batch_locale_done(ctx.db, batch_id, "seo", locale_code) {
+  let kw = string.trim(kw_raw)
+  case string.length(kw) < min_seo_keywords_chars {
+    True -> Error("listing_content_seo_keywords_missing")
+    False -> {
+      let mt = string.slice(meta_title, 0, 70)
+      let md = string.slice(meta_desc, 0, 160)
+      case upsert_seo(ctx.db, listing_id, locale_code, mt, md, kw) {
         Error(e) -> Error(e)
         Ok(Nil) ->
-          case advance_batch(ctx.db, batch_id, "seo", "pending") {
-            Error(_) -> Error("listing_content_batch_advance_failed")
-            Ok(Nil) -> Ok(Nil)
+          case mark_batch_locale_done(ctx.db, batch_id, "seo", locale_code) {
+            Error(e) -> Error(e)
+            Ok(Nil) ->
+              case advance_batch(ctx.db, batch_id, "seo", "pending") {
+                Error(_) -> Error("listing_content_batch_advance_failed")
+                Ok(Nil) -> Ok(Nil)
+              }
           }
       }
+    }
   }
 }
 

@@ -25,7 +25,7 @@ import RichEditor from '@/components/editor/RichEditor'
 import { ManageAiMagicTextButton } from '@/components/manage/ManageAiMagicTextButton'
 import { ManageAiTranslateToolbar } from '@/components/manage/ManageAiTranslateToolbar'
 import { useManageAiLocaleRows } from '@/hooks/use-manage-ai-locales'
-import { callAiTranslate } from '@/lib/manage-content-ai'
+import { callAiTranslate, suggestSeoKeywordsFromContent, normalizeSeoKeywordsCsv } from '@/lib/manage-content-ai'
 import Link from 'next/link'
 import { useParams, useSearchParams } from 'next/navigation'
 import { Loader2, Sparkles } from 'lucide-react'
@@ -264,7 +264,28 @@ export default function CatalogListingTranslationsClient({
     const desc = src.description.trim()
     const srcSeo = seoDraft[primaryLocale] ?? emptySeoDraft()
     const listingPath = `listing/${listingId.slice(0, 8)}`
-    const [tTitle, tDesc, st, sd] = await Promise.all([
+    let srcKw = (srcSeo.keywords || '').trim()
+    if (!srcKw && (name || desc || srcSeo.title.trim() || srcSeo.description.trim())) {
+      try {
+        srcKw = await suggestSeoKeywordsFromContent({
+          title: srcSeo.title.trim() || name,
+          descriptionPlain: (srcSeo.description || desc).replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim(),
+          locale: primaryLocale,
+        })
+        if (srcKw) {
+          setSeoDraft((prev) => ({
+            ...prev,
+            [primaryLocale]: {
+              ...(prev[primaryLocale] ?? emptySeoDraft()),
+              keywords: srcKw,
+            },
+          }))
+        }
+      } catch {
+        /* hedef dil yine denensin */
+      }
+    }
+    const [tTitle, tDesc, st, sd, sk] = await Promise.all([
       name
         ? callAiTranslate({
             text: name,
@@ -298,6 +319,14 @@ export default function CatalogListingTranslationsClient({
             targetLocale: targetCode,
           })
         : Promise.resolve(''),
+      srcKw
+        ? callAiTranslate({
+            text: srcKw,
+            context: 'seo_keywords',
+            sourceLocale: primaryLocale,
+            targetLocale: targetCode,
+          })
+        : Promise.resolve(''),
     ])
     setDraft((prev) => ({
       ...prev,
@@ -312,6 +341,7 @@ export default function CatalogListingTranslationsClient({
         ...(prev[targetCode] ?? emptySeoDraft()),
         title: st || prev[targetCode]?.title || '',
         description: sd || prev[targetCode]?.description || '',
+        keywords: normalizeSeoKeywordsCsv(sk) || prev[targetCode]?.keywords || '',
       },
     }))
   }
@@ -610,11 +640,12 @@ export default function CatalogListingTranslationsClient({
                         void polishField(`seometa-${lc}`, async () => {
                           const st = seo.title.trim()
                           const sd = seo.description.trim()
-                          if (!st && !sd) {
-                            setErr('Önce SEO başlık veya açıklama girin.')
+                          const sk = seo.keywords.trim()
+                          if (!st && !sd && !sk && !(draft[lc]?.title ?? '').trim()) {
+                            setErr('Önce SEO başlık, açıklama veya ilan başlığı girin.')
                             return
                           }
-                          const [t1, t2] = await Promise.all([
+                          const [t1, t2, t3] = await Promise.all([
                             st
                               ? callAiTranslate({
                                   text: st,
@@ -631,6 +662,21 @@ export default function CatalogListingTranslationsClient({
                                   targetLocale: lc,
                                 })
                               : Promise.resolve(''),
+                            sk
+                              ? callAiTranslate({
+                                  text: sk,
+                                  context: 'seo_keywords',
+                                  sourceLocale: lc,
+                                  targetLocale: lc,
+                                })
+                              : suggestSeoKeywordsFromContent({
+                                  title: st || (draft[lc]?.title ?? ''),
+                                  descriptionPlain: (sd || draft[lc]?.description || '')
+                                    .replace(/<[^>]+>/g, ' ')
+                                    .replace(/\s+/g, ' ')
+                                    .trim(),
+                                  locale: lc,
+                                }),
                           ])
                           setSeoDraft((prev) => {
                             const curSeo = prev[lc] ?? emptySeoDraft()
@@ -640,10 +686,11 @@ export default function CatalogListingTranslationsClient({
                                 ...curSeo,
                                 title: t1 ? t1.slice(0, 70) : curSeo.title,
                                 description: t2 ? t2.slice(0, 160) : curSeo.description,
+                                keywords: normalizeSeoKeywordsCsv(t3) || curSeo.keywords,
                               },
                             }
                           })
-                          setOk('SEO meta iyileştirildi.')
+                          setOk('SEO meta ve anahtar kelimeler iyileştirildi.')
                         })
                       }
                       className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-violet-200 bg-violet-50 px-3 py-2 text-sm font-medium text-violet-900 hover:bg-violet-100 disabled:opacity-50 dark:border-violet-900 dark:bg-violet-950/40 dark:text-violet-200"

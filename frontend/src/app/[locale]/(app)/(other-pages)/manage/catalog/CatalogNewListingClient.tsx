@@ -146,7 +146,7 @@ import ListingNearbyPoisSection from '@/components/travel/ListingNearbyPoisSecti
 import { ManageAiMagicTextButton } from '@/components/manage/ManageAiMagicTextButton'
 import { ManageAiTranslateToolbar } from '@/components/manage/ManageAiTranslateToolbar'
 import { useManageAiLocaleRows } from '@/hooks/use-manage-ai-locales'
-import { callAiTranslate } from '@/lib/manage-content-ai'
+import { callAiTranslate, suggestSeoKeywordsFromContent, normalizeSeoKeywordsCsv } from '@/lib/manage-content-ai'
 import ButtonPrimary from '@/shared/ButtonPrimary'
 import Input from '@/shared/Input'
 import Textarea from '@/shared/Textarea'
@@ -2012,7 +2012,27 @@ export default function CatalogNewListingClient({
       const prevSeo = seoByLocale[primaryLocale] ?? emptyListingSeo()
       const sTit = prevSeo.title.trim()
       const sDesc = prevSeo.description.trim()
-      const sKw = prevSeo.keywords.trim()
+      let sKw = prevSeo.keywords.trim()
+      if (!sKw && (sTit || sDesc || tTit || tDesc)) {
+        try {
+          sKw = await suggestSeoKeywordsFromContent({
+            title: sTit || tTit,
+            descriptionPlain: stripHtmlToPlain(sDesc || tDesc),
+            locale: primaryLocale,
+          })
+          if (sKw) {
+            setSeoByLocale((prev) => ({
+              ...prev,
+              [primaryLocale]: {
+                ...(prev[primaryLocale] ?? emptyListingSeo()),
+                keywords: sKw,
+              },
+            }))
+          }
+        } catch {
+          /* hedef dil çevirisi yine denensin */
+        }
+      }
       const [seoTitle, seoDesc, seoKw] = await Promise.all([
         sTit
           ? callAiTranslate({
@@ -2033,7 +2053,7 @@ export default function CatalogNewListingClient({
         sKw
           ? callAiTranslate({
               text: sKw,
-              context: 'seo',
+              context: 'seo_keywords',
               sourceLocale: primaryLocale,
               targetLocale: targetCode,
             })
@@ -2045,7 +2065,7 @@ export default function CatalogNewListingClient({
           ...(prev[targetCode] ?? emptyListingSeo()),
           title: seoTitle || prev[targetCode]?.title || '',
           description: seoDesc || prev[targetCode]?.description || '',
-          keywords: seoKw || prev[targetCode]?.keywords || '',
+          keywords: normalizeSeoKeywordsCsv(seoKw) || prev[targetCode]?.keywords || '',
         },
       }))
     }
@@ -2734,6 +2754,51 @@ export default function CatalogNewListingClient({
     }
   }
 
+  async function handleMagicSeoKeywords() {
+    const title =
+      (seoByLocale[activeLang]?.title ?? '').trim() ||
+      (listingByLocale[activeLang]?.title ?? '').trim()
+    const plain = stripHtmlToPlain(
+      (listingByLocale[activeLang]?.description ?? '').trim() ||
+        (seoByLocale[activeLang]?.description ?? '').trim(),
+    )
+    const existing = (seoByLocale[activeLang]?.keywords ?? '').trim()
+    if (!title && !plain && !existing) {
+      setTranslateMsg({
+        ok: false,
+        text: 'Önce başlık/açıklama girin veya «İçerikten öner» kullanın.',
+      })
+      return
+    }
+    setSeoPolishBusy('keywords')
+    setTranslateMsg(null)
+    try {
+      const out = existing
+        ? normalizeSeoKeywordsCsv(
+            await callAiTranslate({
+              text: existing,
+              context: 'seo_keywords',
+              sourceLocale: activeLang,
+              targetLocale: activeLang,
+            }),
+          )
+        : await suggestSeoKeywordsFromContent({
+            title,
+            descriptionPlain: plain,
+            locale: activeLang,
+          })
+      if (out) patchSeo({ keywords: out })
+      setTranslateMsg({ ok: true, text: 'SEO anahtar kelimeleri güncellendi.' })
+    } catch (e) {
+      setTranslateMsg({
+        ok: false,
+        text: e instanceof Error ? formatManageApiError(e.message) : 'İşlem başarısız',
+      })
+    } finally {
+      setSeoPolishBusy(null)
+    }
+  }
+
   async function handleAiSuggestSeoFromContent() {
     if (!isVilla) return
     if (activeLang !== primaryLocale) {
@@ -2754,7 +2819,7 @@ export default function CatalogNewListingClient({
     setTranslateMsg(null)
     try {
       const slugRefVal = slugifyListingSlug(slug.trim())
-      const [metaTitle, metaDesc] = await Promise.all([
+      const [metaTitle, metaDesc, metaKw] = await Promise.all([
         tit
           ? callAiTranslate({
               text: tit,
@@ -2772,6 +2837,11 @@ export default function CatalogNewListingClient({
               ...(slugRefVal ? { pageSlug: slugRefVal } : {}),
             })
           : Promise.resolve(''),
+        suggestSeoKeywordsFromContent({
+          title: tit,
+          descriptionPlain: plain,
+          locale: primaryLocale,
+        }),
       ])
       setSeoByLocale((prev) => ({
         ...prev,
@@ -2779,11 +2849,12 @@ export default function CatalogNewListingClient({
           ...(prev[primaryLocale] ?? emptyListingSeo()),
           title: (metaTitle || prev[primaryLocale]?.title || '').slice(0, 70),
           description: (metaDesc || prev[primaryLocale]?.description || '').slice(0, 320),
+          keywords: metaKw || prev[primaryLocale]?.keywords || '',
         },
       }))
       setTranslateMsg({
         ok: true,
-        text: `${allLocales.find((l) => l.code === primaryLocale)?.label ?? primaryLocale} SEO alanları ilan içeriğinden önerildi. Diğer diller için AI Çevir kullanın.`,
+        text: `${allLocales.find((l) => l.code === primaryLocale)?.label ?? primaryLocale} SEO alanları (başlık, açıklama, anahtar kelimeler) ilan içeriğinden önerildi. Diğer diller için AI Çevir kullanın.`,
       })
     } catch (e) {
       setTranslateMsg({
@@ -6647,7 +6718,7 @@ export default function CatalogNewListingClient({
               >
                 <div className="flex flex-col gap-3 rounded-xl border border-dashed border-primary-200/80 bg-primary-50/40 px-4 py-3 sm:flex-row sm:items-center sm:justify-between dark:border-primary-900/40 dark:bg-primary-950/20">
                   <p className="text-xs text-neutral-600 dark:text-neutral-300">
-                    Manuel girebilir veya Türkçe sekmede içerikten öneri alabilirsiniz. Diğer diller için üstteki{' '}
+                    Manuel girebilir veya Türkçe sekmede içerikten öneri alabilirsiniz (başlık, açıklama ve anahtar kelimeler). Diğer diller için üstteki{' '}
                     <strong>AI Çevir</strong>, dolu Türkçe SEO alanlarını hedef dile taşır.
                   </p>
                   <button
@@ -6655,7 +6726,7 @@ export default function CatalogNewListingClient({
                     disabled={seoPolishBusy === 'suggest' || activeLang !== primaryLocale}
                     onClick={() => void handleAiSuggestSeoFromContent()}
                     className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-lg border border-primary-200 bg-white px-3 py-2 text-xs font-medium text-primary-800 disabled:opacity-40 dark:border-primary-800 dark:bg-neutral-900 dark:text-primary-200"
-                    title="Türkçe başlık ve açıklamadan meta önerisi"
+                    title="Türkçe başlık ve açıklamadan meta + anahtar kelime önerisi"
                   >
                     {seoPolishBusy === 'suggest' ? (
                       <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -6704,13 +6775,21 @@ export default function CatalogNewListingClient({
                 </Field>
 
                 <Field className="block">
-                  <Label>Anahtar kelimeler</Label>
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <Label className="mb-0">Anahtar kelimeler</Label>
+                    <ManageAiMagicTextButton
+                      loading={seoPolishBusy === 'keywords'}
+                      onClick={() => void handleMagicSeoKeywords()}
+                      title="Mevcut dilde SEO anahtar kelimeleri üret / iyileştir"
+                    />
+                  </div>
                   <Input
                     value={seoByLocale[activeLang]?.keywords ?? ''}
                     onChange={(e) => patchSeo({ keywords: e.target.value })}
                     placeholder="virgülle ayırın: bodrum, villa, havuz"
                     className="mt-1"
                   />
+                  <HintText>5–8 doğal arama ifadesi; virgülle ayırın.</HintText>
                 </Field>
 
                 <Grid2>

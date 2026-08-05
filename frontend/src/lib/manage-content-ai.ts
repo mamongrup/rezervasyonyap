@@ -5,7 +5,7 @@
 export const MAGIC_TEXT_BTN_CLASS =
   'inline-flex shrink-0 items-center gap-1 rounded-lg bg-amber-400 px-2.5 py-1 text-xs font-bold text-neutral-900 shadow-sm transition-colors hover:bg-amber-300 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-amber-500 dark:text-neutral-950 dark:hover:bg-amber-400'
 
-export type ManageAiContext = 'title' | 'excerpt' | 'body' | 'seo' | 'short_label'
+export type ManageAiContext = 'title' | 'excerpt' | 'body' | 'seo' | 'seo_keywords' | 'short_label'
 
 export async function callAiTranslate(opts: {
   text: string
@@ -30,6 +30,47 @@ export async function callAiTranslate(opts: {
   const data = (await res.json()) as { translated?: string; error?: string; message?: string }
   if (!res.ok) throw new Error(data.message ?? data.error ?? 'AI isteği başarısız')
   return (data.translated ?? '').trim()
+}
+
+/** İlan başlık + açıklamadan virgüllü SEO anahtar kelime listesi üretir. */
+export async function suggestSeoKeywordsFromContent(opts: {
+  title: string
+  descriptionPlain: string
+  locale: string
+}): Promise<string> {
+  const title = opts.title.trim()
+  const desc = opts.descriptionPlain.trim().slice(0, 900)
+  if (!title && !desc) return ''
+  const seed = [
+    title ? `Title: ${title}` : '',
+    desc ? `Description: ${desc}` : '',
+  ]
+    .filter(Boolean)
+    .join('\n')
+  const raw = await callAiTranslate({
+    text: seed,
+    context: 'seo_keywords',
+    sourceLocale: opts.locale,
+    targetLocale: opts.locale,
+  })
+  return normalizeSeoKeywordsCsv(raw)
+}
+
+/** Model çıktısını tek satır virgüllü anahtar kelime listesine temizler. */
+export function normalizeSeoKeywordsCsv(raw: string): string {
+  return String(raw ?? '')
+    .replace(/^["'\s]+|["'\s]+$/g, '')
+    .replace(/\n+/g, ', ')
+    .split(',')
+    .map((part) =>
+      part
+        .replace(/^[\s\-•*\d.)]+/, '')
+        .replace(/^["'“”]+|["'“”]+$/g, '')
+        .trim(),
+    )
+    .filter(Boolean)
+    .slice(0, 10)
+    .join(', ')
 }
 
 /**
