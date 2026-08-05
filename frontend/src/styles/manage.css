@@ -1,16 +1,55 @@
 /**
  * Yönetim paneli CSS — yalnızca `/manage` segmentinde yüklenir.
  * Vitrin `tailwind.css` manage kaynaklarını taramaz; panoya özel utility’ler burada üretilir.
+ *
+ * ÖNEMLİ — çift Tailwind katmanı: bu dosya `tailwind.css`’ten SONRA yüklenir.
+ * Yalnızca vitrin CSS’inde kalan responsive sınıflar (ör. Footer2 `xl:grid-cols-[…]`),
+ * buradaki aynı unprefixed utility (`grid-cols-1`) tarafından ezilir → panelde dağınık footer.
+ * Site alt bilgisi + `components/manage` paylaşılan bileşenleri burada taranmalı.
  */
 @import "tailwindcss" source(none);
 
 @source "../app/**/manage/**/*.{ts,tsx}";
 @source not "../app/**/manage/**/*.test.*";
+/* Panelde render edilen site Footer2 + yönetici önizleme / paylaşılan manage UI */
+@source "../components/Footer2.tsx";
+@source "../components/Footer2TrustBadge.tsx";
+@source "../components/manage/**/*.{ts,tsx}";
+@source "../shared/Logo.tsx";
 
 @plugin "@tailwindcss/typography";
 @plugin "@tailwindcss/forms";
 
 @custom-variant dark (&:where(.dark, .dark *));
+
+/**
+ * Vitrin `tailwind.css` ile aynı container — ikinci Tailwind import’u varsayılan
+ * container’ı geçmesin diye burada da tanımlı.
+ */
+@utility container {
+  width: 100%;
+  margin-inline: auto;
+  padding-inline: 1rem;
+  max-width: min(100%, 40rem);
+  @media screen and (min-width: 768px) {
+    max-width: min(100%, 48rem);
+  }
+  @media screen and (min-width: 1024px) {
+    max-width: min(100%, 64rem);
+  }
+  @media screen and (min-width: 1280px) {
+    max-width: min(100%, 80rem);
+  }
+  @media screen and (min-width: 1536px) {
+    max-width: min(100%, 96rem);
+    padding-inline: 8rem;
+  }
+}
+
+/* Wizard / form sticky alt çubuk site footer linklerini örtmesin */
+body:has(.manage-shell) footer {
+  padding-bottom: 5.5rem;
+}
 
 /* Yönetim paneli — glass morphism; yalnızca `.manage-shell` */
 @layer components {
