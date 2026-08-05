@@ -700,7 +700,7 @@ export default function CatalogListingTranslationsClient({
                       ) : (
                         <Sparkles className="h-4 w-4" />
                       )}
-                      AI ile SEO meta iyileştir
+                      AI ile SEO meta + anahtar kelime
                     </button>
                   </div>
                 </details>
