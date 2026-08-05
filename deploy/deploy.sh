@@ -462,6 +462,12 @@ main() {
         "$APP_ROOT/backend/priv/sql/modules/414_ai_seo_keywords_required.sql" \
         || warn "414 SEO keywords required SQL uygulanamadı"
     fi
+    if [[ -f "$APP_ROOT/backend/priv/sql/modules/415_repair_listing_turkish_ascii_content_v2.sql" ]]; then
+      step "Türkçe açıklama charset onarımı v2 (415)"
+      bash "$APP_ROOT/deploy/apply-sql.sh" \
+        "$APP_ROOT/backend/priv/sql/modules/415_repair_listing_turkish_ascii_content_v2.sql" \
+        || warn "415 turkish content repair v2 SQL uygulanamadı"
+    fi
   fi
 
   if [[ "${SKIP_AI_WORKER_TIMER:-0}" == "1" ]]; then
