@@ -493,6 +493,12 @@ main() {
         "$APP_ROOT/backend/priv/sql/modules/419_repair_remaining_holiday_home_turkish_ascii.sql" \
         || warn "419 remaining Turkish holiday-home repair SQL uygulanamadı"
     fi
+    if [[ -f "$APP_ROOT/backend/priv/sql/modules/420_seed_kas_holiday_home_nearby_distances.sql" ]]; then
+      step "Kaş/Kalkan villaları gerçek yakın mekan mesafeleri (420)"
+      bash "$APP_ROOT/deploy/apply-sql.sh" \
+        "$APP_ROOT/backend/priv/sql/modules/420_seed_kas_holiday_home_nearby_distances.sql" \
+        || warn "420 Kaş holiday-home nearby distances SQL uygulanamadı"
+    fi
   fi
 
   if [[ "${SKIP_AI_WORKER_TIMER:-0}" == "1" ]]; then
