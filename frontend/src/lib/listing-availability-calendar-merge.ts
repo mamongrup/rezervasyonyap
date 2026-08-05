@@ -1,4 +1,5 @@
 import { normalizeListingDayStatus } from '@/lib/listing-availability-day'
+import { formatLocalYmd } from '@/lib/date-format-local'
 import type { ListingAvailabilityDay, ListingAvailabilityDayStatus } from '@/lib/travel-api'
 
 /** `mergeCalendarRows` çıktısı — panel takvim tablosu / hub grid ile uyumlu */
@@ -23,7 +24,7 @@ export function mergeCalendarRows(
   let cur = new Date(from + 'T12:00:00')
   const end = new Date(to + 'T12:00:00')
   while (cur <= end) {
-    const key = cur.toISOString().slice(0, 10)
+    const key = formatLocalYmd(cur)
     const ex = map.get(key)
     const am = ex?.am_available ?? ex?.is_available ?? true
     const pm = ex?.pm_available ?? ex?.is_available ?? true

@@ -2,6 +2,7 @@
 
 import { useCallback, useMemo, useRef, useState } from 'react'
 import type { MergedCalendarRow } from '@/lib/listing-availability-calendar-merge'
+import { formatLocalYmd } from '@/lib/date-format-local'
 
 const TR_DAYS = ['Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt', 'Paz']
 const TR_MONTHS = [
@@ -10,17 +11,22 @@ const TR_MONTHS = [
 ]
 
 function isoToday() {
-  return new Date().toISOString().slice(0, 10)
+  return formatLocalYmd(new Date())
 }
 
-/** YYYY-MM-01 → all days in that month as [YYYY-MM-DD, weekdayIndex(Mon=0)] */
-function buildMonthCells(year: number, month: number): { iso: string; wd: number }[] {
+/**
+ * Ayın tüm günleri — yerel takvim günü (UTC `toISOString` KULLANMA).
+ * TR (UTC+3) gece yarısında `toISOString` önceki güne kaydırır; ay sonu
+ * (ör. 30 Eylül) sonraki ay grid’inin başına sızar.
+ */
+export function buildMonthCells(year: number, month: number): { iso: string; wd: number }[] {
   const cells: { iso: string; wd: number }[] = []
-  const d = new Date(year, month, 1)
-  while (d.getMonth() === month) {
+  const lastDay = new Date(year, month + 1, 0).getDate()
+  const ym = `${year}-${String(month + 1).padStart(2, '0')}-`
+  for (let day = 1; day <= lastDay; day++) {
+    const d = new Date(year, month, day)
     const wd = (d.getDay() + 6) % 7 // Mon=0..Sun=6
-    cells.push({ iso: d.toISOString().slice(0, 10), wd })
-    d.setDate(d.getDate() + 1)
+    cells.push({ iso: `${ym}${String(day).padStart(2, '0')}`, wd })
   }
   return cells
 }

@@ -11,6 +11,7 @@ import {
 import ButtonPrimary from '@/shared/ButtonPrimary'
 import { Field, Label } from '@/shared/fieldset'
 import Input from '@/shared/Input'
+import { formatLocalYmd } from '@/lib/date-format-local'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 
@@ -41,7 +42,7 @@ function buildMonthRows(
   const start = new Date(`${from}T12:00:00`)
   const end = new Date(`${to}T12:00:00`)
   for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-    const day = d.toISOString().slice(0, 10)
+    const day = formatLocalYmd(d)
     const hit = byDay.get(day)
     rows.push({
       day,

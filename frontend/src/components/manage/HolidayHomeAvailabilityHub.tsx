@@ -14,6 +14,7 @@ import {
   type ManageListingRow,
 } from '@/lib/travel-api'
 import { mergeCalendarRows, type MergedCalendarRow } from '@/lib/listing-availability-calendar-merge'
+import { formatLocalYmd } from '@/lib/date-format-local'
 import { applyTurnoverBoundaries } from '@/lib/availability-turnover-boundaries'
 import { useCatalogListingUi } from '@/hooks/useCatalogListingUi'
 import { useManageT } from '@/lib/manage-i18n-context'
@@ -377,7 +378,7 @@ export default function HolidayHomeAvailabilityHub({
     )
   }, [locale, viewYear, viewMonthIdx])
 
-  const todayStr = new Date().toISOString().slice(0, 10)
+  const todayStr = formatLocalYmd(new Date())
 
   function shiftMonth(delta: number) {
     const d = new Date(viewYear, viewMonthIdx + delta, 1)
