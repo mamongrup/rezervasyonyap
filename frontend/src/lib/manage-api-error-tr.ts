@@ -403,6 +403,7 @@ const TR_BY_CODE: Record<string, string> = {
   agent_test_failed: 'Ajan testi başarısız.',
   sales_refresh_failed: 'Satış verisi yenilenemedi.',
   upsert_failed: 'Kayıt oluşturma/güncelleme başarısız.',
+  seo_upsert_failed: 'SEO kaydı yazılamadı. Dil kodu ve alanları kontrol edip tekrar deneyin.',
   toggle_failed: 'Durum değiştirilemedi.',
   list_failed: 'Liste alınamadı.',
   update_failed: 'Güncelleme başarısız.',
@@ -455,6 +456,16 @@ export function formatManageApiError(raw: string): string {
   }
   const mapped = TR_BY_CODE[key]
   if (mapped) return mapped
+  // "SEO kaydı: upsert_failed" gibi adım etiketli API kodlarını çöz
+  {
+    const sep = key.lastIndexOf(': ')
+    if (sep > 0) {
+      const code = key.slice(sep + 2).trim()
+      const step = key.slice(0, sep).trim()
+      const codeMapped = TR_BY_CODE[code]
+      if (codeMapped) return step ? `${step}: ${codeMapped}` : codeMapped
+    }
+  }
   if (key.startsWith('basics_invalid_')) {
     const mappedField = TR_BY_CODE[key]
     if (mappedField) return mappedField

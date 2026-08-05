@@ -420,6 +420,12 @@ main() {
         "$APP_ROOT/backend/priv/sql/modules/407_ai_continuous_seo_listing_seed.sql" \
         || warn "407 sürekli SEO seed SQL uygulanamadı"
     fi
+    if [[ -f "$APP_ROOT/backend/priv/sql/modules/408_seo_metadata_upsert_unique.sql" ]]; then
+      step "SEO metadata unique (manuel upsert) (408)"
+      bash "$APP_ROOT/deploy/apply-sql.sh" \
+        "$APP_ROOT/backend/priv/sql/modules/408_seo_metadata_upsert_unique.sql" \
+        || warn "408 seo_metadata unique SQL uygulanamadı"
+    fi
   fi
 
   if [[ "${SKIP_AI_WORKER_TIMER:-0}" == "1" ]]; then

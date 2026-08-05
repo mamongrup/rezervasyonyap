@@ -46,11 +46,11 @@ fn read_body_string(req: Request) -> Result(String, Nil) {
   bit_array.to_string(bits)
 }
 
-fn locale_id_by_code(ctx: Context, code: String) -> Result(String, Nil) {
+fn locale_id_by_code(ctx: Context, code: String) -> Result(Int, Nil) {
   case
-    pog.query("select id::text from locales where lower(code) = lower($1) limit 1")
+    pog.query("select id from locales where lower(code) = lower($1) limit 1")
     |> pog.parameter(pog.text(string.trim(code)))
-    |> pog.returning(row_dec.col0_string())
+    |> pog.returning(row_dec.col0_int())
     |> db_exec.execute(ctx.db)
   {
     Error(_) -> Error(Nil)
@@ -103,7 +103,7 @@ pub fn get_metadata(req: Request, ctx: Context) -> Response {
             )
             |> pog.parameter(pog.text(et))
             |> pog.parameter(pog.text(eid))
-            |> pog.parameter(pog.text(lid))
+            |> pog.parameter(pog.int(lid))
             |> pog.returning(row)
             |> db_exec.execute(ctx.db)
           {
@@ -173,46 +173,89 @@ pub fn upsert_metadata(req: Request, ctx: Context) -> Response {
   case require_seo_writer(req, ctx) {
     Error(r) -> r
     Ok(Nil) ->
-  case read_body_string(req) {
-    Error(_) -> json_err(400, "empty_body")
-    Ok(body) ->
-      case json.parse(body, upsert_metadata_decoder()) {
-        Error(_) -> json_err(400, "invalid_json")
-        Ok(#(et, eid, loc, t, d, k, c, o, r)) ->
-          case locale_id_by_code(ctx, loc) {
-            Error(_) -> json_err(400, "invalid_locale")
-            Ok(lid) ->
-              case
-                pog.query(
-                  "insert into seo_metadata (entity_type, entity_id, locale_id, title, description, keywords, canonical_path, og_image_storage_key, robots) values ($1, $2::uuid, $3::smallint, nullif($4,''), nullif($5,''), nullif($6,''), nullif($7,''), nullif($8,''), nullif($9,'')) on conflict (entity_type, entity_id, locale_id) do update set title = excluded.title, description = excluded.description, keywords = excluded.keywords, canonical_path = excluded.canonical_path, og_image_storage_key = excluded.og_image_storage_key, robots = excluded.robots returning id::text",
-                )
-                |> pog.parameter(pog.text(string.trim(et)))
-                |> pog.parameter(pog.text(string.trim(eid)))
-                |> pog.parameter(pog.text(lid))
-                |> pog.parameter(pog.text(t))
-                |> pog.parameter(pog.text(d))
-                |> pog.parameter(pog.text(k))
-                |> pog.parameter(pog.text(c))
-                |> pog.parameter(pog.text(o))
-                |> pog.parameter(pog.text(r))
-                |> pog.returning(row_dec.col0_string())
-                |> db_exec.execute(ctx.db)
-              {
-                Error(_) -> json_err(500, "upsert_failed")
-                Ok(ret) ->
-                  case ret.rows {
-                    [id] -> {
-                      let out =
-                        json.object([#("id", json.string(id)), #("ok", json.bool(True))])
-                        |> json.to_string
-                      wisp.json_response(out, 200)
+      case read_body_string(req) {
+        Error(_) -> json_err(400, "empty_body")
+        Ok(body) ->
+          case json.parse(body, upsert_metadata_decoder()) {
+            Error(_) -> json_err(400, "invalid_json")
+            Ok(#(et, eid, loc, t, d, k, c, o, r)) ->
+              case locale_id_by_code(ctx, loc) {
+                Error(_) -> json_err(400, "invalid_locale")
+                Ok(lid) -> {
+                  let et0 = string.trim(et)
+                  let eid0 = string.trim(eid)
+                  case et0 == "" || eid0 == "" {
+                    True -> json_err(400, "entity_type_and_entity_id_required")
+                    False -> {
+                      // Güncelle → yoksa ekle (ON CONFLICT / unique index bağımlılığı yok).
+                      // locale_id Int — AI listing_content yolu ile aynı.
+                      let upd_sql =
+                        "update seo_metadata set "
+                        <> "title = nullif($4,''), description = nullif($5,''), "
+                        <> "keywords = nullif($6,''), canonical_path = nullif($7,''), "
+                        <> "og_image_storage_key = nullif($8,''), robots = nullif($9,'') "
+                        <> "where entity_type = $1 and entity_id = $2::uuid "
+                        <> "and locale_id = $3::smallint returning id::text"
+                      let bind = fn(sql: String) {
+                        pog.query(sql)
+                        |> pog.parameter(pog.text(et0))
+                        |> pog.parameter(pog.text(eid0))
+                        |> pog.parameter(pog.int(lid))
+                        |> pog.parameter(pog.text(t))
+                        |> pog.parameter(pog.text(d))
+                        |> pog.parameter(pog.text(k))
+                        |> pog.parameter(pog.text(c))
+                        |> pog.parameter(pog.text(o))
+                        |> pog.parameter(pog.text(r))
+                        |> pog.returning(row_dec.col0_string())
+                      }
+                      case bind(upd_sql) |> db_exec.execute(ctx.db) {
+                        Error(_) -> json_err(500, "seo_upsert_failed")
+                        Ok(upd_ret) ->
+                          case upd_ret.rows {
+                            [id] -> {
+                              let out =
+                                json.object([
+                                  #("id", json.string(id)),
+                                  #("ok", json.bool(True)),
+                                ])
+                                |> json.to_string
+                              wisp.json_response(out, 200)
+                            }
+                            _ -> {
+                              let ins_sql =
+                                "insert into seo_metadata ("
+                                <> "entity_type, entity_id, locale_id, title, description, keywords, "
+                                <> "canonical_path, og_image_storage_key, robots"
+                                <> ") values ("
+                                <> "$1, $2::uuid, $3::smallint, nullif($4,''), nullif($5,''), nullif($6,''), "
+                                <> "nullif($7,''), nullif($8,''), nullif($9,'')"
+                                <> ") returning id::text"
+                              case bind(ins_sql) |> db_exec.execute(ctx.db) {
+                                Error(_) -> json_err(500, "seo_upsert_failed")
+                                Ok(ins_ret) ->
+                                  case ins_ret.rows {
+                                    [id] -> {
+                                      let out =
+                                        json.object([
+                                          #("id", json.string(id)),
+                                          #("ok", json.bool(True)),
+                                        ])
+                                        |> json.to_string
+                                      wisp.json_response(out, 200)
+                                    }
+                                    _ -> json_err(500, "unexpected")
+                                  }
+                              }
+                            }
+                          }
+                      }
                     }
-                    _ -> json_err(500, "unexpected")
                   }
+                }
               }
           }
       }
-  }
   }
 }
 
@@ -438,7 +481,7 @@ fn create_redirect_inner(req: Request, ctx: Context) -> Response {
                 Some(code) ->
                   case locale_id_by_code(ctx, code) {
                     Error(_) -> pog.null()
-                    Ok(lid) -> pog.text(lid)
+                    Ok(lid) -> pog.int(lid)
                   }
               }
               case
@@ -776,7 +819,7 @@ pub fn log_not_found(req: Request, ctx: Context) -> Response {
                       "insert into not_found_logs (path, locale_id) values ($1, $2::smallint)",
                     )
                     |> pog.parameter(pog.text(string.trim(path)))
-                    |> pog.parameter(pog.text(lid))
+                    |> pog.parameter(pog.int(lid))
                     |> db_exec.execute(ctx.db)
                   {
                     Ok(_) -> wisp.json_response("{\"ok\":true}", 200)
