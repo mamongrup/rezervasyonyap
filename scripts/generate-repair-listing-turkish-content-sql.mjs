@@ -1,9 +1,10 @@
 #!/usr/bin/env node
 /**
- * Üretir: backend/priv/sql/modules/412_repair_listing_turkish_ascii_content.sql
+ * Üretir: backend/priv/sql/modules/416_repair_listing_turkish_ascii_content_v3.sql
  *
  * listing_translations.title/description + seo_metadata + pool description
  * içindeki Bravo charset kaybını (? → Türkçe harf) onarır.
+ * Not: 412/415'e dokunma — her zaman yeni numara.
  */
 import { writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
@@ -13,7 +14,7 @@ import { BRAVO_TURKISH_ASCII_PAIRS } from './lib/bravo-turkish-ascii-repair.mjs'
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const outPath = join(
   __dirname,
-  '../backend/priv/sql/modules/412_repair_listing_turkish_ascii_content.sql',
+  '../backend/priv/sql/modules/416_repair_listing_turkish_ascii_content_v3.sql',
 )
 
 function sqlStr(s) {
@@ -36,9 +37,9 @@ const seoDescRep = nestReplace(`coalesce(sm.description, '')`)
 const seoKwRep = nestReplace(`coalesce(sm.keywords, '')`)
 const poolJsonRep = nestReplace(`coalesce(la.value_json::text, '{}')`)
 
-const sql = `-- Türkçe charset kaybı onarımı (? → ş/ğ/ü/ö/ç/ı) — başlık / açıklama / SEO / havuz metni
+const sql = `-- Türkçe charset onarımı v3 (? → ç/ğ/ı/ö/ş/ü + Ç/Ğ/İ/Ö/Ş/Ü) — başlık / açıklama / SEO / havuz
 -- Üret: node scripts/generate-repair-listing-turkish-content-sql.mjs
--- Bravo holiday_home açıklamalarında yaygın (Balay? → Balayı, Giri? → Giriş, …).
+-- 412/415 sonrası kalan: Kaş'ın, g?zel→güzel, ?zel kelime başı, ??k→şık, tüm büyük/küçük.
 
 BEGIN;
 

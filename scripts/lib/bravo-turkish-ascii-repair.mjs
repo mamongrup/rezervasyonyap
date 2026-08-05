@@ -6,6 +6,141 @@
 
 /** Uzun / spesifik kalıplar önce — villa + aktivite ortak sözlük */
 export const BRAVO_TURKISH_ASCII_PAIRS = [
+  // —— v3: tüm Türkçe harfler (ç/ğ/ı/ö/ş/ü + büyük) — ?zel/g?zel çakışmasını önlemek için önde ——
+  ["g?zel", "güzel"],
+  ["G?zel", "Güzel"],
+  ["G?ZEL", "GÜZEL"],
+  ["g?neş", "güneş"],
+  ["G?neş", "Güneş"],
+  ["G?NEŞ", "GÜNEŞ"],
+  ["g?ne?", "güneş"],
+  ["g?nlük", "günlük"],
+  ["G?nlük", "Günlük"],
+  ["g?rünüm", "görünüm"],
+  ["G?rünüm", "Görünüm"],
+  ["g?rsel", "görsel"],
+  ["G?rsel", "Görsel"],
+  ["m?stakil", "müstakil"],
+  ["M?stakil", "Müstakil"],
+  ["M?STAKİL", "MÜSTAKİL"],
+  ["pop?ler", "popüler"],
+  ["Pop?ler", "Popüler"],
+  ["POP?LER", "POPÜLER"],
+  ["barbek?", "barbekü"],
+  ["Barbek?", "Barbekü"],
+  ["BARBEK?", "BARBEKÜ"],
+  ["?cret", "ücret"],
+  ["?CRET", "ÜCRET"],
+  ["?lke", "ülke"],
+  ["?LKE", "ÜLKE"],
+  ["?rün", "ürün"],
+  ["?RÜN", "ÜRÜN"],
+  ["?zerinde", "üzerinde"],
+  ["?zere", "üzere"],
+  ["?nemli", "önemli"],
+  ["?NEMLİ", "ÖNEMLİ"],
+  ["?rnek", "örnek"],
+  ["?RNEK", "ÖRNEK"],
+  ["?zellik", "özellik"],
+  ["?ZELLİK", "ÖZELLİK"],
+  ["ö?le", "öğle"],
+  ["Ö?le", "Öğle"],
+  ["Ö?LE", "ÖĞLE"],
+  ["??le", "öğle"],
+  ["??LE", "ÖĞLE"],
+  ["ö?ren", "öğren"],
+  ["Ö?ren", "Öğren"],
+  ["Ö?REN", "ÖĞREN"],
+  ["??ren", "öğren"],
+  ["ç?k??", "çıkış"],
+  ["Ç?k??", "Çıkış"],
+  ["Ç?KI?", "ÇIKIŞ"],
+  ["ÇIKI?", "ÇIKIŞ"],
+  ["i?in", "için"],
+  ["İ?in", "İçin"],
+  ["İ?İN", "İÇİN"],
+  ["i?erik", "içerik"],
+  ["İ?erik", "İçerik"],
+  ["d?şün", "düşün"],
+  ["D?şün", "Düşün"],
+  ["D?Ş?N", "DÜŞÜN"],
+  ["d??arı", "dışarı"],
+  ["D??arı", "Dışarı"],
+  ["D??ARI", "DIŞARI"],
+  ["d??ar?", "dışarı"],
+  ["bah?esinde", "bahçesinde"],
+  ["Bah?esinde", "Bahçesinde"],
+  ["bah?e", "bahçe"],
+  ["Bah?e", "Bahçe"],
+  ["BAH?E", "BAHÇE"],
+  ["?ocuk", "çocuk"],
+  ["?OCUK", "ÇOCUK"],
+  ["?eviri", "çeviri"],
+  ["?EVİRİ", "ÇEVİRİ"],
+  ["?alış", "çalış"],
+  ["çal?ş", "çalış"],
+  ["?AL?Ş", "ÇALIŞ"],
+  ["?ehir", "şehir"],
+  ["?EHİR", "ŞEHİR"],
+  ["?irket", "şirket"],
+  ["?İRKET", "ŞİRKET"],
+  ["?imşek", "şimşek"],
+  ["?im?ek", "şimşek"],
+  ["şim?ek", "şimşek"],
+  ["?İMŞEK", "ŞİMŞEK"],
+  ["?İM?EK", "ŞİMŞEK"],
+  ["?emsiye", "şemsiye"],
+  ["?ezlong", "şezlong"],
+  ["??k ", "şık "],
+  ["??k,", "şık,"],
+  ["??k.", "şık."],
+  ["??k;", "şık;"],
+  ["??k!", "şık!"],
+  ["??k)", "şık)"],
+  ["(??k", "(şık"],
+  ["??K ", "ŞIK "],
+  ["Kaş'?n", "Kaş'ın"],
+  ["Kaş'?N", "Kaş'ın"],
+  ["KAŞ'?N", "KAŞ'IN"],
+  ["Ka?'?n", "Kaş'ın"],
+  ["Ka??'?n", "Kaş'ın"],
+  ["Ka??'ın", "Kaş'ın"],
+  ["Villamız?n", "Villamızın"],
+  ["Villam?z?n", "Villamızın"],
+  ["Villam?zın", "Villamızın"],
+  ["VILLAMIZ?N", "VILLAMIZIN"],
+  ["tasarlanmı?tır", "tasarlanmıştır"],
+  ["Tasarlanm?şt?r", "Tasarlanmıştır"],
+  ["TASARLANM?ŞT?R", "TASARLANMIŞTIR"],
+  ["güne?lenme", "güneşlenme"],
+  ["Güne?lenme", "Güneşlenme"],
+  ["yak?n?ndaki", "yakınındaki"],
+  ["yakın?ndaki", "yakınındaki"],
+  ["yak?nındaki", "yakınındaki"],
+  ["YAK?N?NDAKİ", "YAKININDAKİ"],
+  ["çocuklar?n?z", "çocuklarınız"],
+  ["çocuklar?nız", "çocuklarınız"],
+  ["donan?ml?", "donanımlı"],
+  ["donanıml?", "donanımlı"],
+  ["donan?mlı", "donanımlı"],
+  ["kaç?ş", "kaçış"],
+  ["Kaç?ş", "Kaçış"],
+  ["KAÇ?Ş", "KAÇIŞ"],
+  ["f?rsat", "fırsat"],
+  ["F?rsat", "Fırsat"],
+  ["F?RSAT", "FIRSAT"],
+  ["a?ıklama", "açıklama"],
+  ["A?ıklama", "Açıklama"],
+  ["A?IKLAMA", "AÇIKLAMA"],
+  ["g?nübirlik", "günübirlik"],
+  ["G?nübirlik", "Günübirlik"],
+  ["denizk?y?", "denizkıyı"],
+  ["denizkıy?", "denizkıyı"],
+  ["denizk?yı", "denizkıyı"],
+  ["a?r?lamaktan", "ağırlamaktan"],
+  ["a??rlamaktan", "ağırlamaktan"],
+  ["duyar?z", "duyarız"],
+  ["DUYAR?Z", "DUYARIZ"],
   ["&uuml;rl&uuml;?&uuml;", "&uuml;rl&uuml;ğ&uuml;"],
   ["g&ouml;z&uuml;kmedi?i", "g&ouml;z&uuml;kmediği"],
   ["ihtiya&ccedil;lar?n?z", "ihtiya&ccedil;larınızı"],
@@ -416,7 +551,7 @@ export const BRAVO_TURKISH_ASCII_PAIRS = [
   ["?eye", "şeye"],
   ["?n? ", "ını "],
   ["?nı ", "ını "],
-  ["?zel", "Özel"],
+  // ?zel yalnızca kelime başında (g?zel içinde eşleşmesin) — systematic katmanda
   ["'?n ", "'ın "],
   ["'?nı", "'ını"],
   ["'n?n", "'nın"],
@@ -457,20 +592,191 @@ export const BRAVO_TURKISH_ASCII_PAIRS = [
   ["Ya?", "Yaş"],
 ]
 
-export function repairBravoTurkishAscii(input) {
-  if (input == null) return input
-  let out = String(input)
-  for (const [from, to] of BRAVO_TURKISH_ASCII_PAIRS) {
-    if (from === to) continue
+/** Alias — generate script'ler bu adı kullanır */
+export const REPAIR_PAIRS = BRAVO_TURKISH_ASCII_PAIRS
+
+const TR_LETTER = "[a-zA-ZçÇğĞıİöÖşŞüÜ]"
+const TR_VOWEL = "[aeıioöuüAEIİOÖUÜ]"
+
+function escapeRegExp(s) {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+}
+
+function normalizeApostrophes(s) {
+  return s.replace(/[\u2018\u2019\u02BC\u0060\u00B4]/g, "'")
+}
+
+/**
+ * Kelime başı `?…` kalıpları (g?zel içindeki ?zel'e dokunmaz).
+ * Ayrıca morfoloji: 'ın, mıştır, ğ/ş/ü/ö/ç/ı.
+ */
+export function applySystematicTurkishAsciiRepair(input) {
+  if (typeof input !== "string" || !input.includes("?")) return input
+  let c = input
+
+  // Apostrof + iyelik: X'?n → X'ın (büyük/küçük)
+  c = c.replace(new RegExp(`(${TR_LETTER})['']\\?n\\b`, "gi"), (_, l) => `${l}'ın`)
+  c = c.replace(new RegExp(`(${TR_LETTER})['']\\?N\\b`, "g"), (_, l) => `${l}'IN`)
+
+  // Fiil / sıfat ekleri
+  c = c.replace(/m\?şt\?r\b/gi, "miştir")
+  c = c.replace(/m\?\?t\?r\b/gi, "mıştır")
+  c = c.replace(/m\?ştır\b/gi, "miştir")
+  c = c.replace(/mı\?tır\b/gi, "mıştır")
+  c = c.replace(/maktad\?r\b/gi, "maktadır")
+  c = c.replace(/almaktad\?r\b/gi, "almaktadır")
+  c = c.replace(/bulunmaktad\?r\b/gi, "bulunmaktadır")
+  c = c.replace(/sonras\?d\?r\b/gi, "sonrasıdır")
+  c = c.replace(/yasakt\?r\b/gi, "yasaktır")
+  c = c.replace(/konumdad\?r\b/gi, "konumdadır")
+  c = c.replace(/al\?nmaktad\?r\b/gi, "alınmaktadır")
+  c = c.replace(/yap\?lamaz\b/gi, "yapılamaz")
+  c = c.replace(/duyar\?z\b/gi, "duyarız")
+  c = c.replace(/de\?ildir\b/gi, "değildir")
+  c = c.replace(/de\?il\b/gi, "değil")
+  c = c.replace(/DE\?İL\b/g, "DEĞİL")
+
+  // ??k → şık (ışık ile çakışmasın: yalnız tek başına / sıfat)
+  c = c.replace(/\?\?k\b/gi, (m) => (m === m.toUpperCase() ? "ŞIK" : "şık"))
+  c = c.replace(/\?\?K\b/g, "ŞIK")
+
+  // ü önce (güzel), sonra ö (göl)
+  c = c.replace(/g\?z/gi, (m) => (m[0] === "G" ? "Güz" : "güz"))
+  c = c.replace(/G\?Z/g, "GÜZ")
+  c = c.replace(/g\?ne/gi, (m) => (m[0] === "G" ? "Güne" : "güne"))
+  c = c.replace(/g\?n/gi, (m) => (m[0] === "G" ? "Gün" : "gün"))
+  c = c.replace(/g\?r/gi, (m) => (m[0] === "G" ? "Gör" : "gör"))
+  c = c.replace(/g\?l\b/gi, (m) => (m[0] === "G" ? "Göl" : "göl"))
+  c = c.replace(/g\?(?=[a-zçğıöşü])/gi, (m) => (m[0] === "G" ? "Gö" : "gö"))
+
+  c = c.replace(/ç\?k/gi, (m) => (m[0] === "Ç" ? "Çık" : "çık"))
+  c = c.replace(/Ç\?K/g, "ÇIK")
+  c = c.replace(/ç\?k\?\?/gi, "çıkış")
+  c = c.replace(/çık\?\?/gi, "çıkış")
+  c = c.replace(/ÇIKI\?/g, "ÇIKIŞ")
+
+  c = c.replace(/i\?in\b/gi, "için")
+  c = c.replace(/İ\?in\b/g, "İçin")
+  c = c.replace(/İ\?İN\b/g, "İÇİN")
+  c = c.replace(/i\?erik/gi, "içerik")
+  c = c.replace(/i\?eri/gi, "içeri")
+
+  c = c.replace(/d\?\?/gi, (m) => (m[0] === "D" ? "Dış" : "dış"))
+  c = c.replace(/d\?ş/gi, (m) => (m[0] === "D" ? "Dış" : "dış"))
+  c = c.replace(/D\?Ş/g, "DIŞ")
+
+  c = c.replace(/k\?y\b/gi, (m) => (m[0] === "K" ? "Köy" : "köy"))
+  c = c.replace(/ka\?\?/gi, (m) => (m[0] === "K" ? "Kaş" : "kaş"))
+  c = c.replace(/KA\?\?/g, "KAŞ")
+  c = c.replace(/f\?rsat/gi, (m) => (m[0] === "F" ? "Fırsat" : "fırsat"))
+  c = c.replace(/Bay\?nd\?r/gi, "Bayındır")
+  c = c.replace(/Bayınd\?r/gi, "Bayındır")
+  c = c.replace(/ya\?am/gi, (m) => (m[0] === "Y" ? "Yaşam" : "yaşam"))
+  c = c.replace(/do\?a/gi, (m) => (m[0] === "D" ? "Doğa" : "doğa"))
+  c = c.replace(/m\?stakil/gi, (m) => (m[0] === "M" ? "Müstakil" : "müstakil"))
+  c = c.replace(/pop\?ler/gi, (m) => (m[0] === "P" ? "Popüler" : "popüler"))
+  c = c.replace(/barbek\?/gi, (m) => (m[0] === "B" ? "Barbekü" : "barbekü"))
+  c = c.replace(/bah\?e/gi, (m) => (m[0] === "B" ? "Bahçe" : "bahçe"))
+
+  // Kelime başı ? → Türkçe harf (ç/ğ/ı/ö/ş/ü + büyük); g?zel içine girmez
+  c = c.replace(/(^|[\s>"'(])\?zel\b/g, "$1özel")
+  c = c.replace(/(^|[\s>"'(])\?ZEL\b/g, "$1ÖZEL")
+  c = c.replace(/(^|[\s>"'(])\?Zel\b/g, "$1Özel")
+  c = c.replace(/(^|[\s>"'(])\?nemli/gi, "$1önemli")
+  c = c.replace(/(^|[\s>"'(])\?NEMLİ/g, "$1ÖNEMLİ")
+  c = c.replace(/(^|[\s>"'(])\?rnek/gi, "$1örnek")
+  c = c.replace(/(^|[\s>"'(])\?cret/gi, "$1ücret")
+  c = c.replace(/(^|[\s>"'(])\?CRET/g, "$1ÜCRET")
+  c = c.replace(/(^|[\s>"'(])\?lke/gi, "$1ülke")
+  c = c.replace(/(^|[\s>"'(])\?rün/gi, "$1ürün")
+  c = c.replace(/(^|[\s>"'(])\?zere/gi, "$1üzere")
+  c = c.replace(/(^|[\s>"'(])\?zerinde/gi, "$1üzerinde")
+  c = c.replace(/(^|[\s>"'(])\?zellik/gi, "$1özellik")
+  c = c.replace(/(^|[\s>"'(])\?ocuk/gi, "$1çocuk")
+  c = c.replace(/(^|[\s>"'(])\?OCUK/g, "$1ÇOCUK")
+  c = c.replace(/(^|[\s>"'(])\?eviri/gi, "$1çeviri")
+  c = c.replace(/(^|[\s>"'(])\?alış/gi, "$1çalış")
+  c = c.replace(/çal\?ş/gi, "çalış")
+  c = c.replace(/(^|[\s>"'(])\?ezlong/gi, "$1şezlong")
+  c = c.replace(/(^|[\s>"'(])\?emsiye/gi, "$1şemsiye")
+  c = c.replace(/(^|[\s>"'(])\?ehir/gi, "$1şehir")
+  c = c.replace(/(^|[\s>"'(])\?irket/gi, "$1şirket")
+  c = c.replace(/(^|[\s>"'(])\?öyle/gi, "$1şöyle")
+  c = c.replace(/(^|[\s>"'(])\?\?yle/gi, "$1şöyle")
+  c = c.replace(/(^|[\s>"'(])\?imşek/gi, "$1şimşek")
+  c = c.replace(/şim\?ek/gi, "şimşek")
+  c = c.replace(/(^|[\s>"'(])\?ık\b/gi, "$1şık")
+  c = c.replace(/(^|[\s>"'(])\?yle\b/gi, "$1öyle")
+  c = c.replace(/b\?yle/gi, (m) => (m[0] === "B" ? "Böyle" : "böyle"))
+  c = c.replace(/(^|[\s>"'(])\?\?le\b/gi, "$1öğle")
+  c = c.replace(/ö\?le/gi, "öğle")
+  c = c.replace(/Ö\?LE/g, "ÖĞLE")
+  c = c.replace(/(^|[\s>"'(])\?ki\b/g, "$1İki")
+  c = c.replace(/(^|[\s>"'(])\?lk\b/g, "$1İlk")
+  c = c.replace(/(^|[\s>"'(])\?ato\b/g, "$1Şato")
+  c = c.replace(/(^|[\s>"'(])\?ster\b/g, "$1İster")
+
+  c = c.replace(/Villamız\?n/gi, "Villamızın")
+  c = c.replace(/Villam\?z\?n/gi, "Villamızın")
+  c = c.replace(/alan\?/gi, "alanı")
+  c = c.replace(/odas\?/gi, "odası")
+  c = c.replace(/yak\?n\?ndaki/gi, "yakınındaki")
+
+  // ğ: ünlü?ünlü
+  c = c.replace(new RegExp(`(${TR_VOWEL})\\?(${TR_VOWEL})`, "g"), (_, a, b) => `${a}ğ${b}`)
+
+  // Harf?harf kalan → ı (soru işareti değil: ardından harf var)
+  c = c.replace(
+    new RegExp(`(${TR_LETTER})\\?(${TR_LETTER})`, "g"),
+    (_, a, b) => `${a}ı${b}`,
+  )
+
+  // Bilinen sondaki bozuk ekler (Nedir? bozulmasın)
+  c = c.replace(/([Oo])das\?/g, "$1dası")
+  c = c.replace(/([Aa])lan\?/g, "$1lanı")
+  c = c.replace(/([Bb])arbek\?/g, "$1arbekü")
+  c = c.replace(/Odas\?/g, "Odası")
+  c = c.replace(/Alan\?/g, "Alanı")
+
+  // Kaş'ın güvenlik ağı
+  c = c.replace(/Kaş'?n\b/gi, "Kaş'ın")
+  c = c.replace(/KAŞ'?N\b/g, "KAŞ'IN")
+
+  return c
+}
+
+function applyRepairPairs(input) {
+  let out = input
+  // Uzun kalıp önce
+  const sorted = [...BRAVO_TURKISH_ASCII_PAIRS].sort((a, b) => b[0].length - a[0].length)
+  for (const [from, to] of sorted) {
+    if (!from || from === to) continue
+    // Kelime başı `?…` — ortada eşleşme yok (g?zel ≠ g + ?zel)
+    if (from.startsWith("?") && !from.startsWith("??")) {
+      const re = new RegExp(`(^|[^${"a-zA-ZçÇğĞıİöÖşŞüÜ"}])${escapeRegExp(from)}`, "g")
+      out = out.replace(re, (_, pre) => `${pre}${to}`)
+      continue
+    }
     if (out.includes(from)) out = out.split(from).join(to)
   }
   return out
 }
 
+export function repairBravoTurkishAscii(input) {
+  if (input == null) return input
+  let out = normalizeApostrophes(String(input))
+  if (!out.includes("?") && !out.includes("'")) return out
+  out = applyRepairPairs(out)
+  if (out.includes("?")) out = applySystematicTurkishAsciiRepair(out)
+  if (out.includes("?")) out = applyRepairPairs(out)
+  out = out.replace(/Kaş'?n\b/gi, "Kaş'ın")
+  return out
+}
+
 export function repairBravoTurkishDeep(value) {
-  if (typeof value === 'string') return repairBravoTurkishAscii(value)
+  if (typeof value === "string") return repairBravoTurkishAscii(value)
   if (Array.isArray(value)) return value.map(repairBravoTurkishDeep)
-  if (value && typeof value === 'object') {
+  if (value && typeof value === "object") {
     const o = {}
     for (const [k, v] of Object.entries(value)) o[k] = repairBravoTurkishDeep(v)
     return o

@@ -23,10 +23,11 @@ kontrol yap?ld??? için ayr?l??tan sonra … yard?mc? olamayaca??m?z?`
     expect(fixed).not.toMatch(/\?/)
   })
 
-  it('restores Şimşek Villa style prose leftovers after 412', () => {
+  it('restores Şimşek Villa style prose leftovers after 412/415', () => {
     const raw = `Kaş'?n Bay?nd?r Mahallesinde konumlanan Villamız, tasarlanm?şt?r.
 ??k dizayn edilmi?tir. Villamız?n bahçesi. yap?lm??t?r. seçilmi?tir.
-kenar?nda temizli?i ihtiyaçlar?n?z getirdi?imizde ihtiyac?n?z her ?eye olacakt?r.`
+kenar?nda temizli?i ihtiyaçlar?n?z getirdi?imizde ihtiyac?n?z her ?eye olacakt?r.
+Villamızın bahçesinde g?zel bir havuz. ?zel havuz ve ?cret alınmaz.`
     const fixed = repairTurkishContentAscii(raw)
     expect(fixed).toContain("Kaş'ın Bayındır")
     expect(fixed).toContain('tasarlanmıştır')
@@ -41,6 +42,31 @@ kenar?nda temizli?i ihtiyaçlar?n?z getirdi?imizde ihtiyac?n?z her ?eye olacakt?
     expect(fixed).toContain('ihtiyacınız')
     expect(fixed).toContain('her şeye')
     expect(fixed).toContain('olacaktır')
+    expect(fixed).toContain('güzel bir havuz')
+    expect(fixed).toContain('özel havuz')
+    expect(fixed).toContain('ücret')
     expect(fixed).not.toMatch(/\?/)
+  })
+
+  it('covers all Turkish letters upper and lower without breaking real questions', () => {
+    const raw =
+      "ç?k?? Ç?k?? do?a Do?a g?zel G?zel ö?le Ö?LE i?in İ?in ?ehir ?OCUK ?cret ?zel Nedir?"
+    const fixed = repairTurkishContentAscii(raw)
+    expect(fixed).toContain('çıkış')
+    expect(fixed).toContain('Çıkış')
+    expect(fixed).toContain('doğa')
+    expect(fixed).toContain('Doğa')
+    expect(fixed).toContain('güzel')
+    expect(fixed).toContain('Güzel')
+    expect(fixed).toContain('öğle')
+    expect(fixed).toContain('ÖĞLE')
+    expect(fixed).toContain('için')
+    expect(fixed).toContain('İçin')
+    expect(fixed).toContain('şehir')
+    expect(fixed).toContain('ÇOCUK')
+    expect(fixed).toContain('ücret')
+    expect(fixed).toContain('özel')
+    expect(fixed).toContain('Nedir?')
+    expect(fixed).not.toMatch(/Nedirı/)
   })
 })

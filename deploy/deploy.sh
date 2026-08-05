@@ -468,6 +468,12 @@ main() {
         "$APP_ROOT/backend/priv/sql/modules/415_repair_listing_turkish_ascii_content_v2.sql" \
         || warn "415 turkish content repair v2 SQL uygulanamadı"
     fi
+    if [[ -f "$APP_ROOT/backend/priv/sql/modules/416_repair_listing_turkish_ascii_content_v3.sql" ]]; then
+      step "Türkçe açıklama charset onarımı v3 — tüm harf/büyük-küçük (416)"
+      bash "$APP_ROOT/deploy/apply-sql.sh" \
+        "$APP_ROOT/backend/priv/sql/modules/416_repair_listing_turkish_ascii_content_v3.sql" \
+        || warn "416 turkish content repair v3 SQL uygulanamadı"
+    fi
   fi
 
   if [[ "${SKIP_AI_WORKER_TIMER:-0}" == "1" ]]; then
