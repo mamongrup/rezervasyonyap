@@ -88,17 +88,42 @@ export async function GET(req: NextRequest) {
       next: { revalidate: 86400 },
     })
 
-    if (!upstream.ok) {
-      return NextResponse.json({ error: 'upstream_image_failed' }, { status: upstream.status })
+    // Sahte .avif (Gezinomi 400, bazı CDN 404): jpg/jpeg/png dene, sonra hata dön.
+    let okResponse = upstream
+    let finalUrl = upstreamUrl
+    if (!upstream.ok && /\.avif(\?|#|$)/i.test(upstreamUrl)) {
+      const altExts = ['.jpg', '.jpeg', '.JPEG', '.png', '.webp'] as const
+      for (const ext of altExts) {
+        const altUrl: string = upstreamUrl.replace(/\.avif/i, ext)
+        if (altUrl === upstreamUrl) continue
+        try {
+          const alt = await fetch(altUrl, {
+            signal: controller.signal,
+            headers: upstreamHeaders,
+            next: { revalidate: 86400 },
+          })
+          if (alt.ok) {
+            okResponse = alt
+            finalUrl = altUrl
+            break
+          }
+        } catch {
+          /* sonraki uzantı */
+        }
+      }
     }
 
-    const contentType = upstream.headers.get('content-type') ?? ''
+    if (!okResponse.ok) {
+      return NextResponse.json({ error: 'upstream_image_failed' }, { status: okResponse.status })
+    }
+
+    const contentType = okResponse.headers.get('content-type') ?? ''
     if (!contentType.toLowerCase().startsWith('image/')) {
       return NextResponse.json({ error: 'upstream_not_image' }, { status: 502 })
     }
 
     if (requestedWidth != null && requestedFormat === 'webp') {
-      const original = Buffer.from(await upstream.arrayBuffer())
+      const original = Buffer.from(await okResponse.arrayBuffer())
       try {
         const optimized = await sharp(original)
           .rotate()
@@ -111,6 +136,7 @@ export async function GET(req: NextRequest) {
             'Content-Type': 'image/webp',
             'Content-Length': String(optimized.byteLength),
             'Cache-Control': IMMUTABLE_IMAGE_CACHE,
+            ...(finalUrl !== upstreamUrl ? { 'X-Listing-Image-Repaired': '1' } : {}),
           },
         })
       } catch {
@@ -125,11 +151,12 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    return new NextResponse(upstream.body, {
+    return new NextResponse(okResponse.body, {
       status: 200,
       headers: {
         'Content-Type': contentType,
         'Cache-Control': IMMUTABLE_IMAGE_CACHE,
+        ...(finalUrl !== upstreamUrl ? { 'X-Listing-Image-Repaired': '1' } : {}),
       },
     })
   } catch {

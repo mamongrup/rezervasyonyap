@@ -62,6 +62,14 @@ describe('listing-image-url-fallbacks', () => {
     )
   })
 
+  it('repairs Gezinomi .avif to .jpg', () => {
+    const src =
+      'https://images.gezinomi.com/assets/izmir-den-klasik-italya-turu-turk-hava-yollari-ozel-seferi-ile-gidis-sunexpress-31490--1-19.06.2026173142-b0.avif'
+    expect(repairExternalListingImageExt(src)).toBe(
+      'https://images.gezinomi.com/assets/izmir-den-klasik-italya-turu-turk-hava-yollari-ozel-seferi-ile-gidis-sunexpress-31490--1-19.06.2026173142-b0.jpg',
+    )
+  })
+
   it('repairs Wikimedia ferry .avif to .jpg', () => {
     const src =
       'https://upload.wikimedia.org/wikipedia/commons/1/15/Kastelorizo_Hafen.avif'

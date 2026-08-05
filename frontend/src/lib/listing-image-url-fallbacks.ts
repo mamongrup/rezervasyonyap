@@ -43,6 +43,11 @@ const CDN_AVIF_REPAIR: Array<{ test: (host: string) => boolean; to: string }> = 
     test: (h) => h === 'photos.hotelbeds.com' || h.endsWith('.hotelbeds.com'),
     to: '.jpg',
   },
+  {
+    // Gezinomi CDN .avif isteminde HTTP 400 (RequestTypeError); gerçek dosya .jpg.
+    test: (h) => h === 'images.gezinomi.com' || h.includes('gezinomi.com'),
+    to: '.jpg',
+  },
 ]
 
 /**
