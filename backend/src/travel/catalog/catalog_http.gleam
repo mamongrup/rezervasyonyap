@@ -4445,18 +4445,34 @@ type ListingMetaAddrPin {
 }
 
 fn listing_meta_addr_from(meta: Dict(String, Dynamic)) -> ListingMetaAddrPin {
-  case dict.get(meta, "address") {
-    Error(_) -> AddrSkip
-    Ok(dyn_val) ->
-      case decode.run(dyn_val, decode.string) {
-        Ok(s0) -> {
-          let s = string.trim(listing_meta_strip_null_bytes(s0))
-          case s == "" {
-            True -> AddrClear
-            False -> AddrText(s)
+  // Vitrin location_name: bölge satırı (semt, ilçe, il) varsa onu kullan;
+  // yoksa gerçek adres. Arama / öneriler location_name + meta üzerinden gider.
+  let from_key = fn(key: String) -> Result(String, Nil) {
+    case dict.get(meta, key) {
+      Error(_) -> Error(Nil)
+      Ok(dyn_val) ->
+        case decode.run(dyn_val, decode.string) {
+          Ok(s0) -> {
+            let s = string.trim(listing_meta_strip_null_bytes(s0))
+            case s == "" {
+              True -> Error(Nil)
+              False -> Ok(s)
+            }
           }
+          Error(_) -> Error(Nil)
         }
-        Error(_) -> AddrSkip
+    }
+  }
+  case from_key("region_display") {
+    Ok(s) -> AddrText(s)
+    Error(_) ->
+      case from_key("address") {
+        Ok(s) -> AddrText(s)
+        Error(_) ->
+          case dict.get(meta, "address") {
+            Error(_) -> AddrSkip
+            Ok(_) -> AddrClear
+          }
       }
   }
 }

@@ -985,6 +985,13 @@ const listing_search_match_sql: String =
 /// Pachamama / Imamoglu gibi ortadaki "mam" elenir). ≥4 karakterde infix de açılır.
 const listing_suggest_slug_ascii_sql: String = "lower(replace(l.slug, '-', ' '))"
 
+/// Konum alanı — Türkçe harfleri ASCII’ye çevir (Kaş → kas; arama token’ı da kas).
+const listing_suggest_location_ascii_sql: String =
+  "translate(lower(coalesce(l.location_name, '')), 'üğışöç', 'ugisoc')"
+
+const listing_suggest_meta_ascii_sql: String =
+  "translate(lower(coalesce(lm_sug.value_json->>'city', '') || ' ' || coalesce(lm_sug.value_json->>'district_label', '') || ' ' || coalesce(lm_sug.value_json->>'province_city', '') || ' ' || coalesce(lm_sug.value_json->>'region_display', '') || ' ' || coalesce(lm_sug.value_json->>'address', '')), 'üğışöç', 'ugisoc')"
+
 const listing_suggest_token_match_sql: String =
   "("
   // Kelime öneki: başlar veya boşluktan sonra
@@ -993,8 +1000,26 @@ const listing_suggest_token_match_sql: String =
   <> "or "
   <> listing_suggest_slug_ascii_sql
   <> " ilike '% ' || trim(tok) || '%' "
-  <> "or lower(coalesce(l.location_name, '')) ilike trim(tok) || '%' "
-  <> "or lower(coalesce(l.location_name, '')) ilike '% ' || trim(tok) || '%' "
+  <> "or "
+  <> listing_suggest_location_ascii_sql
+  <> " ilike trim(tok) || '%' "
+  <> "or "
+  <> listing_suggest_location_ascii_sql
+  <> " ilike '% ' || trim(tok) || '%' "
+  <> "or exists ("
+  <> "  select 1 from listing_attributes lm_sug "
+  <> "  where lm_sug.listing_id = l.id and lm_sug.group_code = 'listing_meta' and lm_sug.key = 'v1' "
+  <> "    and ("
+  <> listing_suggest_meta_ascii_sql
+  <> " ilike trim(tok) || '%' "
+  <> "      or "
+  <> listing_suggest_meta_ascii_sql
+  <> " ilike '% ' || trim(tok) || '%' "
+  <> "      or (char_length(trim(tok)) >= 4 and "
+  <> listing_suggest_meta_ascii_sql
+  <> " ilike '%' || trim(tok) || '%')"
+  <> "    )"
+  <> ") "
   <> "or exists ("
   <> "  select 1 from listing_translations lt "
   <> "  where lt.listing_id = l.id and ("
@@ -1008,7 +1033,9 @@ const listing_suggest_token_match_sql: String =
   <> "    "
   <> listing_suggest_slug_ascii_sql
   <> " ilike '%' || trim(tok) || '%' "
-  <> "    or lower(coalesce(l.location_name, '')) ilike '%' || trim(tok) || '%' "
+  <> "    or "
+  <> listing_suggest_location_ascii_sql
+  <> " ilike '%' || trim(tok) || '%' "
   <> "    or exists ("
   <> "      select 1 from listing_translations lt "
   <> "      where lt.listing_id = l.id "
@@ -1876,9 +1903,16 @@ fn search_listings_impl(
     <> "    lower(replace(l.slug, '-', ' ')) ilike ft.tok || '%'"
     <> "    or lower(replace(l.slug, '-', ' ')) ilike '% ' || ft.tok || '%'"
     <> "    or (char_length(ft.tok) >= 4 and lower(replace(l.slug, '-', ' ')) ilike '%' || ft.tok || '%')"
-    <> "    or lower(coalesce(l.location_name, '')) ilike ft.tok || '%'"
-    <> "    or lower(coalesce(l.location_name, '')) ilike '% ' || ft.tok || '%'"
-    <> "    or (char_length(ft.tok) >= 4 and lower(coalesce(l.location_name, '')) ilike '%' || ft.tok || '%')"
+    <> "    or translate(lower(coalesce(l.location_name, '')), 'üğışöç', 'ugisoc') ilike ft.tok || '%'"
+    <> "    or translate(lower(coalesce(l.location_name, '')), 'üğışöç', 'ugisoc') ilike '% ' || ft.tok || '%'"
+    <> "    or (char_length(ft.tok) >= 4 and translate(lower(coalesce(l.location_name, '')), 'üğışöç', 'ugisoc') ilike '%' || ft.tok || '%')"
+    <> "  )"
+    <> "  union"
+    <> "  select l.id from listings l"
+    <> "  join listing_attributes lm_sug on lm_sug.listing_id = l.id and lm_sug.group_code = 'listing_meta' and lm_sug.key = 'v1'"
+    <> "  cross join first_tok ft"
+    <> "  where l.status = 'published' and ft.tok <> '' and ("
+    <> "    translate(lower(coalesce(lm_sug.value_json->>'city', '') || ' ' || coalesce(lm_sug.value_json->>'district_label', '') || ' ' || coalesce(lm_sug.value_json->>'province_city', '') || ' ' || coalesce(lm_sug.value_json->>'region_display', '') || ' ' || coalesce(lm_sug.value_json->>'address', '')), 'üğışöç', 'ugisoc') ilike '%' || ft.tok || '%'"
     <> "  )"
     <> "), page_ids as materialized ("
     <> "  select ranked.id, ranked.rn from ("

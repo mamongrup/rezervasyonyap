@@ -22,6 +22,8 @@ interface MapPickerProps {
   lng: string
   zoom?: number
   onChange: (lat: string, lng: string) => void
+  /** Places / geocode sonucu adres metni (UTF-8 formatted_address) */
+  onAddressChange?: (address: string) => void
   className?: string
   /** Places otomatik tamamlama için ülke kodu (örn. `tr`). Boş string = kısıt yok. */
   placesCountry?: string
@@ -43,6 +45,7 @@ export default function MapPicker({
   lng,
   zoom = 12,
   onChange,
+  onAddressChange,
   className,
   placesCountry = 'tr',
 }: MapPickerProps) {
@@ -51,6 +54,7 @@ export default function MapPicker({
   const markerRef = useRef<any>(null)
   const searchRef = useRef<HTMLInputElement>(null)
   const onChangeRef = useRef(onChange)
+  const onAddressChangeRef = useRef(onAddressChange)
   /** initMap tek seferlik — ilk yüklemede kullanılan lat/lng/zoom */
   const initArgsRef = useRef({ lat, lng, zoom })
   const [ready, setReady] = useState(false)
@@ -73,6 +77,10 @@ export default function MapPicker({
   useEffect(() => {
     onChangeRef.current = onChange
   }, [onChange])
+
+  useEffect(() => {
+    onAddressChangeRef.current = onAddressChange
+  }, [onAddressChange])
 
   useEffect(() => {
     initArgsRef.current = { lat, lng, zoom }
@@ -238,6 +246,7 @@ export default function MapPicker({
         marker.setVisible(true)
       }
       onChangeRef.current(la.toFixed(6), lo.toFixed(6))
+      if (addr.trim()) onAddressChangeRef.current?.(addr.trim())
     })
 
     return () => {
@@ -266,6 +275,11 @@ export default function MapPicker({
         markerRef.current?.setPosition(pos)
         markerRef.current?.setVisible(true)
         onChangeRef.current(pos.lat.toFixed(6), pos.lng.toFixed(6))
+        const formatted = res.results[0].formatted_address
+        if (formatted?.trim()) {
+          setSearchQuery(formatted.trim())
+          onAddressChangeRef.current?.(formatted.trim())
+        }
       }
     } finally {
       setSearching(false)

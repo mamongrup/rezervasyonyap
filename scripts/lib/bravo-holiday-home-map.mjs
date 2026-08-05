@@ -9,6 +9,8 @@
  *   - vertical_holiday_home — havuz kartları (ListingPoolInfoSection)
  */
 
+import { repairBravoTurkishAscii } from './bravo-turkish-ascii-repair.mjs'
+
 const CHILD_POOL_THEME = new Set(['cocuk-havuzlu-villalar', 'child_friendly'])
 const HEATED_POOL_THEME = new Set(['isitmali-havuzlu-villalar', 'ozel_havuzlu', 'pool'])
 
@@ -323,7 +325,7 @@ export function mergeBravoListingMeta(space, existingMeta = {}, terms = []) {
       : meta.square_meters || meta.square_m2 || ''
 
   const patch = {
-    address: space.address || meta.address || '',
+    address: repairBravoTurkishAscii(space.address || meta.address || '') || '',
     lat: space.map_lat != null ? String(space.map_lat) : meta.lat || '',
     lng: space.map_lng != null ? String(space.map_lng) : meta.lng || '',
     max_guests: space.max_guests != null ? String(space.max_guests) : meta.max_guests || '',

@@ -432,6 +432,12 @@ main() {
         "$APP_ROOT/backend/priv/sql/modules/409_holiday_home_select_all_price_lines.sql" \
         || warn "409 holiday_home price lines SQL uygulanamadı"
     fi
+    if [[ -f "$APP_ROOT/backend/priv/sql/modules/410_repair_listing_turkish_ascii_locations.sql" ]]; then
+      step "Türkçe adres/konum charset onarımı (410)"
+      bash "$APP_ROOT/deploy/apply-sql.sh" \
+        "$APP_ROOT/backend/priv/sql/modules/410_repair_listing_turkish_ascii_locations.sql" \
+        || warn "410 turkish location repair SQL uygulanamadı"
+    fi
   fi
 
   if [[ "${SKIP_AI_WORKER_TIMER:-0}" == "1" ]]; then
