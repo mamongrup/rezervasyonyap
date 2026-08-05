@@ -3008,10 +3008,15 @@ export default function CatalogNewListingClient({
       const translationEntries = isVilla
         ? allLocales.map((loc) => ({
             locale_code: loc.code,
-            title: (listingByLocale[loc.code]?.title ?? '').trim(),
-            description: (listingByLocale[loc.code]?.description ?? '').trim() || undefined,
+            title: repairTurkishContentAscii(listingByLocale[loc.code]?.title ?? '').trim(),
+            description:
+              repairTurkishContentAscii(listingByLocale[loc.code]?.description ?? '').trim() || undefined,
           })).filter((e) => e.title.length > 0 || (e.description?.length ?? 0) > 0)
-        : [{ locale_code: locale, title: title.trim(), description: description.trim() || undefined }]
+        : [{
+            locale_code: locale,
+            title: repairTurkishContentAscii(title).trim(),
+            description: repairTurkishContentAscii(description).trim() || undefined,
+          }]
       await saveRequiredStep(
         'Çeviri/açıklama kaydı',
         putManageListingTranslations(token, lid, { entries: translationEntries }, orgParam),
