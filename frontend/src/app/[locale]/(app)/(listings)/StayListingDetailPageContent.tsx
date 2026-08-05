@@ -32,7 +32,7 @@ import {
   getPoolHeatingReservationOption,
   hasAnyEnabledPool,
 } from '@/lib/listing-pools'
-import { resolveRegionPlacesBundleForListingPage } from '@/lib/region-places-from-location-page'
+import { resolveRegionPlacesBundleForListingPage, applyListingCoordsToRegionPlaces } from '@/lib/region-places-from-location-page'
 import {
   regionBrowseSlugFromLocationPin,
   regionPlacesSlugFromCity,
@@ -93,7 +93,6 @@ import {
   minHotelRoomOwnedNightly,
 } from '@/lib/hotel-room-nightly'
 import type { TListingHolidayHome } from '@/types/listing-types'
-import type { RegionPlaceData } from '@/app/api/region-places/route'
 import { guessCalendarMonthsShownFromRequest } from '@/lib/calendar-months-shown-server'
 import { getMessages } from '@/utils/getT'
 import { interpolate } from '@/utils/interpolate'
@@ -115,6 +114,9 @@ import { buildHotelFaqItems } from './hotel-faq-items'
 import {
   buildHotelListingDistanceColumns,
   buildHotelDistanceColumnsFromFacilitySections,
+  buildDistanceColumnsFromRegionPlaces,
+  mergeHotelDistanceColumns,
+  hotelDistanceColumnsHaveItems,
   HOTEL_DEMO_AMENITY_ROWS,
   HOTEL_DEMO_CONTRACT,
   HOTEL_DEMO_INTRO_HTML,
@@ -171,7 +173,6 @@ import SectionMap from './components/SectionMap'
 import ListingDetailOurFeatures from './components/ListingDetailOurFeatures'
 import SimilarListings from './components/SimilarListings'
 import NearbyPlacesSection from '@/components/travel/NearbyPlacesSection'
-import ListingNearbyPlacesVitrinSection from '@/components/travel/ListingNearbyPlacesVitrinSection'
 import ListingServicePoisSection from '@/components/travel/ListingServicePoisSection'
 import HotelListingDistancesSection from '@/components/travel/HotelListingDistancesSection'
 import SectionMealPlans from '@/components/listing/SectionMealPlans'
@@ -310,19 +311,6 @@ function similarStayListings<T extends StayRelatedListingCandidate>(
     .filter((row) => row.score > -10)
     .sort((a, b) => b.score - a.score)
     .map((row) => row.candidate)
-}
-
-function emptyRegionPlacesData(
-  regionName: string,
-  map: { lat: number; lng: number } | undefined,
-): RegionPlaceData {
-  return {
-    regionName: regionName.trim() || 'Yakın çevre',
-    regionSlug: '',
-    coordinates: map ?? { lat: 0, lng: 0 },
-    savedAt: '',
-    categories: [],
-  }
 }
 
 export default async function StayListingDetailPageContent({
@@ -496,7 +484,6 @@ export default async function StayListingDetailPageContent({
       regionSlugForPlaces,
       locale,
       shortRegionLabelFromLocationPin(listing.city) || listing.city || undefined,
-      { villaFourColumns: isHolidayHomeListing },
     ),
     vertical === 'hotel' && catalogListingId
       ? getVerticalMeta(catalogListingId, 'hotel').catch(() => ({}))
@@ -529,7 +516,6 @@ export default async function StayListingDetailPageContent({
         )
       : null
   const regionPlacesInitialData = regionPlacesBundle.places
-  const villaNearbyVitrinConfig = regionPlacesBundle.vitrinConfig
   const blogSlugMap = await getBlogSlugsByTitles(rawNearbyPois.map((p) => p.title))
   const nearbyPois = rawNearbyPois.map((p) => ({
     ...p,
@@ -570,13 +556,33 @@ export default async function StayListingDetailPageContent({
     vertical !== 'hotel' && isStayRentalCategory(vertical)
       ? buildHotelListingDistanceColumns({ nearbyPois, servicePois })
       : null
-  const listingDistanceColumns = hotelListingDistances ?? stayListingDistances
-  const hasListingDistanceColumns = Boolean(
-    listingDistanceColumns &&
-      (listingDistanceColumns.historic.length > 0 ||
-        listingDistanceColumns.surroundings.length > 0 ||
-        listingDistanceColumns.transport.length > 0),
-  )
+  const listingMap = listing.map
+  const holidayRegionDistanceFallback =
+    isHolidayHomeListing && regionPlacesInitialData
+      ? buildDistanceColumnsFromRegionPlaces(
+          listingMap?.lat != null && listingMap?.lng != null
+            ? applyListingCoordsToRegionPlaces(
+                regionPlacesInitialData,
+                listingMap.lat,
+                listingMap.lng,
+              )
+            : regionPlacesInitialData,
+        )
+      : null
+  const listingDistanceColumnsRaw = hotelListingDistances ?? stayListingDistances
+  const listingDistanceColumns =
+    isHolidayHomeListing && holidayRegionDistanceFallback
+      ? mergeHotelDistanceColumns(
+          listingDistanceColumnsRaw ?? {
+            historic: [],
+            surroundings: [],
+            transport: [],
+          },
+          holidayRegionDistanceFallback,
+          8,
+        )
+      : listingDistanceColumnsRaw
+  const hasListingDistanceColumns = hotelDistanceColumnsHaveItems(listingDistanceColumns)
   const hasServicePoiDistances =
     servicePois.amenities.length > 0 || servicePois.transport.length > 0
   const listingReviewCriteriaSummary =
@@ -1563,14 +1569,8 @@ export default async function StayListingDetailPageContent({
   )
 
   const socialProof = <SocialProofBadge listingId={listing.id} className="px-1" />
-  const holidayHomeNearbyPlacesData =
-    isHolidayHome
-      ? regionPlacesInitialData ??
-        emptyRegionPlacesData(
-          shortRegionLabelFromLocationPin(listing.city) || listing.city || address || '',
-          map,
-        )
-      : null
+  const distancesRegionLabel =
+    shortRegionLabelFromLocationPin(listing.city) || listing.city || address || ''
 
   const renderListingLocationSection = () => (
     <div id="stay-section-location" className="scroll-mt-28 space-y-5">
@@ -1578,19 +1578,11 @@ export default async function StayListingDetailPageContent({
       {hasListingDistanceColumns && listingDistanceColumns ? (
         <HotelListingDistancesSection
           locale={locale}
+          title={dp.nearbyPlaces}
+          regionLabel={distancesRegionLabel}
           historicPlaces={listingDistanceColumns.historic}
           surroundings={listingDistanceColumns.surroundings}
           transport={listingDistanceColumns.transport}
-        />
-      ) : isHolidayHome && holidayHomeNearbyPlacesData ? (
-        <ListingNearbyPlacesVitrinSection
-          locale={locale}
-          placesData={holidayHomeNearbyPlacesData}
-          config={villaNearbyVitrinConfig}
-          listingLat={map?.lat}
-          listingLng={map?.lng}
-          nearbyPois={nearbyPois}
-          title={dp.nearbyPlaces}
         />
       ) : hasServicePoiDistances && (isStayRental || vertical === 'hotel') ? (
         <ListingServicePoisSection

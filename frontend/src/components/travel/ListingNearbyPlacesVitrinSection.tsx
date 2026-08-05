@@ -48,15 +48,14 @@ function enrichVitrinWithListingPois(
   )
 }
 
-function aiFallbackText(regionName: string, rowLabel: string, columnTitle: string): string {
-  const region = regionName.split(',')[0]?.trim() || regionName.trim() || 'bölge'
-  const key = `${rowLabel} ${columnTitle}`.toLocaleLowerCase('tr-TR')
-  if (/plaj|beach|koy|sahil/.test(key)) return `${region} çevresindeki plaj ve koy alternatiflerini inceleyin.`
-  if (/tarih|ören|antik|ruin|müze|museum|gezilecek/.test(key)) return `${region} çevresindeki tarihi ve gezilecek durakları keşfedin.`
-  if (/restoran|restaurant|cafe|yeme/.test(key)) return `${region} çevresindeki restoran ve kafe seçeneklerini değerlendirin.`
-  if (/market|eczane|pharmacy|temel|ihtiyaç/.test(key)) return `${region} çevresindeki günlük ihtiyaç noktalarını kontrol edin.`
-  if (/hava|airport|otogar|bus|minibüs|metro|ulaşım|transfer/.test(key)) return `${region} için ulaşım ve transfer seçeneklerini planlayın.`
-  return `${region} çevresinde bu kategori için öne çıkan seçenekleri değerlendirin.`
+/** Yalnızca gerçek mekan adı olan hücreleri bırakır; AI/placeholder satır yok. */
+function keepRealPlaceCells(columns: ResolvedNearbyVitrinColumn[]): ResolvedNearbyVitrinColumn[] {
+  return columns
+    .map((col) => ({
+      ...col,
+      cells: col.cells.filter((cell) => Boolean(cell.placeName?.trim())),
+    }))
+    .filter((col) => col.cells.length > 0)
 }
 
 interface Props {
@@ -86,9 +85,8 @@ export default function ListingNearbyPlacesVitrinSection({
       ? applyListingCoordsToRegionPlaces(placesData, listingLat, listingLng)
       : placesData
 
-  const columns = enrichVitrinWithListingPois(
-    resolveNearbyVitrinForDisplay(data, config),
-    nearbyPois,
+  const columns = keepRealPlaceCells(
+    enrichVitrinWithListingPois(resolveNearbyVitrinForDisplay(data, config), nearbyPois),
   )
 
   if (columns.length === 0) return null
@@ -109,25 +107,25 @@ export default function ListingNearbyPlacesVitrinSection({
         {columns.map((col) => (
           <div
             key={col.title}
-            className="min-w-0 rounded-2xl border border-neutral-100 bg-white p-4 shadow-sm dark:border-neutral-800 dark:bg-neutral-900/40"
+            className="min-w-0 overflow-hidden rounded-2xl border border-neutral-200/80 bg-white dark:border-neutral-800 dark:bg-neutral-900/40"
           >
-            <h4 className="border-b border-neutral-100 pb-2.5 text-sm font-semibold text-neutral-900 dark:border-neutral-800 dark:text-white">
+            <h4 className="border-b border-neutral-100 bg-neutral-50/80 px-4 py-2.5 text-sm font-semibold text-neutral-900 dark:border-neutral-800 dark:bg-neutral-900/60 dark:text-white">
               {col.title}
             </h4>
-            <ul className="mt-3 flex flex-col gap-3">
+            <ul className="divide-y divide-neutral-100 dark:divide-neutral-800">
               {col.cells.map((cell) => {
-                const placeName = cell.placeName?.trim() || aiFallbackText(data.regionName, cell.rowLabel, col.title)
-                const hasRealPlace = Boolean(cell.placeName?.trim())
+                const placeName = cell.placeName!.trim()
                 return (
-                <li key={`${col.title}-${cell.rowLabel}-${placeName}`} className="flex flex-col gap-0.5">
-                  {cell.mapsHref ? (
+                  <li key={`${col.title}-${cell.rowLabel}-${placeName}`} className="px-4 py-2.5">
+                    {cell.mapsHref ? (
                       <Link
                         href={cell.mapsHref}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="group flex flex-col gap-0.5"
                       >
-                        {cell.rowLabel.trim().toLocaleLowerCase('tr-TR') !== placeName.toLocaleLowerCase('tr-TR') ? (
+                        {cell.rowLabel.trim().toLocaleLowerCase('tr-TR') !==
+                        placeName.toLocaleLowerCase('tr-TR') ? (
                           <span className="text-[10px] font-semibold uppercase tracking-wide text-neutral-400 dark:text-neutral-500">
                             {cell.rowLabel}
                           </span>
@@ -137,7 +135,7 @@ export default function ListingNearbyPlacesVitrinSection({
                             {placeName}
                           </span>
                           {cell.distanceLabel ? (
-                            <span className="shrink-0 rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold tabular-nums text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-200">
+                            <span className="shrink-0 text-sm font-semibold tabular-nums text-neutral-900 dark:text-white">
                               {cell.distanceLabel}
                             </span>
                           ) : null}
@@ -145,9 +143,10 @@ export default function ListingNearbyPlacesVitrinSection({
                       </Link>
                     ) : (
                       <div className="flex flex-col gap-0.5">
-                        {cell.rowLabel.trim().toLocaleLowerCase('tr-TR') !== placeName.toLocaleLowerCase('tr-TR') ? (
+                        {cell.rowLabel.trim().toLocaleLowerCase('tr-TR') !==
+                        placeName.toLocaleLowerCase('tr-TR') ? (
                           <span className="text-[10px] font-semibold uppercase tracking-wide text-neutral-400 dark:text-neutral-500">
-                            {hasRealPlace ? cell.rowLabel : 'AI önerisi'}
+                            {cell.rowLabel}
                           </span>
                         ) : null}
                         <div className="flex items-start justify-between gap-2">
@@ -155,14 +154,14 @@ export default function ListingNearbyPlacesVitrinSection({
                             {placeName}
                           </span>
                           {cell.distanceLabel ? (
-                            <span className="shrink-0 rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold tabular-nums text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-200">
+                            <span className="shrink-0 text-sm font-semibold tabular-nums text-neutral-900 dark:text-white">
                               {cell.distanceLabel}
                             </span>
                           ) : null}
                         </div>
                       </div>
-                  )}
-                </li>
+                    )}
+                  </li>
                 )
               })}
             </ul>

@@ -281,6 +281,85 @@ export function buildHotelListingDistanceColumns(input: {
   return { historic, surroundings, transport }
 }
 
+const TRANSPORT_GOOGLE_TYPES =
+  /airport|bus_station|train_station|subway_station|transit|taxi|ferry|light_rail/i
+const ESSENTIAL_GOOGLE_TYPES =
+  /supermarket|convenience|grocery|pharmacy|hospital|atm|bank|shopping_mall|store/i
+const ATTRACTION_GOOGLE_TYPES =
+  /tourist|museum|park|beach|aquarium|zoo|art_gallery|church|mosque|hindu|synagogue|castle|landmark|point_of_interest/i
+
+function classifyGoogleType(googleType: string, categoryId: string, name: string): keyof HotelDistanceColumns {
+  const gt = `${googleType} ${categoryId}`
+  if (TRANSPORT_GOOGLE_TYPES.test(gt) || TRANSPORT_DISTANCE_PATTERN.test(name)) return 'transport'
+  if (ESSENTIAL_GOOGLE_TYPES.test(gt) || ESSENTIAL_DISTANCE_PATTERN.test(name)) return 'surroundings'
+  if (ATTRACTION_GOOGLE_TYPES.test(gt) || ATTRACTION_DISTANCE_PATTERN.test(name)) return 'historic'
+  if (/ulaşım|transport|transfer/i.test(categoryId)) return 'transport'
+  if (/ihtiyaç|essentials|yeme|restoran|market/i.test(categoryId)) return 'surroundings'
+  return 'historic'
+}
+
+/**
+ * Bölge mekan verisinden (ilan koordinatına göre mesafe güncellenmiş)
+ * otel/villa mesafe cetveli kolonları üretir — AI metni yok, yalnızca gerçek ad + km.
+ */
+export function buildDistanceColumnsFromRegionPlaces(
+  data: {
+    categories: {
+      id: string
+      types: {
+        googleType: string
+        places: { name: string; distanceKm: number; lat?: number; lng?: number }[]
+      }[]
+    }[]
+  } | null | undefined,
+  options?: { maxPerColumn?: number; maxKm?: number },
+): HotelDistanceColumns {
+  const empty: HotelDistanceColumns = { historic: [], surroundings: [], transport: [] }
+  if (!data?.categories?.length) return empty
+
+  const maxPer = options?.maxPerColumn ?? 8
+  const maxKm = options?.maxKm ?? 80
+  const buckets: HotelDistanceColumns = { historic: [], surroundings: [], transport: [] }
+  const seen = new Set<string>()
+
+  for (const cat of data.categories) {
+    for (const tp of cat.types) {
+      for (const place of tp.places) {
+        const name = String(place.name ?? '').trim()
+        const km = Number(place.distanceKm)
+        if (!name || !Number.isFinite(km) || km <= 0 || km > maxKm) continue
+        const key = distanceItemKey(name)
+        if (!key || seen.has(key)) continue
+        seen.add(key)
+        buckets[classifyGoogleType(tp.googleType, cat.id, name)].push({ name, distanceKm: km })
+      }
+    }
+  }
+
+  return {
+    historic: buckets.historic.sort((a, b) => a.distanceKm - b.distanceKm).slice(0, maxPer),
+    surroundings: buckets.surroundings.sort((a, b) => a.distanceKm - b.distanceKm).slice(0, maxPer),
+    transport: buckets.transport.sort((a, b) => a.distanceKm - b.distanceKm).slice(0, maxPer),
+  }
+}
+
+export function mergeHotelDistanceColumns(
+  primary: HotelDistanceColumns,
+  fallback: HotelDistanceColumns,
+  limit = 8,
+): HotelDistanceColumns {
+  return {
+    historic: mergeDistanceItems(primary.historic, fallback.historic, limit),
+    surroundings: mergeDistanceItems(primary.surroundings, fallback.surroundings, limit),
+    transport: mergeDistanceItems(primary.transport, fallback.transport, limit),
+  }
+}
+
+export function hotelDistanceColumnsHaveItems(cols: HotelDistanceColumns | null | undefined): boolean {
+  if (!cols) return false
+  return cols.historic.length > 0 || cols.surroundings.length > 0 || cols.transport.length > 0
+}
+
 export const HOTEL_DEMO_GENERAL_TERMS_HTML = `<p>Check-in 14:00, check-out 11:00'dır. Erken giriş ve geç çıkış müsaitliğe bağlıdır ve ek ücrete tabi olabilir.</p>
 <p>Rezervasyon onayında belirtilen iptal koşulları geçerlidir. Erken ayrılışlarda kalan gece bedeli tahsil edilebilir.</p>
 <p>Tesis, güvenlik ve konfor kurallarına aykırı davranışlarda konaklamayı sonlandırma hakkını saklı tutar.</p>

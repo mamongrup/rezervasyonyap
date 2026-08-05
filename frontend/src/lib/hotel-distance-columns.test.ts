@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import {
+  buildDistanceColumnsFromRegionPlaces,
   buildHotelDistanceColumnsFromFacilitySections,
   buildHotelListingDistanceColumns,
+  hotelDistanceColumnsHaveItems,
+  mergeHotelDistanceColumns,
 } from './hotel-detail-demo-content'
 
 describe('buildHotelDistanceColumnsFromFacilitySections', () => {
@@ -53,5 +56,95 @@ describe('buildHotelListingDistanceColumns', () => {
       'Otogar',
       'Antalya Havalimanı',
     ])
+  })
+})
+
+describe('buildDistanceColumnsFromRegionPlaces', () => {
+  it('builds real name+km columns from listing-relative region places', () => {
+    const result = buildDistanceColumnsFromRegionPlaces({
+      categories: [
+        {
+          id: 'travel_ideas_db',
+          types: [
+            {
+              googleType: 'beach',
+              places: [{ name: 'Kaputaş Plajı', distanceKm: 8.2, lat: 36.2, lng: 29.4 }],
+            },
+            {
+              googleType: 'museum',
+              places: [{ name: 'Kaş Arkeoloji Müzesi', distanceKm: 1.1, lat: 36.2, lng: 29.6 }],
+            },
+          ],
+        },
+        {
+          id: 'service_amenity_db',
+          types: [
+            {
+              googleType: 'supermarket',
+              places: [{ name: 'Migros', distanceKm: 0.6, lat: 36.2, lng: 29.63 }],
+            },
+          ],
+        },
+        {
+          id: 'service_transport_db',
+          types: [
+            {
+              googleType: 'airport',
+              places: [{ name: 'Dalaman Havalimanı', distanceKm: 72, lat: 36.7, lng: 28.8 }],
+            },
+          ],
+        },
+      ],
+    })
+
+    expect(result.historic.map((item) => item.name)).toEqual([
+      'Kaş Arkeoloji Müzesi',
+      'Kaputaş Plajı',
+    ])
+    expect(result.surroundings.map((item) => item.name)).toEqual(['Migros'])
+    expect(result.transport.map((item) => item.name)).toEqual(['Dalaman Havalimanı'])
+    expect(hotelDistanceColumnsHaveItems(result)).toBe(true)
+  })
+
+  it('skips zero/invalid distances and AI-less empty data', () => {
+    const result = buildDistanceColumnsFromRegionPlaces({
+      categories: [
+        {
+          id: 'x',
+          types: [
+            {
+              googleType: 'beach',
+              places: [
+                { name: 'Boş', distanceKm: 0 },
+                { name: '', distanceKm: 2 },
+                { name: 'Uzak', distanceKm: 120 },
+              ],
+            },
+          ],
+        },
+      ],
+    })
+    expect(hotelDistanceColumnsHaveItems(result)).toBe(false)
+  })
+})
+
+describe('mergeHotelDistanceColumns', () => {
+  it('prefers primary items and fills gaps from fallback', () => {
+    const merged = mergeHotelDistanceColumns(
+      {
+        historic: [{ name: 'Antik Tiyatro', distanceKm: 2 }],
+        surroundings: [],
+        transport: [{ name: 'Otogar', distanceKm: 5 }],
+      },
+      {
+        historic: [{ name: 'Antik Tiyatro', distanceKm: 3 }, { name: 'Müze', distanceKm: 1 }],
+        surroundings: [{ name: 'Market', distanceKm: 0.4 }],
+        transport: [{ name: 'Havalimanı', distanceKm: 40 }],
+      },
+      8,
+    )
+    expect(merged.historic.map((i) => i.name)).toEqual(['Müze', 'Antik Tiyatro'])
+    expect(merged.surroundings.map((i) => i.name)).toEqual(['Market'])
+    expect(merged.transport.map((i) => i.name)).toEqual(['Otogar', 'Havalimanı'])
   })
 })
