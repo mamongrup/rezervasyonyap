@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
-# Eksik turizm içeriklerini küçük ve tekrarlanabilir batch'lerle AI kuyruklarına alır.
-# Aynı konum/ilan için pending/running/done kayıtları çoğaltılmaz.
+# Eksik turizm içeriklerini (TR → çeviri → SEO) küçük batch'lerle AI kuyruklarına alır.
+# travel-ai-worker.timer her turda bunu çağırır — manuel dürtme gerekmez.
+# Aynı konum/ilan için pending/running kayıtları çoğaltılmaz; done ama eksik SEO
+# olanlar akıllı faz ile yeniden açılır (ai_seed_listing_content_gaps).
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -15,43 +17,9 @@ if ! [[ "$SEED_LIMIT" =~ ^[0-9]+$ ]] || (( SEED_LIMIT < 1 || SEED_LIMIT > 500 ))
 fi
 
 psql_travel -v ON_ERROR_STOP=1 -v seed_limit="$SEED_LIMIT" <<'SQL'
--- Öncelikli vitrinler genel ilan kuyruğunun boşalmasını beklemesin.
--- Eski hatalar tekrar denenir; her kategori ayrı limitlenerek yat, aktivite ve
--- feribot kayıtlarının tatil evi hacmi altında ezilmesi önlenir.
-UPDATE ai_listing_content_batches
-SET status = 'pending', error = NULL, updated_at = now()
-WHERE category_code IN ('holiday_home', 'yacht_charter', 'activity', 'ferry')
-  AND status = 'failed'
-  AND updated_at < now() - interval '6 hours';
-
-WITH ranked AS (
-  SELECT l.id AS listing_id, pc.code AS category_code,
-         row_number() OVER (PARTITION BY pc.code ORDER BY l.updated_at DESC) AS rn
-  FROM listings l
-  JOIN product_categories pc ON pc.id = l.category_id
-  WHERE pc.code IN ('holiday_home', 'yacht_charter', 'activity', 'ferry')
-    AND l.status IN ('draft', 'published')
-    AND NOT EXISTS (
-      SELECT 1 FROM ai_listing_content_batches b
-      WHERE b.listing_id = l.id
-        AND b.status IN ('pending', 'running', 'done')
-    )
-    AND NOT EXISTS (
-      SELECT 1 FROM ai_listing_content_batches b
-      WHERE b.listing_id = l.id
-        AND b.status = 'failed'
-        AND b.updated_at >= now() - interval '6 hours'
-    )
-), inserted AS (
-  INSERT INTO ai_listing_content_batches
-    (listing_id, category_code, phase, status, overwrite)
-  SELECT listing_id, category_code, 'tr_description', 'pending', false
-  FROM ranked
-  WHERE rn <= :seed_limit
-  RETURNING category_code
-)
-SELECT 'priority_listing_queued' AS queue, category_code, count(*) AS queued
-FROM inserted GROUP BY category_code ORDER BY category_code;
+-- Öncelik: ilan içerik / SEO boşlukları (tüm aktif kategoriler, akıllı faz)
+SELECT queue, category_code, queued
+FROM ai_seed_listing_content_gaps(:seed_limit);
 
 -- Kesilmiş deploy/API isteğinden kalan blog işleri tekrar çalıştırılabilir olsun.
 UPDATE ai_geo_blog_batches

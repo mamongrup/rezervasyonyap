@@ -1763,9 +1763,29 @@ pub fn worker_try_listing_content(ctx: Context) -> Result(Bool, String) {
             Error(e) -> Error(e)
           }
         [] -> {
+          // Kuyruk boşsa eksik SEO/çeviriyi akıllı faz ile ekle (done kayıtları engel değil).
           let seed_sql =
             "insert into ai_listing_content_batches (listing_id, category_code, phase, status, overwrite) "
-            <> "select l.id, pc.code, 'tr_description', 'pending', false from listings l "
+            <> "select l.id, pc.code, "
+            <> "case "
+            <> "when not exists ("
+            <> "  select 1 from listing_translations lt join locales lo on lo.id = lt.locale_id "
+            <> "  where lt.listing_id = l.id and lower(lo.code) = 'tr' "
+            <> "    and length(coalesce(lt.description,'')) >= 120 "
+            <> "    and position('<p' in lower(coalesce(lt.description,''))) > 0 "
+            <> "    and position('&nbsp' in lower(coalesce(lt.description,''))) = 0"
+            <> ") then 'tr_description' "
+            <> "when ("
+            <> "  select count(*)::int from listing_translations lt join locales lo on lo.id = lt.locale_id "
+            <> "  where lt.listing_id = l.id and coalesce(lo.is_active,true) = true and lower(lo.code) <> 'tr' "
+            <> "    and length(coalesce(lt.title,'')) > 0 and length(coalesce(lt.description,'')) > 80 "
+            <> "    and position('<p' in lower(coalesce(lt.description,''))) > 0 "
+            <> "    and position('&nbsp' in lower(coalesce(lt.description,''))) = 0"
+            <> ") < ("
+            <> "  select count(*)::int from locales lo where coalesce(lo.is_active,true) = true and lower(lo.code) <> 'tr'"
+            <> ") then 'translations' "
+            <> "else 'seo' end, "
+            <> "'pending', false from listings l "
             <> "join product_categories pc on pc.id = l.category_id "
             <> "where coalesce(pc.is_active, true) = true and l.status = 'published' and "
             <> need_work_sql()

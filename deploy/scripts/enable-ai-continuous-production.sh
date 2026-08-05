@@ -25,7 +25,8 @@ SKIP_SQL="${SKIP_SQL:-0}"
 SKIP_KICK="${SKIP_KICK:-0}"
 WORKER_LOOPS="${WORKER_LOOPS:-15}"
 AI_CONTENT_SEED_LIMIT="${AI_CONTENT_SEED_LIMIT:-80}"
-SQL_MODULE="$APP_ROOT/backend/priv/sql/modules/376_ai_continuous_production.sql"
+SQL_MODULE="$APP_ROOT/backend/priv/sql/modules/407_ai_continuous_seo_listing_seed.sql"
+SQL_MODULE_LEGACY="$APP_ROOT/backend/priv/sql/modules/376_ai_continuous_production.sql"
 
 chmod +x \
   "$APP_ROOT/deploy/scripts/ai-worker-run-steps.sh" \
@@ -35,19 +36,29 @@ chmod +x \
   2>/dev/null || true
 
 if [[ "$SKIP_SQL" != "1" ]]; then
-  if [[ ! -f "$SQL_MODULE" ]]; then
+  if [[ -f "$SQL_MODULE" ]]; then
+    log "SQL: 407_ai_continuous_seo_listing_seed.sql"
+    if [[ -x "$APP_ROOT/deploy/apply-sql.sh" ]]; then
+      "$APP_ROOT/deploy/apply-sql.sh" "$SQL_MODULE"
+    else
+      # shellcheck source=deploy/scripts/lib/psql-env.sh
+      source "$APP_ROOT/deploy/scripts/lib/psql-env.sh"
+      psql_travel -v ON_ERROR_STOP=1 -f "$SQL_MODULE"
+    fi
+    ok "sürekli SEO/i18n seed + autopilot güncellendi"
+  elif [[ -f "$SQL_MODULE_LEGACY" ]]; then
+    log "SQL: 376_ai_continuous_production.sql (legacy)"
+    if [[ -x "$APP_ROOT/deploy/apply-sql.sh" ]]; then
+      "$APP_ROOT/deploy/apply-sql.sh" "$SQL_MODULE_LEGACY"
+    else
+      source "$APP_ROOT/deploy/scripts/lib/psql-env.sh"
+      psql_travel -v ON_ERROR_STOP=1 -f "$SQL_MODULE_LEGACY"
+    fi
+    ok "kadrosu + autopilot güncellendi"
+  else
     echo "[FAIL] SQL yok: $SQL_MODULE" >&2
     exit 1
   fi
-  log "SQL: 376_ai_continuous_production.sql"
-  if [[ -x "$APP_ROOT/deploy/apply-sql.sh" ]]; then
-    "$APP_ROOT/deploy/apply-sql.sh" "$SQL_MODULE"
-  else
-    # shellcheck source=deploy/scripts/lib/psql-env.sh
-    source "$APP_ROOT/deploy/scripts/lib/psql-env.sh"
-    psql_travel -v ON_ERROR_STOP=1 -f "$SQL_MODULE"
-  fi
-  ok "kadrosu + autopilot güncellendi"
 else
   warn "SKIP_SQL=1 — DB aktivasyonu atlandı"
 fi

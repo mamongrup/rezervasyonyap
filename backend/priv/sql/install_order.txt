@@ -248,6 +248,7 @@ modules/403_repair_travelapi_hotelbeds_avif.sql
 modules/404_repair_tatilbudur_rehost_to_cdn.sql
 modules/405_repair_wtatil_tour_images_from_snapshot.sql
 modules/406_repair_wtatil_featured_fullsize.sql
+modules/407_ai_continuous_seo_listing_seed.sql
 
 # Kurulum doğrulama (install_order’a dahil değil — elle çalıştırın):
 #   psql -U postgres -d travel -f priv/sql/check_installation.sql

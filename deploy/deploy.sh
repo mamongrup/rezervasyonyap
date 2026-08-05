@@ -414,6 +414,12 @@ main() {
         "$APP_ROOT/backend/priv/sql/modules/402_ai_manager_continuous_orchestration.sql" \
         || warn "402 AI müdür orkestrasyonu uygulanamadı"
     fi
+    if [[ -f "$APP_ROOT/backend/priv/sql/modules/407_ai_continuous_seo_listing_seed.sql" ]]; then
+      step "AI sürekli SEO/i18n kuyruk otomasyonu (407)"
+      bash "$APP_ROOT/deploy/apply-sql.sh" \
+        "$APP_ROOT/backend/priv/sql/modules/407_ai_continuous_seo_listing_seed.sql" \
+        || warn "407 sürekli SEO seed SQL uygulanamadı"
+    fi
   fi
 
   if [[ "${SKIP_AI_WORKER_TIMER:-0}" == "1" ]]; then

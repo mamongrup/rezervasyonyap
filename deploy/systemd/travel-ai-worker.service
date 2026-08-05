@@ -1,4 +1,5 @@
 # Opsiyonel: sunucuda AI kuyruklarını tarayıcıdan bağımsız işler.
+# Her 3 dk: seed-ai-content-queues (eksik SEO/i18n) + run-steps (TR→çeviri→SEO).
 #
 # Kurulum (yolları kendi repo kökünüze göre düzenleyin):
 #   sudo cp deploy/systemd/travel-ai-worker.service /etc/systemd/system/
@@ -8,6 +9,7 @@
 #   sudo systemctl enable --now travel-ai-worker.timer
 #
 # Önkoşul: /etc/rezervasyonyap/backend.env içinde TRAVEL_AI_WORKER_SECRET.
+# SQL: modules/407_ai_continuous_seo_listing_seed.sql (deploy.sh uygular).
 
 [Unit]
 Description=Travel AI worker — POST run-steps (oneshot)

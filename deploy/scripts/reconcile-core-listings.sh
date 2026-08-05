@@ -37,55 +37,9 @@ WITH default_contract AS (
 )
 SELECT 'holiday_home_default_contract_assigned' AS result, count(*) AS affected FROM assigned;
 
-UPDATE ai_listing_content_batches b
-SET status = 'pending', error = NULL, updated_at = now()
-WHERE b.category_code IN ('holiday_home', 'yacht_charter', 'activity', 'ferry')
-  AND b.status = 'failed' AND b.updated_at < now() - interval '6 hours';
-
-WITH targets AS (
-  SELECT l.id, pc.code AS category_code,
-         row_number() OVER (PARTITION BY pc.code ORDER BY l.updated_at DESC, l.id) AS rn
-  FROM listings l
-  JOIN product_categories pc ON pc.id = l.category_id
-  WHERE pc.code IN ('holiday_home', 'yacht_charter', 'activity', 'ferry')
-    AND l.status IN ('draft', 'published')
-    AND (
-      EXISTS (
-        SELECT 1 FROM locales lo WHERE lo.is_active = true AND NOT EXISTS (
-          SELECT 1 FROM listing_translations lt
-          WHERE lt.listing_id = l.id AND lt.locale_id = lo.id
-            AND length(btrim(coalesce(lt.title, ''))) > 0
-            AND length(coalesce(lt.description, '')) >= 80
-            AND lower(coalesce(lt.description, '')) ~ '<p([[:space:]]|>)'
-            AND lower(coalesce(lt.description, '')) ~ '<(h2|h3|ul|ol)([[:space:]]|>)'
-        )
-      ) OR EXISTS (
-        SELECT 1 FROM locales lo WHERE lo.is_active = true AND NOT EXISTS (
-          SELECT 1 FROM seo_metadata sm
-          WHERE sm.entity_type = 'listing' AND sm.entity_id = l.id AND sm.locale_id = lo.id
-            AND length(btrim(coalesce(sm.title, ''))) > 10
-            AND length(btrim(coalesce(sm.description, ''))) > 40
-        )
-      )
-    )
-    AND NOT EXISTS (
-      SELECT 1 FROM ai_listing_content_batches b
-      WHERE b.listing_id = l.id AND b.status IN ('pending', 'running')
-    )
-    AND NOT EXISTS (
-      SELECT 1 FROM ai_listing_content_batches b
-      WHERE b.listing_id = l.id AND b.status = 'failed'
-        AND b.updated_at >= now() - interval '6 hours'
-    )
-), queued AS (
-  INSERT INTO ai_listing_content_batches
-    (listing_id, category_code, phase, status, overwrite)
-  SELECT id, category_code, 'tr_description', 'pending', false
-  FROM targets WHERE rn <= :queue_limit
-  RETURNING category_code
-)
-SELECT 'content_queued' AS result, category_code, count(*) AS affected
-FROM queued GROUP BY category_code ORDER BY category_code;
+-- Eksik TR/çeviri/SEO → akıllı faz ile kuyruk (done + eksik SEO yeniden açılır)
+SELECT 'content_queued' AS result, category_code, queued AS affected
+FROM ai_seed_listing_content_gaps(:queue_limit);
 
 WITH first_images AS (
   SELECT DISTINCT ON (li.listing_id) li.listing_id, li.storage_key

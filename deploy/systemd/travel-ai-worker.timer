@@ -1,8 +1,9 @@
 # travel-ai-worker.service ile birlikte kullanın (bkz. travel-ai-worker.service başlığı).
-# Sürekli içerik üretimi: 3 dk. I/O baskısı olursa OnUnitActiveSec=5min deneyin.
+# Sürekli içerik + SEO üretimi: 3 dk (seed-ai-content-queues → run-steps).
+# I/O baskısı olursa OnUnitActiveSec=5min deneyin.
 
 [Unit]
-Description=Travel AI worker zamanlayıcısı
+Description=Travel AI worker zamanlayıcısı (i18n/SEO otomatik)
 
 [Timer]
 OnBootSec=2min
