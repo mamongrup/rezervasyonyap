@@ -701,16 +701,18 @@ main() {
       || warn "prune-next-cache tamamlanamadı; elle: ./deploy/scripts/prune-next-cache.sh"
   fi
 
-  # Servisler ayağa kalktıktan sonra AI + sosyal worker'ı hemen tetikle
-  # (timer yalnız 10 dk'da bir çalışır; secret yoksa script açık [WARN] basar).
+  # Servisler ayağa kalktıktan sonra AI + sosyal worker timer + async tetik.
+  # (AI run-steps senkron DEĞİL — eskiden deploy sonunu dakikalar kilitleyebiliyordu.)
   if [[ "${SKIP_AI_SOCIAL_KICK:-0}" == "1" ]]; then
     warn "SKIP_AI_SOCIAL_KICK=1 — AI/sosyal anlık tetik atlandı."
   elif [[ -f "$APP_ROOT/deploy/scripts/ensure-ai-social-workers.sh" ]]; then
-    step "AI + sosyal medya worker (timer + anlık tetik)"
+    step "AI + sosyal medya worker (timer + async tetik)"
     chmod +x "$APP_ROOT/deploy/scripts/ensure-ai-social-workers.sh"
     bash "$APP_ROOT/deploy/scripts/ensure-ai-social-workers.sh" \
       || warn "AI/sosyal worker tetik tamamlanamadı; elle: ./deploy/scripts/ensure-ai-social-workers.sh"
   fi
+
+  ok "Deploy tamam (ref=$DEPLOY_REF HEAD=$(git rev-parse --short HEAD)). AI/sosyal arka planda sürüyor."
 }
 
 main "$@"

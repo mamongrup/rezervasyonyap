@@ -1,15 +1,17 @@
 #!/usr/bin/env bash
-# Deploy sonrası AI + sosyal medya worker timer'larını kurar, secret kontrol eder
-# ve hemen bir tur tetikler (10 dk beklemeye gerek kalmaz).
+# Deploy sonrası AI + sosyal medya worker timer'larını kurar ve anlık tetikler.
+# Tetikler systemd --no-block ile kuyruğa alınır; deploy AI/sosyal bitişini BEKLEMEZ.
 #
 #   ./deploy/scripts/ensure-ai-social-workers.sh
 #   SKIP_KICK=1 ./deploy/scripts/ensure-ai-social-workers.sh   # yalnız timer kur
+#   SYNC_KICK=1 ./deploy/scripts/ensure-ai-social-workers.sh   # eski davranış (senkron, yavaş)
 set -euo pipefail
 
 APP_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 BACKEND_ENV="${TRAVEL_DB_ENV:-/etc/rezervasyonyap/backend.env}"
 FRONTEND_ENV="${FRONTEND_ENV_FILE:-/etc/rezervasyonyap/frontend.env}"
 SKIP_KICK="${SKIP_KICK:-0}"
+SYNC_KICK="${SYNC_KICK:-0}"
 
 log() { echo "[ai-social] $*"; }
 warn() { echo "[ai-social][WARN] $*" >&2; }
@@ -110,31 +112,56 @@ if [[ "$SKIP_KICK" == "1" ]]; then
   exit 0
 fi
 
-# API/web ayağa kalkmış olsun
-sleep "${WORKER_READY_SLEEP:-4}"
+kick_ai_async() {
+  if systemctl start --no-block travel-ai-worker.service 2>/dev/null; then
+    ok "travel-ai-worker.service kuyruğa alındı (deploy beklemez)"
+    return 0
+  fi
+  # systemd yoksa arka planda çalıştır — deploy'u kilitleme
+  log "AI worker arka plan tetik (nohup)"
+  (
+    WORKER_LOOPS="${WORKER_LOOPS:-3}" WORKER_VERBOSE="${WORKER_VERBOSE:-0}" \
+      bash "$APP_ROOT/deploy/scripts/ai-worker-run-steps.sh"
+  ) >/tmp/travel-ai-worker-kick.log 2>&1 &
+  disown $! 2>/dev/null || true
+  ok "AI worker arka planda başlatıldı (log: /tmp/travel-ai-worker-kick.log)"
+}
 
-log "AI worker anlık tetik (WORKER_LOOPS=${WORKER_LOOPS:-3})"
-if WORKER_LOOPS="${WORKER_LOOPS:-3}" WORKER_VERBOSE="${WORKER_VERBOSE:-0}" \
-  bash "$APP_ROOT/deploy/scripts/ai-worker-run-steps.sh"; then
-  ok "AI worker tetiklendi"
-else
-  warn "AI worker tetik uyarısı — journalctl -u travel-ai-worker.service -n 40"
-fi
+kick_social_async() {
+  if systemctl start --no-block travel-social-worker.service 2>/dev/null; then
+    ok "travel-social-worker.service kuyruğa alındı (deploy beklemez)"
+    return 0
+  fi
+  log "Sosyal worker arka plan tetik (nohup)"
+  (
+    LOOP_UNTIL_EMPTY=0 SOCIAL_WORKER_ROTATE="${SOCIAL_WORKER_ROTATE:-1}" \
+      timeout "${SOCIAL_WORKER_FALLBACK_TIMEOUT:-180}" \
+        bash "$APP_ROOT/deploy/scripts/social-process-pending.sh"
+  ) >/tmp/travel-social-worker-kick.log 2>&1 &
+  disown $! 2>/dev/null || true
+  ok "Sosyal worker arka planda başlatıldı (log: /tmp/travel-social-worker-kick.log)"
+}
 
-log "Sosyal worker anlık tetik"
-if systemctl start --no-block travel-social-worker.service; then
-  ok "travel-social-worker.service kuyruğa alındı (deploy beklemez)"
+if [[ "$SYNC_KICK" == "1" ]]; then
+  # Eski senkron yol — yalnız bilinçli debug için (dakikalar sürebilir).
+  sleep "${WORKER_READY_SLEEP:-2}"
+  log "SYNC_KICK=1 — AI worker senkron tetik (WORKER_LOOPS=${WORKER_LOOPS:-3})"
+  if WORKER_LOOPS="${WORKER_LOOPS:-3}" WORKER_VERBOSE="${WORKER_VERBOSE:-0}" \
+    bash "$APP_ROOT/deploy/scripts/ai-worker-run-steps.sh"; then
+    ok "AI worker tetiklendi"
+  else
+    warn "AI worker tetik uyarısı — journalctl -u travel-ai-worker.service -n 40"
+  fi
+  log "SYNC_KICK=1 — sosyal worker"
+  kick_social_async || true
 else
-  # systemd yoksa veya unit henüz yoksa doğrudan script
-  LOOP_UNTIL_EMPTY=0 SOCIAL_WORKER_ROTATE="${SOCIAL_WORKER_ROTATE:-1}" \
-    timeout "${SOCIAL_WORKER_FALLBACK_TIMEOUT:-180}" \
-      bash "$APP_ROOT/deploy/scripts/social-process-pending.sh" \
-    || warn "sosyal worker tetik uyarısı — journalctl -u travel-social-worker.service -n 40"
+  log "AI + sosyal worker anlık tetik (async, deploy beklemez)"
+  kick_ai_async || warn "AI worker tetik uyarısı — journalctl -u travel-ai-worker.service -n 40"
+  kick_social_async || warn "sosyal worker tetik uyarısı — journalctl -u travel-social-worker.service -n 40"
 fi
 
 log "timer durumu:"
 systemctl list-timers 'travel-ai-worker.timer' 'travel-social-worker.timer' --no-pager 2>/dev/null || true
-log "Son AI log: journalctl -u travel-ai-worker.service -n 20 --no-pager"
-log "Son sosyal log: journalctl -u travel-social-worker.service -n 20 --no-pager"
-log "Panel: Yönetim → Yapay zeka (DeepSeek/OpenAI) + Pazarlama → Sosyal Medya API"
-log "Yat+villa i18n/SEO+Reels: ./deploy/scripts/start-yacht-holiday-i18n-seo-social.sh"
+log "Log: journalctl -u travel-ai-worker.service -n 20 --no-pager"
+log "Log: journalctl -u travel-social-worker.service -n 20 --no-pager"
+ok "AI/sosyal adımı bitti — deploy devam edebilir / tamamlanabilir"
