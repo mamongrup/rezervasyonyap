@@ -1,5 +1,6 @@
 import type { PublicListingAttribute } from '@/lib/travel-api'
 import { isHolidayHomeAmenityAttributeGroup } from '@/lib/holiday-home-listing-fields'
+import { repairTurkishContentAscii } from '@/lib/repair-turkish-content-ascii'
 
 /** Vitrin «Olanaklar» bölümünde gösterilmemesi gereken gruplar. */
 const VITRIN_NON_AMENITY_GROUPS = new Set([
@@ -99,7 +100,8 @@ export function formatAttributeKeyAsDisplayLabel(key: string): string {
 }
 
 export function resolveAttributeDisplayLabel(key: string, valueJson: string): string {
-  return parseAttributeLabelFromValueJson(valueJson) ?? formatAttributeKeyAsDisplayLabel(key)
+  const raw = parseAttributeLabelFromValueJson(valueJson) ?? formatAttributeKeyAsDisplayLabel(key)
+  return repairTurkishContentAscii(raw)
 }
 
 export function isVitrinAmenityAttributeGroup(

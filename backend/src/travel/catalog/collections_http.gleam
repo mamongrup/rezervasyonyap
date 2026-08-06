@@ -989,9 +989,8 @@ const listing_suggest_slug_ascii_sql: String = "lower(replace(l.slug, '-', ' '))
 const listing_suggest_location_ascii_sql: String =
   "translate(lower(coalesce(l.location_name, '')), 'üğışöç', 'ugisoc')"
 
-const listing_suggest_meta_ascii_sql: String =
-  "translate(lower(coalesce(lm_sug.value_json->>'city', '') || ' ' || coalesce(lm_sug.value_json->>'district_label', '') || ' ' || coalesce(lm_sug.value_json->>'province_city', '') || ' ' || coalesce(lm_sug.value_json->>'region_display', '') || ' ' || coalesce(lm_sug.value_json->>'address', '')), 'üğışöç', 'ugisoc')"
-
+/// Autocomplete token eşleşmesi — yalnız title/slug/location (trgm index’li).
+/// listing_meta JSON ILIKE kaldırıldı: seq-scan + her satırda jsonb concat → saniyeler.
 const listing_suggest_token_match_sql: String =
   "("
   // Kelime öneki: başlar veya boşluktan sonra
@@ -1006,20 +1005,6 @@ const listing_suggest_token_match_sql: String =
   <> "or "
   <> listing_suggest_location_ascii_sql
   <> " ilike '% ' || trim(tok) || '%' "
-  <> "or exists ("
-  <> "  select 1 from listing_attributes lm_sug "
-  <> "  where lm_sug.listing_id = l.id and lm_sug.group_code = 'listing_meta' and lm_sug.key = 'v1' "
-  <> "    and ("
-  <> listing_suggest_meta_ascii_sql
-  <> " ilike trim(tok) || '%' "
-  <> "      or "
-  <> listing_suggest_meta_ascii_sql
-  <> " ilike '% ' || trim(tok) || '%' "
-  <> "      or (char_length(trim(tok)) >= 4 and "
-  <> listing_suggest_meta_ascii_sql
-  <> " ilike '%' || trim(tok) || '%')"
-  <> "    )"
-  <> ") "
   <> "or exists ("
   <> "  select 1 from listing_translations lt "
   <> "  where lt.listing_id = l.id and ("
@@ -1879,8 +1864,9 @@ fn search_listings_impl(
     <> order_sql
 
   // Autocomplete: $1=q $2=cat $3=locale $4=limit $5=offset.
-  // Önce ilk token ile trgm-index aday kümesi (title ∪ slug ∪ location), sonra
-  // tüm token filtresi + sıralama — 16k+ satırda seq-scan EXISTS yolundan kaçınır.
+  // Aday kümesi: title ∪ slug ∪ location (trgm). listing_meta JSON taraması YOK —
+  // her tuşta tüm meta satırlarını ILIKE etmek saniyelik gecikme yaratıyordu.
+  // Dal başına LIMIT 100 → kısa/popüler tokenlarda tüm kataloğu sıralamayı önler.
   let suggest_page_sql =
     "with toks as ("
     <> "  select trim(tok) as tok from unnest(string_to_array(trim(coalesce($1::text, '')), ' ')) as u(tok)"
@@ -1888,32 +1874,33 @@ fn search_listings_impl(
     <> "), first_tok as ("
     <> "  select coalesce((select tok from toks limit 1), '') as tok"
     <> "), cand as ("
-    <> "  select distinct lt.listing_id as id"
-    <> "  from listing_translations lt"
-    <> "  cross join first_tok ft"
-    <> "  where ft.tok <> '' and ("
-    <> "    translate(lower(lt.title), 'üğışöç', 'ugisoc') ilike ft.tok || '%'"
-    <> "    or translate(lower(lt.title), 'üğışöç', 'ugisoc') ilike '% ' || ft.tok || '%'"
-    <> "    or (char_length(ft.tok) >= 4 and translate(lower(lt.title), 'üğışöç', 'ugisoc') ilike '%' || ft.tok || '%')"
-    <> "  )"
-    <> "  union"
-    <> "  select l.id from listings l"
-    <> "  cross join first_tok ft"
-    <> "  where l.status = 'published' and ft.tok <> '' and ("
-    <> "    lower(replace(l.slug, '-', ' ')) ilike ft.tok || '%'"
-    <> "    or lower(replace(l.slug, '-', ' ')) ilike '% ' || ft.tok || '%'"
-    <> "    or (char_length(ft.tok) >= 4 and lower(replace(l.slug, '-', ' ')) ilike '%' || ft.tok || '%')"
-    <> "    or translate(lower(coalesce(l.location_name, '')), 'üğışöç', 'ugisoc') ilike ft.tok || '%'"
-    <> "    or translate(lower(coalesce(l.location_name, '')), 'üğışöç', 'ugisoc') ilike '% ' || ft.tok || '%'"
-    <> "    or (char_length(ft.tok) >= 4 and translate(lower(coalesce(l.location_name, '')), 'üğışöç', 'ugisoc') ilike '%' || ft.tok || '%')"
-    <> "  )"
-    <> "  union"
-    <> "  select l.id from listings l"
-    <> "  join listing_attributes lm_sug on lm_sug.listing_id = l.id and lm_sug.group_code = 'listing_meta' and lm_sug.key = 'v1'"
-    <> "  cross join first_tok ft"
-    <> "  where l.status = 'published' and ft.tok <> '' and ("
-    <> "    translate(lower(coalesce(lm_sug.value_json->>'city', '') || ' ' || coalesce(lm_sug.value_json->>'district_label', '') || ' ' || coalesce(lm_sug.value_json->>'province_city', '') || ' ' || coalesce(lm_sug.value_json->>'region_display', '') || ' ' || coalesce(lm_sug.value_json->>'address', '')), 'üğışöç', 'ugisoc') ilike '%' || ft.tok || '%'"
-    <> "  )"
+    <> "  select distinct u.id from ("
+    <> "    ("
+    <> "      select lt.listing_id as id"
+    <> "      from listing_translations lt"
+    <> "      cross join first_tok ft"
+    <> "      where ft.tok <> '' and ("
+    <> "        translate(lower(lt.title), 'üğışöç', 'ugisoc') ilike ft.tok || '%'"
+    <> "        or translate(lower(lt.title), 'üğışöç', 'ugisoc') ilike '% ' || ft.tok || '%'"
+    <> "        or (char_length(ft.tok) >= 4 and translate(lower(lt.title), 'üğışöç', 'ugisoc') ilike '%' || ft.tok || '%')"
+    <> "      )"
+    <> "      limit 100"
+    <> "    )"
+    <> "    union all"
+    <> "    ("
+    <> "      select l.id from listings l"
+    <> "      cross join first_tok ft"
+    <> "      where l.status = 'published' and ft.tok <> '' and ("
+    <> "        lower(replace(l.slug, '-', ' ')) ilike ft.tok || '%'"
+    <> "        or lower(replace(l.slug, '-', ' ')) ilike '% ' || ft.tok || '%'"
+    <> "        or (char_length(ft.tok) >= 4 and lower(replace(l.slug, '-', ' ')) ilike '%' || ft.tok || '%')"
+    <> "        or translate(lower(coalesce(l.location_name, '')), 'üğışöç', 'ugisoc') ilike ft.tok || '%'"
+    <> "        or translate(lower(coalesce(l.location_name, '')), 'üğışöç', 'ugisoc') ilike '% ' || ft.tok || '%'"
+    <> "        or (char_length(ft.tok) >= 4 and translate(lower(coalesce(l.location_name, '')), 'üğışöç', 'ugisoc') ilike '%' || ft.tok || '%')"
+    <> "      )"
+    <> "      limit 100"
+    <> "    )"
+    <> "  ) u"
     <> "), page_ids as materialized ("
     <> "  select ranked.id, ranked.rn from ("
     <> "    select l.id, row_number() over (order by "
