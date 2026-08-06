@@ -19,12 +19,18 @@ URLS="$APP_ROOT/deploy/data/tatilbudur/bodrum-request-urls.txt"
 FEED="$APP_ROOT/backups/tatilbudur-bodrum-public-feed.json"
 REPORT="$APP_ROOT/backups/tatilbudur-bodrum-links.md"
 STATE="$APP_ROOT/backups/tatilbudur-bodrum-import-state.json"
+OFFERS="$APP_ROOT/deploy/data/tatilbudur/bodrum-2026-08-10-13-2adults-offers.json"
 
 cd "$APP_ROOT"
 [[ -f "$URLS" ]] || { echo "[ERR] URL listesi yok: $URLS" >&2; exit 1; }
 
 echo "==> 1/4 Açık tesis bilgileri ve galeri bağlantıları hasat ediliyor"
 node scripts/harvest-tatilbudur-url-list.mjs --urls "$URLS" --out "$FEED"
+
+if [[ -f "$OFFERS" ]]; then
+  echo "==> Doğrulanmış 10–13 Ağustos / 2 yetişkin teklifleri feed'e işleniyor"
+  node scripts/apply-tatilbudur-visible-offers.mjs --feed "$FEED" --offers "$OFFERS"
+fi
 
 echo "==> 2/4 Taslak oteller içe aktarılıyor (fiyat uydurulmaz)"
 TATILBUDUR_LISTING_STATUS=draft \

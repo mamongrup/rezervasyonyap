@@ -1,0 +1,77 @@
+{
+  "search": {
+    "checkIn": "2026-08-10",
+    "checkOut": "2026-08-13",
+    "nights": 3,
+    "adults": 2,
+    "children": 0,
+    "currency": "TRY",
+    "pricePolicy": "visible_total_only_excluding_card_campaigns"
+  },
+  "hotels": [
+    {
+      "sourceUrl": "https://www.tatilbudur.com/charm-beach-hotel",
+      "name": "Charm Beach Hotel",
+      "rooms": [
+        {
+          "name": "Kara Manzaralı Standart Oda",
+          "boardType": "Her Şey Dahil",
+          "totalPrice": 42627,
+          "size": "18 m²",
+          "features": ["Balkon", "Çay-Kahve Seti"],
+          "childAdvantage": "0-12 yaş çocuk avantajı"
+        },
+        {
+          "name": "Deniz Manzaralı Standart Oda",
+          "boardType": "Her Şey Dahil",
+          "totalPrice": 46215,
+          "size": "18 m²",
+          "features": ["Balkon", "Çay-Kahve Seti"],
+          "childAdvantage": "0-12 yaş çocuk avantajı"
+        }
+      ]
+    },
+    {
+      "sourceUrl": "https://www.tatilbudur.com/sami-beach-hotel",
+      "name": "Sami Beach Hotel",
+      "rooms": [
+        {"name": "Anex Oda", "boardType": "Her Şey Dahil", "totalPrice": 33443, "size": "15 m²", "features": ["Balkon", "Duman Dedektörü"]},
+        {"name": "Standart Bahçe Manzaralı Oda", "boardType": "Her Şey Dahil", "totalPrice": 35705, "size": "16 m²", "features": ["Balkon", "Duş"]},
+        {"name": "Standart Deniz Manzaralı Oda", "boardType": "Her Şey Dahil", "totalPrice": 37949, "size": "16 m²", "features": ["Balkon", "Duş"]},
+        {"name": "Superior Deniz Manzaralı Oda", "boardType": "Her Şey Dahil", "totalPrice": 40211, "size": "16 m²", "features": ["Balkon", "Duman Dedektörü"]}
+      ]
+    },
+    {
+      "sourceUrl": "https://www.tatilbudur.com/afytos-bodrum-city",
+      "name": "Afytos Bodrum City",
+      "rooms": [
+        {"name": "Fırsat Oda", "boardType": "Her Şey Dahil", "totalPrice": 17140, "size": "16 m²", "features": ["Buket Seti", "Duş"]},
+        {"name": "Standart Oda", "boardType": "Her Şey Dahil", "totalPrice": 20039, "size": "16 m²", "features": ["Buket Seti", "Duş"]}
+      ]
+    },
+    {
+      "sourceUrl": "https://www.tatilbudur.com/natur-garden-hotel",
+      "name": "Natur Garden Hotel",
+      "rooms": [
+        {"name": "Standart Oda", "boardType": "Her Şey Dahil", "totalPrice": 25421, "size": "20 m²", "features": ["Duman Dedektörü", "Duş"]},
+        {"name": "Aile Odası (1+1 Ara Kapılı)", "boardType": "Her Şey Dahil", "totalPrice": 44488, "size": "35 m²", "features": ["Ara Kapı 2 Oda", "Balkon"], "availabilityNote": "Son 1 Oda"}
+      ]
+    },
+    {
+      "sourceUrl": "https://www.tatilbudur.com/sunpoint-hotel-bodrum",
+      "name": "Sunpoint Hotel Bodrum",
+      "rooms": [
+        {"name": "Fırsat Oda", "boardType": "Her Şey Dahil", "totalPrice": 19404, "size": "37 m²", "features": ["Duş", "Mini Bar"], "availabilityNote": "Son 3 Oda"},
+        {"name": "Superior Oda (1+1)", "boardType": "Her Şey Dahil", "totalPrice": 19404, "size": "37 m²", "features": ["Ara Kapı 2 Oda", "Balkon"]}
+      ]
+    },
+    {
+      "sourceUrl": "https://www.tatilbudur.com/siesta-beach-apart-hotel",
+      "name": "Siesta Beach Apart Hotel",
+      "rooms": [
+        {"name": "Studio Oda", "boardType": "Sadece Oda", "totalPrice": 11462, "size": "28 m²", "features": ["Duş", "Mini Bar"]},
+        {"name": "Studio Oda", "boardType": "Oda Kahvaltı", "totalPrice": 14936, "size": "28 m²", "features": ["Duş", "Mini Bar"]}
+      ]
+    }
+  ]
+}
