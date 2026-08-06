@@ -20,6 +20,7 @@ const valueAfter = (flag) => {
 const feedPath = path.resolve(ROOT, valueAfter('--feed'))
 const offersPath = path.resolve(ROOT, valueAfter('--offers'))
 if (!valueAfter('--feed') || !valueAfter('--offers')) throw new Error('--feed ve --offers gerekli')
+const createMissing = argv.includes('--create-missing')
 
 const feed = JSON.parse(fs.readFileSync(feedPath, 'utf8'))
 const capture = JSON.parse(fs.readFileSync(offersPath, 'utf8'))
@@ -46,13 +47,52 @@ const slugify = (value) =>
     .replace(/ı/g, 'i').replace(/ğ/g, 'g').replace(/ş/g, 's').replace(/ö/g, 'o').replace(/ü/g, 'u').replace(/ç/g, 'c')
     .replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
 
-const byUrl = new Map((feed.hotels || []).map((hotel) => [String(hotel.url || '').trim(), hotel]))
+function stubHotelFromOffer(offerHotel) {
+  const sourceUrl = String(offerHotel.sourceUrl || '').trim()
+  const slug = slugify(sourceUrl.replace(/^https?:\/\/[^/]+\//, '')) || slugify(offerHotel.name)
+  const name = String(offerHotel.name || slug).trim()
+  return {
+    id: slug,
+    slug,
+    name,
+    description:
+      `<h2>${name} Hakkında</h2>` +
+      `<p>${name}, Bodrum bölgesinde konaklama sunan bir tesistir. ` +
+      `Oda ve fiyat bilgileri sağlayıcıda görünen toplam tutardan gecelik olarak hesaplanmıştır. ` +
+      `Tesise özel olanaklar ve kurallar rezervasyon öncesi doğrulanmalıdır.</p>`,
+    url: sourceUrl,
+    city: 'Bodrum',
+    district: 'Bodrum',
+    provinceCity: 'Muğla',
+    countryCode: 'TR',
+    amenities: [],
+    images: [],
+    rooms: [],
+    currency: search.currency || 'TRY',
+    sourceFacts: {
+      sourceUrl,
+      capturedAt: new Date().toISOString(),
+      captureMethod: 'offer_stub',
+    },
+  }
+}
+
+if (!Array.isArray(feed.hotels)) feed.hotels = []
+const byUrl = new Map(feed.hotels.map((hotel) => [String(hotel.url || '').trim(), hotel]))
 let applied = 0
+let created = 0
 const missing = []
 for (const offerHotel of capture.hotels || []) {
-  const hotel = byUrl.get(String(offerHotel.sourceUrl || '').trim())
+  const sourceUrl = String(offerHotel.sourceUrl || '').trim()
+  let hotel = byUrl.get(sourceUrl)
+  if (!hotel && createMissing) {
+    hotel = stubHotelFromOffer(offerHotel)
+    feed.hotels.push(hotel)
+    byUrl.set(sourceUrl, hotel)
+    created += 1
+  }
   if (!hotel) {
-    missing.push(offerHotel.sourceUrl)
+    missing.push(sourceUrl)
     continue
   }
   const rooms = []
@@ -111,6 +151,7 @@ console.log(JSON.stringify({
   feed: feedPath,
   offers: offersPath,
   applied,
+  created,
   missing,
   unpriced: (feed.hotels || []).filter((hotel) => !(hotel.rooms || []).some((room) => (room.rates || []).length)).map((hotel) => hotel.slug),
 }, null, 2))

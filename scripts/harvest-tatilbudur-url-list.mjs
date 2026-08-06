@@ -26,6 +26,7 @@ const urlsPath = path.resolve(ROOT, valueAfter('--urls') || 'deploy/data/tatilbu
 const outPath = path.resolve(ROOT, valueAfter('--out') || 'backups/tatilbudur-public-feed.json')
 const rawDir = path.resolve(ROOT, valueAfter('--raw-dir') || 'backups/tatilbudur-public-pages')
 const concurrency = Math.max(1, Math.min(4, Number(valueAfter('--concurrency') || 3)))
+const minImages = Math.max(0, Number(valueAfter('--min-images') || 2))
 
 function clean(value) {
   return String(value || '')
@@ -267,15 +268,24 @@ const entries = await mapPool(urls, async (sourceUrl, index) => {
   }
 })
 
-const hotels = entries.filter((hotel) => hotel.name && hotel.description && hotel.images.length >= 2)
+const hotels = entries.filter(
+  (hotel) => hotel.name && hotel.description && hotel.images.length >= minImages,
+)
 const rejected = entries
   .filter((hotel) => !hotels.includes(hotel))
-  .map((hotel) => ({ slug: hotel.slug, name: hotel.name, imageCount: hotel.images.length }))
+  .map((hotel) => ({
+    slug: hotel.slug,
+    name: hotel.name,
+    imageCount: hotel.images.length,
+    hasDescription: Boolean(hotel.description),
+    error: hotel.sourceFacts?.captureError || null,
+  }))
 fs.mkdirSync(path.dirname(outPath), { recursive: true })
 fs.writeFileSync(outPath, `${JSON.stringify({ hotels }, null, 2)}\n`)
 console.log(JSON.stringify({
   requested: urls.length,
   importableDrafts: hotels.length,
+  minImages,
   rejected,
   output: outPath,
   rawDir,
