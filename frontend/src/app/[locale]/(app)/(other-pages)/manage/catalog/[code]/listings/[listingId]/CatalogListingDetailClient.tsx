@@ -14,6 +14,7 @@ import {
   writeStoredCatalogOrganizationId,
 } from '@/lib/catalog-manage-organization'
 import { mergeCalendarRows, type MergedCalendarRow } from '@/lib/listing-availability-calendar-merge'
+import { repairTurkishLocationAscii } from '@/lib/repair-turkish-location-ascii'
 import { buildListingRegionDisplay, listingHasPhysicalRegion } from '@/lib/stay-location-display'
 import HotelRoomsEditor from '@/components/manage/HotelRoomsEditor'
 import HotelRoomAvailabilityEditor from '@/components/manage/HotelRoomAvailabilityEditor'
@@ -1222,10 +1223,10 @@ export default function CatalogListingDetailClient({
         setBathCount(meta.bath_count ?? '')
         setSquareMeters(meta.square_meters ?? '')
         setMaxGuests(meta.max_guests ?? '')
-        setAddress(meta.address ?? '')
-        setDistrictLabel(meta.district_label ?? '')
-        setCityDisplay(meta.city ?? '')
-        setProvinceCity(meta.province_city ?? '')
+        setAddress(repairTurkishLocationAscii(meta.address ?? ''))
+        setDistrictLabel(repairTurkishLocationAscii(meta.district_label ?? ''))
+        setCityDisplay(repairTurkishLocationAscii(meta.city ?? ''))
+        setProvinceCity(repairTurkishLocationAscii(meta.province_city ?? ''))
         setLat(metaTxt(meta.lat))
         setLng(metaTxt(meta.lng))
         setMinAdvanceBookingDays(meta.min_advance_booking_days ?? '')
@@ -1449,15 +1450,19 @@ export default function CatalogListingDetailClient({
       assignTrim('bath_count', bathCount)
       assignTrim('square_meters', squareMeters)
       assignTrim('max_guests', maxGuests)
-      assignTrim('address', address)
-      assignTrim('district_label', districtLabel)
-      assignTrim('city', cityDisplay)
-      assignTrim('province_city', provinceCity)
+      const addressFixed = repairTurkishLocationAscii(address)
+      const districtFixed = repairTurkishLocationAscii(districtLabel)
+      const cityFixed = repairTurkishLocationAscii(cityDisplay)
+      const provinceFixed = repairTurkishLocationAscii(provinceCity)
+      assignTrim('address', addressFixed)
+      assignTrim('district_label', districtFixed)
+      assignTrim('city', cityFixed)
+      assignTrim('province_city', provinceFixed)
       {
         const regionLine = buildListingRegionDisplay({
-          district_label: districtLabel,
-          city: cityDisplay,
-          province_city: provinceCity,
+          district_label: districtFixed,
+          city: cityFixed,
+          province_city: provinceFixed,
         })
         if (regionLine) (next as Record<string, string>).region_display = regionLine
         else delete (next as Record<string, unknown>).region_display

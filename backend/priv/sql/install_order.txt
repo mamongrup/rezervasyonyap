@@ -262,6 +262,7 @@ modules/418_repair_listing_turkish_html_apostrophe.sql
 modules/419_repair_remaining_holiday_home_turkish_ascii.sql
 modules/420_seed_kas_holiday_home_nearby_distances.sql
 modules/421_group_kas_nearby_pois_by_category.sql
+modules/422_repair_listing_turkish_ascii_locations_v2.sql
 
 # Kurulum doğrulama (install_order’a dahil değil — elle çalıştırın):
 #   psql -U postgres -d travel -f priv/sql/check_installation.sql

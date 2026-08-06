@@ -1,3 +1,4 @@
+import { repairTurkishLocationAscii } from '@/lib/repair-turkish-location-ascii'
 import { resolveYachtLocationPin } from '@/lib/yacht-location-resolve'
 
 /** Fiziksel pin + vitrin bölge satırı olan kategoriler (semt, ilçe, il). */
@@ -59,7 +60,7 @@ export type ListingLocationHierarchy = {
 }
 
 function trimLocationPart(value: string | null | undefined): string {
-  return String(value ?? '').trim()
+  return repairTurkishLocationAscii(String(value ?? '').trim())
 }
 
 /** Vitrin başlığı altı — standart kalıp: «semt / bölge, ilçe, il». */
@@ -97,7 +98,7 @@ export function buildListingRegionDisplay(parts: {
 
 /** Kart / detay konum satırı — virgülle ayrılmış parçaları sadeleştirir. */
 export function normalizeStayLocationPin(raw: string | null | undefined): string {
-  const text = String(raw ?? '').trim()
+  const text = repairTurkishLocationAscii(String(raw ?? '').trim())
   if (!text) return ''
   const resolved = resolveYachtLocationPin(text)
   if (resolved.includes(',')) return resolved

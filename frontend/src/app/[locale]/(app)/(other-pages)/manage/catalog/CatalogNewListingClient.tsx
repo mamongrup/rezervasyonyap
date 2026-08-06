@@ -1567,7 +1567,7 @@ export default function CatalogNewListingClient({
           setOwnerBankName(meta.owner_bank_name ?? '')
           setOwnerIban(meta.owner_iban ?? '')
           setOwnerAccountType(meta.owner_account_type ?? '')
-          setOwnerResidenceAddress(meta.owner_residence_address ?? '')
+          setOwnerResidenceAddress(repairTurkishLocationAscii(meta.owner_residence_address ?? ''))
         }
 
         const poolsParsed = extractHolidayHomePoolsFromVerticalMeta(verticalMeta)
@@ -3221,15 +3221,19 @@ export default function CatalogNewListingClient({
       metaBody.source_availability_url = sourceAvailabilityUrl.trim()
       metaBody.source_price_url = sourcePriceUrl.trim()
       if (ministryLicenseRef.trim()) metaBody.tourism_cert_no = ministryLicenseRef.trim()
-      if (address.trim()) metaBody.address = address.trim()
+      const addressFixed = repairTurkishLocationAscii(address).trim()
+      const districtFixed = repairTurkishLocationAscii(districtLabel).trim()
+      const cityFixed = repairTurkishLocationAscii(cityDisplay).trim()
+      const provinceFixed = repairTurkishLocationAscii(provinceCity).trim()
+      if (addressFixed) metaBody.address = addressFixed
       if (hasPhysicalRegion) {
-        if (districtLabel.trim()) metaBody.district_label = districtLabel.trim()
-        if (cityDisplay.trim()) metaBody.city = cityDisplay.trim()
-        if (provinceCity.trim()) metaBody.province_city = provinceCity.trim()
+        if (districtFixed) metaBody.district_label = districtFixed
+        if (cityFixed) metaBody.city = cityFixed
+        if (provinceFixed) metaBody.province_city = provinceFixed
         const regionLine = buildListingRegionDisplay({
-          district_label: districtLabel,
-          city: cityDisplay,
-          province_city: provinceCity,
+          district_label: districtFixed,
+          city: cityFixed,
+          province_city: provinceFixed,
         })
         if (regionLine) metaBody.region_display = regionLine
       }
@@ -3244,7 +3248,7 @@ export default function CatalogNewListingClient({
       if (isVilla && ownerIban.trim()) metaBody.owner_iban = ownerIban.replace(/\s/g, '').trim()
       if (isVilla && ownerAccountType.trim()) metaBody.owner_account_type = ownerAccountType.trim()
       if (isVilla && ownerResidenceAddress.trim())
-        metaBody.owner_residence_address = ownerResidenceAddress.trim()
+        metaBody.owner_residence_address = repairTurkishLocationAscii(ownerResidenceAddress).trim()
       if (editListingId) {
         const editableMeta: Record<string, string> = {
           check_in_time: checkInTime,
@@ -3255,20 +3259,20 @@ export default function CatalogNewListingClient({
           source_availability_url: sourceAvailabilityUrl,
           source_price_url: sourcePriceUrl,
           tourism_cert_no: ministryLicenseRef,
-          address,
+          address: addressFixed,
           lat,
           lng,
           min_short_stay_nights: minStayNights,
           short_stay_fee: shortStayFee,
         }
         if (hasPhysicalRegion) {
-          editableMeta.district_label = districtLabel
-          editableMeta.city = cityDisplay
-          editableMeta.province_city = provinceCity
+          editableMeta.district_label = districtFixed
+          editableMeta.city = cityFixed
+          editableMeta.province_city = provinceFixed
           editableMeta.region_display = buildListingRegionDisplay({
-            district_label: districtLabel,
-            city: cityDisplay,
-            province_city: provinceCity,
+            district_label: districtFixed,
+            city: cityFixed,
+            province_city: provinceFixed,
           })
         }
         if (!isHotel) {
@@ -3285,7 +3289,7 @@ export default function CatalogNewListingClient({
           editableMeta.owner_bank_name = ownerBankName
           editableMeta.owner_iban = ownerIban.replace(/\s/g, '')
           editableMeta.owner_account_type = ownerAccountType
-          editableMeta.owner_residence_address = ownerResidenceAddress
+          editableMeta.owner_residence_address = repairTurkishLocationAscii(ownerResidenceAddress)
         }
         for (const [key, value] of Object.entries(editableMeta)) metaBody[key] = value.trim()
       }
