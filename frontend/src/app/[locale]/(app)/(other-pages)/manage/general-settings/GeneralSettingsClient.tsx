@@ -1250,8 +1250,10 @@ export default function GeneralSettingsClient({ embedded = false }: GeneralSetti
               <h3 className="text-lg font-semibold text-neutral-900 dark:text-white">Customize paneli ana sayfa linkleri</h3>
               <p className="mt-1 text-sm text-neutral-500">
                 Sağdaki «Customize» panelindeki hızlı gezinme. Yol locale öneki olmadan yazılır (ör.{' '}
-                <code className="font-mono text-xs">/home-2</code>,{' '}
+                <code className="font-mono text-xs">/oteller/all</code>,{' '}
                 <code className="font-mono text-xs">/arac-kiralama/all</code>).
+                Şablon yolu <code className="font-mono text-xs">/home-2</code> kullanılmamalı
+                (Google sitelink’e «Home 2» düşer; anasayfaya yönlendirilir).
               </p>
               <div className="mt-4 space-y-2">
                 {homePageLinks.map((row, i) => (

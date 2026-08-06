@@ -138,6 +138,13 @@ const nextConfig = {
     }
     return config
   },
+  async redirects() {
+    return [
+      // Chisfis demo — Google sitelink «Home 2» kaynağı
+      { source: '/home-2', destination: '/', permanent: true },
+      { source: '/:locale(en|de|ru|zh|fr)/home-2', destination: '/:locale', permanent: true },
+    ]
+  },
   async rewrites() {
     const raw =
       (process.env.INTERNAL_API_ORIGIN && String(process.env.INTERNAL_API_ORIGIN).trim()) ||

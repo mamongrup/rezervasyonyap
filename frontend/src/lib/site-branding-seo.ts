@@ -154,11 +154,11 @@ export function ogLocaleForSite(locale: string): string {
 export type HomePageLinkItem = { label: string; path: string }
 
 export const DEFAULT_HOME_PAGE_LINKS: HomePageLinkItem[] = [
-  { label: 'Stays', path: '/' },
-  { label: 'Experiences', path: '/aktiviteler/all' },
-  { label: 'Cars', path: '/arac-kiralama/all' },
-  { label: 'Flights', path: '/ucak-bileti/all' },
-  { label: 'Home 2', path: '/home-2' },
+  { label: 'Oteller', path: '/oteller/all' },
+  { label: 'Tatil Evleri', path: '/tatil-evleri/all' },
+  { label: 'Turlar', path: '/turlar/all' },
+  { label: 'Aktiviteler', path: '/aktiviteler/all' },
+  { label: 'Araç Kiralama', path: '/arac-kiralama/all' },
 ]
 
 function normalizeHomePageLinkPath(path: string): string {
@@ -169,6 +169,9 @@ function normalizeHomePageLinkPath(path: string): string {
     '/car': '/arac-kiralama/all',
     '/car-categories/all': '/arac-kiralama/all',
     '/flight-categories/all': '/ucak-bileti/all',
+    // Chisfis şablon kalıntısı — Google sitelink’e «Home 2» olarak düşmesin
+    '/home-2': '/',
+    '/home2': '/',
   }
   return legacyMap[p] ?? p
 }
@@ -198,6 +201,8 @@ export function parseHomePageLinksFromBranding(pub: SitePublicConfig | null): Ho
           : ''
     if (!label || !pathRaw) continue
     const path = normalizeHomePageLinkPath(pathRaw)
+    // Eski şablon satırlarını at (etiket Home 2 / path /home-2)
+    if (/^\/?home-?2$/i.test(pathRaw.trim()) || /^home\s*2$/i.test(label)) continue
     out.push({ label, path })
   }
   return out.length > 0 ? out : DEFAULT_HOME_PAGE_LINKS

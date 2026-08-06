@@ -20,8 +20,10 @@ const PRIVATE_SEGMENTS: string[] = [
   '/login',
   '/register',
   '/reset-password',
+  '/forgot-password',
   '/checkout',
   '/orders',
+  '/home-2',
   '/_next',
 ]
 
