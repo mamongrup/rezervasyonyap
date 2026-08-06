@@ -29,14 +29,14 @@ try {
     `SELECT l.external_listing_ref AS ref, l.slug, l.status, tr.title,
        count(DISTINCT li.id)::int AS gallery_images,
        count(DISTINCT li.id) FILTER (
-         WHERE li.storage_key ~* '^uploads/listings/.+\.avif$'
+         WHERE li.storage_key ~* '^uploads/listings/.+\\.avif$'
        )::int AS local_avif_images,
        count(DISTINCT hr.id)::int AS rooms,
        count(DISTINCT lpr.id)::int AS price_rules,
-       count(DISTINCT lt.locale_id)::int FILTER (
+       count(DISTINCT lt.locale_id) FILTER (
          WHERE lo.code = ANY(ARRAY['tr','en','de','ru','zh','fr'])
            AND length(trim(coalesce(lt.description,''))) >= 120
-       ) AS locale_count
+       )::int AS locale_count
      FROM listings l
      JOIN listing_translations tr ON tr.listing_id=l.id
      JOIN locales trlo ON trlo.id=tr.locale_id AND trlo.code='tr'

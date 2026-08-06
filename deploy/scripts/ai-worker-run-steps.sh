@@ -88,6 +88,20 @@ if [[ "$code" =~ ^2 ]]; then
   if [[ "${CORE_LISTING_RECONCILE:-1}" != "0" && -f "$RECONCILE_SCRIPT" ]]; then
     /bin/bash "$RECONCILE_SCRIPT" || echo "[WARN] Çekirdek ilan kalite/yayın uzlaştırması çalışmadı" >&2
   fi
+  # Bodrum TatilBudur batch: 6 dil + yerel galeri/oda AVIF + fiyat tamamlanınca
+  # taslaktan yayına otomatik geçir. Eksik kayıtlar taslak kalır.
+  BODRUM_PUBLISH_SCRIPT="$SCRIPT_DIR/../../scripts/publish-ready-bodrum-tatilbudur.mjs"
+  if [[ "${PUBLISH_READY_BODRUM_TATILBUDUR:-1}" != "0" && -f "$BODRUM_PUBLISH_SCRIPT" ]]; then
+    node "$BODRUM_PUBLISH_SCRIPT" \
+      || echo "[WARN] Bodrum TatilBudur kalite/yayın kapısı çalışmadı" >&2
+    BODRUM_FEED="$SCRIPT_DIR/../../backups/tatilbudur-bodrum-public-feed.json"
+    BODRUM_REPORT="$SCRIPT_DIR/../../backups/tatilbudur-bodrum-links.md"
+    if [[ -f "$BODRUM_FEED" ]]; then
+      node "$SCRIPT_DIR/../../scripts/report-tatilbudur-import-links.mjs" \
+        --file "$BODRUM_FEED" --out "$BODRUM_REPORT" \
+        || echo "[WARN] Bodrum TatilBudur link raporu güncellenemedi" >&2
+    fi
+  fi
   exit 0
 fi
 

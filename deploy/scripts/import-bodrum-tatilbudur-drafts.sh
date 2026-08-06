@@ -36,6 +36,8 @@ if [[ -f "$FAMILY_OFFERS" ]]; then
   echo "==> Kullanıcının verdiği 2 yetişkin + 1 çocuk toplamları /3 gecelik Ağustos–Eylül tarifesine çevriliyor"
   node scripts/apply-tatilbudur-visible-offers.mjs --feed "$FEED" --offers "$FAMILY_OFFERS"
 fi
+echo "==> Oda görselleri güvenli galeri etiketlerinden eşleştiriliyor"
+node scripts/fix-hotel-room-images-in-feed.mjs "$FEED"
 
 echo "==> 2/4 Taslak oteller içe aktarılıyor (fiyat uydurulmaz)"
 TATILBUDUR_LISTING_STATUS=draft \

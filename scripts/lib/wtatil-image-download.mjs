@@ -190,6 +190,7 @@ function galleryRowsFromJobs(jobs, storagePrefix, { requireAvif = true, requireR
     if (!requireAvif && !requireRaw && !hasAvif && !hasRaw) continue
     rows.push({
       storageKey: `${storagePrefix}/${job.fileName}`,
+      sourceUrl: job.url,
       sort: job.i,
     })
   }
@@ -225,6 +226,7 @@ export async function downloadGalleryImages(
       storageKey: categoryCode
         ? listingStorageKey(categoryCode, slug, avifFileName(i, url))
         : `${storagePrefix}/${avifFileName(i, url)}`,
+      sourceUrl: url,
       sort: i,
     }))
   }

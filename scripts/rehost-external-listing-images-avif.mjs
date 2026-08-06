@@ -241,6 +241,40 @@ for (const row of listings.rows) {
         [row.id, key, baseSort + Number(saved[i].sort ?? i)],
       )
     }
+    // Feed'de güvenli sınıflandırılmış oda görsellerini aynı yerel AVIF'lere çevir.
+    // Lobby/restaurant vb. zaten fix-hotel-room-images-in-feed tarafından elendi.
+    const localBySource = new Map(
+      saved
+        .map((item) => [
+          repairUrl(String(item.sourceUrl || '')),
+          `/${String(item.storageKey || '').replace(/^\/+/, '')}`,
+        ])
+        .filter(([source, local]) => source && local),
+    )
+    if (localBySource.size > 0) {
+      const roomRows = await client.query(
+        `SELECT id::text, meta_json FROM hotel_rooms WHERE listing_id=$1::uuid`,
+        [row.id],
+      )
+      for (const room of roomRows.rows) {
+        const meta = room.meta_json && typeof room.meta_json === 'object' ? room.meta_json : {}
+        const originals = Array.isArray(meta.images)
+          ? meta.images
+          : typeof meta.image === 'string' && meta.image.trim()
+            ? [meta.image]
+            : []
+        const localImages = originals
+          .map((url) => localBySource.get(repairUrl(String(url || ''))))
+          .filter(Boolean)
+        if (!localImages.length) continue
+        await client.query(
+          `UPDATE hotel_rooms
+              SET meta_json = meta_json || jsonb_build_object('image',$2::text,'images',$3::jsonb)
+            WHERE id=$1::uuid`,
+          [room.id, localImages[0], JSON.stringify([...new Set(localImages)])],
+        )
+      }
+    }
     ok += 1
     console.log(`[ok] ${row.slug} → ${cover} (n=${saved.length})`)
   } catch (e) {
