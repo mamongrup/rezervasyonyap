@@ -135,7 +135,7 @@ export async function GET(req: NextRequest) {
           id: col.id,
           slug: col.slug,
           title: col.title,
-          subtitle: col.description?.slice(0, 60) ?? 'Koleksiyon',
+          subtitle: col.description?.slice(0, 60) || undefined,
           image: suggestionImage(col.hero_image_url),
           href: `/kesfet/${col.slug}`,
         })
@@ -153,8 +153,9 @@ export async function GET(req: NextRequest) {
     { suggestions: suggestions.slice(0, limit) },
     {
       headers: {
-        // Suggest sonuçları kısa süre CDN/edge cache — tuş başına API yükünü keser.
-        'Cache-Control': 'public, s-maxage=90, stale-while-revalidate=300',
+        // Suggest sonuçları kısa süre CDN/edge + tarayıcı cache — geri silip yeniden
+        // yazınca (aynı sorgu) ağ beklemeden anında dolsun.
+        'Cache-Control': 'public, max-age=60, s-maxage=90, stale-while-revalidate=300',
       },
     },
   )
