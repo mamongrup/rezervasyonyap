@@ -157,6 +157,8 @@ console.log(
   `candidates=${listings.rows.length} dryRun=${dryRun} category=${categoryFilter || '*'} source=${sourceFilter || '*'} provider=${providerFilter || '*'} hosts=${hostFilter?.join(',') || 'default'}`,
 )
 
+const listingPauseMs = Math.max(0, Number(process.env.REHOST_LISTING_PAUSE_MS || 400))
+
 let ok = 0
 let fail = 0
 let skipped = 0
@@ -280,6 +282,9 @@ for (const row of listings.rows) {
   } catch (e) {
     fail += 1
     console.warn(`[fail] ${row.slug}`, e.message || e)
+  }
+  if (listingPauseMs > 0 && !dryRun) {
+    await new Promise((r) => setTimeout(r, listingPauseMs))
   }
 }
 

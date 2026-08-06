@@ -16,12 +16,15 @@ const require = createRequire(path.join(__dirname, '..', '..', 'frontend', 'pack
 const sharp = require('sharp')
 
 sharp.cache(false)
+// VPS'te AVIF (aom) + libvips soft lockup üretebiliyor; varsayılan tek iş parçacığı.
+const _vipsThreads = Math.max(1, Number(process.env.VIPS_CONCURRENCY || process.env.IMAGE_CONVERT_CONCURRENCY || 1))
+sharp.concurrency(_vipsThreads)
 
-export const AVIF_QUALITY = Number(process.env.AVIF_QUALITY || 90)
-export const AVIF_EFFORT = Number(process.env.AVIF_EFFORT || 4)
+export const AVIF_QUALITY = Number(process.env.AVIF_QUALITY || 82)
+export const AVIF_EFFORT = Number(process.env.AVIF_EFFORT || 2)
 export const MAX_WIDTH = Number(process.env.MAX_WIDTH || 1600)
-export const IMAGE_DOWNLOAD_CONCURRENCY = Number(process.env.IMAGE_DOWNLOAD_CONCURRENCY || 6)
-export const IMAGE_CONVERT_CONCURRENCY = Number(process.env.IMAGE_CONVERT_CONCURRENCY || 2)
+export const IMAGE_DOWNLOAD_CONCURRENCY = Number(process.env.IMAGE_DOWNLOAD_CONCURRENCY || 2)
+export const IMAGE_CONVERT_CONCURRENCY = Number(process.env.IMAGE_CONVERT_CONCURRENCY || 1)
 
 export function rawFileToAvifName(rawName) {
   return String(rawName).replace(/\.[^.]+$/i, '.avif')
@@ -114,7 +117,7 @@ export function fetchBuffer(url, extraHeaders = {}) {
 
 export async function bufferToAvif(buffer) {
   if (!buffer?.length) throw new Error('Input Buffer is empty')
-  sharp.concurrency(IMAGE_CONVERT_CONCURRENCY)
+  sharp.concurrency(_vipsThreads)
   let pipeline = sharp(buffer, { failOn: 'none', limitInputPixels: false }).rotate()
   const meta = await pipeline.metadata()
   if (meta.width && meta.width > MAX_WIDTH) {

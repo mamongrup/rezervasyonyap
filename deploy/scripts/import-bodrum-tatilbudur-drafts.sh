@@ -44,7 +44,14 @@ TATILBUDUR_LISTING_STATUS=draft \
 TATILBUDUR_IMPORT_STATE="$STATE" \
   bash "$APP_ROOT/deploy/scripts/import-tatilbudur-hotels.sh" --file "$FEED" --reset
 
-echo "==> 3/4 Harici galeriler sunucuda yerel AVIF'e alınıyor (arka plan)"
+echo "==> 3/4 Harici galeriler sunucuda yerel AVIF'e alınıyor (arka plan, düşük CPU)"
+# Soft lockup önlemi: tek AVIF dönüşümü + düşük aom effort
+export IMAGE_CONVERT_CONCURRENCY="${IMAGE_CONVERT_CONCURRENCY:-1}"
+export IMAGE_DOWNLOAD_CONCURRENCY="${IMAGE_DOWNLOAD_CONCURRENCY:-2}"
+export AVIF_EFFORT="${AVIF_EFFORT:-2}"
+export AVIF_QUALITY="${AVIF_QUALITY:-82}"
+export VIPS_CONCURRENCY="${VIPS_CONCURRENCY:-1}"
+export REHOST_LISTING_PAUSE_MS="${REHOST_LISTING_PAUSE_MS:-500}"
 bash "$APP_ROOT/deploy/scripts/rehost-external-images-detached.sh" \
   --provider=tatilbudur \
   --category=hotel \
