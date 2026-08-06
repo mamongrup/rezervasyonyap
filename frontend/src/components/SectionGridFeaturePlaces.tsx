@@ -15,6 +15,7 @@ import { useAppLocale } from '@/hooks/useAppLocale'
 import { ArrowRight02Icon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { FC, ReactNode, useEffect, useMemo, useState } from 'react'
+import { listingCardForCategorySlug } from '@/lib/listing-card-for-category'
 import SectionTabHeader from './SectionTabHeader'
 import StayCard from './StayCard'
 import StayCard2 from './StayCard2'
@@ -132,12 +133,12 @@ const SectionGridFeaturePlaces: FC<SectionGridFeaturePlacesProps> = ({
   })()
   const resolvedRightHref = vitrinHref(resolvedViewAllHref)
 
-  let CardName = StayCard
-  if (cardType === 'card1') {
-    CardName = StayCard
-  } else if (cardType === 'card2') {
-    CardName = StayCard2
-  }
+  // Kategori sayfası /all ızgarasıyla aynı kart (HotelCard vb. → GallerySlider).
+  // categorySlug yoksa eski StayCard / StayCard2 yedek.
+  const CategoryCard = listingCardForCategorySlug(categorySlug)
+  const CardName =
+    CategoryCard ??
+    (cardType === 'card1' ? StayCard : StayCard2)
 
   return (
     <div className="relative">

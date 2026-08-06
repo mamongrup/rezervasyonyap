@@ -5,6 +5,8 @@ import BtnLikeIcon from '@/components/BtnLikeIcon'
 import GallerySlider from '@/components/GallerySlider'
 import SaleOffBadge from '@/components/SaleOffBadge'
 import StartRating from '@/components/StartRating'
+import { listingCardImageCandidates } from '@/lib/listing-card-image-candidates'
+import { LISTING_CARD_GALLERY_LIMIT } from '@/lib/listings-fetcher'
 import { TListingBase, CardConfig } from '@/types/listing-types'
 import { Badge } from '@/shared/Badge'
 import { Location06Icon } from '@hugeicons/core-free-icons'
@@ -48,6 +50,7 @@ const ListingCard: FC<ListingCardProps> = ({
 
   const {
     galleryImgs = [],
+    featuredImage,
     listingCategory,
     address,
     title,
@@ -65,6 +68,10 @@ const ListingCard: FC<ListingCardProps> = ({
     themeChipLabels,
     listingVertical,
   } = data
+  const sliderImages = useMemo(
+    () => listingCardImageCandidates(galleryImgs, featuredImage).slice(0, LISTING_CARD_GALLERY_LIMIT),
+    [galleryImgs, featuredImage],
+  )
 
   const maxThemeChips = 3
   const allThemeChips = themeChipLabels ?? []
@@ -192,7 +199,7 @@ const ListingCard: FC<ListingCardProps> = ({
         <GallerySlider
           uniqueID={String(data.id)}
           ratioClass={ratioClass}
-          galleryImgs={galleryImgs.slice(0, 5)}
+          galleryImgs={sliderImages}
           href={listingHref}
           galleryClass={size === 'default' ? undefined : ''}
         />

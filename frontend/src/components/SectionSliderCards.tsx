@@ -3,6 +3,7 @@
 import type { TListingBase } from '@/types/listing-types'
 import { useLocaleSegment } from '@/contexts/locale-context'
 import { TExperienceListing } from '@/data/listings'
+import { listingCardForCategorySlug } from '@/lib/listing-card-for-category'
 import useSnapSlider from '@/hooks/useSnapSlider'
 import { ButtonCircle } from '@/shared/Button'
 import { getMessages } from '@/utils/getT'
@@ -18,6 +19,8 @@ interface Props {
   itemClassName?: string
   listings: TListingBase[] | TExperienceListing[]
   cardType: 'stay' | 'experience'
+  /** Verilirse kategori /all ile aynı kart (GallerySlider) kullanılır */
+  categorySlug?: string
 }
 
 const SectionSliderCards: FC<Props> = ({
@@ -25,13 +28,18 @@ const SectionSliderCards: FC<Props> = ({
   itemClassName = 'w-[17rem] lg:w-1/3 xl:w-1/4',
   listings = [],
   cardType,
+  categorySlug,
 }) => {
   const sliderRef = useRef<HTMLDivElement>(null)
   const { scrollToNextSlide, scrollToPrevSlide, isAtEnd, isAtStart } = useSnapSlider({ sliderRef })
   const locale = useLocaleSegment()
   const pag = getMessages(locale).common.pagination
+  const CategoryCard = listingCardForCategorySlug(categorySlug)
 
   const renderCard = (item: Props['listings'][number]) => {
+    if (CategoryCard) {
+      return <CategoryCard data={item as TListingBase} />
+    }
     switch (cardType) {
       case 'stay':
         return <StayCard2 data={item as TListingBase} />

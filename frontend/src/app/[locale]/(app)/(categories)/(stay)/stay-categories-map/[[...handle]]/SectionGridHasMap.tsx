@@ -6,6 +6,7 @@ import StayCard2 from '@/components/StayCard2'
 import { TStayCategory } from '@/data/categories'
 import type { TListingBase } from '@/types/listing-types'
 import { getStayListingFilterOptions } from '@/data/listings'
+import { listingCardForCategorySlug } from '@/lib/listing-card-for-category'
 import { Divider } from '@/shared/divider'
 import clsx from 'clsx'
 import { getSubcategoriesByParent } from '@/data/subcategory-registry'
@@ -48,6 +49,8 @@ const SectionGridHasMap: FC<Props> = ({
   listingPaginationSlot,
 }) => {
   const [currentHoverID, setCurrentHoverID] = useState<string>('')
+  const CategoryCard = listingCardForCategorySlug(categorySlug)
+  const Card = CategoryCard ?? StayCard2
 
   const m = locale ? getMessages(locale) : null
   const holidayFilters =
@@ -85,7 +88,7 @@ const SectionGridHasMap: FC<Props> = ({
               onMouseEnter={() => setCurrentHoverID(listing.id)}
               onMouseLeave={() => setCurrentHoverID('')}
             >
-              <StayCard2 data={listing} />
+              <Card data={listing} />
             </div>
           ))}
         </div>

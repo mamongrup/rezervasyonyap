@@ -7,6 +7,8 @@ import SaleOffBadge from '@/components/SaleOffBadge'
 import StartRating from '@/components/StartRating'
 import { TExperienceListing } from '@/data/listings'
 import { activityPriceFromAffix } from '@/lib/activity-listing-price-display'
+import { listingCardImageCandidates } from '@/lib/listing-card-image-candidates'
+import { LISTING_CARD_GALLERY_LIMIT } from '@/lib/listings-fetcher'
 import { Badge } from '@/shared/Badge'
 import { useVitrinHref } from '@/hooks/use-vitrin-href'
 import { normalizeCatalogVertical } from '@/lib/catalog-listing-vertical'
@@ -35,6 +37,7 @@ const ExperiencesCard: FC<Props> = ({
   const cardMeta = useMemo(() => getMessages(locale).listing.cardMeta, [locale])
   const {
     galleryImgs,
+    featuredImage,
     address,
     title,
     handle: listingHandle,
@@ -48,7 +51,15 @@ const ExperiencesCard: FC<Props> = ({
     reviewCount,
     id,
     listingVertical,
-  } = data as TExperienceListing & { priceAmount?: number; priceCurrency?: string }
+  } = data as TExperienceListing & {
+    priceAmount?: number
+    priceCurrency?: string
+    featuredImage?: string
+  }
+  const sliderImages = useMemo(
+    () => listingCardImageCandidates(galleryImgs, featuredImage).slice(0, LISTING_CARD_GALLERY_LIMIT),
+    [galleryImgs, featuredImage],
+  )
   const fromAffix = useMemo(
     () =>
       priceAmount != null || price?.trim()
@@ -63,7 +74,12 @@ const ExperiencesCard: FC<Props> = ({
   const renderSliderGallery = () => {
     return (
       <div className="relative w-full overflow-hidden rounded-2xl">
-        <GallerySlider ratioClass={ratioClass} galleryImgs={galleryImgs ?? []} href={listingHref} />
+        <GallerySlider
+          uniqueID={String(id)}
+          ratioClass={ratioClass}
+          galleryImgs={sliderImages}
+          href={listingHref}
+        />
         <BtnLikeIcon isLiked={like} className="absolute top-3 right-3" />
         {saleOff ? <SaleOffBadge desc={saleOff} className="absolute top-3 left-3" /> : null}
       </div>
