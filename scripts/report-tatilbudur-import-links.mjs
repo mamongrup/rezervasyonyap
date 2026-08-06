@@ -28,6 +28,9 @@ try {
   const result = await db.query(
     `SELECT l.external_listing_ref AS ref, l.slug, l.status, tr.title,
        count(DISTINCT li.id)::int AS gallery_images,
+       count(DISTINCT li.id) FILTER (
+         WHERE li.storage_key ~* '^uploads/listings/.+\.avif$'
+       )::int AS local_avif_images,
        count(DISTINCT hr.id)::int AS rooms,
        count(DISTINCT lpr.id)::int AS price_rules,
        count(DISTINCT lt.locale_id)::int FILTER (
@@ -56,12 +59,12 @@ try {
     `Feed: \`${path.relative(ROOT, input)}\``,
     `Tarih: ${new Date().toISOString()}`,
     '',
-    '| Otel | Durum | Yerel galeri | Odalar | Fiyat kuralı | 6 dil | Link |',
-    '|---|---|---:|---:|---:|---:|---|',
+    '| Otel | Durum | Galeri | Yerel AVIF | Odalar | Fiyat kuralı | 6 dil | Link |',
+    '|---|---|---:|---:|---:|---:|---:|---|',
     ...rows.map((row) => {
-      if (row.missing) return `| ${row.ref} | import_hatası | - | - | - | - | - |`
+      if (row.missing) return `| ${row.ref} | import_hatası | - | - | - | - | - | - |`
       const href = `/otel/${row.slug}`
-      return `| ${row.title} | ${row.status} | ${row.gallery_images} | ${row.rooms} | ${row.price_rules} | ${row.locale_count}/6 | ${href} |`
+      return `| ${row.title} | ${row.status} | ${row.gallery_images} | ${row.local_avif_images} | ${row.rooms} | ${row.price_rules} | ${row.locale_count}/6 | ${href} |`
     }),
     '',
     'Not: `draft`, oda/fiyat kuralı 0 veya 6 dil tamamlanmamış kayıtlar yayımlanmaz.',
@@ -72,7 +75,7 @@ try {
     requested: refs.length,
     found: rows.filter((row) => !row.missing).length,
     priced: rows.filter((row) => Number(row.price_rules || 0) > 0).length,
-    localMedia: rows.filter((row) => Number(row.gallery_images || 0) >= 2).length,
+    localMedia: rows.filter((row) => Number(row.local_avif_images || 0) >= 2).length,
     publishReady: rows.filter((row) =>
       row.status === 'published' &&
       Number(row.price_rules || 0) > 0 &&
