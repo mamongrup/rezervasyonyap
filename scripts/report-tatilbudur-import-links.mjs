@@ -100,9 +100,11 @@ try {
     priced: found.filter((row) => Number(row.price_rules || 0) > 0).length,
     localMedia: found.filter((row) => Number(row.local_avif_images || 0) >= 2).length,
     published: published.length,
+    publishedButCdnGallery: published.filter((row) => Number(row.local_avif_images || 0) < 2).length,
     trPublishable: trPublishable.length,
     trPublishableDrafts: trPublishableDrafts.length,
     allLocalesPublished: published.filter((row) => Number(row.locale_count || 0) === 6).length,
+    note: 'published=DB status; localMedia=yerel AVIF sayısı. Import CDN ezmesi sonrası published>localMedia olabilir.',
     output,
   }, null, 2))
 } finally {
