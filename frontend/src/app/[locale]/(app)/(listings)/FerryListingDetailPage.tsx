@@ -103,6 +103,7 @@ export default async function FerryListingDetailPage({
         reviewStart: l.reviewStart ?? 0,
         reviewCount: l.reviewCount ?? 0,
         featuredImage: l.featuredImage ?? '',
+        galleryImgs: l.galleryImgs,
         listingCategory: l.listingCategory ?? m.categoryPage.verticalLabels.ferry,
         linkBase: ferryLinkBase,
       }

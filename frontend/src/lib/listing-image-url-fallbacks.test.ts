@@ -120,6 +120,31 @@ describe('listing-image-url-fallbacks', () => {
     expect(next).toBe('/uploads/listings/ilanlar/tatil-evleri/puzzle-villa/villa-puzzle-18.jpg')
   })
 
+  it('repairs Bookeder .png/.jpg to .JPEG', () => {
+    expect(
+      repairExternalListingImageExt(
+        'https://bookeder.com/data/Photos/Big/17201/1720157/1720157310/img-silence-villas-fethiye-1.png',
+      ),
+    ).toBe(
+      'https://bookeder.com/data/Photos/Big/17201/1720157/1720157310/img-silence-villas-fethiye-1.JPEG',
+    )
+    expect(
+      repairExternalListingImageExt(
+        'https://bookeder.com/data/Photos/Big/17201/1720157/1720157310/img-silence-villas-fethiye-1.jpg',
+      ),
+    ).toBe(
+      'https://bookeder.com/data/Photos/Big/17201/1720157/1720157310/img-silence-villas-fethiye-1.JPEG',
+    )
+  })
+
+  it('does not cycle Bookeder proxy to .png after JPEG tried', () => {
+    const jpeg =
+      'https://bookeder.com/data/Photos/Big/17201/1720157/1720157310/img-silence-villas-fethiye-1.JPEG'
+    const proxy = `/api/listing-ext-image?u=${encodeURIComponent(jpeg)}&w=640&q=60&format=webp`
+    const next = nextListingImageUrlFallback(proxy, new Set([proxy]))
+    expect(next).toBeNull()
+  })
+
   it('falls back proxy Bookeder .avif via upstream', () => {
     const upstream =
       'https://bookeder.com/data/Photos/Big/17201/1720157/1720157310/img-silence-villas-fethiye-1.avif'

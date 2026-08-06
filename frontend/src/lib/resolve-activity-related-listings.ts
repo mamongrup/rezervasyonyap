@@ -16,6 +16,7 @@ export type ActivityRelatedCard = {
   reviewStart: number
   reviewCount: number
   featuredImage: string
+  galleryImgs?: string[]
   listingCategory: string
   linkBase: string
 }
@@ -33,6 +34,7 @@ function mapToCard(item: TListingBase, linkBase: string): ActivityRelatedCard {
     reviewStart: item.reviewStart ?? 0,
     reviewCount: item.reviewCount ?? 0,
     featuredImage: item.featuredImage ?? '',
+    galleryImgs: item.galleryImgs,
     listingCategory: item.listingCategory ?? '',
     linkBase,
   }

@@ -1063,6 +1063,7 @@ export default async function StayListingDetailPageContent({
     reviewStart: l.reviewStart ?? 0,
     reviewCount: l.reviewCount ?? 0,
     featuredImage: l.featuredImage ?? '',
+    galleryImgs: l.galleryImgs,
     listingCategory: l.listingCategory ?? '',
     linkBase: stayDetailPathForVertical(normalizeCatalogVertical(l.listingVertical)),
     capacityLine: isStayRental

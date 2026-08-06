@@ -654,6 +654,7 @@ export default async function ExperienceListingDetailPage({
           reviewStart: l.reviewStart ?? 0,
           reviewCount: l.reviewCount ?? 0,
           featuredImage: l.featuredImage ?? '',
+          galleryImgs: l.galleryImgs,
           listingCategory: l.listingCategory ?? '',
           linkBase: tourLinkBase,
         }))

@@ -87,6 +87,14 @@ export function repairExternalListingImageExt(src: string): string {
     if (!rule) return s
     let out = s
     if (/\.avif(\?|#|$)/i.test(out)) out = out.replace(/\.avif/i, rule.to)
+    // Bookeder yalnızca `.JPEG` sunar; .jpg/.png/.webp istemi 404 + konsol gürültüsü.
+    if (
+      (host === 'bookeder.com' || host.endsWith('.bookeder.com')) &&
+      /\.(avif|webp|jpe?g|png)(\?|#|$)/i.test(out) &&
+      !/\.JPEG(\?|#|$)/.test(out)
+    ) {
+      out = out.replace(/\.(avif|webp|jpe?g|png)(\?|#|$)/i, '.JPEG$2')
+    }
     // Yanlış blanket .JPEG (TatilBudur / FairyStone / Reserwation / Wikimedia / Yolcu360)
     if (rule.to === '.jpg' && /\.JPEG(\?|#|$)/.test(out)) {
       out = out.replace(/\.JPEG(\?|#|$)/, '.jpg$1')
@@ -160,6 +168,15 @@ export function nextListingImageUrlFallback(
   // Yerel raster: önce AVIF yükselt (dosya varsa). AVIF 404 → kardeş raster.
   // Harici: dairesel kardeş listesi (CDN sahte .avif onarımı yukarıda).
   const order = ['.avif', '.webp', '.jpg', '.jpeg', '.JPEG', '.png'] as const
+  let host = ''
+  try {
+    if (/^https?:\/\//i.test(working)) host = new URL(working).hostname.toLowerCase()
+  } catch {
+    host = ''
+  }
+  const isBookeder = host === 'bookeder.com' || host.endsWith('.bookeder.com')
+  // Bookeder: yalnızca .JPEG dene; diğer uzantılar 404 konsol gürültüsü üretir.
+  const extOrder = isBookeder ? (['.JPEG'] as const) : order
 
   if (isLocalUpload && !/\.avif$/i.test(currentExt)) {
     const avifPath = stem + '.avif' + suffix
@@ -167,13 +184,20 @@ export function nextListingImageUrlFallback(
     if (!tried.has(avifCandidate)) return avifCandidate
   }
 
+  if (isBookeder && !/\.JPEG(\?|#|$)/.test(path)) {
+    const jpegPath = stem + '.JPEG' + suffix
+    const jpegCandidate = isProxy ? proxyPrefix + encodeURIComponent(jpegPath) : jpegPath
+    if (!tried.has(jpegCandidate)) return jpegCandidate
+    return null
+  }
+
   const start = Math.max(
     0,
-    order.findIndex((e) => e.toLowerCase() === currentExt.toLowerCase()),
+    extOrder.findIndex((e) => e.toLowerCase() === currentExt.toLowerCase()),
   )
 
-  for (let step = 1; step <= order.length; step++) {
-    const ext = order[(start + step) % order.length]!
+  for (let step = 1; step <= extOrder.length; step++) {
+    const ext = extOrder[(start + step) % extOrder.length]!
     if (ext === currentExt) continue
     if (ext.toLowerCase() === currentExt.toLowerCase() && ext === currentExt) continue
     if (isLocalUpload && /\.avif$/i.test(ext)) continue // yerelde avif yukarıda denendi

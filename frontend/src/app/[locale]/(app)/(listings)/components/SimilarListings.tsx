@@ -1,8 +1,10 @@
 'use client'
 
+import GallerySlider from '@/components/GallerySlider'
 import ListingPrice from '@/components/ListingPrice'
 import StartRating from '@/components/StartRating'
-import { shouldUnoptimizeListingImage } from '@/lib/listing-image-optimization'
+import { listingCardImageCandidates } from '@/lib/listing-card-image-candidates'
+import { LISTING_CARD_GALLERY_LIMIT } from '@/lib/listings-fetcher'
 import { useLocaleSegment } from '@/contexts/locale-context'
 import useSnapSlider from '@/hooks/useSnapSlider'
 import { ButtonCircle } from '@/shared/Button'
@@ -10,9 +12,8 @@ import { getMessages } from '@/utils/getT'
 import { ArrowLeft02Icon, ArrowRight02Icon, Location06Icon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
 import clsx from 'clsx'
-import Image from 'next/image'
 import Link from 'next/link'
-import { useRef, useState } from 'react'
+import { useMemo, useRef } from 'react'
 
 interface SimilarListing {
   id: string
@@ -26,6 +27,7 @@ interface SimilarListing {
   reviewStart: number
   reviewCount: number
   featuredImage: string
+  galleryImgs?: string[]
   listingCategory: string
   linkBase: string
   /** Tatil evi / yat: misafir · oda · banyo — StayCard2 ile aynı satır */
@@ -48,29 +50,28 @@ function SimilarListingCard({
   item: SimilarListing
   perNightSuffix: string
 }) {
-  const imgSrc = item.featuredImage?.trim() ?? ''
-  const [brokenImage, setBrokenImage] = useState(false)
-  const showImage = Boolean(imgSrc) && !brokenImage
+  const listingHref = `${item.linkBase}/${item.handle}`
+  const sliderImages = useMemo(
+    () =>
+      listingCardImageCandidates(item.galleryImgs, item.featuredImage).slice(
+        0,
+        LISTING_CARD_GALLERY_LIMIT,
+      ),
+    [item.galleryImgs, item.featuredImage],
+  )
 
   return (
-    <Link href={`${item.linkBase}/${item.handle}`} className="group block">
-      <div className="relative w-full overflow-hidden rounded-xl" style={{ paddingBottom: '75%' }}>
-        {showImage ? (
-          <Image
-            src={imgSrc}
-            alt={item.title}
-            fill
-            className="object-cover transition-transform duration-300 group-hover:scale-105"
-            sizes="(max-width: 640px) 78vw, (max-width: 1024px) 46vw, 25vw"
-            unoptimized={shouldUnoptimizeListingImage(imgSrc)}
-            onError={() => setBrokenImage(true)}
-          />
-        ) : (
-          <div className="absolute inset-0 bg-neutral-200 dark:bg-neutral-700" aria-hidden />
-        )}
+    <div className="group relative">
+      <div className="relative w-full">
+        <GallerySlider
+          uniqueID={`similar-${item.id}`}
+          ratioClass="aspect-w-4 aspect-h-3"
+          galleryImgs={sliderImages}
+          href={listingHref}
+        />
       </div>
 
-      <div className="mt-3 flex flex-col gap-y-3 px-0.5">
+      <Link href={listingHref} className="mt-3 flex flex-col gap-y-3 px-0.5">
         <div className="flex flex-col gap-y-2">
           {item.listingCategory ? (
             <span className="text-sm text-neutral-500 dark:text-neutral-400">{item.listingCategory}</span>
@@ -120,8 +121,8 @@ function SimilarListingCard({
             />
           ) : null}
         </div>
-      </div>
-    </Link>
+      </Link>
+    </div>
   )
 }
 
