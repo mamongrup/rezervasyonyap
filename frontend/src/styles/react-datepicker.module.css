@@ -147,22 +147,22 @@
 }
 
 .datepickerScope :global(.react-datepicker__day span:hover) {
-  background-color: rgb(243 244 246);
+  background-color: var(--color-primary-50);
 }
 
 :global(.dark) .datepickerScope :global(.react-datepicker__day span:hover) {
-  background-color: rgb(55 65 81 / 0.6);
+  background-color: color-mix(in srgb, var(--color-primary-800) 40%, transparent);
 }
 
 .datepickerScope :global(.react-datepicker__day--in-range),
 .datepickerScope :global(.react-datepicker__day--in-selecting-range) {
   border-radius: 0;
-  background-color: rgb(243 244 246);
+  background-color: var(--color-primary-50);
 }
 
 :global(.dark) .datepickerScope :global(.react-datepicker__day--in-range),
 :global(.dark) .datepickerScope :global(.react-datepicker__day--in-selecting-range) {
-  background-color: rgb(55 65 81 / 0.5);
+  background-color: color-mix(in srgb, var(--color-primary-900) 45%, transparent);
 }
 
 .datepickerScope :global(.react-datepicker__day--range-start),
@@ -179,12 +179,12 @@
   inset-block: 0;
   z-index: -10;
   width: 50%;
-  background-color: rgb(243 244 246);
+  background-color: var(--color-primary-50);
 }
 
 :global(.dark) .datepickerScope :global(.react-datepicker__day--range-start::after),
 :global(.dark) .datepickerScope :global(.react-datepicker__day--range-end::after) {
-  background-color: rgb(55 65 81 / 0.5);
+  background-color: color-mix(in srgb, var(--color-primary-900) 45%, transparent);
 }
 
 .datepickerScope :global(.react-datepicker__day--range-start::after) {
@@ -213,14 +213,23 @@
 .datepickerScope :global(.react-datepicker__day--selecting-range-start span),
 .datepickerScope :global(.react-datepicker__day--selecting-range-end span) {
   border-radius: 9999px;
-  background-color: rgb(99 102 241);
+  background-color: var(--color-primary-600);
+  color: white;
+}
+
+.datepickerScope :global(.react-datepicker__day--selected span:hover),
+.datepickerScope :global(.react-datepicker__day--range-start span:hover),
+.datepickerScope :global(.react-datepicker__day--range-end span:hover),
+.datepickerScope :global(.react-datepicker__day--selecting-range-start span:hover),
+.datepickerScope :global(.react-datepicker__day--selecting-range-end span:hover) {
+  background-color: var(--color-primary-700);
   color: white;
 }
 
 .datepickerScope :global(.listing-availability-calendar .react-datepicker__day--in-range),
 .datepickerScope :global(.listing-availability-calendar .react-datepicker__day--in-selecting-range) {
   border-radius: 0;
-  background-color: rgb(243 244 246);
+  background-color: var(--color-primary-50);
 }
 
 .datepickerScope :global(.listing-availability-calendar .react-datepicker__day--range-start),
@@ -241,12 +250,21 @@
 .datepickerScope :global(.listing-availability-calendar .react-datepicker__day--selecting-range-start span),
 .datepickerScope :global(.listing-availability-calendar .react-datepicker__day--selecting-range-end span) {
   border-radius: 0.375rem;
-  background-color: rgb(13 65 109);
+  background-color: var(--color-primary-600);
+  color: white;
+}
+
+.datepickerScope :global(.listing-availability-calendar .react-datepicker__day--selected span:hover),
+.datepickerScope :global(.listing-availability-calendar .react-datepicker__day--range-start span:hover),
+.datepickerScope :global(.listing-availability-calendar .react-datepicker__day--range-end span:hover),
+.datepickerScope :global(.listing-availability-calendar .react-datepicker__day--selecting-range-start span:hover),
+.datepickerScope :global(.listing-availability-calendar .react-datepicker__day--selecting-range-end span:hover) {
+  background-color: var(--color-primary-700);
   color: white;
 }
 
 .datepickerScope :global(.listing-availability-calendar .react-datepicker__day span:hover) {
-  background-color: rgb(248 250 252);
+  background-color: var(--color-primary-50);
 }
 
 .datepickerScope :global(.listing-availability-calendar .react-datepicker__day--disabled) {
