@@ -42,7 +42,21 @@ if [[ "${1:-}" == "tail" ]]; then
 fi
 
 if [[ "${1:-}" == "wait" ]]; then
-  while is_running; do sleep 5; done
+  echo "Rehost bekleniyor… (Ctrl+C sadece beklemeyi keser, süreci durdurmaz)"
+  echo "Log: $LOG"
+  local_last=""
+  while is_running; do
+    if [[ -f "$LOG" ]]; then
+      line="$(tail -n 1 "$LOG" 2>/dev/null || true)"
+      if [[ -n "$line" && "$line" != "$local_last" ]]; then
+        echo "[$(date +%H:%M:%S)] $line"
+        local_last="$line"
+      else
+        echo "[$(date +%H:%M:%S)] hâlâ çalışıyor (pid $(cat "$PID_FILE")) — son satır değişmedi"
+      fi
+    fi
+    sleep 20
+  done
   echo "Rehost bitti."
   tail -n 40 "$LOG" || true
   exit 0

@@ -199,6 +199,7 @@ for (const row of listings.rows) {
           ? { Referer: 'https://fairystonetravel.com/', 'User-Agent': 'Mozilla/5.0' }
           : { 'User-Agent': 'Mozilla/5.0' }
 
+    console.log(`[…] ${row.slug} images=${sources.length} cat=${row.category_code}`)
     const saved = await downloadGalleryImages(sources, row.slug, uploadsRoot, {
       categoryCode: row.category_code,
       headers,
