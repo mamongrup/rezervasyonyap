@@ -61,7 +61,17 @@ check_env() {
       ;;
   esac
   if [[ -z "${ALLOWED_HOSTS:-}" ]]; then
-    warn "ALLOWED_HOSTS boş — eski proxy build'inde tüm site 400 Bad Request verebilir. Örnek: ALLOWED_HOSTS=rezervasyonyap.tr,www.rezervasyonyap.tr,127.0.0.1,localhost"
+    warn "ALLOWED_HOSTS boş — eski proxy build'inde tüm site 400 Bad Request verebilir. Örnek: ALLOWED_HOSTS=rezervasyonyap.tr,www.rezervasyonyap.tr,rezervasyonyap.com.tr,reservationinturkey.com,127.0.0.1,localhost"
+  else
+    for h in rezervasyonyap.tr rezervasyonyap.com.tr reservationinturkey.com; do
+      case ",${ALLOWED_HOSTS}," in
+        *",${h},"*) ;;
+        *) warn "ALLOWED_HOSTS içinde ${h} yok — marka domaini 400 verebilir. Düzelt: ./deploy/scripts/ensure-multidomain-frontend-env.sh" ;;
+      esac
+    done
+  fi
+  if [[ -z "${INTERNATIONAL_SITE_HOSTS:-}" ]]; then
+    warn "INTERNATIONAL_SITE_HOSTS boş — reservationinturkey.com dil yönlendirmesi zayıf kalabilir."
   fi
   if [[ -z "${GOOGLE_MAPS_API_KEY:-}" ]] && [[ -z "${NEXT_PUBLIC_GOOGLE_MAPS_API_KEY:-}" ]]; then
     if [[ "${VERIFY_SKIP_MAPS_CURL:-0}" == "1" ]]; then
@@ -263,6 +273,30 @@ check_endpoints() {
   ok "hero-tabs reachable, HTTP 200"
 }
 
+# Tek deploy kökü → üç marka host. Public HTTPS smoke (DNS/SSL/alias kopuksa WARN).
+check_public_brand_hosts() {
+  if [[ "${VERIFY_SKIP_PUBLIC_HOSTS:-0}" == "1" ]]; then
+    warn "VERIFY_SKIP_PUBLIC_HOSTS=1 — marka domain smoke atlandı"
+    return 0
+  fi
+  local hosts=(
+    "https://rezervasyonyap.tr/"
+    "https://www.rezervasyonyap.tr/"
+    "https://rezervasyonyap.com.tr/"
+    "https://reservationinturkey.com/"
+    "https://www.reservationinturkey.com/"
+  )
+  local url status
+  for url in "${hosts[@]}"; do
+    status="$(curl -sS -o /dev/null -w '%{http_code}' --connect-timeout 3 --max-time 12 -L -A 'TravelDeployVerify/1.0' "$url" 2>/dev/null || echo "000")"
+    if [[ "$status" == "200" || "$status" == "304" ]]; then
+      ok "public host ${url} → HTTP ${status}"
+    else
+      warn "public host ${url} → HTTP ${status} (DNS/SSL/alias veya soft-fail; tek httpdocs deploy tüm hostları besler — bkz. deploy/DOMAIN.md)"
+    fi
+  done
+}
+
 main() {
   step "komutlar kontrol ediliyor"
   require_cmd systemctl
@@ -285,6 +319,8 @@ main() {
   check_next_static_chunk
   step "API ve Next endpointleri"
   check_endpoints
+  step "marka domainleri (çoklu site)"
+  check_public_brand_hosts
 
   ok "Deploy verification completed successfully"
 }
