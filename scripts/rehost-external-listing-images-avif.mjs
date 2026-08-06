@@ -12,7 +12,7 @@
  */
 
 import path from 'node:path'
-import { existsSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { createPgClient } from './lib/pg-client.mjs'
 import {
@@ -36,6 +36,13 @@ const sourceArg = process.argv.find((a) => a.startsWith('--source='))
 const sourceFilter = sourceArg ? sourceArg.split('=')[1].trim().toLowerCase() : ''
 const providerArg = process.argv.find((a) => a.startsWith('--provider='))
 const providerFilter = providerArg ? providerArg.split('=')[1].trim().toLowerCase() : ''
+const slugsArg = process.argv.find((a) => a.startsWith('--slugs='))
+const slugsFileArg = process.argv.find((a) => a.startsWith('--slugs-file='))
+const maxImagesArg = process.argv.find((a) => a.startsWith('--max-images='))
+const maxImagesPerListing = Math.max(
+  1,
+  Number(process.env.REHOST_MAX_IMAGES || maxImagesArg?.split('=')[1] || 40),
+)
 const hostFilter = hostsArg
   ? hostsArg
       .split('=')[1]
@@ -47,6 +54,36 @@ if (sourceFilter && !['manual', 'api', 'hybrid'].includes(sourceFilter)) {
   console.error(`Geçersiz --source=${sourceFilter} (manual|api|hybrid)`)
   process.exit(1)
 }
+
+function loadSlugFilter() {
+  const fromArg = slugsArg
+    ? slugsArg
+        .split('=')[1]
+        .split(',')
+        .map((s) => s.trim().toLowerCase())
+        .filter(Boolean)
+    : []
+  if (!slugsFileArg) return fromArg
+  const filePath = path.resolve(root, slugsFileArg.split('=')[1])
+  const fromFile = readFileSync(filePath, 'utf8')
+    .split(/\r?\n/)
+    .map((line) => line.replace(/#.*/, '').trim())
+    .filter(Boolean)
+    .map((line) => {
+      if (/^https?:\/\//i.test(line)) {
+        try {
+          return new URL(line).pathname.replace(/^\/+|\/+$/g, '').toLowerCase()
+        } catch {
+          return ''
+        }
+      }
+      return line.toLowerCase()
+    })
+    .filter(Boolean)
+  return [...new Set([...fromArg, ...fromFile])]
+}
+
+const slugFilter = loadSlugFilter()
 
 const HOST_REPAIR = [
   { re: /bookeder\.com/i, fix: (u) => u.replace(/\.avif(\?|$)/i, '.JPEG$1') },
@@ -116,6 +153,10 @@ if (providerFilter) {
   params.push(providerFilter)
   extraClause += ` AND e.external_provider_code = $${params.length}`
 }
+if (slugFilter.length) {
+  params.push(slugFilter)
+  extraClause += ` AND e.slug = ANY($${params.length}::text[])`
+}
 const listingStatusSql = providerFilter
   ? `l.status IN ('published', 'draft')`
   : `l.status = 'published'`
@@ -154,7 +195,7 @@ const listings = await client.query(
 )
 
 console.log(
-  `candidates=${listings.rows.length} dryRun=${dryRun} category=${categoryFilter || '*'} source=${sourceFilter || '*'} provider=${providerFilter || '*'} hosts=${hostFilter?.join(',') || 'default'}`,
+  `candidates=${listings.rows.length} dryRun=${dryRun} category=${categoryFilter || '*'} source=${sourceFilter || '*'} provider=${providerFilter || '*'} hosts=${hostFilter?.join(',') || 'default'} slugs=${slugFilter.length || '*'} maxImages=${maxImagesPerListing}`,
 )
 
 const listingPauseMs = Math.max(0, Number(process.env.REHOST_LISTING_PAUSE_MS || 400))
@@ -179,28 +220,29 @@ for (const row of listings.rows) {
   }
   push(row.featured_image_url)
   for (const im of imgs.rows) push(im.storage_key)
-  if (!sources.length) {
+  const limitedSources = sources.slice(0, maxImagesPerListing)
+  if (!limitedSources.length) {
     skipped += 1
     continue
   }
 
   if (dryRun) {
-    console.log(`[dry] ${row.slug} images=${sources.length} cat=${row.category_code}`)
+    console.log(`[dry] ${row.slug} images=${limitedSources.length}/${sources.length} cat=${row.category_code}`)
     ok += 1
     continue
   }
 
   try {
-    const headers = /wikimedia/i.test(sources[0] || '')
+    const headers = /wikimedia/i.test(limitedSources[0] || '')
       ? { Referer: 'https://commons.wikimedia.org/', 'User-Agent': 'Mozilla/5.0' }
-      : /yolcu360/i.test(sources[0] || '')
+      : /yolcu360/i.test(limitedSources[0] || '')
         ? { Referer: 'https://www.yolcu360.com/', 'User-Agent': 'Mozilla/5.0' }
-        : /fairystone/i.test(sources[0] || '')
+        : /fairystone/i.test(limitedSources[0] || '')
           ? { Referer: 'https://fairystonetravel.com/', 'User-Agent': 'Mozilla/5.0' }
           : { 'User-Agent': 'Mozilla/5.0' }
 
-    console.log(`[…] ${row.slug} images=${sources.length} cat=${row.category_code}`)
-    const saved = await downloadGalleryImages(sources, row.slug, uploadsRoot, {
+    console.log(`[…] ${row.slug} images=${limitedSources.length}/${sources.length} cat=${row.category_code}`)
+    const saved = await downloadGalleryImages(limitedSources, row.slug, uploadsRoot, {
       categoryCode: row.category_code,
       headers,
     })
