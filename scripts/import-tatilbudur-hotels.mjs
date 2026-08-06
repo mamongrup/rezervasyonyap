@@ -22,6 +22,7 @@ import {
   resolveStayMapCoordsSync,
 } from './lib/stay-location-coords.mjs'
 import { cleanTatilbudurDescriptionHtml } from './lib/tatilbudur-description-clean.mjs'
+import { assessAndPersistHotelImportQuality } from './lib/hotel-import-quality.mjs'
 
 const PROVIDER = 'tatilbudur'
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -536,6 +537,9 @@ async function upsertHotel(pg, ctx, hotel) {
       },
       slug: hotel.slug,
     })
+    // Eksik oda/oda görseli/6-dil içeriği olan kayıt yayımlanmış görünmesin.
+    // Kalite kaydı + AI editoryal kuyruğu aynı transaction içinde oluşturulur.
+    await assessAndPersistHotelImportQuality(pg, listingId)
     await pg.query('COMMIT')
     return created ? 'created' : enrichedByName ? 'enriched' : 'updated'
   } catch (error) {

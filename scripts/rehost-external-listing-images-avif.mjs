@@ -34,6 +34,8 @@ const categoryArg = process.argv.find((a) => a.startsWith('--category='))
 const categoryFilter = categoryArg ? categoryArg.split('=')[1].trim().toLowerCase() : ''
 const sourceArg = process.argv.find((a) => a.startsWith('--source='))
 const sourceFilter = sourceArg ? sourceArg.split('=')[1].trim().toLowerCase() : ''
+const providerArg = process.argv.find((a) => a.startsWith('--provider='))
+const providerFilter = providerArg ? providerArg.split('=')[1].trim().toLowerCase() : ''
 const hostFilter = hostsArg
   ? hostsArg
       .split('=')[1]
@@ -49,7 +51,7 @@ if (sourceFilter && !['manual', 'api', 'hybrid'].includes(sourceFilter)) {
 const HOST_REPAIR = [
   { re: /bookeder\.com/i, fix: (u) => u.replace(/\.avif(\?|$)/i, '.JPEG$1') },
   {
-    re: /productcdn\.tatilbudur\.com|tatilbudur\.com/i,
+    re: /productcdn\.tatilbudur\.com|ucdn\.tatilbudur\.net|tatilbudur\.com/i,
     fix: (u) => u.replace(/\.avif(\?|$)/i, '.jpg$1').replace(/\.JPEG(\?|$)/, '.jpg$1'),
   },
   { re: /reserwation\.com/i, fix: (u) => u.replace(/\.avif(\?|$)/i, '.jpg$1') },
@@ -85,6 +87,7 @@ function hostAllowed(url) {
 const hostSqlPatterns = [
   'bookeder\\.com',
   'tatilbudur\\.com',
+  'ucdn\\.tatilbudur\\.net',
   'reserwation\\.com',
   'fairystonetravel\\.com',
   'wikimedia\\.org',
@@ -109,34 +112,41 @@ if (sourceFilter) {
   params.push(sourceFilter)
   extraClause += ` AND e.listing_source = $${params.length}`
 }
+if (providerFilter) {
+  params.push(providerFilter)
+  extraClause += ` AND e.external_provider_code = $${params.length}`
+}
+const listingStatusSql = providerFilter
+  ? `l.status IN ('published', 'draft')`
+  : `l.status = 'published'`
 
 const listings = await client.query(
   `
   WITH e AS (
     SELECT l.id, l.slug, l.featured_image_url, pc.code AS category_code,
-           coalesce(l.listing_source, 'manual') AS listing_source, l.updated_at,
+           coalesce(l.listing_source, 'manual') AS listing_source, l.external_provider_code, l.updated_at,
            coalesce(l.featured_image_url, '') AS url
     FROM listings l
     JOIN product_categories pc ON pc.id = l.category_id
-    WHERE l.status = 'published'
+    WHERE ${listingStatusSql}
       AND coalesce(l.featured_image_url, '') ~* '^https?://'
     UNION ALL
     SELECT l.id, l.slug, l.featured_image_url, pc.code AS category_code,
-           coalesce(l.listing_source, 'manual') AS listing_source, l.updated_at,
+           coalesce(l.listing_source, 'manual') AS listing_source, l.external_provider_code, l.updated_at,
            li.storage_key AS url
     FROM listing_images li
     JOIN listings l ON l.id = li.listing_id
     JOIN product_categories pc ON pc.id = l.category_id
-    WHERE l.status = 'published'
+    WHERE ${listingStatusSql}
       AND li.storage_key ~* '^https?://'
   )
-  SELECT id, slug, featured_image_url, category_code, listing_source, max(updated_at) AS updated_at
+  SELECT id, slug, featured_image_url, category_code, listing_source, external_provider_code, max(updated_at) AS updated_at
   FROM e
   WHERE (
       ${hostUrlOr}
     )
     ${extraClause}
-  GROUP BY id, slug, featured_image_url, category_code, listing_source
+  GROUP BY id, slug, featured_image_url, category_code, listing_source, external_provider_code
   ORDER BY max(updated_at) DESC NULLS LAST
   ${limit > 0 ? `LIMIT ${Number(limit)}` : ''}
 `,
@@ -144,7 +154,7 @@ const listings = await client.query(
 )
 
 console.log(
-  `candidates=${listings.rows.length} dryRun=${dryRun} category=${categoryFilter || '*'} source=${sourceFilter || '*'} hosts=${hostFilter?.join(',') || 'default'}`,
+  `candidates=${listings.rows.length} dryRun=${dryRun} category=${categoryFilter || '*'} source=${sourceFilter || '*'} provider=${providerFilter || '*'} hosts=${hostFilter?.join(',') || 'default'}`,
 )
 
 let ok = 0
