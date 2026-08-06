@@ -72,6 +72,51 @@
         {"name": "Studio Oda", "boardType": "Sadece Oda", "totalPrice": 11462, "size": "28 m²", "features": ["Duş", "Mini Bar"]},
         {"name": "Studio Oda", "boardType": "Oda Kahvaltı", "totalPrice": 14936, "size": "28 m²", "features": ["Duş", "Mini Bar"]}
       ]
+    },
+    {
+      "sourceUrl": "https://www.tatilbudur.com/bodrum-greenport-hotel",
+      "name": "Bodrum Greenport Hotel",
+      "rooms": [
+        {"name": "Ekonomik Oda", "boardType": "Her Şey Dahil", "totalPrice": 16732, "features": ["Balkon", "Duş"]},
+        {"name": "Deniz Manzaralı ve Balkonlu Oda", "boardType": "Her Şey Dahil", "totalPrice": 17331, "features": ["Balkon", "Duş"]}
+      ]
+    },
+    {
+      "sourceUrl": "https://www.tatilbudur.com/soz-hotel-gumbet-ex-the-best-life-hotel-gumbet",
+      "name": "Söz Hotel Gümbet",
+      "rooms": [
+        {"name": "Standart Oda", "boardType": "Her Şey Dahil", "totalPrice": 19500, "size": "15 m²", "features": ["Balkon veya Teras", "Duşakabin"]}
+      ]
+    },
+    {
+      "sourceUrl": "https://www.tatilbudur.com/jasmin-elite-residence-spa",
+      "name": "Jasmin Elite Residence & Spa",
+      "rooms": [
+        {"name": "Stüdyo Bahçe veya Havuz Manzaralı Oda", "boardType": "İadesiz Oda Kahvaltı", "totalPrice": 33765, "size": "40 m²", "features": ["Bahçe veya havuz manzarası"], "availabilityNote": "Son 3 Oda"},
+        {"name": "Stüdyo Bahçe veya Havuz Manzaralı Oda", "boardType": "Oda Kahvaltı", "totalPrice": 39736, "size": "40 m²", "features": ["Bahçe veya havuz manzarası"], "availabilityNote": "Son 3 Oda"},
+        {"name": "Stüdyo Bahçe veya Havuz Manzaralı Oda", "boardType": "İadesiz Yarım Pansiyon", "totalPrice": 46013, "size": "40 m²", "features": ["Bahçe veya havuz manzarası"], "availabilityNote": "Son 3 Oda"}
+      ]
+    },
+    {
+      "sourceUrl": "https://www.tatilbudur.com/royal-palm-residence",
+      "name": "Royal Palm Residence",
+      "rooms": [
+        {"name": "1+1 Daire, Bahçe Manzaralı", "boardType": "Sadece Oda", "totalPrice": 21221, "size": "70 m²", "features": ["Bahçe manzarası", "Ücretsiz iptal"]}
+      ]
+    },
+    {
+      "sourceUrl": "https://www.tatilbudur.com/akkan-beach-bodrum",
+      "name": "Akkan Beach Bodrum",
+      "rooms": [
+        {"name": "Standart Oda", "boardType": "İadesiz Oda Kahvaltı", "totalPrice": 18617, "size": "20 m²", "features": []}
+      ]
+    },
+    {
+      "sourceUrl": "https://www.tatilbudur.com/smart-city-suites-hotel-bodrum",
+      "name": "Smart City Suites Hotel Bodrum",
+      "rooms": [
+        {"name": "Ekonomik Oda", "boardType": "Oda Kahvaltı", "totalPrice": 16481, "features": ["Ücretsiz iptal"]}
+      ]
     }
   ]
 }
