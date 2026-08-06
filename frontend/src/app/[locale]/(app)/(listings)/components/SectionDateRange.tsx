@@ -271,13 +271,13 @@ export default function SectionDateRange({
         <li className="flex items-center gap-2.5">
           <span
             aria-hidden
-            className="relative inline-block size-4 shrink-0 overflow-hidden rounded-sm border border-neutral-200 bg-white shadow-sm dark:border-neutral-600 dark:bg-neutral-900"
+            className="relative inline-block size-4 shrink-0 overflow-hidden rounded-sm border border-neutral-200 bg-neutral-200 shadow-sm dark:border-neutral-600 dark:bg-neutral-700"
           >
             <span
               className="absolute inset-0"
               style={{
                 background:
-                  'linear-gradient(to bottom right, transparent calc(50% - 1px), rgb(148 163 184) 50%, transparent calc(50% + 1px))',
+                  'linear-gradient(to bottom right, transparent calc(50% - 1px), rgb(115 115 115 / 0.9) 50%, transparent calc(50% + 1px))',
               }}
             />
           </span>

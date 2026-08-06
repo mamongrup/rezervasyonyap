@@ -13,19 +13,26 @@ interface Props {
   visualStatus?: ListingDayVisualStatus
 }
 
+/** Tam dolu / yarım dolu kapalı taraf — aynı nötr gri (kafa karışıklığı olmasın) */
+const BOOKED_FILL_CLASS = 'bg-neutral-200 dark:bg-neutral-700'
+
 const STATUS_CLASS: Record<ListingDayVisualStatus, string> = {
   available: 'font-medium text-neutral-900 dark:text-neutral-100',
-  blocked:
-    'font-medium text-neutral-300 line-through decoration-neutral-300 decoration-1 dark:text-neutral-500 dark:decoration-neutral-500',
+  blocked: clsx(
+    'font-medium text-neutral-400 line-through decoration-neutral-400 decoration-1',
+    'dark:text-neutral-500 dark:decoration-neutral-500',
+    BOOKED_FILL_CLASS,
+  ),
   turnover: 'font-medium text-neutral-900 dark:text-neutral-100',
-  checkout: 'font-semibold text-neutral-900 dark:text-white',
-  checkin: 'font-semibold text-neutral-900 dark:text-white',
+  // Açık yarım = müsait günle aynı metin rengi; kapalı yarım fill ile gösterilir
+  checkout: 'font-medium text-neutral-900 dark:text-neutral-100',
+  checkin: 'font-medium text-neutral-900 dark:text-neutral-100',
   option: 'font-medium ring-2 ring-amber-400/90 bg-amber-50/80 dark:bg-amber-950/30',
   promo: 'font-medium ring-2 ring-emerald-500/80 bg-emerald-50/90 dark:bg-emerald-950/35',
 }
 
 /**
- * Temaya uygun dolu yarım — rose (rezerve), çapraz üçgen.
+ * Dolu yarım — tam dolu günlerle aynı gri, çapraz üçgen.
  * checkout: sabah dolu (sol-üst üçgen) → öğleden sonra giriş açık
  * checkin: öğleden sonra dolu (sağ-alt üçgen) → öğlene kadar çıkış açık
  */
@@ -42,7 +49,7 @@ export function HalfDayBookedFill({
       className={clsx('pointer-events-none absolute inset-0 overflow-hidden', className)}
     >
       <span
-        className="absolute inset-0 bg-rose-500 dark:bg-rose-600"
+        className={clsx('absolute inset-0', BOOKED_FILL_CLASS)}
         style={{
           clipPath:
             kind === 'checkout'
@@ -50,19 +57,12 @@ export function HalfDayBookedFill({
               : 'polygon(100% 0, 100% 100%, 0 100%)',
         }}
       />
-      {/* Çapraz ayırıcı çizgi — öğleden önce / sonra sınırı */}
+      {/* Çapraz ayırıcı — açık (beyaz) / kapalı (gri) sınırı */}
       <span
         className="absolute inset-0"
         style={{
           background:
-            'linear-gradient(to bottom right, transparent calc(50% - 1.25px), rgb(255 255 255 / 0.95) calc(50% - 0.5px), rgb(255 255 255 / 0.95) calc(50% + 0.5px), transparent calc(50% + 1.25px))',
-        }}
-      />
-      <span
-        className="absolute inset-0 opacity-40 dark:opacity-50"
-        style={{
-          background:
-            'linear-gradient(to bottom right, transparent calc(50% - 2px), rgb(127 29 29 / 0.35) 50%, transparent calc(50% + 2px))',
+            'linear-gradient(to bottom right, transparent calc(50% - 1px), rgb(163 163 163 / 0.85) 50%, transparent calc(50% + 1px))',
         }}
       />
     </span>
@@ -90,22 +90,17 @@ const DatePickerCustomDay: FC<Props> = ({ dayOfMonth, visualStatus = 'available'
   return (
     <span
       className={clsx(
-        'react-datepicker__day_span relative inline-flex w-full items-center justify-center overflow-hidden',
-        halfKind ? 'rounded-md' : 'rounded-md',
+        'react-datepicker__day_span relative inline-flex w-full items-center justify-center overflow-hidden rounded-md',
         statusCls,
         fullyBlocked && 'pointer-events-none',
+        // Açık yarım = tam müsait günle aynı zemin
         halfKind && 'bg-white dark:bg-neutral-900',
+        // Turnover: iki yarım da kapalı → tam dolu ile aynı zemin + çapraz çizgi
+        visualStatus === 'turnover' && BOOKED_FILL_CLASS,
       )}
     >
       {halfKind ? <HalfDayBookedFill kind={halfKind} className="rounded-md" /> : null}
-      <span
-        className={clsx(
-          'relative z-[1]',
-          halfKind && 'drop-shadow-[0_0_1px_rgba(255,255,255,0.9)]',
-        )}
-      >
-        {dayOfMonth}
-      </span>
+      <span className="relative z-[1]">{dayOfMonth}</span>
       {visualStatus === 'turnover' ? (
         <span
           aria-hidden
@@ -115,7 +110,7 @@ const DatePickerCustomDay: FC<Props> = ({ dayOfMonth, visualStatus = 'available'
             className="absolute inset-0"
             style={{
               background:
-                'linear-gradient(to bottom right, transparent calc(50% - 1px), rgb(148 163 184) 50%, transparent calc(50% + 1px))',
+                'linear-gradient(to bottom right, transparent calc(50% - 1px), rgb(115 115 115 / 0.9) 50%, transparent calc(50% + 1px))',
             }}
           />
         </span>
