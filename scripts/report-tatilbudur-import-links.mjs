@@ -34,7 +34,7 @@ try {
     `SELECT l.external_listing_ref AS ref, l.slug, l.status, tr.title,
        count(DISTINCT li.id)::int AS gallery_images,
        count(DISTINCT li.id) FILTER (
-         WHERE li.storage_key ~* '^uploads/listings/.+\\.avif$'
+         WHERE regexp_replace(li.storage_key, '^/+', '') ~* '^uploads/listings/.+\\.avif$'
        )::int AS local_avif_images,
        count(DISTINCT hr.id)::int AS rooms,
        count(DISTINCT lpr.id)::int AS price_rules,
@@ -80,6 +80,15 @@ try {
   const published = found.filter((row) => row.status === 'published')
   const trPublishable = found.filter(
     (row) =>
+      row.status === 'published' &&
+      Number(row.price_rules || 0) > 0 &&
+      Number(row.rooms || 0) > 0 &&
+      Number(row.local_avif_images || 0) >= 2 &&
+      Number(row.locale_count || 0) >= 1,
+  )
+  const trPublishableDrafts = found.filter(
+    (row) =>
+      row.status !== 'published' &&
       Number(row.price_rules || 0) > 0 &&
       Number(row.rooms || 0) > 0 &&
       Number(row.local_avif_images || 0) >= 2 &&
@@ -92,7 +101,7 @@ try {
     localMedia: found.filter((row) => Number(row.local_avif_images || 0) >= 2).length,
     published: published.length,
     trPublishable: trPublishable.length,
-    // Eski alan: 6 dil tamam + yayında (yanıltıcı olmasın diye ayrı)
+    trPublishableDrafts: trPublishableDrafts.length,
     allLocalesPublished: published.filter((row) => Number(row.locale_count || 0) === 6).length,
     output,
   }, null, 2))

@@ -103,9 +103,31 @@ try {
     '## Taslaklar',
   ]
   for (const row of drafts) {
+    const sample = await client.query(
+      `SELECT l.featured_image_url,
+              (SELECT string_agg(sub.storage_key, ' | ')
+                 FROM (
+                   SELECT storage_key FROM listing_images
+                    WHERE listing_id=l.id
+                    ORDER BY sort_order ASC NULLS LAST, created_at ASC
+                    LIMIT 3
+                 ) sub) AS sample_keys
+         FROM listings l
+        WHERE l.external_provider_code='tatilbudur'
+          AND l.external_listing_ref=$1
+        LIMIT 1`,
+      [row.ref],
+    )
+    const featured = sample.rows[0]?.featured_image_url || ''
+    const keys = String(sample.rows[0]?.sample_keys || '')
+      .split(' | ')
+      .map((s) => s.trim())
+      .filter(Boolean)
     const issues = []
     if (Number(row.tr_desc_len) < 120) issues.push('short_tr')
-    if (Number(row.local_avif) < 2) issues.push(`gallery_local=${row.local_avif}/ext=${row.external_imgs}`)
+    if (Number(row.local_avif) < 2) {
+      issues.push(`gallery_local=${row.local_avif}/ext=${row.external_imgs}`)
+    }
     if (Number(row.rooms) < 1) issues.push('no_rooms')
     else if (Number(row.rooms_local) < Number(row.rooms)) {
       issues.push(`rooms_local=${row.rooms_local}/${row.rooms}`)
@@ -114,6 +136,8 @@ try {
     lines.push(
       `- **${row.title}** (\`${row.slug}\`) — ${issues.join(', ') || 'unknown'}`,
     )
+    if (featured) lines.push(`  - featured: \`${featured}\``)
+    for (const k of keys) lines.push(`  - image: \`${k}\``)
   }
   lines.push(
     '',
