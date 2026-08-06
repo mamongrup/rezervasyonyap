@@ -72,21 +72,28 @@ try {
       return `| ${row.title} | ${row.status} | ${row.gallery_images} | ${row.local_avif_images} | ${row.rooms} | ${row.price_rules} | ${row.locale_count}/6 | ${href} |`
     }),
     '',
-    'Not: `draft`, oda/fiyat kuralı 0 veya 6 dil tamamlanmamış kayıtlar yayımlanmaz.',
+    'Not: TR yayın için fiyat + yerel AVIF galeri + oda gerekir. 6 dil AI sonrası tamamlanır.',
   ]
   fs.mkdirSync(path.dirname(output), { recursive: true })
   fs.writeFileSync(output, `${lines.join('\n')}\n`)
-  console.log(JSON.stringify({
-    requested: refs.length,
-    found: rows.filter((row) => !row.missing).length,
-    priced: rows.filter((row) => Number(row.price_rules || 0) > 0).length,
-    localMedia: rows.filter((row) => Number(row.local_avif_images || 0) >= 2).length,
-    publishReady: rows.filter((row) =>
-      row.status === 'published' &&
+  const found = rows.filter((row) => !row.missing)
+  const published = found.filter((row) => row.status === 'published')
+  const trPublishable = found.filter(
+    (row) =>
       Number(row.price_rules || 0) > 0 &&
       Number(row.rooms || 0) > 0 &&
-      Number(row.locale_count || 0) === 6,
-    ).length,
+      Number(row.local_avif_images || 0) >= 2 &&
+      Number(row.locale_count || 0) >= 1,
+  )
+  console.log(JSON.stringify({
+    requested: refs.length,
+    found: found.length,
+    priced: found.filter((row) => Number(row.price_rules || 0) > 0).length,
+    localMedia: found.filter((row) => Number(row.local_avif_images || 0) >= 2).length,
+    published: published.length,
+    trPublishable: trPublishable.length,
+    // Eski alan: 6 dil tamam + yayında (yanıltıcı olmasın diye ayrı)
+    allLocalesPublished: published.filter((row) => Number(row.locale_count || 0) === 6).length,
     output,
   }, null, 2))
 } finally {
