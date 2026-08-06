@@ -36,7 +36,8 @@ try {
        length(trim(coalesce(tr.description,''))) AS tr_desc_len,
        (SELECT count(*)::int FROM listing_images li WHERE li.listing_id=l.id) AS gallery_total,
        (SELECT count(*)::int FROM listing_images li
-         WHERE li.listing_id=l.id AND li.storage_key ~* '^uploads/listings/.+\\.avif$') AS local_avif,
+         WHERE li.listing_id=l.id
+           AND regexp_replace(li.storage_key, '^/+', '') ~* '^uploads/listings/.+\\.avif$') AS local_avif,
        (SELECT count(*)::int FROM listing_images li
          WHERE li.listing_id=l.id AND li.storage_key ~* '^https?://') AS external_imgs,
        (SELECT count(*)::int FROM hotel_rooms hr WHERE hr.listing_id=l.id) AS rooms,

@@ -382,11 +382,22 @@ async function upsertHotel(pg, ctx, hotel) {
        country_id=coalesce(excluded.country_id,listing_hotel_details.country_id)`,
       [listingId, hotel.starRating, country.rows[0]?.id ?? null],
     )
-    const existingMedia = enrichedByName
-      ? await pg.query(`SELECT count(*)::int AS count FROM listing_images WHERE listing_id=$1::uuid`, [listingId])
-      : null
-    const shouldImportImages = hotel.images.length
-      && (!enrichedByName || Number(existingMedia?.rows[0]?.count || 0) < 2)
+    const existingMedia = await pg.query(
+      `SELECT
+         count(*)::int AS total,
+         count(*) FILTER (
+           WHERE regexp_replace(storage_key, '^/+', '') ~* '^uploads/listings/.+\\.avif$'
+         )::int AS local_avif
+       FROM listing_images WHERE listing_id=$1::uuid`,
+      [listingId],
+    )
+    const localAvifCount = Number(existingMedia.rows[0]?.local_avif || 0)
+    const totalMedia = Number(existingMedia.rows[0]?.total || 0)
+    // Yerel AVIF galeri varsa CDN URL'leriyle ezme (rehost sonrası import güvenli).
+    const shouldImportImages =
+      hotel.images.length > 0 &&
+      localAvifCount < 2 &&
+      (!enrichedByName || totalMedia < 2)
     if (shouldImportImages) {
       await pg.query(`UPDATE listings SET featured_image_url=$2,thumbnail_url=$2 WHERE id=$1::uuid`, [listingId, hotel.images[0]])
       await pg.query(`DELETE FROM listing_images WHERE listing_id=$1::uuid`, [listingId])
