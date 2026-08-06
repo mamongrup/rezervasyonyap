@@ -9,6 +9,7 @@
 #   CHUNK_VERIFY_ATTEMPTS=30 CHUNK_VERIFY_SLEEP=2 ./deploy/verify.sh  # _next/static bazen restart sonrasi gecikmeli
 #   CHUNK_HTTP_MAX_TIME=8 ./deploy/verify.sh                            # chunk curl yavas asilirsa (varsayilan 8)
 #   VERIFY_SKIP_APP_LAYOUT_CHUNK=1 ./deploy/verify.sh                   # [locale] app chunk testini atla
+#   VERIFY_SKIP_PUBLIC_HOSTS=1 ./deploy/verify.sh                       # .tr / .com.tr / reservationinturkey smoke atla
 
 set -euo pipefail
 
