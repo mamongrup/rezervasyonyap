@@ -505,6 +505,24 @@ main() {
         "$APP_ROOT/backend/priv/sql/modules/421_group_kas_nearby_pois_by_category.sql" \
         || warn "421 grouped Kaş nearby POIs SQL uygulanamadı"
     fi
+    if [[ -f "$APP_ROOT/backend/priv/sql/modules/422_repair_listing_turkish_ascii_locations_v2.sql" ]]; then
+      step "Adres/konum Türkçe charset onarımı v2 (422)"
+      bash "$APP_ROOT/deploy/apply-sql.sh" \
+        "$APP_ROOT/backend/priv/sql/modules/422_repair_listing_turkish_ascii_locations_v2.sql" \
+        || warn "422 location charset repair SQL uygulanamadı"
+    fi
+    if [[ -f "$APP_ROOT/backend/priv/sql/modules/423_repair_remaining_turkish_ascii_fields.sql" ]]; then
+      step "Kalan vitrin alanları Türkçe charset onarımı (423)"
+      bash "$APP_ROOT/deploy/apply-sql.sh" \
+        "$APP_ROOT/backend/priv/sql/modules/423_repair_remaining_turkish_ascii_fields.sql" \
+        || warn "423 remaining Turkish fields repair SQL uygulanamadı"
+    fi
+    if [[ -f "$APP_ROOT/backend/priv/sql/modules/424_perf_listing_suggest_location_ascii_trgm.sql" ]]; then
+      step "Arama önerisi konum trgm index (424)"
+      bash "$APP_ROOT/deploy/apply-sql.sh" \
+        "$APP_ROOT/backend/priv/sql/modules/424_perf_listing_suggest_location_ascii_trgm.sql" \
+        || warn "424 suggest location trgm index SQL uygulanamadı"
+    fi
   fi
 
   if [[ "${SKIP_AI_WORKER_TIMER:-0}" == "1" ]]; then
