@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
- * Bodrum listesinde DB'de olmayan veya oda/fiyatsız kalan otelleri onarır.
- * Teklif JSON'undaki otelleri feed'e stub olarak ekler, harvest birleştirir, import eder.
+ * Bodrum: teklifi olan ama DB'de eksik / odasız / fiyatsız otelleri onarır.
+ * Harvest başarısız olsa bile offer stub + fiyat/oda yazar (yerel AVIF sonra).
  *
  *   node scripts/repair-bodrum-tatilbudur-missing.mjs
  */
@@ -14,11 +14,26 @@ import { createPgClient } from './lib/pg-client.mjs'
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const urlsFile = path.join(ROOT, 'deploy/data/tatilbudur/bodrum-request-urls.txt')
 const feedPath = path.join(ROOT, 'backups/tatilbudur-bodrum-public-feed.json')
-const offersPath = path.join(
+const offersFamily = path.join(
   ROOT,
   'deploy/data/tatilbudur/bodrum-2026-08-10-13-2adults-1child-offers.json',
 )
+const offersTwoAdults = path.join(
+  ROOT,
+  'deploy/data/tatilbudur/bodrum-2026-08-10-13-2adults-offers.json',
+)
 const statePath = path.join(ROOT, 'backups/tatilbudur-bodrum-import-state.json')
+
+/** Bu listede teklif JSON yok — fiyat uydurulmaz. */
+const NO_OFFER_SLUGS = new Set([
+  'akyali-butik-otel',
+  'cinar-butik-otel-bodrum',
+  'anar-hotel-torba',
+  'asterina-hotel',
+  'el-vino-hotel-suites',
+  'delfi-hotel',
+  'oda-bodrum-gumusluk',
+])
 
 function run(script, args = []) {
   console.log(`==> node ${script} ${args.join(' ')}`)
@@ -51,7 +66,7 @@ let roomlessSlugs = []
 try {
   const refs = allUrls.map(slugFromUrl).filter(Boolean)
   const result = await client.query(
-    `SELECT l.external_listing_ref AS ref,
+    `SELECT l.external_listing_ref AS ref, l.status,
        (SELECT count(*)::int FROM hotel_rooms hr WHERE hr.listing_id=l.id) AS rooms,
        (SELECT count(*)::int FROM listing_price_rules lpr
          WHERE lpr.listing_id=l.id
@@ -65,16 +80,38 @@ try {
   const byRef = new Map(result.rows.map((r) => [r.ref, r]))
   missingSlugs = refs.filter((r) => !byRef.has(r))
   roomlessSlugs = result.rows
-    .filter((r) => Number(r.rooms) < 1 || Number(r.prices) < 1)
+    .filter((r) => Number(r.rooms) < 1 || Number(r.prices) < 1 || r.status !== 'published')
     .map((r) => r.ref)
 } finally {
   await client.end()
 }
 
-const repairSlugs = [...new Set([...missingSlugs, ...roomlessSlugs])]
-console.log(JSON.stringify({ missingSlugs, roomlessSlugs, repairSlugs }, null, 2))
+// Teklifi olanları öncelikle onar; teklifsizleri ayrı bildir
+const repairSlugs = [...new Set([...missingSlugs, ...roomlessSlugs])].filter(
+  (s) => !NO_OFFER_SLUGS.has(s),
+)
+const blockedNoOffer = [...new Set([...missingSlugs, ...roomlessSlugs])].filter((s) =>
+  NO_OFFER_SLUGS.has(s),
+)
+
+console.log(
+  JSON.stringify(
+    {
+      missingSlugs,
+      roomlessOrDraft: roomlessSlugs,
+      willRepairWithOffers: repairSlugs,
+      blockedNoOfferInJson: blockedNoOffer,
+    },
+    null,
+    2,
+  ),
+)
+
 if (!repairSlugs.length) {
-  console.log('Onarılacak kayıt yok.')
+  console.log('Teklifi olan onarılacak kayıt yok.')
+  if (blockedNoOffer.length) {
+    console.log('Teklif JSON’da olmayan (ekran görüntüsü gerekir):', blockedNoOffer.join(', '))
+  }
   process.exit(0)
 }
 
@@ -94,7 +131,6 @@ run('scripts/harvest-tatilbudur-url-list.mjs', [
   '0',
 ])
 
-// Mevcut feed ile birleştir
 const mainFeed = fs.existsSync(feedPath)
   ? JSON.parse(fs.readFileSync(feedPath, 'utf8'))
   : { hotels: [] }
@@ -110,7 +146,7 @@ for (const hotel of patch.hotels || []) {
   byId.set(key, {
     ...prev,
     ...hotel,
-    images: (hotel.images?.length ? hotel.images : prev.images) || [],
+    images: hotel.images?.length ? hotel.images : prev.images || [],
     description: hotel.description || prev.description,
     name: hotel.name || prev.name,
     rooms: prev.rooms?.length ? prev.rooms : hotel.rooms || [],
@@ -119,7 +155,9 @@ for (const hotel of patch.hotels || []) {
 mainFeed.hotels = [...byId.values()]
 fs.writeFileSync(feedPath, `${JSON.stringify(mainFeed, null, 2)}\n`)
 
-if (fs.existsSync(offersPath)) {
+// Önce aile teklifleri, sonra 2 yetişkin — stub oluştur
+for (const offersPath of [offersFamily, offersTwoAdults]) {
+  if (!fs.existsSync(offersPath)) continue
   run('scripts/apply-tatilbudur-visible-offers.mjs', [
     '--feed',
     path.relative(ROOT, feedPath),
@@ -132,21 +170,19 @@ run('scripts/fix-hotel-room-images-in-feed.mjs', [path.relative(ROOT, feedPath)]
 
 process.env.TATILBUDUR_LISTING_STATUS = 'draft'
 process.env.TATILBUDUR_IMPORT_STATE = statePath
-run('scripts/import-tatilbudur-hotels.mjs', [
-  '--file',
-  path.relative(ROOT, feedPath),
-])
+run('scripts/import-tatilbudur-hotels.mjs', ['--file', path.relative(ROOT, feedPath)])
 
 console.log(`
-[OK] Eksik/odasız onarım import edildi.
+[OK] Teklifi olan eksikler import edildi (yerel AVIF korunur).
+
 Sırada:
   IMAGE_CONVERT_CONCURRENCY=1 AVIF_EFFORT=2 VIPS_CONCURRENCY=1 \\
     ./deploy/scripts/rehost-external-images-detached.sh \\
     --provider=tatilbudur --category=hotel \\
     --hosts=productcdn.tatilbudur.com,ucdn.tatilbudur.net,tatilbudur.com
-  # bitince:
+  ./deploy/scripts/rehost-external-images-detached.sh wait
   node scripts/finalize-bodrum-tatilbudur.mjs
 
-Fiyatsız kalanlar (teklif yok) yayına alınmaz — ekran görüntüsü gerekir:
-  anar / cinar / delfi / el-vino / oda-bodrum-gumusluk (+ akyali / asterina varsa)
+Teklif JSON'da OLMAYAN (yayınlanamaz, ekran görüntüsü gerekir):
+  ${blockedNoOffer.join(', ') || '(yok)'}
 `)

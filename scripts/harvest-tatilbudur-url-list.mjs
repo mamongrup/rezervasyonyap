@@ -268,9 +268,13 @@ const entries = await mapPool(urls, async (sourceUrl, index) => {
   }
 })
 
-const hotels = entries.filter(
-  (hotel) => hotel.name && hotel.description && hotel.images.length >= minImages,
-)
+const hotels = entries.filter((hotel) => {
+  if (!hotel.name) return false
+  if (!hotel.description) {
+    hotel.description = buildDescription(hotel.name || hotel.slug, '', [])
+  }
+  return hotel.images.length >= minImages
+})
 const rejected = entries
   .filter((hotel) => !hotels.includes(hotel))
   .map((hotel) => ({
