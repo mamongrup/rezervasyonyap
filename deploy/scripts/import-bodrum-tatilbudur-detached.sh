@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
-# Main deploy + Bodrum TatilBudur taslak importunu SSH/Plesk kopsa da sürdürür.
+# Main deploy + Bodrum TatilBudur importunu SSH/Plesk kopsa da sürdürür.
 #
 #   cd /var/www/vhosts/rezervasyonyap.tr/httpdocs
 #   DEPLOY_REF=main ./deploy/scripts/import-bodrum-tatilbudur-detached.sh
+#   SKIP_DEPLOY=1 ./deploy/scripts/import-bodrum-tatilbudur-detached.sh  # yalnız import
 #   ./deploy/scripts/import-bodrum-tatilbudur-detached.sh status|tail|wait
 set -euo pipefail
 
@@ -10,6 +11,7 @@ APP_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 LOG="${TATILBUDUR_BODRUM_IMPORT_LOG:-$APP_ROOT/.deploy/tatilbudur-bodrum-import.log}"
 PID_FILE="${TATILBUDUR_BODRUM_IMPORT_PID:-$APP_ROOT/.deploy/tatilbudur-bodrum-import.pid}"
 DEPLOY_REF="${DEPLOY_REF:-main}"
+SKIP_DEPLOY="${SKIP_DEPLOY:-0}"
 
 mkdir -p "$(dirname "$LOG")"
 
@@ -55,17 +57,21 @@ fi
 run='set -eo pipefail
 cd "$APP_ROOT"
 chmod +x deploy/deploy.sh deploy/scripts/import-bodrum-tatilbudur-drafts.sh
-DEPLOY_REF="$DEPLOY_REF" bash deploy/deploy.sh
+if [[ "$SKIP_DEPLOY" != "1" ]]; then
+  DEPLOY_REF="$DEPLOY_REF" bash deploy/deploy.sh
+else
+  echo "[bodrum-tatilbudur] SKIP_DEPLOY=1 — frontend/backend build atlandı"
+fi
 bash deploy/scripts/import-bodrum-tatilbudur-drafts.sh'
 
 {
   echo "========================================"
   echo "[bodrum-tatilbudur] başladı: $(date -Is)"
-  echo "[bodrum-tatilbudur] ref=$DEPLOY_REF cwd=$APP_ROOT"
+  echo "[bodrum-tatilbudur] ref=$DEPLOY_REF skip_deploy=$SKIP_DEPLOY cwd=$APP_ROOT"
   echo "========================================"
 } >>"$LOG"
 
-export APP_ROOT DEPLOY_REF
+export APP_ROOT DEPLOY_REF SKIP_DEPLOY
 if command -v setsid >/dev/null 2>&1; then
   setsid bash -c "$run" >>"$LOG" 2>&1 &
 else
