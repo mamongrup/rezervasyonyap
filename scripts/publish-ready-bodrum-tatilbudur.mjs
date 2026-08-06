@@ -1,40 +1,101 @@
 #!/usr/bin/env node
 /**
- * Bodrum TatilBudur batch'inde yalnız kalite kapısını geçen taslakları yayınlar.
+ * Bodrum TatilBudur batch: kalite kapısını geçen taslakları yayınlar.
  *
- * Zorunlu:
- * - 6 dilde başlık + >=120 karakter açıklama
- * - >=2 sunucu-yerel AVIF galeri görseli
- * - >=1 oda ve her odada sunucu-yerel AVIF görseli
+ * Varsayılan (TR önce):
+ * - TR başlık + >=120 karakter açıklama
+ * - >=2 sunucu-yerel AVIF galeri
+ * - >=1 oda; eksik oda görselleri yerel galeriden doldurulur
  * - >=1 doğrulanmış fiyat kuralı
  *
- * Eksik kayıtlar taslak kalır; başka provider/otel etkilenmez.
+ * 6 dil zorunlu için: REQUIRE_ALL_LOCALES=1
+ *
+ *   node scripts/publish-ready-bodrum-tatilbudur.mjs
  */
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { createPgClient } from './lib/pg-client.mjs'
+import { roomImagesFromGallery } from './lib/hotel-room-gallery.mjs'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const urlsFile = path.resolve(
   ROOT,
   process.env.BODRUM_TATILBUDUR_URLS || 'deploy/data/tatilbudur/bodrum-request-urls.txt',
 )
+const requireAllLocales = process.env.REQUIRE_ALL_LOCALES === '1'
 const refs = fs
   .readFileSync(urlsFile, 'utf8')
   .split(/\r?\n/)
   .map((line) => line.replace(/#.*/, '').trim())
   .filter(Boolean)
   .map((url) => {
-    try { return new URL(url).pathname.replace(/^\/+|\/+$/g, '') } catch { return '' }
+    try {
+      return new URL(url).pathname.replace(/^\/+|\/+$/g, '')
+    } catch {
+      return ''
+    }
   })
   .filter(Boolean)
+
+function toPublicKey(storageKey) {
+  const k = String(storageKey || '').replace(/^\/+/, '')
+  return k.startsWith('/') ? k : `/${k}`
+}
+
+async function backfillRoomImages(client, listingId) {
+  const gallery = await client.query(
+    `SELECT storage_key FROM listing_images
+      WHERE listing_id=$1::uuid
+        AND storage_key ~* '^uploads/listings/.+\\.avif$'
+      ORDER BY sort_order ASC, created_at ASC`,
+    [listingId],
+  )
+  const galleryUrls = gallery.rows.map((r) => toPublicKey(r.storage_key))
+  if (galleryUrls.length < 2) return 0
+
+  const rooms = await client.query(
+    `SELECT id::text, name, meta_json FROM hotel_rooms
+      WHERE listing_id=$1::uuid
+      ORDER BY sort_order ASC NULLS LAST, created_at ASC`,
+    [listingId],
+  )
+  let updated = 0
+  for (let i = 0; i < rooms.rows.length; i++) {
+    const room = rooms.rows[i]
+    const meta = room.meta_json && typeof room.meta_json === 'object' ? room.meta_json : {}
+    const current = []
+    if (typeof meta.image === 'string' && meta.image.trim()) current.push(meta.image.trim())
+    if (Array.isArray(meta.images)) {
+      for (const u of meta.images) {
+        if (typeof u === 'string' && u.trim()) current.push(u.trim())
+      }
+    }
+    if (current.some((u) => /^\/uploads\/listings\/.+\.avif$/i.test(u))) continue
+
+    const picked = roomImagesFromGallery(galleryUrls, room.name || `oda-${i + 1}`, i, {
+      allowUnlabeledFallback: true,
+    })
+    if (!picked.length) continue
+    await client.query(
+      `UPDATE hotel_rooms
+          SET meta_json = coalesce(meta_json, '{}'::jsonb)
+            || jsonb_build_object('image', $2::text, 'images', $3::jsonb)
+        WHERE id=$1::uuid`,
+      [room.id, picked[0], JSON.stringify(picked)],
+    )
+    updated += 1
+  }
+  return updated
+}
 
 const client = createPgClient()
 await client.connect()
 try {
   const result = await client.query(
     `SELECT l.id::text, l.external_listing_ref AS ref, l.slug, l.status, tr.title,
+       length(trim(coalesce(tr.title,''))) AS tr_title_len,
+       length(trim(coalesce(tr.description,''))) AS tr_desc_len,
        (SELECT count(*)::int
           FROM listing_translations lt
           JOIN locales lo ON lo.id=lt.locale_id
@@ -46,17 +107,6 @@ try {
          WHERE li.listing_id=l.id
            AND li.storage_key ~* '^uploads/listings/.+\\.avif$') AS local_gallery_count,
        (SELECT count(*)::int FROM hotel_rooms hr WHERE hr.listing_id=l.id) AS room_count,
-       (SELECT count(*)::int FROM hotel_rooms hr
-         WHERE hr.listing_id=l.id
-           AND (
-             coalesce(hr.meta_json->>'image','') ~* '^/uploads/listings/.+\\.avif$'
-             OR EXISTS (
-               SELECT 1 FROM jsonb_array_elements_text(
-                 CASE WHEN jsonb_typeof(hr.meta_json->'images')='array'
-                      THEN hr.meta_json->'images' ELSE '[]'::jsonb END
-               ) im(url) WHERE im.url ~* '^/uploads/listings/.+\\.avif$'
-             )
-           )) AS rooms_with_local_images,
        (SELECT count(*)::int FROM listing_price_rules lpr
          WHERE lpr.listing_id=l.id
            AND lpr.rule_json->>'source'='tatilbudur'
@@ -71,24 +121,49 @@ try {
   )
 
   let published = 0
+  let roomsBackfilled = 0
   const pending = []
   for (const row of result.rows) {
+    roomsBackfilled += await backfillRoomImages(client, row.id)
+
+    const roomsLocal = await client.query(
+      `SELECT count(*)::int AS n FROM hotel_rooms hr
+        WHERE hr.listing_id=$1::uuid
+          AND (
+            coalesce(hr.meta_json->>'image','') ~* '^/uploads/listings/.+\\.avif$'
+            OR EXISTS (
+              SELECT 1 FROM jsonb_array_elements_text(
+                CASE WHEN jsonb_typeof(hr.meta_json->'images')='array'
+                     THEN hr.meta_json->'images' ELSE '[]'::jsonb END
+              ) im(url) WHERE im.url ~* '^/uploads/listings/.+\\.avif$'
+            )
+          )`,
+      [row.id],
+    )
+    const roomsWithLocal = Number(roomsLocal.rows[0]?.n || 0)
+
     const issues = []
-    if (Number(row.locale_count) < 6) issues.push('localization_incomplete')
+    const trOk = Number(row.tr_title_len) >= 2 && Number(row.tr_desc_len) >= 120
+    if (!trOk) issues.push('tr_content_incomplete')
+    if (requireAllLocales && Number(row.locale_count) < 6) {
+      issues.push('localization_incomplete')
+    }
     if (Number(row.local_gallery_count) < 2) issues.push('local_gallery_incomplete')
     if (Number(row.room_count) < 1) issues.push('rooms_incomplete')
-    else if (Number(row.rooms_with_local_images) < Number(row.room_count)) {
+    else if (roomsWithLocal < Number(row.room_count)) {
       issues.push('room_local_images_incomplete')
     }
     if (Number(row.price_rule_count) < 1) issues.push('price_incomplete')
+
     const quality = {
       status: issues.length ? 'incomplete' : 'complete',
       issues,
-      required_locales: 6,
+      publish_mode: requireAllLocales ? 'all_locales' : 'tr_first',
+      required_locales: requireAllLocales ? 6 : 1,
       locale_count: Number(row.locale_count),
       local_gallery_count: Number(row.local_gallery_count),
       room_count: Number(row.room_count),
-      rooms_with_local_images: Number(row.rooms_with_local_images),
+      rooms_with_local_images: roomsWithLocal,
       price_rule_count: Number(row.price_rule_count),
       checked_at: new Date().toISOString(),
     }
@@ -112,13 +187,21 @@ try {
     }
   }
   await client.query(`SELECT refresh_listing_vitrin_prices()`)
-  console.log(JSON.stringify({
-    requested: refs.length,
-    found: result.rows.length,
-    newlyPublished: published,
-    publishReady: result.rows.length - pending.length,
-    pending,
-  }, null, 2))
+  console.log(
+    JSON.stringify(
+      {
+        mode: requireAllLocales ? 'all_locales' : 'tr_first',
+        requested: refs.length,
+        found: result.rows.length,
+        roomsBackfilled,
+        newlyPublished: published,
+        publishReady: result.rows.length - pending.length,
+        pending,
+      },
+      null,
+      2,
+    ),
+  )
 } finally {
   await client.end()
 }

@@ -53,22 +53,35 @@ function slugTokens(roomName) {
  * @param {string[]} images facility gallery
  * @param {string} roomName
  * @param {number} [roomIndex=0] rotate among rooms so each room gets a different subset
+ * @param {{ allowUnlabeledFallback?: boolean }} [opts]
  * @returns {string[]}
  */
-export function roomImagesFromGallery(images, roomName, roomIndex = 0) {
+export function roomImagesFromGallery(images, roomName, roomIndex = 0, opts = {}) {
   const list = Array.isArray(images) ? images.filter(Boolean) : []
   if (!list.length) return []
+  const allowUnlabeledFallback = opts.allowUnlabeledFallback !== false
 
   const hard = []
   const soft = []
+  const unlabeled = []
   for (const u of list) {
     const c = classifyHotelGalleryImage(u)
     if (c === 'room') hard.push(u)
     else if (c === 'soft') soft.push(u)
+    else if (c === 'other') unlabeled.push(u)
   }
 
-  // Asla reject/other'a düşme — yemekhane/lobi oda yerine konmasın
+  // Önce Room/Suite etiketleri; yoksa soft; TatilBudur gibi sayısal CDN'de
+  // etiket yoksa reject olmayan (other) galeri — lobi/havuz/restoran ASLA.
   let pool = hard.length ? hard : soft
+  let usedFallback = false
+  if (!pool.length && allowUnlabeledFallback && unlabeled.length) {
+    // Kapak/dış cephe genelde ilk 1–2 kare; odalara ortadaki kareleri ver.
+    const skip = Math.min(2, Math.max(0, unlabeled.length - 2))
+    pool = unlabeled.slice(skip)
+    if (!pool.length) pool = unlabeled
+    usedFallback = true
+  }
   if (!pool.length) return []
 
   const tokens = slugTokens(roomName)
@@ -84,6 +97,7 @@ export function roomImagesFromGallery(images, roomName, roomIndex = 0) {
     }
     // Stable tie-break + rotation by room index
     score -= ((i + roomIndex * 2) % Math.max(pool.length, 1)) * 0.01
+    if (usedFallback) score -= i * 0.001
     return { u, score }
   })
   scored.sort((a, b) => b.score - a.score)
@@ -104,16 +118,29 @@ export function rewriteFeedRoomImages(feed) {
   const hotels = Array.isArray(feed?.hotels) ? feed.hotels : []
   let roomsFixed = 0
   let roomsEmpty = 0
+  let roomsFallback = 0
   for (const hotel of hotels) {
     const gallery = Array.isArray(hotel.images) ? hotel.images : []
     const rooms = Array.isArray(hotel.rooms) ? hotel.rooms : []
     rooms.forEach((room, i) => {
-      const imgs = roomImagesFromGallery(gallery, room.name || room.id || `oda-${i + 1}`, i)
+      const strict = roomImagesFromGallery(
+        gallery,
+        room.name || room.id || `oda-${i + 1}`,
+        i,
+        { allowUnlabeledFallback: false },
+      )
+      const imgs =
+        strict.length > 0
+          ? strict
+          : roomImagesFromGallery(gallery, room.name || room.id || `oda-${i + 1}`, i, {
+              allowUnlabeledFallback: true,
+            })
       room.images = imgs
       room.image = imgs[0] || ''
       roomsFixed++
       if (!imgs.length) roomsEmpty++
+      else if (!strict.length) roomsFallback++
     })
   }
-  return { hotels: hotels.length, roomsFixed, roomsEmpty }
+  return { hotels: hotels.length, roomsFixed, roomsEmpty, roomsFallback }
 }
