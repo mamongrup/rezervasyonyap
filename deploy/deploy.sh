@@ -10,6 +10,8 @@
 #   SKIP_FRONTEND_BUILD=1 ./deploy/deploy.sh                  # yalniz API (~5 dk)
 #   SKIP_BACKEND_BUILD=1 ./deploy/deploy.sh                   # yalniz frontend (~15 dk, node_modules aynıysa ~5 dk)
 #   SKIP_BACKEND_BUILD=1 FORCE_NPM_CI=0 ./deploy/deploy.sh   # frontend, node_modules koru (~5 dk)
+#   SKIP_AI_SOCIAL_KICK=1 ./deploy/deploy.sh                  # AI/sosyal anlık tetik atla
+#   SYNC_AI_SOCIAL_KICK=1 ./deploy/deploy.sh                  # (eski) AI worker senkron — yavaş
 #   SKIP_VERIFY=1 ./deploy/deploy.sh                          # verify bekleme atlanir
 #   SKIP_SOCIAL_WORKER_TIMER=1 ./deploy/deploy.sh             # sosyal paylaşım worker timer kurulumunu atla
 #   SKIP_DB_CONN_GUARD=1 ./deploy/deploy.sh                   # PostgreSQL orphan bağlantı temizliğini atla
@@ -708,7 +710,8 @@ main() {
   elif [[ -f "$APP_ROOT/deploy/scripts/ensure-ai-social-workers.sh" ]]; then
     step "AI + sosyal medya worker (timer + async tetik)"
     chmod +x "$APP_ROOT/deploy/scripts/ensure-ai-social-workers.sh"
-    bash "$APP_ROOT/deploy/scripts/ensure-ai-social-workers.sh" \
+    # SYNC_AI_SOCIAL_KICK=1 → eski senkron AI run-steps (dakikalar sürebilir)
+    SYNC_KICK="${SYNC_AI_SOCIAL_KICK:-0}" bash "$APP_ROOT/deploy/scripts/ensure-ai-social-workers.sh" \
       || warn "AI/sosyal worker tetik tamamlanamadı; elle: ./deploy/scripts/ensure-ai-social-workers.sh"
   fi
 
