@@ -47,7 +47,7 @@ async function backfillRoomImages(client, listingId) {
   const gallery = await client.query(
     `SELECT storage_key FROM listing_images
       WHERE listing_id=$1::uuid
-        AND storage_key ~* '^uploads/listings/.+\\.avif$'
+        AND regexp_replace(storage_key, '^/+', '') ~* '^uploads/listings/.+\\.avif$'
       ORDER BY sort_order ASC, created_at ASC`,
     [listingId],
   )
@@ -71,11 +71,19 @@ async function backfillRoomImages(client, listingId) {
         if (typeof u === 'string' && u.trim()) current.push(u.trim())
       }
     }
-    if (current.some((u) => /^\/uploads\/listings\/.+\.avif$/i.test(u))) continue
+    if (current.some((u) => /\/uploads\/listings\/.+\.avif$/i.test(u))) continue
 
-    const picked = roomImagesFromGallery(galleryUrls, room.name || `oda-${i + 1}`, i, {
+    let picked = roomImagesFromGallery(galleryUrls, room.name || `oda-${i + 1}`, i, {
       allowUnlabeledFallback: true,
     })
+    // Son çare: reject olmayan yerel galeri (sayısal CDN adları)
+    if (!picked.length) {
+      const skip = Math.min(2, Math.max(0, galleryUrls.length - 1))
+      const pool = galleryUrls.slice(skip)
+      const start = i % Math.max(pool.length, 1)
+      picked = pool.slice(start, start + 3)
+      if (picked.length < 1) picked = galleryUrls.slice(0, 3)
+    }
     if (!picked.length) continue
     await client.query(
       `UPDATE hotel_rooms
@@ -105,7 +113,7 @@ try {
            AND length(trim(coalesce(lt.description,''))) >= 120) AS locale_count,
        (SELECT count(*)::int FROM listing_images li
          WHERE li.listing_id=l.id
-           AND li.storage_key ~* '^uploads/listings/.+\\.avif$') AS local_gallery_count,
+           AND regexp_replace(li.storage_key, '^/+', '') ~* '^uploads/listings/.+\\.avif$') AS local_gallery_count,
        (SELECT count(*)::int FROM hotel_rooms hr WHERE hr.listing_id=l.id) AS room_count,
        (SELECT count(*)::int FROM listing_price_rules lpr
          WHERE lpr.listing_id=l.id
@@ -130,12 +138,12 @@ try {
       `SELECT count(*)::int AS n FROM hotel_rooms hr
         WHERE hr.listing_id=$1::uuid
           AND (
-            coalesce(hr.meta_json->>'image','') ~* '^/uploads/listings/.+\\.avif$'
+            coalesce(hr.meta_json->>'image','') ~* '/uploads/listings/.+\\.avif$'
             OR EXISTS (
               SELECT 1 FROM jsonb_array_elements_text(
                 CASE WHEN jsonb_typeof(hr.meta_json->'images')='array'
                      THEN hr.meta_json->'images' ELSE '[]'::jsonb END
-              ) im(url) WHERE im.url ~* '^/uploads/listings/.+\\.avif$'
+              ) im(url) WHERE im.url ~* '/uploads/listings/.+\\.avif$'
             )
           )`,
       [row.id],
