@@ -80,7 +80,7 @@ try {
     }
 
     const rooms = await client.query(
-      `SELECT id::text, name, meta_json FROM hotel_rooms WHERE listing_id=$1::uuid ORDER BY sort_order ASC, created_at ASC`,
+      `SELECT id::text, name, meta_json FROM hotel_rooms WHERE listing_id=$1::uuid ORDER BY name ASC`,
       [listing.id],
     )
     let touched = false
