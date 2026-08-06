@@ -16,9 +16,14 @@ const valueAfter = (name) => {
   const index = argv.indexOf(name)
   return index >= 0 ? String(argv[index + 1] || '').trim() : ''
 }
-const input = path.resolve(ROOT, valueAfter('--file'))
-const output = path.resolve(ROOT, valueAfter('--out') || 'backups/tatilbudur-import-links.md')
-if (!valueAfter('--file')) throw new Error('--file gerekli')
+const defaultFeed = 'backups/tatilbudur-bodrum-public-feed.json'
+const defaultOut = 'backups/tatilbudur-bodrum-links.md'
+const fileArg = valueAfter('--file') || (fs.existsSync(path.join(ROOT, defaultFeed)) ? defaultFeed : '')
+if (!fileArg) {
+  throw new Error(`--file gerekli (ör. --file ${defaultFeed})`)
+}
+const input = path.resolve(ROOT, fileArg)
+const output = path.resolve(ROOT, valueAfter('--out') || defaultOut)
 
 const feed = JSON.parse(fs.readFileSync(input, 'utf8'))
 const refs = (feed.hotels || []).map((hotel) => String(hotel.id || '').trim()).filter(Boolean)
