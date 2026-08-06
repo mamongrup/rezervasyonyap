@@ -6,6 +6,7 @@ import useSnapSlider from '@/hooks/useSnapSlider'
 import { ButtonCircle } from '@/shared/Button'
 import ButtonSecondary from '@/shared/ButtonSecondary'
 import { Heading, Subheading } from '@/shared/Heading'
+import { Badge } from '@/shared/Badge'
 import { displayListingCategoryLine } from '@/lib/listing-category-display'
 import { normalizeCatalogVertical } from '@/lib/catalog-listing-vertical'
 import {
@@ -15,16 +16,17 @@ import {
 import { useVitrinHref } from '@/hooks/use-vitrin-href'
 import { getMessages } from '@/utils/getT'
 import { ArrowLeft02Icon, ArrowRight02Icon, Location06Icon } from '@hugeicons/core-free-icons'
-import Image from 'next/image'
-import Link from 'next/link'
-import { FC, useRef, useState } from 'react'
-import { useParams } from 'next/navigation'
-import StartRating from '@/components/StartRating'
-import SaleOffBadge from '@/components/SaleOffBadge'
-import BtnLikeIcon from '@/components/BtnLikeIcon'
 import { HugeiconsIcon } from '@hugeicons/react'
-import { Badge } from '@/shared/Badge'
 import ListingPrice from '@/components/ListingPrice'
+import GallerySlider from '@/components/GallerySlider'
+import BtnLikeIcon from '@/components/BtnLikeIcon'
+import SaleOffBadge from '@/components/SaleOffBadge'
+import StartRating from '@/components/StartRating'
+import { listingCardImageCandidates } from '@/lib/listing-card-image-candidates'
+import Link from 'next/link'
+import { useParams } from 'next/navigation'
+import { FC, useMemo, useRef, useState } from 'react'
+
 // ─── Minimal listing card (like StayCard2 but generic) ───────────────────────
 
 interface ListingCardProps {
@@ -39,6 +41,7 @@ interface ListingCardProps {
 function RegionListingCard({ listing, linkBase, priceUnit, nightLabel, locale }: ListingCardProps) {
   const vitrinHref = useVitrinHref()
   const {
+    id,
     title,
     address,
     city,
@@ -67,51 +70,27 @@ function RegionListingCard({ listing, linkBase, priceUnit, nightLabel, locale }:
         ? detailPathForVertical(vertical)
         : linkBase
   const listingHref = vitrinHref(`${detailBase}/${handle}`)
-
-  const imgSrcRaw =
-    (galleryImgs?.[0] && typeof galleryImgs[0] === 'string' ? galleryImgs[0] : undefined) ||
-    (galleryImgs?.[0] as { src: string } | undefined)?.src ||
-    featuredImage ||
-    ''
-
-  const [brokenImage, setBrokenImage] = useState(false)
-  const trimmed = typeof imgSrcRaw === 'string' ? imgSrcRaw.trim() : ''
-  const showRemoteImage = Boolean(trimmed) && !brokenImage
+  const sliderImages = useMemo(
+    () => listingCardImageCandidates(galleryImgs, featuredImage).slice(0, 5),
+    [galleryImgs, featuredImage],
+  )
 
   return (
     <div className="group relative">
-      {/* Image */}
-      <div className="relative overflow-hidden rounded-xl">
-        <Link href={listingHref} className="block">
-          <div className="relative w-full overflow-hidden rounded-xl" style={{ paddingBottom: '75%' }}>
-            {showRemoteImage ? (
-              <Image
-                src={trimmed}
-                fill
-                alt={title ?? 'listing'}
-                className="object-cover transition-transform duration-300 group-hover:scale-105"
-                sizes="(max-width: 640px) 92vw, (max-width: 1024px) 46vw, (max-width: 1280px) 31vw, 24vw"
-                unoptimized={
-                  trimmed.startsWith('data:') ||
-                  trimmed.startsWith('/uploads/') ||
-                  /^https?:\/\//i.test(trimmed)
-                }
-                onError={() => setBrokenImage(true)}
-              />
-            ) : (
-              <div className="absolute inset-0 bg-neutral-200 dark:bg-neutral-700" aria-hidden />
-            )}
-          </div>
-        </Link>
-        {saleOff && <SaleOffBadge desc={saleOff} className="absolute left-3 top-3 z-10" />}
-        {isAds && (
-          <Badge color="green" className="absolute left-3 bottom-3 z-10 !bg-white !text-neutral-900">
+      <div className="relative w-full">
+        <GallerySlider
+          uniqueID={`region-${String(id)}`}
+          ratioClass="aspect-w-4 aspect-h-3"
+          galleryImgs={sliderImages}
+          href={listingHref}
+        />
+        <BtnLikeIcon isLiked={like ?? false} className="absolute end-3 top-3 z-1" />
+        {saleOff ? <SaleOffBadge desc={saleOff} className="absolute start-3 top-3" /> : null}
+        {isAds ? (
+          <Badge color="green" className="absolute start-3 bottom-3 z-10 !bg-white !text-neutral-900">
             ADS
           </Badge>
-        )}
-        <div className="absolute right-3 top-3 z-10">
-          <BtnLikeIcon isLiked={like ?? false} />
-        </div>
+        ) : null}
       </div>
 
       {/* Info — StayCard2 ile aynı tipografi */}

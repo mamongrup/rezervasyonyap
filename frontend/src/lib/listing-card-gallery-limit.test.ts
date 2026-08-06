@@ -32,15 +32,21 @@ function sampleListing(galleryCount: number): TListingBase {
 }
 
 describe('category listing payload slim', () => {
-  it('vitrin slim keeps a single cover image', () => {
+  it('vitrin slim keeps up to 5 gallery images for card slider', () => {
     const slim = slimListingForVitrinCard(sampleListing(12))
-    expect(slim.galleryImgs).toEqual(['/uploads/img-0.jpg'])
+    expect(slim.galleryImgs).toEqual([
+      '/uploads/img-0.jpg',
+      '/uploads/img-1.jpg',
+      '/uploads/img-2.jpg',
+      '/uploads/img-3.jpg',
+      '/uploads/img-4.jpg',
+    ])
     expect(slim.themeCodes).toBeUndefined()
   })
 
-  it('category client slim keeps filter meta without full gallery', () => {
+  it('category client slim keeps filter meta and card gallery', () => {
     const slim = slimListingForCategoryClient(sampleListing(12))
-    expect(slim.galleryImgs).toEqual(['/uploads/img-0.jpg'])
+    expect(slim.galleryImgs?.length).toBe(5)
     expect(slim.themeCodes).toEqual(['havuz'])
     expect(slim.themeChipLabels).toEqual(['Havuz'])
     expect(slim.instantBook).toBe(true)

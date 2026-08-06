@@ -1,5 +1,5 @@
 import { normalizeCatalogVertical } from '@/lib/catalog-listing-vertical'
-import { fetchCategoryListings, fetchListingsByIds } from '@/lib/listings-fetcher'
+import { fetchCategoryListings, fetchListingsByIds, LISTING_CARD_GALLERY_LIMIT } from '@/lib/listings-fetcher'
 import {
   filterEconomicListings,
   filterLuxuryListings,
@@ -236,14 +236,27 @@ export async function loadFeaturedPlacesListingPool(
 }
 
 /**
- * Vitrin kartı (StayCard2 / RegionListingCard) için gerekli alanlar.
- * galleryImgs + uzun opsiyonel alanlar RSC HTML'ini şişiriyordu (~1.7 MB anasayfa).
+ * Vitrin kartı (StayCard2 / RegionListingCard / ListingCard) için gerekli alanlar.
+ * Tam galeri RSC HTML'ini şişirir; kart kaydırıcısı için en fazla
+ * {@link LISTING_CARD_GALLERY_LIMIT} görsel bırakılır (oklar + noktalar için ≥2 gerekir).
  */
 export function slimListingForVitrinCard(listing: TListingBase): TListingBase {
   const cover =
     (typeof listing.featuredImage === 'string' && listing.featuredImage.trim()) ||
     (typeof listing.galleryImgs?.[0] === 'string' ? listing.galleryImgs[0].trim() : '') ||
     undefined
+  const seen = new Set<string>()
+  const galleryImgs: string[] = []
+  const push = (raw: string | undefined) => {
+    const u = typeof raw === 'string' ? raw.trim() : ''
+    if (!u || seen.has(u) || galleryImgs.length >= LISTING_CARD_GALLERY_LIMIT) return
+    seen.add(u)
+    galleryImgs.push(u)
+  }
+  push(cover)
+  for (const item of listing.galleryImgs ?? []) {
+    push(typeof item === 'string' ? item : undefined)
+  }
   return {
     id: listing.id,
     handle: listing.handle,
@@ -251,7 +264,7 @@ export function slimListingForVitrinCard(listing: TListingBase): TListingBase {
     listingCategory: listing.listingCategory,
     listingVertical: listing.listingVertical,
     featuredImage: cover,
-    galleryImgs: cover ? [cover] : undefined,
+    galleryImgs: galleryImgs.length > 0 ? galleryImgs : undefined,
     address: listing.address,
     city: listing.city,
     price: listing.price,

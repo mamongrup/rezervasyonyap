@@ -2,26 +2,25 @@
 
 import ListingPrice from '@/components/ListingPrice'
 import BtnLikeIcon from '@/components/BtnLikeIcon'
+import GallerySlider from '@/components/GallerySlider'
 import SaleOffBadge from '@/components/SaleOffBadge'
 import StartRating from '@/components/StartRating'
 import { listingCardImageCandidates } from '@/lib/listing-card-image-candidates'
 import { displayListingCategoryLine } from '@/lib/listing-category-display'
 import { holidayHomeCapacitySummary } from '@/lib/holiday-home-capacity-summary'
-import { nextListingImageUrlFallback } from '@/lib/listing-image-url-fallbacks'
-import { shouldUnoptimizeListingImage } from '@/lib/listing-image-optimization'
 import type { TListingBase, TListingHolidayHome } from '@/types/listing-types'
 import { Badge } from '@/shared/Badge'
 import { getMessages } from '@/utils/getT'
 import { Location06Icon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
 import clsx from 'clsx'
-import Image from 'next/image'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
-import { FC, useEffect, useMemo, useState } from 'react'
+import { FC, useMemo } from 'react'
 import { useVitrinHref } from '@/hooks/use-vitrin-href'
 import { normalizeCatalogVertical } from '@/lib/catalog-listing-vertical'
 import { detailPathForVertical } from '@/lib/listing-detail-routes'
+
 interface StayCard2Props {
   className?: string
   data: TListingBase
@@ -30,7 +29,7 @@ interface StayCard2Props {
   priority?: boolean
 }
 
-const StayCard2: FC<StayCard2Props> = ({ size = 'default', className = '', data, priority = false }) => {
+const StayCard2: FC<StayCard2Props> = ({ size = 'default', className = '', data }) => {
   const params = useParams()
   const locale = typeof params?.locale === 'string' ? params.locale : 'tr'
   const vitrinHref = useVitrinHref()
@@ -39,6 +38,7 @@ const StayCard2: FC<StayCard2Props> = ({ size = 'default', className = '', data,
   const categoryLine = displayListingCategoryLine(data, locale)
 
   const {
+    id,
     galleryImgs,
     featuredImage,
     address,
@@ -63,75 +63,20 @@ const StayCard2: FC<StayCard2Props> = ({ size = 'default', className = '', data,
 
   const detailBase = detailPathForVertical(normalizeCatalogVertical(listingVertical))
   const listingHref = vitrinHref(`${detailBase}/${listingHandle}`)
-  const imageCandidates = useMemo(
-    () => listingCardImageCandidates(galleryImgs, featuredImage),
+  const sliderImages = useMemo(
+    () => listingCardImageCandidates(galleryImgs, featuredImage).slice(0, 5),
     [galleryImgs, featuredImage],
   )
-  const initialSrc = imageCandidates[0] ?? ''
-  const [candidateIndex, setCandidateIndex] = useState(0)
-  const [imageSrc, setImageSrc] = useState(initialSrc)
-  const [tried, setTried] = useState<string[]>(() => (initialSrc ? [initialSrc] : []))
-  const [brokenImage, setBrokenImage] = useState(false)
-  const [imageLoaded, setImageLoaded] = useState(false)
-
-  useEffect(() => {
-    setCandidateIndex(0)
-    setImageSrc(initialSrc)
-    setTried(initialSrc ? [initialSrc] : [])
-    setBrokenImage(false)
-    setImageLoaded(false)
-  }, [initialSrc])
-
-  const showRemoteImage = Boolean(imageSrc) && !brokenImage
 
   const renderSliderGallery = () => {
     return (
       <div className="relative w-full">
-        <Link href={listingHref} className="block">
-          <div
-            className={clsx(
-              'relative w-full overflow-hidden rounded-xl bg-neutral-200 dark:bg-neutral-700',
-              showRemoteImage && !imageLoaded && 'animate-pulse',
-            )}
-            style={{ paddingBottom: '75%' }}
-          >
-            {showRemoteImage ? (
-              <Image
-                src={imageSrc}
-                fill
-                alt={title ?? 'listing'}
-                className={clsx(
-                  'object-cover transition-[transform,opacity] duration-300 group-hover:scale-105',
-                  imageLoaded ? 'opacity-100' : 'opacity-0',
-                )}
-                sizes="(max-width: 640px) 92vw, (max-width: 1024px) 46vw, (max-width: 1280px) 31vw, 24vw"
-                unoptimized={shouldUnoptimizeListingImage(imageSrc)}
-                priority={priority}
-                loading={priority ? 'eager' : 'lazy'}
-                onLoad={() => setImageLoaded(true)}
-                onError={() => {
-                  const next = nextListingImageUrlFallback(imageSrc, new Set(tried))
-                  if (next) {
-                    setTried((prev) => [...prev, next])
-                    setImageSrc(next)
-                    setImageLoaded(false)
-                    return
-                  }
-                  const nextCandidateIndex = candidateIndex + 1
-                  const nextCandidate = imageCandidates[nextCandidateIndex]
-                  if (nextCandidate) {
-                    setCandidateIndex(nextCandidateIndex)
-                    setTried((prev) => [...prev, nextCandidate])
-                    setImageSrc(nextCandidate)
-                    setImageLoaded(false)
-                    return
-                  }
-                  setBrokenImage(true)
-                }}
-              />
-            ) : null}
-          </div>
-        </Link>
+        <GallerySlider
+          uniqueID={String(id)}
+          ratioClass="aspect-w-4 aspect-h-3"
+          galleryImgs={sliderImages}
+          href={listingHref}
+        />
         <BtnLikeIcon isLiked={like} className="absolute end-3 top-3 z-1" />
         {saleOff ? <SaleOffBadge desc={saleOff} className="absolute start-3 top-3" /> : null}
       </div>
