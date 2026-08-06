@@ -21,8 +21,8 @@ function run(script, args = [], env = {}) {
 }
 
 run('scripts/backfill-tatilbudur-room-images-from-gallery.mjs')
-// TR önce — 6 dil bekleme
 run('scripts/publish-ready-bodrum-tatilbudur.mjs', [], { REQUIRE_ALL_LOCALES: '0' })
+run('scripts/diagnose-bodrum-tatilbudur-drafts.mjs')
 run('scripts/report-tatilbudur-import-links.mjs', [
   '--file',
   'backups/tatilbudur-bodrum-public-feed.json',
@@ -33,8 +33,7 @@ run('scripts/report-tatilbudur-import-links.mjs', [
 console.log(`
 [OK] Finalize tamam (TR yayın).
 - Rapor: backups/tatilbudur-bodrum-links.md
-- Durum sayımı:
-    grep -E '\\| published \\|' backups/tatilbudur-bodrum-links.md | wc -l
-- Diğer diller sonra:
-    ./deploy/scripts/ai-worker-run-steps.sh 20
+- Taslak nedenleri: backups/tatilbudur-bodrum-draft-diagnose.md
+- Kalan yerel medya için:
+    ./deploy/scripts/rehost-external-images-detached.sh status
 `)
