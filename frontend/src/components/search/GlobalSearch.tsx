@@ -4,11 +4,13 @@ import type { SearchSuggestion } from '@/app/api/listing-search/route'
 import { useRegisterVitrinOverlay } from '@/components/aside/aside'
 import { useVitrinHref } from '@/hooks/use-vitrin-href'
 import { notifySearchLoading } from '@/lib/hero-search-plan'
+import { getMessages } from '@/utils/getT'
+import { interpolate } from '@/utils/interpolate'
 import clsx from 'clsx'
 import { ArrowRight, Layers, Loader2, MapPin, Search, Tag, X } from 'lucide-react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 
 function SuggestThumb({
   src,
@@ -40,6 +42,22 @@ function SuggestThumb({
   )
 }
 
+/**
+ * Modül düzeyi önbellek — overlay kapanıp açılınca aramalar sıfırlanmasın
+ * (eskiden her açılışta ilk tuşlar yeniden ağ bekliyordu).
+ */
+const SUGGEST_CACHE_MAX = 80
+const suggestCache = new Map<string, SearchSuggestion[]>()
+const suggestInflight = new Map<string, Promise<SearchSuggestion[]>>()
+
+function cachePut(key: string, value: SearchSuggestion[]) {
+  suggestCache.set(key, value)
+  if (suggestCache.size > SUGGEST_CACHE_MAX) {
+    const oldest = suggestCache.keys().next().value
+    if (oldest !== undefined) suggestCache.delete(oldest)
+  }
+}
+
 function cacheGet(
   cache: Map<string, SearchSuggestion[]>,
   key: string,
@@ -58,6 +76,29 @@ function cacheGet(
   return best
 }
 
+/** Aynı sorgu için tek istek — hızlı yazımda çoklu uçuş yerine paylaşılan promise. */
+function fetchSuggestions(
+  cacheKey: string,
+  url: string,
+  signal: AbortSignal,
+): Promise<SearchSuggestion[]> {
+  const existing = suggestInflight.get(cacheKey)
+  if (existing) return existing
+  const promise = fetch(url, { signal })
+    .then(async (res) => {
+      if (!res.ok) throw new Error(`listing_search_${res.status}`)
+      const data = (await res.json()) as { suggestions: SearchSuggestion[] }
+      const next = Array.isArray(data.suggestions) ? data.suggestions : []
+      cachePut(cacheKey, next)
+      return next
+    })
+    .finally(() => {
+      suggestInflight.delete(cacheKey)
+    })
+  suggestInflight.set(cacheKey, promise)
+  return promise
+}
+
 // ─── Overlay search modal ─────────────────────────────────────────────────────
 export function SearchModal({ onClose, locale }: { onClose: () => void; locale: string }) {
   useRegisterVitrinOverlay(true)
@@ -68,9 +109,9 @@ export function SearchModal({ onClose, locale }: { onClose: () => void; locale: 
   const [selectedIdx, setSelectedIdx] = useState(-1)
   const router = useRouter()
   const vitrinPath = useVitrinHref()
+  const t = useMemo(() => getMessages(locale).search, [locale])
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const abortRef = useRef<AbortController | null>(null)
-  const cacheRef = useRef(new Map<string, SearchSuggestion[]>())
   const latestQueryRef = useRef('')
 
   useEffect(() => {
@@ -108,7 +149,7 @@ export function SearchModal({ onClose, locale }: { onClose: () => void; locale: 
       }
 
       const cacheKey = `${locale}:${q.toLocaleLowerCase(locale)}`
-      const cachedExact = cacheRef.current.get(cacheKey)
+      const cachedExact = suggestCache.get(cacheKey)
       if (cachedExact) {
         setSuggestions(cachedExact)
         setSelectedIdx(-1)
@@ -116,37 +157,50 @@ export function SearchModal({ onClose, locale }: { onClose: () => void; locale: 
         return
       }
 
-      const prefixHit = cacheGet(cacheRef.current, cacheKey)
+      const prefixHit = cacheGet(suggestCache, cacheKey)
       if (prefixHit) {
         setSuggestions(prefixHit)
         setSelectedIdx(-1)
       }
 
       setLoading(true)
-      // 140ms: hızlı tepki + kısa tuş birleştirme (önceki 250ms ağır hissediliyordu).
-      debounceRef.current = setTimeout(async () => {
+      const url = `/api/listing-search?q=${encodeURIComponent(q)}&locale=${locale}&limit=8`
+      // Uçuşta aynı sorgu varsa beklemeden ona bağlan (debounce'u atla).
+      const pending = suggestInflight.get(cacheKey)
+      if (pending) {
+        void pending
+          .then((next) => {
+            if (latestQueryRef.current !== q) return
+            setSuggestions(next)
+            setSelectedIdx(-1)
+          })
+          .catch(() => {})
+          .finally(() => {
+            if (latestQueryRef.current === q) setLoading(false)
+          })
+        return
+      }
+
+      // 90ms: tuş birleştirme yeterli, gecikme hissi düşük.
+      debounceRef.current = setTimeout(() => {
         const controller = new AbortController()
         abortRef.current = controller
-        try {
-          const res = await fetch(`/api/listing-search?q=${encodeURIComponent(q)}&locale=${locale}&limit=8`, {
-            signal: controller.signal,
+        fetchSuggestions(cacheKey, url, controller.signal)
+          .then((next) => {
+            if (latestQueryRef.current !== q) return
+            setSuggestions(next)
+            setSelectedIdx(-1)
           })
-          if (!res.ok) throw new Error(`listing_search_${res.status}`)
-          const data = (await res.json()) as { suggestions: SearchSuggestion[] }
-          const next = Array.isArray(data.suggestions) ? data.suggestions : []
-          cacheRef.current.set(cacheKey, next)
-          if (latestQueryRef.current !== q) return
-          setSuggestions(next)
-          setSelectedIdx(-1)
-        } catch (error) {
-          if (error instanceof DOMException && error.name === 'AbortError') return
-          if (latestQueryRef.current !== q) return
-          // Önceki önek sonuçlarını silme — boş flash olmasın.
-          if (!prefixHit) setSuggestions([])
-        } finally {
-          if (latestQueryRef.current === q) setLoading(false)
-        }
-      }, 140)
+          .catch((error: unknown) => {
+            if (error instanceof DOMException && error.name === 'AbortError') return
+            if (latestQueryRef.current !== q) return
+            // Önceki önek sonuçlarını silme — boş flash olmasın.
+            if (!prefixHit) setSuggestions([])
+          })
+          .finally(() => {
+            if (latestQueryRef.current === q) setLoading(false)
+          })
+      }, 90)
     },
     [locale]
   )
@@ -200,8 +254,8 @@ export function SearchModal({ onClose, locale }: { onClose: () => void; locale: 
                   search(e.target.value)
                 }}
                 onKeyDown={handleKeyDown}
-                aria-label="İlan, yer veya özellik ara"
-                placeholder="İlan adı, yer, özellik ara… (ör: balayı villası, 5 kabinli yat)"
+                aria-label={t.overlayAriaLabel}
+                placeholder={t.overlayPlaceholder}
                 className="w-full border-0 bg-transparent py-4 pr-12 pl-12 text-base font-medium text-neutral-900 ring-0 outline-none placeholder:font-normal placeholder:text-neutral-400 focus:border-0 focus:ring-0 focus:outline-none focus-visible:outline-none sm:text-lg dark:text-white"
               />
               {loading && (
@@ -210,7 +264,7 @@ export function SearchModal({ onClose, locale }: { onClose: () => void; locale: 
               {!loading && query ? (
                 <button
                   type="button"
-                  aria-label="Aramayı temizle"
+                  aria-label={t.clearAria}
                   className="absolute top-1/2 right-4 -translate-y-1/2 text-neutral-400 hover:text-neutral-700"
                   onClick={() => {
                     setQuery('')
@@ -224,15 +278,15 @@ export function SearchModal({ onClose, locale }: { onClose: () => void; locale: 
             </div>
             <button
               onClick={onClose}
-              aria-label="Aramayı kapat"
+              aria-label={t.closeAria}
               className="flex-shrink-0 rounded-xl p-3 text-neutral-500 transition hover:bg-neutral-100 hover:text-neutral-900 dark:hover:bg-neutral-800 dark:hover:text-white"
             >
               <X className="size-6" />
             </button>
           </div>
           <div className="mt-2 flex items-center justify-between px-1 text-xs text-neutral-400">
-            <span>Otel, villa, tur, bölge veya özellik arayın</span>
-            <span className="hidden sm:inline">↑↓ seç · Enter aç · Esc kapat</span>
+            <span>{t.overlayHint}</span>
+            <span className="hidden sm:inline">{t.overlayKeyHint}</span>
           </div>
         </div>
       </div>
@@ -244,9 +298,7 @@ export function SearchModal({ onClose, locale }: { onClose: () => void; locale: 
             {suggestions.length === 0 && !loading && query.trim().length >= 3 ? (
               <div className="px-5 py-8 text-center text-neutral-500">
                 <Search className="mx-auto mb-2 h-8 w-8 opacity-30" />
-                <p className="text-sm">
-                  <strong>{query}</strong> için sonuç bulunamadı
-                </p>
+                <p className="text-sm">{interpolate(t.noResults, { query })}</p>
                 <Link
                   href={`${vitrinPath('/ara')}?q=${encodeURIComponent(query)}`}
                   onClick={() => {
@@ -255,7 +307,7 @@ export function SearchModal({ onClose, locale }: { onClose: () => void; locale: 
                   }}
                   className="mt-3 inline-block text-sm text-link-muted-underline"
                 >
-                  Tüm listelemelerde ara →
+                  {t.searchAllListings}
                 </Link>
               </div>
             ) : (
@@ -301,7 +353,7 @@ export function SearchModal({ onClose, locale }: { onClose: () => void; locale: 
                           </span>
                           {s.type === 'collection' && (
                             <span className="flex-shrink-0 rounded-full bg-primary-100 px-2 py-0.5 text-xs font-medium text-primary-700 dark:bg-primary-900/30 dark:text-primary-300">
-                              Koleksiyon
+                              {t.collectionBadge}
                             </span>
                           )}
                         </div>
@@ -326,7 +378,7 @@ export function SearchModal({ onClose, locale }: { onClose: () => void; locale: 
                       className="group m-1 flex items-center gap-2 rounded-2xl px-4 py-3.5 text-sm font-semibold text-primary-700 transition hover:bg-primary-50 dark:text-primary-300 dark:hover:bg-primary-950/30"
                     >
                       <Search className="size-4" />
-                      <span className="flex-1">&ldquo;{query}&rdquo; için tüm sonuçları gör</span>
+                      <span className="flex-1">{interpolate(t.seeAllResults, { query })}</span>
                       <ArrowRight className="size-4 transition-transform group-hover:translate-x-0.5" />
                     </Link>
                   </li>
@@ -343,16 +395,17 @@ export function SearchModal({ onClose, locale }: { onClose: () => void; locale: 
 // ─── Search Button (header'a eklenir) ─────────────────────────────────────────
 export default function GlobalSearch({ locale = 'tr', iconOnly = false }: { locale?: string; iconOnly?: boolean }) {
   const [open, setOpen] = useState(false)
+  const t = useMemo(() => getMessages(locale).search, [locale])
 
   return (
     <>
       <button
         onClick={() => setOpen(true)}
-        aria-label="Ara"
+        aria-label={t.openAria}
         className="relative -m-2.5 flex cursor-pointer items-center justify-center gap-2 rounded-full p-2.5 text-neutral-700 transition hover:bg-neutral-100 focus-visible:outline-hidden dark:text-neutral-300 dark:hover:bg-neutral-800"
       >
         <Search className="size-5" />
-        {!iconOnly ? <span className="text-sm font-medium">Ara</span> : null}
+        {!iconOnly ? <span className="text-sm font-medium">{t.buttonLabel}</span> : null}
       </button>
       {open && <SearchModal onClose={() => setOpen(false)} locale={locale} />}
     </>
