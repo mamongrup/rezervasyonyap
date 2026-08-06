@@ -6,7 +6,9 @@
     "adults": 2,
     "children": 0,
     "currency": "TRY",
-    "pricePolicy": "visible_total_only_excluding_card_campaigns"
+    "validFrom": "2026-08-01",
+    "validTo": "2026-09-30",
+    "pricePolicy": "visible_total_divided_by_3_for_august_september_excluding_card_campaigns"
   },
   "hotels": [
     {

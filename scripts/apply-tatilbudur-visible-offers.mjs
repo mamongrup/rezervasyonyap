@@ -3,7 +3,9 @@
  * Tarayıcıda doğrulanan TatilBudur tekliflerini mevcut public-page feed'iyle birleştirir.
  *
  * Yalnız `totalPrice` kullanılır; WorldCard/kampanya fiyatı bu dosyaya girmemelidir.
- * 10–13 Ağustos / 2 yetişkin dışındaki teklif bu araç tarafından reddedilir.
+ * Kaynak sorgu mutlaka 10–13 Ağustos / 2 yetişkin olmalıdır. Kullanıcının açık
+ * talebi varsa `validFrom`/`validTo` ile hesaplanan gecelik fiyat daha geniş
+ * sezona (örn. Ağustos–Eylül) uygulanabilir; kaynak sorgu snapshot'ta korunur.
  */
 import fs from 'node:fs'
 import path from 'node:path'
@@ -27,10 +29,15 @@ if (
   search.checkOut !== '2026-08-13' ||
   Number(search.nights) !== 3 ||
   Number(search.adults) !== 2 ||
-  Number(search.children) !== 0 ||
+  ![0, 1].includes(Number(search.children)) ||
   search.currency !== 'TRY'
 ) {
-  throw new Error('Teklif arama bağlamı 10–13 Ağustos 2026 / 2 yetişkin / 0 çocuk / TRY olmalı')
+  throw new Error('Teklif arama bağlamı 10–13 Ağustos 2026 / 2 yetişkin / 0 veya 1 çocuk / TRY olmalı')
+}
+const validFrom = String(search.validFrom || search.checkIn)
+const validTo = String(search.validTo || search.checkOut)
+if (!/^\d{4}-\d{2}-\d{2}$/.test(validFrom) || !/^\d{4}-\d{2}-\d{2}$/.test(validTo)) {
+  throw new Error('validFrom/validTo YYYY-MM-DD olmalı')
 }
 
 const slugify = (value) =>
@@ -57,7 +64,7 @@ for (const offerHotel of capture.hotels || []) {
     rooms.push({
       id: `${slugify(room.name)}-${slugify(boardType)}-${index + 1}`,
       name: String(room.name || '').trim(),
-      capacity: 2,
+      capacity: Number(search.adults) + Number(search.children),
       unitCount: 1,
       boardType,
       image: '',
@@ -68,8 +75,8 @@ for (const offerHotel of capture.hotels || []) {
         ...(room.childAdvantage ? [room.childAdvantage] : []),
       ].filter(Boolean),
       rates: [{
-        validFrom: search.checkIn,
-        validTo: search.checkOut,
+        validFrom,
+        validTo,
         nightlyPrice: nightly,
         totalPrice: total,
         stayNights: search.nights,

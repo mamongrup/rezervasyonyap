@@ -1,0 +1,348 @@
+{
+  "search": {
+    "checkIn": "2026-08-10",
+    "checkOut": "2026-08-13",
+    "nights": 3,
+    "adults": 2,
+    "children": 1,
+    "childAge": null,
+    "currency": "TRY",
+    "validFrom": "2026-08-01",
+    "validTo": "2026-09-30",
+    "pricePolicy": "user_supplied_visible_total_divided_by_3_for_august_september"
+  },
+  "hotels": [
+    {
+      "sourceUrl": "https://www.tatilbudur.com/charm-beach-hotel",
+      "name": "Charm Beach Hotel",
+      "rooms": [
+        {"name": "Kara Manzaralı Standart Oda", "boardType": "Her Şey Dahil", "totalPrice": 43693, "size": "18 m²", "features": ["Balkon", "Çay-Kahve Seti"], "childAdvantage": "0-12 yaş çocuk avantajı"},
+        {"name": "Deniz Manzaralı Standart Oda", "boardType": "Her Şey Dahil", "totalPrice": 47307, "size": "18 m²", "features": ["Balkon", "Çay-Kahve Seti"], "childAdvantage": "0-12 yaş çocuk avantajı"}
+      ]
+    },
+    {
+      "sourceUrl": "https://www.tatilbudur.com/sami-beach-hotel",
+      "name": "Sami Beach Hotel",
+      "rooms": [
+        {"name": "Anex Oda", "boardType": "Her Şey Dahil", "totalPrice": 37587, "size": "15 m²", "features": ["Balkon", "Duman Dedektörü"], "childAdvantage": "0-7 yaş çocuk avantajı"},
+        {"name": "Standart Bahçe Manzaralı Oda", "boardType": "Her Şey Dahil", "totalPrice": 39864, "size": "16 m²", "features": ["Balkon", "Duş"], "childAdvantage": "0-7 yaş çocuk avantajı"},
+        {"name": "Standart Deniz Manzaralı Oda", "boardType": "Her Şey Dahil", "totalPrice": 42125, "size": "16 m²", "features": ["Balkon", "Duş"], "childAdvantage": "0-7 yaş çocuk avantajı"},
+        {"name": "Superior Deniz Manzaralı Oda", "boardType": "Her Şey Dahil", "totalPrice": 44402, "size": "16 m²", "features": ["Balkon", "Duman Dedektörü"], "childAdvantage": "0-7 yaş çocuk avantajı"}
+      ]
+    },
+    {
+      "sourceUrl": "https://www.tatilbudur.com/afytos-bodrum-city",
+      "name": "Afytos Bodrum City",
+      "rooms": [
+        {"name": "Fırsat Oda", "boardType": "Her Şey Dahil", "totalPrice": 27180, "size": "16 m²", "features": ["Buket Seti", "Duş"], "childAdvantage": "0-7 yaş çocuk avantajı"},
+        {"name": "Standart Oda", "boardType": "Her Şey Dahil", "totalPrice": 31732, "size": "16 m²", "features": ["Buket Seti", "Duş"], "childAdvantage": "0-7 yaş çocuk avantajı"}
+      ]
+    },
+    {
+      "sourceUrl": "https://www.tatilbudur.com/natur-garden-hotel",
+      "name": "Natur Garden Hotel",
+      "rooms": [
+        {"name": "Standart Oda", "boardType": "Her Şey Dahil", "totalPrice": 29388, "size": "20 m²", "features": ["Duman Dedektörü", "Duş"], "childAdvantage": "0-13 yaş çocuk avantajı"}
+      ]
+    },
+    {
+      "sourceUrl": "https://www.tatilbudur.com/sunpoint-hotel-bodrum",
+      "name": "Sunpoint Hotel Bodrum",
+      "rooms": [
+        {"name": "Ekonomik Oda", "boardType": "Her Şey Dahil", "totalPrice": 26250, "features": ["Duş", "Mini Bar"], "childAdvantage": "0-13 yaş çocuk avantajı"},
+        {"name": "Fırsat Oda", "boardType": "Her Şey Dahil", "totalPrice": 29133, "size": "37 m²", "features": ["Duş", "Mini Bar"], "childAdvantage": "0-13 yaş çocuk avantajı", "availabilityNote": "Son 3 Oda"},
+        {"name": "Superior Oda (1+1)", "boardType": "Her Şey Dahil", "totalPrice": 36431, "size": "37 m²", "features": ["Ara Kapı 2 Oda", "Balkon"], "childAdvantage": "0-13 yaş çocuk avantajı"}
+      ]
+    },
+    {
+      "sourceUrl": "https://www.tatilbudur.com/bodrum-greenport-hotel",
+      "name": "Bodrum Greenport Hotel",
+      "rooms": [
+        {"name": "Ekonomik Oda", "boardType": "Her Şey Dahil", "totalPrice": 22729, "features": ["Balkonsuz", "Duş"], "childAdvantage": "0-12 yaş çocuk avantajı"},
+        {"name": "Deniz Manzaralı ve Balkonlu Oda", "boardType": "Her Şey Dahil", "totalPrice": 23928, "size": "15 m²", "features": ["Balkon", "Duş"], "childAdvantage": "0-12 yaş çocuk avantajı"}
+      ]
+    },
+    {
+      "sourceUrl": "https://www.tatilbudur.com/soz-hotel-gumbet-ex-the-best-life-hotel-gumbet",
+      "name": "Söz Hotel Gümbet",
+      "rooms": [
+        {"name": "Standart Oda", "boardType": "Her Şey Dahil", "totalPrice": 34425, "size": "15 m²", "features": ["Balkon veya Teras", "Duşakabin"]},
+        {"name": "Superior Oda", "boardType": "Her Şey Dahil", "totalPrice": 42075, "size": "33 m²", "features": ["Balkon", "Duşakabin"], "availabilityNote": "Son 2 Oda"}
+      ]
+    },
+    {
+      "sourceUrl": "https://www.tatilbudur.com/royal-palm-residence",
+      "name": "Royal Palm Residence",
+      "rooms": [
+        {"name": "1+1 Daire, Bahçe Manzaralı", "boardType": "Sadece Oda", "totalPrice": 28295, "size": "70 m²", "features": ["1 yatak odası ve 1 salon", "2 balkon"], "availabilityNote": "Son 1 Oda"},
+        {"name": "2+1 Daire, Bahçe Manzaralı", "boardType": "Sadece Oda", "totalPrice": 42442, "size": "90 m²", "features": ["2 ayrı oda", "2 balkon"], "availabilityNote": "Son 2 Oda"},
+        {"name": "2+1 Daire, Deniz Manzaralı", "boardType": "Sadece Oda", "totalPrice": 49516, "size": "90 m²", "features": ["Balkon", "Bulaşık Makinesi"], "availabilityNote": "Son 1 Oda"}
+      ]
+    },
+    {
+      "sourceUrl": "https://www.tatilbudur.com/akkan-beach-bodrum",
+      "name": "Akkan Beach Bodrum",
+      "rooms": [
+        {"name": "Üç Kişilik Oda", "boardType": "İadesiz Oda Kahvaltı", "totalPrice": 29703, "size": "21 m²", "features": ["Bahçe manzarası"], "availabilityNote": "Son 2 Oda"},
+        {"name": "Üç Kişilik Oda", "boardType": "Oda Kahvaltı", "totalPrice": 33008, "size": "21 m²", "features": ["Bahçe manzarası"], "availabilityNote": "Son 2 Oda"},
+        {"name": "Aile Odası", "boardType": "İadesiz Oda Kahvaltı", "totalPrice": 38791, "size": "30 m²", "features": ["Bornoz & Terlik", "Buket Seti"], "availabilityNote": "Son 2 Oda"},
+        {"name": "Aile Odası", "boardType": "Oda Kahvaltı", "totalPrice": 43105, "size": "30 m²", "features": ["Bornoz & Terlik", "Buket Seti"], "availabilityNote": "Son 2 Oda"}
+      ]
+    },
+    {
+      "sourceUrl": "https://www.tatilbudur.com/smart-city-suites-hotel-bodrum",
+      "name": "Smart City Suites Hotel Bodrum",
+      "rooms": [
+        {"name": "Suit Oda", "boardType": "Oda Kahvaltı", "totalPrice": 34715, "size": "45 m²", "features": ["Balkon", "Bornoz & Terlik"], "availabilityNote": "Son 1 Oda"}
+      ]
+    },
+    {
+      "sourceUrl": "https://www.tatilbudur.com/bodrum-park-hotel",
+      "name": "Bodrum Park Hotel",
+      "rooms": [
+        {"name": "Family Room", "boardType": "İadesiz Sadece Oda", "totalPrice": 12900, "size": "12 m²", "features": ["Duman Dedektörü", "Duş"], "availabilityNote": "Son 1 Oda"}
+      ]
+    },
+    {
+      "sourceUrl": "https://www.tatilbudur.com/ipek-garden-palace-residence",
+      "name": "İpek Garden Palace Residence",
+      "rooms": [
+        {"name": "1+1 Family Superior Room", "boardType": "Sadece Oda", "totalPrice": 26400, "size": "60 m²", "features": ["2 ayrı banyo", "Ara kapılı 2 oda"]},
+        {"name": "1+1 Family Superior Room", "boardType": "Oda Kahvaltı", "totalPrice": 34500, "size": "60 m²", "features": ["2 ayrı banyo", "Ara kapılı 2 oda"]},
+        {"name": "2+1 Family King Suite", "boardType": "Sadece Oda", "totalPrice": 45000, "size": "120 m²", "features": ["Bahçe manzaralı", "Bebek yatağı"], "availabilityNote": "Son 1 Oda"},
+        {"name": "2+1 Family King Suite", "boardType": "Oda Kahvaltı", "totalPrice": 54000, "size": "120 m²", "features": ["Bahçe manzaralı", "Bebek yatağı"], "availabilityNote": "Son 1 Oda"}
+      ]
+    },
+    {
+      "sourceUrl": "https://www.tatilbudur.com/la-brezza-hotel-suite",
+      "name": "La Brezza Hotel & Suite",
+      "rooms": [
+        {"name": "Superior Double Oda", "boardType": "Oda Kahvaltı", "totalPrice": 36261, "size": "25 m²", "features": []}
+      ]
+    },
+    {
+      "sourceUrl": "https://www.tatilbudur.com/mivara-luxury-resort-spa",
+      "name": "Mivara Luxury Resort & Spa",
+      "rooms": [
+        {"name": "Deluxe Oda", "boardType": "Oda Kahvaltı", "totalPrice": 81105, "features": []},
+        {"name": "Premium Queen Oda", "boardType": "Oda Kahvaltı", "totalPrice": 120401, "features": []},
+        {"name": "Executive Suite", "boardType": "Oda Kahvaltı", "totalPrice": 155868, "features": []},
+        {"name": "Deniz Manzaralı Exclusive Suit", "boardType": "Oda Kahvaltı", "totalPrice": 158795, "features": []},
+        {"name": "Bodrum Suit", "boardType": "Oda Kahvaltı", "totalPrice": 365111, "features": []},
+        {"name": "Presidential Suit", "boardType": "Oda Kahvaltı", "totalPrice": 383154, "features": []}
+      ]
+    },
+    {
+      "sourceUrl": "https://www.tatilbudur.com/hola-bodrum-otel",
+      "name": "Hola Bodrum Otel",
+      "rooms": [
+        {"name": "Aile Odası", "boardType": "Sadece Oda", "totalPrice": 20097, "features": []},
+        {"name": "Teras Oda, Deniz Manzaralı", "boardType": "Sadece Oda", "totalPrice": 28710, "features": ["Deniz manzarası", "Teras"]}
+      ]
+    },
+    {
+      "sourceUrl": "https://www.tatilbudur.com/derin-apart-otel-bodrum",
+      "name": "Derin Apart Otel Bodrum",
+      "rooms": [
+        {"name": "Garden Apart", "boardType": "Sadece Oda", "totalPrice": 17444, "features": []},
+        {"name": "Suit Oda", "boardType": "Standart Oda", "totalPrice": 27752, "features": []}
+      ]
+    },
+    {
+      "sourceUrl": "https://www.tatilbudur.com/south-side-bodrum",
+      "name": "South Side Bodrum",
+      "rooms": [
+        {"name": "Stone House", "boardType": "İadesiz Sadece Oda", "totalPrice": 38694, "features": []}
+      ]
+    },
+    {
+      "sourceUrl": "https://www.tatilbudur.com/m-suite-butik-apart-hotel",
+      "name": "M Suite Butik Apart Hotel",
+      "rooms": [
+        {"name": "1+1 Havuz Manzaralı Oda", "boardType": "İadesiz Sadece Oda", "totalPrice": 24500, "features": ["Havuz manzarası"]},
+        {"name": "2+1 Havuz Manzaralı Aile Odası", "boardType": "İadesiz Sadece Oda", "totalPrice": 31543, "features": ["Havuz manzarası"]}
+      ]
+    },
+    {
+      "sourceUrl": "https://www.tatilbudur.com/aktur-residence",
+      "name": "Aktur Residence",
+      "rooms": [
+        {"name": "1+1 Deniz Manzaralı Oda", "boardType": "İadesiz Sadece Oda", "totalPrice": 50017, "features": ["Deniz manzarası"]},
+        {"name": "1+1 Deniz Manzaralı Oda", "boardType": "İadesiz Oda Kahvaltı", "totalPrice": 53856, "features": ["Deniz manzarası"]},
+        {"name": "2+1 Deniz Manzaralı Oda", "boardType": "İadesiz Sadece Oda", "totalPrice": 64410, "features": ["Deniz manzarası"]},
+        {"name": "2+1 Deniz Manzaralı Oda", "boardType": "İadesiz Oda Kahvaltı", "totalPrice": 68257, "features": ["Deniz manzarası"]},
+        {"name": "2+1 Bahçe Katı Oda", "boardType": "İadesiz Sadece Oda", "totalPrice": 70880, "features": ["Bahçe katı"]},
+        {"name": "2+1 Bahçe Katı Oda", "boardType": "İadesiz Oda Kahvaltı", "totalPrice": 74627, "features": ["Bahçe katı"]},
+        {"name": "3+1 Deniz Manzaralı Oda", "boardType": "İadesiz Sadece Oda", "totalPrice": 86497, "features": ["Deniz manzarası"]},
+        {"name": "3+1 Deniz Manzaralı Oda", "boardType": "İadesiz Oda Kahvaltı", "totalPrice": 90345, "features": ["Deniz manzarası"]}
+      ]
+    },
+    {
+      "sourceUrl": "https://www.tatilbudur.com/bodrum-konagi",
+      "name": "Bodrum Konağı",
+      "rooms": [
+        {"name": "Aile Suite", "boardType": "İadesiz Sadece Oda", "totalPrice": 29459, "features": []},
+        {"name": "Aile Suite", "boardType": "İadesiz Oda Kahvaltı", "totalPrice": 30644, "features": []}
+      ]
+    },
+    {
+      "sourceUrl": "https://www.tatilbudur.com/laden-hotel-bodrum",
+      "name": "Laden Hotel Bodrum",
+      "rooms": [
+        {"name": "Standart Üç Kişilik Oda", "boardType": "Sadece Oda", "totalPrice": 30336, "size": "30 m²", "features": []}
+      ]
+    },
+    {
+      "sourceUrl": "https://www.tatilbudur.com/aspat-hotel-bodrum",
+      "name": "Aspat Hotel Bodrum",
+      "rooms": [
+        {"name": "Bahçe Manzaralı Oda", "boardType": "Oda Kahvaltı", "totalPrice": 20546, "features": ["Bahçe manzarası"]},
+        {"name": "Deniz Manzaralı Oda", "boardType": "Oda Kahvaltı", "totalPrice": 22018, "features": ["Deniz manzarası"]}
+      ]
+    },
+    {
+      "sourceUrl": "https://www.tatilbudur.com/modern-life-hotel-bodrum",
+      "name": "Modern Life Hotel Bodrum",
+      "rooms": [
+        {"name": "Deluxe Oda", "boardType": "Oda Kahvaltı", "totalPrice": 27724, "features": []},
+        {"name": "Suit Oda", "boardType": "Oda Kahvaltı", "totalPrice": 38843, "features": []}
+      ]
+    },
+    {
+      "sourceUrl": "https://www.tatilbudur.com/manolya-otel",
+      "name": "Manolya Otel",
+      "rooms": [
+        {"name": "Stüdyo + Yataklı Oda", "boardType": "Oda Kahvaltı", "totalPrice": 33135, "features": []},
+        {"name": "2+1 Daire", "boardType": "Oda Kahvaltı", "totalPrice": 52885, "features": []}
+      ]
+    },
+    {
+      "sourceUrl": "https://www.tatilbudur.com/porto-azul-hotel",
+      "name": "Porto Azul Hotel",
+      "rooms": [
+        {"name": "Superior Aile Odası", "boardType": "Oda Kahvaltı", "totalPrice": 31024, "size": "30 m²", "features": []}
+      ]
+    },
+    {
+      "sourceUrl": "https://www.tatilbudur.com/villa-oliva-butik-hotel",
+      "name": "Villa Oliva Butik Hotel",
+      "rooms": [
+        {"name": "Padessa", "boardType": "Oda Kahvaltı", "totalPrice": 40967, "features": []}
+      ]
+    },
+    {
+      "sourceUrl": "https://www.tatilbudur.com/taga-hotel",
+      "name": "Taga Hotel",
+      "rooms": [
+        {"name": "Standart Oda", "boardType": "Oda Kahvaltı", "totalPrice": 32000, "features": []},
+        {"name": "Superior", "boardType": "Oda Kahvaltı", "totalPrice": 38767, "features": []},
+        {"name": "Aile Suite", "boardType": "Oda Kahvaltı", "totalPrice": 55984, "features": []}
+      ]
+    },
+    {
+      "sourceUrl": "https://www.tatilbudur.com/gloria-tibi-gumbet",
+      "name": "Gloria Tibi Gümbet",
+      "rooms": [
+        {"name": "Kara Manzaralı Oda", "boardType": "İadesiz Sadece Oda", "totalPrice": 12000, "features": ["Kara manzarası"]},
+        {"name": "Bahçe Manzaralı Oda", "boardType": "İadesiz Sadece Oda", "totalPrice": 16500, "features": ["Bahçe manzarası"]},
+        {"name": "Deniz Manzaralı Oda", "boardType": "İadesiz Sadece Oda", "totalPrice": 18000, "features": ["Deniz manzarası"]}
+      ]
+    },
+    {
+      "sourceUrl": "https://www.tatilbudur.com/yahsi-beach-hotel-ve-restaurant",
+      "name": "Yahşi Beach Hotel ve Restaurant",
+      "rooms": [
+        {"name": "Double Room", "boardType": "İadesiz Oda Kahvaltı", "totalPrice": 36000, "features": []},
+        {"name": "Triple Room", "boardType": "İadesiz Oda Kahvaltı", "totalPrice": 36000, "features": []}
+      ]
+    },
+    {
+      "sourceUrl": "https://www.tatilbudur.com/moonshine-hotel-suites",
+      "name": "Moonshine Hotel & Suites",
+      "rooms": [
+        {"name": "Superior Suit Oda", "boardType": "İadesiz Oda Kahvaltı", "totalPrice": 25881, "features": []},
+        {"name": "Superior Suit Oda", "boardType": "Oda Kahvaltı", "totalPrice": 27348, "features": []}
+      ]
+    },
+    {
+      "sourceUrl": "https://www.tatilbudur.com/bodrum-has-apart-otel",
+      "name": "Bodrum Has Apart Otel",
+      "rooms": [
+        {"name": "Standart 1+1 Apart Daire", "boardType": "Sadece Oda", "totalPrice": 17250, "features": []},
+        {"name": "Geniş 1+1 Apart Daire", "boardType": "Sadece Oda", "totalPrice": 20700, "features": []}
+      ]
+    },
+    {
+      "sourceUrl": "https://www.tatilbudur.com/portofino-hotel",
+      "name": "Portofino Hotel",
+      "rooms": [
+        {"name": "Çift Kişilik Oda", "boardType": "İadesiz Oda Kahvaltı", "totalPrice": 26500, "features": []},
+        {"name": "Üç Kişilik Oda", "boardType": "İadesiz Oda Kahvaltı", "totalPrice": 26500, "features": []}
+      ]
+    },
+    {
+      "sourceUrl": "https://www.tatilbudur.com/the-lume-hotel",
+      "name": "The Lume Hotel",
+      "rooms": [
+        {"name": "Aile Odası", "boardType": "Oda Kahvaltı", "totalPrice": 34347, "size": "30 m²", "features": []}
+      ]
+    },
+    {
+      "sourceUrl": "https://www.tatilbudur.com/orion-hotel-bitez",
+      "name": "Orion Hotel Bitez",
+      "rooms": [
+        {"name": "Superior Oda", "boardType": "İadesiz Oda Kahvaltı", "totalPrice": 43072, "features": []},
+        {"name": "Superior Oda", "boardType": "Oda Kahvaltı", "totalPrice": 53863, "features": []}
+      ]
+    },
+    {
+      "sourceUrl": "https://www.tatilbudur.com/my-marin-otel-turgutreis",
+      "name": "My Marin Otel Turgutreis",
+      "rooms": [
+        {"name": "Standart Oda", "boardType": "Oda Kahvaltı", "totalPrice": 23239, "features": []}
+      ]
+    },
+    {
+      "sourceUrl": "https://www.tatilbudur.com/hakan-otel",
+      "name": "Hakan Otel",
+      "rooms": [
+        {"name": "Deluxe Oda", "boardType": "Oda Kahvaltı", "totalPrice": 26169, "features": []}
+      ]
+    },
+    {
+      "sourceUrl": "https://www.tatilbudur.com/caglar-my-house-apart",
+      "name": "Çağlar My House Apart",
+      "rooms": [
+        {"name": "Superior 2 Kişilik Oda", "boardType": "İadesiz Sadece Oda", "totalPrice": 16458, "features": []},
+        {"name": "Superior 2 Kişilik Oda", "boardType": "Sadece Oda", "totalPrice": 17189, "features": []},
+        {"name": "Superior Apart", "boardType": "İadesiz Sadece Oda", "totalPrice": 23166, "features": []},
+        {"name": "Superior Apart", "boardType": "Sadece Oda", "totalPrice": 25765, "features": []}
+      ]
+    },
+    {
+      "sourceUrl": "https://www.tatilbudur.com/ozukara-apart-1",
+      "name": "Özukara Apart 1",
+      "rooms": [
+        {"name": "Apart Oda", "boardType": "Sadece Oda", "totalPrice": 23737, "features": []},
+        {"name": "Apart Oda", "boardType": "Oda Kahvaltı", "totalPrice": 25959, "features": []}
+      ]
+    },
+    {
+      "sourceUrl": "https://www.tatilbudur.com/can-pansiyon-bodrum",
+      "name": "Can Pansiyon Bodrum",
+      "rooms": [
+        {"name": "Aile Odası", "boardType": "Sadece Oda", "totalPrice": 16832, "size": "20 m²", "features": []}
+      ]
+    },
+    {
+      "sourceUrl": "https://www.tatilbudur.com/mare-marin-boutique-hotel-bodrum",
+      "name": "Mare Marin Boutique Hotel Bodrum",
+      "rooms": [
+        {"name": "4 Kişilik Aile Odası", "boardType": "İadesiz Sadece Oda", "totalPrice": 36000, "features": []},
+        {"name": "4 Kişilik Aile Odası", "boardType": "Sadece Oda", "totalPrice": 39000, "features": []},
+        {"name": "4 Kişilik Aile Odası", "boardType": "İadesiz Oda Kahvaltı", "totalPrice": 40260, "features": []},
+        {"name": "4 Kişilik Aile Odası", "boardType": "Oda Kahvaltı", "totalPrice": 44286, "features": []}
+      ]
+    }
+  ]
+}
