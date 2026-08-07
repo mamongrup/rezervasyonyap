@@ -1,7 +1,7 @@
 import { slugifyAsciiHyphenSlug } from '@/lib/slug-latin-tr'
 
 /** Yönetim / AI içi etiketler — vitrinde gösterilmez. */
-const INTERNAL_PREFIXES = ['ai-', 'location:'] as const
+const INTERNAL_PREFIXES = ['ai-', 'ai_', 'location:', 'location_', 'system:', 'internal:'] as const
 
 /** Kategori rozeti zaten gösterildiği için tekrar etiket olarak çıkmaz. */
 const CATEGORY_MARKER_TAGS = new Set(['gezi-fikirleri', 'favori-mekanlar'])
@@ -28,7 +28,10 @@ const SLUG_TOPIC_SUFFIXES = [
 function isInternalBlogTag(tag: string): boolean {
   const t = tag.trim().toLowerCase()
   if (!t) return true
-  return INTERNAL_PREFIXES.some((p) => t.startsWith(p))
+  if (INTERNAL_PREFIXES.some((p) => t.startsWith(p))) return true
+  if (t.includes(':')) return true
+  if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(t)) return true
+  return false
 }
 
 export function isPublicBlogTag(tag: string): boolean {

@@ -127,6 +127,26 @@ export async function fetchBlogPostsForLocale(locale: string, limit = 24): Promi
   return out
 }
 
+/**
+ * Ziyaretçilere gösterilecek kamuya açık etiketleri süzmek için kontrol fonksiyonu.
+ * `ai-region-content`, `location:...`, `ai-...`, `system:...` veya UUID benzeri dahili etiketleri gizler.
+ */
+export function isPublicTag(tag: string): boolean {
+  if (!tag) return false
+  const t = tag.trim().toLowerCase()
+  if (!t) return false
+  if (t.startsWith('ai-') || t.startsWith('ai_')) return false
+  if (t.startsWith('location:') || t.startsWith('location_')) return false
+  if (t.startsWith('system:') || t.startsWith('internal:')) return false
+  if (t.includes(':')) return false
+  if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(t)) return false
+  return true
+}
+
+export function filterPublicTags(tags: string[]): string[] {
+  return tags.filter(isPublicTag)
+}
+
 export type TBlogPostDetail = TBlogPost & { content: string; tags: string[] }
 
 export async function fetchBlogPostDetailByHandle(handle: string, locale: string): Promise<TBlogPostDetail | null> {
@@ -164,3 +184,4 @@ export async function fetchBlogPostDetailByHandle(handle: string, locale: string
     return null
   }
 }
+

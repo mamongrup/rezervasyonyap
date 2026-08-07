@@ -18,6 +18,8 @@ interface Props {
   params: Promise<{ locale: string; handle: string }>
 }
 
+import { filterPublicTags } from '@/lib/blog-public'
+
 function heroImages(post: BlogPost): string[] {
   try {
     return (JSON.parse(post.hero_gallery_json ?? '[]') as string[]).filter(Boolean)
