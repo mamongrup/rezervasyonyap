@@ -67,6 +67,7 @@ import {
   type ActivitySessionRow,
 } from '@/lib/travel-api'
 import { vitrinHref } from '@/lib/vitrin-href'
+import FaqPageJsonLd from '@/components/seo/FaqPageJsonLd'
 import { Divider } from '@/shared/divider'
 import type { TListingBase } from '@/types/listing-types'
 import { getMessages } from '@/utils/getT'
@@ -1016,10 +1017,40 @@ export default async function ExperienceListingDetailPage({
     </>
   )
 
+  const experienceFaqItems = [
+    isTour && tourItineraryDays.length > 0
+      ? {
+          q: 'Tur programı kaç gün ve hangi rotaları kapsar?',
+          a: `${title} turu toplam ${tourItineraryDays.length} günlük gezi ve transfer programını içerir.`,
+        }
+      : null,
+    includedServices.length > 0 || (activityMeta?.includes?.length ?? 0) > 0
+      ? {
+          q: 'Fiyata dahil olan hizmetler nelerdir?',
+          a: [...includedServices, ...(activityMeta?.includes ?? [])].join(', '),
+        }
+      : null,
+    excludedServices.length > 0 || (activityMeta?.excludes?.length ?? 0) > 0
+      ? {
+          q: 'Fiyata dahil olmayan hizmetler nelerdir?',
+          a: [...excludedServices, ...(activityMeta?.excludes ?? [])].join(', '),
+        }
+      : null,
+    importantNotes.length > 0
+      ? {
+          q: 'Tur ve aktivite öncesi bilinmesi gereken önemli notlar nelerdir?',
+          a: importantNotes.join('. '),
+        }
+      : null,
+  ].filter((item): item is { q: string; a: string } => item !== null && Boolean(item.a?.trim()))
+
   return (
     <div>
       {detailJsonLd && (
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(detailJsonLd) }} />
+      )}
+      {experienceFaqItems.length > 0 && (
+        <FaqPageJsonLd items={experienceFaqItems} />
       )}
       <HeaderGallery gridType={galleryImages.length >= 4 ? 'grid4' : 'grid1'} images={galleryImages} />
 

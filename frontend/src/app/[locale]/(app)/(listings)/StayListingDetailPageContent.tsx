@@ -1,4 +1,6 @@
 import { Bathtub02Icon, BedSingle01Icon, MeetingRoomIcon } from '@/components/Icons'
+import FaqPageJsonLd from '@/components/seo/FaqPageJsonLd'
+import MobileStickyReservationBar from '@/components/listing/MobileStickyReservationBar'
 import {
   formatChildPolicySummaryTr,
   resolveHotelChildPolicyFromAttributes,
@@ -1663,6 +1665,14 @@ export default async function StayListingDetailPageContent({
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(detailJsonLd) }}
+        />
+      )}
+      {hotelFaqItems.length > 0 && (
+        <FaqPageJsonLd
+          items={hotelFaqItems.map((f) => ({
+            q: f.question,
+            a: f.answer,
+          }))}
         />
       )}
       {/* Galeri — tatil evi: büyük görsel + 2×2 ızgara (grid1) */}
