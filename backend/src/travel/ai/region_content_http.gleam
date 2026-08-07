@@ -11,6 +11,7 @@ import gleam/string
 import pog
 import travel/db/resilient_pog as db_exec
 import travel/ai/ai_job_run
+import travel/ai/region_hierarchy_sync
 import travel/db/decode_helpers as row_dec
 import travel/identity/admin_gate
 import wisp.{type Request, type Response}
@@ -778,6 +779,57 @@ fn blog_slug(slug_path: String, index: Int) -> String {
   }
 }
 
+fn blog_topic_tag(index: Int) -> String {
+  case index {
+    1 -> "gezi-rehberi"
+    2 -> "gezilecek-yerler"
+    _ -> "tatil-ipuclari"
+  }
+}
+
+fn place_blog_topic_tag(index: Int) -> String {
+  case index {
+    1 -> "favori-mekanlar"
+    2 -> "populer-yerler"
+    _ -> "hafta-sonu-rotasi"
+  }
+}
+
+/// İç sorgular için teknik etiketler + ziyaretçiye gösterilecek yer/konu etiketleri.
+fn append_unique_tag(acc: List(String), tag: String) -> List(String) {
+  let t = string.trim(tag)
+  case t == "" || list.contains(acc, t) {
+    True -> acc
+    False -> list.append(acc, [t])
+  }
+}
+
+fn blog_tags_json(
+  internal: List(String),
+  location_name: String,
+  region_name: String,
+  country_name: String,
+  topic: String,
+) -> String {
+  let loc = region_hierarchy_sync.slug_fallback(string.trim(location_name))
+  let region = region_hierarchy_sync.slug_fallback(string.trim(region_name))
+  let country = region_hierarchy_sync.slug_fallback(string.trim(country_name))
+  let with_loc = append_unique_tag([], loc)
+  let with_region = case region == loc {
+    True -> with_loc
+    False -> append_unique_tag(with_loc, region)
+  }
+  let with_country = case
+    country == "" || country == "turkiye" || country == "turkey" || country == loc || country == region
+  {
+    True -> with_region
+    False -> append_unique_tag(with_region, country)
+  }
+  let public_tags = append_unique_tag(with_country, topic)
+  json.array(from: list.append(internal, public_tags), of: json.string)
+  |> json.to_string
+}
+
 fn generate_one_blog_post(
   ctx: Context,
   loc: #(String, String, String, String, String, String, String, String),
@@ -826,7 +878,19 @@ fn generate_one_blog_post(
   case create_and_run_job(ctx, blog_profile, input) {
     Error(e) -> Error(e)
     Ok(body_html) ->
-      upsert_blog_post(ctx, category_id, lp_id, slug, title, excerpt, body_html)
+      upsert_blog_post(
+        ctx,
+        category_id,
+        lp_id,
+        slug,
+        title,
+        excerpt,
+        body_html,
+        name,
+        region_name,
+        country_name,
+        blog_topic_tag(index),
+      )
   }
 }
 
@@ -838,13 +902,19 @@ fn upsert_blog_post(
   title: String,
   excerpt: String,
   body_html: String,
+  location_name: String,
+  region_name: String,
+  country_name: String,
+  topic: String,
 ) -> Result(Int, String) {
   let tags =
-    json.array(
-      from: ["ai-region-content", "location:" <> lp_id, "gezi-fikirleri"],
-      of: json.string,
+    blog_tags_json(
+      ["ai-region-content", "location:" <> lp_id, "gezi-fikirleri"],
+      location_name,
+      region_name,
+      country_name,
+      topic,
     )
-    |> json.to_string
   case
     pog.query(
       "
@@ -1259,6 +1329,10 @@ fn generate_one_place_blog_post(
         excerpt,
         body_html,
         ideas_json,
+        name,
+        region_name,
+        country_name,
+        place_blog_topic_tag(index),
       )
   }
 }
@@ -1272,13 +1346,19 @@ fn upsert_place_blog_post(
   excerpt: String,
   body_html: String,
   ideas_json: String,
+  location_name: String,
+  region_name: String,
+  country_name: String,
+  topic: String,
 ) -> Result(Int, String) {
   let tags =
-    json.array(
-      from: ["ai-place-blog", "location:" <> lp_id, "favori-mekanlar"],
-      of: json.string,
+    blog_tags_json(
+      ["ai-place-blog", "location:" <> lp_id, "favori-mekanlar"],
+      location_name,
+      region_name,
+      country_name,
+      topic,
     )
-    |> json.to_string
   case
     pog.query(
       "

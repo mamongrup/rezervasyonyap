@@ -1,4 +1,5 @@
 import avatarImage1 from '@/images/avatars/Image-1.png'
+import { resolvePublicBlogTags } from '@/lib/blog-public-tags'
 import { getBlogPostBySlug, listBlogPosts } from '@/lib/travel-api'
 import { vitrinHref } from '@/lib/vitrin-href'
 import type { TBlogPost } from '@/types/blog'
@@ -137,6 +138,13 @@ export async function fetchBlogPostDetailByHandle(handle: string, locale: string
     const content = translation?.body ?? ''
     const excerpt = excerptFromBody(content, 280) || title
     const { date, datetime } = formatBlogDate(post.published_at ?? post.created_at)
+    let rawTags: string[] = []
+    try {
+      rawTags = JSON.parse(post.tags_json ?? '[]') as string[]
+      if (!Array.isArray(rawTags)) rawTags = []
+    } catch {
+      rawTags = []
+    }
     return {
       id: post.id,
       title,
@@ -150,7 +158,7 @@ export async function fetchBlogPostDetailByHandle(handle: string, locale: string
       detailHref,
       timeToRead: readingTime(content || excerpt),
       author: authorBlock(title),
-      tags: [],
+      tags: resolvePublicBlogTags(rawTags, { title, slug: post.slug }),
     }
   } catch {
     return null

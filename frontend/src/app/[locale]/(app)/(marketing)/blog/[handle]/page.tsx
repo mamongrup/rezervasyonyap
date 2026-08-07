@@ -11,6 +11,7 @@ import {
   type BlogTranslationPublic,
 } from '@/lib/travel-api'
 import { sanitizeRichCmsHtml } from '@/lib/sanitize-cms-html'
+import { resolvePublicBlogTags } from '@/lib/blog-public-tags'
 import { ArrowLeft, Calendar, Clock, Tag, ChevronRight } from 'lucide-react'
 
 interface Props {
@@ -23,8 +24,16 @@ function heroImages(post: BlogPost): string[] {
   } catch { return [] }
 }
 
-function parseTags(post: BlogPost): string[] {
-  try { return JSON.parse(post.tags_json ?? '[]') as string[] } catch { return [] }
+function parseTags(post: BlogPost, title: string): string[] {
+  try {
+    const raw = JSON.parse(post.tags_json ?? '[]') as string[]
+    return resolvePublicBlogTags(Array.isArray(raw) ? raw : [], {
+      title,
+      slug: post.slug,
+    })
+  } catch {
+    return resolvePublicBlogTags([], { title, slug: post.slug })
+  }
 }
 
 function fmtDate(iso: string) {
@@ -186,8 +195,8 @@ export default async function BlogPostPage({ params }: Props) {
   }
 
   const imgs = heroImages(post)
-  const tags = parseTags(post)
   const title = translation?.title ?? handle
+  const tags = parseTags(post, title)
   const publishDate = post.published_at ?? post.created_at
 
   return (
