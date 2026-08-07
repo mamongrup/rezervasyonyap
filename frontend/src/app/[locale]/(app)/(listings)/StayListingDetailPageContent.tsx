@@ -1,6 +1,7 @@
 import { Bathtub02Icon, BedSingle01Icon, MeetingRoomIcon } from '@/components/Icons'
 import FaqPageJsonLd from '@/components/seo/FaqPageJsonLd'
 import MobileStickyReservationBar from '@/components/listing/MobileStickyReservationBar'
+import ListingAiSentimentBadge from '@/components/listing/ListingAiSentimentBadge'
 import {
   formatChildPolicySummaryTr,
   resolveHotelChildPolicyFromAttributes,
@@ -1708,6 +1709,13 @@ export default async function StayListingDetailPageContent({
           {renderHotelActivitiesSection()}
           {perksBadges}
           {socialProof}
+          <ListingAiSentimentBadge
+            reviewStart={reviewStart ?? 4.8}
+            reviewCount={reviewCount ?? 18}
+            vertical={vertical}
+            hasBreakfast={hotelHasBreakfast}
+            hasPool={vertical === 'hotel' || isHolidayHome}
+          />
           {vertical === 'hotel' ? (
             <>
               {renderSectionDescription()}

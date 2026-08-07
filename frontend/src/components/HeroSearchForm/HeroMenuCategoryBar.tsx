@@ -19,6 +19,7 @@ import {
   Menu01Icon,
 } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon, type IconSvgElement } from '@hugeicons/react'
+import AiSearchTriggerButton from '@/components/ai/AiSearchTriggerButton'
 import clsx from 'clsx'
 
 const MOBILE_INLINE_CATEGORY_COUNT = 5
@@ -252,6 +253,9 @@ export function HeroMenuCategoryBar({
         catLink(cat, useResponsiveBreakpoints ? inlineVisibilityClass(i) : 'flex'),
       )}
       {moreMenu}
+      <div className="ml-auto self-center pb-1">
+        <AiSearchTriggerButton locale={locale} />
+      </div>
     </div>
   )
 }
