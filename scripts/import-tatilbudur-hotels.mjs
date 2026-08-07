@@ -350,6 +350,20 @@ async function upsertHotel(pg, ctx, hotel) {
       )
       listingId = inserted.rows[0].id
     }
+    // Otel emsal OTA sözleşmesi (yoksa veya farklıysa ata)
+    await pg.query(
+      `UPDATE listings l
+          SET category_contract_id = cc.id, updated_at = now()
+         FROM category_contracts cc
+         JOIN product_categories pc ON pc.id = cc.category_id AND pc.code = 'hotel'
+        WHERE l.id = $1::uuid
+          AND cc.organization_id IS NULL
+          AND cc.code = 'emsal_ota_otel_v1'
+          AND cc.is_active = TRUE
+          AND cc.contract_scope = 'category'
+          AND l.category_contract_id IS DISTINCT FROM cc.id`,
+      [listingId],
+    )
     await pg.query(
       `INSERT INTO listing_translations (listing_id,locale_id,title,description)
        VALUES ($1::uuid,$2::smallint,$3,$4) ON CONFLICT (listing_id,locale_id) DO UPDATE SET
