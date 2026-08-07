@@ -1,7 +1,9 @@
 #!/usr/bin/env node
 /**
  * Bodrum: teklifi olan ama DB'de eksik / odasız / fiyatsız otelleri onarır.
- * Harvest başarısız olsa bile offer stub + fiyat/oda yazar (yerel AVIF sonra).
+ *
+ * Görselsiz offer stub ile yayın YAPILMAZ. Önce harvest galerisi şart;
+ * `--create-missing` yalnız `ALLOW_OFFER_STUBS=1` ile (yine draft).
  *
  *   node scripts/repair-bodrum-tatilbudur-missing.mjs
  */
@@ -128,7 +130,7 @@ run('scripts/harvest-tatilbudur-url-list.mjs', [
   '--out',
   path.relative(ROOT, patchFeed),
   '--min-images',
-  '0',
+  '2',
 ])
 
 const mainFeed = fs.existsSync(feedPath)
@@ -155,16 +157,22 @@ for (const hotel of patch.hotels || []) {
 mainFeed.hotels = [...byId.values()]
 fs.writeFileSync(feedPath, `${JSON.stringify(mainFeed, null, 2)}\n`)
 
-// Önce aile teklifleri, sonra 2 yetişkin — stub oluştur
+// Önce aile teklifleri, sonra 2 yetişkin.
+// Görselsiz stub: yalnız ALLOW_OFFER_STUBS=1 (yine draft; yayın kapısı galeri ister).
+const offerArgs = [
+  '--feed',
+  path.relative(ROOT, feedPath),
+]
+const allowStubs = process.env.ALLOW_OFFER_STUBS === '1'
 for (const offersPath of [offersFamily, offersTwoAdults]) {
   if (!fs.existsSync(offersPath)) continue
-  run('scripts/apply-tatilbudur-visible-offers.mjs', [
-    '--feed',
-    path.relative(ROOT, feedPath),
+  const args = [
+    ...offerArgs,
     '--offers',
     path.relative(ROOT, offersPath),
-    '--create-missing',
-  ])
+  ]
+  if (allowStubs) args.push('--create-missing')
+  run('scripts/apply-tatilbudur-visible-offers.mjs', args)
 }
 run('scripts/fix-hotel-room-images-in-feed.mjs', [path.relative(ROOT, feedPath)])
 

@@ -47,6 +47,65 @@ const slugify = (value) =>
     .replace(/ı/g, 'i').replace(/ğ/g, 'g').replace(/ş/g, 's').replace(/ö/g, 'o').replace(/ü/g, 'u').replace(/ç/g, 'c')
     .replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
 
+function roomMatchKey(name, boardType = '') {
+  return `${slugify(name)}|${slugify(boardType)}`
+}
+
+function mergeOfferIntoExistingRooms(existingRooms, offerRooms) {
+  const existing = Array.isArray(existingRooms) ? existingRooms : []
+  const byFull = new Map()
+  const byName = new Map()
+  for (const room of existing) {
+    const full = roomMatchKey(room.name, room.boardType || room.board_type || '')
+    const nameOnly = slugify(room.name)
+    if (!byFull.has(full)) byFull.set(full, room)
+    if (nameOnly && !byName.has(nameOnly)) byName.set(nameOnly, room)
+  }
+
+  const merged = []
+  for (const [index, room] of offerRooms.entries()) {
+    const name = String(room.name || '').trim()
+    const boardType = String(room.boardType || '').trim()
+    const prev =
+      byFull.get(roomMatchKey(name, boardType)) ||
+      byName.get(slugify(name)) ||
+      null
+    const prevImages = [
+      ...(Array.isArray(prev?.images) ? prev.images : []),
+      ...(prev?.image ? [prev.image] : []),
+    ]
+      .map((u) => String(u || '').trim())
+      .filter(Boolean)
+    const offerImages = [
+      ...(Array.isArray(room.images) ? room.images : []),
+      ...(room.image ? [room.image] : []),
+    ]
+      .map((u) => String(u || '').trim())
+      .filter(Boolean)
+    // Teklif odası görselleri boş gelir; harvest/önceki eşleşmeyi koru, üzerine yazma.
+    const images = [...new Set(offerImages.length ? offerImages : prevImages)]
+    merged.push({
+      id: prev?.id || `${slugify(name)}-${slugify(boardType)}-${index + 1}`,
+      name,
+      capacity: Number(room.capacity) || Number(prev?.capacity) || 2,
+      unitCount: Number(room.unitCount || prev?.unitCount || 1),
+      boardType,
+      image: images[0] || '',
+      images,
+      features: [
+        ...new Set([
+          ...(Array.isArray(prev?.features) ? prev.features : []),
+          ...(Array.isArray(room.features) ? room.features : []),
+          ...(room.size ? [room.size] : []),
+          ...(room.childAdvantage ? [room.childAdvantage] : []),
+        ]),
+      ].filter(Boolean),
+      rates: room.rates || [],
+    })
+  }
+  return merged
+}
+
 function stubHotelFromOffer(offerHotel) {
   const sourceUrl = String(offerHotel.sourceUrl || '').trim()
   const slug = slugify(sourceUrl.replace(/^https?:\/\/[^/]+\//, '')) || slugify(offerHotel.name)
@@ -73,6 +132,7 @@ function stubHotelFromOffer(offerHotel) {
       sourceUrl,
       capturedAt: new Date().toISOString(),
       captureMethod: 'offer_stub',
+      mediaIncomplete: true,
     },
   }
 }
@@ -130,9 +190,13 @@ for (const offerHotel of capture.hotels || []) {
     })
   }
   if (!rooms.length) continue
-  hotel.rooms = rooms
+  // Önceki harvest/oda görsellerini silme — ada+pansiyon ile birleştir.
+  hotel.rooms = mergeOfferIntoExistingRooms(hotel.rooms, rooms)
   hotel.currency = search.currency
-  hotel.minPrice = Math.min(...rooms.map((room) => room.rates[0].nightlyPrice))
+  const nightlies = hotel.rooms
+    .map((room) => Number(room.rates?.[0]?.nightlyPrice))
+    .filter((n) => Number.isFinite(n) && n > 0)
+  hotel.minPrice = nightlies.length ? Math.min(...nightlies) : null
   hotel.sourceFacts = {
     ...(hotel.sourceFacts || {}),
     priceQuery: { ...search, status: 'verified_visible_total' },

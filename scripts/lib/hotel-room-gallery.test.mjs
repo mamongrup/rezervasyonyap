@@ -28,4 +28,19 @@ assert(roomImgs.every((u) => /Room|Suite|Interior/i.test(u)), 'only roomish')
 const suiteImgs = roomImagesFromGallery(gallery, 'King Süit', 1)
 assert(suiteImgs.some((u) => /Suite/i.test(u)), 'suite preferred')
 
+// TatilBudur sayısal CDN: etiketsiz fallback kapalı → boş (yanlış tesis fotoğrafı yok)
+const numericCdn = [
+  'https://productcdn.tatilbudur.com/Otel/gallery/12345.jpg',
+  'https://productcdn.tatilbudur.com/Otel/gallery/67890.jpg',
+  'https://ucdn.tatilbudur.net/Otel/855x426/11111.webp',
+]
+assert(
+  roomImagesFromGallery(numericCdn, 'Standart Oda', 0).length === 0,
+  'no unlabeled fallback by default',
+)
+assert(
+  roomImagesFromGallery(numericCdn, 'Standart Oda', 0, { allowUnlabeledFallback: true }).length > 0,
+  'opt-in unlabeled still works',
+)
+
 console.log('hotel-room-gallery.test: ok')

@@ -50,6 +50,12 @@ function slugTokens(roomName) {
 }
 
 /**
+ * Galeriden oda görseli seç.
+ *
+ * Varsayılan: yalnız dosya adında Room/Suite/Interior vb. güvenli etiket
+ * olanlar. Etiketsiz (sayısal CDN) veya lobi/havuz/restoran ASLA odaya yazılmaz —
+ * yanlış eşleşmektense oda görselsiz kalır (media_incomplete).
+ *
  * @param {string[]} images facility gallery
  * @param {string} roomName
  * @param {number} [roomIndex=0] rotate among rooms so each room gets a different subset
@@ -59,7 +65,8 @@ function slugTokens(roomName) {
 export function roomImagesFromGallery(images, roomName, roomIndex = 0, opts = {}) {
   const list = Array.isArray(images) ? images.filter(Boolean) : []
   if (!list.length) return []
-  const allowUnlabeledFallback = opts.allowUnlabeledFallback !== false
+  // Kalite kapısı: etiketsiz fallback kapalı. Açmak yalnızca bilinçli opt-in.
+  const allowUnlabeledFallback = opts.allowUnlabeledFallback === true
 
   const hard = []
   const soft = []
@@ -71,12 +78,9 @@ export function roomImagesFromGallery(images, roomName, roomIndex = 0, opts = {}
     else if (c === 'other') unlabeled.push(u)
   }
 
-  // Önce Room/Suite etiketleri; yoksa soft; TatilBudur gibi sayısal CDN'de
-  // etiket yoksa reject olmayan (other) galeri — lobi/havuz/restoran ASLA.
   let pool = hard.length ? hard : soft
   let usedFallback = false
   if (!pool.length && allowUnlabeledFallback && unlabeled.length) {
-    // Kapak/dış cephe genelde ilk 1–2 kare; odalara ortadaki kareleri ver.
     const skip = Math.min(2, Math.max(0, unlabeled.length - 2))
     pool = unlabeled.slice(skip)
     if (!pool.length) pool = unlabeled
@@ -95,7 +99,6 @@ export function roomImagesFromGallery(images, roomName, roomIndex = 0, opts = {}
     for (const t of tokens) {
       if (f.includes(t)) score += 3
     }
-    // Stable tie-break + rotation by room index
     score -= ((i + roomIndex * 2) % Math.max(pool.length, 1)) * 0.01
     if (usedFallback) score -= i * 0.001
     return { u, score }
@@ -113,34 +116,42 @@ export function roomImagesFromGallery(images, roomName, roomIndex = 0, opts = {}
   return out
 }
 
-/** Mevcut feed JSON içindeki oda görsellerini yeniden sınıflandır. */
+/** Oda görseli güvenli mi? reject veya etiketsiz CDN odaya yazılmamalı. */
+export function isSafeHotelRoomImageUrl(url) {
+  const c = classifyHotelGalleryImage(url)
+  return c === 'room' || c === 'soft'
+}
+
+/** Mevcut feed JSON içindeki oda görsellerini yeniden sınıflandır (yalnız güvenli etiketler). */
 export function rewriteFeedRoomImages(feed) {
   const hotels = Array.isArray(feed?.hotels) ? feed.hotels : []
   let roomsFixed = 0
   let roomsEmpty = 0
-  let roomsFallback = 0
+  let roomsClearedUnsafe = 0
   for (const hotel of hotels) {
     const gallery = Array.isArray(hotel.images) ? hotel.images : []
     const rooms = Array.isArray(hotel.rooms) ? hotel.rooms : []
     rooms.forEach((room, i) => {
-      const strict = roomImagesFromGallery(
+      const existing = [
+        ...(Array.isArray(room.images) ? room.images : []),
+        ...(room.image ? [room.image] : []),
+      ]
+        .map((u) => String(u || '').trim())
+        .filter(Boolean)
+      const existingSafe = existing.filter(isSafeHotelRoomImageUrl)
+      const matched = roomImagesFromGallery(
         gallery,
         room.name || room.id || `oda-${i + 1}`,
         i,
         { allowUnlabeledFallback: false },
       )
-      const imgs =
-        strict.length > 0
-          ? strict
-          : roomImagesFromGallery(gallery, room.name || room.id || `oda-${i + 1}`, i, {
-              allowUnlabeledFallback: true,
-            })
+      const imgs = matched.length ? matched : existingSafe
+      if (existing.length && imgs.length < existing.length) roomsClearedUnsafe++
       room.images = imgs
       room.image = imgs[0] || ''
       roomsFixed++
       if (!imgs.length) roomsEmpty++
-      else if (!strict.length) roomsFallback++
     })
   }
-  return { hotels: hotels.length, roomsFixed, roomsEmpty, roomsFallback }
+  return { hotels: hotels.length, roomsFixed, roomsEmpty, roomsClearedUnsafe, roomsFallback: 0 }
 }

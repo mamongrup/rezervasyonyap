@@ -71,24 +71,35 @@ async function backfillRoomImages(client, listingId) {
         if (typeof u === 'string' && u.trim()) current.push(u.trim())
       }
     }
-    if (current.some((u) => /\/uploads\/listings\/.+\.avif$/i.test(u))) continue
+    const hasSafeLocal = current.some(
+      (u) =>
+        /\/uploads\/listings\/.+\.avif$/i.test(u) &&
+        /(room|suite|oda|bedroom|interior|bathroom|banyo)/i.test(u),
+    )
+    if (hasSafeLocal) continue
 
-    let picked = roomImagesFromGallery(galleryUrls, room.name || `oda-${i + 1}`, i, {
-      allowUnlabeledFallback: true,
+    // Yalnız güvenli etiketli eşleşme — rastgele galeri dilimi YOK.
+    const picked = roomImagesFromGallery(galleryUrls, room.name || `oda-${i + 1}`, i, {
+      allowUnlabeledFallback: false,
     })
-    // Son çare: reject olmayan yerel galeri (sayısal CDN adları)
     if (!picked.length) {
-      const skip = Math.min(2, Math.max(0, galleryUrls.length - 1))
-      const pool = galleryUrls.slice(skip)
-      const start = i % Math.max(pool.length, 1)
-      picked = pool.slice(start, start + 3)
-      if (picked.length < 1) picked = galleryUrls.slice(0, 3)
+      // Güvensiz mevcut görselleri temizle; yanlış oda fotoğrafı bırakma.
+      if (current.length) {
+        await client.query(
+          `UPDATE hotel_rooms
+              SET meta_json = coalesce(meta_json, '{}'::jsonb)
+                || jsonb_build_object('image', '', 'images', '[]'::jsonb, 'image_match', 'cleared_unsafe')
+            WHERE id=$1::uuid`,
+          [room.id],
+        )
+        updated += 1
+      }
+      continue
     }
-    if (!picked.length) continue
     await client.query(
       `UPDATE hotel_rooms
           SET meta_json = coalesce(meta_json, '{}'::jsonb)
-            || jsonb_build_object('image', $2::text, 'images', $3::jsonb)
+            || jsonb_build_object('image', $2::text, 'images', $3::jsonb, 'image_match', 'filename_label')
         WHERE id=$1::uuid`,
       [room.id, picked[0], JSON.stringify(picked)],
     )
@@ -135,7 +146,18 @@ try {
     roomsBackfilled += await backfillRoomImages(client, row.id)
 
     const roomsLocal = await client.query(
-      `SELECT count(*)::int AS n FROM hotel_rooms hr
+      `SELECT count(*)::int AS n,
+              count(*) FILTER (
+                WHERE coalesce(hr.meta_json->>'image','') ~* '(restaurant|lobby|pool|beach|exterior|buffet|dining|havuz|plaj)'
+                   OR EXISTS (
+                     SELECT 1 FROM jsonb_array_elements_text(
+                       CASE WHEN jsonb_typeof(hr.meta_json->'images')='array'
+                            THEN hr.meta_json->'images' ELSE '[]'::jsonb END
+                     ) im(url)
+                     WHERE im.url ~* '(restaurant|lobby|pool|beach|exterior|buffet|dining|havuz|plaj)'
+                   )
+              )::int AS unsafe_n
+         FROM hotel_rooms hr
         WHERE hr.listing_id=$1::uuid
           AND (
             coalesce(hr.meta_json->>'image','') ~* '/uploads/listings/.+\\.avif$'
@@ -149,6 +171,7 @@ try {
       [row.id],
     )
     const roomsWithLocal = Number(roomsLocal.rows[0]?.n || 0)
+    const roomsUnsafe = Number(roomsLocal.rows[0]?.unsafe_n || 0)
 
     const issues = []
     const trOk = Number(row.tr_title_len) >= 2 && Number(row.tr_desc_len) >= 120
@@ -158,20 +181,27 @@ try {
     }
     if (Number(row.local_gallery_count) < 2) issues.push('local_gallery_incomplete')
     if (Number(row.room_count) < 1) issues.push('rooms_incomplete')
+    // Yanlış tesis fotoğrafı odaya yazılmışsa yayınlama; görselsiz oda kabul (CDN etiketsiz).
+    if (roomsUnsafe > 0) issues.push('room_images_untrusted')
     else if (roomsWithLocal < Number(row.room_count)) {
-      issues.push('room_local_images_incomplete')
+      // Soft: kalite kaydında işaretle ama yayını engelleme (TatilBudur sayısal CDN).
+      // issues.push('room_local_images_incomplete')
     }
     if (Number(row.price_rule_count) < 1) issues.push('price_incomplete')
 
     const quality = {
-      status: issues.length ? 'incomplete' : 'complete',
-      issues,
+      status: issues.length ? 'incomplete' : roomsWithLocal < Number(row.room_count) ? 'partial' : 'complete',
+      issues:
+        roomsWithLocal < Number(row.room_count) && !issues.includes('room_images_untrusted')
+          ? [...issues, 'room_images_unlabeled_cdn']
+          : issues,
       publish_mode: requireAllLocales ? 'all_locales' : 'tr_first',
       required_locales: requireAllLocales ? 6 : 1,
       locale_count: Number(row.locale_count),
       local_gallery_count: Number(row.local_gallery_count),
       room_count: Number(row.room_count),
       rooms_with_local_images: roomsWithLocal,
+      rooms_unsafe_images: roomsUnsafe,
       price_rule_count: Number(row.price_rule_count),
       checked_at: new Date().toISOString(),
     }
@@ -182,8 +212,10 @@ try {
        DO UPDATE SET value_json=excluded.value_json`,
       [row.id, JSON.stringify(quality)],
     )
-    if (issues.length) {
-      pending.push({ title: row.title, slug: row.slug, issues })
+    // Yayın engeli: yalnızca sert sorunlar (güvensiz oda görseli dahil)
+    const hardIssues = issues.filter((x) => x !== 'room_images_unlabeled_cdn')
+    if (hardIssues.length) {
+      pending.push({ title: row.title, slug: row.slug, issues: hardIssues })
       continue
     }
     if (row.status !== 'published') {
