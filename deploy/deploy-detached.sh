@@ -95,11 +95,13 @@ fi
 
 # setsid: yeni oturum — SIGHUP (SSH kopunca) deploy'a ulasmaz
 export APP_ROOT DEPLOY_SH DEPLOY_REF
-run_inner='set -eo pipefail; cd "$APP_ROOT"; exec "$DEPLOY_SH"'
+export ERL_FLAGS="-noshell -noinput ${ERL_FLAGS:-}"
+export TERM="${TERM:-dumb}"
+run_inner='set -eo pipefail; cd "$APP_ROOT"; exec "$DEPLOY_SH" < /dev/null'
 if command -v setsid >/dev/null 2>&1; then
-  setsid bash -c "$run_inner" >>"$LOG" 2>&1 &
+  setsid bash -c "$run_inner" >>"$LOG" 2>&1 < /dev/null &
 else
-  nohup bash -c "$run_inner" >>"$LOG" 2>&1 &
+  nohup bash -c "$run_inner" >>"$LOG" 2>&1 < /dev/null &
 fi
 
 child_pid=$!

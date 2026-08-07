@@ -31,6 +31,10 @@ DEPLOY_REF="${DEPLOY_REF:-main}"
 RESTART_WEB="${RESTART_WEB:-1}"
 RESTART_API="${RESTART_API:-1}"
 
+# nohup / arka plan TTY altında Erlang prim_tty reader_loop EBADF çökmesini önle
+export ERL_FLAGS="-noshell -noinput ${ERL_FLAGS:-}"
+export TERM="${TERM:-dumb}"
+
 ok() { echo "[OK] $*"; }
 step() { echo; echo "==> $*"; }
 warn() { echo "[WARN] $*" >&2; }
@@ -196,8 +200,9 @@ main() {
   else
   (
     cd "$APP_ROOT/backend"
-    gleam build
-    gleam export erlang-shipment
+    export ERL_FLAGS="-noshell -noinput ${ERL_FLAGS:-}"
+    gleam build < /dev/null
+    gleam export erlang-shipment < /dev/null
   )
   fi
   SHIP="$APP_ROOT/backend/build/erlang-shipment"
