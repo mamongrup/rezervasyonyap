@@ -17,9 +17,15 @@ interface CategoryInfo {
   isSpecial?: boolean
 }
 
-export default function CategoryPageBuilderClient({ presetSlug }: { presetSlug?: string } = {}) {
+export default function CategoryPageBuilderClient({
+  /** Açılışta seçili sayfa (örn. homepage). Kategori listesi her zaman gösterilir. */
+  initialSlug,
+  /** @deprecated initialSlug kullanın — eski preset kilidi sekmeleri gizliyordu */
+  presetSlug,
+}: { initialSlug?: string; presetSlug?: string } = {}) {
+  const startSlug = (initialSlug || presetSlug || '').trim()
   const [categories, setCategories] = useState<CategoryInfo[]>([])
-  const [selectedSlug, setSelectedSlug] = useState<string>(presetSlug ?? '')
+  const [selectedSlug, setSelectedSlug] = useState<string>(startSlug)
   const [modules, setModules] = useState<PageBuilderModule[]>([])
   const [loadedModulesJson, setLoadedModulesJson] = useState<string>('')
   const [loading, setLoading] = useState(false)
@@ -28,17 +34,20 @@ export default function CategoryPageBuilderClient({ presetSlug }: { presetSlug?:
   const [showAddDialog, setShowAddDialog] = useState(false)
 
   useEffect(() => {
-    if (presetSlug) return
     fetch('/api/page-builder')
       .then((r) => r.json())
       .then((data: { ok: boolean; categories: CategoryInfo[] }) => {
         if (data.ok) {
           setCategories(data.categories)
-          if (data.categories.length > 0) setSelectedSlug(data.categories[0].slug)
+          setSelectedSlug((prev) => {
+            if (prev && data.categories.some((c) => c.slug === prev)) return prev
+            if (startSlug && data.categories.some((c) => c.slug === startSlug)) return startSlug
+            return data.categories[0]?.slug ?? ''
+          })
         }
       })
       .catch(console.error)
-  }, [presetSlug])
+  }, [startSlug])
 
   useEffect(() => {
     if (!selectedSlug) return
@@ -316,89 +325,86 @@ export default function CategoryPageBuilderClient({ presetSlug }: { presetSlug?:
   }
 
   const selectedCat = categories.find((c) => c.slug === selectedSlug)
-  const isPreset = !!presetSlug
 
   return (
-    <div className={`flex flex-col gap-6 ${isPreset ? '' : 'lg:flex-row lg:items-start'}`}>
-      {!isPreset && (
-        <aside className="w-full shrink-0 lg:w-64">
-          <div className="rounded-2xl border border-neutral-200 bg-white p-4 dark:border-neutral-700 dark:bg-neutral-900">
-            {categories.some((c) => c.isSpecial) && (
-              <>
-                <p className="mb-2 text-[10px] font-semibold uppercase tracking-widest text-neutral-400">
-                  Özel Sayfalar
-                </p>
-                <div className="mb-3 space-y-1">
-                  {categories
-                    .filter((c) => c.isSpecial)
-                    .map((cat) => (
-                      <button
-                        key={cat.slug}
-                        type="button"
-                        onClick={() => {
-                          setSelectedSlug(cat.slug)
-                          setMsg(null)
-                        }}
-                        className={`flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm transition ${
-                          selectedSlug === cat.slug
-                            ? 'bg-primary-50 font-semibold text-primary-700 dark:bg-primary-900/30 dark:text-primary-300'
-                            : 'text-neutral-700 hover:bg-neutral-50 dark:text-neutral-300 dark:hover:bg-neutral-800'
-                        }`}
-                      >
-                        <span>{cat.emoji}</span>
-                        <span className="flex-1 truncate">{cat.name}</span>
-                        {cat.hasCustomConfig && (
-                          <span className="h-2 w-2 shrink-0 rounded-full bg-primary-500" title="Özelleştirilmiş" />
-                        )}
-                      </button>
-                    ))}
-                </div>
-                <div className="mb-3 border-t border-neutral-100 dark:border-neutral-800" />
-              </>
-            )}
-            <p className="mb-2 text-[10px] font-semibold uppercase tracking-widest text-neutral-400">
-              Kategori Sayfaları
-            </p>
-            <div className="space-y-1">
-              {categories
-                .filter((c) => !c.isSpecial)
-                .map((cat) => (
-                  <button
-                    key={cat.slug}
-                    type="button"
-                    onClick={() => {
-                      setSelectedSlug(cat.slug)
-                      setMsg(null)
-                    }}
-                    className={`flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm transition ${
-                      selectedSlug === cat.slug
-                        ? 'bg-primary-50 font-semibold text-primary-700 dark:bg-primary-900/30 dark:text-primary-300'
-                        : 'text-neutral-700 hover:bg-neutral-50 dark:text-neutral-300 dark:hover:bg-neutral-800'
-                    }`}
-                  >
-                    <span>{cat.emoji}</span>
-                    <span className="flex-1 truncate">{cat.name}</span>
-                    {cat.hasCustomConfig && (
-                      <span className="h-2 w-2 shrink-0 rounded-full bg-primary-500" title="Özelleştirilmiş" />
-                    )}
-                  </button>
-                ))}
-            </div>
+    <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
+      <aside className="w-full shrink-0 lg:w-64">
+        <div className="rounded-2xl border border-neutral-200 bg-white p-4 dark:border-neutral-700 dark:bg-neutral-900">
+          {categories.some((c) => c.isSpecial) && (
+            <>
+              <p className="mb-2 text-[10px] font-semibold uppercase tracking-widest text-neutral-400">
+                Özel Sayfalar
+              </p>
+              <div className="mb-3 space-y-1">
+                {categories
+                  .filter((c) => c.isSpecial)
+                  .map((cat) => (
+                    <button
+                      key={cat.slug}
+                      type="button"
+                      onClick={() => {
+                        setSelectedSlug(cat.slug)
+                        setMsg(null)
+                      }}
+                      className={`flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm transition ${
+                        selectedSlug === cat.slug
+                          ? 'bg-primary-50 font-semibold text-primary-700 dark:bg-primary-900/30 dark:text-primary-300'
+                          : 'text-neutral-700 hover:bg-neutral-50 dark:text-neutral-300 dark:hover:bg-neutral-800'
+                      }`}
+                    >
+                      <span>{cat.emoji}</span>
+                      <span className="flex-1 truncate">{cat.name}</span>
+                      {cat.hasCustomConfig && (
+                        <span className="h-2 w-2 shrink-0 rounded-full bg-primary-500" title="Özelleştirilmiş" />
+                      )}
+                    </button>
+                  ))}
+              </div>
+              <div className="mb-3 border-t border-neutral-100 dark:border-neutral-800" />
+            </>
+          )}
+          <p className="mb-2 text-[10px] font-semibold uppercase tracking-widest text-neutral-400">
+            Kategori Sayfaları
+          </p>
+          <div className="space-y-1">
+            {categories
+              .filter((c) => !c.isSpecial)
+              .map((cat) => (
+                <button
+                  key={cat.slug}
+                  type="button"
+                  onClick={() => {
+                    setSelectedSlug(cat.slug)
+                    setMsg(null)
+                  }}
+                  className={`flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm transition ${
+                    selectedSlug === cat.slug
+                      ? 'bg-primary-50 font-semibold text-primary-700 dark:bg-primary-900/30 dark:text-primary-300'
+                      : 'text-neutral-700 hover:bg-neutral-50 dark:text-neutral-300 dark:hover:bg-neutral-800'
+                  }`}
+                >
+                  <span>{cat.emoji}</span>
+                  <span className="flex-1 truncate">{cat.name}</span>
+                  {cat.hasCustomConfig && (
+                    <span className="h-2 w-2 shrink-0 rounded-full bg-primary-500" title="Özelleştirilmiş" />
+                  )}
+                </button>
+              ))}
           </div>
-        </aside>
-      )}
+        </div>
+      </aside>
 
       <div className="min-w-0 flex-1">
         <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
           <div>
-            {!isPreset && (
-              <h2 className="text-xl font-bold text-neutral-900 dark:text-white">
-                {selectedCat ? `${selectedCat.emoji} ${selectedCat.name}` : 'Kategori Seçin'}
-              </h2>
-            )}
-            {!isPreset && selectedCat && (
+            <h2 className="text-xl font-bold text-neutral-900 dark:text-white">
+              {selectedCat ? `${selectedCat.emoji} ${selectedCat.name}` : 'Kategori Seçin'}
+            </h2>
+            {selectedCat && (
               <p className="text-sm text-neutral-500 dark:text-neutral-400">
-                /{selectedCat.slug} sayfası için modül düzeni
+                {selectedCat.slug === 'homepage'
+                  ? 'Ana sayfa için modül düzeni'
+                  : `/${selectedCat.slug} sayfası için modül düzeni`}
                 {isDirty ? (
                   <span className="ml-2 inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-900 dark:bg-amber-900/30 dark:text-amber-200">
                     Kaydedilmemiş değişiklik
@@ -468,24 +474,16 @@ export default function CategoryPageBuilderClient({ presetSlug }: { presetSlug?:
           </div>
         )}
 
-        {isPreset ? (
-          <a
-            href="/"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="mb-4 flex items-center gap-2 text-sm text-link-muted-underline"
-          >
-            <Eye className="h-4 w-4" />
-            Ana sayfayı önizle →
-          </a>
-        ) : selectedCat ? (
+        {selectedCat ? (
           <a
             href={
               selectedCat.slug === 'homepage'
                 ? '/'
                 : selectedCat.slug === 'ara'
                   ? '/ara?q=antalya'
-                  : `/${selectedCat.slug}/all`
+                  : selectedCat.slug === 'bolge-detay'
+                    ? '/bolge'
+                    : `/${selectedCat.slug}/all`
             }
             target="_blank"
             rel="noopener noreferrer"
@@ -496,7 +494,9 @@ export default function CategoryPageBuilderClient({ presetSlug }: { presetSlug?:
               ? 'Ana sayfayı önizle →'
               : selectedCat.slug === 'ara'
                 ? 'Arama sayfasını önizle →'
-                : `/${selectedCat.slug}/all sayfasını önizle →`}
+                : selectedCat.slug === 'bolge-detay'
+                  ? 'Bölge şablonunu önizle →'
+                  : `/${selectedCat.slug}/all sayfasını önizle →`}
           </a>
         ) : null}
 

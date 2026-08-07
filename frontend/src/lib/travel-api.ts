@@ -10357,6 +10357,15 @@ export async function resolvePublishedListingIdForStayPage(
   const byExactSlug = await resolvePublicListingIdBySlug(h, expectedCategory)
   if (byExactSlug) return byExactSlug
 
+  const withoutLangPrefix = h.replace(/^[a-z]{2}-/i, '')
+  if (withoutLangPrefix && withoutLangPrefix !== h) {
+    const byLangSlug = await resolvePublicListingIdBySlug(withoutLangPrefix, expectedCategory)
+    if (byLangSlug) return byLangSlug
+  }
+
+  const hl = h.toLowerCase()
+  const withoutLangLower = withoutLangPrefix.toLowerCase()
+
   if (expectedCategory) {
     const scoped = await searchPublicListings({
       q: h,
@@ -10364,9 +10373,14 @@ export async function resolvePublishedListingIdForStayPage(
       locale,
       perPage: 40,
     })
-    const exact = scoped?.listings?.find(
-      (listing) => listing.slug.trim().toLowerCase() === h.toLowerCase(),
-    )
+    const exact = scoped?.listings?.find((listing) => {
+      const s = listing.slug.trim().toLowerCase()
+      return (
+        s === hl ||
+        s === withoutLangLower ||
+        s.replace(/^[a-z]{2}-/i, '') === withoutLangLower
+      )
+    })
     if (exact) return exact.id
   }
 
@@ -10377,10 +10391,15 @@ export async function resolvePublishedListingIdForStayPage(
     perPage: 40,
   })
   if (!res?.listings?.length) return null
-  const hl = h.toLowerCase()
-  const bySlug = res.listings.find((l) => l.slug.toLowerCase() === hl)
+  const bySlug = res.listings.find((l) => {
+    const s = l.slug.trim().toLowerCase()
+    return (
+      s === hl ||
+      s === withoutLangLower ||
+      s.replace(/^[a-z]{2}-/i, '') === withoutLangLower
+    )
+  })
   if (bySlug) return bySlug.id
-  if (res.listings.length === 1) return res.listings[0].id
   return null
 }
 

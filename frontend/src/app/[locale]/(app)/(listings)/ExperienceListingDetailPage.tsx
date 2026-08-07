@@ -302,24 +302,37 @@ export async function generateExperienceListingMetadata({
     }
   }
 
+  const locationLabel = (listing.city ?? listing.address ?? '').trim()
+  const displayTitle =
+    locationLabel && !listing.title.toLowerCase().includes(locationLabel.toLowerCase())
+      ? `${listing.title} — ${locationLabel}`
+      : listing.title
   const plainDesc = listingMetaDescription(listing.title, listing.description)
   const siteBase = await resolveCanonicalBaseUrl()
   const ogImage = buildListingOgImageUrl({ kind: 'experience', handle, locale, siteBase })
+  const verticalCode = normalizeCatalogVertical(listing.listingVertical)
+  const canonicalPath = detailPathForVertical(verticalCode)
+  const canonicalHref = await vitrinHref(locale, `${canonicalPath}/${handle}`)
+  const canonical = siteBase ? `${siteBase.replace(/\/$/, '')}${canonicalHref}` : canonicalHref
 
   return {
-    title: listing.title,
+    title: displayTitle,
     description: plainDesc.slice(0, 160),
+    alternates: {
+      canonical,
+    },
     openGraph: ogImage
       ? {
-          title: listing.title,
+          title: displayTitle,
           description: plainDesc.slice(0, 200),
+          url: canonical,
           images: [{ url: ogImage, width: 1200, height: 630, alt: listing.title, type: 'image/jpeg' }],
         }
       : undefined,
     twitter: ogImage
       ? {
           card: 'summary_large_image',
-          title: listing.title,
+          title: displayTitle,
           description: plainDesc.slice(0, 200),
           images: [ogImage],
         }

@@ -11,11 +11,11 @@ export default function HomepageBuilderPage() {
       <div className="mb-8">
         <h1 className="text-2xl font-bold text-neutral-900 dark:text-white">Ana Sayfa Düzenleyici</h1>
         <p className="mt-1.5 text-neutral-500 dark:text-neutral-400">
-          Ana sayfanın modüler yapısını düzenleyin. Hero bölümü, öne çıkan ilanlar, kategoriler ve daha fazlasını
-          buradan yönetin.
+          Ana sayfa ve kategori sayfalarının modüler yapısını düzenleyin. Soldan sayfa seçin; hero, öne çıkan
+          ilanlar, kategori slider ve diğer modülleri yönetin.
         </p>
       </div>
-      <CategoryPageBuilderClient presetSlug="homepage" />
+      <CategoryPageBuilderClient initialSlug="homepage" />
     </div>
   )
 }

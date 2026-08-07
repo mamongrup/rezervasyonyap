@@ -32,22 +32,26 @@ export async function categoryMetadata(slug: string, locale?: string): Promise<M
   const hubPath = category?.categoryRoute ? `${category.categoryRoute}/all` : `/${slug}/all`
   const alternates = await buildLocaleAlternatesLocalized(loc, hubPath)
 
-  const fullTitle = title && siteName ? `${title} | ${siteName}` : title
+  const categoryName = title || slug
+  const richTitle = `${categoryName} — En Uygun Fiyatlar ve Erken Rezervasyon`
+  const richDescription =
+    description?.trim() ||
+    `${categoryName} kategorisinde en iyi fiyat garantisi, detaylı fotoğraflar, gerçek misafir değerlendirmeleri ve anında güvenli online rezervasyon imkanı.`
 
   return {
-    title: fullTitle || title,
-    description,
+    title: richTitle,
+    description: richDescription,
     ...alternates,
     openGraph: {
-      title: fullTitle || title || undefined,
-      description: description || undefined,
+      title: `${richTitle} | ${siteName}`,
+      description: richDescription,
       ...(shareImage && { images: [shareImage] }),
       type: 'website',
     },
     twitter: {
       card: 'summary_large_image',
-      title: fullTitle || title || undefined,
-      description: description || undefined,
+      title: `${richTitle} | ${siteName}`,
+      description: richDescription,
       ...(shareImage && { images: [shareImage.url] }),
     },
   }
