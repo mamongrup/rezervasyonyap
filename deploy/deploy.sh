@@ -201,6 +201,9 @@ main() {
   (
     cd "$APP_ROOT/backend"
     export ERL_FLAGS="-noshell -noinput ${ERL_FLAGS:-}"
+    # Askıda kalan eski gleam/rebar3 işlemlerini sonlandır ve kilit dosyalarını temizle
+    killall -9 rebar3 2>/dev/null || true
+    rm -f build/.lock build/gleam.lock build/dev/.lock 2>/dev/null || true
     gleam build < /dev/null
     gleam export erlang-shipment < /dev/null
   )
