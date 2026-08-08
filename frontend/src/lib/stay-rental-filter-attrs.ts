@@ -40,6 +40,9 @@ const LEGACY_ATTR_ALIASES: Record<string, string> = {
 
 export function getStayRentalFilterAttrKeys(categorySlug: string): readonly string[] {
   if (categorySlug === 'yat-kiralama') return YACHT_RENTAL_FILTER_ATTR_KEYS
+  // Tatil Evi admin panelinde İç/Dış olanak tanımı yoksa önyüzde sabit
+  // öznitelik seçenekleri göstermeyelim; paneldeki kaynakla birebir kalır.
+  if (categorySlug === 'tatil-evleri') return []
   return STAY_RENTAL_FILTER_ATTR_KEYS
 }
 

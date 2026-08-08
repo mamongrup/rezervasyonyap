@@ -8,7 +8,6 @@ export const HOLIDAY_THEME_FILTER_FALLBACK: { code: string; label: string }[] = 
   { code: 'conservative', label: 'Muhafazakar' },
   { code: 'luxury', label: 'Lüks' },
   { code: 'honeymoon', label: 'Balayı' },
-  { code: 'honeymoon_villa', label: 'Balayı villası' },
   { code: 'family', label: 'Aile' },
   { code: 'nature', label: 'Doğa içinde' },
   { code: 'historic', label: 'Tarihi / butik' },
