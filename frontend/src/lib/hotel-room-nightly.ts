@@ -352,8 +352,8 @@ export function extractHotelRoomFeaturesFromMeta(metaJson: string | null | undef
   const raw = meta.features ?? meta.amenities
   const features = Array.isArray(raw)
     ? raw
-        .map((x) => (typeof x === 'string' ? x.trim() : ''))
-        .filter(Boolean)
+      .map((x) => (typeof x === 'string' ? x.trim() : ''))
+      .filter(Boolean)
     : []
   const bedHint =
     features.find((f) => /yatak|bed|çift|tek kişilik|king|queen/i.test(f)) ?? null

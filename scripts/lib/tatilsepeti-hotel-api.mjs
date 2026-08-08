@@ -734,7 +734,7 @@ export async function fetchHotelDetailPackage(session, listRow, opts = {}) {
     for (const room of rooms) {
       for (const row of room.seasonalPrices || []) {
         if (!isAdultSeasonalPriceRow(row)) continue
-        const p = row.doublePerPerson != null ? row.doublePerPerson * 2 : (row.singlePrice ?? null)
+        const p = row.doublePerPerson ?? row.singlePrice
         if (p != null && (min == null || p < min)) min = p
       }
       if (room.quoteNightly != null && (min == null || room.quoteNightly < min)) {
