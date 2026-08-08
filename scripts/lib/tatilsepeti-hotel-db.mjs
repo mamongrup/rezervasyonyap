@@ -172,7 +172,7 @@ async function upsertRoomsAndPrices(pgClient, listingId, pkg) {
         .split('\n')[0]
         .trim()
       const planCode = mapBoardToPlanCode(boardLabel)
-      const price = row.doublePerPerson ?? row.singlePrice
+      const price = row.doublePerPerson != null ? row.doublePerPerson * 2 : (row.singlePrice ?? null)
       if (price == null) continue
       const prev = mealBest.get(planCode)
       if (!prev || price < prev.price) {
