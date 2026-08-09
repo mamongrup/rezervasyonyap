@@ -45,6 +45,11 @@ node scripts/sync-wtatil-auto.mjs --ping
 echo "→ Otomatik senkron (dönem+fiyat+yeni tur)…"
 node scripts/sync-wtatil-auto.mjs "$@"
 
+echo "→ Wtatil galeri ve AVIF kalite kontrolü…"
+node scripts/sync-wtatil-images.mjs || {
+  echo "[WARN] Wtatil medya senkronunda hata oluştu; dönem/fiyat senkronu tamamlandı." >&2
+}
+
 echo "→ Vitrin fiyat önbelleği tazeleniyor (yeni turlar hemen görünür/sıralanır)…"
 "$APP_ROOT/deploy/scripts/refresh-vitrin-prices.sh" || echo "[WARN] vitrin_price tazeleme atlandı"
 

@@ -86,10 +86,18 @@ function minPeriodPrice(periodPrices) {
   if (!Array.isArray(periodPrices) || periodPrices.length === 0) return null
   let min = null
   for (const row of periodPrices) {
-    const candidates = [row?.price, row?.amount, row?.adultPrice, row?.doublePrice, row?.singlePrice]
+    const candidates = [
+      row?.price,
+      row?.amount,
+      row?.adultPrice,
+      row?.doublePrice,
+      row?.singlePrice,
+      row?.tourPrice,
+      row?.totalPrice,
+    ]
     for (const c of candidates) {
-      const num = Number(c)
-      if (Number.isFinite(num) && num > 0 && (min == null || num < min)) min = num
+      const num = normalizeCheapestPrice(c)
+      if (num != null && (min == null || num < min)) min = num
     }
   }
   return min
@@ -366,6 +374,9 @@ export async function updateWtatilTourPricesOnly(
       }
       patch.period_prices = [...byPid.values()]
     }
+  } else if (replacePeriods) {
+    // Fiyat endpointi boş dönerse eski fiyatları yeni dönemlerle birlikte taşımayın.
+    patch.period_prices = []
   }
   if (enrich?.transport != null) {
     patch.transport = enrich.transport
