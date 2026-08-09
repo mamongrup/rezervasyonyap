@@ -41,6 +41,41 @@ describe('hero-search-target', () => {
     expect(heroSearchResultsPathFromRestPath('/ucak-bileti')).toBe('/ucak-bileti/all')
   })
 
+  it('recognizes localized category paths before selecting the mobile form', () => {
+    expect(heroSearchVerticalFromRestPath('/tours/all')).toBe('experience')
+    expect(heroSearchResultsPathFromRestPath('/tours/all')).toBe('/turlar/all')
+    expect(heroSearchResultsPathFromRestPath('/ferienhauser/all')).toBe('/tatil-evleri/all')
+    expect(heroSearchResultsPathFromRestPath('/circuits/all')).toBe('/turlar/all')
+    expect(heroSearchResultsPathFromRestPath('/fluege/all')).toBe('/ucak-bileti/all')
+    expect(heroSearchResultsPathFromRestPath('/transferts/all')).toBe('/transfer/all')
+  })
+
+  it('keeps every registered category on its own mobile search target', () => {
+    const cases: Array<[string, 'stay' | 'experience' | 'car' | 'flight']> = [
+      ['oteller', 'stay'],
+      ['tatil-evleri', 'stay'],
+      ['yat-kiralama', 'stay'],
+      ['turlar', 'experience'],
+      ['aktiviteler', 'experience'],
+      ['kruvaziyer', 'experience'],
+      ['hac-umre', 'experience'],
+      ['vize', 'experience'],
+      ['plaj-sezlong', 'experience'],
+      ['sinema-biletleri', 'experience'],
+      ['etkinlikler', 'experience'],
+      ['restoran-rezervasyon', 'experience'],
+      ['ucak-bileti', 'flight'],
+      ['arac-kiralama', 'car'],
+      ['feribot', 'car'],
+      ['transfer', 'car'],
+    ]
+
+    for (const [slug, vertical] of cases) {
+      expect(heroSearchVerticalFromRestPath(`/${slug}/all`)).toBe(vertical)
+      expect(heroSearchResultsPathFromRestPath(`/${slug}/detail`)).toBe(`/${slug}/all`)
+    }
+  })
+
   it('builds from categoryRoute', () => {
     expect(heroSearchResultsPathForCategoryRoute('/tatil-evleri')).toBe('/tatil-evleri/all')
     expect(heroSearchResultsPathForCategoryRoute('/turlar/')).toBe('/turlar/all')

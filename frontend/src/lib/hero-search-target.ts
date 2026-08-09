@@ -4,10 +4,11 @@
  */
 
 import { staySearchResultsPathFromRestPath } from '@/lib/stay-search-target'
+import { canonicalCategoryRestPath } from '@/lib/canonical-category-path'
 import type { HeroSearchVertical } from '@/lib/hero-search-plan'
 
 function cleanRestPath(restPath: string): string {
-  return (restPath.split('?')[0] ?? restPath).trim() || '/'
+  return canonicalCategoryRestPath(restPath)
 }
 
 const EXPERIENCE_PREFIXES = [

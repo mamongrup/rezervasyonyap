@@ -1,6 +1,8 @@
+import { canonicalCategoryRestPath } from '@/lib/canonical-category-path'
+
 /** Konaklama hero araması — mevcut vitrin yoluna göre sonuç listesi (`…/all`). */
 export function staySearchResultsPathFromRestPath(restPath: string): string {
-  const path = (restPath.split('?')[0] ?? restPath).trim() || '/'
+  const path = canonicalCategoryRestPath(restPath)
   if (path.startsWith('/tatil-evleri') || path.includes('/tatil-evleri-harita')) {
     return '/tatil-evleri/all'
   }
