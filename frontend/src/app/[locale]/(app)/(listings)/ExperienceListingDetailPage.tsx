@@ -1017,6 +1017,8 @@ export default async function ExperienceListingDetailPage({
     </>
   )
 
+  const tourItineraryDays = useGezinomiTourLayout ? gezinomiItineraryDays : tourMeta?.itinerary ?? []
+
   const experienceFaqItems = [
     isTour && tourItineraryDays.length > 0
       ? {
