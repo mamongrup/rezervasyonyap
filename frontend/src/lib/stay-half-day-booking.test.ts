@@ -9,6 +9,7 @@ import {
   stayRangeOvernightsAvailable,
 } from './stay-booking-rules'
 import type { ListingAvailabilityDay } from './travel-api'
+import { buildReservationRangeDays } from './reservation-range-availability'
 
 function formatLocalYmd(d: Date): string {
   const y = d.getFullYear()
@@ -47,6 +48,23 @@ describe('listingDayVisualStatus', () => {
 
   it('shows checkin when afternoon is occupied', () => {
     expect(listingDayVisualStatus(dayRow('2026-08-07', true, false, true))).toBe('checkin')
+  })
+})
+
+describe('reservation range half-day boundaries', () => {
+  it('always marks both boundaries as turnover when blocking an interval', () => {
+    const days = buildReservationRangeDays(
+      '2026-09-27',
+      '2026-10-04',
+      [
+        dayRow('2026-09-27', false, false),
+        dayRow('2026-10-04', false, false),
+      ],
+      true,
+    )
+    expect(days[0]).toMatchObject({ day: '2026-09-27', am_available: true, pm_available: false, is_available: true })
+    expect(days.at(-1)).toMatchObject({ day: '2026-10-04', am_available: false, pm_available: true, is_available: true })
+    expect(days.slice(1, -1).every((day) => !day.am_available && !day.pm_available)).toBe(true)
   })
 })
 

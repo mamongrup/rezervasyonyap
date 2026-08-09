@@ -16,6 +16,7 @@ import {
 import { mergeCalendarRows, type MergedCalendarRow } from '@/lib/listing-availability-calendar-merge'
 import { formatLocalYmd } from '@/lib/date-format-local'
 import { applyTurnoverBoundaries } from '@/lib/availability-turnover-boundaries'
+import { buildReservationRangeDays } from '@/lib/reservation-range-availability'
 import { useCatalogListingUi } from '@/hooks/useCatalogListingUi'
 import { useManageT } from '@/lib/manage-i18n-context'
 import { useVitrinHref } from '@/hooks/use-vitrin-href'
@@ -72,24 +73,6 @@ function listingShortRef(id: string): string {
   const t = id.trim()
   if (t.length <= 10) return t
   return `${t.slice(0, 8)}…`
-}
-
-/** [from, to] dahil tüm günleri YYYY-MM-DD olarak üretir (aylar arası güvenli). */
-function eachDayStrInclusive(fromYmd: string, toYmd: string): string[] {
-  const out: string[] = []
-  const [fy, fm, fd] = fromYmd.split('-').map(Number)
-  const [ty, tm, td] = toYmd.split('-').map(Number)
-  if (!fy || !fm || !fd || !ty || !tm || !td) return out
-  const cur = new Date(fy, fm - 1, fd)
-  const end = new Date(ty, tm - 1, td)
-  const pad = (n: number) => String(n).padStart(2, '0')
-  let guard = 0
-  while (cur <= end && guard < 800) {
-    out.push(`${cur.getFullYear()}-${pad(cur.getMonth() + 1)}-${pad(cur.getDate())}`)
-    cur.setDate(cur.getDate() + 1)
-    guard++
-  }
-  return out
 }
 
 export default function HolidayHomeAvailabilityHub({
@@ -296,32 +279,7 @@ export default function HolidayHomeAvailabilityHub({
       // Sınır günlerinin diğer yarımını + gecelik fiyat override'ları korumak için
       // mevcut değerleri oku (turnover'ın bozulmaması için şart).
       const existing = await getListingAvailabilityCalendar(token, selectedId, { from: ci, to: co }, orgQ)
-      const byDay = new Map((existing.days ?? []).map((d) => [d.day.trim(), d]))
-      const days = eachDayStrInclusive(ci, co).map((d) => {
-        const ex = byDay.get(d)
-        const exAm = ex?.am_available ?? ex?.is_available ?? true
-        const exPm = ex?.pm_available ?? ex?.is_available ?? true
-        const price = ex?.price_override?.trim() ?? ''
-        let am: boolean
-        let pm: boolean
-        if (d === ci) {
-          am = exAm
-          pm = block ? false : true
-        } else if (d === co) {
-          am = block ? false : true
-          pm = exPm
-        } else {
-          am = !block
-          pm = !block
-        }
-        return {
-          day: d,
-          is_available: am || pm,
-          am_available: am,
-          pm_available: pm,
-          price_override: price,
-        }
-      })
+      const days = buildReservationRangeDays(ci, co, existing.days ?? [], block)
       await putListingAvailabilityCalendar(token, selectedId, { days }, orgQ)
       await loadMonthCalendar()
       setCalOk(block ? 'Rezervasyon aralığı bloklandı (turnover) ✓' : 'Aralık boşaltıldı ✓')
