@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from 'react'
 import { ArrowUpRight01Icon, Message01Icon, SecurityCheckIcon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
-import { WhatsAppListingCTA } from '@/components/WhatsAppListingCTA'
+import WhatsAppListingCTA from '@/components/WhatsAppListingCTA'
 
 interface Props {
   priceLabel?: string
