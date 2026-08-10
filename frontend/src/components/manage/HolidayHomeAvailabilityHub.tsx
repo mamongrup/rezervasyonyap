@@ -112,6 +112,11 @@ export default function HolidayHomeAvailabilityHub({
   const [resCheckIn, setResCheckIn] = useState('')
   const [resCheckOut, setResCheckOut] = useState('')
 
+  function selectReservationCheckIn(value: string) {
+    setResCheckIn(value)
+    if (resCheckOut && value >= resCheckOut) setResCheckOut('')
+  }
+
   useEffect(() => {
     const token = getStoredAuthToken()
     if (!token) {
@@ -581,25 +586,27 @@ export default function HolidayHomeAvailabilityHub({
                   Rezervasyon aralığı (otomatik turnover)
                 </span>
                 <span className="w-full text-[11px] leading-relaxed text-neutral-500 dark:text-neutral-400">
-                  Giriş–çıkış tarihi girin: giriş günü öğleden sonra dolu, aradaki geceler tam dolu, çıkış günü
+                  Önce giriş, sonra çıkış tarihini seçin: giriş günü öğleden sonra dolu, aradaki geceler tam dolu, çıkış günü
                   öğleden önce dolu işaretlenir. Böylece aynı gün başka rezervasyon için giriş günü sabahı çıkış,
                   çıkış günü öğleden sonra yeni giriş açık kalır. Sınır günlerin diğer yarımı ve fiyatlar korunur.
                 </span>
                 <label className="flex flex-col gap-0.5">
-                  <span className="text-[10px] font-medium text-neutral-500">Giriş</span>
+                  <span className="text-[10px] font-medium text-neutral-500">1. seçim — Giriş</span>
                   <input
                     type="date"
                     value={resCheckIn}
-                    onChange={(e) => setResCheckIn(e.target.value)}
+                    onChange={(e) => selectReservationCheckIn(e.target.value)}
                     className="rounded-lg border border-neutral-200 bg-white px-2 py-1 dark:border-neutral-600 dark:bg-neutral-900"
                   />
                 </label>
                 <label className="flex flex-col gap-0.5">
-                  <span className="text-[10px] font-medium text-neutral-500">Çıkış</span>
+                  <span className="text-[10px] font-medium text-neutral-500">2. seçim — Çıkış</span>
                   <input
                     type="date"
                     value={resCheckOut}
+                    min={resCheckIn || undefined}
                     onChange={(e) => setResCheckOut(e.target.value)}
+                    disabled={!resCheckIn}
                     className="rounded-lg border border-neutral-200 bg-white px-2 py-1 dark:border-neutral-600 dark:bg-neutral-900"
                   />
                 </label>
