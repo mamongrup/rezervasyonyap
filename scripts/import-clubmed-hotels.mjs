@@ -69,4 +69,3 @@ main().catch((error) => {
   console.error(`[HATA] ${error.stack || error.message}`)
   process.exitCode = 1
 })
-
