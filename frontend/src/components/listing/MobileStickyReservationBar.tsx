@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useEffect, useState } from 'react'
-import { ArrowUpRight01Icon, Message01Icon, SecurityCheckIcon, ShieldCheckIcon } from '@hugeicons/core-free-icons'
+import { ArrowUpRight01Icon, Message01Icon, SecurityCheckIcon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { WhatsAppListingCTA } from '@/components/WhatsAppListingCTA'
 
@@ -73,7 +73,7 @@ export default function MobileStickyReservationBar({
           )}
 
           <div className="mt-0.5 flex items-center gap-1 text-[11px] font-medium text-emerald-600 dark:text-emerald-400">
-            <HugeiconsIcon icon={ShieldCheckIcon} className="size-3.5 shrink-0" strokeWidth={2} />
+            <HugeiconsIcon icon={SecurityCheckIcon} className="size-3.5 shrink-0" strokeWidth={2} />
             <span className="truncate">TÜRSAB Onaylı & Güvenli</span>
           </div>
         </div>
