@@ -1018,6 +1018,20 @@ export default async function ExperienceListingDetailPage({
   )
 
   const tourItineraryDays = useGezinomiTourLayout ? gezinomiItineraryDays : tourMeta?.itinerary ?? []
+  const includedServices = isCruise
+    ? cruiseServices.included
+    : isTour
+      ? useGezinomiTourLayout
+        ? gezinomiIncludedExcluded.included
+        : tourMeta?.includes ?? []
+      : []
+  const excludedServices = isCruise
+    ? cruiseServices.excluded
+    : isTour
+      ? useGezinomiTourLayout
+        ? gezinomiIncludedExcluded.excluded
+        : tourMeta?.excludes ?? []
+      : []
 
   const experienceFaqItems = [
     isTour && tourItineraryDays.length > 0
