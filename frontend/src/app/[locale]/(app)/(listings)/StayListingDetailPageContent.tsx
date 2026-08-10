@@ -1671,8 +1671,8 @@ export default async function StayListingDetailPageContent({
       {hotelFaqItems.length > 0 && (
         <FaqPageJsonLd
           items={hotelFaqItems.map((f) => ({
-            q: f.question,
-            a: f.answer,
+            q: f.q,
+            a: f.a,
           }))}
         />
       )}
