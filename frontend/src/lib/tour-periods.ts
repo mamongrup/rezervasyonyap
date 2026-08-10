@@ -79,7 +79,7 @@ function periodRowId(row: Record<string, unknown>): string {
 }
 
 /** Wtatil dönem satışa kapalı mı (Stop&Sale, kota dolu vb.) */
-function isWtatilPeriodSellable(row: Record<string, unknown>): boolean {
+export function isWtatilPeriodSellable(row: Record<string, unknown>): boolean {
   if (
     row.isStopSale === true ||
     row.IsStopSale === true ||

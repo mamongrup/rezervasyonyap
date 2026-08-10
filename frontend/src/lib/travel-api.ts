@@ -2267,7 +2267,7 @@ export async function putListingAvailabilityCalendar(
     days: {
       day: string
       is_available: boolean
-      price_override?: string
+      price_override?: string | null
       am_available?: boolean
       pm_available?: boolean
       day_status?: ListingAvailabilityDayStatus | '' | null
