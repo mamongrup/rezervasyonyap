@@ -1,7 +1,7 @@
 'use client'
 
 import React from 'react'
-import { SparklesIcon, ShieldCheckIcon, ThumbsUpIcon, StarIcon } from '@hugeicons/core-free-icons'
+import { SecurityCheckIcon, SparklesIcon, ThumbsUpIcon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
 
 interface Props {
@@ -51,7 +51,7 @@ export default function ListingAiSentimentBadge({
       )}
 
       <span className="inline-flex items-center gap-1 rounded-lg bg-white/90 px-2 py-0.5 font-medium text-emerald-800 shadow-2xs dark:bg-emerald-900/60 dark:text-emerald-100">
-        <HugeiconsIcon icon={ShieldCheckIcon} className="size-3 text-emerald-600 dark:text-emerald-400" strokeWidth={2} />
+        <HugeiconsIcon icon={SecurityCheckIcon} className="size-3 text-emerald-600 dark:text-emerald-400" strokeWidth={2} />
         TÜRSAB Onaylı & Anında Onay
       </span>
     </div>
