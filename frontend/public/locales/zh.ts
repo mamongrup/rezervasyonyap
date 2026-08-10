@@ -70,6 +70,8 @@ export const zh: AppMessages = {
     listingFilters: {
       ...en.categoryPage.listingFilters,
       allFilters: '所有筛选',
+      typeLabel: '类型',
+      priceLabel: '价格',
       byPrice: '按价格',
       subcategories: '子类别',
       theme: '主题',

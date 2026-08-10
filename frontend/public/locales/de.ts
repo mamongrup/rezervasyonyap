@@ -70,6 +70,8 @@ export const de: AppMessages = {
     listingFilters: {
       ...en.categoryPage.listingFilters,
       allFilters: 'Alle Filter',
+      typeLabel: 'Typ',
+      priceLabel: 'Preis',
       byPrice: 'Nach Preis',
       subcategories: 'Unterkategorien',
       theme: 'Thema',

@@ -1266,6 +1266,9 @@ fn dispatch(req: Request, ctx: Context) -> Response {
     http.Get, ["api", "v1", "catalog", "public", "theme-items"] ->
       collections_http.list_public_theme_items(req, ctx)
 
+    http.Get, ["api", "v1", "catalog", "public", "filter-attributes"] ->
+      catalog_http.list_public_filter_attributes(req, ctx)
+
     http.Get, ["api", "v1", "catalog", "manage", "theme-items"] ->
       collections_http.list_manage_theme_items(req, ctx)
 

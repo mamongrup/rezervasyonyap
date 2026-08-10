@@ -160,6 +160,10 @@ interface CategoryPageTemplateProps {
   hideListingsOnLanding?: boolean
   /** Tatil evi / yat — tema filtresi (sayfa zaten theme-items çektiyse tekrar API'ye gitme) */
   preloadedStayRentalThemeOptions?: { code: string; label: string }[]
+  /** Admin katalogundaki tatil evi tipleri; filtre sabit liste üretmez. */
+  preloadedStayRentalPropertyTypeOptions?: { code: string; label: string }[]
+  /** Admin öznitelik tanımlarındaki aktif boolean olanaklar. */
+  preloadedStayRentalAmenityOptions?: { key: string; label: string }[]
 }
 
 const heroImages = {
@@ -197,6 +201,8 @@ export default async function CategoryPageTemplate({
   listingSectionTitle,
   hideListingsOnLanding = false,
   preloadedStayRentalThemeOptions,
+  preloadedStayRentalPropertyTypeOptions,
+  preloadedStayRentalAmenityOptions,
 }: CategoryPageTemplateProps) {
   const m = getMessages(locale)
   const cat = m.categoryPage
@@ -588,6 +594,8 @@ export default async function CategoryPageTemplate({
               messages={m.categoryPage.listingFilters}
               subcategories={stayRentalSubs}
               themeOptions={stayRentalThemeOptions.length > 0 ? stayRentalThemeOptions : undefined}
+              propertyTypeOptions={preloadedStayRentalPropertyTypeOptions}
+              amenityOptions={preloadedStayRentalAmenityOptions}
             />
           </Suspense>
           </div>

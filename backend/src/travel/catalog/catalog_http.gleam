@@ -5226,6 +5226,86 @@ fn attr_def_row() -> decode.Decoder(#(String, String, String, String, String, In
   decode.success(#(id, code, label, ft, opts, sort, req_f, active, icon))
 }
 
+fn public_filter_attr_row() -> decode.Decoder(#(String, String, String, Int, Int, String)) {
+  use code <- decode.field(0, decode.string)
+  use label <- decode.field(1, decode.string)
+  use group_code <- decode.field(2, decode.string)
+  use group_sort <- decode.field(3, decode.int)
+  use def_sort <- decode.field(4, decode.int)
+  use icon <- decode.field(5, decode.string)
+  decode.success(#(code, label, group_code, group_sort, def_sort, icon))
+}
+
+/// GET /api/v1/catalog/public/filter-attributes?category_code=holiday_home&locale=tr
+/// Vitrin filtresi, admin ilan formu ve detay sayfası aynı aktif boolean tanımları kullanır.
+pub fn list_public_filter_attributes(req: Request, ctx: Context) -> Response {
+  use <- wisp.require_method(req, http.Get)
+  let qs = case request.get_query(req) {
+    Ok(q) -> q
+    Error(_) -> []
+  }
+  let category_code =
+    list.key_find(qs, "category_code")
+    |> result.unwrap("")
+    |> string.trim
+  let locale =
+    list.key_find(qs, "locale")
+    |> result.unwrap("tr")
+    |> string.trim
+  case category_code == "" {
+    True -> json_err(400, "category_code_required")
+    False ->
+      case
+        pog.query(
+          "select distinct on (d.code) d.code, "
+          <> "coalesce((select dt.label from listing_attribute_def_translations dt "
+          <> "inner join locales loc on loc.id = dt.locale_id "
+          <> "where dt.def_id = d.id and lower(loc.code) = lower($2) limit 1), "
+          <> "(select dt.label from listing_attribute_def_translations dt where dt.def_id = d.id order by dt.locale_id limit 1), "
+          <> "d.label, d.code), g.code, g.sort_order, d.sort_order, coalesce(d.icon_url, '') "
+          <> "from listing_attribute_groups g "
+          <> "inner join listing_attribute_defs d on d.group_id = g.id "
+          <> "where g.is_active = true and d.is_active = true and d.field_type = 'boolean' "
+          <> "and ($1 = any(g.category_codes) or array_length(g.category_codes, 1) is null or array_length(g.category_codes, 1) = 0) "
+          <> "and ($1 <> 'holiday_home' or g.code in ('ic_mekan','dis_mekan','imported_amenity') or g.code like 'ic_%' or g.code like 'dis_%') "
+          <> "and ($1 <> 'yacht_charter' or g.code = 'yat_olanak' or g.code like 'ic_%' or g.code like 'dis_%') "
+          <> "order by d.code, case when g.organization_id is null then 1 else 0 end, g.sort_order, d.sort_order",
+        )
+        |> pog.parameter(pog.text(category_code))
+        |> pog.parameter(pog.text(locale))
+        |> pog.returning(public_filter_attr_row())
+        |> db_exec.execute(ctx.db)
+      {
+        Error(_) -> json_err(500, "public_filter_attributes_query_failed")
+        Ok(ret) -> {
+          let sorted = list.sort(ret.rows, fn(a, b) {
+            let #(_, _, _, ag, ad, _) = a
+            let #(_, _, _, bg, bd, _) = b
+            case int.compare(ag, bg) {
+              order.Eq -> int.compare(ad, bd)
+              other -> other
+            }
+          })
+          let rows = list.map(sorted, fn(r) {
+            let #(code, label, group_code, _, _, icon) = r
+            json.object([
+              #("key", json.string(code)),
+              #("label", json.string(label)),
+              #("group_code", json.string(group_code)),
+              #("icon_url", case string.trim(icon) == "" {
+                True -> json.null()
+                False -> json.string(string.trim(icon))
+              }),
+            ])
+          })
+          json.object([#("items", json.array(rows, fn(x) { x }))])
+          |> json.to_string
+          |> wisp.json_response(200)
+        }
+      }
+  }
+}
+
 fn group_belongs_to_org(
   conn: pog.Connection,
   gid: String,

@@ -524,6 +524,8 @@ export const en = {
     featuredDefaultSubheading: 'Top picks in popular cities',
     listingFilters: {
       allFilters: 'All filters',
+      typeLabel: 'Type',
+      priceLabel: 'Price',
       byPrice: 'By price',
       subcategories: 'Subcategories',
       theme: 'Theme',

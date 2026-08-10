@@ -120,6 +120,8 @@ export interface SearchQuery {
   beds?: string
   bedrooms?: string
   bathrooms?: string
+  /** Tatil evi tipi (admin katalog slug'ı) */
+  property_type?: string
   /** virgülle: pool,kitchen,wifi,... */
   attrs?: string
   /** Deneyim şablonu — API `attrs` ile aynı mantık */
@@ -187,6 +189,7 @@ export function parseSearchParamsFromUrl(
     beds: g('beds'),
     bedrooms: g('bedrooms'),
     bathrooms: g('bathrooms'),
+    property_type: g('property_type'),
     attrs: g('attrs'),
     amenities: g('amenities'),
     theme: g('theme'),
@@ -619,7 +622,7 @@ export async function fetchFlexibleStayRentalListings(
   const apiParams = {
     categoryCode,
     location: apiLocation,
-    propertyType: regionPropertyType || undefined,
+    propertyType: relaxed.property_type?.trim() || regionPropertyType || undefined,
     checkin: relaxed.checkin,
     checkout: relaxed.checkout,
     guests: relaxed.guests ? parseInt(String(relaxed.guests), 10) : undefined,
@@ -748,7 +751,7 @@ export async function fetchCategoryListings(
     categoryCode,
     q: effectiveQuery.q?.trim() || undefined,
     location: apiLocation,
-    propertyType: regionPropertyType || undefined,
+    propertyType: effectiveQuery.property_type?.trim() || regionPropertyType || undefined,
     checkin: effectiveQuery.checkin,
     checkout: effectiveQuery.checkout,
     flexDays: effectiveQuery.flex_days

@@ -7263,6 +7263,32 @@ export async function fetchPublicHolidayHomePropertyTypes(
   }
 }
 
+export type PublicFilterAttribute = {
+  key: string
+  label: string
+  group_code: string
+  icon_url?: string | null
+}
+
+/** Admin katalogundaki aktif boolean öznitelikler — vitrin olanak filtresiyle birebir. */
+export async function fetchPublicFilterAttributes(
+  categoryCode: string,
+  locale: string,
+  init?: RequestInit,
+): Promise<PublicFilterAttribute[]> {
+  const b = base()
+  if (!b) throw new Error('NEXT_PUBLIC_API_URL_missing')
+  const q = new URLSearchParams({ category_code: categoryCode, locale })
+  const res = await fetch(`${b}/api/v1/catalog/public/filter-attributes?${q}`, init)
+  if (!res.ok) return []
+  try {
+    const raw = (await json(res)) as { items?: PublicFilterAttribute[] }
+    return Array.isArray(raw.items) ? raw.items : []
+  } catch {
+    return []
+  }
+}
+
 /** Yat kiralama vitrin SSS şablonu — kimlik doğrulama gerekmez. */
 export async function fetchPublicYachtCharterFaqTemplate(
   init?: RequestInit,

@@ -34,6 +34,8 @@ interface Props {
   locale?: string
   /** Harita sayfası — tema seçenekleri (sunucu `listPublicThemeItems`) */
   themeOptions?: { code: string; label: string }[]
+  propertyTypeOptions?: { code: string; label: string }[]
+  amenityOptions?: { key: string; label: string }[]
   listingPaginationSlot?: ReactNode
 }
 
@@ -46,6 +48,8 @@ const SectionGridHasMap: FC<Props> = ({
   categorySlug,
   locale,
   themeOptions: themeOptionsProp,
+  propertyTypeOptions,
+  amenityOptions,
   listingPaginationSlot,
 }) => {
   const [currentHoverID, setCurrentHoverID] = useState<string>('')
@@ -64,6 +68,8 @@ const SectionGridHasMap: FC<Props> = ({
               messages={m.categoryPage.listingFilters}
               subcategories={getSubcategoriesByParent('tatil-evleri')}
               themeOptions={themeOptionsProp}
+              propertyTypeOptions={propertyTypeOptions}
+              amenityOptions={amenityOptions}
             />
           </Suspense>
         )

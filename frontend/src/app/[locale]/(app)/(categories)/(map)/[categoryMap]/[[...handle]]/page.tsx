@@ -9,7 +9,8 @@ import { getCategoryByMapRoute } from '@/data/category-registry'
 import type { TCarCategory, TExperienceCategory, TStayCategory } from '@/data/categories'
 import { getCarListingFilterOptions, getStayListingFilterOptions, type TCarListing, type TExperienceListing } from '@/data/listings'
 import { fetchCategoryListings, parseSearchParamsFromUrl } from '@/lib/listings-fetcher'
-import { listPublicThemeItems } from '@/lib/travel-api'
+import { fetchPublicFilterAttributes, fetchPublicHolidayHomePropertyTypes, listPublicThemeItems } from '@/lib/travel-api'
+import { holidayPropertyLabelForLocale } from '@/lib/holiday-property-type-options'
 import type { TListingBase } from '@/types/listing-types'
 import { Metadata } from 'next'
 import { notFound } from 'next/navigation'
@@ -147,12 +148,18 @@ export default async function Page({
   )
 
   if (variant === 'stay') {
-    const [listingResult, filterOptions, themeOpts] = await Promise.all([
+    const [listingResult, filterOptions, themeOpts, propertyTypeItems, amenityItems] = await Promise.all([
       listingsPromise,
       getStayListingFilterOptions(),
       reg.slug === 'tatil-evleri'
         ? listPublicThemeItems({ categoryCode: 'holiday_home', locale })
         : Promise.resolve(null),
+      reg.slug === 'tatil-evleri'
+        ? fetchPublicHolidayHomePropertyTypes({ cache: 'no-store' }).catch(() => [])
+        : Promise.resolve([]),
+      reg.slug === 'tatil-evleri'
+        ? fetchPublicFilterAttributes('holiday_home', locale, { cache: 'no-store' }).catch(() => [])
+        : Promise.resolve([]),
     ])
     const { listings, total, page, perPage } = listingResult
     const category = stayStub(reg, currentHandle, total)
@@ -166,6 +173,11 @@ export default async function Page({
         listings={listings as TListingBase[]}
         locale={locale}
         themeOptions={themeOptions}
+        propertyTypeOptions={propertyTypeItems.map((item) => ({
+          code: item.slug,
+          label: holidayPropertyLabelForLocale(item, locale),
+        }))}
+        amenityOptions={amenityItems.map((item) => ({ key: item.key, label: item.label }))}
         listingPaginationSlot={makePager(page, total, perPage)}
       />
     )

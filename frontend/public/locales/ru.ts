@@ -70,6 +70,8 @@ export const ru: AppMessages = {
     listingFilters: {
       ...en.categoryPage.listingFilters,
       allFilters: 'Все фильтры',
+      typeLabel: 'Тип',
+      priceLabel: 'Цена',
       byPrice: 'По цене',
       subcategories: 'Подкатегории',
       theme: 'Тема',

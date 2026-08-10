@@ -82,6 +82,7 @@ import {
   getPublicHotelRooms,
   getPublicListingImages,
   fetchPublicListingAttributesSafe,
+  fetchPublicFilterAttributes,
   getPublicMealPlans,
   getPublicHotelPromotions,
   getPublicHotelActivities,
@@ -483,6 +484,7 @@ export default async function StayListingDetailPageContent({
     fetchedHotelActivities,
     fetchedReviewCriteriaSummary,
     attrs,
+    publicAttributeDefs,
     hotelValidCampaignsPayload,
     hotelRoomsResult,
     hotelGalleryResult,
@@ -512,6 +514,9 @@ export default async function StayListingDetailPageContent({
       : Promise.resolve([]),
     fetchListingReviewCriteriaSummarySafe(listing.id),
     fetchPublicListingAttributesSafe(catalogListingId ?? listing.id),
+    vertical
+      ? fetchPublicFilterAttributes(vertical, locale, { next: { revalidate: 120 } }).catch(() => [])
+      : Promise.resolve([]),
     vertical === 'hotel'
       ? fetchPublicHotelValidCampaigns({ next: { revalidate: 60 } })
       : Promise.resolve(null),
@@ -615,7 +620,10 @@ export default async function StayListingDetailPageContent({
   let amenityIcons: Record<string, string> = {}
   const amenityRows = buildVitrinAmenityRows(attrs.values, vertical, isAttributeValueTrue)
   amenityKeys = Array.from(new Set(amenityRows.map((a) => a.key)))
-  amenityLabels = buildAttributeLabelMap(amenityRows)
+  amenityLabels = {
+    ...buildAttributeLabelMap(amenityRows),
+    ...Object.fromEntries(publicAttributeDefs.map((item) => [item.key, item.label])),
+  }
   amenityIcons = attrs.icons
   if (vertical === 'hotel' && handle === HOTEL_DEMO_LISTING_HANDLE && amenityKeys.length === 0) {
     amenityKeys = HOTEL_DEMO_AMENITY_ROWS.map((row) => row.key)

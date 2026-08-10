@@ -25,6 +25,8 @@ import { parseFeaturedVitrinTab } from '@/lib/featured-tab-view-all'
 import type { Metadata } from 'next'
 import { redirect } from 'next/navigation'
 import { regionLabelFromHandle } from '@/lib/stay-location-display'
+import { fetchPublicFilterAttributes, fetchPublicHolidayHomePropertyTypes } from '@/lib/travel-api'
+import { holidayPropertyLabelForLocale } from '@/lib/holiday-property-type-options'
 
 export async function generateMetadata({
   params,
@@ -54,7 +56,7 @@ export default async function Page({
   // Ana ilan listesini, listeden bağımsız verilerle (filtre seçenekleri, bölge
   // hero, tema etiketleri) paralel çek. flexibleListings ana listenin id'lerine
   // bağlı olduğu için ondan sonra gelir.
-  const [bundle, themeLabelMap] = await Promise.all([
+  const [bundle, themeLabelMap, propertyTypeItems, amenityItems] = await Promise.all([
     loadCategoryPageListingsBundle(
       'tatil-evleri',
       query,
@@ -63,6 +65,8 @@ export default async function Page({
       getStayListingFilterOptions(),
     ),
     getHolidayThemeLabelMap(locale),
+    fetchPublicHolidayHomePropertyTypes({ cache: 'no-store' }).catch(() => []),
+    fetchPublicFilterAttributes('holiday_home', locale, { cache: 'no-store' }).catch(() => []),
   ])
   const {
     result: { listings, total, page, perPage, fromApi },
@@ -150,6 +154,14 @@ export default async function Page({
         vitrinTab: parseFeaturedVitrinTab(query.vitrin_tab),
       }}
       preloadedStayRentalThemeOptions={holidayThemeOptionsFromMap(themeLabelMap)}
+      preloadedStayRentalPropertyTypeOptions={propertyTypeItems.map((item) => ({
+        code: item.slug,
+        label: holidayPropertyLabelForLocale(item, locale),
+      }))}
+      preloadedStayRentalAmenityOptions={amenityItems.map((item) => ({
+        key: item.key,
+        label: item.label,
+      }))}
       flexibleListingCards={
         flexibleForUi.length > 0
           ? flexibleForUi.map((l) => (

@@ -2,7 +2,7 @@
 
 /**
  * Tatil evleri kategori sayfası — çok dilli filtre çubuğu (URL query ile).
- * Tüm filtreleme | Fiyata göre | Alt kategoriler | Sıralama
+ * Tüm filtreler | Tipi | Tema | Olanak | Fiyat | Sırala
  */
 
 import { PriceRangeSlider } from '@/components/PriceRangeSlider'
@@ -27,7 +27,6 @@ import {
 import { ArrowDown01Icon, FilterVerticalIcon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
 import clsx from 'clsx'
-import Link from 'next/link'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { useCallback, useMemo, useState } from 'react'
 import { getCategoryByMapRoute } from '@/data/category-registry'
@@ -41,7 +40,6 @@ import { getStayRentalFilterAttrKeys,
   normalizeStayRentalAttrKey,
   parseStayRentalAttrsParam,
 } from '@/lib/stay-rental-filter-attrs'
-import { subcategoryInternalPath } from '@/lib/subcategory-href'
 import { getMessages } from '@/utils/getT'
 import { defaultLocale, normalizeHrefForLocale, stripLocalePrefix } from '@/lib/i18n-config'
 import { useRegisterVitrinOverlay, vitrinOverlayDialogClassName } from '@/components/aside/aside'
@@ -53,6 +51,7 @@ import {
   STAY_RENTAL_PRICE_FILTER_STEP,
   defaultStayRentalPriceFilterMax,
 } from '@/lib/stay-rental-price-filter'
+import { stayRentalPropertyTypeFromHandle } from '@/lib/stay-rental-categories'
 
 /** ListingFilterTabs ile aynı hap görünümü (kategori vitrininde tutarlılık) */
 const filterPillBase =
@@ -80,12 +79,18 @@ export default function HolidayListingFilters({
   messages: l,
   subcategories = [],
   themeOptions,
+  propertyTypeOptions = [],
+  amenityOptions,
 }: {
   locale: string
   messages: HolidayListingFilterMessages
   subcategories?: SubcategoryEntry[]
-  /** Tatil evleri: katalog temaları — doluysa alt kategori filtresi yerine kullanılır */
+  /** Tatil evleri: katalog temaları */
   themeOptions?: { code: string; label: string }[]
+  /** Admin katalogunda tanımlanan çok dilli tatil evi tipleri. */
+  propertyTypeOptions?: { code: string; label: string }[]
+  /** Admin ilan formu ve detay sayfasıyla aynı öznitelik kod/etiketleri. */
+  amenityOptions?: { key: string; label: string }[]
 }) {
   const router = useRouter()
   const pathname = usePathname() ?? ''
@@ -139,29 +144,13 @@ export default function HolidayListingFilters({
   }, [themeOptions, isHolidayHomesCategory])
 
   const listBasePath = normalizeHrefForLocale(effectiveLocale, vitrinPath(`/${categorySlug}`))
-  const linkBasePath =
-    mapEntry?.mapRoute != null
-      ? normalizeHrefForLocale(effectiveLocale, vitrinPath(mapEntry.mapRoute))
-      : listBasePath
-
-  const querySuffix = useMemo(() => {
-    const s = searchParams.toString()
-    return s ? `?${s}` : ''
-  }, [searchParams])
-
-  /** Alt kategori linkleri her zaman liste rotasına gider (harita vitrininde de). */
-  const subcategoryHref = useCallback(
-    (entry: SubcategoryEntry) =>
-      normalizeHrefForLocale(effectiveLocale, vitrinPath(subcategoryInternalPath(entry))),
-    [effectiveLocale, vitrinPath],
-  )
-
   const sort = searchParams.get('sort') ?? ''
   const priceMin = searchParams.get('price_min') ?? ''
   const priceMax = searchParams.get('price_max') ?? ''
   const beds = searchParams.get('beds') ?? ''
   const bedrooms = searchParams.get('bedrooms') ?? ''
   const bathrooms = searchParams.get('bathrooms') ?? ''
+  const propertyTypeParam = searchParams.get('property_type') ?? ''
   const themeParam = searchParams.get('theme') ?? ''
   const attrsParam = searchParams.get('attrs') ?? ''
 
@@ -173,12 +162,43 @@ export default function HolidayListingFilters({
     [pathHandle, categorySlug, effectiveLocale],
   )
   const pathThemeCode = pathFacetRoute?.queryKey === 'theme' ? pathFacetRoute.queryValue : undefined
+  const pathPropertyType = isStayRentalCategoryPage
+    ? stayRentalPropertyTypeFromHandle(
+        isHolidayHomesCategory ? 'holiday_home' : 'yacht_charter',
+        pathHandle,
+      )
+    : undefined
+
+  const selectedPropertyType = propertyTypeParam.trim() || pathPropertyType || ''
+  const effectivePropertyTypeOptions = useMemo(() => {
+    if (isHolidayHomesCategory) return propertyTypeOptions
+    return subcategories.map((entry) => ({
+      code: stayRentalPropertyTypeFromHandle('yacht_charter', entry.slug) ?? entry.slug,
+      label: subcategoryLabelForLocale(entry, effectiveLocale),
+    }))
+  }, [isHolidayHomesCategory, propertyTypeOptions, subcategories, effectiveLocale])
+
+  const navigateToPropertyType = useCallback(
+    (code: string | null) => {
+      const sp = new URLSearchParams(searchParams.toString())
+      sp.delete('property_type')
+      sp.delete('page')
+      if (pathThemeCode && !sp.get('theme')) sp.set('theme', pathThemeCode)
+      if (code) sp.set('property_type', code)
+      const q = sp.toString()
+      router.push(q ? `${listBasePath}?${q}` : listBasePath, { scroll: false })
+    },
+    [searchParams, pathThemeCode, router, listBasePath],
+  )
 
   const navigateToTheme = useCallback(
     (code: string | null) => {
       const sp = new URLSearchParams(searchParams.toString())
       sp.delete('theme')
       sp.delete('page')
+      if (pathPropertyType && !sp.get('property_type')) {
+        sp.set('property_type', pathPropertyType)
+      }
       const q = sp.toString()
       const suffix = q ? `?${q}` : ''
       if (!code || !isFacetRoutableCategorySlug(categorySlug)) {
@@ -194,12 +214,13 @@ export default function HolidayListingFilters({
       )
       router.push(`${themePath}${suffix}`, { scroll: false })
     },
-    [searchParams, categorySlug, listBasePath, effectiveLocale, routeIdx, router],
+    [searchParams, pathPropertyType, categorySlug, listBasePath, effectiveLocale, routeIdx, router],
   )
 
   const selectedAttrKeys = useMemo(() => parseStayRentalAttrsParam(attrsParam), [attrsParam])
 
   const attrOptions = useMemo(() => {
+    if (amenityOptions) return amenityOptions
     const labels = getMessages(effectiveLocale).listing.amenities.labels as Record<string, string>
     const filterLabels = getMessages(effectiveLocale).categoryPage?.listingFilters as
       | Record<string, string>
@@ -211,7 +232,7 @@ export default function HolidayListingFilters({
         labels[key] ??
         key.replace(/_/g, ' '),
     }))
-  }, [effectiveLocale, categorySlug, isYachtCategory])
+  }, [amenityOptions, effectiveLocale, categorySlug, isYachtCategory])
 
   function toggleAttrKey(key: string) {
     const next = new Set(selectedAttrKeys)
@@ -222,15 +243,12 @@ export default function HolidayListingFilters({
     setQuery({ attrs: [...next].join(',') || null })
   }
 
-  /** Tema listesi varsa alt kategori yerine tema filtresi (tatil evi + yat) */
+  /** Tip ve tema birbirinden bağımsız filtrelerdir. */
   const useThemeFilter = isStayRentalCategoryPage && effectiveThemeOptions.length > 0
   const themeActive = useThemeFilter && (!!pathThemeCode || !!themeParam.trim())
-
+  const typeActive = !!selectedPropertyType
   const subActive =
-    !useThemeFilter &&
-    !!pathHandle &&
-    pathHandle !== 'all' &&
-    subcategories.some((s) => s.slug === pathHandle)
+    !!pathHandle && pathHandle !== 'all' && subcategories.some((s) => s.slug === pathHandle)
 
   const priceFilterActive = useMemo(() => {
     const minN = priceMin.trim() ? parseInt(priceMin, 10) : STAY_RENTAL_PRICE_FILTER_MIN
@@ -248,11 +266,11 @@ export default function HolidayListingFilters({
     if (sort) n += 1
     if (priceFilterActive) n += 1
     if (beds || bedrooms || bathrooms) n += 1
+    if (typeActive || subActive) n += 1
     if (themeActive) n += 1
-    else if (subActive) n += 1
     if (selectedAttrKeys.size > 0) n += 1
     return n
-  }, [sort, priceFilterActive, beds, bedrooms, bathrooms, subActive, themeActive, selectedAttrKeys.size])
+  }, [sort, priceFilterActive, beds, bedrooms, bathrooms, typeActive, subActive, themeActive, selectedAttrKeys.size])
 
   const pricePanelCount = priceFilterActive ? 1 : 0
 
@@ -271,6 +289,7 @@ export default function HolidayListingFilters({
     sp.delete('beds')
     sp.delete('bedrooms')
     sp.delete('bathrooms')
+    sp.delete('property_type')
     sp.delete('theme')
     sp.delete('attrs')
     sp.delete('page')
@@ -295,8 +314,6 @@ export default function HolidayListingFilters({
     const isActive = pathThemeCode === code || selectedThemeCodes.has(code)
     navigateToTheme(isActive ? null : code)
   }
-
-  const themeOrSubBadgeCount = useThemeFilter ? selectedThemeCodes.size : subActive ? 1 : 0
 
   const attrCheckboxList = (
     <ul className="space-y-2">
@@ -344,9 +361,9 @@ export default function HolidayListingFilters({
               {l.filtersTitle}
             </DialogTitle>
           </div>
-          <div className="hidden-scrollbar grow overflow-y-auto px-4 text-start sm:px-8">
-            <div className="border-b border-neutral-200 py-6 dark:border-neutral-800">
-              <h3 className="text-lg font-medium">{l.byPrice}</h3>
+          <div className="hidden-scrollbar flex grow flex-col overflow-y-auto px-4 text-start sm:px-8">
+            <div className="order-4 border-b border-neutral-200 py-6 dark:border-neutral-800">
+              <h3 className="text-lg font-medium">{l.priceLabel}</h3>
               <div className="mt-4">
                 <PriceRangeSlider
                   key={`all-${priceMin}-${priceMax}`}
@@ -368,7 +385,7 @@ export default function HolidayListingFilters({
                 />
               </div>
             </div>
-            <div className="border-b border-neutral-200 py-6 dark:border-neutral-800">
+            <div className="order-6 border-b border-neutral-200 py-6 dark:border-neutral-800">
               <h3 className="text-lg font-medium">{l.roomsBeds}</h3>
               <div className="mt-4 grid gap-3 sm:grid-cols-3">
                 <Field className="block">
@@ -403,8 +420,35 @@ export default function HolidayListingFilters({
                 </Field>
               </div>
             </div>
+            <div className="order-1 border-b border-neutral-200 py-6 dark:border-neutral-800">
+              <h3 className="text-lg font-medium">{l.typeLabel}</h3>
+              <ul className="mt-3 space-y-2">
+                <li>
+                  <button
+                    type="button"
+                    className="text-sm text-link-muted-underline"
+                    onClick={() => navigateToPropertyType(null)}
+                  >
+                    {l.allTypes}
+                  </button>
+                </li>
+                {effectivePropertyTypeOptions.map((t) => (
+                  <li key={t.code}>
+                    <label className="flex cursor-pointer items-center gap-2 text-sm text-neutral-700 dark:text-neutral-200">
+                      <input
+                        type="checkbox"
+                        className="rounded border-neutral-300"
+                        checked={selectedPropertyType === t.code}
+                        onChange={() => navigateToPropertyType(selectedPropertyType === t.code ? null : t.code)}
+                      />
+                      {t.label}
+                    </label>
+                  </li>
+                ))}
+              </ul>
+            </div>
             {useThemeFilter ? (
-              <div className="border-b border-neutral-200 py-6 dark:border-neutral-800">
+              <div className="order-2 border-b border-neutral-200 py-6 dark:border-neutral-800">
                 <h3 className="text-lg font-medium">{l.theme}</h3>
                 <ul className="mt-3 space-y-2">
                   <li>
@@ -434,40 +478,14 @@ export default function HolidayListingFilters({
                   ))}
                 </ul>
               </div>
-            ) : (
-              <div className="border-b border-neutral-200 py-6 dark:border-neutral-800">
-                <h3 className="text-lg font-medium">{l.subcategories}</h3>
-                <ul className="mt-3 space-y-2">
-                  <li>
-                    <Link
-                      href={`${linkBasePath}${querySuffix}`}
-                      className="text-sm text-link-muted-underline"
-                      onClick={() => setShowAll(false)}
-                    >
-                      {l.allTypes}
-                    </Link>
-                  </li>
-                  {subcategories.map((s) => (
-                    <li key={s.id}>
-                      <Link
-                        href={`${subcategoryHref(s)}${querySuffix}`}
-                        className="text-sm text-neutral-700 hover:text-primary-600 dark:text-neutral-200"
-                        onClick={() => setShowAll(false)}
-                      >
-                        {subcategoryLabelForLocale(s, effectiveLocale)}
-                      </Link>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
+            ) : null}
             {isStayRentalCategoryPage ? (
-              <div className="border-b border-neutral-200 py-6 dark:border-neutral-800">
-                <h3 className="text-lg font-medium">{l.attributes}</h3>
+              <div className="order-3 border-b border-neutral-200 py-6 dark:border-neutral-800">
+                <h3 className="text-lg font-medium">{l.amenitiesLabel}</h3>
                 <div className="mt-3">{attrPillList}</div>
               </div>
             ) : null}
-            <div className="border-t border-neutral-200 py-6 dark:border-neutral-800">
+            <div className="order-5 border-t border-neutral-200 py-6 dark:border-neutral-800">
               <h3 className="text-lg font-medium">{l.sortLabel}</h3>
               <select
                 value={sort}
@@ -496,7 +514,7 @@ export default function HolidayListingFilters({
   const pricePopover = (
     <div className="rounded-2xl border border-neutral-200 bg-white shadow-xl dark:border-neutral-700 dark:bg-neutral-900">
       <div className="px-5 py-6">
-        <p className="text-sm font-medium">{l.byPrice}</p>
+        <p className="text-sm font-medium">{l.priceLabel}</p>
         <div className="mt-4">
           <PriceRangeSlider
             key={`pop-${priceMin}-${priceMax}`}
@@ -552,7 +570,7 @@ export default function HolidayListingFilters({
       <div className="hidden h-8 w-px shrink-0 self-stretch bg-neutral-200 md:block dark:bg-neutral-700" />
 
       <PopoverGroup className="hidden min-w-0 flex-wrap items-center gap-2 md:flex md:gap-3">
-        <Popover className="relative">
+        <Popover className="relative order-4">
           <PopoverButton
             type="button"
             className={clsx(
@@ -562,7 +580,7 @@ export default function HolidayListingFilters({
               'data-[headlessui-state=open]:border-neutral-950 dark:data-[headlessui-state=open]:border-white',
             )}
           >
-            <span>{l.byPrice}</span>
+            <span>{l.priceLabel}</span>
             <HugeiconsIcon icon={ArrowDown01Icon} className="size-4 shrink-0 opacity-70" strokeWidth={1.75} />
             {pricePanelCount > 0 ? filterCountBadge(pricePanelCount) : null}
           </PopoverButton>
@@ -575,19 +593,19 @@ export default function HolidayListingFilters({
           </PopoverPanel>
         </Popover>
 
-        <Popover className="relative">
+        <Popover className="relative order-1">
           <PopoverButton
             type="button"
             className={clsx(
               filterPillBase,
-              themeActive || subActive ? filterPillEmphasis : filterPillIdle,
+              typeActive || subActive ? filterPillEmphasis : filterPillIdle,
               'relative max-w-[min(100%,14rem)] sm:max-w-none',
               'data-[headlessui-state=open]:border-neutral-950 dark:data-[headlessui-state=open]:border-white',
             )}
           >
-            <span>{useThemeFilter ? l.theme : l.subcategories}</span>
+            <span>{l.typeLabel}</span>
             <HugeiconsIcon icon={ArrowDown01Icon} className="size-4 shrink-0 opacity-70" strokeWidth={1.75} />
-            {themeOrSubBadgeCount > 0 ? filterCountBadge(themeOrSubBadgeCount) : null}
+            {typeActive || subActive ? filterCountBadge(1) : null}
           </PopoverButton>
           <PopoverPanel
             transition
@@ -596,63 +614,68 @@ export default function HolidayListingFilters({
           >
             <div className="rounded-2xl border border-neutral-200 bg-white shadow-xl dark:border-neutral-700 dark:bg-neutral-900">
               <div className="max-h-[24rem] overflow-y-auto px-5 py-4">
-                {useThemeFilter ? (
-                  <ul className="space-y-2">
-                    <li>
-                      <button
-                        type="button"
-                        className="text-sm text-link-muted-underline"
-                        onClick={() => navigateToTheme(null)}
-                      >
-                        {l.allTypes}
-                      </button>
+                <ul className="space-y-2">
+                  <li>
+                    <button type="button" className="text-sm text-link-muted-underline" onClick={() => navigateToPropertyType(null)}>
+                      {l.allTypes}
+                    </button>
+                  </li>
+                  {effectivePropertyTypeOptions.map((t) => (
+                    <li key={t.code}>
+                      <label className="flex cursor-pointer items-center gap-2 text-sm text-neutral-700 dark:text-neutral-200">
+                        <input
+                          type="checkbox"
+                          className="rounded border-neutral-300"
+                          checked={selectedPropertyType === t.code}
+                          onChange={() => navigateToPropertyType(selectedPropertyType === t.code ? null : t.code)}
+                        />
+                        {t.label}
+                      </label>
                     </li>
-                    {effectiveThemeOptions.map((t) => (
-                      <li key={t.code}>
-                        <label className="flex cursor-pointer items-center gap-2 text-sm text-neutral-700 dark:text-neutral-200">
-                          <input
-                            type="checkbox"
-                            className="rounded border-neutral-300"
-                            checked={selectedThemeCodes.has(t.code)}
-                            onChange={() => toggleThemeCode(t.code)}
-                          />
-                          {t.label}
-                        </label>
-                      </li>
-                    ))}
-                  </ul>
-                ) : (
-                  <ul className="space-y-2">
-                    <li>
-                      <Link
-                        href={`${linkBasePath}${querySuffix}`}
-                        className="text-sm text-link-muted-underline"
-                      >
-                        {l.allTypes}
-                      </Link>
-                    </li>
-                    {subcategories.map((s) => (
-                      <li key={s.id}>
-                        <Link
-                          href={`${subcategoryHref(s)}${querySuffix}`}
-                          className={clsx(
-                            'text-sm hover:text-neutral-700 dark:hover:text-neutral-200',
-                            pathHandle === s.slug ? 'font-semibold text-primary-700 dark:text-primary-300' : 'text-neutral-700 dark:text-neutral-200',
-                          )}
-                        >
-                          {subcategoryLabelForLocale(s, effectiveLocale)}
-                        </Link>
-                      </li>
-                    ))}
-                  </ul>
-                )}
+                  ))}
+                </ul>
               </div>
             </div>
           </PopoverPanel>
         </Popover>
 
+        {useThemeFilter ? (
+          <Popover className="relative order-2">
+            <PopoverButton
+              type="button"
+              className={clsx(
+                filterPillBase,
+                themeActive ? filterPillEmphasis : filterPillIdle,
+                'relative max-w-[min(100%,14rem)] sm:max-w-none',
+                'data-[headlessui-state=open]:border-neutral-950 dark:data-[headlessui-state=open]:border-white',
+              )}
+            >
+              <span>{l.theme}</span>
+              <HugeiconsIcon icon={ArrowDown01Icon} className="size-4 shrink-0 opacity-70" strokeWidth={1.75} />
+              {selectedThemeCodes.size > 0 ? filterCountBadge(selectedThemeCodes.size) : null}
+            </PopoverButton>
+            <PopoverPanel transition unmount={false} className="absolute -start-5 top-full z-50 mt-3 w-sm transition data-closed:translate-y-1 data-closed:opacity-0">
+              <div className="rounded-2xl border border-neutral-200 bg-white shadow-xl dark:border-neutral-700 dark:bg-neutral-900">
+                <div className="max-h-[24rem] overflow-y-auto px-5 py-4">
+                  <ul className="space-y-2">
+                    <li><button type="button" className="text-sm text-link-muted-underline" onClick={() => navigateToTheme(null)}>{l.allTypes}</button></li>
+                    {effectiveThemeOptions.map((t) => (
+                      <li key={t.code}>
+                        <label className="flex cursor-pointer items-center gap-2 text-sm text-neutral-700 dark:text-neutral-200">
+                          <input type="checkbox" className="rounded border-neutral-300" checked={selectedThemeCodes.has(t.code)} onChange={() => toggleThemeCode(t.code)} />
+                          {t.label}
+                        </label>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+            </PopoverPanel>
+          </Popover>
+        ) : null}
+
         {isStayRentalCategoryPage ? (
-          <Popover className="relative">
+          <Popover className="relative order-3">
             <PopoverButton
               type="button"
               className={clsx(
@@ -662,7 +685,7 @@ export default function HolidayListingFilters({
                 'data-[headlessui-state=open]:border-neutral-950 dark:data-[headlessui-state=open]:border-white',
               )}
             >
-              <span>{l.attributes}</span>
+              <span>{l.amenitiesLabel}</span>
               <HugeiconsIcon icon={ArrowDown01Icon} className="size-4 shrink-0 opacity-70" strokeWidth={1.75} />
               {selectedAttrKeys.size > 0 ? filterCountBadge(selectedAttrKeys.size) : null}
             </PopoverButton>
@@ -691,7 +714,7 @@ export default function HolidayListingFilters({
           </Popover>
         ) : null}
 
-        <Popover className="relative">
+        <Popover className="relative order-5">
           <PopoverButton
             type="button"
             className={clsx(
