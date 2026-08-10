@@ -464,6 +464,7 @@ export async function POST(req: NextRequest) {
     let warning: string | undefined
 
     const isBrandLogo = fixedStem === 'brand-logo-light' || fixedStem === 'brand-logo-dark'
+    const isBrandOgShare = folder === 'site' && fixedStem === 'brand-og-share'
     if (isBrandLogo && originalExt !== 'svg' && file.type !== 'image/svg+xml') {
       return NextResponse.json(
         { ok: false, error: 'Logo için yalnızca SVG dosyası yükleyebilirsiniz.' },
@@ -474,6 +475,22 @@ export async function POST(req: NextRequest) {
     if (isBrandLogo) {
       outputBuffer = sanitizeLogoSvg(rawBuffer)
       ext = 'svg'
+    } else if (isBrandOgShare) {
+      try {
+        outputBuffer = await sharpFromUploadBuffer(rawBuffer, originalExt)
+          .rotate()
+          .resize(1200, 630, { fit: 'cover', position: 'attention' })
+          .flatten({ background: '#ffffff' })
+          .jpeg({ quality: 90, progressive: true, mozjpeg: true })
+          .toBuffer()
+        ext = 'jpg'
+      } catch (sharpErr) {
+        console.error('[upload-image] og share jpeg', sharpErr)
+        return NextResponse.json(
+          { ok: false, error: 'Paylaşım görseli 1200×630 JPEG biçimine dönüştürülemedi.' },
+          { status: 400 },
+        )
+      }
     } else if (isPdf) {
       outputBuffer = rawBuffer
       ext = 'pdf'

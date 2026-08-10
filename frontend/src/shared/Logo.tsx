@@ -6,6 +6,7 @@ import { ensureReadableColor } from '@/lib/color-contrast'
 import { normalizeSiteLogoUrl, pickEffectiveSiteLogoUrls, resolveSiteLogoUrl } from '@/lib/resolve-site-logo-url'
 import { siteUploadBrowserHref } from '@/lib/site-upload-browser-href'
 import { getSitePublicConfig } from '@/lib/travel-api'
+import { resolveLogoSlogan } from '@/lib/logo-slogan'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import React, { useEffect, useId, useRef, useState } from 'react'
@@ -18,6 +19,9 @@ interface LogoProps {
   darkSrc?: string
   alt?: string
   initialBranding?: BrandingConfig
+  /** Logo yazısının altında yönetilebilir kısa marka sloganını gösterir. */
+  showSlogan?: boolean
+  locale?: string
 }
 
 function detectCategoryCode(pathname: string): string | null {
@@ -71,6 +75,8 @@ export interface BrandingConfig {
   logo_text_line2?: string
   logo_text_line1_color?: string
   logo_text_line2_color?: string
+  logo_slogan?: string
+  logo_slogan_i18n?: Record<string, string>
   /** Apex host → logo yazı override (`rezervasyonyap.com.tr` vb.) */
   domain_overrides?: Record<string, BrandingDomainLogoOverride>
   site_name?: string
@@ -304,7 +310,15 @@ function AnimatedBrandIcon({
   )
 }
 
-const Logo: React.FC<LogoProps> = ({ className = 'w-auto', src, darkSrc, alt, initialBranding }) => {
+const Logo: React.FC<LogoProps> = ({
+  className = 'w-auto',
+  src,
+  darkSrc,
+  alt,
+  initialBranding,
+  showSlogan = false,
+  locale = 'tr',
+}) => {
   const pathname = usePathname() ?? ''
   const vitrinPath = useVitrinHref()
   const logoHref = pathname.includes('/manage') ? vitrinPath('/manage/admin') : vitrinPath('/')
@@ -388,6 +402,8 @@ const Logo: React.FC<LogoProps> = ({ className = 'w-auto', src, darkSrc, alt, in
           logo_text_line2: b.logo_text_line2,
           logo_text_line1_color: b.logo_text_line1_color,
           logo_text_line2_color: b.logo_text_line2_color,
+          logo_slogan: b.logo_slogan,
+          logo_slogan_i18n: b.logo_slogan_i18n as Record<string, string> | undefined,
           domain_overrides: b.domain_overrides,
           site_name: b.site_name ?? (cfg as { site_name?: string }).site_name,
           category_logos: b.category_logos as Record<string, CategoryLogo> | undefined,
@@ -422,6 +438,9 @@ const Logo: React.FC<LogoProps> = ({ className = 'w-auto', src, darkSrc, alt, in
     !!renderedDarkUrl &&
     resolveSiteLogoUrl(renderedLightUrl) === resolveSiteLogoUrl(renderedDarkUrl)
   const altText = alt ?? branding.site_name ?? 'Logo'
+  const slogan = showSlogan
+    ? resolveLogoSlogan(branding as Record<string, unknown>, locale)
+    : ''
 
   useEffect(() => {
     setLightFailed(false)
@@ -479,23 +498,30 @@ const Logo: React.FC<LogoProps> = ({ className = 'w-auto', src, darkSrc, alt, in
           className="h-14 w-14 shrink-0 object-contain"
           onError={() => setIconFailed(true)}
         />
-        <span className="inline-flex items-baseline gap-1 leading-none whitespace-nowrap">
-          {line1 && (
-            <span
-              className="text-[18px] font-bold tracking-tight"
-              style={{ color: line1Color }}
-            >
-              {line1}
+        <span className="inline-flex min-w-0 flex-col justify-center whitespace-nowrap">
+          <span className="inline-flex items-baseline gap-1 leading-none">
+            {line1 && (
+              <span
+                className="text-[18px] font-bold tracking-tight"
+                style={{ color: line1Color }}
+              >
+                {line1}
+              </span>
+            )}
+            {line2 && (
+              <span
+                className="text-[18px] font-semibold tracking-tight"
+                style={{ color: line2Color }}
+              >
+                {line2}
+              </span>
+            )}
+          </span>
+          {slogan ? (
+            <span className="mt-1 text-[10px] leading-none font-medium tracking-[0.08em] text-neutral-500 dark:text-neutral-400">
+              {slogan}
             </span>
-          )}
-          {line2 && (
-            <span
-              className="text-[18px] font-semibold tracking-tight"
-              style={{ color: line2Color }}
-            >
-              {line2}
-            </span>
-          )}
+          ) : null}
         </span>
       </Link>
     )
@@ -513,7 +539,14 @@ const Logo: React.FC<LogoProps> = ({ className = 'w-auto', src, darkSrc, alt, in
         href={logoHref}
         className={`inline-flex items-center text-primary-600 focus:ring-0 focus:outline-hidden ${className}`}
       >
-        <TextLogoFallback siteName={branding.site_name} />
+        <span className="inline-flex flex-col">
+          <TextLogoFallback siteName={branding.site_name} />
+          {slogan ? (
+            <span className="mt-1 text-[10px] leading-none font-medium tracking-[0.08em] text-neutral-500 dark:text-neutral-400">
+              {slogan}
+            </span>
+          ) : null}
+        </span>
       </Link>
     )
   }
@@ -523,44 +556,51 @@ const Logo: React.FC<LogoProps> = ({ className = 'w-auto', src, darkSrc, alt, in
       href={logoHref}
       className={`inline-flex items-center text-primary-600 focus:ring-0 focus:outline-hidden ${className}`}
     >
-      {sameLogoAsset ? (
-        <img
-          src={logoSrcLight || logoSrcDark}
-          alt={altText}
-          className="block max-h-[56px] w-auto"
-          style={{ objectFit: 'contain', imageRendering: '-webkit-optimize-contrast' }}
-          onError={() => handleLightImageError(renderedLightUrl)}
-        />
-      ) : (
-        <>
-          {canShowLight ? (
-            <img
-              src={logoSrcLight}
-              alt={altText}
-              className="block max-h-[56px] w-auto dark:hidden"
-              style={{ objectFit: 'contain', imageRendering: '-webkit-optimize-contrast' }}
-              onError={() => handleLightImageError(renderedLightUrl)}
-            />
-          ) : canShowDark ? (
-            <img
-              src={logoSrcDark}
-              alt={altText}
-              className="block max-h-[56px] w-auto dark:hidden"
-              style={{ objectFit: 'contain', imageRendering: '-webkit-optimize-contrast' }}
-              onError={() => handleDarkImageError(renderedDarkUrl)}
-            />
-          ) : null}
-          {canShowDark ? (
-            <img
-              src={logoSrcDark}
-              alt={altText}
-              className="hidden max-h-[56px] w-auto dark:block"
-              style={{ objectFit: 'contain', imageRendering: '-webkit-optimize-contrast' }}
-              onError={() => handleDarkImageError(renderedDarkUrl)}
-            />
-          ) : null}
-        </>
-      )}
+      <span className="inline-flex flex-col items-center">
+        {sameLogoAsset ? (
+          <img
+            src={logoSrcLight || logoSrcDark}
+            alt={altText}
+            className="block max-h-[56px] w-auto"
+            style={{ objectFit: 'contain', imageRendering: '-webkit-optimize-contrast' }}
+            onError={() => handleLightImageError(renderedLightUrl)}
+          />
+        ) : (
+          <>
+            {canShowLight ? (
+              <img
+                src={logoSrcLight}
+                alt={altText}
+                className="block max-h-[56px] w-auto dark:hidden"
+                style={{ objectFit: 'contain', imageRendering: '-webkit-optimize-contrast' }}
+                onError={() => handleLightImageError(renderedLightUrl)}
+              />
+            ) : canShowDark ? (
+              <img
+                src={logoSrcDark}
+                alt={altText}
+                className="block max-h-[56px] w-auto dark:hidden"
+                style={{ objectFit: 'contain', imageRendering: '-webkit-optimize-contrast' }}
+                onError={() => handleDarkImageError(renderedDarkUrl)}
+              />
+            ) : null}
+            {canShowDark ? (
+              <img
+                src={logoSrcDark}
+                alt={altText}
+                className="hidden max-h-[56px] w-auto dark:block"
+                style={{ objectFit: 'contain', imageRendering: '-webkit-optimize-contrast' }}
+                onError={() => handleDarkImageError(renderedDarkUrl)}
+              />
+            ) : null}
+          </>
+        )}
+        {slogan ? (
+          <span className="mt-0.5 text-[10px] leading-none font-medium tracking-[0.08em] whitespace-nowrap text-neutral-500 dark:text-neutral-400">
+            {slogan}
+          </span>
+        ) : null}
+      </span>
     </Link>
   )
 }

@@ -1,7 +1,6 @@
 import { Bathtub02Icon, BedSingle01Icon, MeetingRoomIcon } from '@/components/Icons'
 import FaqPageJsonLd from '@/components/seo/FaqPageJsonLd'
 import MobileStickyReservationBar from '@/components/listing/MobileStickyReservationBar'
-import ListingAiSentimentBadge from '@/components/listing/ListingAiSentimentBadge'
 import {
   formatChildPolicySummaryTr,
   resolveHotelChildPolicyFromAttributes,
@@ -16,7 +15,10 @@ import { getSitePublicConfig as getSitePublicConfigSync, mergeBrandingIntoEnvCon
 import { buildListingOgImageUrl } from '@/lib/social-share/listing-og-image-url'
 import { resolveCanonicalBaseUrl } from '@/lib/resolve-canonical-base-url'
 import { sanitizeRichCmsHtml } from '@/lib/sanitize-cms-html'
-import { cleanTatilbudurDescriptionHtml } from '@/lib/tatilbudur-description-clean'
+import {
+  cleanTatilbudurDescriptionHtml,
+  stripHotelAmenitiesFromDescriptionHtml,
+} from '@/lib/tatilbudur-description-clean'
 import { parsePublicMinistryLicenseRef } from '@/lib/ministry-license-ref'
 import { listingMetaDescription, stripHtml } from '@/lib/social-share/strip-html'
 import {
@@ -1008,11 +1010,10 @@ export default async function StayListingDetailPageContent({
     vertical === 'hotel'
       ? buildHotelFacilityAccordionContent({
           handle,
-          amenityKeys,
+          // Olanaklar otellerde de villa ile aynı ikonlu ListingAmenitiesSection içinde gösterilir.
+          amenityKeys: [],
           amenityLabels,
-          campaignBadges: hotelCampaignGroups.flatMap((group) =>
-            group.promotions.map((p) => p.title),
-          ),
+          campaignBadges: [],
           generalTermsTitle: hd?.generalTermsTitle ?? 'Genel Şartlar',
           generalTermsItems: [],
           vitrinMeta: hotelVitrinMeta,
@@ -1314,9 +1315,11 @@ export default async function StayListingDetailPageContent({
   }
 
   const renderSectionDescription = () => {
-    let introHtml = sanitizeRichCmsHtml(
-      vertical === 'hotel' ? cleanTatilbudurDescriptionHtml(description ?? '') : (description ?? ''),
-    )
+    const rawDescriptionHtml =
+      vertical === 'hotel'
+        ? stripHotelAmenitiesFromDescriptionHtml(cleanTatilbudurDescriptionHtml(description ?? ''))
+        : (description ?? '')
+    let introHtml = sanitizeRichCmsHtml(rawDescriptionHtml)
     if (vertical === 'hotel' && handle === HOTEL_DEMO_LISTING_HANDLE && !stripHtml(introHtml).trim()) {
       introHtml = HOTEL_DEMO_INTRO_HTML
     }
@@ -1709,16 +1712,20 @@ export default async function StayListingDetailPageContent({
           {renderHotelActivitiesSection()}
           {perksBadges}
           {socialProof}
-          <ListingAiSentimentBadge
-            reviewStart={reviewStart ?? 4.8}
-            reviewCount={reviewCount ?? 18}
-            vertical={vertical}
-            hasBreakfast={hotelHasBreakfast}
-            hasPool={vertical === 'hotel' || isHolidayHome}
-          />
           {vertical === 'hotel' ? (
             <>
               {renderSectionDescription()}
+              {amenityKeys.length > 0 ? (
+                <div id="stay-section-amenities" className="scroll-mt-28">
+                  <ListingAmenitiesSection
+                    locale={locale}
+                    variant="hotel"
+                    customSelectedIds={amenityKeys}
+                    customLabels={amenityLabels}
+                    customIcons={amenityIcons}
+                  />
+                </div>
+              ) : null}
               {renderHotelThemesAndChildPolicy()}
               {realHotelRooms.length > 0 ? (
                 <div id="stay-section-rooms" className="scroll-mt-28">

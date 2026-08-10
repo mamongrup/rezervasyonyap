@@ -68,6 +68,8 @@ const Header: FC<HeaderProps> = async ({ hasBorderBottom = true, className, loca
               darkSrc={logoDarkSrc}
               alt={siteName}
               initialBranding={initialBranding}
+              showSlogan
+              locale={locale}
             />
             <div className="hidden h-7 border-l border-neutral-200 md:block dark:border-neutral-700"></div>
             <div className="hidden md:block">

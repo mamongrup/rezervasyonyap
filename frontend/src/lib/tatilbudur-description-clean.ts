@@ -21,6 +21,14 @@ const LOOSE_TB_URL = /https?:\/\/(?:www\.)?tatilbudur\.com\/[^\s<"']+/gi
 const EMPTY_P = /(?:<p>\s*<\/p>\s*)+/gi
 const TRAILING_JUNK = /(?:Genel|Plaj\s*&\s*Havuz|Odalar)\]?(?:\([^)]*)?$/i
 
+const HOTEL_AMENITIES_HEADING =
+  /<h([1-6])\b[^>]*>\s*(?:Olanaklar|Amenities|Facilities|Ausstattung|Équipements|Servizi|Comodidades|Удобства|المرافق)\s*<\/h\1>[\s\S]*?(?=<h[1-6]\b|$)/gi
+
+/** Olanaklar ayrı ikonlu vitrinde gösterildiği için açıklamadaki düz liste tekrarını kaldırır. */
+export function stripHotelAmenitiesFromDescriptionHtml(html: string | null | undefined): string {
+  return String(html ?? '').replace(HOTEL_AMENITIES_HEADING, '').trim()
+}
+
 export function cleanTatilbudurDescriptionHtml(html: string | null | undefined): string {
   if (html == null) return ''
   let s = String(html)

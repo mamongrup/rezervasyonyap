@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   cleanTatilbudurDescriptionHtml,
   hasTatilbudurDescriptionJunk,
+  stripHotelAmenitiesFromDescriptionHtml,
 } from '@/lib/tatilbudur-description-clean'
 
 describe('tatilbudur-description-clean', () => {
@@ -30,5 +31,17 @@ describe('tatilbudur-description-clean', () => {
 <p>Kahvaltı (07:00 ile 10:00 saatleri arasında)</p>`
     expect(hasTatilbudurDescriptionJunk(raw)).toBe(false)
     expect(cleanTatilbudurDescriptionHtml(raw)).toBe(raw)
+  })
+
+  it('removes the flat amenities section while preserving following hotel content', () => {
+    const raw = `<h2>Konaklama</h2><p>Her Şey Dahil.</p>
+<h2>Olanaklar</h2><ul><li>Otopark</li><li>24 saat resepsiyon</li></ul>
+<h2>Çocuk Politikası</h2><p>0-6 yaş ücretsiz.</p>`
+
+    const cleaned = stripHotelAmenitiesFromDescriptionHtml(raw)
+    expect(cleaned).toContain('<h2>Konaklama</h2>')
+    expect(cleaned).not.toContain('Olanaklar')
+    expect(cleaned).not.toContain('Otopark')
+    expect(cleaned).toContain('<h2>Çocuk Politikası</h2>')
   })
 })

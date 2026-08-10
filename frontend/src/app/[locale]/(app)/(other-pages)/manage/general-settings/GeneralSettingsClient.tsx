@@ -65,6 +65,9 @@ import { ArrowRight, Cpu, Layers, Loader2 } from 'lucide-react'
 import Link from 'next/link'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
+import I18nFieldEditor from '@/components/manage/i18n/I18nFieldEditor'
+import { compactI18nField, type I18nFieldMap } from '@/lib/i18n-field'
+import { DEFAULT_LOGO_SLOGAN_I18N, logoSloganI18nFromBranding } from '@/lib/logo-slogan'
 
 type Status = { kind: 'idle' | 'ok' | 'err'; text?: string }
 
@@ -92,7 +95,7 @@ function BrandingImageUploadRow({
   onChange: (v: string) => void
   purpose: BrandingUploadPurpose
   accept: string
-  preview: 'logo-light' | 'logo-dark' | 'favicon'
+  preview: 'logo-light' | 'logo-dark' | 'favicon' | 'og-share'
 }) {
   const [pickerOpen, setPickerOpen] = useState(false)
   const uploadTarget = useMemo(
@@ -115,6 +118,16 @@ function BrandingImageUploadRow({
           <img src={previewSrc} alt="" className="h-full w-full object-contain" />
         ) : (
           <span className="text-[10px] text-neutral-400">—</span>
+        )}
+      </div>
+    ) : preview === 'og-share' ? (
+      <div className="mt-3 overflow-hidden rounded-xl border border-neutral-200 bg-neutral-50 dark:border-neutral-700 dark:bg-neutral-900">
+        {previewSrc ? (
+          <img src={previewSrc} alt="SEO ve paylaşım önizlemesi" className="aspect-[1200/630] w-full object-cover" />
+        ) : (
+          <div className="flex aspect-[1200/630] items-center justify-center text-xs text-neutral-500">
+            1200 × 630 paylaşım görseli
+          </div>
         )}
       </div>
     ) : preview === 'logo-dark' ? (
@@ -148,7 +161,13 @@ function BrandingImageUploadRow({
         title={`${label} — görsel seç`}
         uploadTarget={uploadTarget}
         accept={accept}
-        allowedExtensions={preview === 'favicon' ? undefined : ['svg']}
+        allowedExtensions={
+          preview === 'favicon'
+            ? undefined
+            : preview === 'og-share'
+              ? ['jpg', 'jpeg', 'png', 'webp', 'avif']
+              : ['svg']
+        }
         onClose={() => setPickerOpen(false)}
         onSelect={(nextUrl) => {
           // Sabit dosya adı (fixedStem) kullanıldığında URL değişmez; tarayıcı ve CDN
@@ -262,10 +281,12 @@ export default function GeneralSettingsClient({ embedded = false }: GeneralSetti
 
   // Site identity fields (stored in branding key)
   const [siteName, setSiteName] = useState('')
+  const [logoSloganI18n, setLogoSloganI18n] = useState<I18nFieldMap>(DEFAULT_LOGO_SLOGAN_I18N)
   const [siteDescription, setSiteDescription] = useState('')
   const [logoUrl, setLogoUrl] = useState('')
   const [logoDarkUrl, setLogoDarkUrl] = useState('')
   const [faviconUrl, setFaviconUrl] = useState('')
+  const [ogImageUrl, setOgImageUrl] = useState('')
   const [brandingRest, setBrandingRest] = useState<Record<string, unknown>>({})
   const [categoryLogos, setCategoryLogos] = useState<Record<string, { logo_url: string; logo_url_dark: string }>>({})
   const [categoryLogosSaving, setCategoryLogosSaving] = useState(false)
@@ -425,10 +446,12 @@ export default function GeneralSettingsClient({ embedded = false }: GeneralSetti
       setMobileAccountPath(parseMobileAccountPathFromBranding(pub))
       // Extract structured identity fields from branding
       if (typeof branding.site_name === 'string') setSiteName(branding.site_name)
+      setLogoSloganI18n(logoSloganI18nFromBranding(branding))
       if (typeof branding.site_description === 'string') setSiteDescription(branding.site_description)
       if (typeof branding.logo_url === 'string') setLogoUrl(branding.logo_url)
       if (typeof branding.logo_url_dark === 'string') setLogoDarkUrl(branding.logo_url_dark)
       if (typeof branding.favicon_url === 'string') setFaviconUrl(branding.favicon_url)
+      if (typeof branding.og_image_url === 'string') setOgImageUrl(branding.og_image_url)
       if (typeof branding.logo_mode === 'string') setLogoMode(branding.logo_mode as 'image' | 'icon_text')
       if (typeof branding.logo_icon_url === 'string') setLogoIconUrl(branding.logo_icon_url)
       if (typeof branding.logo_text_line1 === 'string') setLogoTextLine1(branding.logo_text_line1)
@@ -454,10 +477,13 @@ export default function GeneralSettingsClient({ embedded = false }: GeneralSetti
       if (typeof branding.social_youtube_url === 'string') setSocialYoutubeUrl(branding.social_youtube_url)
       const {
         site_name: _sn,
+        logo_slogan: _ls,
+        logo_slogan_i18n: _lsi,
         site_description: _sd,
         logo_url: _lu,
         logo_url_dark: _ld,
         favicon_url: _fu,
+        og_image_url: _og,
         category_logos: _cl,
         home_page_links: _hpl,
         mobile_account_path: _map,
@@ -908,10 +934,12 @@ export default function GeneralSettingsClient({ embedded = false }: GeneralSetti
       const next = {
         ...brandingRest,
         site_name: siteName.trim(),
+        logo_slogan_i18n: compactI18nField(logoSloganI18n),
         site_description: siteDescription.trim(),
         logo_url: logoUrl.trim(),
         logo_url_dark: logoDarkUrl.trim(),
         favicon_url: faviconUrl.trim(),
+        og_image_url: ogImageUrl.trim(),
         logo_mode: logoMode,
         logo_icon_url: logoIconUrl.trim(),
         logo_text_line1: logoTextLine1.trim(),
@@ -964,10 +992,12 @@ export default function GeneralSettingsClient({ embedded = false }: GeneralSetti
       const next = {
         ...brandingRest,
         site_name: siteName.trim(),
+        logo_slogan_i18n: compactI18nField(logoSloganI18n),
         site_description: siteDescription.trim(),
         logo_url: logoUrl.trim(),
         logo_url_dark: logoDarkUrl.trim(),
         favicon_url: faviconUrl.trim(),
+        og_image_url: ogImageUrl.trim(),
         logo_mode: logoMode,
         logo_icon_url: logoIconUrl.trim(),
         logo_text_line1: logoTextLine1.trim(),
@@ -1185,6 +1215,16 @@ export default function GeneralSettingsClient({ embedded = false }: GeneralSetti
                 <Label>Site Adı</Label>
                 <Input className="mt-1" value={siteName} onChange={(e) => setSiteName(e.target.value)} placeholder="ör. Tatil & Konaklama" />
               </Field>
+              <I18nFieldEditor
+                label="Logo sloganı"
+                description="Logo yazısının altında görünür. Her site dili için ayrı karşılık tanımlayabilirsiniz."
+                value={logoSloganI18n}
+                onChange={setLogoSloganI18n}
+                placeholder="Bizimle Keşfedin"
+                requireTr
+                maxLength={60}
+                idPrefix="logo-slogan"
+              />
               <Field className="block">
                 <Label>Site Açıklaması (meta description)</Label>
                 <Textarea className="mt-1" rows={3} value={siteDescription} onChange={(e) => setSiteDescription(e.target.value)} placeholder="Anasayfa için varsayılan meta açıklama" />
@@ -1382,20 +1422,25 @@ export default function GeneralSettingsClient({ embedded = false }: GeneralSetti
                       ) : (
                         <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-neutral-100 text-2xl dark:bg-neutral-800">🔤</div>
                       )}
-                      <span className="inline-flex items-baseline gap-1 leading-none whitespace-nowrap">
-                        {(logoTextLine1 || siteName) && (
-                          <span
-                            className="text-[17px] font-bold tracking-tight"
-                            style={{ color: logoTextLine1Color || '#171717' }}
-                          >
-                            {logoTextLine1 || siteName}
-                          </span>
-                        )}
-                        {logoTextLine2 && (
-                          <span className="text-[17px] font-semibold tracking-tight" style={{ color: logoTextLine2Color || '#f97316' }}>
-                            {logoTextLine2}
-                          </span>
-                        )}
+                      <span className="inline-flex flex-col whitespace-nowrap">
+                        <span className="inline-flex items-baseline gap-1 leading-none">
+                          {(logoTextLine1 || siteName) && (
+                            <span
+                              className="text-[17px] font-bold tracking-tight"
+                              style={{ color: logoTextLine1Color || '#171717' }}
+                            >
+                              {logoTextLine1 || siteName}
+                            </span>
+                          )}
+                          {logoTextLine2 && (
+                            <span className="text-[17px] font-semibold tracking-tight" style={{ color: logoTextLine2Color || '#f97316' }}>
+                              {logoTextLine2}
+                            </span>
+                          )}
+                        </span>
+                        <span className="mt-1 text-[10px] leading-none font-medium tracking-[0.08em] text-neutral-500">
+                          {logoSloganI18n.tr || DEFAULT_LOGO_SLOGAN_I18N.tr}
+                        </span>
                       </span>
                     </div>
                     <p className="mt-2 text-xs text-neutral-400">Sitedeki header&apos;da bu şekilde görünecek.</p>
@@ -1636,6 +1681,18 @@ export default function GeneralSettingsClient({ embedded = false }: GeneralSetti
               </Link>{' '}
               veya yukarıdaki «Harici URL» alanını kullanın.
             </p>
+
+            <div className="mt-8 border-t border-neutral-100 pt-8 dark:border-neutral-800">
+              <BrandingImageUploadRow
+                label="SEO ve sosyal medya paylaşım görseli"
+                hint="Anasayfa ve özel görseli olmayan diğer sayfalarda Google, WhatsApp, Facebook ve X önizlemelerinde kullanılır. Görsel otomatik olarak 1200×630 JPEG hazırlanır."
+                url={ogImageUrl}
+                onChange={setOgImageUrl}
+                purpose="brand-og-share"
+                accept="image/jpeg,image/png,image/webp,image/avif"
+                preview="og-share"
+              />
+            </div>
           </section>
 
           <div>

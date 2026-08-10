@@ -7,6 +7,7 @@ export type BrandingUploadPurpose =
   | 'brand-logo-dark'
   | 'brand-logo-icon'
   | 'brand-favicon'
+  | 'brand-og-share'
 
 export async function uploadBrandingAsset(file: File, purpose: BrandingUploadPurpose): Promise<string> {
   const form = new FormData()
