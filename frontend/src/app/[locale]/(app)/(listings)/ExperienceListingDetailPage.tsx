@@ -1032,6 +1032,7 @@ export default async function ExperienceListingDetailPage({
         ? gezinomiIncludedExcluded.excluded
         : tourMeta?.excludes ?? []
       : []
+  const importantNotes = isActivity ? activityMeta?.rules ?? [] : []
 
   const experienceFaqItems = [
     isTour && tourItineraryDays.length > 0
