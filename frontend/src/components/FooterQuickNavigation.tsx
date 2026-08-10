@@ -132,7 +132,7 @@ const FooterQuickNavigation = () => {
             lucide={'lucide' in item ? (item as { lucide?: LucideIcon }).lucide : undefined}
             huge={'huge' in item ? (item as { huge?: IconSvgElement }).huge : undefined}
           />
-          <p className="max-w-full truncate text-center text-xs/6">{item.name}</p>
+          <p className="max-w-full truncate text-center text-xs/5">{item.name}</p>
         </button>
       )
     }
@@ -148,7 +148,7 @@ const FooterQuickNavigation = () => {
           lucide={'lucide' in item ? (item as { lucide?: LucideIcon }).lucide : undefined}
           huge={'huge' in item ? (item as { huge?: IconSvgElement }).huge : undefined}
         />
-        <p className="max-w-full truncate text-center text-xs/6">{item.name}</p>
+        <p className="max-w-full truncate text-center text-xs/5">{item.name}</p>
       </Link>
     )
   }
@@ -156,7 +156,7 @@ const FooterQuickNavigation = () => {
   return (
     <>
       <div
-        className="pointer-events-auto fixed inset-x-0 bottom-0 z-[70] flex items-center gap-6 bg-white/90 px-2.5 py-4 shadow ring-1 shadow-slate-200/80 ring-slate-900/5 backdrop-blur-sm lg:hidden dark:bg-neutral-950/90"
+        className="pointer-events-auto fixed inset-x-0 bottom-0 z-[70] flex items-center gap-6 bg-white/90 px-2.5 py-2 shadow ring-1 shadow-slate-200/80 ring-slate-900/5 backdrop-blur-sm lg:hidden dark:bg-neutral-950/90"
       >
         {/*
           Chisfis: `mx-auto flex w-full max-w-lg justify-around`.

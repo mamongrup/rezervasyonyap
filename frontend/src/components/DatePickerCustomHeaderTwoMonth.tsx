@@ -24,7 +24,7 @@ const DatePickerCustomHeaderTwoMonth = ({
       <button
         aria-label="Previous Month"
         className={
-          'react-datepicker__navigation react-datepicker__navigation--previous absolute top-0 left-0 flex size-9 items-center justify-center rounded-full text-neutral-700 hover:bg-neutral-100 dark:text-neutral-200 dark:hover:bg-neutral-800'
+          'react-datepicker__navigation react-datepicker__navigation--previous absolute top-0 left-0 z-20 flex size-11 touch-manipulation items-center justify-center rounded-full text-neutral-700 transition-[background-color,transform] select-none hover:bg-neutral-100 active:scale-95 dark:text-neutral-200 dark:hover:bg-neutral-800'
         }
         style={splitMonthNavigation && customHeaderCount === 1 ? { visibility: 'hidden' } : {}}
         onClick={decreaseMonth}
@@ -42,7 +42,7 @@ const DatePickerCustomHeaderTwoMonth = ({
       </span>
       <button
         aria-label="Next Month"
-        className="react-datepicker__navigation react-datepicker__navigation--next absolute top-0 right-0 flex size-9 items-center justify-center rounded-full text-neutral-700 hover:bg-neutral-100 dark:text-neutral-200 dark:hover:bg-neutral-800"
+        className="react-datepicker__navigation react-datepicker__navigation--next absolute top-0 right-0 z-20 flex size-11 touch-manipulation items-center justify-center rounded-full text-neutral-700 transition-[background-color,transform] select-none hover:bg-neutral-100 active:scale-95 dark:text-neutral-200 dark:hover:bg-neutral-800"
         style={splitMonthNavigation && customHeaderCount === 0 ? { visibility: 'hidden' } : {}}
         type="button"
         onClick={increaseMonth}

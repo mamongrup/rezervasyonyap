@@ -99,7 +99,7 @@ export default function ExperienceBookingMobileStickyBar({
   return (
     <div
       className={clsx(
-        'fixed inset-x-0 z-40 border-t border-neutral-200/80 bg-white/95 px-4 py-3.5 shadow-[0_-12px_40px_rgba(15,23,42,0.12)] backdrop-blur-md lg:hidden dark:border-neutral-700/80 dark:bg-neutral-950/95',
+        'fixed inset-x-0 z-40 border-t border-neutral-200/80 bg-white/95 px-4 py-2 shadow-[0_-10px_30px_rgba(15,23,42,0.1)] backdrop-blur-md lg:hidden dark:border-neutral-700/80 dark:bg-neutral-950/95',
         'bottom-above-mobile-nav',
       )}
     >
@@ -117,7 +117,7 @@ export default function ExperienceBookingMobileStickyBar({
         </div>
         <ButtonPrimary
           type="button"
-          className="shrink-0 rounded-2xl px-5! py-2.5! text-sm font-semibold shadow-lg shadow-neutral-900/15"
+          className="min-h-11 shrink-0 rounded-xl px-4! py-2! text-sm font-semibold shadow-md shadow-neutral-900/15"
           onClick={scrollToForm}
         >
           {m.common.Reserve}

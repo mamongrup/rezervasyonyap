@@ -1,13 +1,13 @@
 'use client'
 
+import { shouldUnoptimizeListingImage } from '@/lib/listing-image-optimization'
+import { nextListingImageUrlFallback } from '@/lib/listing-image-url-fallbacks'
+import { ArrowLeft02Icon, ArrowRight02Icon } from '@hugeicons/core-free-icons'
+import { HugeiconsIcon } from '@hugeicons/react'
 import clsx from 'clsx'
 import Image from 'next/image'
 import Link from 'next/link'
 import { useCallback, useEffect, useState } from 'react'
-import { ArrowLeft02Icon, ArrowRight02Icon } from '@hugeicons/core-free-icons'
-import { HugeiconsIcon } from '@hugeicons/react'
-import { nextListingImageUrlFallback } from '@/lib/listing-image-url-fallbacks'
-import { shouldUnoptimizeListingImage } from '@/lib/listing-image-optimization'
 
 interface GallerySliderProps {
   className?: string
@@ -55,13 +55,14 @@ export default function GallerySlider({
   const [srcOverrides, setSrcOverrides] = useState<Record<number, string>>({})
   const [triedByIndex, setTriedByIndex] = useState<Record<number, string[]>>({})
   const images = galleryToUrlStrings(galleryImgs ?? []).filter((u) => u.trim() !== '')
+  const imagesKey = images.join('\u001f')
 
   useEffect(() => {
     setIndex(0)
     setFailed(new Set())
     setSrcOverrides({})
     setTriedByIndex({})
-  }, [uniqueID, images.join('\u001f')])
+  }, [uniqueID, imagesKey])
 
   const baseSrc = images.length > 0 ? (images[index] ?? images[0]) : ''
   const currentSrc = srcOverrides[index] ?? baseSrc
@@ -94,7 +95,7 @@ export default function GallerySlider({
         return next
       })
     },
-    [images, srcOverrides, triedByIndex],
+    [images, srcOverrides, triedByIndex]
   )
 
   return (
@@ -125,7 +126,7 @@ export default function GallerySlider({
           <>
             <button
               type="button"
-              className="absolute start-2 top-1/2 z-10 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 text-neutral-900 opacity-100 shadow-md transition-opacity hover:bg-white sm:opacity-0 sm:hover:bg-white sm:group-hover/cardGallerySlider:opacity-100 dark:bg-neutral-900/90 dark:text-white dark:hover:bg-neutral-900 rtl:flex-row-reverse"
+              className="absolute start-1 top-1/2 z-20 flex size-11 touch-manipulation items-center justify-center rounded-full bg-white/90 text-neutral-900 opacity-100 shadow-md transition-[background-color,opacity,transform] select-none active:scale-95 rtl:flex-row-reverse dark:bg-neutral-900/90 dark:text-white dark:hover:bg-neutral-900 [@media(pointer:fine)]:start-2 [@media(pointer:fine)]:size-9 [@media(pointer:fine)]:opacity-0 [@media(pointer:fine)]:group-hover/cardGallerySlider:opacity-100 [@media(pointer:fine)]:hover:bg-white"
               aria-label="Previous photo"
               onClick={(e) => {
                 e.preventDefault()
@@ -138,7 +139,7 @@ export default function GallerySlider({
             </button>
             <button
               type="button"
-              className="absolute end-2 top-1/2 z-10 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 text-neutral-900 opacity-100 shadow-md transition-opacity hover:bg-white sm:opacity-0 sm:hover:bg-white sm:group-hover/cardGallerySlider:opacity-100 dark:bg-neutral-900/90 dark:text-white dark:hover:bg-neutral-900 rtl:flex-row-reverse"
+              className="absolute end-1 top-1/2 z-20 flex size-11 touch-manipulation items-center justify-center rounded-full bg-white/90 text-neutral-900 opacity-100 shadow-md transition-[background-color,opacity,transform] select-none active:scale-95 rtl:flex-row-reverse dark:bg-neutral-900/90 dark:text-white dark:hover:bg-neutral-900 [@media(pointer:fine)]:end-2 [@media(pointer:fine)]:size-9 [@media(pointer:fine)]:opacity-0 [@media(pointer:fine)]:group-hover/cardGallerySlider:opacity-100 [@media(pointer:fine)]:hover:bg-white"
               aria-label="Next photo"
               onClick={(e) => {
                 e.preventDefault()
@@ -159,16 +160,20 @@ export default function GallerySlider({
         <div
           className={clsx(
             'absolute inset-x-0 bottom-0 h-10 bg-linear-to-t from-neutral-900 opacity-50',
-            bottomOverlayClassName,
+            bottomOverlayClassName
           )}
         ></div>
         {navigation && images.length > 1 && (
-          <div className="absolute bottom-2 left-1/2 flex -translate-x-1/2 items-center justify-center gap-x-1.5">
+          <div className="pointer-events-none absolute bottom-2 left-1/2 z-10 flex -translate-x-1/2 items-center justify-center gap-x-1.5">
             {images.map((_, i) => (
               <button
                 type="button"
-                className={`h-1.5 w-1.5 rounded-full ${i === index ? 'bg-white' : 'bg-white/60'}`}
-                onClick={() => setIndex(i)}
+                className={`pointer-events-auto relative size-1.5 touch-manipulation rounded-full before:absolute before:-inset-2.5 before:content-[''] ${i === index ? 'bg-white' : 'bg-white/60'}`}
+                onClick={(event) => {
+                  event.preventDefault()
+                  event.stopPropagation()
+                  setIndex(i)
+                }}
                 key={uniqueID ? `${uniqueID}-dot-${i}` : i}
                 aria-label={`Go to image ${i + 1}`}
               />

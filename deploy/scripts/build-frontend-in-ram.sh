@@ -35,9 +35,26 @@ RAM_DIR="$(mktemp -d /run/travel-frontend-build.XXXXXX)"
 STAGE_DIR="$FRONTEND_DIR/.next.ram-stage.$$"
 BACKUP_DIR="$FRONTEND_DIR/.next.pre-ram-$(date +%Y%m%d%H%M%S)"
 mounted=0
+activated=0
+backup_created=0
 
 cleanup() {
   local status=$?
+  if [[ "$status" -ne 0 && "$activated" -eq 1 && "$backup_created" -eq 1 && -d "$BACKUP_DIR" ]]; then
+    echo "[ROLLBACK] Yeni build saglik kontrolunden gecemedi; onceki build geri yukleniyor." >&2
+    rm -rf "$FRONTEND_DIR/.next" 2>/dev/null || true
+    if mv "$BACKUP_DIR" "$FRONTEND_DIR/.next"; then
+      systemctl restart "$WEB_SERVICE" 2>/dev/null || true
+      sleep 5
+      if curl -fsS --max-time 30 -o /dev/null http://127.0.0.1:3000/; then
+        echo "[ROLLBACK] Onceki build yeniden yayinda." >&2
+      else
+        echo "[ROLLBACK] Onceki build geri yuklendi fakat servis saglik kontrolu basarisiz." >&2
+      fi
+    else
+      echo "[ROLLBACK] Onceki build dizini geri tasinamadi: $BACKUP_DIR" >&2
+    fi
+  fi
   if [[ "$mounted" -eq 1 ]]; then
     umount "$RAM_DIR" 2>/dev/null || true
   fi
@@ -92,8 +109,10 @@ mkdir -p "$STAGE_DIR"
 step "Yeni build atomik olarak etkinlestiriliyor"
 if [[ -e "$FRONTEND_DIR/.next" ]]; then
   mv "$FRONTEND_DIR/.next" "$BACKUP_DIR"
+  backup_created=1
 fi
 mv "$STAGE_DIR" "$FRONTEND_DIR/.next"
+activated=1
 
 # CSS defer için server.mjs + güncel unit (eski next start kalmasın)
 if [[ -f "$APP_ROOT/deploy/systemd/travel-web.service" ]]; then
@@ -126,4 +145,5 @@ if [[ -n "$html_smoke" ]]; then
 fi
 rm -f "$html_hdrs"
 
+activated=0
 echo "[OK] Webpack RAM build basarili. Onceki build: $BACKUP_DIR"
