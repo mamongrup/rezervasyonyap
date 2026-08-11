@@ -1881,13 +1881,15 @@ export default function CatalogListingDetailClient({
       ? [{ id: 'listing' as const, label: ui.tabs.listing, Icon: Settings2 }]
       : []),
     ...(hasCalendar ? [{ id: 'calendar' as const, label: ui.tabs.calendar, Icon: CalendarDays }] : []),
-    { id: 'price' as const, label: ui.tabs.price, Icon: Tag },
+    { id: 'price' as const, label: categoryCode === 'activity' ? 'Aktivite detayları' : ui.tabs.price, Icon: Tag },
     {
       id: 'media' as const,
       label: categoryCode === 'holiday_home' ? ui.ical.title : ui.tabs.media,
       Icon: categoryCode === 'holiday_home' ? Link2 : Images,
     },
-    { id: 'vertical' as const, label: ui.tabs.vertical, Icon: Settings2 },
+    ...(categoryCode !== 'activity'
+      ? [{ id: 'vertical' as const, label: ui.tabs.vertical, Icon: Settings2 }]
+      : []),
     ...(categoryCode === 'hotel' ? [{ id: 'hotel' as const, label: 'Otel içeriği', Icon: Hotel }] : []),
     ...(MEAL_PLAN_CATS.has(categoryCode) ? [{ id: 'meal_plans' as const, label: ui.tabs.meal_plans, Icon: UtensilsCrossed }] : []),
   ]
@@ -1971,6 +1973,20 @@ export default function CatalogListingDetailClient({
       {/* ═══ SEKME: İLAN BİLGİLERİ (tatil evinde sekme yok — tam ilan formunda) ═════════════════ */}
       {activeTab === 'listing' && categoryCode !== 'holiday_home' && (
         <div className="mt-6 space-y-5">
+          {categoryCode === 'activity' && (
+            <div className="rounded-2xl border border-primary-200 bg-gradient-to-br from-primary-50 via-white to-emerald-50 p-5 dark:border-primary-900/50 dark:from-primary-950/30 dark:via-neutral-900 dark:to-emerald-950/20">
+              <div className="flex items-start gap-3">
+                <Sparkles className="mt-0.5 h-5 w-5 shrink-0 text-primary-600" />
+                <div>
+                  <h2 className="text-base font-semibold text-neutral-900 dark:text-white">Aktivite ilanı ayarları</h2>
+                  <p className="mt-1 max-w-3xl text-sm leading-6 text-neutral-600 dark:text-neutral-300">
+                    Bu ilanda konaklama bilgileri kullanılmaz. Aktivitenin süre, kapasite, yaş sınırı, buluşma noktası,
+                    dahil/hariç hizmetleri ve seans bazlı fiyatlarını “Aktivite detayları” sekmesinden yönetin.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
           <div className="rounded-xl border border-neutral-200 p-5 dark:border-neutral-700">
             <h2 className="text-base font-semibold text-neutral-900 dark:text-white">{ui.listingForm.mainTitle}</h2>
             <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -1995,10 +2011,12 @@ export default function CatalogListingDetailClient({
                   </p>
                 )}
               </Field>
-              <Field className="block">
-                <Label>{ui.listingForm.minStayNights}</Label>
-                <Input className="mt-1" value={minStayNights} onChange={(e) => setMinStayNights(e.target.value)} />
-              </Field>
+              {categoryCode !== 'activity' && (
+                <Field className="block">
+                  <Label>{ui.listingForm.minStayNights}</Label>
+                  <Input className="mt-1" value={minStayNights} onChange={(e) => setMinStayNights(e.target.value)} />
+                </Field>
+              )}
               <Field className="block">
                 <Label>{ui.listingForm.commissionPercent}</Label>
                 <Input className="mt-1" value={commissionPercent} onChange={(e) => setCommissionPercent(e.target.value)} />
@@ -2051,7 +2069,7 @@ export default function CatalogListingDetailClient({
             )}
           </div>
 
-          <div className="rounded-xl border border-neutral-200 p-5 dark:border-neutral-700">
+          {categoryCode !== 'activity' && <div className="rounded-xl border border-neutral-200 p-5 dark:border-neutral-700">
             <h2 className="text-base font-semibold text-neutral-900 dark:text-white">
               {ui.listingForm.pricingCardTitle}
             </h2>
@@ -2109,7 +2127,7 @@ export default function CatalogListingDetailClient({
                 <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">{ui.listingForm.shortStayFeeHint}</p>
               </Field>
             </div>
-          </div>
+          </div>}
 
           <div className="rounded-xl border border-neutral-200 p-5 dark:border-neutral-700">
             <h2 className="text-base font-semibold text-neutral-900 dark:text-white">{ui.listingForm.ownerTitle}</h2>
@@ -2142,26 +2160,28 @@ export default function CatalogListingDetailClient({
           <div className="rounded-xl border border-neutral-200 p-5 dark:border-neutral-700">
             <h2 className="text-base font-semibold text-neutral-900 dark:text-white">{ui.listingForm.metaTitle}</h2>
             <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              <Field className="block">
-                <Label>{ui.listingForm.checkIn}</Label>
-                <Input className="mt-1" value={checkInTime} onChange={(e) => setCheckInTime(e.target.value)} />
-              </Field>
-              <Field className="block">
-                <Label>{ui.listingForm.checkOut}</Label>
-                <Input className="mt-1" value={checkOutTime} onChange={(e) => setCheckOutTime(e.target.value)} />
-              </Field>
-              <Field className="block">
-                <Label>{ui.listingForm.bedCount}</Label>
-                <Input className="mt-1" value={bedCount} onChange={(e) => setBedCount(e.target.value)} />
-              </Field>
-              <Field className="block">
-                <Label>{ui.listingForm.bathCount}</Label>
-                <Input className="mt-1" value={bathCount} onChange={(e) => setBathCount(e.target.value)} />
-              </Field>
-              <Field className="block">
-                <Label>{ui.listingForm.maxGuests}</Label>
-                <Input className="mt-1" value={maxGuests} onChange={(e) => setMaxGuests(e.target.value)} />
-              </Field>
+              {categoryCode !== 'activity' && <>
+                <Field className="block">
+                  <Label>{ui.listingForm.checkIn}</Label>
+                  <Input className="mt-1" value={checkInTime} onChange={(e) => setCheckInTime(e.target.value)} />
+                </Field>
+                <Field className="block">
+                  <Label>{ui.listingForm.checkOut}</Label>
+                  <Input className="mt-1" value={checkOutTime} onChange={(e) => setCheckOutTime(e.target.value)} />
+                </Field>
+                <Field className="block">
+                  <Label>{ui.listingForm.bedCount}</Label>
+                  <Input className="mt-1" value={bedCount} onChange={(e) => setBedCount(e.target.value)} />
+                </Field>
+                <Field className="block">
+                  <Label>{ui.listingForm.bathCount}</Label>
+                  <Input className="mt-1" value={bathCount} onChange={(e) => setBathCount(e.target.value)} />
+                </Field>
+                <Field className="block">
+                  <Label>{ui.listingForm.maxGuests}</Label>
+                  <Input className="mt-1" value={maxGuests} onChange={(e) => setMaxGuests(e.target.value)} />
+                </Field>
+              </>}
               <Field className="block">
                 <Label>{ui.listingForm.minAdvanceBookingDays}</Label>
                 <Input className="mt-1" value={minAdvanceBookingDays} onChange={(e) => setMinAdvanceBookingDays(e.target.value)} />
@@ -2698,6 +2718,28 @@ export default function CatalogListingDetailClient({
       {/* ═══ SEKME: DÖNEMSEL FİYAT ════════════════════════════════════════════ */}
       {activeTab === 'price' && (
         <div className="mt-6 space-y-5">
+          {categoryCode === 'activity' ? (
+            <div className="rounded-2xl border border-primary-200 bg-white p-5 shadow-sm dark:border-primary-900/50 dark:bg-neutral-900">
+              <div className="mb-5 flex items-start gap-3">
+                <div className="rounded-xl bg-primary-100 p-2.5 text-primary-700 dark:bg-primary-950/50 dark:text-primary-300">
+                  <Tag className="h-5 w-5" />
+                </div>
+                <div>
+                  <h2 className="text-lg font-semibold text-neutral-900 dark:text-white">Aktivite detayları ve seans fiyatları</h2>
+                  <p className="mt-1 text-sm leading-6 text-neutral-500 dark:text-neutral-400">
+                    Süre, kapasite, yaş sınırı, buluşma noktası, dahil/hariç hizmetler ve tarih-saat bazlı yetişkin/çocuk
+                    fiyatlarını bu akıştan yönetin.
+                  </p>
+                </div>
+              </div>
+              <VerticalDetailsSection
+                categoryCode={categoryCode}
+                listingId={listingId}
+                organizationId={needOrg && orgId.trim() ? orgId.trim() : undefined}
+              />
+            </div>
+          ) : (
+          <>
           <div className="rounded-xl border border-neutral-200 p-5 dark:border-neutral-700">
             <h2 className="flex items-center gap-2 text-base font-semibold text-neutral-900 dark:text-white">
               <Tag className="h-5 w-5 text-primary-600" />
@@ -2903,6 +2945,8 @@ export default function CatalogListingDetailClient({
               </form>
             </div>
           </div>
+          </>
+          )}
         </div>
       )}
 

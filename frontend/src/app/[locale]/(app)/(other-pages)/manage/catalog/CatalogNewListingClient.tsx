@@ -5690,7 +5690,7 @@ export default function CatalogNewListingClient({
             )}
 
             {/* ── ADIM 0: Ücretler (villa Fiyatlandırma+EkÜcretler) ── */}
-            {currentStep === 0 && (
+            {isVilla && currentStep === 0 && (
               <div className="rounded-2xl border border-primary-200 bg-gradient-to-r from-primary-50 to-white px-5 py-4 dark:border-primary-900/50 dark:from-primary-950/30 dark:to-neutral-900">
                 <p className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">Ücretler ve satış ayarları</p>
                 <p className="mt-1 text-xs leading-5 text-neutral-600 dark:text-neutral-400">
@@ -6123,7 +6123,7 @@ export default function CatalogNewListingClient({
               </>
             )}
             {/* ── ADIM 0 devam: Fiyatlandırma (non-villa) ── */}
-            {!isVilla && currentStep === 0 && (
+            {!isVilla && categoryCode !== 'activity' && currentStep === 0 && (
               <>
                 {/* Fiyatlandırma — kısa konaklama + temizlik aynı kartta */}
                 <Section title="Fiyatlandırma">
@@ -6224,6 +6224,32 @@ export default function CatalogNewListingClient({
                   </div>
                 </Section>
               </>
+            )}
+
+            {categoryCode === 'activity' && currentStep === 0 && (
+              <Section
+                title="Aktivite başlangıç fiyatı"
+                subtitle="Tarih, saat, kapasite ve yetişkin/çocuk fiyatlarını ilan oluşturulduktan sonra Aktivite detayları sekmesindeki seanslardan yönetin."
+              >
+                <Field className="block max-w-md">
+                  <Label>Para birimi <span className="text-red-500">*</span></Label>
+                  <select value={currency} onChange={(e) => setCurrency(e.target.value)} required className={`mt-1 ${selectCls}`}>
+                    {currencies.map((c) => <option key={c.code} value={c.code}>{c.code} — {c.name}</option>)}
+                    {currencies.length === 0 && <option value="TRY">TRY — Turkish Lira</option>}
+                  </select>
+                </Field>
+                <div className="mt-4 rounded-xl border border-primary-200 bg-primary-50/60 p-4 dark:border-primary-900/50 dark:bg-primary-950/20">
+                  <p className="text-sm font-semibold text-primary-900 dark:text-primary-100">Fiyatı seans bazında tanımlayın</p>
+                  <p className="mt-1 text-sm leading-6 text-primary-800/80 dark:text-primary-200/80">
+                    Satış fiyatları; geçerlilik tarihi, başlangıç saati, kapasite ve yetişkin/çocuk ayrımıyla seans satırlarında tutulur.
+                  </p>
+                </div>
+                <Field className="mt-4 block max-w-md">
+                  <Label>Başlangıç fiyatı ({currency})</Label>
+                  <Input type="number" min="0" step="0.01" className="mt-1" value={basePrice} onChange={(e) => setBasePrice(e.target.value)} placeholder="Örn. 750" />
+                  <HintText>Kişi başı vitrin başlangıç fiyatı. Seans fiyatları ilan kaydından sonra detay ekranında yönetilir.</HintText>
+                </Field>
+              </Section>
             )}
 
             {/* ── ADIM 4 devam: Provizyon & Komisyon ── */}
