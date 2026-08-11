@@ -561,6 +561,13 @@ main() {
       || fail "429 tum villa yarim gun onarimi uygulanamadi"
   fi
 
+  if [[ -f "$APP_ROOT/backend/priv/sql/modules/430_inherit_global_logo_colors_on_tr_domains.sql" ]]; then
+    step "Logo renkleri global ayar mirasi (430)"
+    APPLY_SQL_SKIP_AI_ENQUEUE=1 bash "$APP_ROOT/deploy/apply-sql.sh" \
+      "$APP_ROOT/backend/priv/sql/modules/430_inherit_global_logo_colors_on_tr_domains.sql" \
+      || fail "430 logo renk mirasi uygulanamadi"
+  fi
+
   if [[ "${SKIP_AI_WORKER_TIMER:-0}" == "1" ]]; then
     warn "SKIP_AI_WORKER_TIMER=1 — AI watchdog ve kuyruk worker timer kurulumu atlandı."
   elif [[ -f "$APP_ROOT/deploy/systemd/travel-ai-worker.service" && -f "$APP_ROOT/deploy/systemd/travel-ai-worker.timer" ]]; then

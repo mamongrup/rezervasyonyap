@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 
 import {
   applyBrandingDomainOverrides,
+  clearDomainLogoColorOverrides,
   sanitizeDomainOverrides,
 } from '@/lib/branding-for-host'
 
@@ -72,5 +73,47 @@ describe('sanitizeDomainOverrides', () => {
         logo_text_line1: 'Reservation',
       },
     })
+  })
+})
+
+describe('clearDomainLogoColorOverrides', () => {
+  it('clears the selected color on every domain and preserves other overrides', () => {
+    expect(
+      clearDomainLogoColorOverrides(
+        {
+          'rezervasyonyap.tr': {
+            logo_text_line1: 'Rezervasyon',
+            logo_text_line1_color: '#111111',
+            logo_text_line2_color: '#fb8804',
+          },
+          'reservationinturkey.com': {
+            logo_text_line2: 'Turkey',
+            logo_text_line2_color: '#ff4d00',
+          },
+        },
+        'logo_text_line2_color',
+      ),
+    ).toEqual({
+      'rezervasyonyap.tr': {
+        logo_text_line1: 'Rezervasyon',
+        logo_text_line1_color: '#111111',
+      },
+      'reservationinturkey.com': {
+        logo_text_line2: 'Turkey',
+      },
+    })
+  })
+
+  it('removes a domain entry that only contained the cleared color', () => {
+    expect(
+      clearDomainLogoColorOverrides(
+        {
+          'rezervasyonyap.tr': {
+            logo_text_line1_color: '#111111',
+          },
+        },
+        'logo_text_line1_color',
+      ),
+    ).toEqual({})
   })
 })

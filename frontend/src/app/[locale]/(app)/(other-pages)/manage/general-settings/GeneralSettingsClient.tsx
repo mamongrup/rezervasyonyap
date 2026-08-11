@@ -46,8 +46,10 @@ import {
 } from '@/lib/site-branding-seo'
 import {
   BRANDING_DOMAIN_APEXES,
+  clearDomainLogoColorOverrides,
   parseDomainOverrides,
   sanitizeDomainOverrides,
+  type BrandingDomainColorKey,
   type BrandingDomainLogoOverride,
 } from '@/lib/branding-for-host'
 import { parseLenientJson } from '@/lib/json-parse'
@@ -920,6 +922,15 @@ export default function GeneralSettingsClient({ embedded = false }: GeneralSetti
     }
   }
 
+  function setGlobalLogoTextColor(field: BrandingDomainColorKey, value: string) {
+    if (field === 'logo_text_line1_color') {
+      setLogoTextLine1Color(value)
+    } else {
+      setLogoTextLine2Color(value)
+    }
+    setDomainOverrides((current) => clearDomainLogoColorOverrides(current, field))
+  }
+
   async function saveIdentity() {
     setStatus({ kind: 'idle' })
     try {
@@ -1464,12 +1475,12 @@ export default function GeneralSettingsClient({ embedded = false }: GeneralSetti
                       <input
                         type="color"
                         value={logoTextLine1Color || '#171717'}
-                        onChange={(e) => setLogoTextLine1Color(e.target.value)}
+                        onChange={(e) => setGlobalLogoTextColor('logo_text_line1_color', e.target.value)}
                         className="h-9 w-12 cursor-pointer rounded-lg border border-neutral-200 p-0.5 dark:border-neutral-700"
                       />
                       <Input
                         value={logoTextLine1Color}
-                        onChange={(e) => setLogoTextLine1Color(e.target.value)}
+                        onChange={(e) => setGlobalLogoTextColor('logo_text_line1_color', e.target.value)}
                         placeholder="#171717"
                         className="font-mono"
                       />
@@ -1490,12 +1501,12 @@ export default function GeneralSettingsClient({ embedded = false }: GeneralSetti
                       <input
                         type="color"
                         value={logoTextLine2Color || '#f97316'}
-                        onChange={(e) => setLogoTextLine2Color(e.target.value)}
+                        onChange={(e) => setGlobalLogoTextColor('logo_text_line2_color', e.target.value)}
                         className="h-9 w-12 cursor-pointer rounded-lg border border-neutral-200 p-0.5 dark:border-neutral-700"
                       />
                       <Input
                         value={logoTextLine2Color}
-                        onChange={(e) => setLogoTextLine2Color(e.target.value)}
+                        onChange={(e) => setGlobalLogoTextColor('logo_text_line2_color', e.target.value)}
                         placeholder="#f97316"
                         className="font-mono"
                       />

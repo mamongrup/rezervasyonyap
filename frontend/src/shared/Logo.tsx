@@ -2,7 +2,6 @@
 
 import { useVitrinHref } from '@/hooks/use-vitrin-href'
 import { applyBrandingDomainOverrides, type BrandingDomainLogoOverride } from '@/lib/branding-for-host'
-import { ensureReadableColor } from '@/lib/color-contrast'
 import { normalizeSiteLogoUrl, pickEffectiveSiteLogoUrls, resolveSiteLogoUrl } from '@/lib/resolve-site-logo-url'
 import { siteUploadBrowserHref } from '@/lib/site-upload-browser-href'
 import { getSitePublicConfig } from '@/lib/travel-api'
@@ -478,14 +477,10 @@ const Logo: React.FC<LogoProps> = ({
   if (!catLogo && branding.logo_mode === 'icon_text' && iconUrl && !iconFailed) {
     const line1 = branding.logo_text_line1 || branding.site_name || ''
     const line2 = branding.logo_text_line2 || ''
-    // Varsayılan: satır1 koyu nötr, satır2 turuncu.
-    // Panelde seçilen renk beyaz zeminde kontrastı yetersizse (ör. açık turuncu)
-    // aynı tonu koruyarak otomatik koyulaştırılır — WCAG AA (4.5:1). Kayıtlı
-    // değer değişmez; yalnız ekrana çizilen renk düzeltilir. `style={{ color }}`
-    // kalıbı bilinçli olarak korunur — CSS var + `dark:` varyantı daha önce
-    // panelden seçilen rengin yansımamasına yol açtığı için kaldırılmıştı.
-    const line1Color = ensureReadableColor(branding.logo_text_line1_color || '#171717', '#ffffff')
-    const line2Color = ensureReadableColor(branding.logo_text_line2_color || '#c2410c', '#ffffff')
+    // Panel önizlemesi ile vitrinin marka rengi aynı olmalı; kaydedilen rengi
+    // kontrast gerekçesiyle otomatik dönüştürmeden birebir uygula.
+    const line1Color = branding.logo_text_line1_color?.trim() || '#171717'
+    const line2Color = branding.logo_text_line2_color?.trim() || '#c2410c'
 
     return (
       <Link

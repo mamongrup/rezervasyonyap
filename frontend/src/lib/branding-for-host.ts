@@ -21,6 +21,10 @@ const LOGO_TEXT_KEYS = [
 
 export type BrandingLogoTextKey = (typeof LOGO_TEXT_KEYS)[number]
 
+export type BrandingDomainColorKey =
+  | 'logo_text_line1_color'
+  | 'logo_text_line2_color'
+
 /** Panelde düzenlenebilir bağlı apex listesi. */
 export const BRANDING_DOMAIN_APEXES: readonly string[] = SAME_DEPLOYMENT_SITE_APEXES
 
@@ -72,6 +76,26 @@ export function sanitizeDomainOverrides(
       const v = entry[key]
       if (typeof v === 'string' && v.trim()) cleaned[key] = v.trim()
     }
+    if (Object.keys(cleaned).length > 0) out[apex] = cleaned
+  }
+  return out
+}
+
+/**
+ * Global logo rengi degistirildiginde eski domain rengi ayni alani ezmemelidir.
+ * Domain'e ozel metinler ve diger renk alani korunur.
+ */
+export function clearDomainLogoColorOverrides(
+  raw: Record<string, BrandingDomainLogoOverride> | null | undefined,
+  field: BrandingDomainColorKey,
+): Record<string, BrandingDomainLogoOverride> {
+  if (!raw || typeof raw !== 'object') return {}
+
+  const out: Record<string, BrandingDomainLogoOverride> = {}
+  for (const [apex, entry] of Object.entries(raw)) {
+    if (!entry || typeof entry !== 'object') continue
+    const cleaned = { ...entry }
+    delete cleaned[field]
     if (Object.keys(cleaned).length > 0) out[apex] = cleaned
   }
   return out

@@ -270,6 +270,7 @@ modules/426_blog_public_content_tags.sql
 modules/427_repair_source_calendar_half_day_boundaries.sql
 modules/428_repair_mamon_checkout_boundary.sql
 modules/429_repair_all_source_villa_checkout_boundaries.sql
+modules/430_inherit_global_logo_colors_on_tr_domains.sql
 
 # Kurulum doğrulama (install_order’a dahil değil — elle çalıştırın):
 #   psql -U postgres -d travel -f priv/sql/check_installation.sql
