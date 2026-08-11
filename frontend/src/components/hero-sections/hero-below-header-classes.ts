@@ -12,6 +12,13 @@ export const heroContainerBelowHeaderClassName = 'pt-3 sm:pt-4 lg:pt-5'
 export const heroMosaicShellClassName =
   'relative z-0 min-w-0 max-lg:overflow-hidden lg:overflow-visible'
 
+/** Ana sayfa, kategori ve bolge hero'larinda ortak genislik ve dis bosluk. */
+export const heroContainerFrameClassName =
+  `container mb-6 ${heroContainerBelowHeaderClassName}`
+
+/** Tum ana vitrin hero'larinda ayni grid, kolon orani ve yukseklik davranisi. */
+export const heroSizingTopSpacing = 'minimal' as const
+
 /**
  * Hero mozaiği taşması — altındaki gövde blokları (alt kategori, arama sonuçları, page builder)
  * hero katmanının üstünde kalmalı.

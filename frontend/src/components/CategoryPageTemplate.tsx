@@ -16,8 +16,9 @@ import {
 import HeroSectionWithSearchForm1 from '@/components/hero-sections/HeroSectionWithSearchForm1'
 import {
   heroBelowContentClassName,
-  heroContainerBelowHeaderClassName,
+  heroContainerFrameClassName,
   heroMosaicShellClassName,
+  heroSizingTopSpacing,
 } from '@/components/hero-sections/hero-below-header-classes'
 import HeroSearchDesktopOnly from '@/components/HeroSearchForm/HeroSearchDesktopOnly'
 import SectionSliderRegions from '@/components/SectionSliderRegions'
@@ -702,7 +703,7 @@ export default async function CategoryPageTemplate({
           />
         )}
         <div
-          className={`${heroMosaicShellClassName} container mb-2 ${heroContainerBelowHeaderClassName}`}
+          className={`${heroMosaicShellClassName} ${heroContainerFrameClassName}`}
         >
           <HeroSectionWithSearchForm1
             heading={heroHeadingLinked}
@@ -712,7 +713,7 @@ export default async function CategoryPageTemplate({
             searchForm={searchForm}
             freeformBannerLayout={DEFAULT_REGION_HERO_FREEFORM}
             mosaicImages={mosaicForRegionHero}
-            topSpacing="compact"
+            topSpacing={heroSizingTopSpacing}
             heroMosaicBleed
             belowHeadingSlot={subcategoryBelowHeadingSlot}
           />
@@ -765,7 +766,7 @@ export default async function CategoryPageTemplate({
         />
       )}
       <div
-        className={`${heroMosaicShellClassName} container mb-2 ${heroContainerBelowHeaderClassName}`}
+        className={`${heroMosaicShellClassName} ${heroContainerFrameClassName}`}
       >
         <HeroSectionWithSearchForm1
           heading={heroHeadingLinked}
@@ -775,7 +776,7 @@ export default async function CategoryPageTemplate({
           searchForm={searchForm}
           freeformBannerLayout={DEFAULT_REGION_HERO_FREEFORM}
           mosaicImages={mosaicForRegionHero}
-          topSpacing="compact"
+          topSpacing={heroSizingTopSpacing}
           heroMosaicBleed
         />
       </div>

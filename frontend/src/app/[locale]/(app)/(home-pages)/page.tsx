@@ -9,8 +9,9 @@ import {
 import HeroSectionWithSearchForm1 from '@/components/hero-sections/HeroSectionWithSearchForm1'
 import {
   heroBelowContentClassName,
-  heroContainerBelowHeaderClassName,
+  heroContainerFrameClassName,
   heroMosaicShellClassName,
+  heroSizingTopSpacing,
 } from '@/components/hero-sections/hero-below-header-classes'
 import HeroSearchDesktopOnly from '@/components/HeroSearchForm/HeroSearchDesktopOnly'
 import { CATEGORY_REGISTRY } from '@/data/category-registry'
@@ -209,7 +210,7 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
       <BgGlassmorphism />
 
       <div
-        className={`${heroMosaicShellClassName} container mb-6 ${heroContainerBelowHeaderClassName}`}
+        className={`${heroMosaicShellClassName} ${heroContainerFrameClassName}`}
       >
         <HeroSectionWithSearchForm1
           heading={heroHeadingLinked}
@@ -220,7 +221,7 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
           mosaicImages={mosaicForRegionHero}
           searchForm={searchForm}
           description={heroDescription}
-          topSpacing="minimal"
+          topSpacing={heroSizingTopSpacing}
           heroMosaicBleed
         />
       </div>

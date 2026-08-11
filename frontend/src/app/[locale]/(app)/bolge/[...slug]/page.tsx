@@ -16,8 +16,9 @@ import CategoryListingPagination, {
 import HeroSectionWithSearchForm1 from '@/components/hero-sections/HeroSectionWithSearchForm1'
 import {
   heroBelowContentClassName,
-  heroContainerBelowHeaderClassName,
+  heroContainerFrameClassName,
   heroMosaicShellClassName,
+  heroSizingTopSpacing,
 } from '@/components/hero-sections/hero-below-header-classes'
 import ListingFilterTabs from '@/components/ListingFilterTabs'
 import SectionSliderRegions, { type RegionSliderItem } from '@/components/SectionSliderRegions'
@@ -501,7 +502,7 @@ export default async function RegionDetailPage({ params, searchParams }: Props) 
 
   const heroSlot = (
     <section className={heroMosaicShellClassName}>
-      <div className={`container mb-6 ${heroContainerBelowHeaderClassName}`}>
+      <div className={heroContainerFrameClassName}>
         <HeroSectionWithSearchForm1
           heading={heroPack.heroHeadingLinked}
           image={heroPack.heroImage}
@@ -510,7 +511,7 @@ export default async function RegionDetailPage({ params, searchParams }: Props) 
           mosaicImages={heroPack.mosaicForRegionHero}
           searchForm={heroPack.searchForm}
           description={heroPack.heroDescription}
-          topSpacing="minimal"
+          topSpacing={heroSizingTopSpacing}
           heroMosaicBleed
         />
       </div>
