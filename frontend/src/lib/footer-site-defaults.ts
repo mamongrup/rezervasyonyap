@@ -78,24 +78,40 @@ export const DEFAULT_FOOTER_SITE_CONFIG: FooterSiteConfig = {
   ],
   columns: [
     column(
-      { tr: 'Keşfet', en: 'Explore', de: 'Entdecken', ru: 'Открыть', zh: '探索', fr: 'Explorer' },
+      { tr: 'Konaklama', en: 'Stays', de: 'Unterkünfte', ru: 'Размещение', zh: '住宿', fr: 'Hébergements' },
       [
-        link('/oteller/all',        { tr: 'Oteller',                en: 'Hotels',                 de: 'Hotels',          ru: 'Отели',           zh: '酒店',     fr: 'Hôtels' }),
-        link('/tatil-evleri/all',   { tr: 'Tatil Evleri & Villalar', en: 'Holiday Homes & Villas', de: 'Ferienhäuser & Villen', ru: 'Дома и виллы', zh: '度假屋与别墅', fr: 'Maisons & villas' }),
-        link('/yat-kiralama/all',   { tr: 'Yat Kiralama',           en: 'Yacht Charters',         de: 'Yachtcharter',    ru: 'Аренда яхт',      zh: '租船',     fr: 'Location de yachts' }),
-        link('/turlar/all',         { tr: 'Turlar',                 en: 'Tours',                  de: 'Touren',          ru: 'Туры',            zh: '旅游',     fr: 'Circuits' }),
-        link('/aktiviteler/all',    { tr: 'Aktiviteler',            en: 'Activities',             de: 'Aktivitäten',     ru: 'Активности',      zh: '活动',     fr: 'Activités' }),
-        link('/arac-kiralama/all',  { tr: 'Araç Kiralama',          en: 'Car Rental',             de: 'Mietwagen',       ru: 'Аренда авто',     zh: '租车',     fr: 'Location de voiture' }),
-        link('/transfer/all',       { tr: 'Transfer',               en: 'Transfers',              de: 'Transfers',       ru: 'Трансферы',       zh: '接送',     fr: 'Transferts' }),
-        link('/feribot/all',        { tr: 'Feribot',                en: 'Ferries',                de: 'Fähren',          ru: 'Паромы',          zh: '渡轮',     fr: 'Ferries' }),
-        link('/ucak-bileti/all',    { tr: 'Uçak Bileti',            en: 'Flights',                de: 'Flüge',           ru: 'Авиабилеты',      zh: '机票',     fr: 'Vols' }),
-        link('/vize/all',           { tr: 'Vize Hizmetleri',        en: 'Visa Services',          de: 'Visa-Service',    ru: 'Визовые услуги',  zh: '签证服务', fr: 'Services visa' }),
-        link('/hac-umre/all',       { tr: 'Hac & Umre',             en: 'Hajj & Umrah',           de: 'Hadsch & Umra',   ru: 'Хадж и Умра',     zh: '朝觐与副朝', fr: 'Hajj & Omra' }),
-        link('/kruvaziyer/all',     { tr: 'Gemi Turları',           en: 'Cruises',                de: 'Kreuzfahrten',    ru: 'Круизы',          zh: '邮轮',     fr: 'Croisières' }),
-        link('/plaj-sezlong/all',         { tr: 'Plaj ve Şezlong',        en: 'Beach & Sunbeds',      de: 'Strand & Liegen',     ru: 'Пляжи и шезлонги',       zh: '海滩与躺椅', fr: 'Plage & transats' }),
-        link('/sinema-biletleri/all',     { tr: 'Sinema Biletleri',       en: 'Cinema Tickets',       de: 'Kinokarten',          ru: 'Билеты в кино',           zh: '电影票',     fr: 'Billets de cinéma' }),
-        link('/etkinlikler/all',          { tr: 'Etkinlik Biletleri',     en: 'Event Tickets',        de: 'Veranstaltungen',     ru: 'Билеты на события',       zh: '活动门票',   fr: 'Billets événements' }),
-        link('/restoran-rezervasyon/all', { tr: 'Restoran Rezervasyonu',  en: 'Restaurant Booking',   de: 'Restaurant buchen',   ru: 'Бронирование ресторана',  zh: '餐厅预订',   fr: 'Réservation restaurant' }),
+        link('/oteller/all',      { tr: 'Otel',  en: 'Hotel', de: 'Hotel', ru: 'Отель', zh: '酒店', fr: 'Hôtel' }),
+        link('/tatil-evleri/all', { tr: 'Villa', en: 'Villa', de: 'Villa', ru: 'Вилла', zh: '别墅', fr: 'Villa' }),
+        link('/yat-kiralama/all', { tr: 'Yat',   en: 'Yacht', de: 'Yacht', ru: 'Яхта', zh: '游艇', fr: 'Yacht' }),
+      ],
+    ),
+    column(
+      { tr: 'Deneyim', en: 'Experiences', de: 'Erlebnisse', ru: 'Впечатления', zh: '体验', fr: 'Expériences' },
+      [
+        link('/turlar/all',                 { tr: 'Tur',        en: 'Tour',        de: 'Tour',          ru: 'Тур',              zh: '旅游',   fr: 'Circuit' }),
+        link('/kruvaziyer/all',             { tr: 'Cruise',     en: 'Cruise',      de: 'Kreuzfahrt',    ru: 'Круиз',            zh: '邮轮',   fr: 'Croisière' }),
+        link('/hac-umre/all',               { tr: 'Hac & Umre', en: 'Hajj & Umrah', de: 'Hadsch & Umra', ru: 'Хадж и Умра',       zh: '朝觐与副朝', fr: 'Hajj & Omra' }),
+        link('/aktiviteler/all',            { tr: 'Aktivite',   en: 'Activity',    de: 'Aktivität',     ru: 'Активность',       zh: '活动',   fr: 'Activité' }),
+        link('/plaj-sezlong/all',           { tr: 'Şezlong',    en: 'Sunbed',      de: 'Strandliege',   ru: 'Шезлонг',          zh: '躺椅',   fr: 'Transat' }),
+        link('/restoran-rezervasyon/all',   { tr: 'Restoran',   en: 'Restaurant',  de: 'Restaurant',    ru: 'Ресторан',         zh: '餐厅',   fr: 'Restaurant' }),
+        link('/sinema-biletleri/all',       { tr: 'Sinema',     en: 'Cinema',      de: 'Kino',          ru: 'Кино',             zh: '电影',   fr: 'Cinéma' }),
+      ],
+    ),
+    column(
+      { tr: 'Yolculuk', en: 'Travel', de: 'Reisen', ru: 'Путешествия', zh: '出行', fr: 'Voyages' },
+      [
+        link('/arac-kiralama/all', { tr: 'Araç',     en: 'Car',      de: 'Mietwagen', ru: 'Автомобиль', zh: '租车', fr: 'Voiture' }),
+        link('/ucak-bileti/all',   { tr: 'Uçak',     en: 'Flight',   de: 'Flug',      ru: 'Авиабилет',  zh: '航班', fr: 'Vol' }),
+        link('/transfer/all',      { tr: 'Transfer', en: 'Transfer', de: 'Transfer',  ru: 'Трансфер',   zh: '接送', fr: 'Transfert' }),
+        link('/feribot/all',       { tr: 'Feribot',  en: 'Ferry',    de: 'Fähre',     ru: 'Паром',      zh: '渡轮', fr: 'Ferry' }),
+      ],
+    ),
+    column(
+      { tr: 'Hizmetler', en: 'Services', de: 'Services', ru: 'Услуги', zh: '服务', fr: 'Services' },
+      [
+        link('/vize/all',                         { tr: 'Vize',    en: 'Visa',      de: 'Visum',       ru: 'Виза',      zh: '签证', fr: 'Visa' }),
+        link('/contact?service=esim',             { tr: 'eSIM',    en: 'eSIM',      de: 'eSIM',        ru: 'eSIM',      zh: 'eSIM', fr: 'eSIM' }),
+        link('/contact?service=seyahat-sigortasi', { tr: 'Sigorta', en: 'Insurance', de: 'Versicherung', ru: 'Страхование', zh: '保险', fr: 'Assurance' }),
       ],
     ),
     column(

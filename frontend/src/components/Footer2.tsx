@@ -148,7 +148,7 @@ export default function Footer2({ locale, branding }: Footer2Props) {
             </div>
           </div>
 
-          <div className="grid min-w-0 grid-cols-1 gap-x-8 gap-y-12 sm:grid-cols-2 lg:grid-cols-5">
+          <div className="grid min-w-0 grid-cols-1 gap-x-8 gap-y-12 sm:grid-cols-2 lg:grid-cols-4">
             {columns.map((col, colIdx) => (
               <div key={`footer-col-${colIdx}`} className="min-w-0">
                 <h3 className={cn(headingCls, 'break-words')}>{col.title}</h3>

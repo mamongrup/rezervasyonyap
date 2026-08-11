@@ -27,58 +27,39 @@
   ],
   "columns": [
     {
-      "titleTr": "Keşfet",
-      "titleEn": "Explore",
+      "titleTr": "Konaklama",
+      "titleEn": "Stays",
       "links": [
         {
           "nameTr": "Otel",
-          "nameEn": "Hotels",
+          "nameEn": "Hotel",
           "href": "/oteller/all"
         },
         {
-          "nameTr": "Tatil Evi",
-          "nameEn": "Holiday Homes & Villas",
+          "nameTr": "Villa",
+          "nameEn": "Villa",
           "href": "/tatil-evleri/all"
         },
         {
           "nameTr": "Yat",
-          "nameEn": "Yacht Charters",
+          "nameEn": "Yacht",
           "href": "/yat-kiralama/all"
-        },
+        }
+      ]
+    },
+    {
+      "titleTr": "Deneyim",
+      "titleEn": "Experiences",
+      "links": [
         {
           "nameTr": "Tur",
-          "nameEn": "Tours",
+          "nameEn": "Tour",
           "href": "/turlar/all"
         },
         {
-          "nameTr": "Aktivite",
-          "nameEn": "Activities",
-          "href": "/aktiviteler/all"
-        },
-        {
-          "nameTr": "Araç",
-          "nameEn": "Car Rental",
-          "href": "/arac-kiralama/all"
-        },
-        {
-          "nameTr": "Transfer",
-          "nameEn": "Transfers",
-          "href": "/transfer/all"
-        },
-        {
-          "nameTr": "Feribot",
-          "nameEn": "Ferries",
-          "href": "/feribot/all"
-        },
-        {
-          "nameTr": "Uçak Bileti",
-          "nameEn": "Flights",
-          "href": "/ucak-bileti/all"
-        },
-        {
-          "nameTr": "Vize",
-          "nameEn": "Visa Services",
-          "href": "/vize/all"
+          "nameTr": "Cruise",
+          "nameEn": "Cruise",
+          "href": "/kruvaziyer/all"
         },
         {
           "nameTr": "Hac & Umre",
@@ -86,29 +67,71 @@
           "href": "/hac-umre/all"
         },
         {
-          "nameTr": "Gemi Turları",
-          "nameEn": "Cruises",
-          "href": "/kruvaziyer/all"
+          "nameTr": "Aktivite",
+          "nameEn": "Activity",
+          "href": "/aktiviteler/all"
         },
         {
-          "nameTr": "Plaj ve Şezlong",
-          "nameEn": "Beach & Sunbeds",
+          "nameTr": "Şezlong",
+          "nameEn": "Sunbed",
           "href": "/plaj-sezlong/all"
         },
         {
-          "nameTr": "Sinema Biletleri",
-          "nameEn": "Cinema Tickets",
-          "href": "/sinema-biletleri/all"
-        },
-        {
-          "nameTr": "Etkinlik Biletleri",
-          "nameEn": "Event Tickets",
-          "href": "/etkinlikler/all"
-        },
-        {
-          "nameTr": "Restoran Rezervasyonu",
-          "nameEn": "Restaurant Booking",
+          "nameTr": "Restoran",
+          "nameEn": "Restaurant",
           "href": "/restoran-rezervasyon/all"
+        },
+        {
+          "nameTr": "Sinema",
+          "nameEn": "Cinema",
+          "href": "/sinema-biletleri/all"
+        }
+      ]
+    },
+    {
+      "titleTr": "Yolculuk",
+      "titleEn": "Travel",
+      "links": [
+        {
+          "nameTr": "Araç",
+          "nameEn": "Car",
+          "href": "/arac-kiralama/all"
+        },
+        {
+          "nameTr": "Uçak",
+          "nameEn": "Flight",
+          "href": "/ucak-bileti/all"
+        },
+        {
+          "nameTr": "Transfer",
+          "nameEn": "Transfer",
+          "href": "/transfer/all"
+        },
+        {
+          "nameTr": "Feribot",
+          "nameEn": "Ferry",
+          "href": "/feribot/all"
+        }
+      ]
+    },
+    {
+      "titleTr": "Hizmetler",
+      "titleEn": "Services",
+      "links": [
+        {
+          "nameTr": "Vize",
+          "nameEn": "Visa",
+          "href": "/vize/all"
+        },
+        {
+          "nameTr": "eSIM",
+          "nameEn": "eSIM",
+          "href": "/contact?service=esim"
+        },
+        {
+          "nameTr": "Sigorta",
+          "nameEn": "Insurance",
+          "href": "/contact?service=seyahat-sigortasi"
         }
       ]
     },
@@ -294,5 +317,5 @@
       "href": "/legal/cookies"
     }
   ],
-  "updatedAt": "2026-07-21T21:04:10.895Z"
+  "updatedAt": "2026-08-11T18:57:58.842Z"
 }

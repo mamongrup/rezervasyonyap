@@ -46,7 +46,7 @@ export type FooterSiteConfig = {
   taglineEn: string
   tagline_i18n?: I18nFieldMap
   trustBadges: [FooterTrustBadge, FooterTrustBadge, FooterTrustBadge]
-  /** Keşfet, destinasyonlar, destek, kurumsal, ortaklar — sıra korunur */
+  /** Konaklama, deneyim, yolculuk, hizmetler ve diğer footer sütunları — sıra korunur */
   columns: FooterSiteColumn[]
   /** Alt çizgi yasal linkleri */
   legalLinks: FooterSiteLink[]

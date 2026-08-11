@@ -17,9 +17,17 @@ const requiredCategoryLinks = [
   '/kruvaziyer/all',
   '/plaj-sezlong/all',
   '/sinema-biletleri/all',
-  '/etkinlikler/all',
   '/restoran-rezervasyon/all',
+  '/contact?service=esim',
+  '/contact?service=seyahat-sigortasi',
 ]
+
+const expectedExploreGroups = {
+  Konaklama: ['Otel', 'Villa', 'Yat'],
+  Deneyim: ['Tur', 'Cruise', 'Hac & Umre', 'Aktivite', 'Şezlong', 'Restoran', 'Sinema'],
+  Yolculuk: ['Araç', 'Uçak', 'Transfer', 'Feribot'],
+  Hizmetler: ['Vize', 'eSIM', 'Sigorta'],
+}
 
 function linksOf(config: {
   columns: Array<{ links: Array<{ nameTr: string; href: string }> }>
@@ -46,5 +54,19 @@ describe('footer site links', () => {
       '/tesis-yonetimi',
     )
     expect(hrefs).not.toContain('/ilan-ver#nasil-calisir')
+  })
+
+  it.each([
+    ['default config', DEFAULT_FOOTER_SITE_CONFIG],
+    ['saved config', savedFooterConfig],
+  ])('%s groups discovery links in the requested order', (_name, config) => {
+    const groups = Object.fromEntries(
+      config.columns.slice(0, 4).map((column) => [
+        column.titleTr,
+        column.links.map((link) => link.nameTr),
+      ]),
+    )
+
+    expect(groups).toEqual(expectedExploreGroups)
   })
 })
