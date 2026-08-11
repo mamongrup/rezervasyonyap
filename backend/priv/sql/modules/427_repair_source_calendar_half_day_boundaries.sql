@@ -2,6 +2,11 @@
 -- Yalnizca kaynak musaitlik URL'si bulunan ilanlarin bugun ve sonrasindaki,
 -- en az iki gunluk kesintisiz tam-kapali bloklarina dokunur. Tek gunluk bakim
 -- kapamalari degismez.
+CREATE TABLE IF NOT EXISTS travel_data_migrations (
+  code text PRIMARY KEY,
+  applied_at timestamptz NOT NULL DEFAULT now()
+);
+
 WITH source_listings AS (
   SELECT la.listing_id
   FROM listing_attributes la
@@ -21,6 +26,11 @@ full_days AS (
   FROM listing_availability_calendar lac
   JOIN source_listings sl ON sl.listing_id = lac.listing_id
   WHERE lac.day >= current_date
+    AND NOT EXISTS (
+      SELECT 1
+      FROM travel_data_migrations
+      WHERE code = '427_source_calendar_half_day_boundaries'
+    )
     AND coalesce(lac.am_available, lac.is_available, false) = false
     AND coalesce(lac.pm_available, lac.is_available, false) = false
     AND lac.is_available = false
@@ -46,6 +56,10 @@ SET
 FROM boundaries b
 WHERE lac.listing_id = b.listing_id
   AND lac.day = b.day;
+
+INSERT INTO travel_data_migrations (code)
+VALUES ('427_source_calendar_half_day_boundaries')
+ON CONFLICT (code) DO NOTHING;
 
 -- iCal bloklari kesin giris/cikis tarihleri tasidigi icin bunlari ayrica
 -- kaynagin kendisinden tekrar kur. Sirt sirta rezervasyonlarin ortak gununde

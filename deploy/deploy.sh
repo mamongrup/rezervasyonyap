@@ -535,6 +535,13 @@ main() {
     fi
   fi
 
+  if [[ -f "$APP_ROOT/backend/priv/sql/modules/427_repair_source_calendar_half_day_boundaries.sql" ]]; then
+    step "Villa takvimi yarim gun turnover sinirlari (427)"
+    APPLY_SQL_SKIP_AI_ENQUEUE=1 bash "$APP_ROOT/deploy/apply-sql.sh" \
+      "$APP_ROOT/backend/priv/sql/modules/427_repair_source_calendar_half_day_boundaries.sql" \
+      || fail "427 takvim yarim gun onarimi uygulanamadi"
+  fi
+
   if [[ "${SKIP_AI_WORKER_TIMER:-0}" == "1" ]]; then
     warn "SKIP_AI_WORKER_TIMER=1 — AI watchdog ve kuyruk worker timer kurulumu atlandı."
   elif [[ -f "$APP_ROOT/deploy/systemd/travel-ai-worker.service" && -f "$APP_ROOT/deploy/systemd/travel-ai-worker.timer" ]]; then
