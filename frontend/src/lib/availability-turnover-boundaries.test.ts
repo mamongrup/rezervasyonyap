@@ -15,7 +15,7 @@ function row(day: string, am: boolean, pm: boolean): MergedCalendarRow {
 }
 
 describe('applyTurnoverBoundaries', () => {
-  it('opens first-day AM and last-day PM for a reservation-shaped block', () => {
+  it('opens check-in AM and blocks the following checkout morning', () => {
     const out = applyTurnoverBoundaries([
       row('2026-08-09', true, true),
       row('2026-08-10', false, false),
@@ -27,11 +27,12 @@ describe('applyTurnoverBoundaries', () => {
       row('2026-08-16', true, true),
     ])
     const by = new Map(out.map((r) => [r.day, r]))
-    // ilk gün: sabah çıkış açık
+    // İlk dolu gece: sabah müsait, öğleden sonra dolu.
     expect(by.get('2026-08-10')).toMatchObject({ am_available: true, pm_available: false })
-    // son gün: öğleden sonra giriş açık
-    expect(by.get('2026-08-15')).toMatchObject({ am_available: false, pm_available: true })
-    // ara günler dokunulmadan tam blok
+    // Son dolu gece tam kapalı kalır; ertesi çıkış günü yalnızca sabah doludur.
+    expect(by.get('2026-08-15')).toMatchObject({ am_available: false, pm_available: false })
+    expect(by.get('2026-08-16')).toMatchObject({ am_available: false, pm_available: true })
+    // Ara günler dokunulmadan tam blok kalır.
     expect(by.get('2026-08-12')).toMatchObject({ am_available: false, pm_available: false })
   })
 
@@ -73,8 +74,41 @@ describe('applyTurnoverBoundaries', () => {
     ])
     const by = new Map(out.map((r) => [r.day, r]))
     expect(by.get('2026-08-10')).toMatchObject({ am_available: true, pm_available: false })
-    expect(by.get('2026-08-11')).toMatchObject({ am_available: false, pm_available: true })
+    expect(by.get('2026-08-11')).toMatchObject({ am_available: false, pm_available: false })
+    expect(by.get('2026-08-12')).toMatchObject({ am_available: false, pm_available: true })
     expect(by.get('2026-08-13')).toMatchObject({ am_available: true, pm_available: false })
-    expect(by.get('2026-08-14')).toMatchObject({ am_available: false, pm_available: true })
+    expect(by.get('2026-08-14')).toMatchObject({ am_available: false, pm_available: false })
+    expect(by.get('2026-08-15')).toMatchObject({ am_available: false, pm_available: true })
+  })
+
+  it('does not shift correct half-day boundaries when saved again', () => {
+    const input = [
+      row('2026-08-09', true, true),
+      row('2026-08-10', true, false),
+      row('2026-08-11', false, false),
+      row('2026-08-12', false, false),
+      row('2026-08-13', false, true),
+      row('2026-08-14', true, true),
+    ]
+
+    expect(applyTurnoverBoundaries(input)).toEqual(input)
+  })
+
+  it('keeps a shared checkout and check-in day as turnover', () => {
+    const out = applyTurnoverBoundaries([
+      row('2026-08-09', true, true),
+      row('2026-08-10', false, false),
+      row('2026-08-11', false, false),
+      row('2026-08-12', true, false),
+      row('2026-08-13', false, false),
+      row('2026-08-14', false, false),
+      row('2026-08-15', true, true),
+    ])
+
+    expect(out.find((item) => item.day === '2026-08-12')).toMatchObject({
+      am_available: false,
+      pm_available: false,
+      is_available: true,
+    })
   })
 })

@@ -1,38 +1,50 @@
 import type { MergedCalendarRow } from '@/lib/listing-availability-calendar-merge'
 
 /**
- * Kaydetmeden önce turnover (değişim) sınırlarını aç.
+ * Kaydetmeden once tam kapali gece araliklarini giris/cikis yarimlarina cevirir.
+ * Ilk dolu gunun sabahi musait kalir. Son dolu geceden sonraki cikis gununun
+ * sabahi kapali, ogleden sonrasi musait olur.
  *
- * Ay içindeki tam-blok (ÖÖ ve ÖS kapalı) kesintisiz aralıkların dış komşuları
- * müsaitse — yani bir rezervasyon kalıbıysa — aralığın ilk günü ÖÖ (sabah çıkış)
- * ve son günü ÖS (öğleden sonra giriş) açılır. Böylece bitişik rezervasyonlar
- * aynı giriş/çıkış gününü paylaşabilir (5–10 çıkış, 15–20 giriş gibi).
- *
- * Güvenlik kısıtları:
- *  - Yalnız 2+ günlük aralıklar; tek günlük tam blok (bakım) bozulmaz.
- *  - Ay kenarındaki (komşusu bilinmeyen) aralıklar değişmez.
- *  - İki yanı da dolu (sırt sırta) aralıklarda sınır açılmaz.
+ * Tek gunluk bakim kapamalari ve ay kenarindaki bilinmeyen sinirlar degismez.
+ * Daha once dogru sinir uygulanmis bir aralik tekrar kaydedildiginde iceri
+ * kaymaz; bu donusum idempotenttir.
  */
 export function applyTurnoverBoundaries(rows: MergedCalendarRow[]): MergedCalendarRow[] {
-  const out = [...rows].sort((a, b) => a.day.localeCompare(b.day)).map((r) => ({ ...r }))
-  const isFull = (r: MergedCalendarRow) => !r.am_available && !r.pm_available
-  let i = 0
-  while (i < out.length) {
-    if (!isFull(out[i])) {
-      i += 1
+  const source = [...rows].sort((a, b) => a.day.localeCompare(b.day))
+  const out = source.map((row) => ({ ...row }))
+  const isFull = (row: MergedCalendarRow) => !row.am_available && !row.pm_available
+  const isOpen = (row: MergedCalendarRow) => row.am_available && row.pm_available
+  const isCheckinBoundary = (row: MergedCalendarRow) => row.am_available && !row.pm_available
+  const isCheckoutBoundary = (row: MergedCalendarRow) => !row.am_available && row.pm_available
+
+  let index = 0
+  while (index < source.length) {
+    if (!isFull(source[index])) {
+      index += 1
       continue
     }
-    let j = i
-    while (j + 1 < out.length && isFull(out[j + 1])) j += 1
-    const prev = i - 1 >= 0 ? out[i - 1] : undefined
-    const next = j + 1 < out.length ? out[j + 1] : undefined
-    if (j > i && prev && next && !isFull(prev) && !isFull(next)) {
-      out[i].am_available = true
-      out[i].is_available = true
-      out[j].pm_available = true
-      out[j].is_available = true
+
+    let endIndex = index
+    while (endIndex + 1 < source.length && isFull(source[endIndex + 1])) endIndex += 1
+    const previous = index > 0 ? source[index - 1] : undefined
+    const next = endIndex + 1 < source.length ? source[endIndex + 1] : undefined
+
+    if (endIndex > index && previous && next) {
+      if (isCheckinBoundary(previous) && isCheckoutBoundary(next)) {
+        index = endIndex + 1
+        continue
+      }
+      if (isOpen(previous) || isCheckoutBoundary(previous)) {
+        out[index].am_available = true
+        out[index].is_available = true
+      }
+      if (isOpen(next) || isCheckinBoundary(next)) {
+        out[endIndex + 1].am_available = false
+        out[endIndex + 1].is_available = true
+      }
     }
-    i = j + 1
+    index = endIndex + 1
   }
+
   return out
 }
