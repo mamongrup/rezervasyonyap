@@ -114,21 +114,28 @@ function parseYmd(s) {
   return Number.isNaN(d.getTime()) ? null : d
 }
 
-function expandRange(from, to, windowFrom, windowTo) {
+function expandSourceBlockedNightRange(from, to, windowFrom, windowTo) {
   const start = parseYmd(from)
   const end = parseYmd(to || from)
   const w0 = parseYmd(windowFrom)
   const w1 = parseYmd(windowTo)
-  if (!start || !end || !w0 || !w1) return []
+  if (!start || !end || !w0 || !w1) return null
   const a = start.getTime() <= end.getTime() ? start : end
-  const b = start.getTime() <= end.getTime() ? end : start
-  const out = []
-  for (let t = a.getTime(); t <= b.getTime(); t += 86_400_000) {
+  const lastNight = start.getTime() <= end.getTime() ? end : start
+  const checkout = new Date(lastNight.getTime() + 86_400_000)
+  const days = []
+  for (let t = a.getTime(); t <= checkout.getTime(); t += 86_400_000) {
     if (t < w0.getTime() || t > w1.getTime()) continue
-    out.push(ymd(new Date(t)))
-    if (out.length > 400) break
+    days.push(ymd(new Date(t)))
+    if (days.length > 401) break
   }
-  return out
+  if (!days.length) return null
+  return {
+    days,
+    includesStartBoundary: days[0] === ymd(a),
+    includesEndBoundary: days.at(-1) === ymd(checkout),
+    singleDayClosure: false,
+  }
 }
 
 function stripAiJson(raw) {
@@ -427,16 +434,10 @@ try {
       for (const r of Array.isArray(parsed.blocked_ranges) ? parsed.blocked_ranges : []) {
         const conf = typeof r.confidence === 'number' ? r.confidence : 0.5
         if (conf < MIN_CONFIDENCE) continue
-        const days = expandRange(r.from, r.to || r.from, windowFrom, windowTo)
-        if (!days.length) continue
-        const orderedBounds = [String(r.from).trim(), String(r.to || r.from).trim()].sort()
-        expandedRanges.push({
-          days,
-          includesStartBoundary: days[0] === orderedBounds[0],
-          includesEndBoundary: days.at(-1) === orderedBounds[1],
-          singleDayClosure: orderedBounds[0] === orderedBounds[1],
-        })
-        for (const d of days) daySet.add(d)
+        const expanded = expandSourceBlockedNightRange(r.from, r.to || r.from, windowFrom, windowTo)
+        if (!expanded) continue
+        expandedRanges.push(expanded)
+        for (const d of expanded.days) daySet.add(d)
       }
       const closeDays = [...daySet].sort()
       const closeCalendarDays = buildBlockedRangeCalendarDays(expandedRanges)

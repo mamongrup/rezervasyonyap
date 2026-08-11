@@ -7,6 +7,57 @@ export type ExpandedBlockedRange = {
   singleDayClosure?: boolean
 }
 
+const DAY_MS = 86_400_000
+
+function ymd(date: Date): string {
+  return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}-${String(date.getUTCDate()).padStart(2, '0')}`
+}
+
+function parseYmd(value: string): Date | null {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(value || '').trim())
+  if (!match) return null
+  const date = new Date(Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3])))
+  return Number.isNaN(date.getTime()) || ymd(date) !== match[0] ? null : date
+}
+
+/**
+ * Kaynak sayfalarin dolu araliklari gece bazlidir ve `to` tarihi son dolu
+ * gecedir. Takvimde cikis sabahini gosterebilmek icin araliga bir sonraki gunu
+ * checkout siniri olarak ekler.
+ */
+export function expandSourceBlockedNightRange(
+  from: string,
+  to: string,
+  windowFrom: string,
+  windowTo: string,
+): ExpandedBlockedRange | null {
+  const rawStart = parseYmd(from)
+  const rawEnd = parseYmd(to || from)
+  const windowStart = parseYmd(windowFrom)
+  const windowEnd = parseYmd(windowTo)
+  if (!rawStart || !rawEnd || !windowStart || !windowEnd) return null
+
+  const start = rawStart.getTime() <= rawEnd.getTime() ? rawStart : rawEnd
+  const lastNight = rawStart.getTime() <= rawEnd.getTime() ? rawEnd : rawStart
+  const checkout = new Date(lastNight.getTime() + DAY_MS)
+  const days: string[] = []
+
+  for (let time = start.getTime(); time <= checkout.getTime(); time += DAY_MS) {
+    if (time < windowStart.getTime() || time > windowEnd.getTime()) continue
+    days.push(ymd(new Date(time)))
+    if (days.length > 401) break
+  }
+  if (days.length === 0) return null
+
+  return {
+    days,
+    includesStartBoundary: days[0] === ymd(start),
+    includesEndBoundary: days.at(-1) === ymd(checkout),
+    // Tek dolu gece de iki takvim gunune yayilan giris/cikis araligidir.
+    singleDayClosure: false,
+  }
+}
+
 /**
  * Kaynaktan gelen dolu gece araliklarini yarim gun giris/cikis sinirlarina cevirir.
  *

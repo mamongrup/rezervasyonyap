@@ -1,5 +1,38 @@
 import { describe, expect, it } from 'vitest'
-import { buildBlockedRangeCalendarDays } from './blocked-range-calendar'
+import { buildBlockedRangeCalendarDays, expandSourceBlockedNightRange } from './blocked-range-calendar'
+
+describe('expandSourceBlockedNightRange', () => {
+  it('adds the checkout morning after the final blocked night', () => {
+    const range = expandSourceBlockedNightRange(
+      '2026-08-03',
+      '2026-08-22',
+      '2026-08-01',
+      '2026-08-31',
+    )
+    expect(range?.days.at(-1)).toBe('2026-08-23')
+
+    const checkout = buildBlockedRangeCalendarDays(range ? [range] : []).at(-1)
+    expect(checkout).toMatchObject({
+      day: '2026-08-23',
+      is_available: true,
+      am_available: false,
+      pm_available: true,
+    })
+  })
+
+  it('treats a single blocked night as check-in plus next-day checkout', () => {
+    const range = expandSourceBlockedNightRange(
+      '2026-08-22',
+      '2026-08-22',
+      '2026-08-01',
+      '2026-08-31',
+    )
+    expect(buildBlockedRangeCalendarDays(range ? [range] : [])).toEqual([
+      expect.objectContaining({ day: '2026-08-22', am_available: true, pm_available: false }),
+      expect.objectContaining({ day: '2026-08-23', am_available: false, pm_available: true }),
+    ])
+  })
+})
 
 describe('buildBlockedRangeCalendarDays', () => {
   it('keeps check-in and checkout boundaries as half days', () => {

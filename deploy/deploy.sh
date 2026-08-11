@@ -547,6 +547,13 @@ main() {
       || fail "427 takvim yarim gun onarimi uygulanamadi"
   fi
 
+  if [[ -f "$APP_ROOT/backend/priv/sql/modules/428_repair_mamon_checkout_boundary.sql" ]]; then
+    step "Mamon Villa 23 Agustos cikis sabahi siniri (428)"
+    APPLY_SQL_SKIP_AI_ENQUEUE=1 bash "$APP_ROOT/deploy/apply-sql.sh" \
+      "$APP_ROOT/backend/priv/sql/modules/428_repair_mamon_checkout_boundary.sql" \
+      || fail "428 Mamon Villa cikis siniri onarimi uygulanamadi"
+  fi
+
   if [[ "${SKIP_AI_WORKER_TIMER:-0}" == "1" ]]; then
     warn "SKIP_AI_WORKER_TIMER=1 — AI watchdog ve kuyruk worker timer kurulumu atlandı."
   elif [[ -f "$APP_ROOT/deploy/systemd/travel-ai-worker.service" && -f "$APP_ROOT/deploy/systemd/travel-ai-worker.timer" ]]; then

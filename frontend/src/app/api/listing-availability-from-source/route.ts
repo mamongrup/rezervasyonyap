@@ -4,7 +4,10 @@
  */
 import { requireAdminPermission } from '@/lib/api-require-admin'
 import { apiOriginForFetch } from '@/lib/api-origin'
-import { buildBlockedRangeCalendarDays } from '@/lib/blocked-range-calendar'
+import {
+  buildBlockedRangeCalendarDays,
+  expandSourceBlockedNightRange,
+} from '@/lib/blocked-range-calendar'
 import {
   createAiJob,
   getAiJob,
@@ -84,30 +87,6 @@ function ymd(d: Date): string {
   const m = String(d.getUTCMonth() + 1).padStart(2, '0')
   const day = String(d.getUTCDate()).padStart(2, '0')
   return `${y}-${m}-${day}`
-}
-
-function parseYmd(s: string): Date | null {
-  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(s || '').trim())
-  if (!m) return null
-  const d = new Date(Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3])))
-  return Number.isNaN(d.getTime()) ? null : d
-}
-
-function expandRange(from: string, to: string, windowFrom: string, windowTo: string): string[] {
-  const start = parseYmd(from)
-  const end = parseYmd(to || from)
-  const w0 = parseYmd(windowFrom)
-  const w1 = parseYmd(windowTo)
-  if (!start || !end || !w0 || !w1) return []
-  const a = start.getTime() <= end.getTime() ? start : end
-  const b = start.getTime() <= end.getTime() ? end : start
-  const out: string[] = []
-  for (let t = a.getTime(); t <= b.getTime(); t += 86_400_000) {
-    if (t < w0.getTime() || t > w1.getTime()) continue
-    out.push(ymd(new Date(t)))
-    if (out.length > 400) break
-  }
-  return out
 }
 
 function stripAiJson(raw: string): string {
@@ -294,8 +273,13 @@ export async function POST(req: NextRequest) {
     for (const r of ranges) {
       const conf = typeof r.confidence === 'number' ? r.confidence : 0.5
       if (conf < MIN_CONFIDENCE) continue
-      const days = expandRange(String(r.from || ''), String(r.to || r.from || ''), windowFrom, windowTo)
-      if (!days.length) continue
+      const expanded = expandSourceBlockedNightRange(
+        String(r.from || ''),
+        String(r.to || r.from || ''),
+        windowFrom,
+        windowTo,
+      )
+      if (!expanded) continue
       acceptedRanges.push({
         from: String(r.from),
         to: String(r.to || r.from),
@@ -303,14 +287,8 @@ export async function POST(req: NextRequest) {
         confidence: conf,
         evidence: String(r.evidence || '').slice(0, 200),
       })
-      const orderedBounds = [String(r.from).trim(), String(r.to || r.from).trim()].sort()
-      expandedRanges.push({
-        days,
-        includesStartBoundary: days[0] === orderedBounds[0],
-        includesEndBoundary: days.at(-1) === orderedBounds[1],
-        singleDayClosure: orderedBounds[0] === orderedBounds[1],
-      })
-      for (const d of days) daySet.add(d)
+      expandedRanges.push(expanded)
+      for (const d of expanded.days) daySet.add(d)
     }
     const blockedDays = [...daySet].sort()
     const aiInsufficient = Boolean(parsed.insufficient_data)
