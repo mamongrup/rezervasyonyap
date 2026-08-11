@@ -1,5 +1,11 @@
 # Proje Kuralları
 
+## Çok dilli vitrin standardı
+
+- Ziyaretçiye görünen her yeni metin, menü, başlık, açıklama, SEO alanı ve kullanıcı akışı değişikliği tüm aktif vitrin dillerinde (`tr`, `en`, `de`, `ru`, `zh`, `fr`) aynı teslimat içinde tamamlanmalıdır.
+- Bir dildeki metni diğer dil alanlarına kopyalamak çeviri sayılmaz; her dil doğal ve bağlama uygun yazılmalıdır.
+- Yeni veya değişen çok dilli alanlar, eksik aktif dil bırakılmasını engelleyen test ya da doğrulamayla korunmalıdır.
+
 ## Aktarılan içerik standardı
 
 - Her dış sağlayıcı, XML/API, toplu aktarım ve backfill işleminde ziyaretçiye gösterilen ham içerik doğrudan yayımlanamaz.

@@ -29,20 +29,31 @@
     {
       "titleTr": "Konaklama",
       "titleEn": "Stays",
+      "title_i18n": {
+        "tr": "Konaklama",
+        "en": "Stays",
+        "de": "Unterkünfte",
+        "ru": "Размещение",
+        "zh": "住宿",
+        "fr": "Hébergements"
+      },
       "links": [
         {
           "nameTr": "Otel",
           "nameEn": "Hotel",
+          "name_i18n": { "tr": "Otel", "en": "Hotel", "de": "Hotel", "ru": "Отель", "zh": "酒店", "fr": "Hôtel" },
           "href": "/oteller/all"
         },
         {
           "nameTr": "Villa",
           "nameEn": "Villa",
+          "name_i18n": { "tr": "Villa", "en": "Villa", "de": "Villa", "ru": "Вилла", "zh": "别墅", "fr": "Villa" },
           "href": "/tatil-evleri/all"
         },
         {
           "nameTr": "Yat",
           "nameEn": "Yacht",
+          "name_i18n": { "tr": "Yat", "en": "Yacht", "de": "Yacht", "ru": "Яхта", "zh": "游艇", "fr": "Yacht" },
           "href": "/yat-kiralama/all"
         }
       ]
@@ -50,40 +61,55 @@
     {
       "titleTr": "Deneyim",
       "titleEn": "Experiences",
+      "title_i18n": {
+        "tr": "Deneyim",
+        "en": "Experiences",
+        "de": "Erlebnisse",
+        "ru": "Впечатления",
+        "zh": "体验",
+        "fr": "Expériences"
+      },
       "links": [
         {
           "nameTr": "Tur",
           "nameEn": "Tour",
+          "name_i18n": { "tr": "Tur", "en": "Tour", "de": "Tour", "ru": "Тур", "zh": "旅游", "fr": "Circuit" },
           "href": "/turlar/all"
         },
         {
           "nameTr": "Cruise",
           "nameEn": "Cruise",
+          "name_i18n": { "tr": "Cruise", "en": "Cruise", "de": "Kreuzfahrt", "ru": "Круиз", "zh": "邮轮", "fr": "Croisière" },
           "href": "/kruvaziyer/all"
         },
         {
           "nameTr": "Hac & Umre",
           "nameEn": "Hajj & Umrah",
+          "name_i18n": { "tr": "Hac & Umre", "en": "Hajj & Umrah", "de": "Hadsch & Umra", "ru": "Хадж и Умра", "zh": "朝觐与副朝", "fr": "Hajj & Omra" },
           "href": "/hac-umre/all"
         },
         {
           "nameTr": "Aktivite",
           "nameEn": "Activity",
+          "name_i18n": { "tr": "Aktivite", "en": "Activity", "de": "Aktivität", "ru": "Активность", "zh": "活动", "fr": "Activité" },
           "href": "/aktiviteler/all"
         },
         {
           "nameTr": "Şezlong",
           "nameEn": "Sunbed",
+          "name_i18n": { "tr": "Şezlong", "en": "Sunbed", "de": "Strandliege", "ru": "Шезлонг", "zh": "躺椅", "fr": "Transat" },
           "href": "/plaj-sezlong/all"
         },
         {
           "nameTr": "Restoran",
           "nameEn": "Restaurant",
+          "name_i18n": { "tr": "Restoran", "en": "Restaurant", "de": "Restaurant", "ru": "Ресторан", "zh": "餐厅", "fr": "Restaurant" },
           "href": "/restoran-rezervasyon/all"
         },
         {
           "nameTr": "Sinema",
           "nameEn": "Cinema",
+          "name_i18n": { "tr": "Sinema", "en": "Cinema", "de": "Kino", "ru": "Кино", "zh": "电影", "fr": "Cinéma" },
           "href": "/sinema-biletleri/all"
         }
       ]
@@ -91,25 +117,37 @@
     {
       "titleTr": "Yolculuk",
       "titleEn": "Travel",
+      "title_i18n": {
+        "tr": "Yolculuk",
+        "en": "Travel",
+        "de": "Reisen",
+        "ru": "Путешествия",
+        "zh": "出行",
+        "fr": "Voyages"
+      },
       "links": [
         {
           "nameTr": "Araç",
           "nameEn": "Car",
+          "name_i18n": { "tr": "Araç", "en": "Car", "de": "Mietwagen", "ru": "Автомобиль", "zh": "租车", "fr": "Voiture" },
           "href": "/arac-kiralama/all"
         },
         {
           "nameTr": "Uçak",
           "nameEn": "Flight",
+          "name_i18n": { "tr": "Uçak", "en": "Flight", "de": "Flug", "ru": "Авиабилет", "zh": "航班", "fr": "Vol" },
           "href": "/ucak-bileti/all"
         },
         {
           "nameTr": "Transfer",
           "nameEn": "Transfer",
+          "name_i18n": { "tr": "Transfer", "en": "Transfer", "de": "Transfer", "ru": "Трансфер", "zh": "接送", "fr": "Transfert" },
           "href": "/transfer/all"
         },
         {
           "nameTr": "Feribot",
           "nameEn": "Ferry",
+          "name_i18n": { "tr": "Feribot", "en": "Ferry", "de": "Fähre", "ru": "Паром", "zh": "渡轮", "fr": "Ferry" },
           "href": "/feribot/all"
         }
       ]
@@ -117,20 +155,31 @@
     {
       "titleTr": "Hizmetler",
       "titleEn": "Services",
+      "title_i18n": {
+        "tr": "Hizmetler",
+        "en": "Services",
+        "de": "Services",
+        "ru": "Услуги",
+        "zh": "服务",
+        "fr": "Services"
+      },
       "links": [
         {
           "nameTr": "Vize",
           "nameEn": "Visa",
+          "name_i18n": { "tr": "Vize", "en": "Visa", "de": "Visum", "ru": "Виза", "zh": "签证", "fr": "Visa" },
           "href": "/vize/all"
         },
         {
           "nameTr": "eSIM",
           "nameEn": "eSIM",
+          "name_i18n": { "tr": "eSIM", "en": "eSIM", "de": "eSIM", "ru": "eSIM", "zh": "eSIM", "fr": "eSIM" },
           "href": "/contact?service=esim"
         },
         {
           "nameTr": "Sigorta",
           "nameEn": "Insurance",
+          "name_i18n": { "tr": "Sigorta", "en": "Insurance", "de": "Versicherung", "ru": "Страхование", "zh": "保险", "fr": "Assurance" },
           "href": "/contact?service=seyahat-sigortasi"
         }
       ]
@@ -317,5 +366,5 @@
       "href": "/legal/cookies"
     }
   ],
-  "updatedAt": "2026-08-11T18:57:58.842Z"
+  "updatedAt": "2026-08-11T19:05:00.000Z"
 }

@@ -29,6 +29,8 @@ const expectedExploreGroups = {
   Hizmetler: ['Vize', 'eSIM', 'Sigorta'],
 }
 
+const activeLocales = ['tr', 'en', 'de', 'ru', 'zh', 'fr']
+
 function linksOf(config: {
   columns: Array<{ links: Array<{ nameTr: string; href: string }> }>
 }) {
@@ -68,5 +70,22 @@ describe('footer site links', () => {
     )
 
     expect(groups).toEqual(expectedExploreGroups)
+  })
+
+  it.each([
+    ['default config', DEFAULT_FOOTER_SITE_CONFIG],
+    ['saved config', savedFooterConfig],
+  ])('%s keeps every discovery label complete in all storefront languages', (_name, config) => {
+    const discoveryColumns = config.columns.slice(0, 4) as Array<{
+      title_i18n?: Record<string, string>
+      links: Array<{ name_i18n?: Record<string, string> }>
+    }>
+
+    for (const column of discoveryColumns) {
+      expect(Object.keys(column.title_i18n ?? {})).toEqual(expect.arrayContaining(activeLocales))
+      for (const link of column.links) {
+        expect(Object.keys(link.name_i18n ?? {})).toEqual(expect.arrayContaining(activeLocales))
+      }
+    }
   })
 })
