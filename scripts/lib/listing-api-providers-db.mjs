@@ -83,6 +83,12 @@ function normalizeStaticBaseUrl(raw) {
     .replace(/\/+$/, '')
 }
 
+function normalizeCommissionPercent(raw, fallback = 15) {
+  const parsed = Number.parseFloat(String(raw ?? '').replace(',', '.'))
+  if (!Number.isFinite(parsed)) return fallback
+  return Math.min(100, Math.max(0, parsed))
+}
+
 export async function loadTravelrobotConfigFromDb() {
   const all = await loadListingApiProvidersFromDb()
   const tr = all.travelrobot ?? {}
@@ -91,6 +97,10 @@ export async function loadTravelrobotConfigFromDb() {
     baseUrl: normalizeTravelrobotBaseUrl(tr.base_url),
     channelCode: String(tr.channel_code || process.env.TRAVELROBOT_CHANNEL_CODE || ''),
     channelPassword: String(tr.channel_password || process.env.TRAVELROBOT_CHANNEL_PASSWORD || ''),
+    hotelCommissionPercent: normalizeCommissionPercent(
+      tr.hotel_commission_percent ?? process.env.TRAVELROBOT_HOTEL_COMMISSION_PERCENT,
+      15,
+    ),
     staticBaseUrl: normalizeStaticBaseUrl(tr.static_base_url),
     staticUser: String(tr.static_user || process.env.TRAVELROBOT_STATIC_USER || ''),
     staticPassword: String(tr.static_password || process.env.TRAVELROBOT_STATIC_PASSWORD || ''),

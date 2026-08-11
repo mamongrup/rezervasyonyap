@@ -64,13 +64,19 @@ function dateWindow(checkInDays, stayNights) {
   return { checkInDate, checkOutDate }
 }
 
-async function loadHotels(pg, orgId) {
-  const params = [orgId, OFFSET]
+async function loadHotels(pg, orgId, commissionPercent) {
+  const params = [orgId, OFFSET, commissionPercent]
   let sql = `
     SELECT l.id::text AS listing_id,
            l.slug,
            COALESCE(l.currency_code::text, 'TRY') AS currency_code,
-           lhd.travelrobot_hotel_code AS code
+           lhd.travelrobot_hotel_code AS code,
+           (SELECT (la.value_json->>'percent')::numeric
+            FROM listing_attributes la
+            WHERE la.listing_id = l.id
+              AND la.group_code = 'travelrobot'
+              AND la.key = 'hotel_commission'
+            LIMIT 1) AS applied_commission_percent
     FROM listings l
     JOIN product_categories pc ON pc.id = l.category_id AND pc.code = 'hotel'
     JOIN listing_hotel_details lhd ON lhd.listing_id = l.id
@@ -82,9 +88,19 @@ async function loadHotels(pg, orgId) {
   if (ROOMS_ONLY) {
     sql += ` AND NOT EXISTS (SELECT 1 FROM hotel_rooms hr WHERE hr.listing_id = l.id)`
   } else if (!FORCE) {
-    sql += ` AND NOT EXISTS (
-      SELECT 1 FROM listing_meal_plans m
-      WHERE m.listing_id = l.id AND m.is_active = true AND m.price_per_night > 0
+    sql += ` AND (
+      NOT EXISTS (
+        SELECT 1 FROM listing_meal_plans m
+        WHERE m.listing_id = l.id AND m.is_active = true AND m.price_per_night > 0
+      )
+      OR COALESCE((
+        SELECT (la.value_json->>'percent')::numeric
+        FROM listing_attributes la
+        WHERE la.listing_id = l.id
+          AND la.group_code = 'travelrobot'
+          AND la.key = 'hotel_commission'
+        LIMIT 1
+      ), -1) <> $3::numeric
     )`
   }
   if (CODE) {
@@ -102,7 +118,19 @@ async function loadHotels(pg, orgId) {
     slug: row.slug,
     currencyCode: row.currency_code || 'TRY',
     code: String(row.code).trim(),
+    needsCommissionRefresh:
+      Number(row.applied_commission_percent ?? -1) !== Number(commissionPercent),
   }))
+}
+
+async function markAppliedCommission(pg, listingId, percent) {
+  await pg.query(
+    `INSERT INTO listing_attributes (listing_id, group_code, key, value_json)
+     VALUES ($1::uuid, 'travelrobot', 'hotel_commission', $2::jsonb)
+     ON CONFLICT (listing_id, group_code, key)
+     DO UPDATE SET value_json = EXCLUDED.value_json`,
+    [listingId, JSON.stringify({ percent: Number(percent), applied_at: new Date().toISOString() })],
+  )
 }
 
 async function loadStats(pg, orgId) {
@@ -201,7 +229,7 @@ async function main() {
       `Travelrobot oteller: ${stats.total} toplam, ${stats.withPrice} fiyatlı, ${stats.withRooms} odalı, ${stats.total - stats.withRooms} odasız`,
     )
 
-    const hotels = await loadHotels(pg, orgId)
+    const hotels = await loadHotels(pg, orgId, cfg.hotelCommissionPercent)
     if (!hotels.length) {
       const msg = ROOMS_ONLY
         ? 'Odasız otel yok — tümü zaten dolu.'
@@ -258,6 +286,7 @@ async function main() {
           continue
         }
 
+        let storedPrice = false
         if (!ROOMS_ONLY) {
           if (plans.length) {
             await upsertTravelrobotMealPlans(
@@ -265,7 +294,7 @@ async function main() {
               hotel.listingId,
               enriched,
               hotel.currencyCode,
-              FORCE,
+              FORCE || hotel.needsCommissionRefresh,
             )
           }
 
@@ -276,14 +305,24 @@ async function main() {
               `UPDATE listings SET first_charge_amount = $1, updated_at = now()
                WHERE id = $2::uuid
                  AND ($3 OR first_charge_amount IS NULL OR first_charge_amount = 0)`,
-              [priceToStore, hotel.listingId, FORCE],
+              [priceToStore, hotel.listingId, FORCE || hotel.needsCommissionRefresh],
             )
+            storedPrice = true
           }
         }
 
         if (WITH_ROOMS || ROOMS_ONLY) {
-          const n = await upsertRoomsFromEnriched(pg, hotel.listingId, enriched, FORCE || ROOMS_ONLY)
+          const n = await upsertRoomsFromEnriched(
+            pg,
+            hotel.listingId,
+            enriched,
+            FORCE || ROOMS_ONLY || hotel.needsCommissionRefresh,
+          )
           if (n > 0) roomsWritten += n
+        }
+
+        if (storedPrice) {
+          await markAppliedCommission(pg, hotel.listingId, cfg.hotelCommissionPercent)
         }
 
         ok++

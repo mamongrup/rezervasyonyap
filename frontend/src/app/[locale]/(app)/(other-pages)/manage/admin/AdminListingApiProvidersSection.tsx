@@ -26,6 +26,7 @@ const EMPTY_TRAVELROBOT: TravelrobotSettings = {
   base_url: 'https://api.bookingagora.com/v0',
   channel_code: '',
   channel_password: '',
+  hotel_commission_percent: '15',
   static_base_url: 'https://static.travelchain.online/api',
   static_user: '',
   static_password: '',
@@ -613,6 +614,24 @@ export default function AdminListingApiProvidersSection() {
             onChange={(v) => setTr({ channel_password: v })}
             type="password"
           />
+
+          <div className="space-y-1">
+            <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">
+              Otel satış komisyonu (%)
+            </label>
+            <input
+              type="number"
+              min="0"
+              max="100"
+              step="0.1"
+              value={tr.hotel_commission_percent}
+              onChange={(e) => setTr({ hotel_commission_percent: e.target.value })}
+              className="w-full rounded-xl border border-neutral-200 bg-white px-3 py-2 text-sm dark:border-neutral-700 dark:bg-neutral-800 dark:text-white"
+            />
+            <p className="text-xs text-neutral-500">
+              KPlus tarafından iletilen ham otel fiyatına eklenir. Varsayılan oran %15'tir.
+            </p>
+          </div>
 
           <div className="rounded-xl border border-dashed border-neutral-200 p-3 dark:border-neutral-600">
             <p className="mb-3 text-xs font-medium text-neutral-600 dark:text-neutral-300">

@@ -6,6 +6,26 @@ import { extractHotelDetailsNode } from './travelrobot-hotel-vitrin.mjs'
 
 /** TRY gecelik üst sınır — anomali API yanıtlarını vitrine taşımaz. */
 export const MAX_SANE_NIGHTLY = 80_000
+export const DEFAULT_TRAVELROBOT_HOTEL_COMMISSION_PERCENT = 15
+const HOTEL_COMMISSION_PERCENT = Symbol.for('travelrobot.hotelCommissionPercent')
+
+function normalizeHotelCommissionPercent(raw, fallback = DEFAULT_TRAVELROBOT_HOTEL_COMMISSION_PERCENT) {
+  const parsed = Number.parseFloat(String(raw ?? '').replace(',', '.'))
+  if (!Number.isFinite(parsed)) return fallback
+  return Math.min(100, Math.max(0, parsed))
+}
+
+/** Komisyon oranını JSON snapshot'a yazmadan otel satırında taşır. */
+export function stampTravelrobotHotelCommission(hotel, rawPercent) {
+  if (!hotel || typeof hotel !== 'object') return hotel
+  return { ...hotel, [HOTEL_COMMISSION_PERCENT]: normalizeHotelCommissionPercent(rawPercent) }
+}
+
+export function applyTravelrobotHotelCommission(amount, hotel) {
+  if (amount == null || !Number.isFinite(Number(amount))) return null
+  const percent = normalizeHotelCommissionPercent(hotel?.[HOTEL_COMMISSION_PERCENT])
+  return Math.round(Number(amount) * (1 + percent / 100) * 100) / 100
+}
 
 const DEFAULT_SEARCH_NIGHTS = Math.max(
   1,
@@ -252,16 +272,18 @@ export function resolveOfferNightlyPrice(alt, room, hotel) {
     const p = nightlyPriceFromDailyRow(dp, stayNights)
     if (p != null) nightlyFromDaily.push(p)
   }
-  if (nightlyFromDaily.length > 0) return Math.min(...nightlyFromDaily)
+  if (nightlyFromDaily.length > 0) {
+    return applyTravelrobotHotelCommission(Math.min(...nightlyFromDaily), hotel)
+  }
 
   const explicit = explicitNightlyFromAlt(alt)
-  if (explicit != null) return explicit
+  if (explicit != null) return applyTravelrobotHotelCommission(explicit, hotel)
 
   const total = offerTotalAmount(alt)
   if (total == null) return null
   const nights = Math.max(stayNights, dailyRows.length, 1)
-  if (nights > 1) return Math.round((total / nights) * 100) / 100
-  return total
+  const nightly = nights > 1 ? Math.round((total / nights) * 100) / 100 : total
+  return applyTravelrobotHotelCommission(nightly, hotel)
 }
 
 function buildDailyCalendarForAlt(alt, room, hotel, nightly) {
@@ -269,7 +291,8 @@ function buildDailyCalendarForAlt(alt, room, hotel, nightly) {
   const dailyCalendar = []
   for (const dp of dailyPricesFromAlt(alt)) {
     const day = parseKplusDate(dp?.Date ?? dp?.date ?? dp?.Day ?? dp?.day)
-    const price = nightlyPriceFromDailyRow(dp, stayNights) ?? nightly
+    const rawDailyPrice = nightlyPriceFromDailyRow(dp, stayNights)
+    const price = rawDailyPrice == null ? nightly : applyTravelrobotHotelCommission(rawDailyPrice, hotel)
     if (!day || price == null) continue
     dailyCalendar.push({
       day,

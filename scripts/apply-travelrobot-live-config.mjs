@@ -29,6 +29,7 @@ const patch = {
   base_url: env('TRAVELROBOT_BASE_URL', 'https://api.bookingagora.com/v0'),
   channel_code: env('TRAVELROBOT_CHANNEL_CODE'),
   channel_password: env('TRAVELROBOT_CHANNEL_PASSWORD'),
+  hotel_commission_percent: env('TRAVELROBOT_HOTEL_COMMISSION_PERCENT', '15'),
   static_base_url: env('TRAVELROBOT_STATIC_BASE_URL', 'https://static.travelchain.online/api'),
   static_user: env('TRAVELROBOT_STATIC_USER'),
   static_password: env('TRAVELROBOT_STATIC_PASSWORD'),

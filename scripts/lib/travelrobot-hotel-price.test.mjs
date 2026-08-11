@@ -25,7 +25,7 @@ test('TotalAmount konaklama toplamı geceliğe bölünür (7 gece)', () => {
     ],
   }
   const nightly = extractHotelMinNightlyPrice(hotel)
-  assert.ok(nightly > 5_800 && nightly < 5_920, `expected ~5858, got ${nightly}`)
+  assert.ok(nightly > 6_700 && nightly < 6_820, `expected ~6737 with 15% commission, got ${nightly}`)
   const rows = buildTravelrobotHotelRoomRows(hotel)
   assert.equal(rows[0].dailyCalendar.length, 7)
   assert.equal(rows[0].dailyCalendar[0].price, nightly)
@@ -35,7 +35,16 @@ test('tek günlük satırda TotalAmount toplam ise geceliğe bölünür', () => 
   const alt = { TotalAmount: 28_000, DailyPrices: [{ Date: '2026-07-05', TotalAmount: 28_000 }] }
   const hotel = { CheckInDate: '2026-07-05', CheckOutDate: '2026-07-09' }
   const nightly = resolveOfferNightlyPrice(alt, {}, hotel)
-  assert.equal(nightly, 7_000)
+  assert.equal(nightly, 8_050)
+})
+
+test('panelde belirlenen komisyon oranı ham KPlus fiyatına bir kez uygulanır', () => {
+  const hotel = {
+    CheckInDate: '2026-07-05',
+    CheckOutDate: '2026-07-06',
+    [Symbol.for('travelrobot.hotelCommissionPercent')]: 20,
+  }
+  assert.equal(resolveOfferNightlyPrice({ TotalAmount: 10_000 }, {}, hotel), 12_000)
 })
 
 test('otel galerisindeki oda fotoğrafı doğru oda tipiyle eşleştirilir', () => {

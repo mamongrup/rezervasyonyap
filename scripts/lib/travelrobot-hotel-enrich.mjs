@@ -15,6 +15,7 @@ import {
 import { enrichHotelRowsWithDetailsGallery } from './travelrobot-hotel-details.mjs'
 import { enrichHotelRowsWithRoomPrices } from './travelrobot-hotel-rooms.mjs'
 import { enrichHotelRowsWithI18nDetails } from './travelrobot-hotel-i18n.mjs'
+import { stampTravelrobotHotelCommission } from './travelrobot-hotel-extras.mjs'
 
 export { hotelHasRooms } from './travelrobot-listing-db.mjs'
 
@@ -42,7 +43,7 @@ export async function enrichTravelrobotHotelRows(cfg, tokenCode, rows, opts = {}
 
   if (!rows.length) return rows
 
-  let enriched = rows
+  let enriched = rows.map((row) => stampTravelrobotHotelCommission(row, cfg?.hotelCommissionPercent))
   if (!skipStatic) {
     if (!staticCredentialsReady(cfg)) {
       const hint =
@@ -56,7 +57,7 @@ export async function enrichTravelrobotHotelRows(cfg, tokenCode, rows, opts = {}
         await log(`Otel: Static API — ${codes.length} kod için içerik alınıyor…`)
         const bulk = await getBulkHotelContent(cfg, staticToken, codes, { chunkSize: 50 })
         const staticMap = buildStaticHotelMap(bulk)
-        enriched = rows.map((r) => mergeStaticHotelContent(r, staticMap.get(hotelRef(r))))
+        enriched = enriched.map((r) => mergeStaticHotelContent(r, staticMap.get(hotelRef(r))))
         await log(`Otel: Static API — ${staticMap.size} otel içeriği birleştirildi`)
       } catch (e) {
         console.warn('[uyarı] Static API atlandı:', e.message)
@@ -80,12 +81,14 @@ export async function enrichTravelrobotHotelRows(cfg, tokenCode, rows, opts = {}
     })
   }
 
-  if (!withRooms) return enriched
+  if (!withRooms) {
+    return enriched.map((row) => stampTravelrobotHotelCommission(row, cfg?.hotelCommissionPercent))
+  }
 
   enriched = await enrichHotelRowsWithRoomPrices(cfg, tokenCode, enriched, {
     destinationId: HOTEL_DESTINATION_ID,
     log,
     force,
   })
-  return enriched
+  return enriched.map((row) => stampTravelrobotHotelCommission(row, cfg?.hotelCommissionPercent))
 }

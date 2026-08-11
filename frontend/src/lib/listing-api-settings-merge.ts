@@ -16,6 +16,8 @@ export type TravelrobotSettings = {
   base_url: string
   channel_code: string
   channel_password: string
+  /** KPlus ham otel fiyatına eklenecek satış komisyonu (%). */
+  hotel_commission_percent: string
   /** Statik içerik API (otel kodları, destinasyonlar, zenginleştirme). */
   static_base_url: string
   static_user: string

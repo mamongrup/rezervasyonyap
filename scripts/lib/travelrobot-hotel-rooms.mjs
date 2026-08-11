@@ -9,7 +9,7 @@ import {
   pickHotelSearchKey,
   hotelNodeFromPayload,
 } from './travelrobot-api.mjs'
-import { stampHotelSearchWindow } from './travelrobot-hotel-extras.mjs'
+import { stampHotelSearchWindow, stampTravelrobotHotelCommission } from './travelrobot-hotel-extras.mjs'
 import { hotelCodeMatches, hotelRef, mergeStaticHotelContent } from './travelrobot-listing-db.mjs'
 
 function sleep(ms) {
@@ -45,8 +45,11 @@ function summarizeRoomPricesError(code, err) {
   return `[uyarı] GetHotelRoomPrices ${code}: ${msg.slice(0, 500) || 'bilinmeyen hata'}`
 }
 
-function withSearchDates(row, opts = {}) {
-  return stampHotelSearchWindow(row, defaultHotelSearchDates(opts))
+function withSearchDates(row, opts = {}, cfg = {}) {
+  return stampTravelrobotHotelCommission(
+    stampHotelSearchWindow(row, defaultHotelSearchDates(opts)),
+    cfg.hotelCommissionPercent,
+  )
 }
 
 function findDestinationId(obj, seen = new Set()) {
@@ -151,6 +154,7 @@ export function mergeHotelRoomPrices(row, pricesPayload, searchRow = null) {
  * Tek otel — SearchKey al, gerekirse GetHotelRoomPrices çağır.
  */
 export async function enrichHotelRowWithRoomPrices(cfg, tokenCode, row, opts = {}) {
+  row = stampTravelrobotHotelCommission(row, cfg?.hotelCommissionPercent)
   const minOffers = Number(opts.minOffers ?? process.env.TRAVELROBOT_ROOM_MIN_OFFERS ?? 3)
   if (opts.force !== true && countUniqueHotelRoomNames(row) >= minOffers) return row
 
@@ -188,7 +192,7 @@ export async function enrichHotelRowWithRoomPrices(cfg, tokenCode, row, opts = {
   }
 
   let merged = found ? mergeStaticHotelContent(row, found) : row
-  merged = withSearchDates(merged, opts)
+  merged = withSearchDates(merged, opts, cfg)
 
   if (opts.force !== true && countUniqueHotelRoomNames(merged) >= minOffers) return merged
 
@@ -220,7 +224,7 @@ export async function enrichHotelRowWithRoomPrices(cfg, tokenCode, row, opts = {
     return merged
   }
 
-  return withSearchDates(mergeHotelRoomPrices(row, pricesPayload, found), opts)
+  return withSearchDates(mergeHotelRoomPrices(row, pricesPayload, found), opts, cfg)
 }
 
 /**
