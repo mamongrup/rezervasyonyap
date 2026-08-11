@@ -3,13 +3,13 @@ import { CarRentalCard } from '@/components/cards'
 import { getCategoryBySlug } from '@/data/category-registry'
 import { getCarListingFilterOptions } from '@/data/listings'
 import { getRegionHeroConfig } from '@/data/region-hero-config'
+import { categoryMetadata } from '@/lib/category-page-metadata'
 import { resolveCategoryDisplay } from '@/lib/localized-category'
 import { regionHandleFromParams } from '@/lib/region-handle-path'
 import { loadCategoryPageListingsBundle } from '@/lib/category-page-data'
 import { fetchCategoryListings, parseSearchParamsFromUrl } from '@/lib/listings-fetcher'
 import { ensureCarRentalCheckout } from '@/lib/yolcu360-cars'
 import { fetchYolcu360CarListings } from '@/lib/yolcu360-car-search'
-import { getMessages } from '@/utils/getT'
 import { Metadata } from 'next'
 import { redirect } from 'next/navigation'
 import { regionLabelFromHandle } from '@/lib/stay-location-display'
@@ -20,12 +20,7 @@ export async function generateMetadata({
   params: Promise<{ locale?: string }>
 }): Promise<Metadata> {
   const { locale } = await params
-  const raw = getCategoryBySlug('arac-kiralama')
-  const category = raw ? resolveCategoryDisplay(raw, locale ?? 'tr') : null
-  return {
-    title: category?.name ?? getMessages(locale).categoryPage.verticalLabels.car_rental,
-    description: category?.heroSubheading,
-  }
+  return categoryMetadata('arac-kiralama', locale)
 }
 
 function selectedCarSearchQuery(

@@ -46,5 +46,21 @@
   "transfer": {
     "url": "https://images.pexels.com/photos/3802510/pexels-photo-3802510.jpeg?auto=compress&cs=tinysrgb&w=1400",
     "objectPosition": "50% 45%"
+  },
+  "plaj-sezlong": {
+    "url": "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=1400&q=82",
+    "objectPosition": "50% 55%"
+  },
+  "sinema-biletleri": {
+    "url": "https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?auto=format&fit=crop&w=1400&q=82",
+    "objectPosition": "50% 50%"
+  },
+  "etkinlikler": {
+    "url": "https://images.unsplash.com/photo-1501386761578-eac5c94b800a?auto=format&fit=crop&w=1400&q=82",
+    "objectPosition": "50% 45%"
+  },
+  "restoran-rezervasyon": {
+    "url": "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=1400&q=82",
+    "objectPosition": "50% 50%"
   }
 }

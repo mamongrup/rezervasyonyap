@@ -277,6 +277,11 @@ main() {
         ;;
     esac
 
+    if [[ -f scripts/ensure-category-thumbnails.mjs ]]; then
+      node scripts/ensure-category-thumbnails.mjs \
+        || warn "Eksik kategori gorselleri tamamlanamadi; mevcut gorsellerle devam ediliyor."
+    fi
+
     # Çalışan next start .next/cache dosyalarını kilitler; build öncesi durdur.
     WEB_STOPPED_FOR_BUILD=0
     if systemctl is-active --quiet travel-web.service 2>/dev/null; then

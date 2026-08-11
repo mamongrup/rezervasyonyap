@@ -15,6 +15,10 @@ const requiredCategoryLinks = [
   '/vize/all',
   '/hac-umre/all',
   '/kruvaziyer/all',
+  '/plaj-sezlong/all',
+  '/sinema-biletleri/all',
+  '/etkinlikler/all',
+  '/restoran-rezervasyon/all',
 ]
 
 function linksOf(config: {

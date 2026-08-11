@@ -89,6 +89,26 @@
           "nameTr": "Gemi Turları",
           "nameEn": "Cruises",
           "href": "/kruvaziyer/all"
+        },
+        {
+          "nameTr": "Plaj ve Şezlong",
+          "nameEn": "Beach & Sunbeds",
+          "href": "/plaj-sezlong/all"
+        },
+        {
+          "nameTr": "Sinema Biletleri",
+          "nameEn": "Cinema Tickets",
+          "href": "/sinema-biletleri/all"
+        },
+        {
+          "nameTr": "Etkinlik Biletleri",
+          "nameEn": "Event Tickets",
+          "href": "/etkinlikler/all"
+        },
+        {
+          "nameTr": "Restoran Rezervasyonu",
+          "nameEn": "Restaurant Booking",
+          "href": "/restoran-rezervasyon/all"
         }
       ]
     },

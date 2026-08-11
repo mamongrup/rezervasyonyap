@@ -14,6 +14,7 @@ import {
 } from '@/lib/seo/sitemap-segments'
 import { vitrinHref } from '@/lib/vitrin-href'
 import { fetchActiveLocaleCodes } from '@/lib/i18n-server'
+import { categoryCardUploadPath } from '@/lib/category-default-thumbnails'
 
 /**
  * Next 16 + `generateSitemaps()` kök `/sitemap.xml` index üretmiyor (404).
@@ -139,12 +140,16 @@ export async function buildSegmentSitemapEntries(
         url: `${base}${await vitrinHref(loc, '/')}`,
         changeFrequency: 'daily',
         priority: 1,
+        images: [`${base}/api/og/category?slug=home`],
       })
     }
   } else {
-    await pushLocalizedUrls(out, base, localeCodes, categoryBrowsePathForVertical(segment), {
+    const categoryPath = categoryBrowsePathForVertical(segment)
+    const categorySlug = categoryPath.split('/').filter(Boolean)[0] || segment
+    await pushLocalizedUrls(out, base, localeCodes, categoryPath, {
       changeFrequency: 'daily',
       priority: 0.9,
+      images: [`${base}${categoryCardUploadPath(categorySlug)}`],
     })
   }
 

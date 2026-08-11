@@ -40,6 +40,7 @@ import { Suspense } from 'react'
 import { getMessages } from '@/utils/getT'
 import { Metadata } from 'next'
 import type { PageBuilderModule } from '@/types/listing-types'
+import { categoryOgImageMeta } from '@/lib/category-seo'
 
 export async function generateMetadata({
   params,
@@ -59,6 +60,7 @@ export async function generateMetadata({
   const siteUrl = (await resolveCanonicalBaseUrl()).replace(/\/$/, '')
   const homePath = await vitrinHref(locale, '/')
   const canonical = siteUrl ? `${siteUrl}${homePath === '/' ? '/' : homePath}` : homePath
+  const shareImage = categoryOgImageMeta(siteUrl, 'home', `${siteName} seyahat kategorileri`)
   return {
     ...(siteUrl ? { metadataBase: new URL(siteUrl) } : {}),
     title,
@@ -71,10 +73,13 @@ export async function generateMetadata({
       description,
       type: 'website',
       url: canonical,
+      images: [shareImage],
     },
     twitter: {
+      card: 'summary_large_image',
       title: `${title} | ${siteName}`,
       description,
+      images: [shareImage.url],
     },
   }
 }

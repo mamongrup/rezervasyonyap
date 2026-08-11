@@ -92,6 +92,10 @@ export const DEFAULT_FOOTER_SITE_CONFIG: FooterSiteConfig = {
         link('/vize/all',           { tr: 'Vize Hizmetleri',        en: 'Visa Services',          de: 'Visa-Service',    ru: 'Визовые услуги',  zh: '签证服务', fr: 'Services visa' }),
         link('/hac-umre/all',       { tr: 'Hac & Umre',             en: 'Hajj & Umrah',           de: 'Hadsch & Umra',   ru: 'Хадж и Умра',     zh: '朝觐与副朝', fr: 'Hajj & Omra' }),
         link('/kruvaziyer/all',     { tr: 'Gemi Turları',           en: 'Cruises',                de: 'Kreuzfahrten',    ru: 'Круизы',          zh: '邮轮',     fr: 'Croisières' }),
+        link('/plaj-sezlong/all',         { tr: 'Plaj ve Şezlong',        en: 'Beach & Sunbeds',      de: 'Strand & Liegen',     ru: 'Пляжи и шезлонги',       zh: '海滩与躺椅', fr: 'Plage & transats' }),
+        link('/sinema-biletleri/all',     { tr: 'Sinema Biletleri',       en: 'Cinema Tickets',       de: 'Kinokarten',          ru: 'Билеты в кино',           zh: '电影票',     fr: 'Billets de cinéma' }),
+        link('/etkinlikler/all',          { tr: 'Etkinlik Biletleri',     en: 'Event Tickets',        de: 'Veranstaltungen',     ru: 'Билеты на события',       zh: '活动门票',   fr: 'Billets événements' }),
+        link('/restoran-rezervasyon/all', { tr: 'Restoran Rezervasyonu',  en: 'Restaurant Booking',   de: 'Restaurant buchen',   ru: 'Бронирование ресторана',  zh: '餐厅预订',   fr: 'Réservation restaurant' }),
       ],
     ),
     column(

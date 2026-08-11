@@ -1,4 +1,7 @@
 import { COMPANY, companyAddressFull } from '@/lib/corporate/company'
+import { CATEGORY_REGISTRY } from '@/data/category-registry'
+import { categoryOgImageUrl } from '@/lib/category-seo'
+import { resolveCategoryDisplay } from '@/lib/localized-category'
 import { allBrandSiteOrigins } from '@/lib/brand-sites'
 import { getCachedSiteConfig } from '@/lib/site-config-cache'
 import {
@@ -22,7 +25,7 @@ function pickBrandingUrl(branding: Record<string, unknown>, key: string): string
   return typeof v === 'string' && v.trim().startsWith('http') ? v.trim() : ''
 }
 
-/** TravelAgency + WebSite (+ SearchAction) — Maps / Knowledge Panel / sitelinks araması. */
+/** TravelAgency + WebSite + kategori hiyerarşisi — marka ve sitelink sinyalleri. */
 export default async function SiteJsonLd({ locale }: Props) {
   const pub = await getCachedSiteConfig()
   const { branding: hostBranding } = await resolveRequestBranding(
@@ -122,8 +125,28 @@ export default async function SiteJsonLd({ locale }: Props) {
   }
   if (sameAs.length) organization.sameAs = sameAs
 
-  const searchPath = await vitrinHref(locale, '/')
-  const searchTarget = `${baseNoSlash}${searchPath === '/' ? '' : searchPath}?q={search_term_string}`
+  const categoryItems = await Promise.all(
+    [...CATEGORY_REGISTRY]
+      .sort((a, b) => a.navOrder - b.navOrder)
+      .map(async (raw, index) => {
+        const category = resolveCategoryDisplay(raw, locale)
+        const href = await vitrinHref(locale, `${category.categoryRoute}/all`)
+        const url = `${baseNoSlash}${href}`
+        return {
+          '@type': 'ListItem',
+          position: index + 1,
+          item: {
+            '@type': 'CollectionPage',
+            '@id': `${url}#category`,
+            name: category.name,
+            description: category.heroSubheading,
+            url,
+            image: categoryOgImageUrl(baseNoSlash, category.slug),
+            isPartOf: { '@id': `${baseNoSlash}/#website` },
+          },
+        }
+      }),
+  )
 
   const website: Record<string, unknown> = {
     '@context': 'https://schema.org',
@@ -133,14 +156,7 @@ export default async function SiteJsonLd({ locale }: Props) {
     url: home,
     inLanguage: ogLocaleForSite(locale),
     publisher: { '@id': `${baseNoSlash}/#organization` },
-    potentialAction: {
-      '@type': 'SearchAction',
-      target: {
-        '@type': 'EntryPoint',
-        urlTemplate: searchTarget,
-      },
-      'query-input': 'required name=search_term_string',
-    },
+    hasPart: categoryItems.map((entry) => entry.item),
   }
 
   if (description) website.description = description

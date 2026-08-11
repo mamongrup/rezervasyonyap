@@ -156,9 +156,20 @@ export type HomePageLinkItem = { label: string; path: string }
 export const DEFAULT_HOME_PAGE_LINKS: HomePageLinkItem[] = [
   { label: 'Oteller', path: '/oteller/all' },
   { label: 'Tatil Evleri', path: '/tatil-evleri/all' },
+  { label: 'Yat Kiralama', path: '/yat-kiralama/all' },
   { label: 'Turlar', path: '/turlar/all' },
   { label: 'Aktiviteler', path: '/aktiviteler/all' },
+  { label: 'Kruvaziyer', path: '/kruvaziyer/all' },
+  { label: 'Hac ve Umre', path: '/hac-umre/all' },
+  { label: 'Vize Hizmetleri', path: '/vize/all' },
+  { label: 'Uçak Bileti', path: '/ucak-bileti/all' },
   { label: 'Araç Kiralama', path: '/arac-kiralama/all' },
+  { label: 'Feribot Bileti', path: '/feribot/all' },
+  { label: 'Transfer', path: '/transfer/all' },
+  { label: 'Plaj ve Şezlong', path: '/plaj-sezlong/all' },
+  { label: 'Sinema Biletleri', path: '/sinema-biletleri/all' },
+  { label: 'Etkinlikler', path: '/etkinlikler/all' },
+  { label: 'Restoran Rezervasyonu', path: '/restoran-rezervasyon/all' },
 ]
 
 function normalizeHomePageLinkPath(path: string): string {
@@ -205,7 +216,12 @@ export function parseHomePageLinksFromBranding(pub: SitePublicConfig | null): Ho
     if (/^\/?home-?2$/i.test(pathRaw.trim()) || /^home\s*2$/i.test(label)) continue
     out.push({ label, path })
   }
-  return out.length > 0 ? out : DEFAULT_HOME_PAGE_LINKS
+  if (out.length === 0) return DEFAULT_HOME_PAGE_LINKS
+  const seenPaths = new Set(out.map((item) => item.path))
+  for (const fallback of DEFAULT_HOME_PAGE_LINKS) {
+    if (!seenPaths.has(fallback.path)) out.push(fallback)
+  }
+  return out
 }
 
 /** Mobil alt bardaki «Hesap» hedefi — `branding.mobile_account_path` (ör. `/account`). */

@@ -1,26 +1,19 @@
 import { getCategoryBySlug } from '@/data/category-registry'
+import { categoryOgImageMeta, categorySeoCopy } from '@/lib/category-seo'
 import { resolveCategoryDisplay } from '@/lib/localized-category'
 import { buildLocaleAlternatesLocalized } from '@/lib/metadata-i18n'
 import { resolveCanonicalBaseUrl } from '@/lib/resolve-canonical-base-url'
-import { brandingSiteName, shareOgImageMeta } from '@/lib/site-branding-seo'
+import { brandingSiteName, ogLocaleForSite } from '@/lib/site-branding-seo'
 import { getCachedSiteConfig } from '@/lib/site-config-cache'
 import { resolveRequestBranding } from '@/lib/request-branding-seo'
 import type { Metadata } from 'next'
 import type { SitePublicConfig } from '@/lib/travel-api'
 
-/**
- * Returns locale-aware title & description metadata for a category page.
- * Usage: export async function generateMetadata({ params }) { return categoryMetadata('slug', (await params).locale) }
- *
- * WhatsApp/Facebook için mutlak JPEG `og:image` ekler (layout AVIF logosunu ezmez).
- * Canonical + hreflang: `/[slug]/all` hub yolu.
- */
+/** Kategori hub sayfası için dil, canonical, sosyal görsel ve arama sonucu metadata sözleşmesi. */
 export async function categoryMetadata(slug: string, locale?: string): Promise<Metadata> {
   const loc = locale ?? 'tr'
   const raw = getCategoryBySlug(slug)
   const category = raw ? resolveCategoryDisplay(raw, loc) : null
-  const title = category?.name
-  const description = category?.heroSubheading
   const base = await resolveCanonicalBaseUrl()
   const pub = await getCachedSiteConfig()
   const { branding: hostBranding } = await resolveRequestBranding(
@@ -28,31 +21,36 @@ export async function categoryMetadata(slug: string, locale?: string): Promise<M
   )
   const pubForBrand = (pub ? { ...pub, branding: hostBranding } : null) as SitePublicConfig | null
   const siteName = brandingSiteName(pubForBrand)
-  const shareImage = shareOgImageMeta(base, pubForBrand, title || siteName || 'Rezervasyon Yap')
+  const categoryName = category?.name || slug
+  const copy = category
+    ? categorySeoCopy(category, loc)
+    : { title: categoryName, description: categoryName }
   const hubPath = category?.categoryRoute ? `${category.categoryRoute}/all` : `/${slug}/all`
   const alternates = await buildLocaleAlternatesLocalized(loc, hubPath)
-
-  const categoryName = title || slug
-  const richTitle = `${categoryName} — En Uygun Fiyatlar ve Erken Rezervasyon`
-  const richDescription =
-    description?.trim() ||
-    `${categoryName} kategorisinde en iyi fiyat garantisi, detaylı fotoğraflar, gerçek misafir değerlendirmeleri ve anında güvenli online rezervasyon imkanı.`
+  const canonicalRaw = alternates.alternates?.canonical
+  const canonical =
+    typeof canonicalRaw === 'string' || canonicalRaw instanceof URL ? canonicalRaw : undefined
+  const shareImage = categoryOgImageMeta(base, slug, `${categoryName} rezervasyon seçenekleri`)
 
   return {
-    title: richTitle,
-    description: richDescription,
+    title: copy.title,
+    description: copy.description,
+    robots: { index: true, follow: true },
     ...alternates,
     openGraph: {
-      title: `${richTitle} | ${siteName}`,
-      description: richDescription,
-      ...(shareImage && { images: [shareImage] }),
+      title: `${copy.title} | ${siteName}`,
+      description: copy.description,
+      siteName,
+      locale: ogLocaleForSite(loc),
+      ...(canonical ? { url: canonical } : {}),
+      images: [shareImage],
       type: 'website',
     },
     twitter: {
       card: 'summary_large_image',
-      title: `${richTitle} | ${siteName}`,
-      description: richDescription,
-      ...(shareImage && { images: [shareImage.url] }),
+      title: `${copy.title} | ${siteName}`,
+      description: copy.description,
+      images: [shareImage.url],
     },
   }
 }

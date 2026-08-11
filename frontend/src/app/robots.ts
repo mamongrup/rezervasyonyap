@@ -61,6 +61,7 @@ export default async function robots(): Promise<MetadataRoute.Robots> {
           '/api/social/share-jpeg',
           '/api/og/listing',
           '/api/og/ad',
+          '/api/og/category',
           '/api/v1/seo/sitemap.xml',
         ],
         disallow: withLocalizedVariants(PRIVATE_SEGMENTS),
