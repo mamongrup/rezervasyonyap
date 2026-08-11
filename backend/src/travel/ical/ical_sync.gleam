@@ -194,7 +194,7 @@ fn block_checkin_pm(
     <> "  pm_available = false, "
     <> "  is_available = ("
     <> "    coalesce(listing_availability_calendar.am_available, true) "
-    <> "    or coalesce(listing_availability_calendar.pm_available, true)"
+    <> "    or coalesce(listing_availability_calendar.is_available, true)"
     <> "  )"
   case
     pog.query(q)
@@ -246,8 +246,8 @@ fn block_checkout_am(
     <> "on conflict (listing_id, day) do update set "
     <> "  am_available = false, "
     <> "  is_available = ("
-    <> "    coalesce(listing_availability_calendar.am_available, true) "
-    <> "    or coalesce(listing_availability_calendar.pm_available, true)"
+    <> "    coalesce(listing_availability_calendar.pm_available, true) "
+    <> "    or coalesce(listing_availability_calendar.is_available, true)"
     <> "  )"
   case
     pog.query(q)

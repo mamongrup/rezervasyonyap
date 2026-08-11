@@ -4,6 +4,7 @@
  */
 import { requireAdminPermission } from '@/lib/api-require-admin'
 import { apiOriginForFetch } from '@/lib/api-origin'
+import { buildBlockedRangeCalendarDays } from '@/lib/blocked-range-calendar'
 import {
   createAiJob,
   getAiJob,
@@ -289,6 +290,7 @@ export async function POST(req: NextRequest) {
     const ranges = Array.isArray(parsed.blocked_ranges) ? parsed.blocked_ranges : []
     const daySet = new Set<string>()
     const acceptedRanges: BlockedRange[] = []
+    const expandedRanges: Parameters<typeof buildBlockedRangeCalendarDays>[0] = []
     for (const r of ranges) {
       const conf = typeof r.confidence === 'number' ? r.confidence : 0.5
       if (conf < MIN_CONFIDENCE) continue
@@ -301,6 +303,13 @@ export async function POST(req: NextRequest) {
         confidence: conf,
         evidence: String(r.evidence || '').slice(0, 200),
       })
+      const orderedBounds = [String(r.from).trim(), String(r.to || r.from).trim()].sort()
+      expandedRanges.push({
+        days,
+        includesStartBoundary: days[0] === orderedBounds[0],
+        includesEndBoundary: days.at(-1) === orderedBounds[1],
+        singleDayClosure: orderedBounds[0] === orderedBounds[1],
+      })
       for (const d of days) daySet.add(d)
     }
     const blockedDays = [...daySet].sort()
@@ -308,7 +317,8 @@ export async function POST(req: NextRequest) {
 
     // Bizde kapalı ama kaynakta dolu listesinde olmayan günler → açılabilir adaylar
     let reopenDays: string[] = []
-    if (!aiInsufficient && reopen) {
+    let currentDays: Awaited<ReturnType<typeof getListingAvailabilityCalendar>>['days'] = []
+    if (!aiInsufficient && (reopen || expandedRanges.length > 0)) {
       try {
         const current = await getListingAvailabilityCalendar(
           token,
@@ -316,13 +326,16 @@ export async function POST(req: NextRequest) {
           { from: windowFrom, to: windowTo },
           orgQ,
         )
-        reopenDays = (current.days || [])
-          .filter((d) => {
-            const closed = !(d.am_available ?? d.is_available) && !(d.pm_available ?? d.is_available)
-            return closed && !daySet.has(d.day)
-          })
-          .map((d) => d.day)
-          .sort()
+        currentDays = current.days || []
+        if (reopen) {
+          reopenDays = currentDays
+            .filter((d) => {
+              const closed = !(d.am_available ?? d.is_available) && !(d.pm_available ?? d.is_available)
+              return closed && !daySet.has(d.day)
+            })
+            .map((d) => d.day)
+            .sort()
+        }
       } catch {
         reopenDays = []
       }
@@ -330,22 +343,8 @@ export async function POST(req: NextRequest) {
 
     let applied = false
     if (apply && !aiInsufficient && (blockedDays.length > 0 || reopenDays.length > 0)) {
-      const patch: {
-        day: string
-        is_available: boolean
-        am_available: boolean
-        pm_available: boolean
-        price_override: string
-        day_status: null
-      }[] = [
-        ...blockedDays.map((day) => ({
-          day,
-          is_available: false,
-          am_available: false,
-          pm_available: false,
-          price_override: '',
-          day_status: null,
-        })),
+      const patch = [
+        ...buildBlockedRangeCalendarDays(expandedRanges, currentDays),
         ...reopenDays.map((day) => ({
           day,
           is_available: true,

@@ -267,16 +267,62 @@ async function completeLlm(pg, llm, systemPrompt, userMsg) {
   throw new Error('llm_unavailable')
 }
 
+function buildBlockedRangeCalendarDays(expandedRanges) {
+  const stateByDay = new Map()
+  for (const range of expandedRanges) {
+    const sourceDays = range.days
+    const days = [...new Set(sourceDays)].sort()
+    const includesStartBoundary = range.includesStartBoundary !== false
+    const includesEndBoundary = range.includesEndBoundary !== false
+    const singleDayClosure =
+      range.singleDayClosure ?? (days.length === 1 && includesStartBoundary && includesEndBoundary)
+    for (let index = 0; index < days.length; index += 1) {
+      const day = days[index]
+      const state = stateByDay.get(day) || {
+        blockAm: false,
+        blockPm: false,
+        checkinBoundary: false,
+        checkoutBoundary: false,
+      }
+      const isCheckinBoundary = index === 0 && includesStartBoundary
+      const isCheckoutBoundary = index === days.length - 1 && includesEndBoundary
+      if (singleDayClosure) {
+        state.blockAm = true
+        state.blockPm = true
+      } else {
+        state.blockAm ||= !isCheckinBoundary
+        state.blockPm ||= !isCheckoutBoundary
+      }
+      if (isCheckinBoundary && !singleDayClosure) {
+        state.checkinBoundary = true
+      }
+      if (isCheckoutBoundary && !singleDayClosure) {
+        state.checkoutBoundary = true
+      }
+      stateByDay.set(day, state)
+    }
+  }
+  return [...stateByDay.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([day, state]) => {
+    const amAvailable = !state.blockAm
+    const pmAvailable = !state.blockPm
+    const turnover = !amAvailable && !pmAvailable && state.checkinBoundary && state.checkoutBoundary
+    return { day, amAvailable, pmAvailable, isAvailable: amAvailable || pmAvailable || turnover }
+  })
+}
+
 async function applyCalendar(pg, listingId, closeDays, openDays) {
   await pg.query(`SELECT set_config('app.ai_apply', '1', true)`)
   for (const day of closeDays) {
     await pg.query(
       `INSERT INTO listing_availability_calendar
          (listing_id, day, is_available, am_available, pm_available, price_override, day_status)
-       VALUES ($1::uuid, $2::date, false, false, false, null, null)
+       VALUES ($1::uuid, $2::date, $3, $4, $5, null, null)
        ON CONFLICT (listing_id, day) DO UPDATE SET
-         is_available = false, am_available = false, pm_available = false, day_status = null`,
-      [listingId, day],
+         is_available = excluded.is_available,
+         am_available = excluded.am_available,
+         pm_available = excluded.pm_available,
+         day_status = null`,
+      [listingId, day.day, day.isAvailable, day.amAvailable, day.pmAvailable],
     )
   }
   for (const day of openDays) {
@@ -377,12 +423,23 @@ try {
       }
 
       const daySet = new Set()
+      const expandedRanges = []
       for (const r of Array.isArray(parsed.blocked_ranges) ? parsed.blocked_ranges : []) {
         const conf = typeof r.confidence === 'number' ? r.confidence : 0.5
         if (conf < MIN_CONFIDENCE) continue
-        for (const d of expandRange(r.from, r.to || r.from, windowFrom, windowTo)) daySet.add(d)
+        const days = expandRange(r.from, r.to || r.from, windowFrom, windowTo)
+        if (!days.length) continue
+        const orderedBounds = [String(r.from).trim(), String(r.to || r.from).trim()].sort()
+        expandedRanges.push({
+          days,
+          includesStartBoundary: days[0] === orderedBounds[0],
+          includesEndBoundary: days.at(-1) === orderedBounds[1],
+          singleDayClosure: orderedBounds[0] === orderedBounds[1],
+        })
+        for (const d of days) daySet.add(d)
       }
       const closeDays = [...daySet].sort()
+      const closeCalendarDays = buildBlockedRangeCalendarDays(expandedRanges)
       let openDays = []
       if (!NO_REOPEN) {
         const closed = await currentClosedDays(pg, row.id, windowFrom, windowTo)
@@ -390,7 +447,7 @@ try {
       }
 
       if (!DRY_RUN && (closeDays.length || openDays.length)) {
-        await applyCalendar(pg, row.id, closeDays, openDays)
+        await applyCalendar(pg, row.id, closeCalendarDays, openDays)
       }
       await pg.query(
         `UPDATE listing_attributes SET value_json = value_json || $2::jsonb
