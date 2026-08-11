@@ -884,7 +884,15 @@ function TourSection({ listingId }: { listingId: string }) {
 }
 
 // ─── Aktivite (activity) ──────────────────────────────────────────────────────
-function ActivitySection({ listingId }: { listingId: string }) {
+export type ActivitySectionMode = 'all' | 'details' | 'sessions'
+
+function ActivitySection({
+  listingId,
+  mode = 'all',
+}: {
+  listingId: string
+  mode?: ActivitySectionMode
+}) {
   const params = useParams()
   const locale = typeof params?.locale === 'string' ? params.locale : 'tr'
   const [form, setForm] = useState({
@@ -925,6 +933,7 @@ function ActivitySection({ listingId }: { listingId: string }) {
   })
 
   useEffect(() => {
+    if (mode === 'details') return
     const token = getStoredAuthToken()
     if (!token) return
     let cancelled = false
@@ -938,7 +947,7 @@ function ActivitySection({ listingId }: { listingId: string }) {
     return () => {
       cancelled = true
     }
-  }, [listingId])
+  }, [listingId, mode])
 
   async function handleSave() {
     setBusy(true); setMsg(null)
@@ -969,10 +978,39 @@ function ActivitySection({ listingId }: { listingId: string }) {
     setSessionsBusy(true)
     setSessionsMsg(null)
     try {
-      const clean = sessions
-        .filter((s) => s.valid_from.trim() && s.valid_to.trim() && s.start_time.trim())
-        .map((s, i) => ({ ...s, sort_order: s.sort_order?.trim() || String(i) }))
-      await putManageActivitySessions(token, listingId, clean)
+      const clean = sessions.filter((session) =>
+        [
+          session.valid_from,
+          session.valid_to,
+          session.start_time,
+          session.duration_minutes,
+          session.capacity,
+          session.adult_price,
+          session.child_price,
+        ].some((value) => String(value ?? '').trim()),
+      )
+      if (clean.length === 0) throw new Error('En az bir seans ekleyin.')
+      clean.forEach((session, index) => {
+        const row = index + 1
+        if (!session.valid_from.trim() || !session.valid_to.trim() || !session.start_time.trim()) {
+          throw new Error(`${row}. seans için başlangıç tarihi, bitiş tarihi ve saat zorunludur.`)
+        }
+        if (session.valid_to < session.valid_from) {
+          throw new Error(`${row}. seansın bitiş tarihi başlangıç tarihinden önce olamaz.`)
+        }
+        if (!session.capacity?.trim() || Number(session.capacity) < 1) {
+          throw new Error(`${row}. seans için kapasite en az 1 olmalıdır.`)
+        }
+        if (!session.adult_price?.trim() || Number(session.adult_price) < 0) {
+          throw new Error(`${row}. seans için geçerli bir yetişkin fiyatı girin.`)
+        }
+      })
+      const payload = clean.map((session, index) => ({
+        ...session,
+        currency_code: session.currency_code?.trim().toUpperCase() || 'TRY',
+        sort_order: session.sort_order?.trim() || String(index),
+      }))
+      await putManageActivitySessions(token, listingId, payload)
       const fresh = await listManageActivitySessions(token, listingId)
       setSessions(fresh.sessions.length > 0 ? fresh.sessions : [emptyActivitySession()])
       setSessionsMsg({ ok: true, text: 'Seans ve fiyatlar kaydedildi.' })
@@ -990,6 +1028,8 @@ function ActivitySection({ listingId }: { listingId: string }) {
 
   return (
     <div className="space-y-5">
+      {mode !== 'sessions' ? (
+      <>
       <div className="flex flex-wrap gap-6">
         <label className="flex cursor-pointer items-center gap-2">
           <input type="checkbox" className="h-4 w-4 accent-primary-600" checked={form.session_based}
@@ -1079,6 +1119,13 @@ function ActivitySection({ listingId }: { listingId: string }) {
         onChange={setVitrin}
       />
       <IncludeExclude includes={includes} excludes={excludes} onIncludes={setIncludes} onExcludes={setExcludes} />
+      <StatusMsg msg={msg} />
+      <ButtonPrimary type="button" disabled={busy} onClick={() => void handleSave()}>
+        {busy ? '…' : 'Aktivite Bilgilerini Kaydet'}
+      </ButtonPrimary>
+      </>
+      ) : null}
+      {mode !== 'details' ? (
       <div className="rounded-2xl border border-neutral-200 p-4 dark:border-neutral-700">
         <SectionTitle>Seanslar ve Fiyatlar</SectionTitle>
         <p className="mb-4 text-sm text-neutral-500 dark:text-neutral-400">
@@ -1120,6 +1167,18 @@ function ActivitySection({ listingId }: { listingId: string }) {
                   <Label>Çocuk fiyat</Label>
                   <Input type="number" min="0" step="0.01" className="mt-1" value={session.child_price ?? ''} onChange={(e) => updateSession(index, { child_price: e.target.value })} placeholder="850" />
                 </Field>
+                <Field className="block">
+                  <Label>Çocuk başlangıç yaşı</Label>
+                  <Input type="number" min="0" className="mt-1" value={session.child_min_age ?? ''} onChange={(e) => updateSession(index, { child_min_age: e.target.value })} placeholder="3" />
+                </Field>
+                <Field className="block">
+                  <Label>Yetişkin başlangıç yaşı</Label>
+                  <Input type="number" min="0" className="mt-1" value={session.adult_min_age ?? ''} onChange={(e) => updateSession(index, { adult_min_age: e.target.value })} placeholder="13" />
+                </Field>
+                <Field className="block">
+                  <Label>Yetişkin üst yaş sınırı</Label>
+                  <Input type="number" min="0" className="mt-1" value={session.adult_max_age ?? ''} onChange={(e) => updateSession(index, { adult_max_age: e.target.value })} placeholder="Boşsa sınır yok" />
+                </Field>
               </div>
               <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
                 <label className="flex cursor-pointer items-center gap-2 text-sm">
@@ -1156,10 +1215,7 @@ function ActivitySection({ listingId }: { listingId: string }) {
         </div>
         <StatusMsg msg={sessionsMsg} />
       </div>
-      <StatusMsg msg={msg} />
-      <ButtonPrimary type="button" disabled={busy} onClick={() => void handleSave()}>
-        {busy ? '…' : 'Aktivite Bilgilerini Kaydet'}
-      </ButtonPrimary>
+      ) : null}
     </div>
   )
 }
@@ -2382,11 +2438,13 @@ export function VerticalDetailsSection({
   listingId,
   organizationId,
   holidayHomeLayout,
+  activityMode,
 }: {
   categoryCode: string
   listingId: string
   organizationId?: string
   holidayHomeLayout?: HolidayHomeVerticalLayout
+  activityMode?: ActivitySectionMode
 }) {
   switch (categoryCode) {
     case 'holiday_home':
@@ -2402,7 +2460,7 @@ export function VerticalDetailsSection({
     case 'tour':
       return <TourSection listingId={listingId} />
     case 'activity':
-      return <ActivitySection listingId={listingId} />
+      return <ActivitySection listingId={listingId} mode={activityMode} />
     case 'car_rental':
       return <CarRentalSection listingId={listingId} />
     case 'event':

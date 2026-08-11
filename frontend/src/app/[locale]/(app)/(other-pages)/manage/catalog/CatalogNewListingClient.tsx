@@ -129,6 +129,7 @@ import HotelRoomAvailabilityEditor from '@/components/manage/HotelRoomAvailabili
 import HotelPromotionsEditor from '@/components/manage/HotelPromotionsEditor'
 import HotelActivitiesEditor from '@/components/manage/HotelActivitiesEditor'
 import HotelVitrinContentEditor from '@/components/manage/HotelVitrinContentEditor'
+import { VerticalDetailsSection } from './VerticalDetailsSection'
 import {
   defaultHolidayHomePropertyTypeItems,
   holidayPropertyLabelForLocale,
@@ -487,12 +488,13 @@ export default function CatalogNewListingClient({
   const locale = typeof params?.locale === 'string' ? params.locale : 'tr'
   const vitrinPath = useVitrinHref()
   const { allLocales, translateTargets, primaryLocale, localeCodes } = useManageAiLocaleRows()
+  const isActivity = categoryCode === 'activity'
 
   // ── Wizard adım yönetimi ──
   const TOTAL_STEPS = 7
   const WIZARD_STEPS: WizardStep[] = [
     {
-      label: 'Temel & Ücretler',
+      label: isActivity ? 'Temel & Fiyat' : 'Temel & Ücretler',
       shortLabel: '1',
       icon: <span className="text-xs font-bold">1</span>,
     },
@@ -502,7 +504,7 @@ export default function CatalogNewListingClient({
       icon: <span className="text-xs font-bold">2</span>,
     },
     {
-      label: 'Özellikler',
+      label: isActivity ? 'Aktivite Detayları' : 'Özellikler',
       shortLabel: '3',
       icon: <span className="text-xs font-bold">3</span>,
     },
@@ -512,12 +514,12 @@ export default function CatalogNewListingClient({
       icon: <span className="text-xs font-bold">4</span>,
     },
     {
-      label: 'Takvim & Sezon',
+      label: isActivity ? 'Seanslar & Fiyatlar' : 'Takvim & Sezon',
       shortLabel: '5',
       icon: <span className="text-xs font-bold">5</span>,
     },
     {
-      label: 'İşletme',
+      label: isActivity ? 'Satış & İşletme' : 'İşletme',
       shortLabel: '6',
       icon: <span className="text-xs font-bold">6</span>,
     },
@@ -528,11 +530,17 @@ export default function CatalogNewListingClient({
     },
   ]
   const WIZARD_STEP_HELP = [
-    'İlan adı, açıklama, temel satış fiyatı ve müşteriye yansıtılan tüm ek ücretler.',
+    isActivity
+      ? 'İlan adı, açıklama, para birimi ve vitrinde gösterilecek başlangıç fiyatı.'
+      : 'İlan adı, açıklama, temel satış fiyatı ve müşteriye yansıtılan tüm ek ücretler.',
     'Adres, bölge, harita konumu ve yakın çevre bilgileri.',
-    'Kapasite, oda, imkanlar, kurallar, havuz ve giriş-çıkış saatleri.',
+    isActivity
+      ? 'Süre, katılımcı sınırları, buluşma noktası, diller, ekipman, kurallar ve paket kapsamı.'
+      : 'Kapasite, oda, imkanlar, kurallar, havuz ve giriş-çıkış saatleri.',
     'Vitrinde kullanılacak fotoğraflar ve kapak görseli.',
-    'Müsaitlik, dönemsel fiyatlar, iCal ve harici rezervasyonlar.',
+    isActivity
+      ? 'Tarih aralığı, başlangıç saati, süre, kapasite ve yetişkin/çocuk fiyatları.'
+      : 'Müsaitlik, dönemsel fiyatlar, iCal ve harici rezervasyonlar.',
     'İlan sahibi, ödeme, komisyon, onay ve tedarikçi ayarları.',
     'SEO, promosyon, yayın durumu ve son kontroller.',
   ]
@@ -3491,7 +3499,9 @@ export default function CatalogNewListingClient({
         window.open(publicStayUrl, '_blank', 'noopener,noreferrer')
       }
       if (intent === 'save-next') {
-        goToStep(currentStep + 1)
+        const nextStep = Math.min(currentStep + 1, TOTAL_STEPS - 1)
+        if (!editListingId) router.push(`${manageUrl}?step=${nextStep}`)
+        else goToStep(nextStep)
         return
       }
       if (!editListingId) {
@@ -4741,7 +4751,7 @@ export default function CatalogNewListingClient({
             {currentStep === 2 && (
             <>
             {/* Fazladan Bilgi — tatil evi vb.; otelde yatak/kapasite oda seviyesinde */}
-            {!isHotel && (
+            {!isHotel && !isActivity && (
             <Section
               title="Fazladan Bilgi"
               subtitle={
@@ -4919,6 +4929,25 @@ export default function CatalogNewListingClient({
               )}
             </Section>
             )}
+
+            {isActivity ? (
+              <Section
+                title="Aktivite Detayları"
+                subtitle="Rezervasyon modelini, katılım koşullarını ve vitrinde gösterilecek paket kapsamını yönetin."
+              >
+                {editListingId ? (
+                  <VerticalDetailsSection
+                    categoryCode="activity"
+                    listingId={editListingId}
+                    activityMode="details"
+                  />
+                ) : (
+                  <p className="rounded-xl border border-dashed border-neutral-300 bg-neutral-50 px-4 py-3 text-sm text-neutral-600 dark:border-neutral-600 dark:bg-neutral-800/40 dark:text-neutral-400">
+                    Aktivite detaylarını eklemek için önce temel bilgileri kaydedin. “Kaydet ve ilerle” ilanı oluşturur ve bu adımı otomatik olarak açar.
+                  </p>
+                )}
+              </Section>
+            ) : null}
 
             {hotelProfileSection}
 
@@ -5103,7 +5132,26 @@ export default function CatalogNewListingClient({
             </>
             )}
             {/* ── ADIM 4: Takvim, Dönemsel Fiyat & iCal ── */}
-            {currentStep === 4 && (
+            {currentStep === 4 && isActivity && (
+              <Section
+                title="Seanslar & Fiyatlar"
+                subtitle="Rezervasyona açılacak tarihleri, saatleri, kapasiteyi ve yaş grubuna göre fiyatları tanımlayın."
+              >
+                {editListingId ? (
+                  <VerticalDetailsSection
+                    categoryCode="activity"
+                    listingId={editListingId}
+                    activityMode="sessions"
+                  />
+                ) : (
+                  <p className="rounded-xl border border-dashed border-neutral-300 bg-neutral-50 px-4 py-3 text-sm text-neutral-600 dark:border-neutral-600 dark:bg-neutral-800/40 dark:text-neutral-400">
+                    Seans eklemek için önce temel bilgileri kaydedin. Kayıt oluşturulduğunda tarih, saat, kapasite ve fiyat alanları açılır.
+                  </p>
+                )}
+              </Section>
+            )}
+
+            {currentStep === 4 && !isActivity && (
               <Section
                 title="Takvim & Rezervasyon"
                 subtitle={editListingId ? 'Müsaitlik, dönemsel fiyatlar ve iCal takvim senkronizasyonu.' : 'İlan kaydedildikten sonra bu bölümdeki tüm ayarlar aktif olur.'}
@@ -5883,7 +5931,7 @@ export default function CatalogNewListingClient({
             )}
 
             {/* ── ADIM 2 devam: Havuz ── */}
-            {currentStep === 2 && (categoryCode === 'holiday_home' ? (
+            {currentStep === 2 && !isActivity && (categoryCode === 'holiday_home' ? (
               <Section title="Havuz Bilgileri" subtitle="Açık, ısıtmalı ve çocuk havuzu — boyut ve ısıtma ücreti">
                 <Field className="block">
                   <Label>Havuz etiketi / özet</Label>
@@ -6099,7 +6147,7 @@ export default function CatalogNewListingClient({
             )}
 
             {/* ── ADIM 2 devam: Giriş/Çıkış (non-villa) ── */}
-            {!isVilla && currentStep === 2 && (
+            {!isVilla && !isActivity && currentStep === 2 && (
               <>
                 {/* Giriş / Çıkış Saati */}
                 <Section title="Giriş / Çıkış Saati">
@@ -6229,7 +6277,7 @@ export default function CatalogNewListingClient({
             {categoryCode === 'activity' && currentStep === 0 && (
               <Section
                 title="Aktivite başlangıç fiyatı"
-                subtitle="Tarih, saat, kapasite ve yetişkin/çocuk fiyatlarını ilan oluşturulduktan sonra Aktivite detayları sekmesindeki seanslardan yönetin."
+                subtitle="Tarih, saat, kapasite ve yetişkin/çocuk fiyatlarını Seanslar & Fiyatlar adımından yönetin."
               >
                 <Field className="block max-w-md">
                   <Label>Para birimi <span className="text-red-500">*</span></Label>
@@ -6247,7 +6295,7 @@ export default function CatalogNewListingClient({
                 <Field className="mt-4 block max-w-md">
                   <Label>Başlangıç fiyatı ({currency})</Label>
                   <Input type="number" min="0" step="0.01" className="mt-1" value={basePrice} onChange={(e) => setBasePrice(e.target.value)} placeholder="Örn. 750" />
-                  <HintText>Kişi başı vitrin başlangıç fiyatı. Seans fiyatları ilan kaydından sonra detay ekranında yönetilir.</HintText>
+                  <HintText>Kişi başı vitrin başlangıç fiyatı. Asıl satış fiyatları Seanslar & Fiyatlar adımında yönetilir.</HintText>
                 </Field>
               </Section>
             )}
@@ -6255,8 +6303,8 @@ export default function CatalogNewListingClient({
             {/* ── ADIM 4 devam: Provizyon & Komisyon ── */}
             {currentStep === 5 && (
             <Section
-              title="Provizyon & Komisyon Ayarları"
-              subtitle="Ödeme akışı, tedarikçi onay süreleri ve yüksek sezon tanımı"
+              title={isActivity ? 'Satış & Tedarikçi Ayarları' : 'Provizyon & Komisyon Ayarları'}
+              subtitle={isActivity ? 'Komisyon, ön ödeme ve rezervasyon onay akışı' : 'Ödeme akışı, tedarikçi onay süreleri ve yüksek sezon tanımı'}
             >
               <Grid3>
                 <Field className="block">
@@ -6268,6 +6316,17 @@ export default function CatalogNewListingClient({
                   />
                   <HintText>Ön ödeme ≥ komisyon kuralı otomatik uygulanır.</HintText>
                 </Field>
+                {isActivity ? (
+                  <Field className="block">
+                    <Label>Ön Ödeme Yüzdesi (%)</Label>
+                    <Input
+                      type="number" min="0" max="100" step="1" className="mt-1"
+                      value={prepaymentPercent} onChange={(e) => setPrepaymentPercent(e.target.value)}
+                      placeholder={String(DEFAULT_LISTING_PREPAYMENT_PERCENT)}
+                    />
+                    <HintText>Rezervasyon sırasında tahsil edilecek oran.</HintText>
+                  </Field>
+                ) : null}
                 <Field className="block">
                   <Label>Ort. Reklam Gideri (%)</Label>
                   <Input
@@ -6286,7 +6345,7 @@ export default function CatalogNewListingClient({
                   />
                   <HintText>Tedarikçinin onaylaması için max süre.</HintText>
                 </Field>
-                <Field className="block">
+                {!isActivity ? <Field className="block">
                   <Label>Yüksek Sezon Onay Süresi (saat)</Label>
                   <Input
                     type="number" min="1" max="24" step="1" className="mt-1"
@@ -6294,11 +6353,11 @@ export default function CatalogNewListingClient({
                     placeholder="2"
                   />
                   <HintText>Aynı gün hizmet: otomatik 30 dakikaya düşer.</HintText>
-                </Field>
+                </Field> : null}
               </Grid3>
 
               {/* Yüksek sezon tarih aralıkları */}
-              <div className="mt-4 space-y-3">
+              {!isActivity ? <div className="mt-4 space-y-3">
                 <div className="flex items-center justify-between">
                   <span className="text-sm/6 font-medium text-neutral-950 select-none dark:text-white">Yüksek Sezon Tarih Aralıkları</span>
                   <button
@@ -6346,7 +6405,7 @@ export default function CatalogNewListingClient({
                     </button>
                   </div>
                 ))}
-              </div>
+              </div> : null}
 
               <Field className="mt-4 block">
                 <Label>Tedarikçiye Ödeme Notu</Label>
@@ -6554,7 +6613,7 @@ export default function CatalogNewListingClient({
                     className="h-5 w-5 accent-primary-600"
                   />
                 </label>
-                <label className="flex cursor-pointer items-center justify-between rounded-xl border border-neutral-200 px-4 py-3 hover:bg-neutral-50 dark:border-neutral-700 dark:hover:bg-neutral-800">
+                {!isActivity ? <label className="flex cursor-pointer items-center justify-between rounded-xl border border-neutral-200 px-4 py-3 hover:bg-neutral-50 dark:border-neutral-700 dark:hover:bg-neutral-800">
                   <div>
                     <p className="text-sm font-medium text-neutral-700 dark:text-neutral-200">Min. Gecelemede Boşluk Doldurma</p>
                     <p className="text-xs text-neutral-400">Takvimde boşlukları doldurmak için min. geceleme altında rezervasyona izin ver</p>
@@ -6565,7 +6624,7 @@ export default function CatalogNewListingClient({
                     onChange={(e) => setAllowSubMinStayGap(e.target.checked)}
                     className="h-5 w-5 accent-primary-600"
                   />
-                </label>
+                </label> : null}
 
                 {/* Facebook paylaşım — yalnızca kaydedilmiş ilan */}
                 {editListingId && (
