@@ -71,7 +71,8 @@ async function loadHotels(pg, orgId, commissionPercent) {
   // PostgreSQL prepared statement'larında kullanılmayan parametre bırakılamaz.
   // `--force --code` çağrısında komisyon filtresi eklenmediği hâlde $3 boş
   // kalıyor, kod filtresi $4 oluyor ve PostgreSQL 42P18 ile duruyordu.
-  const params = [orgId, OFFSET]
+  const useOffset = !AFTER_ID && !ONLY_PRICED
+  const params = useOffset ? [orgId, OFFSET] : [orgId]
   let sql = `
     SELECT l.id::text AS listing_id,
            l.slug,
@@ -95,6 +96,7 @@ async function loadHotels(pg, orgId, commissionPercent) {
     sql += ` AND NOT EXISTS (SELECT 1 FROM hotel_rooms hr WHERE hr.listing_id = l.id)`
   } else if (!FORCE) {
     params.push(commissionPercent)
+    const commissionParam = params.length
     sql += ` AND (
       NOT EXISTS (
         SELECT 1 FROM listing_meal_plans m
@@ -107,7 +109,7 @@ async function loadHotels(pg, orgId, commissionPercent) {
           AND la.group_code = 'travelrobot'
           AND la.key = 'hotel_commission'
         LIMIT 1
-      ), -1) <> $3::numeric
+      ), -1) <> $${commissionParam}::numeric
     )`
   }
   if (CODE) {
