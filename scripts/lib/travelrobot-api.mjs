@@ -2078,7 +2078,10 @@ export async function searchHotel(cfg, tokenCode, opts = {}) {
         NationalityCode: opts.nationalityCode ?? 'TR',
         AdvancedOptions: {
           Hotel: {
-            OnRequest: String(opts.onRequest ?? true),
+            // OnRequest=true bazı KPlus kanallarında yalnız katalog satırı döndürür;
+            // bu satırın SearchKey'i GetHotelRoomPrices tarafından reddedilir.
+            // Vitrin fiyatı için varsayılan gerçek stok/fiyat aramasıdır.
+            OnRequest: String(opts.onRequest ?? false),
             IsAsync: String(opts.isAsync ?? false),
             IsForCms: String(opts.isForCms ?? false),
           },
