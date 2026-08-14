@@ -14,7 +14,7 @@ import {
   searchHotels,
   getHotelRooms,
   pickHotelRows,
-  pickHotelSearchKey,
+  pickHotelSearchKeys,
 } from './lib/travelrobot-api.mjs'
 import { hotelCodeMatches, hotelRef, normalizeTravelrobotHotelCode } from './lib/travelrobot-listing-db.mjs'
 import { createPgClient } from './lib/pg-client.mjs'
@@ -174,16 +174,20 @@ async function main() {
     return
   }
 
-  const sk = pickHotelSearchKey(best.payload, best.mine)
+  const keys = pickHotelSearchKeys(best.payload, best.mine)
+  const sk = keys[0]
   console.log('\nÇalışan mod bulundu. SearchKey:', sk)
   console.log('\n-- Hotels[0] (otelimiz) yapısı --')
   console.log(trunc(shape(best.mine)))
 
   if (!sk) return
   console.log('\n===== GetHotelRoomPrices =====')
-  const prices = await getHotelRooms(cfg, tokenCode, { productCode: code, hotelCode: code, searchKey: sk, languageCode: 'tr' })
-  console.log('HasError:', prices?.HasError, '| ErrorMessage:', prices?.ErrorMessage ?? prices?.Message ?? '-')
-  console.log(trunc(shape(prices)))
+  for (let i = 0; i < keys.length; i++) {
+    const prices = await getHotelRooms(cfg, tokenCode, { productCode: code, hotelCode: code, searchKey: keys[i], languageCode: 'tr' })
+    console.log(`Anahtar ${i + 1}/${keys.length} | HasError:`, prices?.HasError, '| ErrorMessage:', prices?.ErrorMessage ?? prices?.Message ?? '-')
+    console.log(trunc(shape(prices)))
+    if (!prices?.HasError) break
+  }
 }
 
 main().catch((e) => {

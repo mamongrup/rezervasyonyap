@@ -38,6 +38,7 @@
 
 import { loadTravelrobotConfigFromDb } from './listing-api-providers-db.mjs'
 import { fetchWithRetry, formatFetchNetworkError } from './fetch-with-retry.mjs'
+export { pickHotelSearchKey, pickHotelSearchKeys } from './travelrobot-hotel-search-key.mjs'
 
 export async function loadTravelrobotConfig() {
   const cfg = await loadTravelrobotConfigFromDb()
@@ -2932,20 +2933,6 @@ export function pickFlightBookResultKeys(validatePayload, fallbackKeys = [], opt
 }
 
 /** SearchHotel / otel satırından GetHotelRoomPrices için SearchKey. */
-export function pickHotelSearchKey(searchPayload, hotelRow = null) {
-  const p = searchPayload?.Result ?? searchPayload?.result ?? searchPayload
-  const row = hotelRow ?? {}
-  return (
-    row.SearchKey ??
-    row.searchKey ??
-    row.Data?.SearchKey ??
-    row.data?.searchKey ??
-    p?.SearchKey ??
-    p?.searchKey ??
-    null
-  )
-}
-
 /** ValidateHotelRoomsV2 — RoomCode (result key). Paxes yalnızca ek hizmet varsa gerekir. */
 export function buildHotelValidateRooms(roomOpts, roomKeys, opts = {}) {
   const keys = roomKeys ?? []

@@ -7,6 +7,7 @@ import {
   getHotelRooms,
   pickHotelRows,
   pickHotelSearchKey,
+  pickHotelSearchKeys,
   hotelNodeFromPayload,
 } from './travelrobot-api.mjs'
 import { stampHotelSearchWindow, stampTravelrobotHotelCommission } from './travelrobot-hotel-extras.mjs'
@@ -196,31 +197,35 @@ export async function enrichHotelRowWithRoomPrices(cfg, tokenCode, row, opts = {
 
   if (opts.force !== true && countUniqueHotelRoomNames(merged) >= minOffers) return merged
 
-  const sk = pickHotelSearchKey(searchPayload, found)
-  if (!sk) return merged
+  const searchKeys = pickHotelSearchKeys(searchPayload, found)
+  if (!searchKeys.length) return merged
 
   await log(`  GetHotelRoomPrices ${code}…`)
   let pricesPayload = null
   const priceCode = found ? hotelRef(found) || code : code
-  try {
-    pricesPayload = await getHotelRooms(cfg, tokenCode, {
-      productCode: priceCode,
-      hotelCode: priceCode,
-      searchKey: sk,
-      languageCode: 'tr',
-    })
-  } catch (e) {
-    await log(summarizeRoomPricesError(code, e))
-    return merged
+  let lastError = null
+  for (let i = 0; i < searchKeys.length; i++) {
+    try {
+      const candidate = await getHotelRooms(cfg, tokenCode, {
+        productCode: priceCode,
+        hotelCode: priceCode,
+        searchKey: searchKeys[i],
+        languageCode: 'tr',
+      })
+      if (!candidate?.HasError) {
+        pricesPayload = candidate
+        break
+      }
+      lastError = candidate?.ErrorMessage ?? candidate?.ErrorCode ?? candidate?.Message ?? candidate?.ResultMessage ?? candidate
+    } catch (e) {
+      lastError = e
+    }
+    if (i + 1 < searchKeys.length) {
+      await log(`  [uyari] GetHotelRoomPrices ${code}: anahtar ${i + 1} reddedildi, sonraki anahtar deneniyor...`)
+    }
   }
-  if (pricesPayload?.HasError) {
-    const err =
-      pricesPayload?.ErrorMessage ??
-      pricesPayload?.ErrorCode ??
-      pricesPayload?.Message ??
-      pricesPayload?.ResultMessage ??
-      pricesPayload
-    await log(summarizeRoomPricesError(code, err))
+  if (!pricesPayload) {
+    await log(summarizeRoomPricesError(code, lastError))
     return merged
   }
 
