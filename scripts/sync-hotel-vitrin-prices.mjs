@@ -31,6 +31,7 @@ const FORCE = args.includes('--force')
 const SINGLE_DATE = args.includes('--single-date')
 const ROOMS_ONLY = args.includes('--rooms-only')
 const WITH_ROOMS = !args.includes('--no-rooms')
+const ONLY_PRICED = args.includes('--only-priced')
 
 const codeIdx = args.indexOf('--code')
 const CODE = codeIdx >= 0 ? args[codeIdx + 1]?.trim() : ''
@@ -38,6 +39,8 @@ const limitIdx = args.indexOf('--limit')
 const LIMIT = limitIdx >= 0 ? Number(args[limitIdx + 1]) : 0
 const offsetIdx = args.indexOf('--offset')
 const OFFSET = offsetIdx >= 0 ? Number(args[offsetIdx + 1]) : 0
+const afterIdIdx = args.indexOf('--after-id')
+const AFTER_ID = afterIdIdx >= 0 ? String(args[afterIdIdx + 1] ?? '').trim() : ''
 const delayIdx = args.indexOf('--delay')
 const DELAY_MS = delayIdx >= 0 ? Number(args[delayIdx + 1]) : 400
 
@@ -111,7 +114,22 @@ async function loadHotels(pg, orgId, commissionPercent) {
     params.push(CODE)
     sql += ` AND lhd.travelrobot_hotel_code = $${params.length}`
   }
-  sql += ' ORDER BY l.updated_at ASC, l.slug ASC OFFSET $2'
+  if (ONLY_PRICED) {
+    sql += ` AND (
+      COALESCE(l.first_charge_amount, 0) > 0
+      OR EXISTS (
+        SELECT 1 FROM listing_meal_plans m
+        WHERE m.listing_id = l.id AND m.is_active = true AND m.price_per_night > 0
+      )
+    )`
+  }
+  if (AFTER_ID) {
+    params.push(AFTER_ID)
+    sql += ` AND l.id::text > $${params.length}::text`
+  }
+  sql += AFTER_ID || ONLY_PRICED
+    ? ' ORDER BY l.id::text ASC'
+    : ' ORDER BY l.updated_at ASC, l.slug ASC OFFSET $2'
   if (LIMIT > 0) {
     params.push(LIMIT)
     sql += ` LIMIT $${params.length}`
@@ -241,6 +259,7 @@ async function main() {
           ? 'Hiç otel bulunamadı.'
           : 'Fiyatsız otel yok — tümü zaten dolu.'
       console.log(msg)
+      console.log('NEXT_CURSOR=')
       return
     }
 
@@ -351,6 +370,7 @@ async function main() {
     console.log(
       `DB: ${after.withPrice}/${after.total} fiyatlı, ${after.withRooms}/${after.total} odalı.`,
     )
+    console.log(`NEXT_CURSOR=${hotels.at(-1)?.listingId ?? ''}`)
   } finally {
     await pg.end()
   }
