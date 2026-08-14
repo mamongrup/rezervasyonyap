@@ -65,7 +65,10 @@ function dateWindow(checkInDays, stayNights) {
 }
 
 async function loadHotels(pg, orgId, commissionPercent) {
-  const params = [orgId, OFFSET, commissionPercent]
+  // PostgreSQL prepared statement'larında kullanılmayan parametre bırakılamaz.
+  // `--force --code` çağrısında komisyon filtresi eklenmediği hâlde $3 boş
+  // kalıyor, kod filtresi $4 oluyor ve PostgreSQL 42P18 ile duruyordu.
+  const params = [orgId, OFFSET]
   let sql = `
     SELECT l.id::text AS listing_id,
            l.slug,
@@ -88,6 +91,7 @@ async function loadHotels(pg, orgId, commissionPercent) {
   if (ROOMS_ONLY) {
     sql += ` AND NOT EXISTS (SELECT 1 FROM hotel_rooms hr WHERE hr.listing_id = l.id)`
   } else if (!FORCE) {
+    params.push(commissionPercent)
     sql += ` AND (
       NOT EXISTS (
         SELECT 1 FROM listing_meal_plans m
