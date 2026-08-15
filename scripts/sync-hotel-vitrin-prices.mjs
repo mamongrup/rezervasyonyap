@@ -48,6 +48,10 @@ const requestTimeoutIdx = args.indexOf('--request-timeout-ms')
 const REQUEST_TIMEOUT_MS = requestTimeoutIdx >= 0
   ? Math.max(1_000, Number(args[requestTimeoutIdx + 1]) || 35_000)
   : Math.max(1_000, Number(process.env.KPLUS_SYNC_REQUEST_TIMEOUT_MS || 35_000))
+const hotelTimeoutIdx = args.indexOf('--hotel-timeout-ms')
+const HOTEL_TIMEOUT_MS = hotelTimeoutIdx >= 0
+  ? Math.max(5_000, Number(args[hotelTimeoutIdx + 1]) || 90_000)
+  : Math.max(5_000, Number(process.env.KPLUS_SYNC_HOTEL_TIMEOUT_MS || 90_000))
 
 /** Check-in günü (bugünden) + konaklama gecesi — stok bulma şansını artırır. */
 const DATE_WINDOWS = [
@@ -195,17 +199,24 @@ async function fetchHotelEnriched(cfg, tokenCode, hotelCode, currencyCode, opts 
   const requirePrice = opts.requirePrice !== false
   const row = { HotelCode: hotelCode, HotelId: hotelCode, hotelCode }
   const windows = SINGLE_DATE ? [DATE_WINDOWS[2]] : DATE_WINDOWS
+  const deadline = Date.now() + Number(opts.hotelTimeoutMs ?? HOTEL_TIMEOUT_MS)
   let best = null
 
   for (const w of windows) {
     const dates = dateWindow(w.checkInDays, w.stayNights)
     for (const onRequest of [false, true]) {
+      if (Date.now() >= deadline) {
+        throw new Error(`KPlus otel zaman aşımı (${Math.round((opts.hotelTimeoutMs ?? HOTEL_TIMEOUT_MS) / 1000)} sn)`)
+      }
       const enriched = await enrichHotelRowWithRoomPrices(cfg, tokenCode, row, {
         force: true,
         minOffers: 1,
         onRequest,
         ...dates,
       })
+      if (Date.now() >= deadline) {
+        throw new Error(`KPlus otel zaman aşımı (${Math.round((opts.hotelTimeoutMs ?? HOTEL_TIMEOUT_MS) / 1000)} sn)`)
+      }
       const plans = extractTravelrobotMealPlans(enriched, currencyCode).filter(
         (p) => Number(p.price_per_night) > 0,
       )
@@ -291,6 +302,7 @@ async function main() {
         const result = await fetchHotelEnriched(cfg, tokenCode, hotel.code, hotel.currencyCode, {
           requirePrice: !ROOMS_ONLY,
           timeoutMs: REQUEST_TIMEOUT_MS,
+          hotelTimeoutMs: HOTEL_TIMEOUT_MS,
         })
 
         if (!result) {

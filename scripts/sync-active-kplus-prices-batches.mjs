@@ -14,6 +14,7 @@ function arg(name, fallback = '') {
 const batchSize = Math.max(1, Number(arg('--batch-size', '100')) || 100)
 const delay = Math.max(0, Number(arg('--delay', '500')) || 0)
 const requestTimeoutMs = Math.max(1_000, Number(arg('--request-timeout-ms', '35000')) || 35_000)
+const hotelTimeoutMs = Math.max(5_000, Number(arg('--hotel-timeout-ms', '90000')) || 90_000)
 const checkpointFile = resolve(arg('--checkpoint-file', '.deploy/kplus-active-priced-sync.json'))
 
 function checkpoint() {
@@ -53,6 +54,7 @@ function runBatch(afterId) {
       'scripts/sync-hotel-vitrin-prices.mjs', '--force', '--only-priced',
       '--after-id', afterId, '--limit', String(batchSize), '--delay', String(delay),
       '--request-timeout-ms', String(requestTimeoutMs),
+      '--hotel-timeout-ms', String(hotelTimeoutMs),
     ], {
       stdio: ['ignore', 'pipe', 'pipe'],
       // Senkron sonraki partide yeniden deneneceği için, tek bir geçici ağ
