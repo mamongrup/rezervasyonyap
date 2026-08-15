@@ -5,6 +5,7 @@
  *   node scripts/import-clubmed-hotels.mjs --dry-run
  *   node scripts/import-clubmed-hotels.mjs
  *   node scripts/import-clubmed-hotels.mjs --publish   # yalnızca açık onayla
+ *   node scripts/import-clubmed-hotels.mjs --publish   # ortak/ilgisiz stok görselleri temizler
  */
 import fs from 'node:fs'
 import path from 'node:path'
@@ -17,6 +18,7 @@ const CATALOG_PATH = path.join(ROOT, 'deploy', 'data', 'clubmed', 'catalog.json'
 const args = process.argv.slice(2)
 const DRY_RUN = args.includes('--dry-run')
 const STATUS = args.includes('--publish') ? 'published' : 'draft'
+const KEEP_SHARED_IMAGES = args.includes('--keep-shared-images')
 const limitIndex = args.indexOf('--limit')
 const LIMIT = limitIndex >= 0 ? Number(args[limitIndex + 1]) : 0
 const orgIndex = args.indexOf('--org-id')
@@ -30,13 +32,37 @@ function loadCatalog() {
   return catalog
 }
 
+/**
+ * Club Med'in sayfalarında aynı kampanya/lifestyle karesi onlarca tesise
+ * eklenebiliyor. Bunlar tesisin kendisini göstermediği için kart/galeri için
+ * yanıltıcı oluyor. Tesis özelindeki kaynak fotoğrafları ve sıraları korunur.
+ */
+function curateResortImages(resorts) {
+  if (KEEP_SHARED_IMAGES) return resorts.map((resort) => ({ ...resort, images: [...new Set(resort.images || [])] }))
+  const useCount = new Map()
+  for (const resort of resorts) {
+    for (const url of new Set((resort.images || []).filter(Boolean))) {
+      useCount.set(url, (useCount.get(url) || 0) + 1)
+    }
+  }
+  return resorts.map((resort) => {
+    const original = [...new Set((resort.images || []).filter(Boolean))]
+    // 8+ farklı tesiste geçen görseller tesis fotoğrafı değil, ortak stok görselidir.
+    const curated = original.filter((url) => (useCount.get(url) || 0) < 8)
+    return { ...resort, images: curated.length >= 3 ? curated : original }
+  })
+}
+
 async function main() {
   const catalog = loadCatalog()
-  const resorts = LIMIT > 0 ? catalog.resorts.slice(0, LIMIT) : catalog.resorts
+  const allResorts = curateResortImages(catalog.resorts)
+  const resorts = LIMIT > 0 ? allResorts.slice(0, LIMIT) : allResorts
   console.log(`Club Med katalog: ${resorts.length}/${catalog.resorts.length}, durum=${STATUS}`)
   if (DRY_RUN) {
     for (const resort of resorts) {
-      console.log(`[dry-run] ${resort.name} | ${resort.country_iso2} | ${resort.destination} | görsel:${resort.images.length} | olanak:${resort.amenities.length}`)
+      const original = catalog.resorts.find((item) => item.external_ref === resort.external_ref)
+      const removed = Math.max(0, (original?.images?.length || 0) - resort.images.length)
+      console.log(`[dry-run] ${resort.name} | ${resort.country_iso2} | ${resort.destination} | görsel:${resort.images.length} (-${removed} ortak) | olanak:${resort.amenities.length}`)
     }
     return
   }
