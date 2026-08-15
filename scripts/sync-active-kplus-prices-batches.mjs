@@ -13,6 +13,7 @@ function arg(name, fallback = '') {
 
 const batchSize = Math.max(1, Number(arg('--batch-size', '100')) || 100)
 const delay = Math.max(0, Number(arg('--delay', '500')) || 0)
+const requestTimeoutMs = Math.max(1_000, Number(arg('--request-timeout-ms', '35000')) || 35_000)
 const checkpointFile = resolve(arg('--checkpoint-file', '.deploy/kplus-active-priced-sync.json'))
 
 function checkpoint() {
@@ -51,7 +52,13 @@ function runBatch(afterId) {
     const child = spawn(process.execPath, [
       'scripts/sync-hotel-vitrin-prices.mjs', '--force', '--only-priced',
       '--after-id', afterId, '--limit', String(batchSize), '--delay', String(delay),
-    ], { stdio: ['ignore', 'pipe', 'pipe'] })
+      '--request-timeout-ms', String(requestTimeoutMs),
+    ], {
+      stdio: ['ignore', 'pipe', 'pipe'],
+      // Senkron sonraki partide yeniden deneneceği için, tek bir geçici ağ
+      // hatasında dakikalarca tekrar beklemek yerine sıradaki otele geçer.
+      env: { ...process.env, KPLUS_FETCH_RETRIES: process.env.KPLUS_FETCH_RETRIES ?? '0' },
+    })
     let output = ''
     const forward = (chunk, stream) => { const text = String(chunk); output += text; stream.write(text) }
     child.stdout.on('data', (chunk) => forward(chunk, process.stdout))

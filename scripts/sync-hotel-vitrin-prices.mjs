@@ -43,6 +43,11 @@ const afterIdIdx = args.indexOf('--after-id')
 const AFTER_ID = afterIdIdx >= 0 ? String(args[afterIdIdx + 1] ?? '').trim() : ''
 const delayIdx = args.indexOf('--delay')
 const DELAY_MS = delayIdx >= 0 ? Number(args[delayIdx + 1]) : 400
+const requestTimeoutIdx = args.indexOf('--request-timeout-ms')
+// Uzun süren tek bir KPlus cevabı, yüzlerce otelin sırasını durdurmamalı.
+const REQUEST_TIMEOUT_MS = requestTimeoutIdx >= 0
+  ? Math.max(1_000, Number(args[requestTimeoutIdx + 1]) || 35_000)
+  : Math.max(1_000, Number(process.env.KPLUS_SYNC_REQUEST_TIMEOUT_MS || 35_000))
 
 /** Check-in günü (bugünden) + konaklama gecesi — stok bulma şansını artırır. */
 const DATE_WINDOWS = [
@@ -285,6 +290,7 @@ async function main() {
       try {
         const result = await fetchHotelEnriched(cfg, tokenCode, hotel.code, hotel.currencyCode, {
           requirePrice: !ROOMS_ONLY,
+          timeoutMs: REQUEST_TIMEOUT_MS,
         })
 
         if (!result) {

@@ -87,6 +87,7 @@ async function searchHotelsByDestination(cfg, tokenCode, destinationId, opts = {
     checkOutDate: opts.checkOutDate ?? dates.checkOutDate,
     onRequest: opts.onRequest,
     isAsync: opts.isAsync,
+    timeoutMs: opts.timeoutMs,
   })
   if (cache) cache.set(key, promise)
   return promise
@@ -175,6 +176,7 @@ export async function enrichHotelRowWithRoomPrices(cfg, tokenCode, row, opts = {
       checkOutDate: opts.checkOutDate ?? defaultHotelSearchDates(opts).checkOutDate,
       onRequest: opts.onRequest,
       isAsync: opts.isAsync,
+      timeoutMs: opts.timeoutMs,
     })
     found = pickHotelRows(searchPayload).find((h) => hotelCodeMatches(h, code)) ?? null
   } catch (e) {
@@ -211,6 +213,7 @@ export async function enrichHotelRowWithRoomPrices(cfg, tokenCode, row, opts = {
         hotelCode: priceCode,
         searchKey: searchKeys[i],
         languageCode: 'tr',
+        timeoutMs: opts.timeoutMs,
       })
       if (!candidate?.HasError) {
         pricesPayload = candidate

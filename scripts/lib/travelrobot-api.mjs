@@ -2088,6 +2088,7 @@ export async function searchHotel(cfg, tokenCode, opts = {}) {
         },
       },
     },
+    { timeoutMs: opts.timeoutMs },
   )
 }
 
@@ -2123,7 +2124,7 @@ export async function getHotelRooms(cfg, tokenCode, opts = {}) {
       LanguageCode: opts.languageCode ?? 'tr',
       TokenCode: tokenCode,
     },
-  })
+  }, { timeoutMs: opts.timeoutMs })
 }
 
 /**
