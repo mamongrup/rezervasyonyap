@@ -9,6 +9,7 @@ import { formatMoneyIntl } from '@/lib/parse-listing-price'
 import { computeStayRentalLodgingQuote } from '@/lib/stay-rental-range-quote'
 import {
   getPublicListingAvailabilityCalendar,
+  getListingPerks,
   type ListingAvailabilityDay,
   type ListingPriceRuleRow,
   type MealPlanItem,
@@ -87,6 +88,34 @@ export function useStayListingQuote({
 }) {
   const ctx = usePreferredCurrencyContext()
   const [rangeDays, setRangeDays] = useState<ListingAvailabilityDay[]>([])
+  const [mobileDiscountPercent, setMobileDiscountPercent] = useState(0)
+
+  useEffect(() => {
+    if (!listingId?.trim() || typeof window === 'undefined') {
+      setMobileDiscountPercent(0)
+      return
+    }
+    const isMobile =
+      Boolean(window.matchMedia?.('(max-width: 768px)').matches) ||
+      /Mobi|Android|iPhone|iPad|iPod/i.test(window.navigator.userAgent)
+    if (!isMobile) {
+      setMobileDiscountPercent(0)
+      return
+    }
+    let cancelled = false
+    void getListingPerks(listingId.trim())
+      .then((perks) => {
+        if (!cancelled) {
+          setMobileDiscountPercent(Math.max(0, Math.min(90, perks.mobile_discount_percent || 0)))
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setMobileDiscountPercent(0)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [listingId])
 
   const formatConverted = useCallback(
     (amount: number, fromCurrency: string): string => {
@@ -235,12 +264,17 @@ export function useStayListingQuote({
     fallbackNightlyForRange,
   ])
 
-  const lodgingSubtotal =
+  const lodgingSubtotalBeforeMobileDiscount =
     seasonalLodgingQuote != null && seasonalLodgingQuote.total > 0
       ? seasonalLodgingQuote.total
       : priceNum > 0
         ? priceNum * nights
         : 0
+  const mobileDiscountAmount =
+    mobileDiscountPercent > 0
+      ? Math.round((lodgingSubtotalBeforeMobileDiscount * mobileDiscountPercent) / 100 * 100) / 100
+      : 0
+  const lodgingSubtotal = Math.max(0, lodgingSubtotalBeforeMobileDiscount - mobileDiscountAmount)
   const heatingSubtotal =
     poolHeating && poolHeatingSelected ? poolHeating.dailyAmount * nights : 0
   const shortStayFeeApplied =
@@ -266,14 +300,17 @@ export function useStayListingQuote({
   const unitForBreakdownLine = useMemo(() => {
     if (seasonalLodgingQuote != null && nights > 0 && seasonalLodgingQuote.total > 0) {
       if (seasonalLodgingQuote.uniformNightly != null) {
-        return formatConverted(seasonalLodgingQuote.uniformNightly, currencyCode)
+        return formatConverted(
+          seasonalLodgingQuote.uniformNightly * (1 - mobileDiscountPercent / 100),
+          currencyCode,
+        )
       }
       if (
         seasonalLodgingQuote.minNightly != null &&
         seasonalLodgingQuote.maxNightly != null &&
         seasonalLodgingQuote.minNightly !== seasonalLodgingQuote.maxNightly
       ) {
-        return `${formatConverted(seasonalLodgingQuote.minNightly, currencyCode)} – ${formatConverted(seasonalLodgingQuote.maxNightly, currencyCode)}`
+        return `${formatConverted(seasonalLodgingQuote.minNightly * (1 - mobileDiscountPercent / 100), currencyCode)} – ${formatConverted(seasonalLodgingQuote.maxNightly * (1 - mobileDiscountPercent / 100), currencyCode)}`
       }
     }
     if (cheapestPlanForPricing != null) {
@@ -283,6 +320,7 @@ export function useStayListingQuote({
     return convertedListingLabel
   }, [
     seasonalLodgingQuote,
+    mobileDiscountPercent,
     nights,
     cheapestPlanForPricing,
     showDiscountRow,
@@ -304,6 +342,9 @@ export function useStayListingQuote({
     discountPct,
     displayMainPrice,
     lodgingSubtotal,
+    lodgingSubtotalBeforeMobileDiscount,
+    mobileDiscountPercent,
+    mobileDiscountAmount,
     heatingSubtotal,
     subtotalBeforeFee,
     serviceFee,

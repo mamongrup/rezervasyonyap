@@ -69,6 +69,40 @@ export function resolveNightlyFromPriceRulesForDate(
   return best?.nightly ?? null
 }
 
+/** Seçili güne uyan en güncel kuraldaki aktif kampanya geceliği. */
+export function resolveDiscountNightlyFromPriceRulesForDate(
+  rules: readonly ListingPriceRuleRow[],
+  date: Date,
+): number | null {
+  const ymd = formatLocalYmd(date)
+  let best: { nightly: number; validFrom: string } | null = null
+
+  for (const rule of rules) {
+    if (!dateInRuleRange(ymd, rule.valid_from, rule.valid_to)) continue
+    const parsed = parseListingPriceRuleJson(rule.rule_json)
+    if (!parsed.discountFrom || !parsed.discountTo) continue
+    if (ymd < parsed.discountFrom || ymd > parsed.discountTo) continue
+
+    const regularNightly =
+      (isWeekendNight(date) ? parseListingPriceRuleAmount(parsed.weekend) : null) ??
+      parseListingPriceRuleAmount(parsed.base) ??
+      parseListingPriceRuleAmount(parsed.roomOnly) ??
+      parseListingPriceRuleAmount(parsed.mealsIncluded)
+    const discountNightly = parseListingPriceRuleAmount(parsed.discountNightly)
+    if (
+      discountNightly == null ||
+      discountNightly <= 0 ||
+      regularNightly == null ||
+      discountNightly >= regularNightly
+    ) continue
+
+    const validFrom = rule.valid_from?.trim() ?? ''
+    if (!best || validFrom >= best.validFrom) best = { nightly: discountNightly, validFrom }
+  }
+
+  return best?.nightly ?? null
+}
+
 export type StayRentalLodgingQuote = {
   nights: number
   total: number
@@ -118,7 +152,10 @@ export function computeStayRentalLodgingQuote(input: {
     if (!listingDayOpenForStayNight(hit, nightIndex)) available = false
     nightIndex++
 
+    // Takvim API'si normal sezon fiyatını price_override olarak döndürebilir. Aktif
+    // kampanya bu değerden önce gelmeli; aksi halde indirim rezervasyona yansımaz.
     const nightly =
+      resolveDiscountNightlyFromPriceRulesForDate(input.priceRules, cursor) ??
       parseStayNightlyPrice(hit?.price_override) ??
       resolveNightlyFromPriceRulesForDate(input.priceRules, cursor) ??
       (input.fallbackNightly > 0 ? input.fallbackNightly : 0)

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   computeStayRentalLodgingQuote,
+  resolveDiscountNightlyFromPriceRulesForDate,
   resolveNightlyFromPriceRulesForDate,
 } from './stay-rental-range-quote'
 import type { ListingPriceRuleRow } from '@/lib/travel-api'
@@ -46,6 +47,8 @@ describe('resolveNightlyFromPriceRulesForDate', () => {
 
     expect(resolveNightlyFromPriceRulesForDate(campaignRules, new Date(2026, 6, 15))).toBe(14500)
     expect(resolveNightlyFromPriceRulesForDate(campaignRules, new Date(2026, 6, 25))).toBe(18000)
+    expect(resolveDiscountNightlyFromPriceRulesForDate(campaignRules, new Date(2026, 6, 15))).toBe(14500)
+    expect(resolveDiscountNightlyFromPriceRulesForDate(campaignRules, new Date(2026, 6, 25))).toBeNull()
   })
 })
 
@@ -63,5 +66,29 @@ describe('computeStayRentalLodgingQuote', () => {
     expect(quote.nights).toBe(7)
     expect(quote.total).toBe(18000 * 7)
     expect(quote.uniformNightly).toBe(18000)
+  })
+
+  it('keeps an active campaign ahead of a normal calendar price override', () => {
+    const quote = computeStayRentalLodgingQuote({
+      days: [
+        { day: '2026-07-15', status: 'available', price_override: '18000' },
+      ],
+      priceRules: [{
+        id: 'campaign',
+        valid_from: '2026-07-01',
+        valid_to: '2026-08-31',
+        rule_json: JSON.stringify({
+          base_nightly: '18000',
+          discount_nightly: '14500',
+          discount_from: '2026-07-10',
+          discount_to: '2026-07-20',
+        }),
+      }],
+      rangeStart: new Date(2026, 6, 15),
+      rangeEnd: new Date(2026, 6, 16),
+      fallbackNightly: 18000,
+    })
+    expect(quote.total).toBe(14500)
+    expect(quote.uniformNightly).toBe(14500)
   })
 })
