@@ -204,8 +204,11 @@ main() {
     # Askıda kalan eski gleam/rebar3 işlemlerini sonlandır ve kilit dosyalarını temizle
     killall -9 rebar3 2>/dev/null || true
     rm -f build/.lock build/gleam.lock build/dev/.lock 2>/dev/null || true
-    gleam build < /dev/null
-    gleam export erlang-shipment < /dev/null
+    # Yarım kalan derlemeler Gleam'in hedef bazlı kilitlerini bırakabiliyor
+    # (`gleam-dev-erlang.lock`, `gleam-prod-javascript.lock` vb.).
+    find build -maxdepth 1 -type f -name 'gleam-*.lock' -delete 2>/dev/null || true
+    timeout 15m gleam build < /dev/null
+    timeout 10m gleam export erlang-shipment < /dev/null
   )
   fi
   SHIP="$APP_ROOT/backend/build/erlang-shipment"
