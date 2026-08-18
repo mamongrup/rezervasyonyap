@@ -1,3 +1,7 @@
+'use client'
+
+import { usePreferredCurrencyContext } from '@/contexts/preferred-currency-context'
+import { convertAmountWithRates } from '@/lib/currency-convert'
 import {
   campaignDisplayTitle,
   formatCampaignEndDate,
@@ -233,7 +237,3 @@ export default function ListingDetailCampaignsSection({
     </section>
   )
 }
-'use client'
-
-import { usePreferredCurrencyContext } from '@/contexts/preferred-currency-context'
-import { convertAmountWithRates } from '@/lib/currency-convert'
