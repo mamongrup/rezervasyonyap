@@ -366,8 +366,8 @@ fn dispatch(req: Request, ctx: Context) -> Response {
     http.Post, ["api", "v1", "catalog", "listings", lid, "price-rules"] ->
       catalog_http.create_listing_price_rule(req, ctx, lid)
 
-    http.Put, ["api", "v1", "catalog", "listings", lid, "price-rules", rid]
-    -> catalog_http.update_listing_price_rule(req, ctx, lid, rid)
+    http.Put, ["api", "v1", "catalog", "listings", lid, "price-rules", rid] ->
+      catalog_http.update_listing_price_rule(req, ctx, lid, rid)
 
     http.Delete, ["api", "v1", "catalog", "listings", lid, "price-rules", rid]
     -> catalog_http.delete_listing_price_rule(req, ctx, lid, rid)
@@ -1202,6 +1202,12 @@ fn dispatch(req: Request, ctx: Context) -> Response {
     http.Get, ["api", "v1", "seo", "not-found", "logs"] ->
       seo_http.list_not_found_logs(req, ctx)
 
+    http.Delete, ["api", "v1", "seo", "not-found", "logs"] ->
+      seo_http.delete_all_not_found_logs(req, ctx)
+
+    http.Delete, ["api", "v1", "seo", "not-found", "logs", log_id] ->
+      seo_http.delete_not_found_log(req, ctx, log_id)
+
     http.Get, ["api", "v1", "cms", "pages", "by-slug"] ->
       cms_http.get_by_slug(req, ctx)
 
@@ -1671,8 +1677,7 @@ fn dispatch(req: Request, ctx: Context) -> Response {
     http.Get, ["api", "v1", "ai", "providers"] ->
       ai_http.list_ai_providers(req, ctx)
 
-    http.Post, ["api", "v1", "ai", "complete"] ->
-      ai_http.complete(req, ctx)
+    http.Post, ["api", "v1", "ai", "complete"] -> ai_http.complete(req, ctx)
 
     http.Patch, ["api", "v1", "ai", "providers", pcode] ->
       ai_http.patch_ai_provider(req, ctx, pcode)

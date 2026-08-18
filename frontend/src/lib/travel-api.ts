@@ -5741,6 +5741,28 @@ export async function listSeoNotFoundLogs(token: string): Promise<{ logs: SeoNot
   return json(res)
 }
 
+export async function deleteSeoNotFoundLog(token: string, id: string): Promise<{ ok: boolean }> {
+  const b = base()
+  if (!b) throw new Error('NEXT_PUBLIC_API_URL_missing')
+  const res = await fetch(`${b}/api/v1/seo/not-found/logs/${encodeURIComponent(id)}`, {
+    method: 'DELETE',
+    headers: { Authorization: `Bearer ${token}` },
+  })
+  if (!res.ok) throw new Error(`seo_not_found_log_delete_${res.status}`)
+  return json(res)
+}
+
+export async function deleteAllSeoNotFoundLogs(token: string): Promise<{ ok: boolean; deleted: number }> {
+  const b = base()
+  if (!b) throw new Error('NEXT_PUBLIC_API_URL_missing')
+  const res = await fetch(`${b}/api/v1/seo/not-found/logs`, {
+    method: 'DELETE',
+    headers: { Authorization: `Bearer ${token}` },
+  })
+  if (!res.ok) throw new Error(`seo_not_found_logs_delete_${res.status}`)
+  return json(res)
+}
+
 /** 404 günlüğü (kimlik doğrulama yok; hata yutulabilir). */
 export async function logSeoNotFound(body: { path: string; locale?: string }): Promise<{ ok: boolean }> {
   const b = base()

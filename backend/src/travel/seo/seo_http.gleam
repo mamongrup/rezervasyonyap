@@ -1,7 +1,6 @@
 //// SEO meta, schema.org JSON-LD, 301, sitemap özeti, 404 günlüğü (080_content_seo).
 
 import backend/context.{type Context}
-import travel/identity/permissions
 import gleam/bit_array
 import gleam/dynamic/decode
 import gleam/http
@@ -13,8 +12,9 @@ import gleam/option.{type Option, None, Some}
 import gleam/result
 import gleam/string
 import pog
-import travel/db/resilient_pog as db_exec
 import travel/db/decode_helpers as row_dec
+import travel/db/resilient_pog as db_exec
+import travel/identity/permissions
 import wisp.{type Request, type Response}
 
 fn json_err(status: Int, msg: String) -> Response {
@@ -32,7 +32,11 @@ fn require_seo_writer(req: Request, ctx: Context) -> Result(Nil, Response) {
       case
         permissions.user_has_permission(ctx.db, uid, "admin.users.read")
         || permissions.user_has_permission(ctx.db, uid, "supplier.portal")
-        || permissions.user_has_permission(ctx.db, uid, "staff.reservations.read")
+        || permissions.user_has_permission(
+          ctx.db,
+          uid,
+          "staff.reservations.read",
+        )
         || permissions.user_has_permission(ctx.db, uid, "agency.portal")
       {
         True -> Ok(Nil)
@@ -153,11 +157,16 @@ fn upsert_metadata_decoder() -> decode.Decoder(
           decode.optional_field("description", "", decode.string, fn(d) {
             decode.optional_field("keywords", "", decode.string, fn(k) {
               decode.optional_field("canonical_path", "", decode.string, fn(c) {
-                decode.optional_field("og_image_storage_key", "", decode.string, fn(o) {
-                  decode.optional_field("robots", "", decode.string, fn(r) {
-                    decode.success(#(et, eid, loc, t, d, k, c, o, r))
-                  })
-                })
+                decode.optional_field(
+                  "og_image_storage_key",
+                  "",
+                  decode.string,
+                  fn(o) {
+                    decode.optional_field("robots", "", decode.string, fn(r) {
+                      decode.success(#(et, eid, loc, t, d, k, c, o, r))
+                    })
+                  },
+                )
               })
             })
           })
@@ -331,45 +340,51 @@ pub fn upsert_schema(req: Request, ctx: Context) -> Response {
   case require_seo_writer(req, ctx) {
     Error(r) -> r
     Ok(Nil) ->
-  case read_body_string(req) {
-    Error(_) -> json_err(400, "empty_body")
-    Ok(body) ->
-      case json.parse(body, upsert_schema_decoder()) {
-        Error(_) -> json_err(400, "invalid_json")
-        Ok(#(et, eid, st, jraw)) -> {
-          let jtrim = string.trim(jraw)
-          case string.trim(et) == "" || string.trim(eid) == "" || string.trim(st) == ""
-            || jtrim == ""
-          {
-            True -> json_err(400, "fields_required")
-            False ->
+      case read_body_string(req) {
+        Error(_) -> json_err(400, "empty_body")
+        Ok(body) ->
+          case json.parse(body, upsert_schema_decoder()) {
+            Error(_) -> json_err(400, "invalid_json")
+            Ok(#(et, eid, st, jraw)) -> {
+              let jtrim = string.trim(jraw)
               case
-                pog.query(
-                  "insert into structured_data_snippets (entity_type, entity_id, schema_type, json_ld) values ($1, $2::uuid, $3, $4::jsonb) on conflict (entity_type, entity_id, schema_type) do update set json_ld = excluded.json_ld, updated_at = now() returning id::text",
-                )
-                |> pog.parameter(pog.text(string.trim(et)))
-                |> pog.parameter(pog.text(string.trim(eid)))
-                |> pog.parameter(pog.text(string.trim(st)))
-                |> pog.parameter(pog.text(jtrim))
-                |> pog.returning(row_dec.col0_string())
-                |> db_exec.execute(ctx.db)
+                string.trim(et) == ""
+                || string.trim(eid) == ""
+                || string.trim(st) == ""
+                || jtrim == ""
               {
-                Error(_) -> json_err(500, "upsert_failed")
-                Ok(ret) ->
-                  case ret.rows {
-                    [id] -> {
-                      let out =
-                        json.object([#("id", json.string(id)), #("ok", json.bool(True))])
-                        |> json.to_string
-                      wisp.json_response(out, 200)
-                    }
-                    _ -> json_err(500, "unexpected")
+                True -> json_err(400, "fields_required")
+                False ->
+                  case
+                    pog.query(
+                      "insert into structured_data_snippets (entity_type, entity_id, schema_type, json_ld) values ($1, $2::uuid, $3, $4::jsonb) on conflict (entity_type, entity_id, schema_type) do update set json_ld = excluded.json_ld, updated_at = now() returning id::text",
+                    )
+                    |> pog.parameter(pog.text(string.trim(et)))
+                    |> pog.parameter(pog.text(string.trim(eid)))
+                    |> pog.parameter(pog.text(string.trim(st)))
+                    |> pog.parameter(pog.text(jtrim))
+                    |> pog.returning(row_dec.col0_string())
+                    |> db_exec.execute(ctx.db)
+                  {
+                    Error(_) -> json_err(500, "upsert_failed")
+                    Ok(ret) ->
+                      case ret.rows {
+                        [id] -> {
+                          let out =
+                            json.object([
+                              #("id", json.string(id)),
+                              #("ok", json.bool(True)),
+                            ])
+                            |> json.to_string
+                          wisp.json_response(out, 200)
+                        }
+                        _ -> json_err(500, "unexpected")
+                      }
                   }
               }
+            }
           }
-        }
       }
-  }
   }
 }
 
@@ -416,7 +431,9 @@ pub fn list_redirects(req: Request, ctx: Context) -> Response {
                   ])
                 })
               let body =
-                json.object([#("redirects", json.array(from: arr, of: fn(x) { x }))])
+                json.object([
+                  #("redirects", json.array(from: arr, of: fn(x) { x })),
+                ])
                 |> json.to_string
               wisp.json_response(body, 200)
             }
@@ -524,7 +541,9 @@ pub fn delete_redirect(req: Request, ctx: Context, rid: String) -> Response {
       case permissions.session_user_from_request(req, ctx.db) {
         Error(r) -> r
         Ok(uid) ->
-          case permissions.user_has_permission(ctx.db, uid, "admin.users.read") {
+          case
+            permissions.user_has_permission(ctx.db, uid, "admin.users.read")
+          {
             False -> json_err(403, "forbidden")
             True ->
               case
@@ -553,7 +572,9 @@ pub fn delete_redirect(req: Request, ctx: Context, rid: String) -> Response {
   }
 }
 
-fn not_found_log_row() -> decode.Decoder(#(String, String, String, String, String)) {
+fn not_found_log_row() -> decode.Decoder(
+  #(String, String, String, String, String),
+) {
   use id <- decode.field(0, decode.string)
   use p <- decode.field(1, decode.string)
   use loc <- decode.field(2, decode.string)
@@ -605,6 +626,69 @@ pub fn list_not_found_logs(req: Request, ctx: Context) -> Response {
   }
 }
 
+/// DELETE /api/v1/seo/not-found/logs/:id — tek 404 kaydını siler.
+pub fn delete_not_found_log(
+  req: Request,
+  ctx: Context,
+  log_id: String,
+) -> Response {
+  use <- wisp.require_method(req, http.Delete)
+  case permissions.session_user_from_request(req, ctx.db) {
+    Error(r) -> r
+    Ok(uid) ->
+      case permissions.user_has_permission(ctx.db, uid, "admin.users.read") {
+        False -> json_err(403, "forbidden")
+        True ->
+          case
+            pog.query(
+              "delete from not_found_logs where id = $1::uuid returning id::text",
+            )
+            |> pog.parameter(pog.text(string.trim(log_id)))
+            |> pog.returning(row_dec.col0_string())
+            |> db_exec.execute(ctx.db)
+          {
+            Error(_) -> json_err(400, "invalid_id_or_delete_failed")
+            Ok(ret) ->
+              case ret.rows {
+                [] -> json_err(404, "not_found")
+                [_] ->
+                  json.object([#("ok", json.bool(True))])
+                  |> json.to_string
+                  |> wisp.json_response(200)
+                _ -> json_err(500, "unexpected")
+              }
+          }
+      }
+  }
+}
+
+/// DELETE /api/v1/seo/not-found/logs — tüm 404 günlüğünü temizler.
+pub fn delete_all_not_found_logs(req: Request, ctx: Context) -> Response {
+  use <- wisp.require_method(req, http.Delete)
+  case permissions.session_user_from_request(req, ctx.db) {
+    Error(r) -> r
+    Ok(uid) ->
+      case permissions.user_has_permission(ctx.db, uid, "admin.users.read") {
+        False -> json_err(403, "forbidden")
+        True ->
+          case
+            pog.query("delete from not_found_logs returning id::text")
+            |> pog.returning(row_dec.col0_string())
+            |> db_exec.execute(ctx.db)
+          {
+            Error(_) -> json_err(500, "delete_failed")
+            Ok(ret) ->
+              json.object([
+                #("ok", json.bool(True)),
+                #("deleted", json.int(list.length(ret.rows))),
+              ])
+              |> json.to_string
+              |> wisp.json_response(200)
+          }
+      }
+  }
+}
+
 /// Yayınlanmış içerik özeti — kapak görseli (featured) yeter; satır başı galeri
 /// subquery'si üretimde sitemap JSON/XML'i timeout'a düşürüyordu.
 fn sitemap_union_sql() -> String {
@@ -636,7 +720,9 @@ fn absolute_sitemap_image(base: String, raw: String) -> String {
   case u {
     "" -> ""
     _ ->
-      case string.starts_with(u, "https://") || string.starts_with(u, "http://") {
+      case
+        string.starts_with(u, "https://") || string.starts_with(u, "http://")
+      {
         True -> u
         False ->
           case string.starts_with(u, "/") {
@@ -678,10 +764,13 @@ fn xml_escape_loc(s: String) -> String {
   |> string.replace(">", "&gt;")
 }
 
-fn path_for_sitemap_row(kind: String, slug: String, category_code: String) -> String {
+fn path_for_sitemap_row(
+  kind: String,
+  slug: String,
+  category_code: String,
+) -> String {
   case kind {
-    "listing" ->
-      "/" <> listing_detail_path_prefix(category_code) <> "/" <> slug
+    "listing" -> "/" <> listing_detail_path_prefix(category_code) <> "/" <> slug
     "cms_page" -> "/p/" <> slug
     "blog_post" -> "/blog/" <> slug
     _ -> "/" <> slug
@@ -798,7 +887,7 @@ pub fn log_not_found(req: Request, ctx: Context) -> Response {
       case json.parse(body, nf_log_decoder()) {
         Error(_) -> json_err(400, "invalid_json")
         Ok(#(path, loc_code)) -> {
-            case string.trim(path) == "" {
+          case string.trim(path) == "" {
             True -> json_err(400, "path_required")
             False ->
               case locale_id_by_code(ctx, loc_code) {
