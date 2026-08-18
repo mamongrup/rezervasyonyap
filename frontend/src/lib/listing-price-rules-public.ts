@@ -18,6 +18,19 @@ export type SeasonalPricingRowModel = {
   roomOnlyCompareAtWeekly?: number | null
   mealsIncludedCompareAtNightly?: number | null
   mealsIncludedCompareAtWeekly?: number | null
+  /** Kampanya tarih aralığı — tabloda fırsat satırı olarak vurgulanır. */
+  isDiscount?: boolean
+  discountPercent?: number | null
+}
+
+export type StayPriceDiscountModel = {
+  id: string
+  from: string
+  to: string
+  regularNightly: number
+  discountNightly: number
+  percent: number
+  currency: string
 }
 
 export type ParsedPriceRuleJson = {
@@ -418,6 +431,8 @@ export function buildSeasonalPricingTableRows(
           roomOnlyCompareAtWeekly: ro * 7,
           mealsIncludedCompareAtNightly: mi,
           mealsIncludedCompareAtWeekly: mi * 7,
+          isDiscount: true,
+          discountPercent: Math.round((1 - discountNightly / Math.min(ro, mi)) * 100),
         })
       }
       continue
@@ -452,10 +467,69 @@ export function buildSeasonalPricingTableRows(
         listingCurrency: code,
         compareAtNightly: nightlyNum,
         compareAtWeekly: nightlyNum * 7,
+        isDiscount: true,
+        discountPercent: Math.round((1 - discountNightly / nightlyNum) * 100),
       })
     }
   }
+
+  // Panel kampanyayı ayrı bir price-rule satırı olarak kaydedebilir. Bu durumda
+  // indirim satırını, tarih aralığını kapsayan normal sezon fiyatıyla eşleştir.
+  for (const discount of buildStayPriceDiscounts(rules, code)) {
+    if (out.some((row) => row.isDiscount && row.nightlyAmount === discount.discountNightly)) continue
+    out.push({
+      periodLabel: `${discountPeriodLabel(locale)}: ${formatLongDate(discount.from, locale)} ${msg.rangeSep} ${formatLongDate(discount.to, locale)}`,
+      nightlyAmount: discount.discountNightly,
+      weeklyAmount: discount.discountNightly * 7,
+      listingCurrency: code,
+      compareAtNightly: discount.regularNightly,
+      compareAtWeekly: discount.regularNightly * 7,
+      isDiscount: true,
+      discountPercent: discount.percent,
+    })
+  }
   return out
+}
+
+export function buildStayPriceDiscounts(
+  rules: readonly ListingPriceRuleRow[],
+  currencyCode: string,
+): StayPriceDiscountModel[] {
+  const result: StayPriceDiscountModel[] = []
+  for (const rule of rules) {
+    const parsed = parseListingPriceRuleJson(rule.rule_json)
+    const sale = parseAmount(parsed.discountNightly)
+    const from = parsed.discountFrom || rule.valid_from?.trim() || ''
+    const to = parsed.discountTo || rule.valid_to?.trim() || ''
+    if (sale == null || sale <= 0 || !from || !to) continue
+
+    let regular = parseAmount(parsed.base) ?? parseAmount(parsed.roomOnly) ?? parseAmount(parsed.mealsIncluded)
+    if (regular == null || regular <= sale) {
+      let best: { amount: number; validFrom: string } | null = null
+      for (const candidate of rules) {
+        if (candidate.id === rule.id) continue
+        if (candidate.valid_from && candidate.valid_from > from) continue
+        if (candidate.valid_to && candidate.valid_to < from) continue
+        const cp = parseListingPriceRuleJson(candidate.rule_json)
+        const amount = parseAmount(cp.base) ?? parseAmount(cp.roomOnly) ?? parseAmount(cp.mealsIncluded)
+        if (amount == null || amount <= sale) continue
+        const validFrom = candidate.valid_from?.trim() ?? ''
+        if (!best || validFrom >= best.validFrom) best = { amount, validFrom }
+      }
+      regular = best?.amount ?? null
+    }
+    if (regular == null || regular <= sale) continue
+    result.push({
+      id: rule.id,
+      from,
+      to,
+      regularNightly: regular,
+      discountNightly: sale,
+      percent: Math.round((1 - sale / regular) * 100),
+      currency: currencyCode.trim().toUpperCase() || 'TRY',
+    })
+  }
+  return result
 }
 
 /** `price_from` boş kaldığında vitrin rezervasyon kutusu için dönemsel kurallardan minimum gecelik. */

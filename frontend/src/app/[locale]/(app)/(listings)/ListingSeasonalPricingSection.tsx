@@ -270,9 +270,21 @@ export default function ListingSeasonalPricingSection({
                   {rows.map((row, i) => (
                     <tr
                       key={`${row.periodLabel}-${i}`}
-                      className="text-neutral-800 transition-colors hover:bg-neutral-50 dark:text-neutral-100 dark:hover:bg-neutral-800/30"
+                      className={clsx(
+                        'text-neutral-800 transition-colors dark:text-neutral-100',
+                        row.isDiscount
+                          ? 'bg-emerald-50 font-medium ring-1 ring-inset ring-emerald-200 hover:bg-emerald-100/80 dark:bg-emerald-950/30 dark:ring-emerald-800'
+                          : 'hover:bg-neutral-50 dark:hover:bg-neutral-800/30',
+                      )}
                     >
-                      <td className="max-w-[min(100%,280px)] px-4 py-3 leading-snug">{row.periodLabel}</td>
+                      <td className="max-w-[min(100%,280px)] px-4 py-3 leading-snug">
+                        <span>{row.periodLabel}</span>
+                        {row.isDiscount && row.discountPercent ? (
+                          <span className="ms-2 inline-flex rounded-full bg-emerald-600 px-2 py-0.5 text-[10px] font-bold text-white">
+                            %{row.discountPercent}
+                          </span>
+                        ) : null}
+                      </td>
                       {dualMealPricing ? (
                         <>
                           <td className="whitespace-nowrap px-4 py-3 text-end">

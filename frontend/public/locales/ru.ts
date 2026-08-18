@@ -556,6 +556,9 @@ export const ru: AppMessages = {
       validUntil: 'Действует до {date}.',
       nearbyAvailabilityTitle: 'Доступно в ближайшее время',
       nearbyAvailabilitySubtitle: 'Доступно для бронирования на {date}.',
+      seasonalDiscountTitle: 'Скидка на выбранные даты',
+      seasonalDiscountPeriod: '{from} – {to}',
+      seasonalDiscountPrice: '{discounted} вместо {regular} за ночь',
     },
     yachtSpecs: {
       title: 'Технические характеристики',

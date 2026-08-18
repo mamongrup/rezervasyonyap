@@ -557,6 +557,9 @@ export const de: AppMessages = {
       validUntil: 'Gültig bis {date}.',
       nearbyAvailabilityTitle: 'Kurzfristig verfügbar',
       nearbyAvailabilitySubtitle: 'Für {date} buchbar.',
+      seasonalDiscountTitle: 'Rabatt für ausgewählte Reisedaten',
+      seasonalDiscountPeriod: '{from} – {to}',
+      seasonalDiscountPrice: '{discounted} statt {regular} pro Nacht',
     },
     yachtSpecs: {
       title: 'Technische Daten',

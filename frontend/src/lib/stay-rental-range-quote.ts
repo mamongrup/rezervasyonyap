@@ -1,6 +1,7 @@
 import { diffStayNights } from '@/hooks/use-stay-listing-quote'
 import { listingDayOpenForStayNight } from '@/lib/listing-availability-day'
 import {
+  buildStayPriceDiscounts,
   parseListingPriceRuleAmount,
   parseListingPriceRuleJson,
 } from '@/lib/listing-price-rules-public'
@@ -75,32 +76,9 @@ export function resolveDiscountNightlyFromPriceRulesForDate(
   date: Date,
 ): number | null {
   const ymd = formatLocalYmd(date)
-  let best: { nightly: number; validFrom: string } | null = null
-
-  for (const rule of rules) {
-    if (!dateInRuleRange(ymd, rule.valid_from, rule.valid_to)) continue
-    const parsed = parseListingPriceRuleJson(rule.rule_json)
-    if (!parsed.discountFrom || !parsed.discountTo) continue
-    if (ymd < parsed.discountFrom || ymd > parsed.discountTo) continue
-
-    const regularNightly =
-      (isWeekendNight(date) ? parseListingPriceRuleAmount(parsed.weekend) : null) ??
-      parseListingPriceRuleAmount(parsed.base) ??
-      parseListingPriceRuleAmount(parsed.roomOnly) ??
-      parseListingPriceRuleAmount(parsed.mealsIncluded)
-    const discountNightly = parseListingPriceRuleAmount(parsed.discountNightly)
-    if (
-      discountNightly == null ||
-      discountNightly <= 0 ||
-      regularNightly == null ||
-      discountNightly >= regularNightly
-    ) continue
-
-    const validFrom = rule.valid_from?.trim() ?? ''
-    if (!best || validFrom >= best.validFrom) best = { nightly: discountNightly, validFrom }
-  }
-
-  return best?.nightly ?? null
+  return buildStayPriceDiscounts(rules, 'TRY')
+    .filter((discount) => ymd >= discount.from && ymd <= discount.to)
+    .sort((a, b) => b.from.localeCompare(a.from))[0]?.discountNightly ?? null
 }
 
 export type StayRentalLodgingQuote = {

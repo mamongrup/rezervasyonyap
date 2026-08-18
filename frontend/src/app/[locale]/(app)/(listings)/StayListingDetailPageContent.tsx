@@ -28,6 +28,7 @@ import {
 import { listPublicCategoryThemeItems } from '@/lib/catalog-theme-items-api'
 import {
   buildSeasonalPricingTableRows,
+  buildStayPriceDiscounts,
   maxNightlyFromListingPriceRules,
   minNightlyFromListingPriceRules,
 } from '@/lib/listing-price-rules-public'
@@ -778,6 +779,7 @@ export default async function StayListingDetailPageContent({
   const dualMealPricing = isStayRental && listing.mealPlanSummary === 'both'
   let holidayHomePriceRules: ListingPriceRuleRow[] = []
   let seasonalPricingRows: ReturnType<typeof buildSeasonalPricingTableRows> = []
+  let stayPriceDiscounts: ReturnType<typeof buildStayPriceDiscounts> = []
   if (isStayRental) {
     const seasonalMsg = {
       defaultPeriod: messages.listing.seasonalPricing.defaultPeriod,
@@ -793,6 +795,7 @@ export default async function StayListingDetailPageContent({
       seasonalMsg,
       { preferDualMealColumns: dualMealPricing },
     )
+    stayPriceDiscounts = buildStayPriceDiscounts(holidayHomePriceRules, listingCurrencyUpper)
   }
 
   // Otellerde de price_rules → başlangıç fiyatı (yemek planı / price_from yoksa).
@@ -1308,6 +1311,7 @@ export default async function StayListingDetailPageContent({
       locale={locale}
       campaigns={listingDetailCampaigns}
       availabilityDays={availabilityCalendarDays}
+      stayDiscounts={stayPriceDiscounts}
     />
   )
 

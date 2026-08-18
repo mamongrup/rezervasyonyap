@@ -113,4 +113,31 @@ describe('buildSeasonalPricingTableRows', () => {
     expect(rows[1].nightlyAmount).toBe(14500)
     expect(rows[1].compareAtNightly).toBe(18000)
   })
+
+  it('matches a separate discount rule to its normal seasonal price', () => {
+    const rows = buildSeasonalPricingTableRows(
+      [
+        rule('summer', '2026-07-01', '2026-09-10', 1300),
+        {
+          id: 'discount',
+          valid_from: '2026-08-22',
+          valid_to: '2026-09-10',
+          rule_json: JSON.stringify({
+            discount_nightly: '1100',
+            discount_from: '2026-08-22',
+            discount_to: '2026-09-10',
+          }),
+        },
+      ],
+      'tr',
+      'TRY',
+      msg,
+    )
+
+    const discount = rows.find((row) => row.isDiscount)
+    expect(discount?.nightlyAmount).toBe(1100)
+    expect(discount?.compareAtNightly).toBe(1300)
+    expect(discount?.discountPercent).toBe(15)
+    expect(discount?.periodLabel).toMatch(/22 Ağustos.*10 Eylül/)
+  })
 })

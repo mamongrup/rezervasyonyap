@@ -847,6 +847,9 @@ export const tr = {
       validUntil: '{date} tarihine kadar geçerlidir.',
       nearbyAvailabilityTitle: 'Yakın tarihte müsait',
       nearbyAvailabilitySubtitle: '{date} için rezervasyona uygun.',
+      seasonalDiscountTitle: 'Tarih aralığına özel indirim',
+      seasonalDiscountPeriod: '{from} – {to}',
+      seasonalDiscountPrice: '{regular} yerine {discounted} / gece',
     },
     faq: {
       title: 'Sıkça sorulan sorular',

@@ -5,6 +5,8 @@ import {
   type ListingDetailCampaignItem,
 } from '@/lib/listing-detail-campaigns'
 import type { ListingAvailabilityDay } from '@/lib/travel-api'
+import type { StayPriceDiscountModel } from '@/lib/listing-price-rules-public'
+import { formatMoneyIntl } from '@/lib/parse-listing-price'
 import { Divider } from '@/shared/divider'
 import { Calendar03Icon, CreditCardIcon, Tag01Icon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
@@ -112,16 +114,68 @@ function formatAvailabilityDate(day: string, locale: string): string {
   })
 }
 
+function StayDiscountCard({
+  discount,
+  locale,
+  labels,
+}: {
+  discount: StayPriceDiscountModel
+  locale: string
+  labels: {
+    seasonalDiscountTitle: string
+    seasonalDiscountPeriod: (from: string, to: string) => string
+    seasonalDiscountPrice: (regular: string, discounted: string) => string
+  }
+}) {
+  const currency = usePreferredCurrencyContext()
+  const formatPrice = (amount: number) => {
+    const converted = currency
+      ? convertAmountWithRates(amount, discount.currency, currency.preferredCode, currency.rates)
+      : null
+    return converted != null
+      ? formatMoneyIntl(converted, currency!.preferredCode, locale)
+      : formatMoneyIntl(amount, discount.currency, locale)
+  }
+  const formatDate = (day: string) =>
+    new Date(`${day}T12:00:00Z`).toLocaleDateString(locale === 'tr' ? 'tr-TR' : locale, {
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+    })
+
+  return (
+    <li className="group relative flex min-w-0 items-start gap-3 overflow-hidden rounded-2xl border border-rose-200/90 bg-gradient-to-br from-rose-50 via-white to-orange-50 px-4 py-4 shadow-sm transition duration-300 hover:-translate-y-0.5 hover:shadow-md dark:border-rose-900/50 dark:from-rose-950/30 dark:via-neutral-900 dark:to-orange-950/20 sm:items-center sm:gap-4 sm:px-5 sm:py-5">
+      <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300" aria-hidden>
+        <HugeiconsIcon icon={Tag01Icon} size={22} strokeWidth={1.75} />
+      </span>
+      <div className="min-w-0 flex-1">
+        <div className="flex flex-wrap items-center gap-2">
+          <p className="text-sm font-bold text-neutral-900 dark:text-white sm:text-base">{labels.seasonalDiscountTitle}</p>
+          <span className="rounded-full bg-rose-600 px-2.5 py-0.5 text-xs font-bold text-white">%{discount.percent}</span>
+        </div>
+        <p className="mt-1 text-xs text-neutral-600 dark:text-neutral-400 sm:text-sm">
+          {labels.seasonalDiscountPeriod(formatDate(discount.from), formatDate(discount.to))}
+        </p>
+        <p className="mt-1 text-sm font-semibold text-rose-700 dark:text-rose-300">
+          {labels.seasonalDiscountPrice(formatPrice(discount.regularNightly), formatPrice(discount.discountNightly))}
+        </p>
+      </div>
+    </li>
+  )
+}
+
 export default function ListingDetailCampaignsSection({
   locale,
   campaigns,
   availabilityDays,
+  stayDiscounts = [],
   title,
   labels,
 }: {
   locale: string
   campaigns: ListingDetailCampaignItem[]
   availabilityDays: ListingAvailabilityDay[]
+  stayDiscounts?: StayPriceDiscountModel[]
   title: string
   labels: {
     installmentSubtitle: (count: number) => string
@@ -129,12 +183,15 @@ export default function ListingDetailCampaignsSection({
     validUntil: (date: string) => string
     nearbyAvailabilityTitle: string
     nearbyAvailabilitySubtitle: (date: string) => string
+    seasonalDiscountTitle: string
+    seasonalDiscountPeriod: (from: string, to: string) => string
+    seasonalDiscountPrice: (regular: string, discounted: string) => string
   }
 }) {
   const installment = campaigns.find((item) => item.kind === 'card_installment')
   const discounts = campaigns.filter((item) => item.kind !== 'card_installment')
   const availableDay = nearestAvailableDay(availabilityDays)
-  if (!installment && discounts.length === 0 && !availableDay) return null
+  if (!installment && discounts.length === 0 && stayDiscounts.length === 0 && !availableDay) return null
 
   return (
     <section aria-labelledby="listing-detail-campaigns-heading" className="listingSection__wrap">
@@ -151,6 +208,9 @@ export default function ListingDetailCampaignsSection({
         <ul className={clsx('grid gap-3', !installment && 'md:col-span-2 md:grid-cols-2')}>
           {discounts.map((item) => (
             <CampaignCard key={item.id} item={item} locale={locale} labels={labels} />
+          ))}
+          {stayDiscounts.map((discount) => (
+            <StayDiscountCard key={discount.id} discount={discount} locale={locale} labels={labels} />
           ))}
           {availableDay ? (
             <li className="group relative flex min-w-0 items-center gap-4 overflow-hidden rounded-2xl border border-amber-200/90 bg-gradient-to-br from-amber-50 via-white to-orange-50 px-4 py-4 shadow-sm transition duration-300 hover:-translate-y-0.5 hover:shadow-md dark:border-amber-900/50 dark:from-amber-950/30 dark:via-neutral-900 dark:to-orange-950/20 sm:px-5 sm:py-5">
@@ -173,3 +233,7 @@ export default function ListingDetailCampaignsSection({
     </section>
   )
 }
+'use client'
+
+import { usePreferredCurrencyContext } from '@/contexts/preferred-currency-context'
+import { convertAmountWithRates } from '@/lib/currency-convert'

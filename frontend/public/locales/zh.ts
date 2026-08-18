@@ -550,6 +550,9 @@ export const zh: AppMessages = {
       validUntil: '有效期至 {date}。',
       nearbyAvailabilityTitle: '近期可订',
       nearbyAvailabilitySubtitle: '{date} 可预订。',
+      seasonalDiscountTitle: '指定日期优惠',
+      seasonalDiscountPeriod: '{from} 至 {to}',
+      seasonalDiscountPrice: '每晚 {discounted}，原价 {regular}',
     },
     yachtSpecs: {
       title: '技术参数',

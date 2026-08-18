@@ -1343,6 +1343,9 @@ export const en = {
       validUntil: 'Valid until {date}.',
       nearbyAvailabilityTitle: 'Available soon',
       nearbyAvailabilitySubtitle: 'Available to book for {date}.',
+      seasonalDiscountTitle: 'Date-specific discount',
+      seasonalDiscountPeriod: '{from} – {to}',
+      seasonalDiscountPrice: '{discounted} per night instead of {regular}',
     },
     /** Auto-generated FAQ block on hotel detail page */
     faq: {

@@ -50,6 +50,25 @@ describe('resolveNightlyFromPriceRulesForDate', () => {
     expect(resolveDiscountNightlyFromPriceRulesForDate(campaignRules, new Date(2026, 6, 15))).toBe(14500)
     expect(resolveDiscountNightlyFromPriceRulesForDate(campaignRules, new Date(2026, 6, 25))).toBeNull()
   })
+
+  it('resolves a campaign stored separately from the normal season', () => {
+    const separateCampaignRules: ListingPriceRuleRow[] = [
+      ...rules,
+      {
+        id: 'campaign',
+        valid_from: '2026-07-10',
+        valid_to: '2026-07-20',
+        rule_json: JSON.stringify({
+          discount_nightly: '14500',
+          discount_from: '2026-07-10',
+          discount_to: '2026-07-20',
+        }),
+      },
+    ]
+
+    expect(resolveDiscountNightlyFromPriceRulesForDate(separateCampaignRules, new Date(2026, 6, 15))).toBe(14500)
+    expect(resolveDiscountNightlyFromPriceRulesForDate(separateCampaignRules, new Date(2026, 6, 25))).toBeNull()
+  })
 })
 
 describe('computeStayRentalLodgingQuote', () => {
