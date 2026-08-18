@@ -33,3 +33,22 @@ describe('dated hotel listing prices', () => {
     expect(listing.price).toBeTruthy()
   })
 })
+
+describe('stay listing mobile discounts', () => {
+  it('keeps the mobile discount out of the generic desktop sale badge', () => {
+    const listing = mapPublicListingItemToListingBase(
+      {
+        ...hotel,
+        id: 'villa-1',
+        slug: 'villa-1',
+        category_code: 'holiday_home',
+        listing_vertical: 'holiday_home',
+        discount_percent: 10,
+      },
+      { locale: 'tr' },
+    )
+
+    expect(listing.saleOff).toBeNull()
+    expect(listing.mobileSaleOff).toBe('%10')
+  })
+})

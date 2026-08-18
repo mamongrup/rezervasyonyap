@@ -133,8 +133,8 @@ function StayDiscountCard({
       ? convertAmountWithRates(amount, discount.currency, currency.preferredCode, currency.rates)
       : null
     return converted != null
-      ? formatMoneyIntl(converted, currency!.preferredCode, locale)
-      : formatMoneyIntl(amount, discount.currency, locale)
+      ? formatMoneyIntl(converted, currency!.preferredCode)
+      : formatMoneyIntl(amount, discount.currency)
   }
   const formatDate = (day: string) =>
     new Date(`${day}T12:00:00Z`).toLocaleDateString(locale === 'tr' ? 'tr-TR' : locale, {

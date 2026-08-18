@@ -13,6 +13,7 @@ import { Location06Icon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
 import Link from 'next/link'
 import { FC, useMemo } from 'react'
+import { useEffect, useState } from 'react'
 import { useParams, useSearchParams } from 'next/navigation'
 import { useVitrinHref } from '@/hooks/use-vitrin-href'
 import { getMessages } from '@/utils/getT'
@@ -24,6 +25,9 @@ import {
   detailPathForVertical,
   stayDetailPathForVertical,
 } from '@/lib/listing-detail-routes'
+import { getPublicListingPriceRules } from '@/lib/travel-api'
+import { buildStayPriceDiscounts, type StayPriceDiscountModel } from '@/lib/listing-price-rules-public'
+import { useFormatMoneyInPreferredCurrency } from '@/contexts/preferred-currency-context'
 
 interface ListingCardProps {
   className?: string
@@ -57,6 +61,7 @@ const ListingCard: FC<ListingCardProps> = ({
     handle,
     like,
     saleOff,
+    mobileSaleOff,
     isAds,
     price,
     priceAmount,
@@ -68,6 +73,40 @@ const ListingCard: FC<ListingCardProps> = ({
     themeChipLabels,
     listingVertical,
   } = data
+  const isStayRental = listingVertical === 'holiday_home' || listingVertical === 'yacht_charter'
+  const [isMobileViewport, setIsMobileViewport] = useState(false)
+  const [datedDiscount, setDatedDiscount] = useState<StayPriceDiscountModel | null>(null)
+
+  useEffect(() => {
+    const media = window.matchMedia('(max-width: 767px)')
+    const sync = () => setIsMobileViewport(media.matches)
+    sync()
+    media.addEventListener('change', sync)
+    return () => media.removeEventListener('change', sync)
+  }, [])
+
+  useEffect(() => {
+    if (!isStayRental) return
+    let cancelled = false
+    void getPublicListingPriceRules(String(data.id)).then((rules) => {
+      if (cancelled) return
+      const today = new Date().toISOString().slice(0, 10)
+      const discounts = buildStayPriceDiscounts(rules, data.listingCurrencyCode ?? data.priceCurrency ?? 'TRY')
+        .filter((discount) => discount.to >= today)
+        .sort((a, b) => a.from.localeCompare(b.from))
+      setDatedDiscount(discounts[0] ?? null)
+    })
+    return () => { cancelled = true }
+  }, [data.id, data.listingCurrencyCode, data.priceCurrency, isStayRental])
+
+  const visibleSaleOff = isMobileViewport && mobileSaleOff ? mobileSaleOff : saleOff
+  const formattedDatedDiscount = useFormatMoneyInPreferredCurrency(
+    datedDiscount?.discountNightly,
+    datedDiscount?.currency,
+  )
+  const datedDiscountLabel = datedDiscount
+    ? `${formattedDatedDiscount} · ${new Date(`${datedDiscount.from}T12:00:00Z`).toLocaleDateString(locale, { day: 'numeric', month: 'short' })}–${new Date(`${datedDiscount.to}T12:00:00Z`).toLocaleDateString(locale, { day: 'numeric', month: 'short' })}`
+    : null
   const sliderImages = useMemo(
     () => listingCardImageCandidates(galleryImgs, featuredImage).slice(0, LISTING_CARD_GALLERY_LIMIT),
     [galleryImgs, featuredImage],
@@ -115,7 +154,7 @@ const ListingCard: FC<ListingCardProps> = ({
     const s = qs.toString()
     if (s) return `?${s}`
     return data.detailSearchQuery ? `?${data.detailSearchQuery}` : legacyQuery
-  }, [data.detailSearchQuery, legacyQuery, pageSearch, pathHandle, vertical])
+  }, [data, legacyQuery, pageSearch, pathHandle, vertical])
   const detailBase =
     vertical === 'hotel' || vertical === 'holiday_home' || vertical === 'yacht_charter'
       ? stayDetailPathForVertical(vertical)
@@ -204,12 +243,17 @@ const ListingCard: FC<ListingCardProps> = ({
           galleryClass={size === 'default' ? undefined : ''}
         />
         <BtnLikeIcon listingId={data.id} className="absolute end-3 top-3 z-1" />
-        {saleOff ? <SaleOffBadge desc={saleOff} className="absolute start-3 top-3" /> : null}
+        {visibleSaleOff ? <SaleOffBadge desc={visibleSaleOff} className="absolute start-3 top-3" /> : null}
+        {!isMobileViewport && datedDiscountLabel ? (
+          <span className="absolute start-3 top-3 z-1 rounded-full bg-red-700 px-3 py-0.5 text-xs font-semibold text-white">
+            {datedDiscountLabel}
+          </span>
+        ) : null}
         {/* Yemek planı rozeti — görselin sol alt köşesi */}
-        {mealBadge && !saleOff && (
+        {mealBadge && !visibleSaleOff && !datedDiscountLabel && (
           <div className="absolute start-3 top-3 z-1">{mealBadge}</div>
         )}
-        {mealBadge && saleOff && (
+        {mealBadge && (visibleSaleOff || datedDiscountLabel) && (
           <div className="absolute start-3 top-9 z-1">{mealBadge}</div>
         )}
       </div>

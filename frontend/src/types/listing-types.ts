@@ -45,6 +45,8 @@ export interface TListingBase {
   reviewCount?: number
   like?: boolean
   saleOff?: string | null
+  /** Yalnızca mobil cihazda gösterilen ve uygulanan indirim rozeti. */
+  mobileSaleOff?: string | null
   /** İndirim yüzdesi — sayısal değer, ör. 20 => "%20 indirim" */
   discountPercent?: number
   /** Yeni ilan — son 30 gün içinde eklendi */
