@@ -1,21 +1,18 @@
+'use client'
+
 import ButtonPrimary from '@/shared/ButtonPrimary'
 import { Divider } from '@/shared/divider'
 import { getMessages } from '@/utils/getT'
-import type { Metadata } from 'next'
+import { useParams } from 'next/navigation'
 
-// Next 16 bazı worker sıralarında üst layout'taki force-dynamic bilgisini bu
-// sayfanın metadata prerender'ına taşımıyor ve workStore invariant'ına düşüyor.
-export const dynamic = 'force-dynamic'
-export const fetchCache = 'force-no-store'
-
-export async function generateMetadata({ params }: { params: Promise<{ locale: string }> }): Promise<Metadata> {
-  const { locale } = await params
-  const T = getMessages(locale).accountPage
-  return { title: T.paymentsPageTitle, description: T.pageDescription }
-}
-
-export default async function AccountBillingPage({ params }: { params: Promise<{ locale: string }> }) {
-  const { locale } = await params
+/**
+ * İstemci sayfası: Next 16 production worker'ında bu rotanın metadata
+ * prerender'ı request workStore olmadan çalışıp bütün build'i düşürebiliyordu.
+ * Hesap layout'u zaten dinamik; locale'i güvenli biçimde URL parametresinden al.
+ */
+export default function AccountBillingPage() {
+  const params = useParams<{ locale?: string }>()
+  const locale = typeof params?.locale === 'string' ? params.locale : 'tr'
   const T = getMessages(locale).accountPage
 
   return (
