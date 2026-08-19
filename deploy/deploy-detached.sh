@@ -95,7 +95,6 @@ fi
 
 # setsid: yeni oturum — SIGHUP (SSH kopunca) deploy'a ulasmaz
 export APP_ROOT DEPLOY_SH DEPLOY_REF
-export ERL_FLAGS="-noshell -noinput ${ERL_FLAGS:-}"
 export TERM="${TERM:-dumb}"
 run_inner='set -eo pipefail; cd "$APP_ROOT"; exec "$DEPLOY_SH" < /dev/null'
 if command -v setsid >/dev/null 2>&1; then

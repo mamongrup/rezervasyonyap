@@ -31,8 +31,8 @@ DEPLOY_REF="${DEPLOY_REF:-main}"
 RESTART_WEB="${RESTART_WEB:-1}"
 RESTART_API="${RESTART_API:-1}"
 
-# nohup / arka plan TTY altında Erlang prim_tty reader_loop EBADF çökmesini önle
-export ERL_FLAGS="-noshell -noinput ${ERL_FLAGS:-}"
+# Gleam, Erlang hedefini derlerken stdin/stdout kullanan kalıcı bir compiler daemon
+# başlatır. Global `-noshell -noinput` bu protokolü kilitleyebildiği için verilmez.
 export TERM="${TERM:-dumb}"
 
 ok() { echo "[OK] $*"; }
@@ -200,7 +200,7 @@ main() {
   else
   (
     cd "$APP_ROOT/backend"
-    export ERL_FLAGS="-noshell -noinput ${ERL_FLAGS:-}"
+    unset ERL_FLAGS
     # Askıda kalan eski gleam/rebar3 işlemlerini sonlandır ve kilit dosyalarını temizle
     killall -9 rebar3 2>/dev/null || true
     rm -f build/.lock build/gleam.lock build/dev/.lock 2>/dev/null || true
