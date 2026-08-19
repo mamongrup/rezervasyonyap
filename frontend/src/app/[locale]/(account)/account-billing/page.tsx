@@ -3,6 +3,11 @@ import { Divider } from '@/shared/divider'
 import { getMessages } from '@/utils/getT'
 import type { Metadata } from 'next'
 
+// Next 16 bazı worker sıralarında üst layout'taki force-dynamic bilgisini bu
+// sayfanın metadata prerender'ına taşımıyor ve workStore invariant'ına düşüyor.
+export const dynamic = 'force-dynamic'
+export const fetchCache = 'force-no-store'
+
 export async function generateMetadata({ params }: { params: Promise<{ locale: string }> }): Promise<Metadata> {
   const { locale } = await params
   const T = getMessages(locale).accountPage
