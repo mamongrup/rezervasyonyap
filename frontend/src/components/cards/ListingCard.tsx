@@ -17,6 +17,7 @@ import { useEffect, useState } from 'react'
 import { useParams, useSearchParams } from 'next/navigation'
 import { useVitrinHref } from '@/hooks/use-vitrin-href'
 import { getMessages } from '@/utils/getT'
+import { formatSaleOffLabel } from '@/utils/formatSaleOffLabel'
 import { listingHasPhysicalRegion, normalizeStayLocationPin } from '@/lib/stay-location-display'
 import { activityPriceFromAffix, isActivityListingCategory } from '@/lib/activity-listing-price-display'
 import { normalizeCatalogVertical } from '@/lib/catalog-listing-vertical'
@@ -100,6 +101,7 @@ const ListingCard: FC<ListingCardProps> = ({
   }, [data.id, data.listingCurrencyCode, data.priceCurrency, isStayRental])
 
   const visibleSaleOff = isMobileViewport && mobileSaleOff ? mobileSaleOff : saleOff
+  const showingMobileDiscount = isMobileViewport && Boolean(mobileSaleOff)
   const formattedDatedDiscount = useFormatMoneyInPreferredCurrency(
     datedDiscount?.discountNightly,
     datedDiscount?.currency,
@@ -243,9 +245,15 @@ const ListingCard: FC<ListingCardProps> = ({
           galleryClass={size === 'default' ? undefined : ''}
         />
         <BtnLikeIcon listingId={data.id} className="absolute end-3 top-3 z-1" />
-        {visibleSaleOff ? <SaleOffBadge desc={visibleSaleOff} className="absolute start-3 top-3" /> : null}
-        {!isMobileViewport && datedDiscountLabel ? (
+        {showingMobileDiscount ? (
           <span className="absolute start-3 top-3 z-1 rounded-full bg-red-700 px-3 py-0.5 text-xs font-semibold text-white">
+            📱 {formatSaleOffLabel(mobileSaleOff, locale)}
+          </span>
+        ) : visibleSaleOff ? (
+          <SaleOffBadge desc={visibleSaleOff} className="absolute start-3 top-3" />
+        ) : null}
+        {datedDiscountLabel ? (
+          <span className={`absolute start-3 z-1 rounded-full bg-emerald-700 px-3 py-0.5 text-xs font-semibold text-white ${visibleSaleOff ? 'top-10' : 'top-3'}`}>
             {datedDiscountLabel}
           </span>
         ) : null}
@@ -254,7 +262,7 @@ const ListingCard: FC<ListingCardProps> = ({
           <div className="absolute start-3 top-3 z-1">{mealBadge}</div>
         )}
         {mealBadge && (visibleSaleOff || datedDiscountLabel) && (
-          <div className="absolute start-3 top-9 z-1">{mealBadge}</div>
+          <div className={`absolute start-3 z-1 ${visibleSaleOff && datedDiscountLabel ? 'top-17' : 'top-10'}`}>{mealBadge}</div>
         )}
       </div>
 
