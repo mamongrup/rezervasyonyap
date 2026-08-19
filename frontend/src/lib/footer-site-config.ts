@@ -1,7 +1,7 @@
 import { promises as fs } from 'node:fs'
 import path from 'node:path'
 import { DEFAULT_FOOTER_SITE_CONFIG } from '@/lib/footer-site-defaults'
-import { compactI18nField } from '@/lib/i18n-field'
+import { compactI18nField, type I18nFieldMap } from '@/lib/i18n-field'
 import type { FooterSiteConfig } from '@/types/footer-site-config'
 
 const DATA_PATH = path.join(process.cwd(), 'public', 'site-data', 'footer.json')
@@ -27,13 +27,27 @@ function maybeI18n(
   return out as ReturnType<typeof compactI18nField>
 }
 
+function mergedI18n(
+  defaults: I18nFieldMap | undefined,
+  raw: unknown,
+  legacy: { tr?: unknown; en?: unknown },
+): I18nFieldMap {
+  return {
+    ...(defaults ?? {}),
+    ...maybeI18n(raw, legacy),
+  }
+}
+
 function normalize(cfg: Partial<FooterSiteConfig>): FooterSiteConfig {
   const base = clone(DEFAULT_FOOTER_SITE_CONFIG)
   if (cfg.version !== 1) return base
 
   if (typeof cfg.taglineTr === 'string') base.taglineTr = cfg.taglineTr
   if (typeof cfg.taglineEn === 'string') base.taglineEn = cfg.taglineEn
-  base.tagline_i18n = maybeI18n(cfg.tagline_i18n, { tr: cfg.taglineTr, en: cfg.taglineEn })
+  base.tagline_i18n = mergedI18n(base.tagline_i18n, cfg.tagline_i18n, {
+    tr: cfg.taglineTr,
+    en: cfg.taglineEn,
+  })
 
   if (Array.isArray(cfg.trustBadges) && cfg.trustBadges.length === 3) {
     base.trustBadges = cfg.trustBadges.map((b, i) => {
@@ -42,8 +56,14 @@ function normalize(cfg: Partial<FooterSiteConfig>): FooterSiteConfig {
         ...baseBadge,
         ...b,
         variant: b.variant === 'green' || b.variant === 'blue' || b.variant === 'amber' ? b.variant : baseBadge.variant,
-        title_i18n: maybeI18n(b.title_i18n, { tr: b.titleTr, en: b.titleEn }),
-        subtitle_i18n: maybeI18n(b.subtitle_i18n, { tr: b.subtitleTr, en: b.subtitleEn }),
+        title_i18n: mergedI18n(baseBadge.title_i18n, b.title_i18n, {
+          tr: b.titleTr,
+          en: b.titleEn,
+        }),
+        subtitle_i18n: mergedI18n(baseBadge.subtitle_i18n, b.subtitle_i18n, {
+          tr: b.subtitleTr,
+          en: b.subtitleEn,
+        }),
       }
     }) as FooterSiteConfig['trustBadges']
   }
@@ -52,14 +72,21 @@ function normalize(cfg: Partial<FooterSiteConfig>): FooterSiteConfig {
     base.columns = cfg.columns.map((col, i) => ({
       titleTr: typeof col.titleTr === 'string' ? col.titleTr : base.columns[i]?.titleTr ?? '',
       titleEn: typeof col.titleEn === 'string' ? col.titleEn : base.columns[i]?.titleEn ?? '',
-      title_i18n: maybeI18n(col.title_i18n, { tr: col.titleTr, en: col.titleEn }),
+      title_i18n: mergedI18n(base.columns[i]?.title_i18n, col.title_i18n, {
+        tr: col.titleTr,
+        en: col.titleEn,
+      }),
       links: Array.isArray(col.links)
         ? col.links
             .filter((l) => l && typeof l.href === 'string')
-            .map((l) => ({
+            .map((l, linkIndex) => ({
               nameTr: String(l.nameTr ?? ''),
               nameEn: String(l.nameEn ?? ''),
-              name_i18n: maybeI18n(l.name_i18n, { tr: l.nameTr, en: l.nameEn }),
+              name_i18n: mergedI18n(
+                base.columns[i]?.links[linkIndex]?.name_i18n,
+                l.name_i18n,
+                { tr: l.nameTr, en: l.nameEn },
+              ),
               href: String(l.href).trim() || '/',
             }))
         : [],
@@ -69,10 +96,14 @@ function normalize(cfg: Partial<FooterSiteConfig>): FooterSiteConfig {
   if (Array.isArray(cfg.legalLinks)) {
     base.legalLinks = cfg.legalLinks
       .filter((l) => l && typeof l.href === 'string')
-      .map((l) => ({
+      .map((l, linkIndex) => ({
         nameTr: String(l.nameTr ?? ''),
         nameEn: String(l.nameEn ?? ''),
-        name_i18n: maybeI18n(l.name_i18n, { tr: l.nameTr, en: l.nameEn }),
+        name_i18n: mergedI18n(
+          base.legalLinks[linkIndex]?.name_i18n,
+          l.name_i18n,
+          { tr: l.nameTr, en: l.nameEn },
+        ),
         href: String(l.href).trim() || '/',
       }))
   }

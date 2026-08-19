@@ -149,7 +149,7 @@ export const DEFAULT_FOOTER_SITE_CONFIG: FooterSiteConfig = {
       ],
     ),
     column(
-      { tr: 'Ortaklar İçin', en: 'For Partners', de: 'Für Partner', ru: 'Для партнёров', zh: '合作伙伴', fr: 'Partenaires' },
+      { tr: 'Ortaklık', en: 'Partnerships', de: 'Partnerschaften', ru: 'Партнёрство', zh: '合作', fr: 'Partenariats' },
       [
         link('/tedarikci-ol',           { tr: 'Tedarikçi Olun',           en: 'Become a Supplier',  de: 'Anbieter werden',  ru: 'Стать поставщиком', zh: '成为供应商', fr: 'Devenir fournisseur' }),
         link('/tesis-yonetimi',         { tr: 'Tesis Yönetimi',           en: 'Property Management', de: 'Objektverwaltung', ru: 'Управление объектом', zh: '物业托管', fr: 'Gestion d\'établissement' }),

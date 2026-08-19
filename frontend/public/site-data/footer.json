@@ -298,8 +298,16 @@
       ]
     },
     {
-      "titleTr": "Ortaklar İçin",
-      "titleEn": "For Partners",
+      "titleTr": "Ortaklık",
+      "titleEn": "Partnerships",
+      "title_i18n": {
+        "tr": "Ortaklık",
+        "en": "Partnerships",
+        "de": "Partnerschaften",
+        "ru": "Партнёрство",
+        "zh": "合作",
+        "fr": "Partenariats"
+      },
       "links": [
         {
           "nameTr": "Tedarikçi Olun",

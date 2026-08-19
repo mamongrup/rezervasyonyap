@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import savedFooterConfig from '../../public/site-data/footer.json'
 import { DEFAULT_FOOTER_SITE_CONFIG } from '@/lib/footer-site-defaults'
+import { getFooterSiteConfig } from '@/lib/footer-site-config'
+import {
+  buildFooterFiveSectionLayout,
+  FOOTER_CATEGORIES_TITLE_I18N,
+  FOOTER_PARTNERSHIPS_TITLE_I18N,
+} from '@/lib/footer-site-layout'
 
 const requiredCategoryLinks = [
   '/oteller/all',
@@ -85,6 +91,66 @@ describe('footer site links', () => {
       expect(Object.keys(column.title_i18n ?? {})).toEqual(expect.arrayContaining(activeLocales))
       for (const link of column.links) {
         expect(Object.keys(link.name_i18n ?? {})).toEqual(expect.arrayContaining(activeLocales))
+      }
+    }
+  })
+
+  it('builds the requested five-section footer without dropping links', () => {
+    const columns = DEFAULT_FOOTER_SITE_CONFIG.columns.map((column) => ({
+      title: column.titleTr,
+      links: column.links.map((link) => ({ name: link.nameTr, href: link.href })),
+    }))
+    const layout = buildFooterFiveSectionLayout(columns)
+
+    expect(layout.categoryGroups.map((group) => group.title)).toEqual([
+      'Konaklama',
+      'Deneyim',
+      'Hizmetler',
+    ])
+    expect(layout.categoryGroups[2].links.map((link) => link.name)).toEqual([
+      'Araç',
+      'Uçak',
+      'Transfer',
+      'Feribot',
+      'Vize',
+      'eSIM',
+      'Sigorta',
+    ])
+    expect(layout.destinations.title).toBe('Popüler Destinasyonlar')
+    expect([layout.support.title, layout.company.title, layout.partners.title]).toEqual([
+      'Destek',
+      'Kurumsal',
+      'Ortaklık',
+    ])
+  })
+
+  it('keeps the new section headings complete in all storefront languages', () => {
+    for (const labels of [
+      FOOTER_CATEGORIES_TITLE_I18N,
+      FOOTER_PARTNERSHIPS_TITLE_I18N,
+    ]) {
+      expect(Object.keys(labels)).toEqual(expect.arrayContaining(activeLocales))
+      for (const locale of activeLocales) {
+        expect(labels[locale as keyof typeof labels]).toBeTruthy()
+      }
+    }
+  })
+
+  it('normalizes every visible footer label for all active storefront languages', async () => {
+    const config = await getFooterSiteConfig()
+    const maps = [
+      config.tagline_i18n,
+      ...config.trustBadges.flatMap((badge) => [badge.title_i18n, badge.subtitle_i18n]),
+      ...config.columns.flatMap((column) => [
+        column.title_i18n,
+        ...column.links.map((link) => link.name_i18n),
+      ]),
+      ...config.legalLinks.map((link) => link.name_i18n),
+    ]
+
+    for (const map of maps) {
+      for (const locale of activeLocales) {
+        expect(map?.[locale as keyof typeof map]).toBeTruthy()
       }
     }
   })
