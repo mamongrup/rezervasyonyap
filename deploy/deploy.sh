@@ -207,8 +207,10 @@ main() {
     # Yarım kalan derlemeler Gleam'in hedef bazlı kilitlerini bırakabiliyor
     # (`gleam-dev-erlang.lock`, `gleam-prod-javascript.lock` vb.).
     find build -maxdepth 1 -type f -name 'gleam-*.lock' -delete 2>/dev/null || true
-    timeout 15m gleam build < /dev/null
-    timeout 10m gleam export erlang-shipment < /dev/null
+    # Temiz VPS derlemesinde OTP/Gleam bağımlılıkları 15 dakikayı aşabiliyor.
+    # SSH'den bağımsız detached deploy için geniş varsayılan; gerektiğinde env ile ayarlanır.
+    timeout "${BACKEND_BUILD_TIMEOUT:-60m}" gleam build < /dev/null
+    timeout "${BACKEND_EXPORT_TIMEOUT:-20m}" gleam export erlang-shipment < /dev/null
   )
   fi
   SHIP="$APP_ROOT/backend/build/erlang-shipment"
