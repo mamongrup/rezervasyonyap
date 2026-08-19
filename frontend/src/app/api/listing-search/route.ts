@@ -10,6 +10,7 @@ import {
   categoryLabelForSearch,
   dedupeSearchListings,
   publicListingDetailPath,
+  rankSearchListings,
   SEARCH_MIN_QUERY_LEN,
   searchCategoryLabelsFromMessages,
 } from '@/lib/search-listings-display'
@@ -110,7 +111,7 @@ export async function GET(req: NextRequest) {
       loadCategoryLabels(locale),
     ])
 
-    const deduped = dedupeSearchListings(listingsSettled)
+    const deduped = rankSearchListings(dedupeSearchListings(listingsSettled), q)
     for (const item of deduped) {
       const catLabel = categoryLabelForSearch(item.category_code, categoryLabels)
       suggestions.push({

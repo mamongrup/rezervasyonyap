@@ -66,6 +66,53 @@ export function dedupeSearchListings(items: PublicListingItem[]): PublicListingI
   return [...byKey.values()]
 }
 
+function normalizeSearchText(value: string): string {
+  return value
+    .replace(/ı/g, 'i')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLocaleLowerCase('en-US')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim()
+}
+
+function listingQueryRelevance(item: PublicListingItem, query: string): number {
+  const normalizedQuery = normalizeSearchText(query)
+  const queryTokens = normalizedQuery.split(' ').filter(Boolean)
+  if (!normalizedQuery || queryTokens.length === 0) return 0
+
+  const title = normalizeSearchText(item.title)
+  const slug = normalizeSearchText(item.slug)
+  const location = normalizeSearchText(item.location ?? '')
+  const titleTokens = new Set(title.split(' ').filter(Boolean))
+  const slugTokens = new Set(slug.split(' ').filter(Boolean))
+
+  if (title === normalizedQuery) return 520
+  if (slug === normalizedQuery) return 510
+  if (` ${title} `.includes(` ${normalizedQuery} `)) return 500
+  if (` ${slug} `.includes(` ${normalizedQuery} `)) return 480
+  if (queryTokens.every((token) => titleTokens.has(token))) return 440
+  if (queryTokens.every((token) => slugTokens.has(token))) return 420
+  if (queryTokens.every((token) => titleTokens.has(token) || slugTokens.has(token))) return 400
+  if (queryTokens.every((token) => title.split(' ').some((word) => word.startsWith(token)))) return 300
+  if (queryTokens.every((token) => `${title} ${slug} ${location}`.includes(token))) return 200
+  return 0
+}
+
+/**
+ * Backend sıralamasına karşı koruma: tam ifade ve tam kelime eşleşmeleri daima
+ * `Adagio … Village` gibi yalnızca önek eşleşen sonuçlardan önce gösterilir.
+ */
+export function rankSearchListings(
+  items: PublicListingItem[],
+  query: string,
+): PublicListingItem[] {
+  return items
+    .map((item, index) => ({ item, index, score: listingQueryRelevance(item, query) }))
+    .sort((a, b) => b.score - a.score || a.index - b.index)
+    .map(({ item }) => item)
+}
+
 export function publicListingDetailPath(categoryCode: string, slug: string): string {
   const seg = DETAIL_SEGMENT[categoryCode] ?? 'otel'
   return `/${seg}/${slug}`

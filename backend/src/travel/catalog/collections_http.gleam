@@ -40,7 +40,6 @@ fn json_err(status: Int, msg: String) -> Response {
     status,
   )
 }
-
 fn read_body_string(req: Request) -> Result(String, Nil) {
   use bits <- result.try(wisp.read_body_bits(req))
   bit_array.to_string(bits)
@@ -1995,54 +1994,87 @@ fn search_listings_impl(
     <> order_sql
 
   // Autocomplete: $1=q $2=cat $3=locale $4=limit $5=offset.
-  // Aday kümesi: title ∪ slug ∪ location (trgm). listing_meta JSON taraması YOK —
-  // her tuşta tüm meta satırlarını ILIKE etmek saniyelik gecikme yaratıyordu.
-  // Dal başına LIMIT 100 → kısa/popüler tokenlarda tüm kataloğu sıralamayı önler.
+  // Aday kümesi: tam ifade + her sorgu token'ı için title ∪ slug ∪ location (trgm).
+  // Yalnız ilk token'dan rastgele 100 aday almak `ada villa` gibi sorgularda doğru
+  // villaları aday havuzuna girmeden eliyordu. Tam ifade dalı bu ilanları doğrudan
+  // yakalar; token başına sınırlı dallar ise araya kelime giren adları tamamlar.
+  // listing_meta JSON taraması YOK — her tuşta seq scan yaratmamak için.
   let suggest_page_sql =
     "with toks as ("
-    <> "  select trim(tok) as tok from unnest(string_to_array(trim(coalesce($1::text, '')), ' ')) as u(tok)"
+    <> "  select trim(tok) as tok, ord::int as ord from unnest(string_to_array(trim(coalesce($1::text, '')), ' ')) with ordinality as u(tok, ord)"
     <> "  where trim(tok) <> ''"
-    <> "), first_tok as ("
-    <> "  select coalesce((select tok from toks limit 1), '') as tok"
+    <> "), query_text as ("
+    <> "  select trim(coalesce($1::text, '')) as q"
     <> "), cand as ("
     <> "  select distinct u.id from ("
     <> "    ("
     <> "      select lt.listing_id as id"
     <> "      from listing_translations lt"
-    <> "      cross join first_tok ft"
-    <> "      where ft.tok <> '' and ("
-    <> "        translate(lower(lt.title), 'üğışöç', 'ugisoc') ilike ft.tok || '%'"
-    <> "        or translate(lower(lt.title), 'üğışöç', 'ugisoc') ilike '% ' || ft.tok || '%'"
-    <> "        or (char_length(ft.tok) >= 4 and translate(lower(lt.title), 'üğışöç', 'ugisoc') ilike '%' || ft.tok || '%')"
+    <> "      cross join query_text qt"
+    <> "      where qt.q <> ''"
+    <> "        and translate(lower(lt.title), 'üğışöç', 'ugisoc') ilike '%' || qt.q || '%'"
+    <> "      limit 100"
+    <> "    )"
+    <> "    union all"
+    <> "    ("
+    <> "      select l.id"
+    <> "      from listings l"
+    <> "      cross join query_text qt"
+    <> "      where l.status = 'published' and qt.q <> '' and ("
+    <> "        lower(replace(l.slug, '-', ' ')) ilike '%' || qt.q || '%'"
+    <> "        or translate(lower(coalesce(l.location_name, '')), 'üğışöç', 'ugisoc') ilike '%' || qt.q || '%'"
     <> "      )"
     <> "      limit 100"
     <> "    )"
     <> "    union all"
     <> "    ("
+    <> "      select hit.id"
+    <> "      from toks t"
+    <> "      cross join lateral ("
+    <> "      select lt.listing_id as id"
+    <> "      from listing_translations lt"
+    <> "      where translate(lower(lt.title), 'üğışöç', 'ugisoc') ilike t.tok || '%'"
+    <> "        or translate(lower(lt.title), 'üğışöç', 'ugisoc') ilike '% ' || t.tok || '%'"
+    <> "        or (char_length(t.tok) >= 4 and translate(lower(lt.title), 'üğışöç', 'ugisoc') ilike '%' || t.tok || '%')"
+    <> "      limit 100"
+    <> "      ) hit on true"
+    <> "    )"
+    <> "    union all"
+    <> "    ("
+    <> "      select hit.id"
+    <> "      from toks t"
+    <> "      cross join lateral ("
     <> "      select l.id from listings l"
-    <> "      cross join first_tok ft"
-    <> "      where l.status = 'published' and ft.tok <> '' and ("
-    <> "        lower(replace(l.slug, '-', ' ')) ilike ft.tok || '%'"
-    <> "        or lower(replace(l.slug, '-', ' ')) ilike '% ' || ft.tok || '%'"
-    <> "        or (char_length(ft.tok) >= 4 and lower(replace(l.slug, '-', ' ')) ilike '%' || ft.tok || '%')"
-    <> "        or translate(lower(coalesce(l.location_name, '')), 'üğışöç', 'ugisoc') ilike ft.tok || '%'"
-    <> "        or translate(lower(coalesce(l.location_name, '')), 'üğışöç', 'ugisoc') ilike '% ' || ft.tok || '%'"
-    <> "        or (char_length(ft.tok) >= 4 and translate(lower(coalesce(l.location_name, '')), 'üğışöç', 'ugisoc') ilike '%' || ft.tok || '%')"
+    <> "      where l.status = 'published' and ("
+    <> "        lower(replace(l.slug, '-', ' ')) ilike t.tok || '%'"
+    <> "        or lower(replace(l.slug, '-', ' ')) ilike '% ' || t.tok || '%'"
+    <> "        or (char_length(t.tok) >= 4 and lower(replace(l.slug, '-', ' ')) ilike '%' || t.tok || '%')"
+    <> "        or translate(lower(coalesce(l.location_name, '')), 'üğışöç', 'ugisoc') ilike t.tok || '%'"
+    <> "        or translate(lower(coalesce(l.location_name, '')), 'üğışöç', 'ugisoc') ilike '% ' || t.tok || '%'"
+    <> "        or (char_length(t.tok) >= 4 and translate(lower(coalesce(l.location_name, '')), 'üğışöç', 'ugisoc') ilike '%' || t.tok || '%')"
     <> "      )"
     <> "      limit 100"
+    <> "      ) hit on true"
     <> "    )"
     <> "  ) u"
     <> "), page_ids as materialized ("
     <> "  select ranked.id, ranked.rn from ("
     <> "    select l.id, row_number() over (order by "
-    <> "      case when pc.code in ('holiday_home', 'yacht_charter', 'tour', 'activity') then 0 else 1 end asc, "
     <> "      case "
-    <> "        when lower(replace(l.slug, '-', ' ')) ilike (select tok from first_tok) || '%' then 0 "
+    // Önce bütün sorgunun başlık/slug içinde kelime sınırlarıyla tam ifadesi,
+    // sonra bütün token'ların tam kelime eşleşmesi; `villa` → `village` bundan sonra gelir.
+    <> "        when (' ' || regexp_replace(lower(replace(l.slug, '-', ' ')), '[^a-z0-9]+', ' ', 'g') || ' ') ilike '% ' || (select q from query_text) || ' %' then 0 "
     <> "        when exists ("
     <> "          select 1 from listing_translations lt where lt.listing_id = l.id "
-    <> "            and translate(lower(lt.title), 'üğışöç', 'ugisoc') ilike (select tok from first_tok) || '%'"
+    <> "            and (' ' || regexp_replace(translate(lower(lt.title), 'üğışöç', 'ugisoc'), '[^a-z0-9]+', ' ', 'g') || ' ') ilike '% ' || (select q from query_text) || ' %'"
     <> "        ) then 0 "
-    <> "        else 1 end asc, "
+    <> "        when (select coalesce(bool_and((' ' || regexp_replace(lower(replace(l.slug, '-', ' ')), '[^a-z0-9]+', ' ', 'g') || ' ') ilike '% ' || tok || ' %'), false) from toks) then 1 "
+    <> "        when exists ("
+    <> "          select 1 from listing_translations lt where lt.listing_id = l.id and "
+    <> "            (select coalesce(bool_and((' ' || regexp_replace(translate(lower(lt.title), 'üğışöç', 'ugisoc'), '[^a-z0-9]+', ' ', 'g') || ' ') ilike '% ' || tok || ' %'), false) from toks)"
+    <> "        ) then 1 "
+    <> "        else 2 end asc, "
+    <> "      case when pc.code in ('holiday_home', 'yacht_charter', 'tour', 'activity') then 0 else 1 end asc, "
     <> "      l.created_at desc"
     <> "    ) as rn "
     <> "    from cand "
