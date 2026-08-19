@@ -1,3 +1,5 @@
+'use client'
+
 import {
   type ListingDetailCampaignItem,
 } from '@/lib/listing-detail-campaigns'
