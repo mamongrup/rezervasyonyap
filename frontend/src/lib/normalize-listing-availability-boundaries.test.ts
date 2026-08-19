@@ -7,7 +7,7 @@ function day(value: string, am: boolean, pm: boolean): ListingAvailabilityDay {
 }
 
 describe('normalizeOrphanHalfDayBoundaries', () => {
-  it('adds only the checkout boundary after legacy fully blocked ranges', () => {
+  it('adds check-in and checkout boundaries to legacy fully blocked ranges', () => {
     const result = normalizeOrphanHalfDayBoundaries([
       day('2026-09-01', true, true),
       day('2026-09-02', false, false),
@@ -18,7 +18,7 @@ describe('normalizeOrphanHalfDayBoundaries', () => {
 
     expect(result.map((row) => [row.am_available, row.pm_available])).toEqual([
       [true, true],
-      [false, false],
+      [true, false],
       [false, false],
       [false, false],
       [false, true],
