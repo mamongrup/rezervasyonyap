@@ -89,7 +89,10 @@ function fetchSuggestions(
       if (!res.ok) throw new Error(`listing_search_${res.status}`)
       const data = (await res.json()) as { suggestions: SearchSuggestion[] }
       const next = Array.isArray(data.suggestions) ? data.suggestions : []
-      cachePut(cacheKey, next)
+      // Geçici backend/DB hatası boş listeye çevrilebilir; boş yanıtı oturum boyunca
+      // cache'leyip aramayı kalıcı biçimde sonuçsuz bırakma.
+      if (next.length > 0) cachePut(cacheKey, next)
+      else suggestCache.delete(cacheKey)
       return next
     })
     .finally(() => {

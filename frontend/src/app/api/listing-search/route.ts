@@ -156,7 +156,10 @@ export async function GET(req: NextRequest) {
       headers: {
         // Suggest sonuçları kısa süre CDN/edge + tarayıcı cache — geri silip yeniden
         // yazınca (aynı sorgu) ağ beklemeden anında dolsun.
-        'Cache-Control': 'public, max-age=60, s-maxage=90, stale-while-revalidate=300',
+        // Boş sonuç geçici backend/DB hatası da olabilir; boş yanıt cache'lenmez.
+        'Cache-Control': suggestions.length > 0
+          ? 'public, max-age=60, s-maxage=90, stale-while-revalidate=300'
+          : 'no-store',
       },
     },
   )
