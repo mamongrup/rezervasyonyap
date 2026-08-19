@@ -1,18 +1,13 @@
-'use client'
-
 import ButtonPrimary from '@/shared/ButtonPrimary'
 import { Divider } from '@/shared/divider'
 import { getMessages } from '@/utils/getT'
-import { useParams } from 'next/navigation'
 
-/**
- * İstemci sayfası: Next 16 production worker'ında bu rotanın metadata
- * prerender'ı request workStore olmadan çalışıp bütün build'i düşürebiliyordu.
- * Hesap layout'u zaten dinamik; locale'i güvenli biçimde URL parametresinden al.
- */
-export default function AccountBillingPage() {
-  const params = useParams<{ locale?: string }>()
-  const locale = typeof params?.locale === 'string' ? params.locale : 'tr'
+type AccountBillingPageProps = {
+  params: Promise<{ locale: string }>
+}
+
+export default async function AccountBillingPage({ params }: AccountBillingPageProps) {
+  const { locale } = await params
   const T = getMessages(locale).accountPage
 
   return (
