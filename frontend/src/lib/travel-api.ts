@@ -9,6 +9,7 @@ import { profileFieldsFromAuthUser } from '@/lib/auth-display'
 import { setStoredAuthProfile } from '@/lib/auth-storage'
 import { formatLocalYmd } from '@/lib/date-format-local'
 import { parseLenientJson } from '@/lib/json-parse'
+import { normalizeOrphanHalfDayBoundaries } from '@/lib/normalize-listing-availability-boundaries'
 import {
   parseHolidayHomeFaqTemplatePayload,
   type HolidayHomeFaqTemplatePayload,
@@ -2709,10 +2710,11 @@ export async function fetchPublicListingAvailabilityDaysSafe(
   from.setHours(0, 0, 0, 0)
   const to = new Date(from)
   to.setMonth(to.getMonth() + 24)
-  return getPublicListingAvailabilityCalendar(listingId.trim(), {
+  const days = await getPublicListingAvailabilityCalendar(listingId.trim(), {
     from: formatLocalYmd(from),
     to: formatLocalYmd(to),
   })
+  return normalizeOrphanHalfDayBoundaries(days)
 }
 
 export type ListingBedroomRow = {
