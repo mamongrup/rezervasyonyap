@@ -16,7 +16,8 @@ function amPm(row: ListingAvailabilityDay | undefined): { am: boolean; pm: boole
 }
 
 /**
- * Bir kapalı gece aralığına bağlanmayan yarım günleri açar.
+ * Tam kapalı gece aralıklarının giriş/çıkış sınırlarını üretir ve bir kapalı
+ * gece aralığına bağlanmayan yarım günleri açar.
  * Geçerli desenler: check-in → kapalı gün(ler) → checkout veya tek gecede
  * check-in → checkout. Böylece çift checkout ve açık günler arasındaki sahipsiz
  * sınırlar rezervasyon takviminde gösterilmez.
@@ -37,6 +38,16 @@ export function normalizeOrphanHalfDayBoundaries(
     const previousIsCheckin = previous.am && !previous.pm
     const nextIsFull = !next.am && !next.pm
     const nextIsCheckout = !next.am && next.pm
+
+    // Eski takvim kayıtları yalnızca kapalı günleri saklayabiliyor. Vitrinde
+    // her kapalı gece bloğunun iki ucunu da yarım gün olarak göster ki tüm
+    // ilanlar, kaydın hangi sürümde oluşturulduğundan bağımsız aynı davransın.
+    if (current.am && current.pm && nextIsFull) {
+      return { ...row, is_available: true, am_available: true, pm_available: false }
+    }
+    if (current.am && current.pm && previousIsFull) {
+      return { ...row, is_available: true, am_available: false, pm_available: true }
+    }
 
     if (isCheckin && !nextIsFull && !nextIsCheckout) {
       return { ...row, is_available: true, am_available: true, pm_available: true }

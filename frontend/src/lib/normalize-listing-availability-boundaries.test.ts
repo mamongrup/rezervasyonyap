@@ -7,6 +7,24 @@ function day(value: string, am: boolean, pm: boolean): ListingAvailabilityDay {
 }
 
 describe('normalizeOrphanHalfDayBoundaries', () => {
+  it('adds boundaries around legacy fully blocked ranges', () => {
+    const result = normalizeOrphanHalfDayBoundaries([
+      day('2026-09-01', true, true),
+      day('2026-09-02', false, false),
+      day('2026-09-03', false, false),
+      day('2026-09-04', false, false),
+      day('2026-09-05', true, true),
+    ])
+
+    expect(result.map((row) => [row.am_available, row.pm_available])).toEqual([
+      [true, false],
+      [false, false],
+      [false, false],
+      [false, false],
+      [false, true],
+    ])
+  })
+
   it('keeps real range boundaries and removes a duplicate checkout', () => {
     const result = normalizeOrphanHalfDayBoundaries([
       day('2026-08-18', true, false),
