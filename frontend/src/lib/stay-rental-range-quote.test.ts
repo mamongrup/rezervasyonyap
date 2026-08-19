@@ -90,7 +90,7 @@ describe('computeStayRentalLodgingQuote', () => {
   it('keeps an active campaign ahead of a normal calendar price override', () => {
     const quote = computeStayRentalLodgingQuote({
       days: [
-        { day: '2026-07-15', status: 'available', price_override: '18000' },
+        { day: '2026-07-15', is_available: true, price_override: '18000' },
       ],
       priceRules: [{
         id: 'campaign',

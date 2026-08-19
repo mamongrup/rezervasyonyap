@@ -59,7 +59,7 @@
     "lowlight": "^3.3.0",
     "lucide-react": "^0.577.0",
     "maplibre-gl": "^5.20.2",
-    "next": "16.2.12",
+    "next": "16.3.1",
     "postcss": "8.5.23",
     "radix-ui": "^1.4.3",
     "rc-slider": "^11.1.9",
