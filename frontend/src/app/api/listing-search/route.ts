@@ -93,10 +93,13 @@ export async function GET(req: NextRequest) {
   const signal = req.signal
 
   if (apiBase) {
+    // Backend'in ilk birkaç satırdaki kaba sıralaması frontend'in kelime/konum
+    // puanlamasını aç bırakmasın. Yanıt yine `limit` kadar; yalnız aday havuzu geniş.
+    const candidateLimit = Math.min(Math.max(limit * 6, 48), 100)
     const listingsUrl =
       `${apiBase}/api/v1/catalog/public/listings` +
       `?q=${encodeURIComponent(q)}&locale=${encodeURIComponent(locale)}` +
-      `&limit=${limit}&suggest=1` +
+      `&limit=${candidateLimit}&suggest=1` +
       (categoryCode ? `&category_code=${encodeURIComponent(categoryCode)}` : '')
 
     const [listingsSettled, collections, categoryLabels] = await Promise.all([

@@ -7,12 +7,14 @@ function listing(
   title: string,
   slug: string,
   categoryCode = 'holiday_home',
+  location = '',
 ): PublicListingItem {
   return {
     id,
     title,
     slug,
     category_code: categoryCode,
+    location,
   } as PublicListingItem
 }
 
@@ -27,7 +29,7 @@ describe('rankSearchListings', () => {
       'ada villa',
     )
 
-    expect(ranked.map((item) => item.id)).toEqual(['infinity', 'fethiye', 'adagio'])
+    expect(ranked.map((item) => item.id)).toEqual(['fethiye', 'infinity', 'adagio'])
   })
 
   it('handles Turkish characters and prefers the exact title', () => {
@@ -40,5 +42,48 @@ describe('rankSearchListings', () => {
     )
 
     expect(ranked.map((item) => item.id)).toEqual(['first', 'second'])
+  })
+
+  it('puts the whole ada word before Adana prefix matches', () => {
+    const ranked = rankSearchListings(
+      [
+        listing('adana-tour', 'Adana’dan Avrupa Turu', 'adanadan-avrupa-turu', 'tour'),
+        listing('ada-yacht', 'Ada Deniz Gulet', 'ada-deniz-gulet', 'yacht_charter'),
+        listing('ada-villa', 'Ada Villa', 'fethiye-ada-villa'),
+        listing('eco', 'Eco Ada Villa', 'eco-ada-villa'),
+      ],
+      'ada',
+    )
+
+    expect(ranked.map((item) => item.id)).toEqual([
+      'ada-villa',
+      'ada-yacht',
+      'eco',
+      'adana-tour',
+    ])
+  })
+
+  it('prefers a title prefix over a location-only match', () => {
+    const ranked = rankSearchListings(
+      [
+        listing('location', 'Bozyer Atlas Villa', 'bozyer-atlas-villa', 'holiday_home', 'Fethiye, Muğla'),
+        listing('title', 'Fethiye Scuba Diving', 'fethiye-scuba-diving', 'activity', 'Fethiye'),
+      ],
+      'feth',
+    )
+
+    expect(ranked.map((item) => item.id)).toEqual(['title', 'location'])
+  })
+
+  it('recognizes a transposed category word as a villa intent', () => {
+    const ranked = rankSearchListings(
+      [
+        listing('tour', 'Sevilla Turu', 'sevilla-turu', 'tour'),
+        listing('villa', 'Mamon Luxury Life Villa', 'mamon-luxury-life-villa'),
+      ],
+      'vilal',
+    )
+
+    expect(ranked.map((item) => item.id)).toEqual(['villa', 'tour'])
   })
 })

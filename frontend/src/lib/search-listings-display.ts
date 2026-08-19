@@ -76,27 +76,141 @@ function normalizeSearchText(value: string): string {
     .trim()
 }
 
+const CATEGORY_SEARCH_ALIASES: Partial<Record<string, string[]>> = {
+  hotel: ['otel', 'hotel', 'hoteller', 'hotels', ' гостиница', 'отель', '酒店'],
+  holiday_home: [
+    'villa',
+    'vila',
+    'bungalov',
+    'bungalow',
+    'apart',
+    'daire',
+    'tatil evi',
+    'holiday home',
+    'ferienhaus',
+    'ferienwohnung',
+    'maison de vacances',
+    'location vacances',
+    'вилла',
+    '度假屋',
+    '别墅',
+  ],
+  yacht_charter: ['yat', 'tekne', 'gulet', 'yacht', 'boot', 'bateau', 'яхта', '游艇'],
+  tour: ['tur', 'tour', 'tours', 'reise', 'reisen', 'circuit', 'excursion', 'тур', 'экскурсия', '旅游'],
+  activity: ['aktivite', 'activity', 'aktivitat', 'activite', 'активность', '活动'],
+  cruise: ['kruvaziyer', 'cruise', 'croisiere', 'kreuzfahrt', 'круиз', '邮轮'],
+}
+
+function words(value: string): string[] {
+  return value.split(' ').filter(Boolean)
+}
+
+function containsWholePhrase(value: string, phrase: string): boolean {
+  return ` ${value} `.includes(` ${phrase} `)
+}
+
+/** Tek harf hatası veya yan yana iki harfin yer değiştirmesi (vilal → villa). */
+function isNearToken(value: string, expected: string): boolean {
+  if (value === expected) return true
+  if (value.length < 4 || expected.length < 4) return false
+  if (Math.abs(value.length - expected.length) > 1) return false
+
+  if (value.length === expected.length) {
+    const mismatches: number[] = []
+    for (let index = 0; index < value.length; index += 1) {
+      if (value[index] !== expected[index]) mismatches.push(index)
+      if (mismatches.length > 2) return false
+    }
+    if (mismatches.length <= 1) return true
+    const [first, second] = mismatches
+    return (
+      second === first + 1 &&
+      value[first] === expected[second] &&
+      value[second] === expected[first]
+    )
+  }
+
+  const [shorter, longer] = value.length < expected.length
+    ? [value, expected]
+    : [expected, value]
+  let shortIndex = 0
+  let longIndex = 0
+  let edits = 0
+  while (shortIndex < shorter.length && longIndex < longer.length) {
+    if (shorter[shortIndex] === longer[longIndex]) {
+      shortIndex += 1
+      longIndex += 1
+      continue
+    }
+    edits += 1
+    longIndex += 1
+    if (edits > 1) return false
+  }
+  return true
+}
+
+function tokenFieldScore(token: string, fieldWords: string[], field: string): number {
+  if (fieldWords.includes(token)) return 120
+  if (fieldWords.some((word) => word.startsWith(token))) return 90
+  if (fieldWords.some((word) => isNearToken(word, token))) return 65
+  if (field.includes(token)) return 35
+  return 0
+}
+
+function categoryIntentScore(categoryCode: string, query: string, queryTokens: string[]): number {
+  const aliases = CATEGORY_SEARCH_ALIASES[categoryCode] ?? []
+  for (const rawAlias of aliases) {
+    const alias = normalizeSearchText(rawAlias)
+    if (!alias) continue
+    if (query === alias || containsWholePhrase(query, alias)) return 240
+    const aliasTokens = words(alias)
+    if (
+      aliasTokens.length === 1 &&
+      queryTokens.some((token) => isNearToken(token, aliasTokens[0]))
+    ) {
+      return 180
+    }
+  }
+  return 0
+}
+
 function listingQueryRelevance(item: PublicListingItem, query: string): number {
   const normalizedQuery = normalizeSearchText(query)
-  const queryTokens = normalizedQuery.split(' ').filter(Boolean)
+  const queryTokens = words(normalizedQuery)
   if (!normalizedQuery || queryTokens.length === 0) return 0
 
   const title = normalizeSearchText(item.title)
   const slug = normalizeSearchText(item.slug)
   const location = normalizeSearchText(item.location ?? '')
-  const titleTokens = new Set(title.split(' ').filter(Boolean))
-  const slugTokens = new Set(slug.split(' ').filter(Boolean))
+  const titleWords = words(title)
+  const slugWords = words(slug)
+  const locationWords = words(location)
 
-  if (title === normalizedQuery) return 520
-  if (slug === normalizedQuery) return 510
-  if (` ${title} `.includes(` ${normalizedQuery} `)) return 500
-  if (` ${slug} `.includes(` ${normalizedQuery} `)) return 480
-  if (queryTokens.every((token) => titleTokens.has(token))) return 440
-  if (queryTokens.every((token) => slugTokens.has(token))) return 420
-  if (queryTokens.every((token) => titleTokens.has(token) || slugTokens.has(token))) return 400
-  if (queryTokens.every((token) => title.split(' ').some((word) => word.startsWith(token)))) return 300
-  if (queryTokens.every((token) => `${title} ${slug} ${location}`.includes(token))) return 200
-  return 0
+  let score = categoryIntentScore(item.category_code, normalizedQuery, queryTokens)
+  if (title === normalizedQuery) score += 10_000
+  else if (slug === normalizedQuery) score += 9_500
+  else if (containsWholePhrase(title, normalizedQuery)) score += 8_000
+  else if (containsWholePhrase(slug, normalizedQuery)) score += 7_500
+
+  let allTokensMatched = true
+  for (const token of queryTokens) {
+    const titleScore = tokenFieldScore(token, titleWords, title)
+    const slugScore = tokenFieldScore(token, slugWords, slug)
+    const locationScore = tokenFieldScore(token, locationWords, location)
+    const best = Math.max(titleScore, slugScore, locationScore)
+    if (best === 0) allTokensMatched = false
+    score += titleScore * 5 + slugScore * 3 + locationScore * 2
+  }
+
+  if (allTokensMatched) score += 1_000
+  if (title.startsWith(normalizedQuery)) score += 700
+  else if (slug.startsWith(normalizedQuery)) score += 600
+  else if (location.startsWith(normalizedQuery)) score += 350
+
+  // Aynı eşleşme sınıfında kısa, doğrudan başlıklar uzun tur metinlerinden önce gelsin.
+  score += Math.max(0, 120 - title.length)
+  if (item.featured_image_url?.trim() || item.thumbnail_url?.trim()) score += 10
+  return score
 }
 
 /**
