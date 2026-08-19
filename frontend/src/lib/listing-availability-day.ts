@@ -44,6 +44,17 @@ export function listingDayVisualStatus(row: ListingAvailabilityDay | undefined):
   return 'available'
 }
 
+/**
+ * Bugün için geçmiş sabah dilimini kapatır. Öğleden sonra müsaitse aynı gün
+ * giriş yapılabilir (checkout görünümü); öğleden sonra doluysa gün kapalıdır.
+ */
+export function listingTodayVisualStatus(
+  row: ListingAvailabilityDay | undefined,
+): ListingDayVisualStatus {
+  if (normalizeListingDayStatus(row?.day_status ?? null) === 'option') return 'blocked'
+  return listingDayPmOpen(row) ? 'checkout' : 'blocked'
+}
+
 /** Gün tamamen dolu veya opsiyon (giriş yapılamaz) */
 export function isListingDayFullyBlocked(row: ListingAvailabilityDay | undefined): boolean {
   if (normalizeListingDayStatus(row?.day_status ?? null) === 'option') return true

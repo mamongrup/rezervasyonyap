@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   listingDayOpenForStayNight,
+  listingTodayVisualStatus,
   listingDayVisualStatus,
 } from './listing-availability-day'
 import {
@@ -48,6 +49,18 @@ describe('listingDayVisualStatus', () => {
 
   it('shows checkin when afternoon is occupied', () => {
     expect(listingDayVisualStatus(dayRow('2026-08-07', true, false, true))).toBe('checkin')
+  })
+})
+
+describe('listingTodayVisualStatus', () => {
+  it('shows an available today as afternoon check-in', () => {
+    expect(listingTodayVisualStatus(dayRow('2026-08-19', true, true))).toBe('checkout')
+    expect(listingTodayVisualStatus(dayRow('2026-08-19', false, true))).toBe('checkout')
+  })
+
+  it('closes today when the afternoon is occupied', () => {
+    expect(listingTodayVisualStatus(dayRow('2026-08-19', true, false))).toBe('blocked')
+    expect(listingTodayVisualStatus(dayRow('2026-08-19', false, false))).toBe('blocked')
   })
 })
 

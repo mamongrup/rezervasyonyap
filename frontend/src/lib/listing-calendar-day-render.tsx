@@ -1,5 +1,9 @@
 import DatePickerCustomDay from '@/components/DatePickerCustomDay'
-import { listingDayAmPm, listingDayVisualStatus } from '@/lib/listing-availability-day'
+import {
+  listingDayAmPm,
+  listingDayVisualStatus,
+  listingTodayVisualStatus,
+} from '@/lib/listing-availability-day'
 import type { ListingAvailabilityDay } from '@/lib/travel-api'
 
 /**
@@ -12,6 +16,7 @@ export function renderListingCalendarDayContents(
   byYmd: Map<string, ListingAvailabilityDay>,
   formatLocalYmd: (d: Date) => string,
   minSelectableYmd?: string,
+  todayYmd = formatLocalYmd(new Date()),
 ) {
   const ymd = date ? formatLocalYmd(date) : ''
   if (minSelectableYmd && ymd && ymd < minSelectableYmd) {
@@ -27,7 +32,9 @@ export function renderListingCalendarDayContents(
   }
   const row = ymd ? byYmd.get(ymd) : undefined
   const { am, pm } = listingDayAmPm(row)
-  const visualStatus = listingDayVisualStatus(row)
+  const visualStatus = ymd === todayYmd
+    ? listingTodayVisualStatus(row)
+    : listingDayVisualStatus(row)
   return (
     <DatePickerCustomDay
       dayOfMonth={day}
