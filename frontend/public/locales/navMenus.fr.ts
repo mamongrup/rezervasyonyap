@@ -85,6 +85,19 @@ export const navMenus = {
           '1c-4': 'Transferts',
         },
       },
+      '1d': {
+        title: 'Destinations',
+        links: {
+          '1d-1': 'Istanbul',
+          '1d-2': 'Antalya',
+          '1d-3': 'Bodrum',
+          '1d-4': 'Marmaris',
+          '1d-5': 'Cappadoce',
+          '1d-6': 'Circuits Égée & Méditerranée',
+          '1d-7': 'Circuits culturels',
+          '1d-8': 'Circuits européens',
+        },
+      },
       '2': {
         title: 'Exemples d’annonces',
         links: {

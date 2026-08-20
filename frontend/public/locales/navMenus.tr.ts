@@ -85,6 +85,19 @@ export const navMenus = {
           '1c-4': 'Transfer',
         },
       },
+      '1d': {
+        title: 'Destinasyonlar',
+        links: {
+          '1d-1': 'İstanbul',
+          '1d-2': 'Antalya',
+          '1d-3': 'Bodrum',
+          '1d-4': 'Marmaris',
+          '1d-5': 'Kapadokya',
+          '1d-6': 'Ege & Akdeniz Turları',
+          '1d-7': 'Kültür Turları',
+          '1d-8': 'Avrupa Turları',
+        },
+      },
       '2': {
         title: 'Örnek ilanlar',
         links: {

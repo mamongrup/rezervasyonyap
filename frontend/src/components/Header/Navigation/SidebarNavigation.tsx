@@ -85,6 +85,7 @@ const MEGA_GROUP_ICONS: Record<string, IconComponent> = {
   '1': House04Icon,
   '1b': HotAirBalloonIcon,
   '1c': Airplane02Icon,
+  '1d': Compass01Icon,
   '2': LegalDocument01Icon,
   '4': GridIcon,
   admin: Compass01Icon,

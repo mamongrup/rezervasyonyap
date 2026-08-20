@@ -88,6 +88,19 @@ export const navMenus = {
           '1c-4': 'Transfers',
         },
       },
+      '1d': {
+        title: 'Destinations',
+        links: {
+          '1d-1': 'Istanbul',
+          '1d-2': 'Antalya',
+          '1d-3': 'Bodrum',
+          '1d-4': 'Marmaris',
+          '1d-5': 'Cappadocia',
+          '1d-6': 'Aegean & Mediterranean Tours',
+          '1d-7': 'Cultural Tours',
+          '1d-8': 'European Tours',
+        },
+      },
       '2': {
         title: 'Sample listings',
         links: {

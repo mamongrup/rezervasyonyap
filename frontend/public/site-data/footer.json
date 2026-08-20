@@ -185,47 +185,63 @@
       ]
     },
     {
-      "titleTr": "Popüler Destinasyonlar",
-      "titleEn": "Popular Destinations",
+      "titleTr": "Destinasyonlar",
+      "titleEn": "Destinations",
+      "title_i18n": {
+        "tr": "Destinasyonlar",
+        "en": "Destinations",
+        "de": "Reiseziele",
+        "ru": "Направления",
+        "zh": "目的地",
+        "fr": "Destinations"
+      },
       "links": [
         {
           "nameTr": "İstanbul",
           "nameEn": "Istanbul",
+          "name_i18n": { "tr": "İstanbul", "en": "Istanbul", "de": "Istanbul", "ru": "Стамбул", "zh": "伊斯坦布尔", "fr": "Istanbul" },
           "href": "/oteller/istanbul"
         },
         {
           "nameTr": "Antalya",
           "nameEn": "Antalya",
+          "name_i18n": { "tr": "Antalya", "en": "Antalya", "de": "Antalya", "ru": "Анталья", "zh": "安塔利亚", "fr": "Antalya" },
           "href": "/oteller/antalya"
         },
         {
           "nameTr": "Bodrum",
           "nameEn": "Bodrum",
+          "name_i18n": { "tr": "Bodrum", "en": "Bodrum", "de": "Bodrum", "ru": "Бодрум", "zh": "博德鲁姆", "fr": "Bodrum" },
           "href": "/oteller/bodrum"
         },
         {
           "nameTr": "Marmaris",
           "nameEn": "Marmaris",
+          "name_i18n": { "tr": "Marmaris", "en": "Marmaris", "de": "Marmaris", "ru": "Мармарис", "zh": "马尔马里斯", "fr": "Marmaris" },
           "href": "/oteller/marmaris"
         },
         {
           "nameTr": "Kapadokya",
           "nameEn": "Cappadocia",
+          "name_i18n": { "tr": "Kapadokya", "en": "Cappadocia", "de": "Kappadokien", "ru": "Каппадокия", "zh": "卡帕多奇亚", "fr": "Cappadoce" },
           "href": "/oteller/kapadokya"
         },
         {
           "nameTr": "Ege & Akdeniz Turları",
           "nameEn": "Aegean & Mediterranean Tours",
+          "name_i18n": { "tr": "Ege & Akdeniz Turları", "en": "Aegean & Mediterranean Tours", "de": "Ägäis- & Mittelmeer-Touren", "ru": "Туры Эгейское и Средиземное", "zh": "爱琴海与地中海之旅", "fr": "Circuits Égée & Méditerranée" },
           "href": "/turlar/ege-akdeniz-turlari"
         },
         {
           "nameTr": "Kültür Turları",
           "nameEn": "Cultural Tours",
+          "name_i18n": { "tr": "Kültür Turları", "en": "Cultural Tours", "de": "Kulturtouren", "ru": "Культурные туры", "zh": "文化之旅", "fr": "Circuits culturels" },
           "href": "/turlar/kultur-turlari"
         },
         {
           "nameTr": "Avrupa Turları",
           "nameEn": "European Tours",
+          "name_i18n": { "tr": "Avrupa Turları", "en": "European Tours", "de": "Europa-Touren", "ru": "Туры по Европе", "zh": "欧洲之旅", "fr": "Circuits européens" },
           "href": "/turlar/avrupa-turlari"
         }
       ]

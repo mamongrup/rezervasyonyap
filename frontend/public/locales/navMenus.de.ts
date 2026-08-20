@@ -85,6 +85,19 @@ export const navMenus = {
           '1c-4': 'Transfers',
         },
       },
+      '1d': {
+        title: 'Reiseziele',
+        links: {
+          '1d-1': 'Istanbul',
+          '1d-2': 'Antalya',
+          '1d-3': 'Bodrum',
+          '1d-4': 'Marmaris',
+          '1d-5': 'Kappadokien',
+          '1d-6': 'Ägäis- & Mittelmeer-Touren',
+          '1d-7': 'Kulturtouren',
+          '1d-8': 'Europa-Touren',
+        },
+      },
       '2': {
         title: 'Beispiel-Inserate',
         links: {

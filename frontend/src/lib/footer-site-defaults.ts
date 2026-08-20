@@ -115,7 +115,7 @@ export const DEFAULT_FOOTER_SITE_CONFIG: FooterSiteConfig = {
       ],
     ),
     column(
-      { tr: 'Popüler Destinasyonlar', en: 'Popular Destinations', de: 'Beliebte Reiseziele', ru: 'Популярные направления', zh: '热门目的地', fr: 'Destinations populaires' },
+      { tr: 'Destinasyonlar', en: 'Destinations', de: 'Reiseziele', ru: 'Направления', zh: '目的地', fr: 'Destinations' },
       [
         link('/oteller/istanbul',  { tr: 'İstanbul',  en: 'Istanbul',  de: 'Istanbul',  ru: 'Стамбул',     zh: '伊斯坦布尔', fr: 'Istanbul' }),
         link('/oteller/antalya',   { tr: 'Antalya',   en: 'Antalya',   de: 'Antalya',   ru: 'Анталья',     zh: '安塔利亚',   fr: 'Antalya' }),

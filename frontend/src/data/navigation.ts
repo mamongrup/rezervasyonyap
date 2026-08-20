@@ -69,6 +69,21 @@ export const STATIC_NAVIGATION: TNavigationItem[] = [
           ],
         },
         {
+          id: '1d',
+          href: '#',
+          name: 'Destinasyonlar',
+          children: [
+            { id: '1d-1', href: '/oteller/istanbul', name: 'İstanbul' },
+            { id: '1d-2', href: '/oteller/antalya', name: 'Antalya' },
+            { id: '1d-3', href: '/oteller/bodrum', name: 'Bodrum' },
+            { id: '1d-4', href: '/oteller/marmaris', name: 'Marmaris' },
+            { id: '1d-5', href: '/oteller/kapadokya', name: 'Kapadokya' },
+            { id: '1d-6', href: '/turlar/ege-akdeniz-turlari', name: 'Ege & Akdeniz Turları' },
+            { id: '1d-7', href: '/turlar/kultur-turlari', name: 'Kültür Turları' },
+            { id: '1d-8', href: '/turlar/avrupa-turlari', name: 'Avrupa Turları' },
+          ],
+        },
+        {
           id: '4',
           href: '#',
           name: 'Diğer sayfalar',
