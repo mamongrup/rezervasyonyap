@@ -14,7 +14,9 @@ const rootLayoutSource = readFileSync(
   join(process.cwd(), 'src', 'app', 'layout.tsx'),
   'utf8'
 )
-const babelConfigSource = readFileSync(join(process.cwd(), '.babelrc'), 'utf8')
+const packageJson = JSON.parse(readFileSync(join(process.cwd(), 'package.json'), 'utf8')) as {
+  dependencies?: Record<string, string>
+}
 
 describe('account billing production build safety', () => {
   it('reads locale from context without request-bound Next hooks', () => {
@@ -40,7 +42,8 @@ describe('account billing production build safety', () => {
     expect(existsSync(join(process.cwd(), 'src', 'app', 'global-error.tsx'))).toBe(false)
   })
 
-  it('keeps production builds independent from the AlmaLinux 8 SWC binary', () => {
-    expect(JSON.parse(babelConfigSource)).toEqual({ presets: ['next/babel'] })
+  it('pins Next to the AlmaLinux 8 compatible stable release', () => {
+    expect(packageJson.dependencies?.next).toBe('16.2.12')
+    expect(existsSync(join(process.cwd(), '.babelrc'))).toBe(false)
   })
 })
