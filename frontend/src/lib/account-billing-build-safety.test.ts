@@ -14,6 +14,7 @@ const rootLayoutSource = readFileSync(
   join(process.cwd(), 'src', 'app', 'layout.tsx'),
   'utf8'
 )
+const babelConfigSource = readFileSync(join(process.cwd(), '.babelrc'), 'utf8')
 
 describe('account billing production build safety', () => {
   it('reads locale from context without request-bound Next hooks', () => {
@@ -37,5 +38,9 @@ describe('account billing production build safety', () => {
     expect(rootLayoutSource).not.toContain('generateMetadata')
     expect(rootLayoutSource).toContain('export const metadata')
     expect(existsSync(join(process.cwd(), 'src', 'app', 'global-error.tsx'))).toBe(false)
+  })
+
+  it('keeps production builds independent from the AlmaLinux 8 SWC binary', () => {
+    expect(JSON.parse(babelConfigSource)).toEqual({ presets: ['next/babel'] })
   })
 })
