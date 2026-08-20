@@ -23,6 +23,16 @@ step() { echo; echo "==> $*"; }
 command -v mount >/dev/null || fail "mount komutu bulunamadi"
 command -v tar >/dev/null || fail "tar komutu bulunamadi"
 
+BUILD_HEAD="$(git -C "$APP_ROOT" rev-parse HEAD 2>/dev/null || true)"
+[[ -n "$BUILD_HEAD" ]] || fail "Git HEAD okunamadi: $APP_ROOT"
+if [[ -n "${EXPECTED_DEPLOY_COMMIT:-}" ]]; then
+  EXPECTED_HEAD="$(git -C "$APP_ROOT" rev-parse "${EXPECTED_DEPLOY_COMMIT}^{commit}" 2>/dev/null || true)"
+  [[ -n "$EXPECTED_HEAD" ]] || fail "Beklenen commit bulunamadi: $EXPECTED_DEPLOY_COMMIT"
+  [[ "$BUILD_HEAD" == "$EXPECTED_HEAD" ]] \
+    || fail "Yanlis kaynak derleniyor: HEAD=${BUILD_HEAD:0:8}, beklenen=${EXPECTED_HEAD:0:8}"
+fi
+echo "[OK] Derlenecek Git HEAD: ${BUILD_HEAD:0:8}"
+
 if [[ -f "$ENV_FILE" ]]; then
   # NEXT_PUBLIC_* build asamasinda gomulur; production ile ayni env kullanilmali.
   set -a
@@ -78,7 +88,7 @@ for entry in "$FRONTEND_DIR"/*; do
 done
 shopt -u dotglob nullglob
 
-step "Webpack production build (ara dosyalar RAM'de)"
+step "Webpack production build (HEAD=${BUILD_HEAD:0:8}, ara dosyalar RAM'de)"
 (
   cd "$RAM_DIR"
   export NEXT_TELEMETRY_DISABLED=1

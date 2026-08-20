@@ -31,22 +31,11 @@ import { notFound } from 'next/navigation'
 import { Suspense } from 'react'
 
 export const dynamicParams = true
-
-export async function generateStaticParams() {
-  try {
-    const rows = await fetchActiveLocales()
-    return rows.map((r) => ({ locale: r.code }))
-  } catch {
-    return [
-      { locale: 'tr' },
-      { locale: 'en' },
-      { locale: 'de' },
-      { locale: 'ru' },
-      { locale: 'zh' },
-      { locale: 'fr' },
-    ]
-  }
-}
+// Metadata ve vitrin verileri hostname/request bağlamına bağlıdır. Locale'leri
+// statik parametre listesiyle build sırasında zorla üretmek Next 16 worker'ında
+// request workStore olmadan hesap rotalarını prerender etmeye çalıştırıyordu.
+export const dynamic = 'force-dynamic'
+export const fetchCache = 'force-no-store'
 
 export async function generateMetadata({
   params,
