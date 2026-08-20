@@ -1,13 +1,12 @@
+'use client'
+
+import { useLocaleSegment } from '@/contexts/locale-context'
 import ButtonPrimary from '@/shared/ButtonPrimary'
 import { Divider } from '@/shared/divider'
 import { getMessages } from '@/utils/getT'
 
-type AccountBillingPageProps = {
-  params: Promise<{ locale: string }>
-}
-
-export default async function AccountBillingPage({ params }: AccountBillingPageProps) {
-  const { locale } = await params
+export default function AccountBillingPage() {
+  const locale = useLocaleSegment()
   const T = getMessages(locale).accountPage
 
   return (
