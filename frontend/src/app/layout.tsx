@@ -3,110 +3,32 @@ import SearchLoadingOverlay from '@/components/SearchLoadingOverlay'
 import { ThemeProvider } from '@/components/theme-provider'
 import { DirectionProvider } from '@/components/ui/direction'
 import { FavoritesProvider } from '@/context/FavoritesContext'
-import { defaultLocale, isAppLocale } from '@/lib/i18n-config'
-import {
-  brandingAssetPath,
-  brandingKeywords,
-  brandingSiteName,
-  DEFAULT_FAVICON_PATH,
-  metaSiteDescription,
-  ogLocaleForSite,
-  shareOgImageMeta,
-  toAbsoluteSiteUrl,
-} from '@/lib/site-branding-seo'
-import { getCachedSiteConfig } from '@/lib/site-config-cache'
-import { resolveCanonicalBaseUrl } from '@/lib/resolve-canonical-base-url'
-import {
-  resolveRequestBranding,
-  resolveSearchConsoleVerification,
-} from '@/lib/request-branding-seo'
+import { defaultLocale } from '@/lib/i18n-config'
+import { DEFAULT_FAVICON_PATH } from '@/lib/site-branding-seo'
 import { cn } from '@/lib/utils'
 import '@/styles/tailwind.css'
 import type { Metadata, Viewport } from 'next'
-import type { SitePublicConfig } from '@/lib/travel-api'
-import { headers } from 'next/headers'
 import { Suspense } from 'react'
 
 const themeDirection =
   process.env.NEXT_PUBLIC_THEME_DIR === 'rtl' ? ('rtl' as const) : ('ltr' as const)
 
-/** Kök şablon — çoğu sayfa `[locale]/layout` ile üzerine yazar; yine de admin `branding` ile uyumlu varsayılan. */
-export async function generateMetadata(): Promise<Metadata> {
-  const pub = await getCachedSiteConfig()
-  const { hostname, branding: hostBranding } = await resolveRequestBranding(
-    (pub?.branding ?? null) as Record<string, unknown> | null,
-  )
-  const pubForBrand = (pub ? { ...pub, branding: hostBranding } : null) as SitePublicConfig | null
-  const siteName = brandingSiteName(pubForBrand)
-  const description = metaSiteDescription(pubForBrand)
-  const keywords = brandingKeywords(pubForBrand, siteName)
-  const scVerification = resolveSearchConsoleVerification(
-    (pub?.analytics ?? null) as Record<string, unknown> | null,
-    hostname,
-  )
-  const base = await resolveCanonicalBaseUrl()
-  const verification: Metadata['verification'] = scVerification ? { google: scVerification } : undefined
-
-  const faviconPath = brandingAssetPath(pubForBrand, 'favicon_url')
-  const shareImage = shareOgImageMeta(base, pubForBrand, siteName)
-  const faviconRel = faviconPath.trim() ? faviconPath : DEFAULT_FAVICON_PATH
-  const faviconNormalized = faviconRel.startsWith('/') ? faviconRel : `/${faviconRel}`
-  const faviconUrl = toAbsoluteSiteUrl(base, faviconNormalized)
-
-  const hrefForDefault = base ? `${base}/` : undefined
-
-  const titleBlock: Metadata['title'] = {
-    template: `%s - ${siteName}`,
-    default: siteName,
-  }
-
-  const openGraph: Metadata['openGraph'] = {
-    type: 'website',
-    siteName,
-    title: siteName,
-    description,
-    locale: ogLocaleForSite(defaultLocale),
-    ...(hrefForDefault && { url: hrefForDefault }),
-    ...(shareImage && { images: [shareImage] }),
-  }
-
-  const twitter: Metadata['twitter'] = {
-    card: shareImage ? 'summary_large_image' : 'summary',
-    title: siteName,
-    description,
-    ...(shareImage && { images: [shareImage.url] }),
-  }
-
-  const icons: Metadata['icons'] = base
-    ? {
-        icon: [{ url: faviconUrl ?? faviconNormalized }],
-        apple: [{ url: faviconUrl ?? faviconNormalized }],
-      }
-    : {
-        icon: [{ url: faviconNormalized }],
-        apple: [{ url: faviconNormalized }],
-      }
-
-  const core: Metadata = {
-    applicationName: siteName,
-    title: titleBlock,
-    description,
-    keywords,
-    robots: { index: true, follow: true },
-    verification,
-    openGraph,
-    twitter,
-    icons,
-  }
-
-  if (base) {
-    try {
-      return { metadataBase: new URL(base), ...core }
-    } catch {
-      return core
-    }
-  }
-  return core
+/**
+ * Global error/not-found build'i request store olmadan çalışır. Hostname'e bağlı,
+ * çok dilli SEO metadata'sı `[locale]/layout.tsx` içinde üretilmeye devam eder;
+ * kök fallback bilinçli olarak request API'lerinden bağımsızdır.
+ */
+export const metadata: Metadata = {
+  applicationName: 'Rezervasyon Yap',
+  title: {
+    template: '%s - Rezervasyon Yap',
+    default: 'Rezervasyon Yap',
+  },
+  icons: {
+    icon: [{ url: DEFAULT_FAVICON_PATH }],
+    apple: [{ url: DEFAULT_FAVICON_PATH }],
+  },
+  robots: { index: true, follow: true },
 }
 
 export const viewport: Viewport = {
@@ -118,10 +40,8 @@ export const viewport: Viewport = {
   ],
 }
 
-export default async function RootLayout({ children }: { children: React.ReactNode }) {
-  const h = await headers()
-  const fromProxy = (h.get('x-html-lang') ?? '').trim().toLowerCase()
-  const lang = fromProxy && isAppLocale(fromProxy) ? fromProxy : defaultLocale
+export default function RootLayout({ children }: { children: React.ReactNode }) {
+  const lang = defaultLocale
   const dir = themeDirection === 'rtl' ? ('rtl' as const) : ('ltr' as const)
 
   return (

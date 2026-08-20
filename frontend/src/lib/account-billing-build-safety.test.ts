@@ -10,6 +10,10 @@ const localeLayoutSource = readFileSync(
   join(process.cwd(), 'src', 'app', '[locale]', 'layout.tsx'),
   'utf8'
 )
+const rootLayoutSource = readFileSync(
+  join(process.cwd(), 'src', 'app', 'layout.tsx'),
+  'utf8'
+)
 
 describe('account billing production build safety', () => {
   it('reads locale from context without request-bound Next hooks', () => {
@@ -25,5 +29,12 @@ describe('account billing production build safety', () => {
     expect(localeLayoutSource).toContain("dynamic = 'force-dynamic'")
     expect(localeLayoutSource).toContain("fetchCache = 'force-no-store'")
     expect(localeLayoutSource).not.toContain('generateStaticParams')
+  })
+
+  it('keeps the global error fallback independent from request storage', () => {
+    expect(rootLayoutSource).not.toContain("from 'next/headers'")
+    expect(rootLayoutSource).not.toContain('await headers()')
+    expect(rootLayoutSource).not.toContain('generateMetadata')
+    expect(rootLayoutSource).toContain('export const metadata')
   })
 })
