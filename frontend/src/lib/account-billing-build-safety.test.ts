@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
@@ -36,5 +36,6 @@ describe('account billing production build safety', () => {
     expect(rootLayoutSource).not.toContain('await headers()')
     expect(rootLayoutSource).not.toContain('generateMetadata')
     expect(rootLayoutSource).toContain('export const metadata')
+    expect(existsSync(join(process.cwd(), 'src', 'app', 'global-error.tsx'))).toBe(false)
   })
 })
