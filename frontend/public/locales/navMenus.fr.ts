@@ -93,9 +93,7 @@ export const navMenus = {
           '1d-3': 'Bodrum',
           '1d-4': 'Marmaris',
           '1d-5': 'Cappadoce',
-          '1d-6': 'Circuits Égée & Méditerranée',
-          '1d-7': 'Circuits culturels',
-          '1d-8': 'Circuits européens',
+          '1d-6': 'Toutes les régions',
         },
       },
       '2': {

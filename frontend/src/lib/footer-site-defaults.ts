@@ -122,9 +122,7 @@ export const DEFAULT_FOOTER_SITE_CONFIG: FooterSiteConfig = {
         link('/oteller/bodrum',    { tr: 'Bodrum',    en: 'Bodrum',    de: 'Bodrum',    ru: 'Бодрум',      zh: '博德鲁姆',   fr: 'Bodrum' }),
         link('/oteller/marmaris',  { tr: 'Marmaris',  en: 'Marmaris',  de: 'Marmaris',  ru: 'Мармарис',    zh: '马尔马里斯', fr: 'Marmaris' }),
         link('/oteller/kapadokya', { tr: 'Kapadokya', en: 'Cappadocia', de: 'Kappadokien', ru: 'Каппадокия', zh: '卡帕多奇亚', fr: 'Cappadoce' }),
-        link('/turlar/ege-akdeniz-turlari', { tr: 'Ege & Akdeniz Turları', en: 'Aegean & Mediterranean Tours', de: 'Ägäis- & Mittelmeer-Touren', ru: 'Туры Эгейское и Средиземное', zh: '爱琴海与地中海之旅', fr: 'Circuits Égée & Méditerranée' }),
-        link('/turlar/kultur-turlari',     { tr: 'Kültür Turları',  en: 'Cultural Tours',      de: 'Kulturtouren',         ru: 'Культурные туры',         zh: '文化之旅',   fr: 'Circuits culturels' }),
-        link('/turlar/avrupa-turlari',     { tr: 'Avrupa Turları',  en: 'European Tours',      de: 'Europa-Touren',         ru: 'Туры по Европе',         zh: '欧洲之旅',   fr: 'Circuits européens' }),
+        link('/bolge/turkiye',     { tr: 'Tüm Bölgeler', en: 'All Regions', de: 'Alle Regionen', ru: 'Все регионы', zh: '所有地区', fr: 'Toutes les régions' }),
       ],
     ),
     column(

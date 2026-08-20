@@ -93,9 +93,7 @@ export const navMenus = {
           '1d-3': 'Bodrum',
           '1d-4': 'Marmaris',
           '1d-5': 'Kappadokien',
-          '1d-6': 'Ägäis- & Mittelmeer-Touren',
-          '1d-7': 'Kulturtouren',
-          '1d-8': 'Europa-Touren',
+          '1d-6': 'Alle Regionen',
         },
       },
       '2': {
