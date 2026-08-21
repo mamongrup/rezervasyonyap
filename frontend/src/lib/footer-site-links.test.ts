@@ -5,7 +5,10 @@ import { getFooterSiteConfig } from '@/lib/footer-site-config'
 import {
   buildFooterFiveSectionLayout,
   FOOTER_CATEGORIES_TITLE_I18N,
+  FOOTER_COMPANY_TITLE_I18N,
+  FOOTER_DESTINATIONS_TITLE_I18N,
   FOOTER_PARTNERSHIPS_TITLE_I18N,
+  FOOTER_SUPPORT_TITLE_I18N,
 } from '@/lib/footer-site-layout'
 
 const requiredCategoryLinks = [
@@ -127,6 +130,9 @@ describe('footer site links', () => {
   it('keeps the new section headings complete in all storefront languages', () => {
     for (const labels of [
       FOOTER_CATEGORIES_TITLE_I18N,
+      FOOTER_DESTINATIONS_TITLE_I18N,
+      FOOTER_SUPPORT_TITLE_I18N,
+      FOOTER_COMPANY_TITLE_I18N,
       FOOTER_PARTNERSHIPS_TITLE_I18N,
     ]) {
       expect(Object.keys(labels)).toEqual(expect.arrayContaining(activeLocales))

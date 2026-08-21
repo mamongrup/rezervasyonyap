@@ -58,7 +58,7 @@ export function Footer2ManagePreview({
       href: link.href,
     })),
   }))
-  const layout = buildFooterFiveSectionLayout(columns)
+  const layout = buildFooterFiveSectionLayout(columns, locale)
 
   return (
     <footer className="min-w-0 overflow-x-clip border-t border-neutral-200 bg-white dark:border-neutral-700 dark:bg-neutral-950">
@@ -87,10 +87,7 @@ export function Footer2ManagePreview({
           />
           <FooterPlainSection column={layout.support} preview />
           <FooterPlainSection column={layout.company} preview />
-          <FooterPlainSection
-            column={{ ...layout.partners, title: footerPartnershipsTitle(locale) }}
-            preview
-          />
+          <FooterPlainSection column={layout.partners} preview />
         </div>
 
         <div className="mt-16 flex min-w-0 flex-col items-start gap-4 border-t border-gray-900/10 pt-8 sm:mt-20 sm:flex-row sm:items-center sm:justify-between lg:mt-24 dark:border-gray-700">

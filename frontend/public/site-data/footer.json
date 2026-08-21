@@ -185,15 +185,15 @@
       ]
     },
     {
-      "titleTr": "Destinasyonlar",
-      "titleEn": "Destinations",
+      "titleTr": "Popüler Destinasyonlar",
+      "titleEn": "Popular Destinations",
       "title_i18n": {
-        "tr": "Destinasyonlar",
-        "en": "Destinations",
-        "de": "Reiseziele",
-        "ru": "Направления",
-        "zh": "目的地",
-        "fr": "Destinations"
+        "tr": "Popüler Destinasyonlar",
+        "en": "Popular Destinations",
+        "de": "Beliebte Reiseziele",
+        "ru": "Популярные направления",
+        "zh": "热门目的地",
+        "fr": "Destinations populaires"
       },
       "links": [
         {
@@ -237,35 +237,49 @@
     {
       "titleTr": "Destek",
       "titleEn": "Support",
+      "title_i18n": {
+        "tr": "Destek",
+        "en": "Support",
+        "de": "Support",
+        "ru": "Поддержка",
+        "zh": "支持",
+        "fr": "Support"
+      },
       "links": [
         {
           "nameTr": "İletişim",
           "nameEn": "Contact",
+          "name_i18n": { "tr": "İletişim", "en": "Contact", "de": "Kontakt", "ru": "Контакт", "zh": "联系", "fr": "Contact" },
           "href": "/contact"
         },
         {
           "nameTr": "Sık Sorulan Sorular",
           "nameEn": "FAQ",
+          "name_i18n": { "tr": "Sık Sorulan Sorular", "en": "FAQ", "de": "FAQ", "ru": "FAQ", "zh": "常见问题", "fr": "FAQ" },
           "href": "/legal/faq"
         },
         {
           "nameTr": "Nasıl Çalışır?",
           "nameEn": "How It Works",
+          "name_i18n": { "tr": "Nasıl Çalışır?", "en": "How It Works", "de": "So funktioniert es", "ru": "Как это работает", "zh": "如何运作", "fr": "Comment ça marche" },
           "href": "/about#nasil-calisir"
         },
         {
           "nameTr": "İptal ve İade",
           "nameEn": "Cancellation Policy",
+          "name_i18n": { "tr": "İptal ve İade", "en": "Cancellation Policy", "de": "Stornierung", "ru": "Отмена и возврат", "zh": "取消政策", "fr": "Annulation" },
           "href": "/legal/cancellation"
         },
         {
           "nameTr": "Gizlilik / KVKK",
           "nameEn": "Privacy / KVKK",
+          "name_i18n": { "tr": "Gizlilik / KVKK", "en": "Privacy / KVKK", "de": "Datenschutz", "ru": "Конфиденциальность", "zh": "隐私政策", "fr": "Confidentialité" },
           "href": "/legal/privacy"
         },
         {
           "nameTr": "Kullanım Koşulları",
           "nameEn": "Terms of Use",
+          "name_i18n": { "tr": "Kullanım Koşulları", "en": "Terms of Use", "de": "Nutzungsbedingungen", "ru": "Условия использования", "zh": "使用条款", "fr": "Conditions d'utilisation" },
           "href": "/legal/terms"
         }
       ]
@@ -273,30 +287,43 @@
     {
       "titleTr": "Kurumsal",
       "titleEn": "Company",
+      "title_i18n": {
+        "tr": "Kurumsal",
+        "en": "Company",
+        "de": "Unternehmen",
+        "ru": "Компания",
+        "zh": "公司",
+        "fr": "Entreprise"
+      },
       "links": [
         {
           "nameTr": "Hakkımızda",
           "nameEn": "About Us",
+          "name_i18n": { "tr": "Hakkımızda", "en": "About Us", "de": "Über uns", "ru": "О нас", "zh": "关于我们", "fr": "À propos" },
           "href": "/about"
         },
         {
           "nameTr": "Blog",
           "nameEn": "Blog",
+          "name_i18n": { "tr": "Blog", "en": "Blog", "de": "Blog", "ru": "Блог", "zh": "博客", "fr": "Blog" },
           "href": "/blog"
         },
         {
           "nameTr": "Kariyer",
           "nameEn": "Careers",
+          "name_i18n": { "tr": "Kariyer", "en": "Careers", "de": "Karriere", "ru": "Карьера", "zh": "招聘", "fr": "Carrières" },
           "href": "/about#kariyer"
         },
         {
           "nameTr": "Basın",
           "nameEn": "Press",
+          "name_i18n": { "tr": "Basın", "en": "Press", "de": "Presse", "ru": "Пресса", "zh": "媒体", "fr": "Presse" },
           "href": "/about#basin"
         },
         {
           "nameTr": "Sürdürülebilirlik",
           "nameEn": "Sustainability",
+          "name_i18n": { "tr": "Sürdürülebilirlik", "en": "Sustainability", "de": "Nachhaltigkeit", "ru": "Устойчивость", "zh": "可持续发展", "fr": "Durabilité" },
           "href": "/about#surdurulebilirlik"
         }
       ]
@@ -316,41 +343,49 @@
         {
           "nameTr": "Tedarikçi Olun",
           "nameEn": "Become a Supplier",
+          "name_i18n": { "tr": "Tedarikçi Olun", "en": "Become a Supplier", "de": "Anbieter werden", "ru": "Стать поставщиком", "zh": "成为供应商", "fr": "Devenir fournisseur" },
           "href": "/tedarikci-ol"
         },
         {
           "nameTr": "Tesis Yönetimi",
           "nameEn": "Property Management",
+          "name_i18n": { "tr": "Tesis Yönetimi", "en": "Property Management", "de": "Objektverwaltung", "ru": "Управление объектом", "zh": "物业托管", "fr": "Gestion d'établissement" },
           "href": "/tesis-yonetimi"
         },
         {
           "nameTr": "Tedarikçi Girişi",
           "nameEn": "Supplier Login",
+          "name_i18n": { "tr": "Tedarikçi Girişi", "en": "Supplier Login", "de": "Anbieter-Login", "ru": "Вход поставщика", "zh": "供应商登录", "fr": "Connexion fournisseur" },
           "href": "/manage/supplier"
         },
         {
           "nameTr": "Tedarikçi Faydaları",
           "nameEn": "Supplier Benefits",
+          "name_i18n": { "tr": "Tedarikçi Faydaları", "en": "Supplier Benefits", "de": "Anbieter-Vorteile", "ru": "Преимущества", "zh": "供应商权益", "fr": "Avantages fournisseurs" },
           "href": "/tesis-yonetimi"
         },
         {
           "nameTr": "Acente Olun",
           "nameEn": "Become an Agency",
+          "name_i18n": { "tr": "Acente Olun", "en": "Become an Agency", "de": "Agentur werden", "ru": "Стать агентством", "zh": "成为代理", "fr": "Devenir agence" },
           "href": "/acente-ol"
         },
         {
           "nameTr": "Acente Girişi",
           "nameEn": "Agency Login",
+          "name_i18n": { "tr": "Acente Girişi", "en": "Agency Login", "de": "Agentur-Login", "ru": "Вход агентства", "zh": "代理登录", "fr": "Connexion agence" },
           "href": "/manage/agency"
         },
         {
           "nameTr": "API Entegrasyonu",
           "nameEn": "API Integration",
+          "name_i18n": { "tr": "API Entegrasyonu", "en": "API Integration", "de": "API-Integration", "ru": "Интеграция API", "zh": "API 集成", "fr": "Intégration API" },
           "href": "/developer"
         },
         {
           "nameTr": "Geliştirici Dokümantasyonu",
           "nameEn": "Developer Docs",
+          "name_i18n": { "tr": "Geliştirici Dokümantasyonu", "en": "Developer Docs", "de": "Entwicklerdoku", "ru": "Документация", "zh": "开发者文档", "fr": "Doc développeur" },
           "href": "/developer#endpoints"
         }
       ]
@@ -360,23 +395,27 @@
     {
       "nameTr": "Kullanım Koşulları",
       "nameEn": "Terms",
+      "name_i18n": { "tr": "Kullanım Koşulları", "en": "Terms", "de": "Nutzungsbedingungen", "ru": "Условия", "zh": "使用条款", "fr": "Conditions" },
       "href": "/legal/terms"
     },
     {
       "nameTr": "Gizlilik / KVKK",
       "nameEn": "Privacy",
+      "name_i18n": { "tr": "Gizlilik / KVKK", "en": "Privacy", "de": "Datenschutz", "ru": "Конфиденциальность", "zh": "隐私", "fr": "Confidentialité" },
       "href": "/legal/privacy"
     },
     {
       "nameTr": "İptal ve İade",
       "nameEn": "Cancellation & Refunds",
+      "name_i18n": { "tr": "İptal ve İade", "en": "Cancellation & Refunds", "de": "Stornierung & Erstattung", "ru": "Отмена и возврат", "zh": "取消与退款", "fr": "Annulation" },
       "href": "/legal/cancellation"
     },
     {
       "nameTr": "Çerez Politikası",
       "nameEn": "Cookie Policy",
+      "name_i18n": { "tr": "Çerez Politikası", "en": "Cookie Policy", "de": "Cookie-Richtlinie", "ru": "Политика cookie", "zh": "Cookie 政策", "fr": "Cookies" },
       "href": "/legal/cookies"
     }
   ],
-  "updatedAt": "2026-08-11T19:05:00.000Z"
+  "updatedAt": "2026-08-21T15:55:00.000Z"
 }

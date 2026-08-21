@@ -27,6 +27,33 @@ export const FOOTER_CATEGORIES_TITLE_I18N: I18nFieldMap = {
   fr: 'Catégories',
 }
 
+export const FOOTER_DESTINATIONS_TITLE_I18N: I18nFieldMap = {
+  tr: 'Popüler Destinasyonlar',
+  en: 'Popular Destinations',
+  de: 'Beliebte Reiseziele',
+  ru: 'Популярные направления',
+  zh: '热门目的地',
+  fr: 'Destinations populaires',
+}
+
+export const FOOTER_SUPPORT_TITLE_I18N: I18nFieldMap = {
+  tr: 'Destek',
+  en: 'Support',
+  de: 'Support',
+  ru: 'Поддержка',
+  zh: '支持',
+  fr: 'Support',
+}
+
+export const FOOTER_COMPANY_TITLE_I18N: I18nFieldMap = {
+  tr: 'Kurumsal',
+  en: 'Company',
+  de: 'Unternehmen',
+  ru: 'Компания',
+  zh: '公司',
+  fr: 'Entreprise',
+}
+
 export const FOOTER_PARTNERSHIPS_TITLE_I18N: I18nFieldMap = {
   tr: 'Ortaklık',
   en: 'Partnerships',
@@ -40,37 +67,165 @@ export function footerCategoriesTitle(locale: string): string {
   return pickI18n(FOOTER_CATEGORIES_TITLE_I18N, locale, 'Categories')
 }
 
+export function footerDestinationsTitle(locale: string): string {
+  return pickI18n(FOOTER_DESTINATIONS_TITLE_I18N, locale, 'Popular Destinations')
+}
+
+export function footerSupportTitle(locale: string): string {
+  return pickI18n(FOOTER_SUPPORT_TITLE_I18N, locale, 'Support')
+}
+
+export function footerCompanyTitle(locale: string): string {
+  return pickI18n(FOOTER_COMPANY_TITLE_I18N, locale, 'Company')
+}
+
 export function footerPartnershipsTitle(locale: string): string {
   return pickI18n(FOOTER_PARTNERSHIPS_TITLE_I18N, locale, 'Partnerships')
 }
 
 function findColumn(
   columns: FooterDisplayColumn[],
-  href: string,
+  predicate: (link: FooterDisplayLink) => boolean,
+  fallbackIndex?: number,
 ): FooterDisplayColumn | undefined {
-  return columns.find((column) => column.links.some((link) => link.href === href))
+  const matched = columns.find((column) => column.links.some(predicate))
+  if (matched) return matched
+  if (fallbackIndex !== undefined && columns[fallbackIndex]) {
+    return columns[fallbackIndex]
+  }
+  return undefined
 }
 
-function emptyColumn(): FooterDisplayColumn {
-  return { title: '', links: [] }
+function emptyColumn(defaultTitle = ''): FooterDisplayColumn {
+  return { title: defaultTitle, links: [] }
 }
 
 /**
  * Yönetilebilir sekiz kaynak sütunu, vitrinde istenen beş ana bölüme dönüştürür:
- * marka + kategoriler + destek + kurumsal + ortaklık.
- * Başlığa göre değil bağlantıya göre eşleştirildiği için sütun sırası/dili değişebilir.
+ * 1. Marka (Logo, slogan, trust badges)
+ * 2. Kategoriler (Konaklama, Deneyim, Hizmetler açılır akordeon + Popüler Destinasyonlar)
+ * 3. Destek
+ * 4. Kurumsal
+ * 5. Ortaklık
  */
 export function buildFooterFiveSectionLayout(
   columns: FooterDisplayColumn[],
+  locale: string = 'tr',
 ): FooterFiveSectionLayout {
-  const stays = findColumn(columns, '/oteller/all') ?? emptyColumn()
-  const experiences = findColumn(columns, '/turlar/all') ?? emptyColumn()
-  const travel = findColumn(columns, '/arac-kiralama/all') ?? emptyColumn()
-  const services = findColumn(columns, '/vize/all') ?? emptyColumn()
-  const destinations = findColumn(columns, '/oteller/istanbul') ?? emptyColumn()
-  const support = findColumn(columns, '/contact') ?? emptyColumn()
-  const company = findColumn(columns, '/about') ?? emptyColumn()
-  const partners = findColumn(columns, '/tedarikci-ol') ?? emptyColumn()
+  const stays =
+    findColumn(
+      columns,
+      (l) =>
+        Boolean(
+          l.href?.includes('/oteller/all') ||
+            l.href?.includes('/tatil-evleri/all') ||
+            l.href?.includes('/yat-kiralama/all'),
+        ),
+      0,
+    ) ?? emptyColumn()
+
+  const experiences =
+    findColumn(
+      columns,
+      (l) =>
+        Boolean(
+          l.href?.includes('/turlar/all') ||
+            l.href?.includes('/kruvaziyer/all') ||
+            l.href?.includes('/hac-umre/all') ||
+            l.href?.includes('/aktiviteler/all') ||
+            l.href?.includes('/plaj-sezlong/all'),
+        ),
+      1,
+    ) ?? emptyColumn()
+
+  const travel =
+    findColumn(
+      columns,
+      (l) =>
+        Boolean(
+          l.href?.includes('/arac-kiralama/all') ||
+            l.href?.includes('/ucak-bileti/all') ||
+            l.href?.includes('/transfer/all') ||
+            l.href?.includes('/feribot/all'),
+        ),
+      2,
+    ) ?? emptyColumn()
+
+  const services =
+    findColumn(
+      columns,
+      (l) =>
+        Boolean(
+          l.href?.includes('/vize/all') ||
+            l.href?.includes('service=esim') ||
+            l.href?.includes('service=seyahat-sigortasi'),
+        ),
+      3,
+    ) ?? emptyColumn()
+
+  const destinationsCol =
+    findColumn(
+      columns,
+      (l) =>
+        Boolean(
+          l.href?.includes('/oteller/istanbul') ||
+            l.href?.includes('/oteller/antalya') ||
+            l.href?.includes('/bolge/turkiye'),
+        ),
+      4,
+    ) ?? emptyColumn()
+
+  const supportCol =
+    findColumn(
+      columns,
+      (l) => {
+        if (!l.href) return false
+        const clean = l.href.split('?')[0].split('#')[0].replace(/^\/[a-z]{2}(\/|$)/i, '/')
+        const isCleanContact = clean === '/contact' || clean === '/iletisim'
+        return Boolean(
+          (isCleanContact && !l.href.includes('?')) ||
+            l.href.includes('/legal/faq') ||
+            l.href.includes('/legal/terms') ||
+            l.href.includes('/legal/privacy') ||
+            l.href.includes('/legal/cancellation') ||
+            l.href.includes('/about#nasil-calisir'),
+        )
+      },
+      5,
+    ) ?? emptyColumn()
+
+  const companyCol =
+    findColumn(
+      columns,
+      (l) => {
+        if (!l.href) return false
+        const clean = l.href.split('?')[0].split('#')[0].replace(/^\/[a-z]{2}(\/|$)/i, '/')
+        const isCleanAbout = clean === '/about' || clean === '/hakkimizda'
+        return Boolean(
+          (isCleanAbout && !l.href.includes('#')) ||
+            l.href.includes('/blog') ||
+            l.href.includes('/about#kariyer') ||
+            l.href.includes('/about#basin') ||
+            l.href.includes('/about#surdurulebilirlik'),
+        )
+      },
+      6,
+    ) ?? emptyColumn()
+
+  const partnersCol =
+    findColumn(
+      columns,
+      (l) =>
+        Boolean(
+          l.href?.includes('/tedarikci-ol') ||
+            l.href?.includes('/tesis-yonetimi') ||
+            l.href?.includes('/manage/supplier') ||
+            l.href?.includes('/acente-ol') ||
+            l.href?.includes('/manage/agency') ||
+            l.href?.includes('/developer'),
+        ),
+      7,
+    ) ?? emptyColumn()
 
   return {
     categoryGroups: [
@@ -81,9 +236,22 @@ export function buildFooterFiveSectionLayout(
         links: [...travel.links, ...services.links],
       },
     ],
-    destinations,
-    support,
-    company,
-    partners,
+    destinations: {
+      ...destinationsCol,
+      title: footerDestinationsTitle(locale),
+    },
+    support: {
+      ...supportCol,
+      title: supportCol.title || footerSupportTitle(locale),
+    },
+    company: {
+      ...companyCol,
+      title: companyCol.title || footerCompanyTitle(locale),
+    },
+    partners: {
+      ...partnersCol,
+      title: footerPartnershipsTitle(locale),
+    },
   }
 }
+

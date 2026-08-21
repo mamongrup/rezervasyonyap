@@ -88,20 +88,84 @@ export default function Footer2({ locale, branding }: Footer2Props) {
   const year = new Date().getFullYear()
   const rights = t.site.footer.rights
 
-  const columns = use(
-    Promise.all(
-      cfg.columns.map(async (col) => ({
-        title: pickI18nWithLegacy({ tr: col.titleTr, en: col.titleEn }, col.title_i18n, locale, col.titleEn || col.titleTr),
-        links: await Promise.all(
-          col.links.map(async (item) => ({
-            name: pickI18nWithLegacy({ tr: item.nameTr, en: item.nameEn }, item.name_i18n, locale, item.nameEn || item.nameTr),
-            href: await resolveFooterHref(locale, item.href),
+  const rawColumns = cfg.columns.map((col) => ({
+    title: pickI18nWithLegacy(
+      { tr: col.titleTr, en: col.titleEn },
+      col.title_i18n,
+      locale,
+      col.titleEn || col.titleTr,
+    ),
+    links: col.links.map((item) => ({
+      name: pickI18nWithLegacy(
+        { tr: item.nameTr, en: item.nameEn },
+        item.name_i18n,
+        locale,
+        item.nameEn || item.nameTr,
+      ),
+      href: item.href,
+    })),
+  }))
+  const rawLayout = buildFooterFiveSectionLayout(rawColumns, locale)
+
+  const layout = {
+    categoryGroups: use(
+      Promise.all(
+        rawLayout.categoryGroups.map(async (group) => ({
+          ...group,
+          links: await Promise.all(
+            group.links.map(async (item) => ({
+              ...item,
+              href: item.href ? await resolveFooterHref(locale, item.href) : undefined,
+            })),
+          ),
+        })),
+      ),
+    ),
+    destinations: {
+      ...rawLayout.destinations,
+      links: use(
+        Promise.all(
+          rawLayout.destinations.links.map(async (item) => ({
+            ...item,
+            href: item.href ? await resolveFooterHref(locale, item.href) : undefined,
           })),
         ),
-      })),
-    ),
-  )
-  const layout = buildFooterFiveSectionLayout(columns)
+      ),
+    },
+    support: {
+      ...rawLayout.support,
+      links: use(
+        Promise.all(
+          rawLayout.support.links.map(async (item) => ({
+            ...item,
+            href: item.href ? await resolveFooterHref(locale, item.href) : undefined,
+          })),
+        ),
+      ),
+    },
+    company: {
+      ...rawLayout.company,
+      links: use(
+        Promise.all(
+          rawLayout.company.links.map(async (item) => ({
+            ...item,
+            href: item.href ? await resolveFooterHref(locale, item.href) : undefined,
+          })),
+        ),
+      ),
+    },
+    partners: {
+      ...rawLayout.partners,
+      links: use(
+        Promise.all(
+          rawLayout.partners.links.map(async (item) => ({
+            ...item,
+            href: item.href ? await resolveFooterHref(locale, item.href) : undefined,
+          })),
+        ),
+      ),
+    },
+  }
 
   const legal = use(
     Promise.all(
@@ -157,9 +221,7 @@ export default function Footer2({ locale, branding }: Footer2Props) {
           />
           <FooterPlainSection column={layout.support} />
           <FooterPlainSection column={layout.company} />
-          <FooterPlainSection
-            column={{ ...layout.partners, title: footerPartnershipsTitle(locale) }}
-          />
+          <FooterPlainSection column={layout.partners} />
         </div>
 
         <div className="mt-16 flex min-w-0 flex-col items-start gap-4 border-t border-gray-900/10 pt-8 sm:mt-20 sm:flex-row sm:items-center sm:justify-between lg:mt-24 dark:border-gray-700">
