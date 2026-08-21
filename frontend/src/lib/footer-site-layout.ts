@@ -27,14 +27,16 @@ export const FOOTER_CATEGORIES_TITLE_I18N: I18nFieldMap = {
   fr: 'Catégories',
 }
 
-export const FOOTER_DESTINATIONS_TITLE_I18N: I18nFieldMap = {
-  tr: 'Popüler Destinasyonlar',
-  en: 'Popular Destinations',
-  de: 'Beliebte Reiseziele',
-  ru: 'Популярные направления',
-  zh: '热门目的地',
-  fr: 'Destinations populaires',
+export const FOOTER_REGIONS_TITLE_I18N: I18nFieldMap = {
+  tr: 'Bölgeler',
+  en: 'Regions',
+  de: 'Regionen',
+  ru: 'Регионы',
+  zh: '地区',
+  fr: 'Régions',
 }
+
+export const FOOTER_DESTINATIONS_TITLE_I18N: I18nFieldMap = FOOTER_REGIONS_TITLE_I18N
 
 export const FOOTER_SUPPORT_TITLE_I18N: I18nFieldMap = {
   tr: 'Destek',
@@ -67,8 +69,12 @@ export function footerCategoriesTitle(locale: string): string {
   return pickI18n(FOOTER_CATEGORIES_TITLE_I18N, locale, 'Categories')
 }
 
+export function footerRegionsTitle(locale: string): string {
+  return pickI18n(FOOTER_REGIONS_TITLE_I18N, locale, 'Regions')
+}
+
 export function footerDestinationsTitle(locale: string): string {
-  return pickI18n(FOOTER_DESTINATIONS_TITLE_I18N, locale, 'Popular Destinations')
+  return footerRegionsTitle(locale)
 }
 
 export function footerSupportTitle(locale: string): string {
@@ -103,7 +109,7 @@ function emptyColumn(defaultTitle = ''): FooterDisplayColumn {
 /**
  * Yönetilebilir sekiz kaynak sütunu, vitrinde istenen beş ana bölüme dönüştürür:
  * 1. Marka (Logo, slogan, trust badges)
- * 2. Kategoriler (Konaklama, Deneyim, Hizmetler açılır akordeon + Popüler Destinasyonlar)
+ * 2. Kategoriler (Konaklama, Deneyim, Hizmetler, Bölgeler açılır akordeon)
  * 3. Destek
  * 4. Kurumsal
  * 5. Ortaklık
@@ -227,6 +233,11 @@ export function buildFooterFiveSectionLayout(
       7,
     ) ?? emptyColumn()
 
+  const regions: FooterDisplayColumn = {
+    ...destinationsCol,
+    title: footerRegionsTitle(locale),
+  }
+
   return {
     categoryGroups: [
       stays,
@@ -235,11 +246,9 @@ export function buildFooterFiveSectionLayout(
         title: services.title,
         links: [...travel.links, ...services.links],
       },
+      regions,
     ],
-    destinations: {
-      ...destinationsCol,
-      title: footerDestinationsTitle(locale),
-    },
+    destinations: emptyColumn(),
     support: {
       ...supportCol,
       title: supportCol.title || footerSupportTitle(locale),

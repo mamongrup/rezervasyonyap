@@ -6,8 +6,8 @@ import {
   buildFooterFiveSectionLayout,
   FOOTER_CATEGORIES_TITLE_I18N,
   FOOTER_COMPANY_TITLE_I18N,
-  FOOTER_DESTINATIONS_TITLE_I18N,
   FOOTER_PARTNERSHIPS_TITLE_I18N,
+  FOOTER_REGIONS_TITLE_I18N,
   FOOTER_SUPPORT_TITLE_I18N,
 } from '@/lib/footer-site-layout'
 
@@ -109,6 +109,7 @@ describe('footer site links', () => {
       'Konaklama',
       'Deneyim',
       'Hizmetler',
+      'Bölgeler',
     ])
     expect(layout.categoryGroups[2].links.map((link) => link.name)).toEqual([
       'Araç',
@@ -119,7 +120,14 @@ describe('footer site links', () => {
       'eSIM',
       'Sigorta',
     ])
-    expect(layout.destinations.title).toBe('Popüler Destinasyonlar')
+    expect(layout.categoryGroups[3].links.map((link) => link.name)).toEqual([
+      'İstanbul',
+      'Antalya',
+      'Bodrum',
+      'Marmaris',
+      'Kapadokya',
+      'Tüm Bölgeler',
+    ])
     expect([layout.support.title, layout.company.title, layout.partners.title]).toEqual([
       'Destek',
       'Kurumsal',
@@ -130,7 +138,7 @@ describe('footer site links', () => {
   it('keeps the new section headings complete in all storefront languages', () => {
     for (const labels of [
       FOOTER_CATEGORIES_TITLE_I18N,
-      FOOTER_DESTINATIONS_TITLE_I18N,
+      FOOTER_REGIONS_TITLE_I18N,
       FOOTER_SUPPORT_TITLE_I18N,
       FOOTER_COMPANY_TITLE_I18N,
       FOOTER_PARTNERSHIPS_TITLE_I18N,

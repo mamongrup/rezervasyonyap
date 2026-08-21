@@ -37,7 +37,7 @@ export function FooterCategorySection({
 }: {
   title: string
   groups: FooterDisplayColumn[]
-  destinations: FooterDisplayColumn
+  destinations?: FooterDisplayColumn
   preview?: boolean
 }) {
   return (
@@ -64,10 +64,12 @@ export function FooterCategorySection({
         ))}
       </div>
 
-      <div className="mt-6">
-        <h4 className={cn(headingClassName, 'text-xs')}>{destinations.title}</h4>
-        <LinkList column={destinations} preview={preview} />
-      </div>
+      {destinations && destinations.links && destinations.links.length > 0 && (
+        <div className="mt-6">
+          <h4 className={cn(headingClassName, 'text-xs')}>{destinations.title}</h4>
+          <LinkList column={destinations} preview={preview} />
+        </div>
+      )}
     </section>
   )
 }
