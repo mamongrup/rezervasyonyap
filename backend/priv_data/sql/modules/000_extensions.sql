@@ -1,0 +1,2 @@
+-- MODÜL: altyapı
+CREATE EXTENSION IF NOT EXISTS pgcrypto;

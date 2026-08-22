@@ -7,11 +7,16 @@ import gleam/string
 import gleam/uri
 import travel/net/http_client
 
-fn join_url(model: String, api_key: String) -> String {
-  let m = case string.trim(model) {
-    "" -> "gemini-2.0-flash"
+fn resolve_model(model: String) -> String {
+  case string.trim(model) {
+    "" -> "gemini-1.5-flash"
+    "gemini-2.0-flash" -> "gemini-1.5-flash"
     s -> s
   }
+}
+
+fn join_url(model: String, api_key: String) -> String {
+  let m = resolve_model(model)
   let q = uri.percent_encode(string.trim(api_key))
   "https://generativelanguage.googleapis.com/v1beta/models/"
   <> m
@@ -114,7 +119,8 @@ pub fn generate_content(
           ),
         ])
         |> json.to_string
-      let url = join_url(model, api_key)
+      let active_model = resolve_model(model)
+      let url = join_url(active_model, api_key)
       case http_client.post_json_with_timeout(url, payload, "", timeout_ms) {
         Ok(raw) ->
           case json.parse(raw, text_from_response_decoder()) {
@@ -128,7 +134,27 @@ pub fn generate_content(
         Error(e) ->
           case is_quota_error_body(e) {
             True -> GeminiQuota(e)
-            False -> GeminiError(string.append("gemini_http: ", string.slice(e, 0, 400)))
+            False -> {
+              let is_model_404 =
+                string.contains(e, "404")
+                || string.contains(e, "no longer available")
+                || string.contains(e, "not found")
+
+              case is_model_404 && active_model != "gemini-1.5-flash" {
+                True ->
+                  // Otomatik gemini-1.5-flash kararlı modele fallback yap
+                  generate_content(
+                    api_key,
+                    "gemini-1.5-flash",
+                    system_prompt,
+                    user_msg,
+                    temperature,
+                    timeout_ms,
+                  )
+                False ->
+                  GeminiError(string.append("gemini_http: ", string.slice(e, 0, 400)))
+              }
+            }
           }
       }
     }
@@ -136,7 +162,7 @@ pub fn generate_content(
 }
 
 pub fn default_model() -> String {
-  "gemini-2.0-flash"
+  "gemini-1.5-flash"
 }
 
 pub fn clamp_temperature(t: Float) -> Float {

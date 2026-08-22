@@ -11,12 +11,24 @@ pub type Node {
 }
 
 // Metin ve Ham HTML
+pub fn node(tag: String, attrs: List(Attribute), children: List(Node)) -> Node {
+  Element(tag, attrs, children)
+}
+
 pub fn text(content: String) -> Node {
   Text(content)
 }
 
 pub fn raw(content: String) -> Node {
   RawHtml(content)
+}
+
+pub fn i(attrs: List(Attribute), children: List(Node)) -> Node {
+  Element("i", attrs, children)
+}
+
+pub fn small(attrs: List(Attribute), children: List(Node)) -> Node {
+  Element("small", attrs, children)
 }
 
 pub fn fragment(children: List(Node)) -> Node {

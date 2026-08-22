@@ -162,7 +162,7 @@ async function loadLlmConfig(pg) {
   const cfg = aiCfg.rows[0]?.value_json
   const obj = typeof cfg === 'string' ? JSON.parse(cfg) : cfg || {}
   const geminiModel =
-    String(obj.gemini_model || '').trim() || 'gemini-2.0-flash'
+    String(obj.gemini_model || '').trim() || 'gemini-1.5-flash'
   return {
     geminiOn: geminiActive.rows[0]?.is_active !== false,
     deepseekOn: deepseekActive.rows[0]?.is_active !== false,

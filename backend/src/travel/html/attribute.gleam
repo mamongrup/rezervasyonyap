@@ -14,6 +14,10 @@ pub fn id_(val: String) -> Attribute {
   Attribute("id", val)
 }
 
+pub fn id(val: String) -> Attribute {
+  Attribute("id", val)
+}
+
 pub fn href_(val: String) -> Attribute {
   Attribute("href", val)
 }
@@ -25,6 +29,11 @@ pub fn src_(val: String) -> Attribute {
 pub fn alt_(val: String) -> Attribute {
   Attribute("alt", val)
 }
+
+pub fn alt(val: String) -> Attribute {
+  Attribute("alt", val)
+}
+
 
 pub fn type_(val: String) -> Attribute {
   Attribute("type", val)
@@ -58,8 +67,20 @@ pub fn style_(val: String) -> Attribute {
   Attribute("style", val)
 }
 
+pub fn style(val: String) -> Attribute {
+  Attribute("style", val)
+}
+
 pub fn role_(val: String) -> Attribute {
   Attribute("role", val)
+}
+
+pub fn role(val: String) -> Attribute {
+  Attribute("role", val)
+}
+
+pub fn name(val: String) -> Attribute {
+  Attribute("name", val)
 }
 
 pub fn aria_label(val: String) -> Attribute {
@@ -68,6 +89,34 @@ pub fn aria_label(val: String) -> Attribute {
 
 pub fn aria_expanded(val: String) -> Attribute {
   Attribute("aria-expanded", val)
+}
+
+pub fn aria_controls(val: String) -> Attribute {
+  Attribute("aria-controls", val)
+}
+
+pub fn aria_selected(val: String) -> Attribute {
+  Attribute("aria-selected", val)
+}
+
+pub fn data_bs_toggle(val: String) -> Attribute {
+  Attribute("data-bs-toggle", val)
+}
+
+pub fn data_bs_target(val: String) -> Attribute {
+  Attribute("data-bs-target", val)
+}
+
+pub fn data_bs_theme_value(val: String) -> Attribute {
+  Attribute("data-bs-theme-value", val)
+}
+
+pub fn data_bs_auto_close(val: String) -> Attribute {
+  Attribute("data-bs-auto-close", val)
+}
+
+pub fn data_mode(val: String) -> Attribute {
+  Attribute("data-mode", val)
 }
 
 pub fn disabled() -> Attribute {
@@ -156,7 +205,20 @@ pub fn x_transition() -> Attribute {
   BoolAttribute("x-transition")
 }
 
+pub fn lang(val: String) -> Attribute {
+  Attribute("lang", val)
+}
+
+pub fn charset(val: String) -> Attribute {
+  Attribute("charset", val)
+}
+
+pub fn content(val: String) -> Attribute {
+  Attribute("content", val)
+}
+
 // Özel / Genel Öznitelik
 pub fn attr(name: String, val: String) -> Attribute {
   Attribute(name, val)
 }
+

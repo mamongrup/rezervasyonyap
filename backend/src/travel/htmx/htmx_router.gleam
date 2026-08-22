@@ -5,9 +5,9 @@ import gleam/http
 import gleam/list
 import gleam/string
 import travel/html/render
-import travel/views/layout/base
+import travel/htmx/static_server
 import travel/views/vitrin/home_view.{
-  type ListingItem, render_listing_card, sample_listings,
+  type ListingPreview, ListingPreview, render_home, render_search_results,
 }
 import wisp.{type Request, type Response}
 
@@ -17,39 +17,32 @@ pub fn handle_routes(
   segments: List(String),
 ) -> Response {
   case req.method, segments {
+    // Statik Varlıklar
+    http.Get, ["assets", ..rest] -> static_server.serve(req, rest)
+    http.Get, ["static", ..rest] -> static_server.serve(req, rest)
+
     // GET /htmx -> Anasayfa
     http.Get, [] -> {
-      let config = base.default_config("Anasayfa", "tr")
-      let html_content = base.layout(config, home_view.view("tr"))
-      wisp.html_response(html_content, 200)
+      let listings = sample_listings()
+      let html_node = render_home(listings)
+      let html_str = render.render(html_node)
+      wisp.html_response(html_str, 200)
     }
 
     // GET /htmx/hotels -> Oteller
     http.Get, ["hotels"] -> {
-      let config =
-        base.PageConfig(
-          title: "Oteller & Resortlar | Rezervasyon Yap",
-          description: "Türkiye'nin en seçkin otelleri ve tatil köyleri.",
-          locale: "tr",
-          active_nav: "hotels",
-          canonical_url: "https://rezervasyonyap.tr/htmx/hotels",
-        )
-      let html_content = base.layout(config, home_view.view("tr"))
-      wisp.html_response(html_content, 200)
+      let listings = sample_listings()
+      let html_node = render_home(listings)
+      let html_str = render.render(html_node)
+      wisp.html_response(html_str, 200)
     }
 
     // GET /htmx/villas -> Tatil Evleri & Villalar
     http.Get, ["villas"] -> {
-      let config =
-        base.PageConfig(
-          title: "Kiralık Villalar & Tatil Evleri | Rezervasyon Yap",
-          description: "Özel havuzlu, jakuzili ve korunaklı lüks tatil villaları.",
-          locale: "tr",
-          active_nav: "villas",
-          canonical_url: "https://rezervasyonyap.tr/htmx/villas",
-        )
-      let html_content = base.layout(config, home_view.view("tr"))
-      wisp.html_response(html_content, 200)
+      let listings = sample_listings()
+      let html_node = render_home(listings)
+      let html_str = render.render(html_node)
+      wisp.html_response(html_str, 200)
     }
 
     // GET /htmx/api/search -> Canlı HTMX Arama Parçası (Partial HTML)
@@ -67,33 +60,103 @@ pub fn handle_routes(
       let all_listings = sample_listings()
       let filtered = case query_param {
         "" -> all_listings
-        q ->
+        q -> {
+          let norm_q = normalize_turkish(q)
           all_listings
-          |> list.filter(fn(item: ListingItem) {
-            string.contains(string.lowercase(item.title), q)
-            || string.contains(string.lowercase(item.location), q)
-            || string.contains(string.lowercase(item.category_label), q)
-            || string.contains(string.lowercase(item.category_slug), q)
+          |> list.filter(fn(item: ListingPreview) {
+            let norm_title = normalize_turkish(item.title)
+            let norm_loc = normalize_turkish(item.location)
+            let norm_cat = normalize_turkish(item.category_label)
+
+            string.contains(norm_title, norm_q)
+            || string.contains(norm_loc, norm_q)
+            || string.contains(norm_cat, norm_q)
           })
+        }
       }
 
       let partial_html =
-        filtered
-        |> list.map(render_listing_card)
-        |> list.map(render.render)
-        |> string.join("")
+        render_search_results(filtered)
+        |> render.render
 
-      case partial_html {
-        "" ->
+      case filtered {
+        [] ->
           wisp.html_response(
             "<div class=\"col-span-full py-16 text-center text-neutral-500 dark:text-neutral-400\"><div class=\"text-4xl mb-3\">🔍</div><h4 class=\"text-lg font-bold text-neutral-800 dark:text-neutral-200 mb-1\">Aramanızla Eşleşen İlan Bulunamadı</h4><p class=\"text-sm\">Farklı bir lokasyon veya tesis türü aramayı deneyin.</p></div>",
             200,
           )
-        html -> wisp.html_response(html, 200)
+        _ -> wisp.html_response(partial_html, 200)
       }
     }
 
     // 404 Not Found
     _, _ -> wisp.not_found()
   }
+}
+
+fn sample_listings() -> List(ListingPreview) {
+  [
+    ListingPreview(
+      id: "1",
+      title: "Villa Manzara Kaş — Özel Sonsuzluk Havuzlu",
+      category_label: "Lüks Villa",
+      location: "Kaş, Antalya",
+      price_formatted: "₺7.500",
+      rating: "4.9",
+      review_count: 28,
+      image_url: "/assets/images/category/hotel/01.jpg",
+      badge: "Süper Ev Sahibi",
+    ),
+    ListingPreview(
+      id: "2",
+      title: "Bodrum Yalıkavak Luxury Beachfront Resort",
+      category_label: "Butik Otel",
+      location: "Yalıkavak, Bodrum",
+      price_formatted: "₺9.200",
+      rating: "4.8",
+      review_count: 42,
+      image_url: "/assets/images/category/hotel/02.jpg",
+      badge: "Popüler",
+    ),
+    ListingPreview(
+      id: "3",
+      title: "Fethiye Göcek 24m Lüks Mavi Tur Guleti",
+      category_label: "Yat Kiralama",
+      location: "Göcek, Fethiye",
+      price_formatted: "₺18.000",
+      rating: "5.0",
+      review_count: 19,
+      image_url: "/assets/images/category/hotel/03.jpg",
+      badge: "Özel Fırsat",
+    ),
+    ListingPreview(
+      id: "4",
+      title: "Kalkan İslamlar Muhafazakar Balayı Villası",
+      category_label: "Özel Villa",
+      location: "İslamlar, Kalkan",
+      price_formatted: "₺5.400",
+      rating: "4.9",
+      review_count: 35,
+      image_url: "/assets/images/category/hotel/04.jpg",
+      badge: "%15 İndirim",
+    ),
+  ]
+}
+
+fn normalize_turkish(text: String) -> String {
+
+  text
+  |> string.lowercase
+  |> string.replace("ı", "i")
+  |> string.replace("İ", "i")
+  |> string.replace("ş", "s")
+  |> string.replace("Ş", "s")
+  |> string.replace("ğ", "g")
+  |> string.replace("Ğ", "g")
+  |> string.replace("ü", "u")
+  |> string.replace("Ü", "u")
+  |> string.replace("ö", "o")
+  |> string.replace("Ö", "o")
+  |> string.replace("ç", "c")
+  |> string.replace("Ç", "c")
 }

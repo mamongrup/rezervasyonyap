@@ -46,6 +46,7 @@ import travel/engagement/engagement_http
 import travel/htmx/htmx_router
 import travel/engagement/listing_reports_http
 import travel/engagement/social_proof_http
+import travel/htmx/static_server
 import travel/i18n/i18n_http
 import travel/i18n/localized_routes_http
 import travel/ical/ical_export_http
@@ -114,7 +115,11 @@ fn dispatch(req: Request, ctx: Context) -> Response {
 
     http.Get, ["health"] -> health_check(ctx)
 
-    // HTMX SSR Rotaları (Gleam + HTMX + Tailwind)
+    // Statik Varlıklar (Bookinga CSS/JS/Görseller)
+    http.Get, ["assets", ..rest] -> static_server.serve(req, rest)
+    http.Get, ["static", ..rest] -> static_server.serve(req, rest)
+
+    // HTMX SSR Rotaları (Gleam + HTMX)
     _, ["htmx", ..rest] -> htmx_router.handle_routes(req, ctx, rest)
 
     // Public iCal export — 3. taraf takvimler (Airbnb/Booking/Apple/Google)

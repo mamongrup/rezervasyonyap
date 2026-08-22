@@ -8,8 +8,26 @@
   post_json_with_timeout/4,
   post_json_turna/5,
   parse_tcmb_xml/1,
-  spawn_unlinked/1
+  spawn_unlinked/1,
+  read_static_file/1
 ]).
+
+read_static_file(RelPath) when is_binary(RelPath) ->
+  Str = binary_to_list(RelPath),
+  Candidates = [
+    filename:join(["priv", "static", Str]),
+    filename:join(["backend", "priv", "static", Str]),
+    filename:join(["C:", "laragon", "www", "travel", "backend", "priv", "static", Str])
+  ],
+  try_read_files(Candidates).
+
+try_read_files([]) -> {error, <<"not_found">>};
+try_read_files([Path | Rest]) ->
+  case file:read_file(Path) of
+    {ok, Bin} -> {ok, Bin};
+    {error, _} -> try_read_files(Rest)
+  end.
+
 
 post_xml(Url, Body, SoapAction) when is_binary(Url), is_binary(Body), is_binary(SoapAction) ->
   {ok, _} = application:ensure_all_started(inets),

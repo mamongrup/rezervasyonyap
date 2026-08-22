@@ -64,4 +64,13 @@ if ([int]$otpRelease -lt 26) {
 Set-Location $BackendDir
 $port = if ($env:PORT) { $env:PORT } else { '8080' }
 Write-Host "travel-api baslatiliyor: http://127.0.0.1:$port" -ForegroundColor Cyan
+
+# Windows symlink yerine dizin birlesimi (junction) guvencesi
+if (Test-Path "$BackendDir\build\dev\erlang\backend") {
+  $targetPriv = "$BackendDir\build\dev\erlang\backend\priv"
+  if (-not (Test-Path $targetPriv)) {
+    cmd.exe /c "mklink /J ""$targetPriv"" ""$BackendDir\priv"""
+  }
+}
+
 gleam run

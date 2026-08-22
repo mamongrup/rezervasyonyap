@@ -327,7 +327,7 @@ export default function GeneralSettingsClient({ embedded = false }: GeneralSetti
   const [openaiApiKey, setOpenaiApiKey] = useState('')
   const [deepseekModel, setDeepseekModel] = useState('deepseek-chat')
   const [deepseekApiUrl, setDeepseekApiUrl] = useState('https://api.deepseek.com/v1/chat/completions')
-  const [geminiModel, setGeminiModel] = useState('gemini-2.0-flash')
+  const [geminiModel, setGeminiModel] = useState('gemini-1.5-flash')
   const [requestTimeoutSec, setRequestTimeoutSec] = useState('300')
   const [moduleTimeoutsSec, setModuleTimeoutsSec] = useState<Record<string, string>>(() => {
     const o: Record<string, string> = {}
@@ -543,8 +543,10 @@ export default function GeneralSettingsClient({ embedded = false }: GeneralSetti
             )
             setGeminiModel(
               typeof obj.gemini_model === 'string' && obj.gemini_model.trim()
-                ? obj.gemini_model.trim()
-                : 'gemini-2.0-flash',
+                ? obj.gemini_model.trim() === 'gemini-2.0-flash'
+                  ? 'gemini-1.5-flash'
+                  : obj.gemini_model.trim()
+                : 'gemini-1.5-flash',
             )
             setRequestTimeoutSec(String(requestTimeoutSecFromAiJson(obj)))
             setModuleTimeoutsSec((prev) => {
@@ -748,7 +750,7 @@ export default function GeneralSettingsClient({ embedded = false }: GeneralSetti
         openai_api_key: openaiApiKey.trim(),
         deepseek_model: deepseekModel.trim() || 'deepseek-chat',
         deepseek_api_url: deepseekApiUrl.trim() || 'https://api.deepseek.com/v1/chat/completions',
-        gemini_model: geminiModel.trim() || 'gemini-2.0-flash',
+        gemini_model: geminiModel.trim() || 'gemini-1.5-flash',
         request_timeout_sec: rtParsed,
         module_timeouts_sec,
       }
@@ -2017,10 +2019,10 @@ export default function GeneralSettingsClient({ embedded = false }: GeneralSetti
                   className="mt-1 font-mono text-sm"
                   value={geminiModel}
                   onChange={(e) => setGeminiModel(e.target.value)}
-                  placeholder="gemini-2.0-flash"
+                  placeholder="gemini-1.5-flash"
                 />
                 <div className="mt-2 flex flex-wrap gap-1.5">
-                  {['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-pro'].map((m) => (
+                  {['gemini-1.5-flash', 'gemini-2.5-flash', 'gemini-1.5-pro'].map((m) => (
                     <button
                       key={m}
                       type="button"
@@ -2032,12 +2034,12 @@ export default function GeneralSettingsClient({ embedded = false }: GeneralSetti
                           : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200 dark:bg-neutral-800 dark:text-neutral-300',
                       )}
                     >
-                      {m} {m === 'gemini-2.0-flash' ? '(Önerilen)' : ''}
+                      {m} {m === 'gemini-1.5-flash' ? '(Önerilen)' : ''}
                     </button>
                   ))}
                 </div>
                 <p className="mt-1.5 text-xs text-neutral-400">
-                  Örn. <code className="font-mono">gemini-2.0-flash</code> —{' '}
+                  Örn. <code className="font-mono">gemini-1.5-flash</code> —{' '}
                   <a
                     href="https://aistudio.google.com/apikey"
                     target="_blank"

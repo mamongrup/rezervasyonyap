@@ -1,0 +1,16 @@
+-- MODÜL: bağlantı dayanıklılığı — orphan idle oturumları otomatik kapat
+--
+-- Kök neden (bkz. .cursor/rules/55-prod-incident-runbook.mdc §5): çok sayıda
+-- restart/deploy sonrası ölü istemcilerin (eski Erlang VM) oturumları PostgreSQL'de
+-- TCP keepalive zaman aşımına kadar "idle" kalır; birikince max_connections dolar
+-- (SQLSTATE 53300 too_many_connections) ve tüm API 500 döner.
+--
+-- Çözüm: rolün varsayılanına idle_session_timeout ekle. İşlem DIŞINDA (idle) uzun
+-- süre bekleyen oturumlar otomatik kapanır. Aktif havuz (pool_size=10) trafik altında
+-- sık yeniden kullanıldığı için etkilenmez; pog kapanan bağlantıyı sonraki kullanımda
+-- yeniden açar. Yalnız gerçekten atıl/ölü oturumlar reaplenir.
+--
+-- Not: CURRENT_USER kullanılır → üretimde uygulama rolü (apply-sql.sh app DB'sine
+-- bağlanır), yerelde postgres. Yalnız YENİ oturumlara uygulanır.
+-- idle_session_timeout PostgreSQL 14+ gerektirir.
+ALTER ROLE CURRENT_USER SET idle_session_timeout = '30min';
