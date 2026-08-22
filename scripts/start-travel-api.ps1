@@ -13,13 +13,20 @@ if (-not (Test-Path $EnvFile)) {
 
 $ErlangBin = 'C:\Program Files\Erlang OTP\bin'
 $RebarBin = Join-Path $RepoRoot 'scripts\bin'
-if (-not (Test-Path (Join-Path $ErlangBin 'erl.exe'))) {
-  Write-Host "Erlang OTP bulunamadi: $ErlangBin" -ForegroundColor Red
-  Write-Host 'Kurulum: scripts\setup-local-windows.ps1' -ForegroundColor Yellow
+
+$erlCmd = Get-Command erl -ErrorAction SilentlyContinue
+if (Test-Path (Join-Path $ErlangBin 'erl.exe')) {
+  $env:PATH = "$RebarBin;$ErlangBin;" + $env:PATH
+  $erlExe = Join-Path $ErlangBin 'erl.exe'
+} elseif ($erlCmd) {
+  $env:PATH = "$RebarBin;" + $env:PATH
+  $erlExe = $erlCmd.Source
+} else {
+  Write-Host "Erlang OTP bulunamadi." -ForegroundColor Red
+  Write-Host 'Kurulum: scripts\setup-local-windows.ps1 veya scoop install erlang' -ForegroundColor Yellow
   exit 1
 }
 
-$env:PATH = "$RebarBin;$ErlangBin;" + $env:PATH
 $env:TRAVEL_DB_ENV = $EnvFile
 
 Get-Content $EnvFile | ForEach-Object {
@@ -33,22 +40,24 @@ Get-Content $EnvFile | ForEach-Object {
 }
 
 if (-not $env:TURNA_API_KEY) {
-  $psql = 'C:\laragon\bin\postgresql\postgresql\bin\psql.exe'
-  $sql = @'
-SELECT coalesce(trim(value_json->'turna'->>'api_key'),'') FROM site_settings WHERE key='listing_api_providers' AND organization_id IS NULL LIMIT 1
-'@
-  $dbKey = & $psql -h 127.0.0.1 -p 5432 -U postgres -d travel -t -A -c $sql 2>$null
-  if ($dbKey -and $dbKey.Trim()) {
-    $env:TURNA_API_KEY = $dbKey.Trim()
-    Write-Host 'Turna api_key DB panel kaydindan yuklendi.' -ForegroundColor DarkGray
-  } else {
-    Write-Host 'UYARI: TURNA_API_KEY bos - ucus aramasi calismaz. backend.env veya panelden anahtar ekleyin.' -ForegroundColor Yellow
+  try {
+    $psql = 'C:\laragon\bin\postgresql\postgresql\bin\psql.exe'
+    if (Test-Path $psql) {
+      $sql = "SELECT coalesce(trim(value_json->'turna'->>'api_key'),'') FROM site_settings WHERE key='listing_api_providers' AND organization_id IS NULL LIMIT 1"
+      $dbKey = & $psql -h 127.0.0.1 -p 5432 -U postgres -d travel -t -A -c $sql 2>$null
+      if ($dbKey -and $dbKey.Trim()) {
+        $env:TURNA_API_KEY = $dbKey.Trim()
+        Write-Host 'Turna api_key DB panel kaydindan yuklendi.' -ForegroundColor DarkGray
+      }
+    }
+  } catch {
+    # opsiyonel kontrol hatasi calismayi engellemez
   }
 }
 
-$otpRelease = (& (Join-Path $ErlangBin 'erl.exe') -eval 'erlang:display(erlang:system_info(otp_release)), halt().' -noshell 2>$null).ToString().Trim().Trim('"')
-if ($otpRelease -ne '27') {
-  Write-Host "Erlang OTP 27 gerekli (simdiki: $otpRelease). scripts\setup-local-windows.ps1 calistirin." -ForegroundColor Red
+$otpRelease = (& $erlExe -eval 'erlang:display(erlang:system_info(otp_release)), halt().' -noshell 2>$null).ToString().Trim().Trim('"')
+if ([int]$otpRelease -lt 26) {
+  Write-Host "Erlang OTP 26+ gerekli (simdiki: $otpRelease)." -ForegroundColor Red
   exit 1
 }
 

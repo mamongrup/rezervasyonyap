@@ -7,55 +7,9 @@ import gleam/string
 import travel/html/render
 import travel/views/layout/base
 import travel/views/vitrin/home_view.{
-  type ListingPreview, ListingPreview, render_listing_card,
+  type ListingItem, render_listing_card, sample_listings,
 }
 import wisp.{type Request, type Response}
-
-/// Örnek / Veritabanı Vitrin İlanları
-fn sample_listings() -> List(ListingPreview) {
-  [
-    ListingPreview(
-      id: "fethiye-villa-sunset",
-      title: "Villa Sunset — Sonsuzluk Havuzlu Lüks Villa",
-      category: "Tatil Evi",
-      location: "Fethiye, Ölüdeniz",
-      price_formatted: "₺7.500",
-      image_url: "https://images.unsplash.com/photo-1580587771525-78b9dba3b914?auto=format&fit=crop&w=800&q=80",
-      rating: "4.95",
-      badge: "Süper Ev Sahibi",
-    ),
-    ListingPreview(
-      id: "bodrum-mandarin-hotel",
-      title: "Mandarin Luxury Resort & Spa",
-      category: "Otel",
-      location: "Bodrum, Türkbükü",
-      price_formatted: "₺12.000",
-      image_url: "https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=800&q=80",
-      rating: "4.98",
-      badge: "Denize Sıfır",
-    ),
-    ListingPreview(
-      id: "kas-kalkan-panoramic",
-      title: "Villa Panorama — Jakuzili Balayı Villası",
-      category: "Tatil Evi",
-      location: "Kaş, Kalkan",
-      price_formatted: "₺6.200",
-      image_url: "https://images.unsplash.com/photo-1512917774080-9991f1c4c750?auto=format&fit=crop&w=800&q=80",
-      rating: "4.92",
-      badge: "Özel Havuzlu",
-    ),
-    ListingPreview(
-      id: "marmaris-blue-cruise",
-      title: "Gulet Mavi Rota — 4 Kabin Lüks Gulet",
-      category: "Yat Kiralama",
-      location: "Marmaris, Göcek",
-      price_formatted: "₺18.500",
-      image_url: "https://images.unsplash.com/photo-1544551763-46a013bb70d5?auto=format&fit=crop&w=800&q=80",
-      rating: "5.00",
-      badge: "Kaptan & Mürettebat Dahil",
-    ),
-  ]
-}
 
 pub fn handle_routes(
   req: Request,
@@ -66,8 +20,7 @@ pub fn handle_routes(
     // GET /htmx -> Anasayfa
     http.Get, [] -> {
       let config = base.default_config("Anasayfa", "tr")
-      let listings = sample_listings()
-      let html_content = base.layout(config, home_view.view(listings))
+      let html_content = base.layout(config, home_view.view("tr"))
       wisp.html_response(html_content, 200)
     }
 
@@ -79,12 +32,9 @@ pub fn handle_routes(
           description: "Türkiye'nin en seçkin otelleri ve tatil köyleri.",
           locale: "tr",
           active_nav: "hotels",
-          canonical_url: "https://rezervasyonyap.tr/hotels",
+          canonical_url: "https://rezervasyonyap.tr/htmx/hotels",
         )
-      let listings =
-        sample_listings()
-        |> list.filter(fn(l) { l.category == "Otel" })
-      let html_content = base.layout(config, home_view.view(listings))
+      let html_content = base.layout(config, home_view.view("tr"))
       wisp.html_response(html_content, 200)
     }
 
@@ -92,40 +42,38 @@ pub fn handle_routes(
     http.Get, ["villas"] -> {
       let config =
         base.PageConfig(
-          title: "Tatil Evleri & Kiralık Villalar | Rezervasyon Yap",
-          description: "Özel havuzlu lüks kiralık villalar ve tatil evleri.",
+          title: "Kiralık Villalar & Tatil Evleri | Rezervasyon Yap",
+          description: "Özel havuzlu, jakuzili ve korunaklı lüks tatil villaları.",
           locale: "tr",
           active_nav: "villas",
-          canonical_url: "https://rezervasyonyap.tr/villas",
+          canonical_url: "https://rezervasyonyap.tr/htmx/villas",
         )
-      let listings =
-        sample_listings()
-        |> list.filter(fn(l) { l.category == "Tatil Evi" })
-      let html_content = base.layout(config, home_view.view(listings))
+      let html_content = base.layout(config, home_view.view("tr"))
       wisp.html_response(html_content, 200)
     }
 
-    // GET /htmx/api/search -> HTMX Canlı Arama Parçacığı (Partial HTML)
+    // GET /htmx/api/search -> Canlı HTMX Arama Parçası (Partial HTML)
     http.Get, ["api", "search"] -> {
-      let query_pairs = wisp.get_query(req)
-      let q =
-        query_pairs
-        |> list.find(fn(p) { p.0 == "q" })
+      let query_param =
+        wisp.get_query(req)
+        |> list.key_find("q")
         |> fn(res) {
           case res {
-            Ok(#(_, val)) -> string.lowercase(string.trim(val))
+            Ok(val) -> string.trim(string.lowercase(val))
             Error(_) -> ""
           }
         }
 
-      let filtered = case q == "" {
-        True -> sample_listings()
-        False ->
-          sample_listings()
-          |> list.filter(fn(item) {
+      let all_listings = sample_listings()
+      let filtered = case query_param {
+        "" -> all_listings
+        q ->
+          all_listings
+          |> list.filter(fn(item: ListingItem) {
             string.contains(string.lowercase(item.title), q)
             || string.contains(string.lowercase(item.location), q)
-            || string.contains(string.lowercase(item.category), q)
+            || string.contains(string.lowercase(item.category_label), q)
+            || string.contains(string.lowercase(item.category_slug), q)
           })
       }
 
@@ -133,17 +81,19 @@ pub fn handle_routes(
         filtered
         |> list.map(render_listing_card)
         |> list.map(render.render)
-        |> string.join("\n")
+        |> string.join("")
 
-      let final_html = case filtered == [] {
-        True ->
-          "<div class=\"col-span-full py-12 text-center text-neutral-500 dark:text-neutral-400\"><p class=\"text-base font-semibold\">Aramanıza uygun ilan bulunamadı.</p><p class=\"text-xs mt-1\">Farklı bir lokasyon veya kategori deneyebilirsiniz.</p></div>"
-        False -> partial_html
+      case partial_html {
+        "" ->
+          wisp.html_response(
+            "<div class=\"col-span-full py-16 text-center text-neutral-500 dark:text-neutral-400\"><div class=\"text-4xl mb-3\">🔍</div><h4 class=\"text-lg font-bold text-neutral-800 dark:text-neutral-200 mb-1\">Aramanızla Eşleşen İlan Bulunamadı</h4><p class=\"text-sm\">Farklı bir lokasyon veya tesis türü aramayı deneyin.</p></div>",
+            200,
+          )
+        html -> wisp.html_response(html, 200)
       }
-
-      wisp.html_response(final_html, 200)
     }
 
+    // 404 Not Found
     _, _ -> wisp.not_found()
   }
 }

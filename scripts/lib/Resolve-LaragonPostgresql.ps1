@@ -74,8 +74,10 @@ function Test-PostgresqlConnection {
     $prev = $env:PGPASSWORD
     try {
         if ($Password) { $env:PGPASSWORD = $Password } else { Remove-Item Env:PGPASSWORD -ErrorAction SilentlyContinue }
-        & $Psql -h $PgHost -p $Port -U $User -d $Database -t -A -c 'SELECT 1' 2>$null | Out-Null
+        $null = & $Psql -h $PgHost -p $Port -U $User -d $Database -t -A -c 'SELECT 1' 2>&1
         return ($LASTEXITCODE -eq 0)
+    } catch {
+        return $false
     } finally {
         if ($null -ne $prev) { $env:PGPASSWORD = $prev } else { Remove-Item Env:PGPASSWORD -ErrorAction SilentlyContinue }
     }

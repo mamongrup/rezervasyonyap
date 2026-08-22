@@ -28,12 +28,14 @@ $libDir = Split-Path $lib -Parent
 if (-not (Test-Path $libDir)) {
     New-Item -ItemType Directory -Force -Path $libDir | Out-Null
 }
-try {
-    $libUrl = 'https://raw.githubusercontent.com/mamongrup/rezervasyonyap/main/scripts/lib/Resolve-LaragonPostgresql.ps1'
-    Invoke-WebRequest -Uri $libUrl -OutFile $lib -UseBasicParsing
-} catch {
-    if (-not (Test-Path $lib)) {
-        throw "Eksik: $lib"
+if (-not (Test-Path $lib)) {
+    try {
+        $libUrl = 'https://raw.githubusercontent.com/mamongrup/rezervasyonyap/main/scripts/lib/Resolve-LaragonPostgresql.ps1'
+        Invoke-WebRequest -Uri $libUrl -OutFile $lib -UseBasicParsing
+    } catch {
+        if (-not (Test-Path $lib)) {
+            throw "Eksik: $lib"
+        }
     }
 }
 . $lib
