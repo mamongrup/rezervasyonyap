@@ -937,35 +937,38 @@ fn create_and_run_job(
     Ok(ret) ->
       case ret.rows {
         [job_id] -> {
-          let _ = ai_job_run.run_ai_job(ctx, job_id)
-          case
-            pog.query(
-              "select status, coalesce(error,''), coalesce(output_json->>'text','') from ai_jobs where id = $1::uuid limit 1",
-            )
-            |> pog.parameter(pog.text(job_id))
-            |> pog.returning(ai_job_outcome_row())
-            |> db_exec.execute(ctx.db)
-          {
-            Error(_) -> Error("listing_content_job_output_failed")
-            Ok(out_ret) ->
-              case out_ret.rows {
-                [#(status, err, text)] ->
-                  case status {
-                    "succeeded" ->
-                      case string.trim(text) == "" {
-                        True -> Error("listing_content_empty_ai_output")
-                        False -> Ok(string.trim(text))
+          case ai_job_run.run_ai_job(ctx, job_id) {
+            Error(run_err) -> Error(run_err)
+            Ok(Nil) ->
+              case
+                pog.query(
+                  "select status, coalesce(error,''), coalesce(output_json->>'text','') from ai_jobs where id = $1::uuid limit 1",
+                )
+                |> pog.parameter(pog.text(job_id))
+                |> pog.returning(ai_job_outcome_row())
+                |> db_exec.execute(ctx.db)
+              {
+                Error(_) -> Error("listing_content_job_output_failed")
+                Ok(out_ret) ->
+                  case out_ret.rows {
+                    [#(status, err, text)] ->
+                      case status {
+                        "succeeded" ->
+                          case string.trim(text) == "" {
+                            True -> Error("listing_content_empty_ai_output")
+                            False -> Ok(string.trim(text))
+                          }
+                        "failed" -> {
+                          let e = string.trim(err)
+                          case e == "" {
+                            True -> Error("listing_content_ai_failed")
+                            False -> Error(string.slice(e, 0, 800))
+                          }
+                        }
+                        _ -> Error("listing_content_ai_failed")
                       }
-                    "failed" -> {
-                      let e = string.trim(err)
-                      case e == "" {
-                        True -> Error("listing_content_ai_failed")
-                        False -> Error(string.slice(e, 0, 800))
-                      }
-                    }
                     _ -> Error("listing_content_ai_failed")
                   }
-                _ -> Error("listing_content_ai_failed")
               }
           }
         }
@@ -1911,9 +1914,21 @@ pub fn reset_stuck(req: Request, ctx: Context) -> Response {
   case admin_gate.require_admin_users_read(req, ctx) {
     Error(r) -> r
     Ok(_) -> {
+      let _ =
+        pog.query(
+          "update ai_jobs set status = 'failed', error = 'reset_by_admin' where status = 'running'",
+        )
+        |> db_exec.execute(ctx.db)
+
+      let _ =
+        pog.query(
+          "update ai_agent_runtime_state set circuit_open_until = null, consecutive_failures = 0, health_status = 'healthy' where circuit_open_until is not null or health_status in ('degraded', 'quarantined', 'half_open', 'paused')",
+        )
+        |> db_exec.execute(ctx.db)
+
       case
         pog.query(
-          "update ai_listing_content_batches set status = 'pending', updated_at = now() where status = 'running' returning id::text",
+          "update ai_listing_content_batches set status = 'pending', updated_at = now() where status in ('running', 'failed') returning id::text",
         )
         |> pog.returning(row_dec.col0_string())
         |> db_exec.execute(ctx.db)
