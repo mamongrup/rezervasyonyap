@@ -2019,7 +2019,24 @@ export default function GeneralSettingsClient({ embedded = false }: GeneralSetti
                   onChange={(e) => setGeminiModel(e.target.value)}
                   placeholder="gemini-2.0-flash"
                 />
-                <p className="mt-1 text-xs text-neutral-400">
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  {['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-pro'].map((m) => (
+                    <button
+                      key={m}
+                      type="button"
+                      onClick={() => setGeminiModel(m)}
+                      className={clsx(
+                        'rounded-md px-2 py-1 font-mono text-[11px] transition',
+                        geminiModel === m
+                          ? 'bg-violet-100 font-semibold text-violet-800 dark:bg-violet-950/60 dark:text-violet-300'
+                          : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200 dark:bg-neutral-800 dark:text-neutral-300',
+                      )}
+                    >
+                      {m} {m === 'gemini-2.0-flash' ? '(Önerilen)' : ''}
+                    </button>
+                  ))}
+                </div>
+                <p className="mt-1.5 text-xs text-neutral-400">
                   Örn. <code className="font-mono">gemini-2.0-flash</code> —{' '}
                   <a
                     href="https://aistudio.google.com/apikey"
@@ -2027,7 +2044,7 @@ export default function GeneralSettingsClient({ embedded = false }: GeneralSetti
                     rel="noopener noreferrer"
                     className="text-primary-600 underline"
                   >
-                    AI Studio anahtarları
+                    Google AI Studio anahtarları
                   </a>
                 </p>
               </Field>
