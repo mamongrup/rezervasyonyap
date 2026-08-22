@@ -43,6 +43,7 @@ import travel/currency/currency_http
 import travel/db/pool_health
 import travel/db/resilient_pog as db_exec
 import travel/engagement/engagement_http
+import travel/htmx/htmx_router
 import travel/engagement/listing_reports_http
 import travel/engagement/social_proof_http
 import travel/i18n/i18n_http
@@ -112,6 +113,9 @@ fn dispatch(req: Request, ctx: Context) -> Response {
     http.Get, [] -> home_json()
 
     http.Get, ["health"] -> health_check(ctx)
+
+    // HTMX SSR Rotaları (Gleam + HTMX + Tailwind)
+    _, ["htmx", ..rest] -> htmx_router.handle_routes(req, ctx, rest)
 
     // Public iCal export — 3. taraf takvimler (Airbnb/Booking/Apple/Google)
     // bu URL'i okur. Auth yok; gizlilik 64-karakterlik token ile sağlanır.
