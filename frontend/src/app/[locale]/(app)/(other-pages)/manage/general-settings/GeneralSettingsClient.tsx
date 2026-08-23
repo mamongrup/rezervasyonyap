@@ -162,13 +162,14 @@ function BrandingImageUploadRow({
         open={pickerOpen}
         title={`${label} — görsel seç`}
         uploadTarget={uploadTarget}
+        libraryRoot="/"
         accept={accept}
         allowedExtensions={
           preview === 'favicon'
-            ? undefined
+            ? ['ico', 'png', 'svg', 'webp', 'jpg', 'jpeg']
             : preview === 'og-share'
               ? ['jpg', 'jpeg', 'png', 'webp', 'avif']
-              : ['svg']
+              : ['svg', 'png', 'webp', 'jpg', 'jpeg', 'avif']
         }
         onClose={() => setPickerOpen(false)}
         onSelect={(nextUrl) => {
