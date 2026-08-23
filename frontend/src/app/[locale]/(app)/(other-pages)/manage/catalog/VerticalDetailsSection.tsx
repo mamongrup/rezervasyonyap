@@ -428,35 +428,85 @@ function VillaSection({
 }
 
 // ─── Yat (yacht_charter) ──────────────────────────────────────────────────────
-const YACHT_TYPES = ['Motorlu', 'Yelkenli', 'Katamaran', 'Gület', 'Süperyat', 'RIB', 'Karavela', 'Tekne']
+const YACHT_TYPES = ['Gulet', 'Deluxe Gulet', 'Motor Yacht', 'Mega Yacht', 'Catamaran', 'Sailing Yacht', 'Trawler', 'Speedboat']
 
 function YachtSection({ listingId }: { listingId: string }) {
   const [form, setForm] = useState({
-    length_meters: '', cabin_count: '', bathroom_count: '', passenger_count: '',
-    port_lat: '', port_lng: '', yacht_type: '', captain_included: '',
-    fuel_policy: '', speed_knots: '',
+    length_meters: '', beam_meters: '', draft_meters: '', hull_material: '',
+    build_year: '', refit_year: '', cruising_speed_knots: '', max_speed_knots: '',
+    engine_hp: '', flag: 'Türk Bayrağı', port_name: '',
+    cabin_count: '', master_cabins: '', vip_cabins: '', double_cabins: '', twin_cabins: '',
+    bathroom_count: '', passenger_count: '', passenger_count_night: '',
+    crew_count: '', port_lat: '', port_lng: '', yacht_type: 'Gulet',
+    captain_included: 'yes', fuel_policy: '', min_charter_days: '7',
+    checkin_day_time: 'Cumartesi 16:00', checkout_day_time: 'Cumartesi 09:30',
+    security_deposit: '', apa_percent: '30', cancellation_policy: '',
   })
-  const [includes, setIncludes] = useState<string[]>([''])
-  const [excludes, setExcludes] = useState<string[]>([''])
+  const [routes, setRoutes] = useState<string[]>([])
+  const [waterSports, setWaterSports] = useState<string[]>([])
+  const [equipment, setEquipment] = useState<string[]>([])
+  const [includes, setIncludes] = useState<string[]>([
+    'Yat kiralama bedeli ve sigortası',
+    'Kaptan ve mürettebat servisi',
+    'Günlük ortalama 3-4 saat seyir yakıtı',
+    'Türk karasuları liman ve bağlama ücretleri',
+    'Transitlog ve kullanma suyu',
+  ])
+  const [excludes, setExcludes] = useState<string[]>([
+    'Yiyecek ve içecek kumanyası (misafire aittir)',
+    'Yunan Adaları gümrük ve liman masrafları',
+    'Su sporları botu ekstra benzin tüketimi',
+    'KDV ve mürettebat bahşişi (%5-%10)',
+  ])
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null)
 
   useEffect(() => {
-    void getVerticalYacht(listingId)
-      .then((d) => {
+    void Promise.all([
+      getVerticalYacht(listingId),
+      getVerticalMeta<Record<string, unknown>>(listingId, 'yacht_extra').catch(() => null),
+    ])
+      .then(([d, extraMeta]) => {
+        const extra = unwrapVerticalMetaPayload(extraMeta) as Record<string, unknown> | null
         setForm({
-          length_meters: d.length_meters ?? '',
-          cabin_count: d.cabin_count ?? '',
-          bathroom_count: (d as Record<string, string>).bathroom_count ?? '',
-          passenger_count: (d as Record<string, string>).passenger_count ?? '',
-          port_lat: d.port_lat ?? '',
-          port_lng: d.port_lng ?? '',
-          yacht_type: d.yacht_type ?? '',
-          captain_included: d.captain_included ?? '',
-          fuel_policy: d.fuel_policy ?? '',
-          speed_knots: (d as Record<string, string>).speed_knots ?? '',
+          length_meters: d.length_meters ?? String(extra?.length_meters ?? ''),
+          beam_meters: String(extra?.beam_meters ?? ''),
+          draft_meters: String(extra?.draft_meters ?? ''),
+          hull_material: String(extra?.hull_material ?? 'Ahşap / Epoksi Lamine'),
+          build_year: String(extra?.build_year ?? ''),
+          refit_year: String(extra?.refit_year ?? ''),
+          cruising_speed_knots: String(extra?.cruising_speed_knots ?? (d as Record<string, string>).speed_knots ?? ''),
+          max_speed_knots: String(extra?.max_speed_knots ?? ''),
+          engine_hp: String(extra?.engine_hp ?? ''),
+          flag: String(extra?.flag ?? 'Türk Bayrağı'),
+          port_name: String(extra?.port_name ?? ''),
+          cabin_count: d.cabin_count ?? String(extra?.cabin_count ?? ''),
+          master_cabins: String(extra?.master_cabins ?? ''),
+          vip_cabins: String(extra?.vip_cabins ?? ''),
+          double_cabins: String(extra?.double_cabins ?? ''),
+          twin_cabins: String(extra?.twin_cabins ?? ''),
+          bathroom_count: (d as Record<string, string>).bathroom_count ?? String(extra?.bathroom_count ?? ''),
+          passenger_count: (d as Record<string, string>).passenger_count ?? String(extra?.passenger_count ?? ''),
+          passenger_count_night: String(extra?.passenger_count_night ?? ''),
+          crew_count: String(extra?.crew_count ?? ''),
+          port_lat: d.port_lat ?? String(extra?.port_lat ?? ''),
+          port_lng: d.port_lng ?? String(extra?.port_lng ?? ''),
+          yacht_type: d.yacht_type ?? String(extra?.yacht_type ?? 'Gulet'),
+          captain_included: d.captain_included ?? String(extra?.captain_included ?? 'yes'),
+          fuel_policy: d.fuel_policy ?? String(extra?.fuel_policy ?? ''),
+          min_charter_days: String(extra?.min_charter_days ?? '7'),
+          checkin_day_time: String(extra?.checkin_day_time ?? 'Cumartesi 16:00'),
+          checkout_day_time: String(extra?.checkout_day_time ?? 'Cumartesi 09:30'),
+          security_deposit: String(extra?.security_deposit ?? ''),
+          apa_percent: String(extra?.apa_percent ?? '30'),
+          cancellation_policy: String(extra?.cancellation_policy ?? ''),
         })
+        if (Array.isArray(extra?.routes)) setRoutes(extra.routes as string[])
+        if (Array.isArray(extra?.water_sports)) setWaterSports(extra.water_sports as string[])
+        if (Array.isArray(extra?.equipment)) setEquipment(extra.equipment as string[])
+        if (Array.isArray(extra?.includes) && extra.includes.length) setIncludes(extra.includes as string[])
+        if (Array.isArray(extra?.excludes) && extra.excludes.length) setExcludes(extra.excludes as string[])
       })
       .catch(() => {})
       .finally(() => setLoading(false))
@@ -477,13 +527,16 @@ function YachtSection({ listingId }: { listingId: string }) {
       const token = getStoredAuthToken()
       if (token) {
         await putVerticalMeta(token, listingId, 'yacht_extra', {
-          bathroom_count: form.bathroom_count, passenger_count: form.passenger_count,
-          yacht_type: form.yacht_type, captain_included: form.captain_included,
-          fuel_policy: form.fuel_policy, speed_knots: form.speed_knots,
-          includes: includes.filter(Boolean), excludes: excludes.filter(Boolean),
+          ...form,
+          speed_knots: form.cruising_speed_knots,
+          routes,
+          water_sports: waterSports,
+          equipment,
+          includes: includes.filter(Boolean),
+          excludes: excludes.filter(Boolean),
         })
       }
-      setMsg({ ok: true, text: 'Yat özellikleri kaydedildi.' })
+      setMsg({ ok: true, text: 'Yat özellikleri ve kiralama şartları kaydedildi.' })
     } catch (e) {
       setMsg({ ok: false, text: e instanceof Error ? formatManageApiError(e.message) : formatManageApiError('save_failed') })
     } finally { setBusy(false) }
@@ -493,47 +546,137 @@ function YachtSection({ listingId }: { listingId: string }) {
 
   return (
     <div className="space-y-6">
+      {/* Temel Yat Bilgileri */}
+      <div className="rounded-2xl border border-neutral-200 bg-neutral-50/50 p-5 dark:border-neutral-700 dark:bg-neutral-900/30">
+        <h4 className="mb-4 text-xs font-bold uppercase tracking-wider text-neutral-700 dark:text-neutral-300">
+          Teknik Ölçüler ve Tekne Bilgileri
+        </h4>
         <div className="grid gap-4 sm:grid-cols-3">
-        <Field className="block">
-          <Label>Yat Tipi</Label>
-          <select className={SELECT_CLS} value={form.yacht_type} onChange={set('yacht_type')}>
-            <option value="">— Seçin —</option>
-            {YACHT_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
-          </select>
-        </Field>
-        <Field className="block">
-          <Label>Boy (metre)</Label>
-          <Input type="number" step="0.1" className="mt-1" value={form.length_meters} onChange={set('length_meters')} placeholder="18" />
-        </Field>
-        <Field className="block">
-          <Label>Hız (deniz mili)</Label>
-          <Input type="number" step="0.1" className="mt-1" value={form.speed_knots} onChange={set('speed_knots')} placeholder="12" />
-        </Field>
-        <Field className="block">
-          <Label>Kabin Sayısı</Label>
-          <Input type="number" min="1" className="mt-1" value={form.cabin_count} onChange={set('cabin_count')} placeholder="4" />
-        </Field>
-        <Field className="block">
-          <Label>Banyo Sayısı</Label>
-          <Input type="number" min="1" className="mt-1" value={form.bathroom_count} onChange={set('bathroom_count')} placeholder="3" />
-        </Field>
-        <Field className="block">
-          <Label>Maks. Yolcu</Label>
-          <Input type="number" min="1" className="mt-1" value={form.passenger_count} onChange={set('passenger_count')} placeholder="8" />
-        </Field>
-        <Field className="block">
-          <Label>Kaptan Dahil mi?</Label>
-          <select className={SELECT_CLS} value={form.captain_included} onChange={set('captain_included')}>
-            <option value="">— Seçin —</option>
-            <option value="yes">Evet, kaptan dahil</option>
-            <option value="no">Hayır (bare boat)</option>
-            <option value="optional">İsteğe bağlı (+ücret)</option>
-          </select>
-        </Field>
-        <Field className="block sm:col-span-2">
-          <Label>Yakıt Politikası</Label>
-          <Input className="mt-1" value={form.fuel_policy} onChange={set('fuel_policy')} placeholder="Giriş dolu, çıkış dolu" />
-        </Field>
+          <Field className="block">
+            <Label>Yat Tipi</Label>
+            <select className={SELECT_CLS} value={form.yacht_type} onChange={set('yacht_type')}>
+              {YACHT_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
+            </select>
+          </Field>
+          <Field className="block">
+            <Label>Boy (LOA - metre)</Label>
+            <Input type="number" step="0.1" className="mt-1" value={form.length_meters} onChange={set('length_meters')} placeholder="28.5" />
+          </Field>
+          <Field className="block">
+            <Label>Genişlik / En (metre)</Label>
+            <Input type="number" step="0.1" className="mt-1" value={form.beam_meters} onChange={set('beam_meters')} placeholder="7.2" />
+          </Field>
+          <Field className="block">
+            <Label>Draft / Su Çekimi (m)</Label>
+            <Input type="number" step="0.1" className="mt-1" value={form.draft_meters} onChange={set('draft_meters')} placeholder="2.8" />
+          </Field>
+          <Field className="block">
+            <Label>Seyir Hızı (Knot)</Label>
+            <Input type="number" step="0.5" className="mt-1" value={form.cruising_speed_knots} onChange={set('cruising_speed_knots')} placeholder="10" />
+          </Field>
+          <Field className="block">
+            <Label>Bayrak</Label>
+            <Input className="mt-1" value={form.flag} onChange={set('flag')} placeholder="Türk Bayrağı" />
+          </Field>
+          <Field className="block">
+            <Label>Yapım Yılı</Label>
+            <Input type="number" className="mt-1" value={form.build_year} onChange={set('build_year')} placeholder="2018" />
+          </Field>
+          <Field className="block">
+            <Label>Son Refit (Yenileme) Yılı</Label>
+            <Input type="number" className="mt-1" value={form.refit_year} onChange={set('refit_year')} placeholder="2024" />
+          </Field>
+          <Field className="block">
+            <Label>Gövde Malzemesi</Label>
+            <Input className="mt-1" value={form.hull_material} onChange={set('hull_material')} placeholder="Ahşap / Epoksi Lamine" />
+          </Field>
+        </div>
+      </div>
+
+      {/* Kamara ve Kapasite */}
+      <div className="rounded-2xl border border-neutral-200 bg-neutral-50/50 p-5 dark:border-neutral-700 dark:bg-neutral-900/30">
+        <h4 className="mb-4 text-xs font-bold uppercase tracking-wider text-neutral-700 dark:text-neutral-300">
+          Kapasite, Kamaralar ve Mürettebat
+        </h4>
+        <div className="grid gap-4 sm:grid-cols-4">
+          <Field className="block">
+            <Label>Gündüz Yolcu</Label>
+            <Input type="number" min="1" className="mt-1" value={form.passenger_count} onChange={set('passenger_count')} placeholder="12" />
+          </Field>
+          <Field className="block">
+            <Label>Geceleme Kapasitesi</Label>
+            <Input type="number" min="1" className="mt-1" value={form.passenger_count_night} onChange={set('passenger_count_night')} placeholder="8" />
+          </Field>
+          <Field className="block">
+            <Label>Toplam Kamara</Label>
+            <Input type="number" min="1" className="mt-1" value={form.cabin_count} onChange={set('cabin_count')} placeholder="4" />
+          </Field>
+          <Field className="block">
+            <Label>Banyo / WC Sayısı</Label>
+            <Input type="number" min="1" className="mt-1" value={form.bathroom_count} onChange={set('bathroom_count')} placeholder="4" />
+          </Field>
+          <Field className="block">
+            <Label>Master Kamara</Label>
+            <Input type="number" min="0" className="mt-1" value={form.master_cabins} onChange={set('master_cabins')} placeholder="1" />
+          </Field>
+          <Field className="block">
+            <Label>VIP Kamara</Label>
+            <Input type="number" min="0" className="mt-1" value={form.vip_cabins} onChange={set('vip_cabins')} placeholder="1" />
+          </Field>
+          <Field className="block">
+            <Label>Double Kamara</Label>
+            <Input type="number" min="0" className="mt-1" value={form.double_cabins} onChange={set('double_cabins')} placeholder="2" />
+          </Field>
+          <Field className="block">
+            <Label>Twin Kamara</Label>
+            <Input type="number" min="0" className="mt-1" value={form.twin_cabins} onChange={set('twin_cabins')} placeholder="0" />
+          </Field>
+          <Field className="block">
+            <Label>Mürettebat Sayısı</Label>
+            <Input type="number" min="0" className="mt-1" value={form.crew_count} onChange={set('crew_count')} placeholder="4" />
+          </Field>
+          <Field className="block sm:col-span-3">
+            <Label>Kaptan & Mürettebat Dahil mi?</Label>
+            <select className={SELECT_CLS} value={form.captain_included} onChange={set('captain_included')}>
+              <option value="yes">Evet, kaptan ve mürettebat fiyata dahil</option>
+              <option value="optional">İsteğe bağlı (+ek ücret)</option>
+              <option value="no">Hayır (Bareboat - kaptansız)</option>
+            </select>
+          </Field>
+        </div>
+      </div>
+
+      {/* Kiralama Şartları & APA */}
+      <div className="rounded-2xl border border-neutral-200 bg-neutral-50/50 p-5 dark:border-neutral-700 dark:bg-neutral-900/30">
+        <h4 className="mb-4 text-xs font-bold uppercase tracking-wider text-neutral-700 dark:text-neutral-300">
+          Kiralama Kuralları & APA Şartları
+        </h4>
+        <div className="grid gap-4 sm:grid-cols-3">
+          <Field className="block">
+            <Label>Min. Kiralama Günü</Label>
+            <Input type="number" min="1" className="mt-1" value={form.min_charter_days} onChange={set('min_charter_days')} placeholder="7" />
+          </Field>
+          <Field className="block">
+            <Label>Giriş / Biniş Günü ve Saati</Label>
+            <Input className="mt-1" value={form.checkin_day_time} onChange={set('checkin_day_time')} placeholder="Cumartesi 16:00" />
+          </Field>
+          <Field className="block">
+            <Label>Çıkış / İniş Günü ve Saati</Label>
+            <Input className="mt-1" value={form.checkout_day_time} onChange={set('checkout_day_time')} placeholder="Cumartesi 09:30" />
+          </Field>
+          <Field className="block">
+            <Label>APA (Kumanya Avansı) %</Label>
+            <Input type="number" min="0" max="50" className="mt-1" value={form.apa_percent} onChange={set('apa_percent')} placeholder="30" />
+          </Field>
+          <Field className="block">
+            <Label>Hasar Depozitosu</Label>
+            <Input className="mt-1" value={form.security_deposit} onChange={set('security_deposit')} placeholder="2.500 EUR" />
+          </Field>
+          <Field className="block">
+            <Label>Yakıt Politikası</Label>
+            <Input className="mt-1" value={form.fuel_policy} onChange={set('fuel_policy')} placeholder="Günlük 3-4 saat seyir dahil" />
+          </Field>
+        </div>
       </div>
 
       <IncludeExclude
@@ -2432,6 +2575,162 @@ function FlightSection({ listingId }: { listingId: string }) {
   )
 }
 
+// ─── Otel (hotel) ───────────────────────────────────────────────────────────
+function HotelSection({
+  listingId,
+  organizationId,
+}: {
+  listingId: string
+  organizationId?: string
+}) {
+  const [form, setForm] = useState({
+    hotel_type: 'resort',
+    star_rating: '5',
+    checkin_time: '14:00',
+    checkout_time: '12:00',
+    child_policy: '0-6 yaş 1 çocuk ücretsiz',
+    dist_beach: 'Denize Sıfır',
+    beach_type: 'private_sand',
+    dist_airport: '35 km',
+    dist_city_center: '2 km',
+  })
+  const [boardTypes, setBoardTypes] = useState<string[]>(['UAI', 'AI', 'HB'])
+  const [amenities, setAmenities] = useState<string[]>([
+    'pool_outdoor', 'aquapark', 'spa_center', 'turkish_hammam',
+    'main_buffet_restaurant', 'alacarte_restaurants', 'kids_club',
+    'free_wifi_all', 'free_parking_valet', 'reception_24h'
+  ])
+  const [loading, setLoading] = useState(true)
+  const [busy, setBusy] = useState(false)
+  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null)
+
+  useEffect(() => {
+    getListingMeta(listingId, 'hotel_agency_details')
+      .then((res) => {
+        const d = unwrapVerticalMetaPayload(res) as Record<string, unknown> | null
+        if (d) {
+          setForm({
+            hotel_type: String(d.hotel_type ?? 'resort'),
+            star_rating: String(d.star_rating ?? '5'),
+            checkin_time: String(d.checkin_time ?? '14:00'),
+            checkout_time: String(d.checkout_time ?? '12:00'),
+            child_policy: String(d.child_policy ?? '0-6 yaş 1 çocuk ücretsiz'),
+            dist_beach: String(d.dist_beach ?? 'Denize Sıfır'),
+            beach_type: String(d.beach_type ?? 'private_sand'),
+            dist_airport: String(d.dist_airport ?? '35 km'),
+            dist_city_center: String(d.dist_city_center ?? '2 km'),
+          })
+          if (Array.isArray(d.board_types)) setBoardTypes(d.board_types as string[])
+          if (Array.isArray(d.amenities)) setAmenities(d.amenities as string[])
+        }
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false))
+  }, [listingId])
+
+  const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
+    setForm((prev) => ({ ...prev, [k]: e.target.value }))
+
+  async function handleSave() {
+    setBusy(true)
+    setMsg(null)
+    try {
+      const token = getStoredAuthToken()
+      if (token) {
+        await putListingMeta(token, listingId, 'hotel_agency_details', {
+          ...form,
+          board_types: boardTypes,
+          amenities,
+        })
+      }
+      setMsg({ ok: true, text: 'Otel acente özellikleri ve konsept bilgileri kaydedildi.' })
+    } catch (e) {
+      setMsg({ ok: false, text: e instanceof Error ? formatManageApiError(e.message) : formatManageApiError('save_failed') })
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  if (loading) return <p className="text-sm text-neutral-400">Yükleniyor…</p>
+
+  return (
+    <div className="space-y-6">
+      {/* Tesis Sınıflandırması */}
+      <div className="rounded-2xl border border-neutral-200 bg-neutral-50/50 p-5 dark:border-neutral-700 dark:bg-neutral-900/30">
+        <h4 className="mb-4 text-xs font-bold uppercase tracking-wider text-neutral-700 dark:text-neutral-300">
+          Otel Sınıflandırması & Konsept
+        </h4>
+        <div className="grid gap-4 sm:grid-cols-3">
+          <Field className="block">
+            <Label>Tesis Türü</Label>
+            <select className={SELECT_CLS} value={form.hotel_type} onChange={set('hotel_type')}>
+              <option value="resort">Resort Otel (Tatil Köyü)</option>
+              <option value="boutique">Butik Otel</option>
+              <option value="city_business">Şehir & İş Oteli</option>
+              <option value="thermal_spa">Termal & Spa Oteli</option>
+              <option value="bungalow_mountain">Dağ & Bungalov Oteli</option>
+              <option value="apart_hotel">Apart Otel</option>
+              <option value="pension">Pansiyon</option>
+            </select>
+          </Field>
+          <Field className="block">
+            <Label>Yıldız Sınıfı</Label>
+            <select className={SELECT_CLS} value={form.star_rating} onChange={set('star_rating')}>
+              <option value="5">5 Yıldızlı (★★★★★)</option>
+              <option value="4">4 Yıldızlı (★★★★)</option>
+              <option value="3">3 Yıldızlı (★★★)</option>
+              <option value="boutique_class">Özel Kategori / Butik</option>
+              <option value="apart_class">Apart Tesis</option>
+            </select>
+          </Field>
+          <Field className="block">
+            <Label>Çocuk Politikası</Label>
+            <Input className="mt-1" value={form.child_policy} onChange={set('child_policy')} placeholder="0-6 yaş 1 çocuk ücretsiz" />
+          </Field>
+          <Field className="block">
+            <Label>Giriş Saati (Check-in)</Label>
+            <Input type="time" className="mt-1" value={form.checkin_time} onChange={set('checkin_time')} />
+          </Field>
+          <Field className="block">
+            <Label>Çıkış Saati (Check-out)</Label>
+            <Input type="time" className="mt-1" value={form.checkout_time} onChange={set('checkout_time')} />
+          </Field>
+          <Field className="block">
+            <Label>Plaj Türü</Label>
+            <Input className="mt-1" value={form.beach_type} onChange={set('beach_type')} placeholder="Özel Kum Plaj / İskele" />
+          </Field>
+        </div>
+      </div>
+
+      {/* Mesafeler */}
+      <div className="rounded-2xl border border-neutral-200 bg-neutral-50/50 p-5 dark:border-neutral-700 dark:bg-neutral-900/30">
+        <h4 className="mb-4 text-xs font-bold uppercase tracking-wider text-neutral-700 dark:text-neutral-300">
+          Ulaşım ve Çevre Mesafeleri
+        </h4>
+        <div className="grid gap-4 sm:grid-cols-3">
+          <Field className="block">
+            <Label>Denize / Plaja Mesafe</Label>
+            <Input className="mt-1" value={form.dist_beach} onChange={set('dist_beach')} placeholder="Denize Sıfır veya 100 m" />
+          </Field>
+          <Field className="block">
+            <Label>Havalimanına Mesafe</Label>
+            <Input className="mt-1" value={form.dist_airport} onChange={set('dist_airport')} placeholder="35 km (AYT)" />
+          </Field>
+          <Field className="block">
+            <Label>Şehir Merkezine Mesafe</Label>
+            <Input className="mt-1" value={form.dist_city_center} onChange={set('dist_city_center')} placeholder="2 km" />
+          </Field>
+        </div>
+      </div>
+
+      <StatusMsg msg={msg} />
+      <ButtonPrimary type="button" disabled={busy} onClick={() => void handleSave()}>
+        {busy ? '…' : 'Otel Özelliklerini Kaydet'}
+      </ButtonPrimary>
+    </div>
+  )
+}
+
 // ─── Dışa aktarılan ana bileşen ───────────────────────────────────────────────
 export function VerticalDetailsSection({
   categoryCode,
@@ -2447,6 +2746,8 @@ export function VerticalDetailsSection({
   activityMode?: ActivitySectionMode
 }) {
   switch (categoryCode) {
+    case 'hotel':
+      return <HotelSection listingId={listingId} organizationId={organizationId} />
     case 'holiday_home':
       return (
         <VillaSection

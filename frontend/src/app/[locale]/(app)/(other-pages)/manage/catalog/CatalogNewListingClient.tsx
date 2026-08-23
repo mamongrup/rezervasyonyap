@@ -81,6 +81,8 @@ import {
   listListingPriceRules,
   listManageCatalogListings,
   listManageMealPlans,
+  listManageActivitySessions,
+  putManageActivitySessions,
   listManageCategoryContracts,
   putListingAvailabilityCalendar,
   rotateListingIcalExportToken,
@@ -174,6 +176,29 @@ import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import clsx from 'clsx'
 import WizardStepNav, { type WizardStep } from '@/components/wizard/WizardStepNav'
+import {
+  HotelBasicsStepPanel,
+  HotelLocationDistancesStepPanel,
+  HotelFacilitiesStepPanel,
+  type HotelAgencyBasicsState,
+} from '@/components/manage/agency/AgencyHotelStepPanels'
+import {
+  YachtBasicsStepPanel,
+  YachtLocationRoutesStepPanel,
+  YachtCabinsAndEquipmentStepPanel,
+  YachtCharterTermsStepPanel,
+  type YachtAgencyBasicsState,
+} from '@/components/manage/agency/AgencyYachtStepPanels'
+import {
+  ActivityBasicsStepPanel,
+  ActivityMeetingTransferStepPanel,
+  ActivityProgramRulesStepPanel,
+  ActivityOperationsSafetyStepPanel,
+  ActivitySessionsStepPanel,
+  type ActivityAgencyBasicsState,
+  type ActivitySessionItem,
+} from '@/components/manage/agency/AgencyActivityStepPanels'
+import { AgencyQualityChecklist } from '@/components/manage/agency/AgencyQualityChecklist'
 
 const NEARBY_POI_CATEGORY_OPTIONS: { value: NearbyPoiCategory; label: string }[] = [
   { value: 'beach', label: 'Gezilecek Yerler / Plaj' },
@@ -489,22 +514,45 @@ export default function CatalogNewListingClient({
   const vitrinPath = useVitrinHref()
   const { allLocales, translateTargets, primaryLocale, localeCodes } = useManageAiLocaleRows()
   const isActivity = categoryCode === 'activity'
+  const isHotel = categoryCode === 'hotel'
+  const isYacht = categoryCode === 'yacht_charter'
+  const isVilla = categoryCode === 'holiday_home'
 
   // ── Wizard adım yönetimi ──
   const TOTAL_STEPS = 7
   const WIZARD_STEPS: WizardStep[] = [
     {
-      label: isActivity ? 'Temel & Fiyat' : 'Temel & Ücretler',
+      label: isHotel
+        ? 'Temel & Pansiyon'
+        : isYacht
+          ? 'Yat Bilgileri & Fiyat'
+          : isActivity
+            ? 'Aktivite & Fiyat'
+            : isVilla
+              ? 'Temel & Ücretler'
+              : 'Temel & Fiyat',
       shortLabel: '1',
       icon: <span className="text-xs font-bold">1</span>,
     },
     {
-      label: 'Konum',
+      label: isHotel
+        ? 'Konum & Mesafeler'
+        : isYacht
+          ? 'Liman & Rotalar'
+          : isActivity
+            ? 'Buluşma & Transfer'
+            : 'Konum',
       shortLabel: '2',
       icon: <span className="text-xs font-bold">2</span>,
     },
     {
-      label: isActivity ? 'Aktivite Detayları' : 'Özellikler',
+      label: isHotel
+        ? 'Tesis & Odalar'
+        : isYacht
+          ? 'Kamaralar & Donanım'
+          : isActivity
+            ? 'Program & Kurallar'
+            : 'Özellikler',
       shortLabel: '3',
       icon: <span className="text-xs font-bold">3</span>,
     },
@@ -514,12 +562,24 @@ export default function CatalogNewListingClient({
       icon: <span className="text-xs font-bold">4</span>,
     },
     {
-      label: isActivity ? 'Seanslar & Fiyatlar' : 'Takvim & Sezon',
+      label: isHotel
+        ? 'Oda Fiyatları & Takvim'
+        : isYacht
+          ? 'Sezonlar & Takvim'
+          : isActivity
+            ? 'Seanslar & Kontenjan'
+            : 'Takvim & Sezon',
       shortLabel: '5',
       icon: <span className="text-xs font-bold">5</span>,
     },
     {
-      label: isActivity ? 'Satış & İşletme' : 'İşletme',
+      label: isHotel
+        ? 'İşletme & Şartlar'
+        : isYacht
+          ? 'Kiralama Şartları & APA'
+          : isActivity
+            ? 'Operasyon & Güvenlik'
+            : 'İşletme & Satış',
       shortLabel: '6',
       icon: <span className="text-xs font-bold">6</span>,
     },
@@ -530,19 +590,43 @@ export default function CatalogNewListingClient({
     },
   ]
   const WIZARD_STEP_HELP = [
-    isActivity
-      ? 'İlan adı, açıklama, para birimi ve vitrinde gösterilecek başlangıç fiyatı.'
-      : 'İlan adı, açıklama, temel satış fiyatı ve müşteriye yansıtılan tüm ek ücretler.',
-    'Adres, bölge, harita konumu ve yakın çevre bilgileri.',
-    isActivity
-      ? 'Süre, katılımcı sınırları, buluşma noktası, diller, ekipman, kurallar ve paket kapsamı.'
-      : 'Kapasite, oda, imkanlar, kurallar, havuz ve giriş-çıkış saatleri.',
-    'Vitrinde kullanılacak fotoğraflar ve kapak görseli.',
-    isActivity
-      ? 'Tarih aralığı, başlangıç saati, süre, kapasite ve yetişkin/çocuk fiyatları.'
-      : 'Müsaitlik, dönemsel fiyatlar, iCal ve harici rezervasyonlar.',
-    'İlan sahibi, ödeme, komisyon, onay ve tedarikçi ayarları.',
-    'SEO, promosyon, yayın durumu ve son kontroller.',
+    isHotel
+      ? 'Otel adı, yıldız kategorisi, tesis tipi, pansiyon konseptleri ve çocuk politikası.'
+      : isYacht
+        ? 'Yat adı, tipi, boyutu (LOA/en/draft), yapım yılı, seyir hızı ve başlangıç kiralama bedeli.'
+        : isActivity
+          ? 'Aktivite adı, kategorisi, net/toplam süre, zorluk seviyesi ve kişi başı başlangıç fiyatı.'
+          : 'İlan adı, açıklama, temel satış fiyatı ve müşteriye yansıtılan ek ücretler.',
+    isHotel
+      ? 'Otel adresi, harita pini, denize, havalimanına ve şehir merkezine mesafeler ile plaj yapısı.'
+      : isYacht
+        ? 'Bağlama limanı / marina, harita konumu ve tur boyunca gezilecek popüler koy rotaları.'
+        : isActivity
+          ? 'Buluşma noktası, harita koordinatları ve ücretsiz/ücretli otel transfer bölgeleri.'
+          : 'Adres, bölge, harita konumu ve yakın çevre bilgileri.',
+    isHotel
+      ? 'Havuz, spa, F&B, çocuk kulübü olanakları, oda tipleri, genel tesis kuralları ve aktiviteler.'
+      : isYacht
+        ? 'Master/VIP kamara dağılımı, mürettebat, su sporları kataloğu ve güverte/salon donanımları.'
+        : isActivity
+          ? 'Zaman çizelgeli program akışı, yaş/kilo sınırları, yanınızda getirin listesi ve dahil/hariç hizmetler.'
+          : 'Kapasite, oda, imkanlar, kurallar, havuz ve giriş-çıkış saatleri.',
+    'Vitrinde kullanılacak yüksek çözünürlüklü fotoğraflar, 5’li hero galeri ve oda/kabin görselleri.',
+    isHotel
+      ? 'Oda tiplerine göre gecelik fiyatlar, müsaitlik takvimi ve dönemsel indirimler.'
+      : isYacht
+        ? 'Düşük, orta ve yüksek sezon haftalık kiralama bedelleri, iCal ve rezervasyon takvimi.'
+        : isActivity
+          ? 'Günlük başlangıç seansları, kontenjan kapasitesi ve yetişkin/çocuk fiyat tarifesi.'
+          : 'Müsaitlik, dönemsel fiyatlar, iCal ve harici rezervasyonlar.',
+    isHotel
+      ? 'Tesis yetkilisi, giriş/çıkış saatleri, anında onay ve iptal/iade kuralları.'
+      : isYacht
+        ? 'Giriş/çıkış gün ve saatleri, APA kumanya avansı, hasar depozitosu ve yakıt politikası.'
+        : isActivity
+          ? 'TÜRSAB ve operasyon lisansı, hava muhalefeti %100 iade güvencesi ve acente sözleşmesi.'
+          : 'İlan sahibi, ödeme, komisyon, onay ve tedarikçi ayarları.',
+    '100 puanlık acente kalite kontrolü, 6 dilde vitrin çevirileri, SERP/WhatsApp önizlemesi ve yayın.',
   ]
 
   const initialStep = Math.min(
@@ -598,6 +682,138 @@ export default function CatalogNewListingClient({
   const [aiPolishTitle, setAiPolishTitle] = useState(false)
   const [aiPolishBody, setAiPolishBody] = useState(false)
   const submitIntentRef = useRef<'save' | 'save-show' | 'save-next'>('save')
+
+  // ── Acente Dikey Durumları (Hotel, Yacht, Activity, Quality Badges) ──
+  const [hotelAgencyState, setHotelAgencyState] = useState<HotelAgencyBasicsState>({
+    hotel_type: 'resort',
+    star_rating: '5',
+    board_types: ['UAI', 'AI', 'HB'],
+    checkin_time: '14:00',
+    checkout_time: '12:00',
+    child_policy: '0-6 yaş 1 çocuk ücretsiz',
+    dist_beach: 'Denize Sıfır',
+    beach_type: 'private_sand',
+    dist_airport: '35 km',
+    dist_city_center: '2 km',
+    amenities: [
+      'pool_outdoor', 'aquapark', 'spa_center', 'turkish_hammam',
+      'main_buffet_restaurant', 'alacarte_restaurants', 'kids_club',
+      'free_wifi_all', 'free_parking_valet', 'reception_24h',
+    ],
+  })
+
+  const [yachtAgencyState, setYachtAgencyState] = useState<YachtAgencyBasicsState>({
+    yacht_type: 'Gulet',
+    length_meters: '28.5',
+    beam_meters: '7.2',
+    draft_meters: '2.8',
+    hull_material: 'Ahşap / Epoksi Lamine',
+    build_year: '2018',
+    refit_year: '2024',
+    cruising_speed_knots: '10',
+    flag: 'Türk Bayrağı',
+    port_name: 'Göcek D-Marin / Belediye Marinası',
+    routes: ['Göcek Koyları & 12 Adalar (Yassıca, Bedri Rahmi, Sarsala)'],
+    passenger_count_day: '12',
+    passenger_count_night: '8',
+    cabin_count: '4',
+    master_cabins: '1',
+    vip_cabins: '1',
+    double_cabins: '2',
+    twin_cabins: '0',
+    bathroom_count: '4',
+    crew_count: '4',
+    captain_included: 'yes',
+    fuel_policy: 'Günlük 3-4 saat seyir dahil',
+    min_charter_days: '7',
+    checkin_day_time: 'Cumartesi 16:00',
+    checkout_day_time: 'Cumartesi 09:30',
+    apa_percent: '30',
+    security_deposit: '2.500 EUR',
+    cancellation_policy: 'Tura 60 gün kalaya kadar %10 kesintiyle iade',
+    water_sports: ['tender_bot', 'canoe', 'paddleboard', 'snorkel_gear', 'fishing_gear'],
+    equipment: ['generator', 'watermaker', 'ac_all_cabins', 'ice_maker', 'coffee_machine', 'deck_jacuzzi', 'flybridge', 'sound_system'],
+  })
+
+  const [activityAgencyState, setActivityAgencyState] = useState<ActivityAgencyBasicsState>({
+    activity_category: 'paragliding',
+    duration_net: '45 Dakika Uçuş',
+    duration_total: '2.5 Saat',
+    difficulty_level: 'easy',
+    guided_languages: ['Türkçe', 'İngilizce'],
+    meeting_point_name: 'Ölüdeniz Ofisimiz veya Otel Lobisi',
+    transfer_option: 'included',
+    transfer_regions: 'Ölüdeniz, Hisarönü, Ovacık, Fethiye Merkez',
+    min_age: '5',
+    max_age: '65',
+    min_weight_kg: '30',
+    max_weight_kg: '105',
+    weather_guarantee: 'Hava muhalefeti durumunda %100 kesintisiz iade veya ücretsiz erteleme.',
+    cancellation_policy: 'Aktivite saatine 24 saat kalaya kadar koşulsuz %100 iade.',
+    itinerary_flow: [
+      { step: 1, title: 'Otelden Alma & Buluşma', description: 'Misafirlerin otellerinden veya ofisten karşılanması.' },
+      { step: 2, title: 'Güvenlik Brifingi & Kuşanma', description: 'Uzman eğitmen eşliğinde ekipmanların giyilmesi ve kuralların anlatılması.' },
+      { step: 3, title: 'Aktivite Deneyimi', description: 'Uçuş, dalış veya parkur sürüşü başlangıcı.' },
+      { step: 4, title: 'Varış & Fotoğraf İncelemesi', description: 'İniş noktasına varış, fotoğraf/video seçimi ve otele dönüş transferi.' },
+    ],
+  })
+
+  const [activitySessions, setActivitySessions] = useState<ActivitySessionItem[]>([
+    {
+      session_name: '08:30 - Sabah Gün Doğumu Uçuşu',
+      start_time: '08:30',
+      duration_minutes: '120',
+      capacity: '6',
+      adult_price: '3250',
+      child_price: '2250',
+      currency_code: 'TRY',
+      valid_from: new Date().toISOString().slice(0, 10),
+      valid_to: `${new Date().getFullYear()}-11-30`,
+      is_active: true,
+      description: 'Sakin sabah termiğinde yumuşak ve keyifli süzülüş.',
+    },
+    {
+      session_name: '11:00 - Öğlen Termik & Yüksek İrtifa',
+      start_time: '11:00',
+      duration_minutes: '120',
+      capacity: '8',
+      adult_price: '3500',
+      child_price: '2500',
+      currency_code: 'TRY',
+      valid_from: new Date().toISOString().slice(0, 10),
+      valid_to: `${new Date().getFullYear()}-11-30`,
+      is_active: true,
+      description: 'En yüksek irtifa ve dinamik hava hareketleri.',
+    },
+    {
+      session_name: '14:30 - Öğleden Sonra Panoramik Seansı',
+      start_time: '14:30',
+      duration_minutes: '120',
+      capacity: '8',
+      adult_price: '3500',
+      child_price: '2500',
+      currency_code: 'TRY',
+      valid_from: new Date().toISOString().slice(0, 10),
+      valid_to: `${new Date().getFullYear()}-11-30`,
+      is_active: true,
+      description: 'Berrak gökyüzü ve masmavi lagün manzarası.',
+    },
+    {
+      session_name: '17:30 - Gün Batımı (Sunset) Özel Seansı',
+      start_time: '17:30',
+      duration_minutes: '120',
+      capacity: '6',
+      adult_price: '4000',
+      child_price: '3000',
+      currency_code: 'TRY',
+      valid_from: new Date().toISOString().slice(0, 10),
+      valid_to: `${new Date().getFullYear()}-11-30`,
+      is_active: true,
+      description: 'Büyüleyici gün batımı kızıllığında romantik uçuş.',
+    },
+  ])
+
+  const [customAgencyBadges, setCustomAgencyBadges] = useState<string[]>([])
 
   // ── Takvim adımı ──
   const [calRows, setCalRows] = useState<MergedCalendarRow[]>([])
@@ -1576,6 +1792,111 @@ export default function CatalogNewListingClient({
           setOwnerIban(meta.owner_iban ?? '')
           setOwnerAccountType(meta.owner_account_type ?? '')
           setOwnerResidenceAddress(repairTurkishLocationAscii(meta.owner_residence_address ?? ''))
+
+          if (meta.hotel_agency_details) {
+            try {
+              const hd = JSON.parse(meta.hotel_agency_details) as Partial<HotelAgencyBasicsState>
+              setHotelAgencyState((prev) => ({ ...prev, ...hd }))
+            } catch {
+              /* ignore */
+            }
+          }
+
+          if (meta.custom_badges) {
+            try {
+              const badges = JSON.parse(meta.custom_badges) as string[]
+              if (Array.isArray(badges)) setCustomAgencyBadges(badges)
+            } catch {
+              /* ignore */
+            }
+          }
+        }
+
+        if (vertRaw && typeof vertRaw === 'object') {
+          const rawObj = vertRaw as Record<string, unknown>
+          if (categoryCode === 'yacht_charter') {
+            setYachtAgencyState((prev) => ({
+              ...prev,
+              yacht_type: String(rawObj.yacht_type ?? prev.yacht_type),
+              length_meters: String(rawObj.length_meters ?? prev.length_meters),
+              beam_meters: String(rawObj.beam_meters ?? prev.beam_meters),
+              draft_meters: String(rawObj.draft_meters ?? prev.draft_meters),
+              hull_material: String(rawObj.hull_material ?? prev.hull_material),
+              build_year: String(rawObj.build_year ?? prev.build_year),
+              refit_year: String(rawObj.refit_year ?? prev.refit_year),
+              cruising_speed_knots: String(rawObj.cruising_speed_knots ?? (rawObj.speed_knots as string) ?? prev.cruising_speed_knots),
+              flag: String(rawObj.flag ?? prev.flag),
+              port_name: String(rawObj.port_name ?? prev.port_name),
+              cabin_count: String(rawObj.cabin_count ?? prev.cabin_count),
+              master_cabins: String(rawObj.master_cabins ?? prev.master_cabins),
+              vip_cabins: String(rawObj.vip_cabins ?? prev.vip_cabins),
+              double_cabins: String(rawObj.double_cabins ?? prev.double_cabins),
+              twin_cabins: String(rawObj.twin_cabins ?? prev.twin_cabins),
+              bathroom_count: String(rawObj.bathroom_count ?? prev.bathroom_count),
+              passenger_count_day: String(rawObj.passenger_count_day ?? (rawObj.passenger_count as string) ?? prev.passenger_count_day),
+              passenger_count_night: String(rawObj.passenger_count_night ?? prev.passenger_count_night),
+              crew_count: String(rawObj.crew_count ?? prev.crew_count),
+              captain_included: String(rawObj.captain_included ?? prev.captain_included),
+              fuel_policy: String(rawObj.fuel_policy ?? prev.fuel_policy),
+              min_charter_days: String(rawObj.min_charter_days ?? prev.min_charter_days),
+              checkin_day_time: String(rawObj.checkin_day_time ?? prev.checkin_day_time),
+              checkout_day_time: String(rawObj.checkout_day_time ?? prev.checkout_day_time),
+              apa_percent: String(rawObj.apa_percent ?? prev.apa_percent),
+              security_deposit: String(rawObj.security_deposit ?? prev.security_deposit),
+              cancellation_policy: String(rawObj.cancellation_policy ?? prev.cancellation_policy),
+              routes: Array.isArray(rawObj.routes) ? (rawObj.routes as string[]) : prev.routes,
+              water_sports: Array.isArray(rawObj.water_sports) ? (rawObj.water_sports as string[]) : prev.water_sports,
+              equipment: Array.isArray(rawObj.equipment) ? (rawObj.equipment as string[]) : prev.equipment,
+            }))
+          }
+          if (categoryCode === 'activity') {
+            setActivityAgencyState((prev) => ({
+              ...prev,
+              activity_category: String(rawObj.activity_category ?? prev.activity_category),
+              duration_net: String(rawObj.duration_net ?? prev.duration_net),
+              duration_total: String(rawObj.duration_total ?? prev.duration_total),
+              difficulty_level: (rawObj.difficulty_level as 'easy' | 'moderate' | 'challenging' | 'expert') ?? prev.difficulty_level,
+              guided_languages: Array.isArray(rawObj.guided_languages) ? (rawObj.guided_languages as string[]) : prev.guided_languages,
+              meeting_point_name: String(rawObj.meeting_point_name ?? prev.meeting_point_name),
+              transfer_option: (rawObj.transfer_option as 'none' | 'included' | 'optional_extra') ?? prev.transfer_option,
+              transfer_regions: String(rawObj.transfer_regions ?? prev.transfer_regions),
+              min_age: String(rawObj.min_age ?? prev.min_age),
+              max_age: String(rawObj.max_age ?? prev.max_age),
+              min_weight_kg: String(rawObj.min_weight_kg ?? prev.min_weight_kg),
+              max_weight_kg: String(rawObj.max_weight_kg ?? prev.max_weight_kg),
+              weather_guarantee: String(rawObj.weather_guarantee ?? prev.weather_guarantee),
+              cancellation_policy: String(rawObj.cancellation_policy ?? prev.cancellation_policy),
+              itinerary_flow: Array.isArray(rawObj.itinerary_flow) ? (rawObj.itinerary_flow as ActivityAgencyBasicsState['itinerary_flow']) : prev.itinerary_flow,
+            }))
+            if (Array.isArray(rawObj.sessions) && rawObj.sessions.length > 0) {
+              setActivitySessions(rawObj.sessions as ActivitySessionItem[])
+            }
+          }
+        }
+
+        if (categoryCode === 'activity') {
+          listManageActivitySessions(token, editListingId, orgParam)
+            .then((r) => {
+              if (!cancelled && r.sessions?.length > 0) {
+                setActivitySessions(
+                  r.sessions.map((s) => ({
+                    id: s.id,
+                    session_name: `${s.start_time?.slice(0, 5) || ''} Seansı`,
+                    start_time: s.start_time?.slice(0, 5) || '08:30',
+                    duration_minutes: String(s.duration_minutes ?? '120'),
+                    capacity: String(s.capacity ?? '8'),
+                    adult_price: String(s.adult_price ?? '0'),
+                    child_price: String(s.child_price ?? ''),
+                    currency_code: s.currency_code || 'TRY',
+                    valid_from: s.valid_from || new Date().toISOString().slice(0, 10),
+                    valid_to: s.valid_to || `${new Date().getFullYear()}-11-30`,
+                    is_active: s.is_active !== false,
+                    description: '',
+                  })),
+                )
+              }
+            })
+            .catch(() => {})
         }
 
         const poolsParsed = extractHolidayHomePoolsFromVerticalMeta(verticalMeta)
@@ -3351,15 +3672,85 @@ export default function CatalogNewListingClient({
         }
         vert[MANAGE_HERO_PREVIEW_META_KEY] = heroPad
         const metaGroup = isYacht ? 'yacht_extra' : 'holiday_home'
+        const mergedVert = isYacht ? { ...vert, ...yachtAgencyState } : vert
         await saveRequiredStep(
           isYacht ? 'Yat kiralama detayları kaydı' : 'Tatil evi detayları kaydı',
-          putVerticalMeta(token, lid, metaGroup, vert, orgParam),
+          putVerticalMeta(token, lid, metaGroup, mergedVert, orgParam),
         )
         if (isYacht) {
-          await patchVerticalYacht(lid, { theme_codes: villaThemes }).catch(() => {})
+          await patchVerticalYacht(lid, {
+            theme_codes: villaThemes,
+            length_meters: yachtAgencyState.length_meters || undefined,
+            cabin_count: yachtAgencyState.cabin_count || undefined,
+          }).catch(() => {})
         } else {
           await patchVerticalHolidayHome(lid, { theme_codes: villaThemes }).catch(() => {})
         }
+      }
+
+      if (isHotel) {
+        await saveRequiredStep(
+          'Otel acente özellikleri kaydı',
+          putListingMeta(
+            token,
+            lid,
+            {
+              hotel_agency_details: JSON.stringify(hotelAgencyState),
+              hotel_stars: hotelAgencyState.star_rating,
+              hotel_type: hotelAgencyState.hotel_type,
+            },
+            orgParam,
+          ),
+        )
+      }
+
+      if (isActivity) {
+        await saveRequiredStep(
+          'Aktivite acente özellikleri kaydı',
+          putVerticalMeta(
+            token,
+            lid,
+            'activity',
+            {
+              ...activityAgencyState,
+              sessions: activitySessions,
+            },
+            orgParam,
+          ),
+        )
+
+        if (activitySessions.length > 0) {
+          const validSessions = activitySessions
+            .filter((s) => s.valid_from && s.valid_to && s.start_time)
+            .map((s, idx) => ({
+              id: s.id,
+              valid_from: s.valid_from,
+              valid_to: s.valid_to,
+              start_time: s.start_time,
+              duration_minutes: s.duration_minutes || '60',
+              capacity: s.capacity || '10',
+              is_active: s.is_active,
+              sort_order: String(idx),
+              adult_price: s.adult_price || '0',
+              child_price: s.child_price || null,
+              currency_code: s.currency_code || currency || 'TRY',
+            }))
+          if (validSessions.length > 0) {
+            await saveRequiredStep(
+              'Aktivite seansları kaydı',
+              putManageActivitySessions(token, lid, validSessions, orgParam).catch(() => ({ ok: false })),
+            )
+          }
+        }
+      }
+
+      if (customAgencyBadges.length > 0) {
+        await putListingMeta(
+          token,
+          lid,
+          { custom_badges: JSON.stringify(customAgencyBadges) },
+          orgParam,
+        ).catch(() => {})
       }
 
       if (isVilla) {
@@ -4283,10 +4674,60 @@ export default function CatalogNewListingClient({
             )}
 
             {/* ── ADIM 0: Temel Bilgi ── */}
-            {currentStep === 0 && !isVilla && contractSection}
+            {currentStep === 0 && (
+              <>
+                {isHotel && (
+                  <HotelBasicsStepPanel
+                    value={hotelAgencyState}
+                    onChange={setHotelAgencyState}
+                    disabled={saveLocked}
+                  />
+                )}
+                {isYacht && (
+                  <YachtBasicsStepPanel
+                    value={yachtAgencyState}
+                    onChange={setYachtAgencyState}
+                    disabled={saveLocked}
+                  />
+                )}
+                {isActivity && (
+                  <ActivityBasicsStepPanel
+                    value={activityAgencyState}
+                    onChange={setActivityAgencyState}
+                    disabled={saveLocked}
+                  />
+                )}
+                {!isVilla && contractSection}
+              </>
+            )}
 
-            {/* ── ADIM 1: Konum ── */}
-            {currentStep === 1 && !isVilla && locationSection}
+            {/* ── ADIM 1: Konum & Liman / Buluşma ── */}
+            {currentStep === 1 && (
+              <>
+                {!isVilla && locationSection}
+                {isHotel && (
+                  <HotelLocationDistancesStepPanel
+                    value={hotelAgencyState}
+                    onChange={setHotelAgencyState}
+                    disabled={saveLocked}
+                  />
+                )}
+                {isYacht && (
+                  <YachtLocationRoutesStepPanel
+                    value={yachtAgencyState}
+                    onChange={setYachtAgencyState}
+                    disabled={saveLocked}
+                  />
+                )}
+                {isActivity && (
+                  <ActivityMeetingTransferStepPanel
+                    value={activityAgencyState}
+                    onChange={setActivityAgencyState}
+                    disabled={saveLocked}
+                  />
+                )}
+              </>
+            )}
 
             {/* ── ADIM 0 devam: İlan İçeriği ── */}
             {currentStep === 0 && (
@@ -4747,9 +5188,30 @@ export default function CatalogNewListingClient({
             </Section>
             )}
 
-            {/* ── ADIM 2: Özellikler ── */}
+            {/* ── ADIM 2: Özellikler / Tesis & Odalar / Kamaralar / Program ── */}
             {currentStep === 2 && (
             <>
+            {isHotel && (
+              <HotelFacilitiesStepPanel
+                value={hotelAgencyState}
+                onChange={setHotelAgencyState}
+                disabled={saveLocked}
+              />
+            )}
+            {isYacht && (
+              <YachtCabinsAndEquipmentStepPanel
+                value={yachtAgencyState}
+                onChange={setYachtAgencyState}
+                disabled={saveLocked}
+              />
+            )}
+            {isActivity && (
+              <ActivityProgramRulesStepPanel
+                value={activityAgencyState}
+                onChange={setActivityAgencyState}
+                disabled={saveLocked}
+              />
+            )}
             {/* Fazladan Bilgi — tatil evi vb.; otelde yatak/kapasite oda seviyesinde */}
             {!isHotel && !isActivity && (
             <Section
@@ -5132,22 +5594,18 @@ export default function CatalogNewListingClient({
             </>
             )}
             {/* ── ADIM 4: Takvim, Dönemsel Fiyat & iCal ── */}
+            {/* ── ADIM 4: Seanslar ve Fiyatlar (Aktivite) ── */}
             {currentStep === 4 && isActivity && (
               <Section
-                title="Seanslar & Fiyatlar"
-                subtitle="Rezervasyona açılacak tarihleri, saatleri, kapasiteyi ve yaş grubuna göre fiyatları tanımlayın."
+                title="Aktivite Seansları, Kontenjan ve Fiyat Tarifesi"
+                subtitle="Her seansın adı, operasyon süresi, başlangıç saati, kişi başı fiyatı ve kapasitesini yönetin."
               >
-                {editListingId ? (
-                  <VerticalDetailsSection
-                    categoryCode="activity"
-                    listingId={editListingId}
-                    activityMode="sessions"
-                  />
-                ) : (
-                  <p className="rounded-xl border border-dashed border-neutral-300 bg-neutral-50 px-4 py-3 text-sm text-neutral-600 dark:border-neutral-600 dark:bg-neutral-800/40 dark:text-neutral-400">
-                    Seans eklemek için önce temel bilgileri kaydedin. Kayıt oluşturulduğunda tarih, saat, kapasite ve fiyat alanları açılır.
-                  </p>
-                )}
+                <ActivitySessionsStepPanel
+                  sessions={activitySessions}
+                  onChange={setActivitySessions}
+                  currency={currency}
+                  disabled={saveLocked}
+                />
               </Section>
             )}
 
@@ -6421,9 +6879,23 @@ export default function CatalogNewListingClient({
             </Section>
             )}
 
-            {/* ── ADIM 5: İşletme ve ilan sahibi ── */}
+            {/* ── ADIM 5: İşletme, Kiralama Şartları & Operasyon Güvenliği ── */}
             {currentStep === 5 && (
             <>
+            {isYacht && (
+              <YachtCharterTermsStepPanel
+                value={yachtAgencyState}
+                onChange={setYachtAgencyState}
+                disabled={saveLocked}
+              />
+            )}
+            {isActivity && (
+              <ActivityOperationsSafetyStepPanel
+                value={activityAgencyState}
+                onChange={setActivityAgencyState}
+                disabled={saveLocked}
+              />
+            )}
             {/* İlan Sahibi Bilgileri (+ villa: BTrans / banka) */}
             <Section
               title="İlan Sahibi Bilgileri"
@@ -6773,9 +7245,30 @@ export default function CatalogNewListingClient({
               </Section>
             )}
 
-            {/* ── ADIM 5 devam: Vitrin Promosyon + SEO ── */}
+            {/* ── ADIM 6: Kontrol, Kalite Skoru, Çok Dilli Vitrin & Yayın ── */}
             {currentStep === 6 && (
             <>
+            <AgencyQualityChecklist
+              listing={{
+                id: editListingId,
+                title: (isVilla ? listingByLocale[activeLang]?.title : title) || title,
+                slug: slug,
+                description: (isVilla ? listingByLocale[activeLang]?.description : description) || description,
+                categoryCode: categoryCode,
+                price: price || (isVilla ? basePrice : ''),
+                currency: currency,
+                status: status,
+                galleryCount: (isFacilityGalleryEdit ? listingGalleryUrls.length : 0) + pendingGalleryKeys.length,
+                hasLocation: Boolean(lat.trim() && lng.trim()),
+                hasAttributes: Object.keys(attributeValues).length > 0 || (isHotel && hotelAgencyState.amenities.length > 0) || (isYacht && yachtAgencyState.water_sports.length > 0),
+                hasPricing: Boolean(price.trim() || basePrice.trim() || rules.length > 0 || calRows.length > 0),
+                hasSeo: Boolean(seoByLocale[primaryLocale]?.title || seoByLocale[primaryLocale]?.description),
+                localesCompleted: Object.keys(listingByLocale).filter((k) => listingByLocale[k]?.title?.trim() && listingByLocale[k]?.description?.trim()),
+                allLocales: allLocales.map((l) => l.code),
+                customBadges: customAgencyBadges,
+              }}
+              onBadgesChange={setCustomAgencyBadges}
+            />
             {/* ────────── Vitrin promosyon (Tur2 yeni alanlar) ────────── */}
             <Section
               title="Vitrin Promosyon"
