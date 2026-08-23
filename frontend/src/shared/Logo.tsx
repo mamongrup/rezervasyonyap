@@ -109,14 +109,15 @@ function writeCachedBranding(b: BrandingConfig) {
   }
 }
 
-/** API/cache güncellemesinde geçerli logoyu silme — önceki oturumdaki gerçek URL korunur */
+/** API/cache güncellemesinde güncel değerleri uygula ve cache'e yaz */
 function mergeBrandingLogos(prev: BrandingConfig, next: BrandingConfig): BrandingConfig {
-  const prevPicked = pickEffectiveSiteLogoUrls(prev.logo_url, prev.logo_url_dark)
   const nextPicked = pickEffectiveSiteLogoUrls(next.logo_url, next.logo_url_dark)
+  const prevPicked = pickEffectiveSiteLogoUrls(prev.logo_url, prev.logo_url_dark)
   return {
     ...next,
     logo_url: nextPicked.light ?? prevPicked.light ?? undefined,
     logo_url_dark: nextPicked.dark ?? prevPicked.dark ?? undefined,
+    logo_icon_url: next.logo_icon_url || prev.logo_icon_url || '/images/logo-icon.png',
   }
 }
 
@@ -323,7 +324,13 @@ const Logo: React.FC<LogoProps> = ({
             alt={altText}
             className="size-full shrink-0 object-contain"
             style={{ objectFit: 'contain', imageRendering: '-webkit-optimize-contrast' }}
-            onError={() => setIconFailed(true)}
+            onError={() => {
+              if (effectiveIconUrl !== '/images/logo-icon.png') {
+                setBranding((prev) => ({ ...prev, logo_icon_url: '/images/logo-icon.png' }))
+              } else {
+                setIconFailed(true)
+              }
+            }}
           />
         </Link>
       )

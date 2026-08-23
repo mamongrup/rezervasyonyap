@@ -463,16 +463,11 @@ export async function POST(req: NextRequest) {
     let ext: string
     let warning: string | undefined
 
+    const isSvgUpload = originalExt === 'svg' || file.type === 'image/svg+xml'
     const isBrandLogo = fixedStem === 'brand-logo-light' || fixedStem === 'brand-logo-dark'
     const isBrandOgShare = folder === 'site' && fixedStem === 'brand-og-share'
-    if (isBrandLogo && originalExt !== 'svg' && file.type !== 'image/svg+xml') {
-      return NextResponse.json(
-        { ok: false, error: 'Logo için yalnızca SVG dosyası yükleyebilirsiniz.' },
-        { status: 400 },
-      )
-    }
 
-    if (isBrandLogo) {
+    if (isBrandLogo && isSvgUpload) {
       outputBuffer = sanitizeLogoSvg(rawBuffer)
       ext = 'svg'
     } else if (isBrandOgShare) {
