@@ -198,6 +198,30 @@ import {
   type ActivityAgencyBasicsState,
   type ActivitySessionItem,
 } from '@/components/manage/agency/AgencyActivityStepPanels'
+import {
+  TourBasicsStepPanel,
+  TourItineraryStepPanel,
+  TourServicesAndTermsStepPanel,
+  type TourAgencyBasicsState,
+} from '@/components/manage/agency/AgencyTourStepPanels'
+import {
+  CarRentalBasicsStepPanel,
+  CarRentalTermsStepPanel,
+  type CarRentalAgencyBasicsState,
+} from '@/components/manage/agency/AgencyCarRentalStepPanels'
+import {
+  CruiseBasicsStepPanel,
+  CruiseServicesAndFeesStepPanel,
+  type CruiseAgencyBasicsState,
+} from '@/components/manage/agency/AgencyCruiseStepPanels'
+import {
+  TransferBasicsStepPanel,
+  type TransferAgencyBasicsState,
+} from '@/components/manage/agency/AgencyTransferStepPanels'
+import {
+  HajjBasicsStepPanel,
+  type HajjAgencyBasicsState,
+} from '@/components/manage/agency/AgencyHajjStepPanels'
 import { AgencyQualityChecklist } from '@/components/manage/agency/AgencyQualityChecklist'
 
 const NEARBY_POI_CATEGORY_OPTIONS: { value: NearbyPoiCategory; label: string }[] = [
@@ -517,6 +541,11 @@ export default function CatalogNewListingClient({
   const isHotel = categoryCode === 'hotel'
   const isYacht = categoryCode === 'yacht_charter'
   const isVilla = categoryCode === 'holiday_home'
+  const isTour = categoryCode === 'tour'
+  const isCarRental = categoryCode === 'car_rental'
+  const isCruise = categoryCode === 'cruise'
+  const isTransfer = categoryCode === 'transfer'
+  const isHajj = categoryCode === 'hajj'
 
   // ── Wizard adım yönetimi ──
   const TOTAL_STEPS = 7
@@ -528,9 +557,19 @@ export default function CatalogNewListingClient({
           ? 'Yat Bilgileri & Fiyat'
           : isActivity
             ? 'Aktivite & Fiyat'
-            : isVilla
-              ? 'Temel & Ücretler'
-              : 'Temel & Fiyat',
+            : isTour
+              ? 'Tur Türü & Ulaşım'
+              : isCarRental
+                ? 'Araç & Segment'
+                : isCruise
+                  ? 'Gemi & Donatan'
+                  : isTransfer
+                    ? 'Transfer & VIP Araç'
+                    : isHajj
+                      ? 'Program & Konsept'
+                      : isVilla
+                        ? 'Temel & Ücretler'
+                        : 'Temel & Fiyat',
       shortLabel: '1',
       icon: <span className="text-xs font-bold">1</span>,
     },
@@ -541,7 +580,17 @@ export default function CatalogNewListingClient({
           ? 'Liman & Rotalar'
           : isActivity
             ? 'Buluşma & Transfer'
-            : 'Konum',
+            : isTour
+              ? 'Kalkış & Güzergah'
+              : isCarRental
+                ? 'Teslimat Noktaları'
+                : isCruise
+                  ? 'Kalkış & Uğrak Limanları'
+                  : isTransfer
+                    ? 'Havalimanı & Bölge'
+                    : isHajj
+                      ? 'Mekke & Medine Konum'
+                      : 'Konum',
       shortLabel: '2',
       icon: <span className="text-xs font-bold">2</span>,
     },
@@ -552,7 +601,17 @@ export default function CatalogNewListingClient({
           ? 'Kamaralar & Donanım'
           : isActivity
             ? 'Program & Kurallar'
-            : 'Özellikler',
+            : isTour
+              ? 'Günlük Program (İtinerary)'
+              : isCarRental
+                ? 'Şartlar, Yaş & Kasko'
+                : isCruise
+                  ? 'Kabinler & Gemi İçi'
+                  : isTransfer
+                    ? 'Kapasite & İkramlar'
+                    : isHajj
+                      ? 'Oteller & İbadet Hizmetleri'
+                      : 'Özellikler',
       shortLabel: '3',
       icon: <span className="text-xs font-bold">3</span>,
     },
@@ -568,7 +627,17 @@ export default function CatalogNewListingClient({
           ? 'Sezonlar & Takvim'
           : isActivity
             ? 'Seanslar & Kontenjan'
-            : 'Takvim & Sezon',
+            : isTour
+              ? 'Tur Tarihleri & Fiyat'
+              : isCarRental
+                ? 'Dönemsel Fiyatlar'
+                : isCruise
+                  ? 'Kabin Fiyatları & Seferler'
+                  : isTransfer
+                    ? 'Transfer Fiyat Tarifesi'
+                    : isHajj
+                      ? 'Dönem Fiyatları & Kontenjan'
+                      : 'Takvim & Sezon',
       shortLabel: '5',
       icon: <span className="text-xs font-bold">5</span>,
     },
@@ -579,7 +648,17 @@ export default function CatalogNewListingClient({
           ? 'Kiralama Şartları & APA'
           : isActivity
             ? 'Operasyon & Güvenlik'
-            : 'İşletme & Satış',
+            : isTour
+              ? 'Dahil / Hariç & Kurallar'
+              : isCarRental
+                ? 'Depozito, KM & Sözleşme'
+                : isCruise
+                  ? 'Liman Vergisi & Servis'
+                  : isTransfer
+                    ? 'Uçuş Takibi & Koşullar'
+                    : isHajj
+                      ? 'Vize, Rehberlik & Şartlar'
+                      : 'İşletme & Satış',
       shortLabel: '6',
       icon: <span className="text-xs font-bold">6</span>,
     },
@@ -596,36 +675,86 @@ export default function CatalogNewListingClient({
         ? 'Yat adı, tipi, boyutu (LOA/en/draft), yapım yılı, seyir hızı ve başlangıç kiralama bedeli.'
         : isActivity
           ? 'Aktivite adı, kategorisi, net/toplam süre, zorluk seviyesi ve kişi başı başlangıç fiyatı.'
-          : 'İlan adı, açıklama, temel satış fiyatı ve müşteriye yansıtılan ek ücretler.',
+          : isTour
+            ? 'Tur kategorisi, ulaşım şekli, süre (gün/gece), grup büyüklüğü ve rehberlik dilleri.'
+            : isCarRental
+              ? 'Araç modeli, segmenti, vites/yakıt türü, koltuk ve bagaj kapasitesi.'
+              : isCruise
+                ? 'Kruvaziyer hattı, gemi adı, kalkış limanı, vize türü ve kabin kategorileri.'
+                : isTransfer
+                  ? 'Transfer modeli, VIP araç tipi, yolcu ve valiz kapasitesi.'
+                  : isHajj
+                    ? 'Hac/Umre program konsepti, yemek düzeni ve başlangıç paketi.'
+                    : 'İlan adı, açıklama, temel satış fiyatı ve müşteriye yansıtılan ek ücretler.',
     isHotel
       ? 'Otel adresi, harita pini, denize, havalimanına ve şehir merkezine mesafeler ile plaj yapısı.'
       : isYacht
         ? 'Bağlama limanı / marina, harita konumu ve tur boyunca gezilecek popüler koy rotaları.'
         : isActivity
           ? 'Buluşma noktası, harita koordinatları ve ücretsiz/ücretli otel transfer bölgeleri.'
-          : 'Adres, bölge, harita konumu ve yakın çevre bilgileri.',
+          : isTour
+            ? 'Kalkış noktaları, buluşma saatleri, varış bölgesi ve harita koordinatları.'
+            : isCarRental
+              ? 'Havalimanı ofisi, şehir merkezi veya adrese teslimat noktaları ve harita konumu.'
+              : isCruise
+                ? 'Kalkış limanı, uğrak limanları ve deniz rotası özeti.'
+                : isTransfer
+                  ? 'Havalimanı kalkış/varış bölgeleri ve transfer güzergahı.'
+                  : isHajj
+                    ? 'Mekke Kabe ve Medine Mescid-i Nebevi otel konumları ve yürüme/servis mesafeleri.'
+                    : 'Adres, bölge, harita konumu ve yakın çevre bilgileri.',
     isHotel
       ? 'Havuz, spa, F&B, çocuk kulübü olanakları, oda tipleri, genel tesis kuralları ve aktiviteler.'
       : isYacht
         ? 'Master/VIP kamara dağılımı, mürettebat, su sporları kataloğu ve güverte/salon donanımları.'
         : isActivity
           ? 'Zaman çizelgeli program akışı, yaş/kilo sınırları, yanınızda getirin listesi ve dahil/hariç hizmetler.'
-          : 'Kapasite, oda, imkanlar, kurallar, havuz ve giriş-çıkış saatleri.',
-    'Vitrinde kullanılacak yüksek çözünürlüklü fotoğraflar, 5’li hero galeri ve oda/kabin görselleri.',
+          : isTour
+            ? 'Gün gün tur programı (itinerary), günlük ziyaret noktaları, yemekler ve konaklama.'
+            : isCarRental
+              ? 'Sürücü yaş sınırı, ehliyet yılı, sınırsız/günlük KM ve dahil olan kasko paketleri.'
+              : isCruise
+                ? 'Kabin özellikleri, açık/kapalı havuzlar, şovlar, restoranlar ve animasyonlar.'
+                : isTransfer
+                  ? 'VIP donanım (Wi-Fi, buzdolabı, deri koltuk), ücretsiz bekleme ve bebek koltuğu.'
+                  : isHajj
+                    ? 'Mekke & Medine otel özellikleri, kutsal mekan ziyaretleri ve Türk aşçılı yemekler.'
+                    : 'Kapasite, oda, imkanlar, kurallar, havuz ve giriş-çıkış saatleri.',
+    'Vitrinde kullanılacak yüksek çözünürlüklü fotoğraflar, 5’li hero galeri ve detay görselleri.',
     isHotel
       ? 'Oda tiplerine göre gecelik fiyatlar, müsaitlik takvimi ve dönemsel indirimler.'
       : isYacht
         ? 'Düşük, orta ve yüksek sezon haftalık kiralama bedelleri, iCal ve rezervasyon takvimi.'
         : isActivity
           ? 'Günlük başlangıç seansları, kontenjan kapasitesi ve yetişkin/çocuk fiyat tarifesi.'
-          : 'Müsaitlik, dönemsel fiyatlar, iCal ve harici rezervasyonlar.',
+          : isTour
+            ? 'Tur hareket tarihleri, kişi başı fiyat tarifesi, tek kişilik oda (single farkı) ve takvim.'
+            : isCarRental
+              ? 'Sezonluk günlük kiralama fiyatları, indirimler ve araç müsaitlik durumu.'
+              : isCruise
+                ? 'Gemi sefer tarihleri, kabin tipine göre kişi başı fiyatlar ve çocuk indirimleri.'
+                : isTransfer
+                  ? 'Transfer güzergah tarifesi, araç başı net fiyatlar ve gece tarifesi.'
+                  : isHajj
+                    ? 'Hac/Umre gidiş-dönüş tarihleri, 2/3/4 kişilik oda fiyatları ve kontenjan.'
+                    : 'Müsaitlik, dönemsel fiyatlar, iCal ve harici rezervasyonlar.',
     isHotel
       ? 'Tesis yetkilisi, giriş/çıkış saatleri, anında onay ve iptal/iade kuralları.'
       : isYacht
         ? 'Giriş/çıkış gün ve saatleri, APA kumanya avansı, hasar depozitosu ve yakıt politikası.'
         : isActivity
           ? 'TÜRSAB ve operasyon lisansı, hava muhalefeti %100 iade güvencesi ve acente sözleşmesi.'
-          : 'İlan sahibi, ödeme, komisyon, onay ve tedarikçi ayarları.',
+          : isTour
+            ? 'Fiyata dahil ve hariç hizmetler, kalkış saatleri, iptal/iade koşulları ve önemli notlar.'
+            : isCarRental
+              ? 'Kredi kartı provizyon/depozito tutarı, teslimat kuralları ve kiralama sözleşmesi.'
+              : isCruise
+                ? 'Liman vergileri, günlük bahşiş/servis ücretleri, vize şartları ve iptal politikası.'
+                : isTransfer
+                  ? 'Uçuş takibi garantisi, karşılama prosedürü ve 24 saat ücretsiz iptal güvencesi.'
+                  : isHajj
+                    ? 'Diyanet onaylı vize, seyahat sigortası, din görevlisi rehberliği ve hac/umre şartları.'
+                    : 'İlan sahibi, ödeme, komisyon, onay ve tedarikçi ayarları.',
     '100 puanlık acente kalite kontrolü, 6 dilde vitrin çevirileri, SERP/WhatsApp önizlemesi ve yayın.',
   ]
 
@@ -812,6 +941,86 @@ export default function CatalogNewListingClient({
       description: 'Büyüleyici gün batımı kızıllığında romantik uçuş.',
     },
   ])
+
+  const [tourAgencyState, setTourAgencyState] = useState<TourAgencyBasicsState>({
+    tour_type: 'culture',
+    transport_type: 'bus_vip',
+    duration_days: '3',
+    duration_nights: '2',
+    group_size_min: '15',
+    group_size_max: '46',
+    departure_time: '07:00 Kadıköy / 07:30 Mecidiyeköy',
+    cancellation_rules: 'Tura 15 gün kalaya kadar %100 kesintisiz iade',
+    itinerary: [
+      {
+        day_number: 1,
+        title: 'Buluşma, Hareket & İlk Keşifler',
+        description: 'Belirtilen kalkış noktalarından hareket ile konforlu yolculuk. Varışın ardından rehber eşliğinde panoramik şehir turu ve ilk ziyaret noktaları.',
+        meals: 'Sabah İkramı, Akşam Yemeği',
+        accommodation: '4* / 5* Şehir Oteli',
+      },
+      {
+        day_number: 2,
+        title: 'Tarihi ve Doğal Güzellikler Keşfi',
+        description: 'Otelde alınan sabah kahvaltısının ardından bölgenin simgeleşmiş tarihi ve doğal alanlarına ziyaret, fotoğraf molaları ve serbest zaman.',
+        meals: 'Sabah Kahvaltısı, Akşam Yemeği',
+        accommodation: '4* / 5* Şehir Oteli',
+      },
+      {
+        day_number: 3,
+        title: 'Yöresel Pazarlar & Dönüş Yolculuğu',
+        description: 'Otel çıkış işlemlerinin ardından yöresel lezzet ve hediyelik eşya alışverişi, dönüş yolculuğu ve misafirlerin duraklara bırakılması.',
+        meals: 'Sabah Kahvaltısı',
+      },
+    ],
+  })
+
+  const [carRentalAgencyState, setCarRentalAgencyState] = useState<CarRentalAgencyBasicsState>({
+    car_segment: 'economy',
+    transmission: 'automatic',
+    fuel_type: 'gasoline',
+    seat_count: '5',
+    luggage_large: '2',
+    luggage_small: '2',
+    door_count: '5',
+    min_driver_age: '21',
+    min_license_years: '2',
+    deposit_amount: '2500',
+    deposit_currency: 'TRY',
+    km_limit_type: 'unlimited',
+  })
+
+  const [cruiseAgencyState, setCruiseAgencyState] = useState<CruiseAgencyBasicsState>({
+    cruise_line: 'celestyal',
+    ship_name: 'Celestyal Journey',
+    departure_port: 'Kuşadası Limanı / Galataport',
+    route_summary: 'Kuşadası - Patmos - Rodos - Girit - Santorini - Mikonos - Atina',
+    port_tax_amount: '150',
+    port_tax_currency: 'EUR',
+    service_charge_daily: '12 € / Günlük',
+    visa_type: 'no_visa_greek_islands',
+  })
+
+  const [transferAgencyState, setTransferAgencyState] = useState<TransferAgencyBasicsState>({
+    transfer_type: 'private_vip',
+    vehicle_class: 'mercedes_vito_vip',
+    passenger_capacity: '6',
+    luggage_capacity: '6',
+    free_waiting_time_minutes: '60',
+    flight_tracking: true,
+    meet_and_greet: true,
+  })
+
+  const [hajjAgencyState, setHajjAgencyState] = useState<HajjAgencyBasicsState>({
+    program_type: 'luxury_walking',
+    mecca_hotel_name: 'Hilton Convention Makkah',
+    mecca_distance_meters: '50 m (Yürüme Mesafeli)',
+    mecca_nights: '10',
+    medina_hotel_name: 'Pullman Zamzam Madina',
+    medina_distance_meters: '100 m (Ön Avlu)',
+    medina_nights: '4',
+    meal_type: 'open_buffet_half_board',
+  })
 
   const [customAgencyBadges, setCustomAgencyBadges] = useState<string[]>([])
 
@@ -1871,6 +2080,75 @@ export default function CatalogNewListingClient({
             if (Array.isArray(rawObj.sessions) && rawObj.sessions.length > 0) {
               setActivitySessions(rawObj.sessions as ActivitySessionItem[])
             }
+          }
+          if (categoryCode === 'tour') {
+            setTourAgencyState((prev) => ({
+              ...prev,
+              tour_type: (rawObj.tour_type as TourAgencyBasicsState['tour_type']) ?? prev.tour_type,
+              transport_type: (rawObj.transport_type as TourAgencyBasicsState['transport_type']) ?? prev.transport_type,
+              duration_days: String(rawObj.duration_days ?? prev.duration_days),
+              duration_nights: String(rawObj.duration_nights ?? prev.duration_nights),
+              group_size_min: String(rawObj.group_size_min ?? prev.group_size_min),
+              group_size_max: String(rawObj.group_size_max ?? prev.group_size_max),
+              departure_time: String(rawObj.departure_time ?? prev.departure_time),
+              cancellation_rules: String(rawObj.cancellation_rules ?? prev.cancellation_rules),
+              itinerary: Array.isArray(rawObj.itinerary) ? (rawObj.itinerary as TourAgencyBasicsState['itinerary']) : prev.itinerary,
+            }))
+          }
+          if (categoryCode === 'car_rental') {
+            setCarRentalAgencyState((prev) => ({
+              ...prev,
+              car_segment: (rawObj.car_segment as CarRentalAgencyBasicsState['car_segment']) ?? prev.car_segment,
+              transmission: (rawObj.transmission as CarRentalAgencyBasicsState['transmission']) ?? prev.transmission,
+              fuel_type: (rawObj.fuel_type as CarRentalAgencyBasicsState['fuel_type']) ?? prev.fuel_type,
+              seat_count: String(rawObj.seat_count ?? prev.seat_count),
+              luggage_large: String(rawObj.luggage_large ?? prev.luggage_large),
+              luggage_small: String(rawObj.luggage_small ?? prev.luggage_small),
+              door_count: String(rawObj.door_count ?? prev.door_count),
+              min_driver_age: String(rawObj.min_driver_age ?? prev.min_driver_age),
+              min_license_years: String(rawObj.min_license_years ?? prev.min_license_years),
+              deposit_amount: String(rawObj.deposit_amount ?? prev.deposit_amount),
+              deposit_currency: String(rawObj.deposit_currency ?? prev.deposit_currency),
+              km_limit_type: (rawObj.km_limit_type as CarRentalAgencyBasicsState['km_limit_type']) ?? prev.km_limit_type,
+            }))
+          }
+          if (categoryCode === 'cruise') {
+            setCruiseAgencyState((prev) => ({
+              ...prev,
+              cruise_line: (rawObj.cruise_line as CruiseAgencyBasicsState['cruise_line']) ?? prev.cruise_line,
+              ship_name: String(rawObj.ship_name ?? prev.ship_name),
+              departure_port: String(rawObj.departure_port ?? prev.departure_port),
+              route_summary: String(rawObj.route_summary ?? prev.route_summary),
+              port_tax_amount: String(rawObj.port_tax_amount ?? prev.port_tax_amount),
+              port_tax_currency: String(rawObj.port_tax_currency ?? prev.port_tax_currency),
+              service_charge_daily: String(rawObj.service_charge_daily ?? prev.service_charge_daily),
+              visa_type: (rawObj.visa_type as CruiseAgencyBasicsState['visa_type']) ?? prev.visa_type,
+            }))
+          }
+          if (categoryCode === 'transfer') {
+            setTransferAgencyState((prev) => ({
+              ...prev,
+              transfer_type: (rawObj.transfer_type as TransferAgencyBasicsState['transfer_type']) ?? prev.transfer_type,
+              vehicle_class: (rawObj.vehicle_class as TransferAgencyBasicsState['vehicle_class']) ?? prev.vehicle_class,
+              passenger_capacity: String(rawObj.passenger_capacity ?? prev.passenger_capacity),
+              luggage_capacity: String(rawObj.luggage_capacity ?? prev.luggage_capacity),
+              free_waiting_time_minutes: String(rawObj.free_waiting_time_minutes ?? prev.free_waiting_time_minutes),
+              flight_tracking: Boolean(rawObj.flight_tracking ?? prev.flight_tracking),
+              meet_and_greet: Boolean(rawObj.meet_and_greet ?? prev.meet_and_greet),
+            }))
+          }
+          if (categoryCode === 'hajj') {
+            setHajjAgencyState((prev) => ({
+              ...prev,
+              program_type: (rawObj.program_type as HajjAgencyBasicsState['program_type']) ?? prev.program_type,
+              mecca_hotel_name: String(rawObj.mecca_hotel_name ?? prev.mecca_hotel_name),
+              mecca_distance_meters: String(rawObj.mecca_distance_meters ?? prev.mecca_distance_meters),
+              mecca_nights: String(rawObj.mecca_nights ?? prev.mecca_nights),
+              medina_hotel_name: String(rawObj.medina_hotel_name ?? prev.medina_hotel_name),
+              medina_distance_meters: String(rawObj.medina_distance_meters ?? prev.medina_distance_meters),
+              medina_nights: String(rawObj.medina_nights ?? prev.medina_nights),
+              meal_type: (rawObj.meal_type as HajjAgencyBasicsState['meal_type']) ?? prev.meal_type,
+            }))
           }
         }
 
@@ -3744,6 +4022,71 @@ export default function CatalogNewListingClient({
         }
       }
 
+      if (isTour) {
+        await saveRequiredStep(
+          'Tur acente özellikleri kaydı',
+          putVerticalMeta(
+            token,
+            lid,
+            'tour',
+            tourAgencyState as unknown as Record<string, unknown>,
+            orgParam,
+          ),
+        )
+      }
+
+      if (isCarRental) {
+        await saveRequiredStep(
+          'Araç kiralama acente özellikleri kaydı',
+          putVerticalMeta(
+            token,
+            lid,
+            'car_rental',
+            carRentalAgencyState as unknown as Record<string, unknown>,
+            orgParam,
+          ),
+        )
+      }
+
+      if (isCruise) {
+        await saveRequiredStep(
+          'Kruvaziyer gemi özellikleri kaydı',
+          putVerticalMeta(
+            token,
+            lid,
+            'cruise',
+            cruiseAgencyState as unknown as Record<string, unknown>,
+            orgParam,
+          ),
+        )
+      }
+
+      if (isTransfer) {
+        await saveRequiredStep(
+          'VIP Transfer özellikleri kaydı',
+          putVerticalMeta(
+            token,
+            lid,
+            'transfer',
+            transferAgencyState as unknown as Record<string, unknown>,
+            orgParam,
+          ),
+        )
+      }
+
+      if (isHajj) {
+        await saveRequiredStep(
+          'Hac ve Umre program özellikleri kaydı',
+          putVerticalMeta(
+            token,
+            lid,
+            'hajj',
+            hajjAgencyState as unknown as Record<string, unknown>,
+            orgParam,
+          ),
+        )
+      }
+
       if (customAgencyBadges.length > 0) {
         await putListingMeta(
           token,
@@ -4697,6 +5040,41 @@ export default function CatalogNewListingClient({
                     disabled={saveLocked}
                   />
                 )}
+                {isTour && (
+                  <TourBasicsStepPanel
+                    value={tourAgencyState}
+                    onChange={setTourAgencyState}
+                    disabled={saveLocked}
+                  />
+                )}
+                {isCarRental && (
+                  <CarRentalBasicsStepPanel
+                    value={carRentalAgencyState}
+                    onChange={setCarRentalAgencyState}
+                    disabled={saveLocked}
+                  />
+                )}
+                {isCruise && (
+                  <CruiseBasicsStepPanel
+                    value={cruiseAgencyState}
+                    onChange={setCruiseAgencyState}
+                    disabled={saveLocked}
+                  />
+                )}
+                {isTransfer && (
+                  <TransferBasicsStepPanel
+                    value={transferAgencyState}
+                    onChange={setTransferAgencyState}
+                    disabled={saveLocked}
+                  />
+                )}
+                {isHajj && (
+                  <HajjBasicsStepPanel
+                    value={hajjAgencyState}
+                    onChange={setHajjAgencyState}
+                    disabled={saveLocked}
+                  />
+                )}
                 {!isVilla && contractSection}
               </>
             )}
@@ -5212,8 +5590,29 @@ export default function CatalogNewListingClient({
                 disabled={saveLocked}
               />
             )}
-            {/* Fazladan Bilgi — tatil evi vb.; otelde yatak/kapasite oda seviyesinde */}
-            {!isHotel && !isActivity && (
+            {isTour && (
+              <TourItineraryStepPanel
+                value={tourAgencyState}
+                onChange={setTourAgencyState}
+                disabled={saveLocked}
+              />
+            )}
+            {isCarRental && (
+              <CarRentalTermsStepPanel
+                value={carRentalAgencyState}
+                onChange={setCarRentalAgencyState}
+                disabled={saveLocked}
+              />
+            )}
+            {isCruise && (
+              <CruiseServicesAndFeesStepPanel
+                value={cruiseAgencyState}
+                onChange={setCruiseAgencyState}
+                disabled={saveLocked}
+              />
+            )}
+            {/* Fazladan Bilgi — tatil evi vb.; otelde/turda/araçta/kruvaziyerde özel panel var */}
+            {!isHotel && !isActivity && !isTour && !isCarRental && !isCruise && (
             <Section
               title="Fazladan Bilgi"
               subtitle={
@@ -6893,6 +7292,27 @@ export default function CatalogNewListingClient({
               <ActivityOperationsSafetyStepPanel
                 value={activityAgencyState}
                 onChange={setActivityAgencyState}
+                disabled={saveLocked}
+              />
+            )}
+            {isTour && (
+              <TourServicesAndTermsStepPanel
+                value={tourAgencyState}
+                onChange={setTourAgencyState}
+                disabled={saveLocked}
+              />
+            )}
+            {isCarRental && (
+              <CarRentalTermsStepPanel
+                value={carRentalAgencyState}
+                onChange={setCarRentalAgencyState}
+                disabled={saveLocked}
+              />
+            )}
+            {isCruise && (
+              <CruiseServicesAndFeesStepPanel
+                value={cruiseAgencyState}
+                onChange={setCruiseAgencyState}
                 disabled={saveLocked}
               />
             )}

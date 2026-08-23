@@ -70,6 +70,41 @@ export const AGENCY_VITRIN_BADGES: Record<string, Array<{ id: string; label: str
     { id: 'heated_pool', label: 'Isıtmalı Havuz & Jakuzi', color: 'bg-purple-100 text-purple-800 border-purple-300' },
     { id: 'honeymoon_villa', label: 'Balayı Villası', color: 'bg-rose-100 text-rose-800 border-rose-300' },
   ],
+  tour: [
+    { id: 'guaranteed_departure', label: 'Kesin Hareketli', color: 'bg-emerald-100 text-emerald-800 border-emerald-300' },
+    { id: 'all_inclusive_tour', label: 'Her Şey Dahil Tur', color: 'bg-blue-100 text-blue-800 border-blue-300' },
+    { id: 'expert_guide', label: 'Uzman Rehber Eşliğinde', color: 'bg-amber-100 text-amber-800 border-amber-300' },
+    { id: 'luxury_bus', label: 'Lüks VIP Otobüs', color: 'bg-purple-100 text-purple-800 border-purple-300' },
+    { id: 'early_tour_deal', label: 'Erken Rezervasyon Fırsatı', color: 'bg-rose-100 text-rose-800 border-rose-300' },
+  ],
+  car_rental: [
+    { id: 'unlimited_km', label: 'Sınırsız Kilometre', color: 'bg-emerald-100 text-emerald-800 border-emerald-300' },
+    { id: 'full_insurance', label: 'Tam Kapsamlı Kasko (CDW)', color: 'bg-blue-100 text-blue-800 border-blue-300' },
+    { id: 'airport_delivery', label: 'Havalimanı Ücretsiz Teslimat', color: 'bg-amber-100 text-amber-800 border-amber-300' },
+    { id: 'no_deposit', label: 'Düşük Provizyon Depozito', color: 'bg-purple-100 text-purple-800 border-purple-300' },
+    { id: 'instant_car', label: 'Hemen Teslim Araç', color: 'bg-teal-100 text-teal-800 border-teal-300' },
+  ],
+  cruise: [
+    { id: 'no_visa_cruise', label: 'Vizesiz Yunan Adaları', color: 'bg-emerald-100 text-emerald-800 border-emerald-300' },
+    { id: 'all_inclusive_drinks', label: 'Her Şey Dahil İçecek Paketi', color: 'bg-blue-100 text-blue-800 border-blue-300' },
+    { id: 'port_taxes_incl', label: 'Liman Vergileri Dahil', color: 'bg-amber-100 text-amber-800 border-amber-300' },
+    { id: 'shore_excursions', label: 'Kara Turları İndirimli', color: 'bg-purple-100 text-purple-800 border-purple-300' },
+    { id: 'kids_cruise_free', label: 'Çocuk Ücretsiz Kabin', color: 'bg-rose-100 text-rose-800 border-rose-300' },
+  ],
+  transfer: [
+    { id: 'flight_tracking_badge', label: 'Ücretsiz Uçuş Takibi', color: 'bg-blue-100 text-blue-800 border-blue-300' },
+    { id: 'meet_greet_badge', label: 'İsimli Karşılama Hizmeti', color: 'bg-emerald-100 text-emerald-800 border-emerald-300' },
+    { id: 'luxury_vito', label: 'VIP Mercedes Vito', color: 'bg-purple-100 text-purple-800 border-purple-300' },
+    { id: 'fixed_price', label: 'Sabit Fiyat Güvencesi', color: 'bg-amber-100 text-amber-800 border-amber-300' },
+    { id: 'free_cancellation_transfer', label: '24 Saat Kala Ücretsiz İptal', color: 'bg-teal-100 text-teal-800 border-teal-300' },
+  ],
+  hajj: [
+    { id: 'walking_distance', label: '50m Yürüme Mesafeli', color: 'bg-emerald-100 text-emerald-800 border-emerald-300' },
+    { id: 'luxury_5star', label: '5 Yıldızlı Lüks Konsept', color: 'bg-amber-100 text-amber-800 border-amber-300' },
+    { id: 'turkish_chef', label: 'Türk Aşçılı Açık Büfe', color: 'bg-rose-100 text-rose-800 border-rose-300' },
+    { id: 'guidance_scholars', label: 'Tecrübeli Din Görevlisi', color: 'bg-blue-100 text-blue-800 border-blue-300' },
+    { id: 'diyanet_approved', label: 'Diyanet & Türsab Güvencesi', color: 'bg-teal-100 text-teal-800 border-teal-300' },
+  ],
 }
 
 export function AgencyQualityChecklist({
