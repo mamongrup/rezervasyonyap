@@ -478,29 +478,30 @@ const Logo: React.FC<LogoProps> = ({
     return siteUploadBrowserHref(resolvedPath)
   }
 
-  const iconUrl = normalizeSiteLogoUrl(branding.logo_icon_url)
+  const iconUrl = normalizeSiteLogoUrl(branding.logo_icon_url) || '/images/logo-icon.png'
 
   // ── Sadece İkon Modu (arama alanı / kompakt üst çubuk) ─────────────────────
   if (iconOnly) {
-    if (iconUrl && !iconFailed) {
+    const effectiveIconUrl = iconUrl || '/images/logo-icon.png'
+    if (effectiveIconUrl && !iconFailed) {
       return (
         <Link
           href={logoHref}
-          className={`inline-flex shrink-0 items-center focus:ring-0 focus:outline-hidden ${className}`}
+          className={`inline-flex shrink-0 items-center justify-center focus:ring-0 focus:outline-hidden ${className}`}
           aria-label={altText}
         >
           {animated ? (
             <AnimatedBrandIcon
-              src={logoImgSrc(resolveSiteLogoUrl(iconUrl))}
+              src={logoImgSrc(resolveSiteLogoUrl(effectiveIconUrl))}
               alt={altText}
-              className="size-8 sm:size-9 shrink-0 object-contain"
+              className="size-full shrink-0 object-contain"
               onError={() => setIconFailed(true)}
             />
           ) : (
             <img
-              src={logoImgSrc(resolveSiteLogoUrl(iconUrl))}
+              src={logoImgSrc(resolveSiteLogoUrl(effectiveIconUrl))}
               alt={altText}
-              className="size-8 sm:size-9 shrink-0 object-contain"
+              className="size-full shrink-0 object-contain"
               style={{ objectFit: 'contain', imageRendering: '-webkit-optimize-contrast' }}
               onError={() => setIconFailed(true)}
             />

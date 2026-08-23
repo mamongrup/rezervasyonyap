@@ -217,7 +217,7 @@ const HeroSearchFormMobile = ({ className, locale: localeProp, open: openProp, o
       type="button"
       onClick={openModal}
       onTouchEnd={(e) => openModalFromTouch(e, openModal)}
-      className="relative flex w-full cursor-pointer touch-manipulation items-center rounded-full border border-neutral-200 bg-white px-3.5 py-1.5 pe-4 shadow-sm hover:border-neutral-300 dark:border-neutral-600 dark:bg-neutral-900 dark:hover:border-neutral-500 sm:px-4 sm:py-2 sm:pe-11"
+      className="relative flex h-12 sm:h-14 w-full cursor-pointer touch-manipulation items-center rounded-full border border-neutral-200 bg-white px-3.5 pe-4 shadow-sm hover:border-neutral-300 dark:border-neutral-600 dark:bg-neutral-900 dark:hover:border-neutral-500 sm:px-4 sm:pe-11"
     >
       <HugeiconsIcon icon={Search01Icon} size={18} color="currentColor" strokeWidth={1.75} className="shrink-0 text-primary-600 dark:text-primary-400" />
       <div className="ms-2.5 min-w-0 flex-1 overflow-hidden text-start sm:ms-3">
