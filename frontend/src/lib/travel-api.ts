@@ -10670,6 +10670,11 @@ export interface ListingMeta {
   source_last_sync_at?: string
   source_last_sync_status?: string
   source_last_sync_error?: string
+  hotel_agency_details?: string
+  hotel_stars?: string
+  hotel_type?: string
+  custom_badges?: string
+  [key: string]: string | undefined
 }
 
 /** PostgreSQL jsonb, string değerlerde U+0000 kabul etmez; kayıt öncesi tüm düğümlerde çıkarılır. */
