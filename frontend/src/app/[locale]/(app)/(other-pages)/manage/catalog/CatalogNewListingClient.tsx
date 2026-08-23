@@ -1298,16 +1298,12 @@ export default function CatalogNewListingClient({
   const priceLineDefaultsAppliedRef = useRef(false)
   const [editListingReady, setEditListingReady] = useState(() => !editListingId)
 
-  const isVilla = categoryCode === 'holiday_home'
-  const isHotel = categoryCode === 'hotel'
-  const isYacht = categoryCode === 'yacht_charter'
   const hasPhysicalRegion = listingHasPhysicalRegion(categoryCode)
   const isStayRentalWizard = isStayRentalCategory(categoryCode)
   /** Tatil evi / yat / otel — tesis galerisi aynı listing_images kaynağından */
   const usesFacilityGallery = isStayRentalWizard || isHotel
   const catalogVertical = normalizeCatalogVertical(categoryCode)
   const listingPreviewBase = managePublicDetailPathForVertical(catalogVertical)
-  const isTour = categoryCode === 'tour'
 
   const gallerySlugBase = slug.trim() ? slugifyMediaSegment(slug) : 'yeni-ilan'
   const gallerySubPath = listingImageSubPath(categoryCode, gallerySlugBase)
