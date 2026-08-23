@@ -21,6 +21,10 @@ interface LogoProps {
   /** Logo yazısının altında yönetilebilir kısa marka sloganını gösterir. */
   showSlogan?: boolean
   locale?: string
+  /** Yalnızca marka ikonunu gösterir (metin/slogan olmadan). */
+  iconOnly?: boolean
+  /** İkon animasyonunu açar (varsayılan: false — sabit tek ikon). */
+  animated?: boolean
 }
 
 function detectCategoryCode(pathname: string): string | null {
@@ -317,6 +321,8 @@ const Logo: React.FC<LogoProps> = ({
   initialBranding,
   showSlogan = false,
   locale = 'tr',
+  iconOnly = false,
+  animated = false,
 }) => {
   const pathname = usePathname() ?? ''
   const vitrinPath = useVitrinHref()
@@ -472,8 +478,105 @@ const Logo: React.FC<LogoProps> = ({
     return siteUploadBrowserHref(resolvedPath)
   }
 
-  // ── Icon + Text mode ──────────────────────────────────────────────────────
   const iconUrl = normalizeSiteLogoUrl(branding.logo_icon_url)
+
+  // ── Sadece İkon Modu (arama alanı / kompakt üst çubuk) ─────────────────────
+  if (iconOnly) {
+    if (iconUrl && !iconFailed) {
+      return (
+        <Link
+          href={logoHref}
+          className={`inline-flex shrink-0 items-center focus:ring-0 focus:outline-hidden ${className}`}
+          aria-label={altText}
+        >
+          {animated ? (
+            <AnimatedBrandIcon
+              src={logoImgSrc(resolveSiteLogoUrl(iconUrl))}
+              alt={altText}
+              className="size-8 sm:size-9 shrink-0 object-contain"
+              onError={() => setIconFailed(true)}
+            />
+          ) : (
+            <img
+              src={logoImgSrc(resolveSiteLogoUrl(iconUrl))}
+              alt={altText}
+              className="size-8 sm:size-9 shrink-0 object-contain"
+              style={{ objectFit: 'contain', imageRendering: '-webkit-optimize-contrast' }}
+              onError={() => setIconFailed(true)}
+            />
+          )}
+        </Link>
+      )
+    }
+
+    const canShowLight = !!renderedLightUrl && !lightFailed
+    const canShowDark = !!renderedDarkUrl && !darkFailed
+    const logoSrcLight = canShowLight ? logoImgSrc(resolveSiteLogoUrl(renderedLightUrl)) : ''
+    const logoSrcDark = canShowDark ? logoImgSrc(resolveSiteLogoUrl(renderedDarkUrl)) : ''
+
+    if (canShowLight || canShowDark) {
+      return (
+        <Link
+          href={logoHref}
+          className={`inline-flex shrink-0 items-center text-primary-600 focus:ring-0 focus:outline-hidden ${className}`}
+          aria-label={altText}
+        >
+          {sameLogoAsset ? (
+            <img
+              src={logoSrcLight || logoSrcDark}
+              alt={altText}
+              className="block max-h-8 w-auto object-contain"
+              style={{ objectFit: 'contain', imageRendering: '-webkit-optimize-contrast' }}
+              onError={() => handleLightImageError(renderedLightUrl)}
+            />
+          ) : (
+            <>
+              {canShowLight ? (
+                <img
+                  src={logoSrcLight}
+                  alt={altText}
+                  className="block max-h-8 w-auto object-contain dark:hidden"
+                  style={{ objectFit: 'contain', imageRendering: '-webkit-optimize-contrast' }}
+                  onError={() => handleLightImageError(renderedLightUrl)}
+                />
+              ) : canShowDark ? (
+                <img
+                  src={logoSrcDark}
+                  alt={altText}
+                  className="block max-h-8 w-auto object-contain dark:hidden"
+                  style={{ objectFit: 'contain', imageRendering: '-webkit-optimize-contrast' }}
+                  onError={() => handleDarkImageError(renderedDarkUrl)}
+                />
+              ) : null}
+              {canShowDark ? (
+                <img
+                  src={logoSrcDark}
+                  alt={altText}
+                  className="hidden max-h-8 w-auto object-contain dark:block"
+                  style={{ objectFit: 'contain', imageRendering: '-webkit-optimize-contrast' }}
+                  onError={() => handleDarkImageError(renderedDarkUrl)}
+                />
+              ) : null}
+            </>
+          )}
+        </Link>
+      )
+    }
+
+    return (
+      <Link
+        href={logoHref}
+        className={`inline-flex shrink-0 items-center text-primary-600 focus:ring-0 focus:outline-hidden ${className}`}
+        aria-label={altText}
+      >
+        <span className="flex size-8 items-center justify-center rounded-full bg-primary-50 text-xs font-bold text-primary-600 dark:bg-primary-950 dark:text-primary-400">
+          {(branding.site_name || 'T').charAt(0).toUpperCase()}
+        </span>
+      </Link>
+    )
+  }
+
+  // ── Icon + Text mode ──────────────────────────────────────────────────────
   if (!catLogo && branding.logo_mode === 'icon_text' && iconUrl && !iconFailed) {
     const line1 = branding.logo_text_line1 || branding.site_name || ''
     const line2 = branding.logo_text_line2 || ''
@@ -487,12 +590,22 @@ const Logo: React.FC<LogoProps> = ({
         href={logoHref}
         className={`inline-flex items-center gap-2.5 focus:ring-0 focus:outline-hidden ${className}`}
       >
-        <AnimatedBrandIcon
-          src={logoImgSrc(resolveSiteLogoUrl(iconUrl))}
-          alt={altText}
-          className="h-14 w-14 shrink-0 object-contain"
-          onError={() => setIconFailed(true)}
-        />
+        {animated ? (
+          <AnimatedBrandIcon
+            src={logoImgSrc(resolveSiteLogoUrl(iconUrl))}
+            alt={altText}
+            className="h-14 w-14 shrink-0 object-contain"
+            onError={() => setIconFailed(true)}
+          />
+        ) : (
+          <img
+            src={logoImgSrc(resolveSiteLogoUrl(iconUrl))}
+            alt={altText}
+            className="h-14 w-14 shrink-0 object-contain"
+            style={{ objectFit: 'contain', imageRendering: '-webkit-optimize-contrast' }}
+            onError={() => setIconFailed(true)}
+          />
+        )}
         <span className="inline-flex min-w-0 flex-col justify-center whitespace-nowrap">
           <span className="inline-flex items-baseline gap-1 leading-none">
             {line1 && (

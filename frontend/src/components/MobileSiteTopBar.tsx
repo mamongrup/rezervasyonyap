@@ -8,9 +8,9 @@ import Logo from '@/shared/Logo'
 export default function MobileSiteTopBar({ locale }: { locale: string }) {
   return (
     <div className="flex w-full min-w-0 items-center justify-between gap-2 sm:gap-3">
-      {/* Sol: Logo / Marka ikonu */}
-      <div className="flex shrink-0 items-center max-w-[90px] xs:max-w-[115px] overflow-hidden [&_img]:max-h-8 [&_img]:w-auto [&_img]:object-contain">
-        <Logo locale={locale} showSlogan={false} className="shrink-0" />
+      {/* Sol: Sadece Marka İkonu (Sabit tek ikon) */}
+      <div className="flex shrink-0 items-center justify-center">
+        <Logo locale={locale} showSlogan={false} iconOnly animated={false} className="shrink-0" />
       </div>
 
       {/* Orta: Arama alanı */}
