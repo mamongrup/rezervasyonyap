@@ -29,7 +29,7 @@ export interface ActivityAgencyBasicsState {
   difficulty_level?: string
   guided_languages?: string[]
   meeting_point_name?: string
-  transfer_option?: 'included' | 'optional_fee' | 'none'
+  transfer_option?: 'included' | 'optional_fee' | 'optional_extra' | 'none' | string
   transfer_regions?: string
   parking_info?: string
   itinerary_flow?: Array<{ step: number; title: string; description: string; duration?: string }>
@@ -89,12 +89,21 @@ export const HEALTH_RESTRICTIONS_CATALOG = [
 ]
 
 export function ActivityBasicsStepPanel({
-  values,
+  values: propValues,
+  value: propValue,
   onChange,
+  disabled,
 }: {
-  values: ActivityAgencyBasicsState
-  onChange: (patch: Partial<ActivityAgencyBasicsState>) => void
+  values?: ActivityAgencyBasicsState
+  value?: ActivityAgencyBasicsState
+  onChange?: (patch: any) => void
+  disabled?: boolean
 }) {
+  const values = propValue || propValues || {}
+  const emitChange = (patch: Partial<ActivityAgencyBasicsState>) => {
+    if (!onChange) return
+    onChange((prev: any) => (typeof prev === 'object' && prev !== null ? { ...prev, ...patch } : patch))
+  }
   return (
     <div className="space-y-6">
       {/* Aktivite Kategorisi */}
@@ -114,7 +123,7 @@ export function ActivityBasicsStepPanel({
               <button
                 key={cat.value}
                 type="button"
-                onClick={() => onChange({ activity_category: cat.value })}
+                onClick={() => emitChange({ activity_category: cat.value })}
                 className={`flex flex-col items-start rounded-xl border p-3.5 text-left transition-all ${
                   isSelected
                     ? 'border-primary-600 bg-primary-50/70 ring-2 ring-primary-500/20 dark:border-primary-500 dark:bg-primary-950/30'
@@ -148,7 +157,7 @@ export function ActivityBasicsStepPanel({
               className="mt-1"
               placeholder="ör. 45 Dakika Uçuş veya 2 Saat"
               value={values.duration_net || ''}
-              onChange={(e) => onChange({ duration_net: e.target.value })}
+              onChange={(e) => emitChange({ duration_net: e.target.value })}
             />
           </Field>
           <Field className="block">
@@ -158,7 +167,7 @@ export function ActivityBasicsStepPanel({
               className="mt-1"
               placeholder="ör. 2.5 Saat (Transfer + Brifing dahil)"
               value={values.duration_total || ''}
-              onChange={(e) => onChange({ duration_total: e.target.value })}
+              onChange={(e) => emitChange({ duration_total: e.target.value })}
             />
           </Field>
           <Field className="block">
@@ -168,7 +177,7 @@ export function ActivityBasicsStepPanel({
               className="mt-1"
               placeholder="ör. Türkçe, İngilizce, Rusça"
               value={values.guided_languages ? values.guided_languages.join(', ') : 'Türkçe, İngilizce'}
-              onChange={(e) => onChange({ guided_languages: e.target.value.split(',').map((s) => s.trim()).filter(Boolean) })}
+              onChange={(e) => emitChange({ guided_languages: e.target.value.split(',').map((s) => s.trim()).filter(Boolean) })}
             />
           </Field>
         </div>
@@ -184,7 +193,7 @@ export function ActivityBasicsStepPanel({
                 <button
                   key={lvl.value}
                   type="button"
-                  onClick={() => onChange({ difficulty_level: lvl.value })}
+                  onClick={() => emitChange({ difficulty_level: lvl.value })}
                   className={`flex flex-col items-start rounded-xl border p-3 text-left transition-all ${
                     isSelected
                       ? 'border-emerald-500 bg-emerald-50/70 ring-2 ring-emerald-500/20 dark:border-emerald-500 dark:bg-emerald-950/30'
@@ -204,12 +213,21 @@ export function ActivityBasicsStepPanel({
 }
 
 export function ActivityMeetingTransferStepPanel({
-  values,
+  values: propValues,
+  value: propValue,
   onChange,
+  disabled,
 }: {
-  values: ActivityAgencyBasicsState
-  onChange: (patch: Partial<ActivityAgencyBasicsState>) => void
+  values?: ActivityAgencyBasicsState
+  value?: ActivityAgencyBasicsState
+  onChange?: (patch: any) => void
+  disabled?: boolean
 }) {
+  const values = propValue || propValues || {}
+  const emitChange = (patch: Partial<ActivityAgencyBasicsState>) => {
+    if (!onChange) return
+    onChange((prev: any) => (typeof prev === 'object' && prev !== null ? { ...prev, ...patch } : patch))
+  }
   return (
     <div className="space-y-6">
       <div className="rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm dark:border-neutral-700 dark:bg-neutral-800">
@@ -226,7 +244,7 @@ export function ActivityMeetingTransferStepPanel({
               className="mt-1"
               placeholder="ör. Ölüdeniz Ofisimiz veya Otel Lobisi"
               value={values.meeting_point_name || ''}
-              onChange={(e) => onChange({ meeting_point_name: e.target.value })}
+              onChange={(e) => emitChange({ meeting_point_name: e.target.value })}
             />
           </Field>
           <Field className="block">
@@ -234,7 +252,7 @@ export function ActivityMeetingTransferStepPanel({
             <select
               className="mt-1 w-full rounded-xl border border-neutral-200 bg-white px-3 py-2 text-xs text-neutral-900 dark:border-neutral-700 dark:bg-neutral-900 dark:text-white"
               value={values.transfer_option || 'included'}
-              onChange={(e) => onChange({ transfer_option: e.target.value as 'included' | 'optional_fee' | 'none' })}
+              onChange={(e) => emitChange({ transfer_option: e.target.value as 'included' | 'optional_fee' | 'none' })}
             >
               <option value="included">Otelden Alma & Bırakma Fiyata Dahil</option>
               <option value="optional_fee">Bölgesel Transfer İmkanı (+Ek Ücret)</option>
@@ -248,7 +266,7 @@ export function ActivityMeetingTransferStepPanel({
               className="mt-1"
               placeholder="ör. Ölüdeniz, Hisarönü, Ovacık, Fethiye Merkez"
               value={values.transfer_regions || ''}
-              onChange={(e) => onChange({ transfer_regions: e.target.value })}
+              onChange={(e) => emitChange({ transfer_regions: e.target.value })}
             />
           </Field>
         </div>
@@ -258,12 +276,21 @@ export function ActivityMeetingTransferStepPanel({
 }
 
 export function ActivityProgramRulesStepPanel({
-  values,
+  values: propValues,
+  value: propValue,
   onChange,
+  disabled,
 }: {
-  values: ActivityAgencyBasicsState
-  onChange: (patch: Partial<ActivityAgencyBasicsState>) => void
+  values?: ActivityAgencyBasicsState
+  value?: ActivityAgencyBasicsState
+  onChange?: (patch: any) => void
+  disabled?: boolean
 }) {
+  const values = propValue || propValues || {}
+  const emitChange = (patch: Partial<ActivityAgencyBasicsState>) => {
+    if (!onChange) return
+    onChange((prev: any) => (typeof prev === 'object' && prev !== null ? { ...prev, ...patch } : patch))
+  }
   const itinerary = values.itinerary_flow ?? [
     { step: 1, title: 'Otelden Alma & Buluşma', description: 'Misafirlerin otellerinden veya ofisten karşılanması.' },
     { step: 2, title: 'Güvenlik Brifingi & Kuşanma', description: 'Uzman eğitmen eşliğinde ekipmanların giyilmesi ve kuralların anlatılması.' },
@@ -273,17 +300,17 @@ export function ActivityProgramRulesStepPanel({
 
   const addFlowStep = () => {
     const next = [...itinerary, { step: itinerary.length + 1, title: '', description: '' }]
-    onChange({ itinerary_flow: next })
+    emitChange({ itinerary_flow: next })
   }
 
   const removeFlowStep = (idx: number) => {
     const next = itinerary.filter((_, i) => i !== idx).map((s, i) => ({ ...s, step: i + 1 }))
-    onChange({ itinerary_flow: next })
+    emitChange({ itinerary_flow: next })
   }
 
   const updateFlowStep = (idx: number, patch: Partial<{ title: string; description: string }>) => {
     const next = itinerary.map((s, i) => (i === idx ? { ...s, ...patch } : s))
-    onChange({ itinerary_flow: next })
+    emitChange({ itinerary_flow: next })
   }
 
   return (
@@ -354,7 +381,7 @@ export function ActivityProgramRulesStepPanel({
               className="mt-1"
               placeholder="ör. 5"
               value={values.min_age || '5'}
-              onChange={(e) => onChange({ min_age: e.target.value })}
+              onChange={(e) => emitChange({ min_age: e.target.value })}
             />
           </Field>
           <Field className="block">
@@ -364,7 +391,7 @@ export function ActivityProgramRulesStepPanel({
               className="mt-1"
               placeholder="ör. 65"
               value={values.max_age || '65'}
-              onChange={(e) => onChange({ max_age: e.target.value })}
+              onChange={(e) => emitChange({ max_age: e.target.value })}
             />
           </Field>
           <Field className="block">
@@ -374,7 +401,7 @@ export function ActivityProgramRulesStepPanel({
               className="mt-1"
               placeholder="ör. 30"
               value={values.min_weight_kg || '30'}
-              onChange={(e) => onChange({ min_weight_kg: e.target.value })}
+              onChange={(e) => emitChange({ min_weight_kg: e.target.value })}
             />
           </Field>
           <Field className="block">
@@ -384,7 +411,7 @@ export function ActivityProgramRulesStepPanel({
               className="mt-1"
               placeholder="ör. 105"
               value={values.max_weight_kg || '105'}
-              onChange={(e) => onChange({ max_weight_kg: e.target.value })}
+              onChange={(e) => emitChange({ max_weight_kg: e.target.value })}
             />
           </Field>
         </div>
@@ -394,12 +421,21 @@ export function ActivityProgramRulesStepPanel({
 }
 
 export function ActivityOperationsSafetyStepPanel({
-  values,
+  values: propValues,
+  value: propValue,
   onChange,
+  disabled,
 }: {
-  values: ActivityAgencyBasicsState
-  onChange: (patch: Partial<ActivityAgencyBasicsState>) => void
+  values?: ActivityAgencyBasicsState
+  value?: ActivityAgencyBasicsState
+  onChange?: (patch: any) => void
+  disabled?: boolean
 }) {
+  const values = propValue || propValues || {}
+  const emitChange = (patch: Partial<ActivityAgencyBasicsState>) => {
+    if (!onChange) return
+    onChange((prev: any) => (typeof prev === 'object' && prev !== null ? { ...prev, ...patch } : patch))
+  }
   return (
     <div className="space-y-6">
       <div className="rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm dark:border-neutral-700 dark:bg-neutral-800">
@@ -416,7 +452,7 @@ export function ActivityOperationsSafetyStepPanel({
               className="mt-1 font-mono"
               placeholder="ör. TÜRSAB 12345"
               value={values.tursab_no || ''}
-              onChange={(e) => onChange({ tursab_no: e.target.value })}
+              onChange={(e) => emitChange({ tursab_no: e.target.value })}
             />
           </Field>
           <Field className="block">
@@ -426,7 +462,7 @@ export function ActivityOperationsSafetyStepPanel({
               className="mt-1 font-mono"
               placeholder="ör. THK-P-98432"
               value={values.operator_license_no || ''}
-              onChange={(e) => onChange({ operator_license_no: e.target.value })}
+              onChange={(e) => emitChange({ operator_license_no: e.target.value })}
             />
           </Field>
           <Field className="block sm:col-span-2">
@@ -436,7 +472,7 @@ export function ActivityOperationsSafetyStepPanel({
               className="mt-1"
               placeholder="Hava şartları nedeniyle yapılamayan uçuşlarda ücretsiz tarih değişikliği veya %100 kesintisiz para iadesi."
               value={values.weather_guarantee || 'Hava muhalefeti durumunda %100 kesintisiz iade veya ücretsiz erteleme.'}
-              onChange={(e) => onChange({ weather_guarantee: e.target.value })}
+              onChange={(e) => emitChange({ weather_guarantee: e.target.value })}
             />
           </Field>
           <Field className="block sm:col-span-2">
@@ -446,7 +482,7 @@ export function ActivityOperationsSafetyStepPanel({
               className="mt-1"
               placeholder="Aktivite saatine 24 saat kalaya kadar koşulsuz şartsız %100 ücretsiz iptal."
               value={values.cancellation_policy || 'Aktivite saatine 24 saat kalaya kadar koşulsuz %100 iade.'}
-              onChange={(e) => onChange({ cancellation_policy: e.target.value })}
+              onChange={(e) => emitChange({ cancellation_policy: e.target.value })}
             />
           </Field>
         </div>

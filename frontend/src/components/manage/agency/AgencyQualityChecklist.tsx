@@ -27,18 +27,37 @@ export interface QualityChecklistItem {
 }
 
 export interface AgencyQualityChecklistProps {
-  categoryCode: string
-  title: string
-  description: string
-  imagesCount: number
-  price: string
-  currency: string
-  address: string
-  hasCoordinates: boolean
-  localeCount: number
-  totalLocalesCount: number
+  categoryCode?: string
+  title?: string
+  description?: string
+  imagesCount?: number
+  price?: string
+  currency?: string
+  address?: string
+  hasCoordinates?: boolean
+  localeCount?: number
+  totalLocalesCount?: number
   customBadges?: string[]
   onToggleBadge?: (badge: string) => void
+  listing?: {
+    id?: string
+    title?: string
+    slug?: string
+    description?: string
+    categoryCode?: string
+    price?: string
+    currency?: string
+    status?: string
+    galleryCount?: number
+    hasLocation?: boolean
+    hasAttributes?: boolean
+    hasPricing?: boolean
+    hasSeo?: boolean
+    localesCompleted?: string[]
+    allLocales?: string[]
+    customBadges?: string[]
+  }
+  onBadgesChange?: (badges: string[]) => void
 }
 
 export const AGENCY_VITRIN_BADGES: Record<string, Array<{ id: string; label: string; color: string }>> = {
@@ -108,19 +127,46 @@ export const AGENCY_VITRIN_BADGES: Record<string, Array<{ id: string; label: str
 }
 
 export function AgencyQualityChecklist({
-  categoryCode,
-  title,
-  description,
-  imagesCount,
-  price,
-  currency,
-  address,
-  hasCoordinates,
-  localeCount,
-  totalLocalesCount,
-  customBadges = [],
+  categoryCode: propCategoryCode,
+  title: propTitle,
+  description: propDescription,
+  imagesCount: propImagesCount,
+  price: propPrice,
+  currency: propCurrency,
+  address: propAddress,
+  hasCoordinates: propHasCoordinates,
+  localeCount: propLocaleCount,
+  totalLocalesCount: propTotalLocalesCount,
+  customBadges: propCustomBadges,
   onToggleBadge,
+  listing,
+  onBadgesChange,
 }: AgencyQualityChecklistProps) {
+  const categoryCode = listing?.categoryCode || propCategoryCode || 'hotel'
+  const title = listing?.title || propTitle || ''
+  const description = listing?.description || propDescription || ''
+  const imagesCount = listing?.galleryCount ?? propImagesCount ?? 0
+  const price = listing?.price || propPrice || ''
+  const currency = listing?.currency || propCurrency || 'TRY'
+  const address = propAddress || ''
+  const hasCoordinates = listing?.hasLocation ?? propHasCoordinates ?? false
+  const localeCount = listing?.localesCompleted?.length ?? propLocaleCount ?? 0
+  const totalLocalesCount = listing?.allLocales?.length ?? propTotalLocalesCount ?? 6
+  const customBadges = listing?.customBadges ?? propCustomBadges ?? []
+
+  const handleToggleBadge = (id: string) => {
+    if (onToggleBadge) {
+      onToggleBadge(id)
+      return
+    }
+    if (onBadgesChange) {
+      const next = customBadges.includes(id)
+        ? customBadges.filter((b) => b !== id)
+        : [...customBadges, id]
+      onBadgesChange(next)
+    }
+  }
+
   const isHotel = categoryCode === 'hotel'
   const isYacht = categoryCode === 'yacht_charter'
   const isActivity = categoryCode === 'activity'
@@ -163,7 +209,7 @@ export function AgencyQualityChecklist({
         id: 'location_coords',
         title: 'Harita Konumu & Adres',
         desc: 'Açık adres girildi ve harita GPS pini işaretlendi',
-        passed: Boolean(address.trim() && hasCoordinates),
+        passed: Boolean((address.trim() || hasCoordinates) && hasCoordinates),
         points: 15,
         category: 'location',
       },

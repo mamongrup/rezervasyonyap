@@ -2637,10 +2637,12 @@ function HotelSection({
     try {
       const token = getStoredAuthToken()
       if (token) {
-        await putListingMeta(token, listingId, 'hotel_agency_details', {
-          ...form,
-          board_types: boardTypes,
-          amenities,
+        await putListingMeta(token, listingId, {
+          hotel_agency_details: JSON.stringify({
+            ...form,
+            board_types: boardTypes,
+            amenities,
+          }),
         })
       }
       setMsg({ ok: true, text: 'Otel acente özellikleri ve konsept bilgileri kaydedildi.' })

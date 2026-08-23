@@ -148,19 +148,28 @@ export const HOTEL_AMENITIES_CATALOG = [
 ]
 
 export function HotelBasicsStepPanel({
-  values,
+  values: propValues,
+  value: propValue,
   onChange,
+  disabled,
 }: {
-  values: HotelAgencyBasicsState
-  onChange: (patch: Partial<HotelAgencyBasicsState>) => void
+  values?: HotelAgencyBasicsState
+  value?: HotelAgencyBasicsState
+  onChange?: (patch: any) => void
+  disabled?: boolean
 }) {
+  const values = propValue || propValues || {}
+  const emitChange = (patch: Partial<HotelAgencyBasicsState>) => {
+    if (!onChange) return
+    onChange((prev: any) => (typeof prev === 'object' && prev !== null ? { ...prev, ...patch } : patch))
+  }
   const selectedBoards = new Set(values.board_types ?? [])
 
   const toggleBoard = (code: string) => {
     const next = new Set(selectedBoards)
     if (next.has(code)) next.delete(code)
     else next.add(code)
-    onChange({ board_types: Array.from(next) })
+    emitChange({ board_types: Array.from(next) })
   }
 
   return (
@@ -182,7 +191,7 @@ export function HotelBasicsStepPanel({
               <button
                 key={type.value}
                 type="button"
-                onClick={() => onChange({ hotel_type: type.value })}
+                onClick={() => emitChange({ hotel_type: type.value })}
                 className={`flex flex-col items-start rounded-xl border p-3.5 text-left transition-all ${
                   isSelected
                     ? 'border-primary-600 bg-primary-50/70 ring-2 ring-primary-500/20 dark:border-primary-500 dark:bg-primary-950/30'
@@ -212,7 +221,7 @@ export function HotelBasicsStepPanel({
                 <button
                   key={star.value}
                   type="button"
-                  onClick={() => onChange({ star_rating: star.value })}
+                  onClick={() => emitChange({ star_rating: star.value })}
                   className={`flex flex-col items-center rounded-xl border p-3 text-center transition-all ${
                     isSelected
                       ? 'border-amber-500 bg-amber-50/70 text-amber-900 ring-2 ring-amber-400/30 dark:border-amber-500 dark:bg-amber-950/30 dark:text-amber-200'
@@ -284,7 +293,7 @@ export function HotelBasicsStepPanel({
               type="time"
               className="mt-1"
               value={values.checkin_time || '14:00'}
-              onChange={(e) => onChange({ checkin_time: e.target.value })}
+              onChange={(e) => emitChange({ checkin_time: e.target.value })}
             />
           </Field>
           <Field className="block">
@@ -293,7 +302,7 @@ export function HotelBasicsStepPanel({
               type="time"
               className="mt-1"
               value={values.checkout_time || '12:00'}
-              onChange={(e) => onChange({ checkout_time: e.target.value })}
+              onChange={(e) => emitChange({ checkout_time: e.target.value })}
             />
           </Field>
           <Field className="block">
@@ -303,7 +312,7 @@ export function HotelBasicsStepPanel({
               className="mt-1"
               placeholder="ör. 0-6 yaş 1 çocuk ücretsiz"
               value={values.child_policy || ''}
-              onChange={(e) => onChange({ child_policy: e.target.value })}
+              onChange={(e) => emitChange({ child_policy: e.target.value })}
             />
           </Field>
         </div>
@@ -313,12 +322,22 @@ export function HotelBasicsStepPanel({
 }
 
 export function HotelLocationDistancesStepPanel({
-  values,
+  values: propValues,
+  value: propValue,
   onChange,
+  disabled,
 }: {
-  values: HotelAgencyBasicsState
-  onChange: (patch: Partial<HotelAgencyBasicsState>) => void
+  values?: HotelAgencyBasicsState
+  value?: HotelAgencyBasicsState
+  onChange?: (patch: any) => void
+  disabled?: boolean
 }) {
+  const values = propValue || propValues || {}
+  const emitChange = (patch: Partial<HotelAgencyBasicsState>) => {
+    if (!onChange) return
+    onChange((prev: any) => (typeof prev === 'object' && prev !== null ? { ...prev, ...patch } : patch))
+  }
+
   return (
     <div className="space-y-4 rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm dark:border-neutral-700 dark:bg-neutral-800">
       <h3 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-neutral-800 dark:text-neutral-200">
@@ -337,7 +356,7 @@ export function HotelLocationDistancesStepPanel({
             className="mt-1"
             placeholder="ör. Denize Sıfır veya 150 m"
             value={values.dist_beach || ''}
-            onChange={(e) => onChange({ dist_beach: e.target.value })}
+            onChange={(e) => emitChange({ dist_beach: e.target.value })}
           />
         </Field>
         <Field className="block">
@@ -345,7 +364,7 @@ export function HotelLocationDistancesStepPanel({
           <select
             className="mt-1 w-full rounded-xl border border-neutral-200 bg-white px-3 py-2 text-xs text-neutral-900 dark:border-neutral-700 dark:bg-neutral-900 dark:text-white"
             value={values.beach_type || ''}
-            onChange={(e) => onChange({ beach_type: e.target.value })}
+            onChange={(e) => emitChange({ beach_type: e.target.value })}
           >
             <option value="">— Seçin —</option>
             {HOTEL_BEACH_TYPES.map((b) => (
@@ -362,7 +381,7 @@ export function HotelLocationDistancesStepPanel({
             className="mt-1"
             placeholder="ör. 35 km (Antalya AYT)"
             value={values.dist_airport || ''}
-            onChange={(e) => onChange({ dist_airport: e.target.value })}
+            onChange={(e) => emitChange({ dist_airport: e.target.value })}
           />
         </Field>
         <Field className="block">
@@ -372,7 +391,7 @@ export function HotelLocationDistancesStepPanel({
             className="mt-1"
             placeholder="ör. 2 km"
             value={values.dist_city_center || ''}
-            onChange={(e) => onChange({ dist_city_center: e.target.value })}
+            onChange={(e) => emitChange({ dist_city_center: e.target.value })}
           />
         </Field>
       </div>
@@ -383,11 +402,34 @@ export function HotelLocationDistancesStepPanel({
 export function HotelFacilitiesStepPanel({
   selectedIds,
   onToggle,
+  value,
+  values: propValues,
+  onChange,
+  disabled,
 }: {
-  selectedIds: string[]
-  onToggle: (id: string) => void
+  selectedIds?: string[]
+  onToggle?: (id: string) => void
+  value?: HotelAgencyBasicsState
+  values?: HotelAgencyBasicsState
+  onChange?: (patch: any) => void
+  disabled?: boolean
 }) {
-  const selectedSet = new Set(selectedIds)
+  const currentValues = value || propValues || {}
+  const currentAmenities = selectedIds || currentValues.amenities || []
+  const selectedSet = new Set(currentAmenities)
+
+  const handleToggle = (id: string) => {
+    if (onToggle) {
+      onToggle(id)
+      return
+    }
+    if (onChange) {
+      const next = selectedSet.has(id)
+        ? currentAmenities.filter((x) => x !== id)
+        : [...currentAmenities, id]
+      onChange((prev: any) => (typeof prev === 'object' && prev !== null ? { ...prev, amenities: next } : { amenities: next }))
+    }
+  }
 
   return (
     <div className="space-y-6">
@@ -427,7 +469,7 @@ export function HotelFacilitiesStepPanel({
                       <input
                         type="checkbox"
                         checked={isChecked}
-                        onChange={() => onToggle(item.id)}
+                        onChange={() => handleToggle(item.id)}
                         className="h-4 w-4 rounded accent-primary-600"
                       />
                       <span className="text-xs font-medium">{item.label}</span>

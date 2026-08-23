@@ -45,7 +45,7 @@ export interface YachtAgencyBasicsState {
   bathroom_count?: string
   crew_count?: string
   crew_members?: string[]
-  captain_included?: 'yes' | 'no' | 'optional'
+  captain_included?: 'yes' | 'no' | 'optional' | string
   fuel_policy?: string
   water_sports?: string[]
   equipment?: string[]
@@ -124,12 +124,21 @@ export const YACHT_EQUIPMENT_CATALOG = [
 ]
 
 export function YachtBasicsStepPanel({
-  values,
+  values: propValues,
+  value: propValue,
   onChange,
+  disabled,
 }: {
-  values: YachtAgencyBasicsState
-  onChange: (patch: Partial<YachtAgencyBasicsState>) => void
+  values?: YachtAgencyBasicsState
+  value?: YachtAgencyBasicsState
+  onChange?: (patch: any) => void
+  disabled?: boolean
 }) {
+  const values = propValue || propValues || {}
+  const emitChange = (patch: Partial<YachtAgencyBasicsState>) => {
+    if (!onChange) return
+    onChange((prev: any) => (typeof prev === 'object' && prev !== null ? { ...prev, ...patch } : patch))
+  }
   return (
     <div className="space-y-6">
       {/* Tekne Türü */}
@@ -149,7 +158,7 @@ export function YachtBasicsStepPanel({
               <button
                 key={type.value}
                 type="button"
-                onClick={() => onChange({ yacht_type: type.value })}
+                onClick={() => emitChange({ yacht_type: type.value })}
                 className={`flex flex-col items-start rounded-xl border p-3.5 text-left transition-all ${
                   isSelected
                     ? 'border-primary-600 bg-primary-50/70 ring-2 ring-primary-500/20 dark:border-primary-500 dark:bg-primary-950/30'
@@ -185,7 +194,7 @@ export function YachtBasicsStepPanel({
               className="mt-1"
               placeholder="ör. 28.5"
               value={values.length_meters || ''}
-              onChange={(e) => onChange({ length_meters: e.target.value })}
+              onChange={(e) => emitChange({ length_meters: e.target.value })}
             />
           </Field>
           <Field className="block">
@@ -197,7 +206,7 @@ export function YachtBasicsStepPanel({
               className="mt-1"
               placeholder="ör. 7.2"
               value={values.beam_meters || ''}
-              onChange={(e) => onChange({ beam_meters: e.target.value })}
+              onChange={(e) => emitChange({ beam_meters: e.target.value })}
             />
           </Field>
           <Field className="block">
@@ -209,7 +218,7 @@ export function YachtBasicsStepPanel({
               className="mt-1"
               placeholder="ör. 2.8"
               value={values.draft_meters || ''}
-              onChange={(e) => onChange({ draft_meters: e.target.value })}
+              onChange={(e) => emitChange({ draft_meters: e.target.value })}
             />
           </Field>
           <Field className="block">
@@ -217,7 +226,7 @@ export function YachtBasicsStepPanel({
             <select
               className="mt-1 w-full rounded-xl border border-neutral-200 bg-white px-3 py-2 text-xs text-neutral-900 dark:border-neutral-700 dark:bg-neutral-900 dark:text-white"
               value={values.hull_material || 'Ahşap / Epoksi Lamine'}
-              onChange={(e) => onChange({ hull_material: e.target.value })}
+              onChange={(e) => emitChange({ hull_material: e.target.value })}
             >
               <option value="Ahşap / Epoksi Lamine">Ahşap / Epoksi Lamine</option>
               <option value="Fiberglas (GRP)">Fiberglas (GRP)</option>
@@ -236,7 +245,7 @@ export function YachtBasicsStepPanel({
               className="mt-1"
               placeholder="ör. 2018"
               value={values.build_year || ''}
-              onChange={(e) => onChange({ build_year: e.target.value })}
+              onChange={(e) => emitChange({ build_year: e.target.value })}
             />
           </Field>
           <Field className="block">
@@ -246,7 +255,7 @@ export function YachtBasicsStepPanel({
               className="mt-1"
               placeholder="ör. 2024"
               value={values.refit_year || ''}
-              onChange={(e) => onChange({ refit_year: e.target.value })}
+              onChange={(e) => emitChange({ refit_year: e.target.value })}
             />
           </Field>
           <Field className="block">
@@ -257,7 +266,7 @@ export function YachtBasicsStepPanel({
               className="mt-1"
               placeholder="ör. 10"
               value={values.cruising_speed_knots || ''}
-              onChange={(e) => onChange({ cruising_speed_knots: e.target.value })}
+              onChange={(e) => emitChange({ cruising_speed_knots: e.target.value })}
             />
           </Field>
           <Field className="block">
@@ -267,7 +276,7 @@ export function YachtBasicsStepPanel({
               className="mt-1"
               placeholder="ör. Türk Bayrağı (TR)"
               value={values.flag || 'Türk Bayrağı'}
-              onChange={(e) => onChange({ flag: e.target.value })}
+              onChange={(e) => emitChange({ flag: e.target.value })}
             />
           </Field>
         </div>
@@ -277,19 +286,28 @@ export function YachtBasicsStepPanel({
 }
 
 export function YachtLocationRoutesStepPanel({
-  values,
+  values: propValues,
+  value: propValue,
   onChange,
+  disabled,
 }: {
-  values: YachtAgencyBasicsState
-  onChange: (patch: Partial<YachtAgencyBasicsState>) => void
+  values?: YachtAgencyBasicsState
+  value?: YachtAgencyBasicsState
+  onChange?: (patch: any) => void
+  disabled?: boolean
 }) {
+  const values = propValue || propValues || {}
+  const emitChange = (patch: Partial<YachtAgencyBasicsState>) => {
+    if (!onChange) return
+    onChange((prev: any) => (typeof prev === 'object' && prev !== null ? { ...prev, ...patch } : patch))
+  }
   const selectedRoutes = new Set(values.routes ?? [])
 
   const toggleRoute = (route: string) => {
     const next = new Set(selectedRoutes)
     if (next.has(route)) next.delete(route)
     else next.add(route)
-    onChange({ routes: Array.from(next) })
+    emitChange({ routes: Array.from(next) })
   }
 
   return (
@@ -311,7 +329,7 @@ export function YachtLocationRoutesStepPanel({
               <button
                 key={marina}
                 type="button"
-                onClick={() => onChange({ port_name: marina })}
+                onClick={() => emitChange({ port_name: marina })}
                 className={`flex items-center gap-2.5 rounded-xl border p-3 text-left transition-all ${
                   isSelected
                     ? 'border-primary-600 bg-primary-50/70 text-primary-950 font-semibold ring-2 ring-primary-500/20 dark:border-primary-500 dark:bg-primary-950/30 dark:text-white'
@@ -367,12 +385,21 @@ export function YachtLocationRoutesStepPanel({
 }
 
 export function YachtCabinsAndEquipmentStepPanel({
-  values,
+  values: propValues,
+  value: propValue,
   onChange,
+  disabled,
 }: {
-  values: YachtAgencyBasicsState
-  onChange: (patch: Partial<YachtAgencyBasicsState>) => void
+  values?: YachtAgencyBasicsState
+  value?: YachtAgencyBasicsState
+  onChange?: (patch: any) => void
+  disabled?: boolean
 }) {
+  const values = propValue || propValues || {}
+  const emitChange = (patch: Partial<YachtAgencyBasicsState>) => {
+    if (!onChange) return
+    onChange((prev: any) => (typeof prev === 'object' && prev !== null ? { ...prev, ...patch } : patch))
+  }
   const selectedWaterSports = new Set(values.water_sports ?? [])
   const selectedEquipment = new Set(values.equipment ?? [])
 
@@ -380,14 +407,14 @@ export function YachtCabinsAndEquipmentStepPanel({
     const next = new Set(selectedWaterSports)
     if (next.has(id)) next.delete(id)
     else next.add(id)
-    onChange({ water_sports: Array.from(next) })
+    emitChange({ water_sports: Array.from(next) })
   }
 
   const toggleEquipment = (id: string) => {
     const next = new Set(selectedEquipment)
     if (next.has(id)) next.delete(id)
     else next.add(id)
-    onChange({ equipment: Array.from(next) })
+    emitChange({ equipment: Array.from(next) })
   }
 
   return (
@@ -408,7 +435,7 @@ export function YachtCabinsAndEquipmentStepPanel({
               className="mt-1"
               placeholder="ör. 12"
               value={values.passenger_count_day || ''}
-              onChange={(e) => onChange({ passenger_count_day: e.target.value })}
+              onChange={(e) => emitChange({ passenger_count_day: e.target.value })}
             />
           </Field>
           <Field className="block">
@@ -419,7 +446,7 @@ export function YachtCabinsAndEquipmentStepPanel({
               className="mt-1"
               placeholder="ör. 8"
               value={values.passenger_count_night || ''}
-              onChange={(e) => onChange({ passenger_count_night: e.target.value })}
+              onChange={(e) => emitChange({ passenger_count_night: e.target.value })}
             />
           </Field>
           <Field className="block">
@@ -430,7 +457,7 @@ export function YachtCabinsAndEquipmentStepPanel({
               className="mt-1"
               placeholder="ör. 4"
               value={values.cabin_count || ''}
-              onChange={(e) => onChange({ cabin_count: e.target.value })}
+              onChange={(e) => emitChange({ cabin_count: e.target.value })}
             />
           </Field>
           <Field className="block">
@@ -441,7 +468,7 @@ export function YachtCabinsAndEquipmentStepPanel({
               className="mt-1"
               placeholder="ör. 4"
               value={values.bathroom_count || ''}
-              onChange={(e) => onChange({ bathroom_count: e.target.value })}
+              onChange={(e) => emitChange({ bathroom_count: e.target.value })}
             />
           </Field>
         </div>
@@ -460,7 +487,7 @@ export function YachtCabinsAndEquipmentStepPanel({
                 className="mt-1"
                 placeholder="1"
                 value={values.master_cabins || ''}
-                onChange={(e) => onChange({ master_cabins: e.target.value })}
+                onChange={(e) => emitChange({ master_cabins: e.target.value })}
               />
             </Field>
             <Field className="block">
@@ -471,7 +498,7 @@ export function YachtCabinsAndEquipmentStepPanel({
                 className="mt-1"
                 placeholder="1"
                 value={values.vip_cabins || ''}
-                onChange={(e) => onChange({ vip_cabins: e.target.value })}
+                onChange={(e) => emitChange({ vip_cabins: e.target.value })}
               />
             </Field>
             <Field className="block">
@@ -482,7 +509,7 @@ export function YachtCabinsAndEquipmentStepPanel({
                 className="mt-1"
                 placeholder="2"
                 value={values.double_cabins || ''}
-                onChange={(e) => onChange({ double_cabins: e.target.value })}
+                onChange={(e) => emitChange({ double_cabins: e.target.value })}
               />
             </Field>
             <Field className="block">
@@ -493,7 +520,7 @@ export function YachtCabinsAndEquipmentStepPanel({
                 className="mt-1"
                 placeholder="0"
                 value={values.twin_cabins || ''}
-                onChange={(e) => onChange({ twin_cabins: e.target.value })}
+                onChange={(e) => emitChange({ twin_cabins: e.target.value })}
               />
             </Field>
           </div>
@@ -510,7 +537,7 @@ export function YachtCabinsAndEquipmentStepPanel({
                 className="mt-1"
                 placeholder="ör. 4 (Kaptan, Aşçı, 2 Gemici)"
                 value={values.crew_count || ''}
-                onChange={(e) => onChange({ crew_count: e.target.value })}
+                onChange={(e) => emitChange({ crew_count: e.target.value })}
               />
             </Field>
             <Field className="block sm:col-span-2">
@@ -518,7 +545,7 @@ export function YachtCabinsAndEquipmentStepPanel({
               <select
                 className="mt-1 w-full rounded-xl border border-neutral-200 bg-white px-3 py-2 text-xs text-neutral-900 dark:border-neutral-700 dark:bg-neutral-900 dark:text-white"
                 value={values.captain_included || 'yes'}
-                onChange={(e) => onChange({ captain_included: e.target.value as 'yes' | 'no' | 'optional' })}
+                onChange={(e) => emitChange({ captain_included: e.target.value as 'yes' | 'no' | 'optional' })}
               >
                 <option value="yes">Kaptan ve Mürettebat Fiyata Dahil</option>
                 <option value="optional">Kaptan İsteğe Bağlı (+Ek Ücretli)</option>
@@ -598,12 +625,21 @@ export function YachtCabinsAndEquipmentStepPanel({
 }
 
 export function YachtCharterTermsStepPanel({
-  values,
+  values: propValues,
+  value: propValue,
   onChange,
+  disabled,
 }: {
-  values: YachtAgencyBasicsState
-  onChange: (patch: Partial<YachtAgencyBasicsState>) => void
+  values?: YachtAgencyBasicsState
+  value?: YachtAgencyBasicsState
+  onChange?: (patch: any) => void
+  disabled?: boolean
 }) {
+  const values = propValue || propValues || {}
+  const emitChange = (patch: Partial<YachtAgencyBasicsState>) => {
+    if (!onChange) return
+    onChange((prev: any) => (typeof prev === 'object' && prev !== null ? { ...prev, ...patch } : patch))
+  }
   return (
     <div className="space-y-6">
       <div className="rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm dark:border-neutral-700 dark:bg-neutral-800">
@@ -621,7 +657,7 @@ export function YachtCharterTermsStepPanel({
               className="mt-1"
               placeholder="ör. 7 (Cumartesi-Cumartesi)"
               value={values.min_charter_days || '7'}
-              onChange={(e) => onChange({ min_charter_days: e.target.value })}
+              onChange={(e) => emitChange({ min_charter_days: e.target.value })}
             />
           </Field>
           <Field className="block">
@@ -631,7 +667,7 @@ export function YachtCharterTermsStepPanel({
               className="mt-1"
               placeholder="Cumartesi 16:00"
               value={values.checkin_day_time || 'Cumartesi 16:00'}
-              onChange={(e) => onChange({ checkin_day_time: e.target.value })}
+              onChange={(e) => emitChange({ checkin_day_time: e.target.value })}
             />
           </Field>
           <Field className="block">
@@ -641,7 +677,7 @@ export function YachtCharterTermsStepPanel({
               className="mt-1"
               placeholder="Cumartesi 09:30"
               value={values.checkout_day_time || 'Cumartesi 09:30'}
-              onChange={(e) => onChange({ checkout_day_time: e.target.value })}
+              onChange={(e) => emitChange({ checkout_day_time: e.target.value })}
             />
           </Field>
           <Field className="block">
@@ -653,7 +689,7 @@ export function YachtCharterTermsStepPanel({
               className="mt-1"
               placeholder="ör. 30"
               value={values.apa_percent || '30'}
-              onChange={(e) => onChange({ apa_percent: e.target.value })}
+              onChange={(e) => emitChange({ apa_percent: e.target.value })}
             />
           </Field>
         </div>
@@ -666,7 +702,7 @@ export function YachtCharterTermsStepPanel({
               className="mt-1"
               placeholder="ör. 2.500 EUR veya Depozitosuz"
               value={values.security_deposit || ''}
-              onChange={(e) => onChange({ security_deposit: e.target.value })}
+              onChange={(e) => emitChange({ security_deposit: e.target.value })}
             />
           </Field>
           <Field className="block">
@@ -676,7 +712,7 @@ export function YachtCharterTermsStepPanel({
               className="mt-1"
               placeholder="Tura 60 gün kalaya kadar %10 kesintiyle iade"
               value={values.cancellation_policy || ''}
-              onChange={(e) => onChange({ cancellation_policy: e.target.value })}
+              onChange={(e) => emitChange({ cancellation_policy: e.target.value })}
             />
           </Field>
         </div>
