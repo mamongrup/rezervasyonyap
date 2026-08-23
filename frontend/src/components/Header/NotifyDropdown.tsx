@@ -22,9 +22,10 @@ import { FC, useEffect, useState } from 'react'
 
 interface Props {
   className?: string
+  btnClassName?: string
 }
 
-const NotifyDropdown: FC<Props> = ({ className = '' }) => {
+const NotifyDropdown: FC<Props> = ({ className = '', btnClassName }) => {
   const vitrinPath = useVitrinHref()
   const [role, setRole] = useState<UserRole>('guest')
   const [campaigns, setCampaigns] = useState<Campaign[]>([])
@@ -76,14 +77,17 @@ const NotifyDropdown: FC<Props> = ({ className = '' }) => {
     <Popover className={className}>
       <>
         <PopoverButton
-          className="relative -m-2.5 flex cursor-pointer items-center justify-center rounded-full p-2.5 hover:bg-neutral-100 focus-visible:outline-hidden dark:hover:bg-neutral-800"
+          className={
+            btnClassName ??
+            'relative -m-2.5 flex cursor-pointer items-center justify-center rounded-full p-2.5 hover:bg-neutral-100 focus-visible:outline-hidden dark:hover:bg-neutral-800'
+          }
           aria-label="Bildirimler"
           onClick={() => setHasNew(false)}
         >
           {hasNew ? (
-            <span className="absolute end-2 top-2 h-2 w-2 rounded-full bg-blue-500" aria-hidden />
+            <span className="absolute end-1.5 top-1.5 h-2 w-2 rounded-full bg-blue-500 ring-2 ring-white dark:ring-neutral-900" aria-hidden />
           ) : null}
-          <HugeiconsIcon icon={Notification01Icon} className="h-6 w-6" strokeWidth={1.75} aria-hidden />
+          <HugeiconsIcon icon={Notification01Icon} className="h-5.5 w-5.5" strokeWidth={1.75} aria-hidden />
         </PopoverButton>
 
         <PopoverPanel

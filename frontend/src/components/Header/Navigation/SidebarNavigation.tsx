@@ -40,6 +40,7 @@ import React, { useEffect, useMemo, useState } from 'react'
 import { getMessages } from '@/utils/getT'
 import { useVitrinHref } from '@/hooks/use-vitrin-href'
 import CurrLangDropdown from '../CurrLangDropdown'
+import NotifyDropdown from '../NotifyDropdown'
 import ListingSearchSuggestions from '@/components/search/ListingSearchSuggestions'
 import { SEARCH_MIN_QUERY_LEN } from '@/lib/search-listings-display'
 
@@ -300,30 +301,29 @@ const SidebarNavigation: React.FC<Props> = ({ data, currencies, locale }) => {
 
   return (
     <div className="space-y-4">
-      {/* Üst Hızlı İşlem Şeridi: Telefon, WhatsApp, Hesabım, Dil & Döviz Seçici (Tek sıra) */}
+      {/* Üst Hızlı İşlem Şeridi: Sol (Telefon, WhatsApp) — Sağ (Para & Dil, Bildirimler, Hesabım) */}
       <div className="flex items-center justify-between gap-2">
-        {/* 1. Telefon */}
-        {phoneTel ? (
+        {/* Sol Grup: Telefon & WhatsApp */}
+        <div className="flex items-center gap-2">
+          {/* Telefon */}
           <a
-            href={phoneTel}
+            href={phoneTel || 'tel:+902120000000'}
             onClick={handleClose}
-            aria-label={`Telefon: ${phoneDisplay}`}
-            title={phoneDisplay}
+            aria-label={`Telefon: ${phoneDisplay || '+90 212 000 00 00'}`}
+            title={phoneDisplay || '+90 212 000 00 00'}
             className="flex size-10 shrink-0 items-center justify-center rounded-xl border border-neutral-200/80 bg-white text-neutral-700 shadow-xs transition hover:border-primary-300 hover:bg-primary-50 hover:text-primary-600 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-200 dark:hover:bg-primary-950/40 dark:hover:text-primary-400"
           >
             <DeskPhoneBadge className="size-7 rounded-full" iconClassName="size-3.5" />
           </a>
-        ) : null}
 
-        {/* 2. WhatsApp */}
-        {whatsappE164 ? (
+          {/* WhatsApp */}
           <a
-            href={`https://wa.me/${whatsappE164}`}
+            href={`https://wa.me/${whatsappE164 || (phoneDisplay ? phoneDisplay.replace(/\D/g, '') : '905551234567')}`}
             target="_blank"
             rel="noopener noreferrer"
             onClick={handleClose}
-            aria-label={`WhatsApp: ${whatsappDisplay || phoneDisplay}`}
-            title={`WhatsApp: ${whatsappDisplay || phoneDisplay}`}
+            aria-label={`WhatsApp: ${whatsappDisplay || phoneDisplay || '+90 212 000 00 00'}`}
+            title={`WhatsApp: ${whatsappDisplay || phoneDisplay || '+90 212 000 00 00'}`}
             className="flex size-10 shrink-0 items-center justify-center rounded-xl border border-neutral-200/80 bg-white text-neutral-700 shadow-xs transition hover:border-emerald-300 hover:bg-emerald-50 hover:text-emerald-600 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-200 dark:hover:bg-emerald-950/40 dark:hover:text-emerald-400"
           >
             <span
@@ -335,30 +335,38 @@ const SidebarNavigation: React.FC<Props> = ({ data, currencies, locale }) => {
               </svg>
             </span>
           </a>
-        ) : null}
+        </div>
 
-        {/* 3. Hesabım */}
-        <Link
-          href={navItemHref(effectiveLocale, vitrinPath, role === 'guest' ? '/login' : '/account')}
-          onClick={handleClose}
-          aria-label={role === 'guest' ? (s.login || 'Giriş Yap') : s.account}
-          title={role === 'guest' ? (s.login || 'Giriş Yap') : s.account}
-          className="flex size-10 shrink-0 items-center justify-center rounded-xl border border-neutral-200/80 bg-white text-neutral-700 shadow-xs transition hover:border-primary-300 hover:bg-primary-50 hover:text-primary-600 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-200 dark:hover:bg-primary-950/40 dark:hover:text-primary-400"
-        >
-          <HugeiconsIcon icon={UserCircleIcon} size={22} strokeWidth={1.5} />
-        </Link>
+        {/* Sağ Grup: Para Birimi & Dil, Bildirimler, Hesabım */}
+        <div className="flex items-center gap-2">
+          {/* Para Birimi & Dil */}
+          <div className="flex h-10 shrink-0 items-center justify-center rounded-xl border border-neutral-200/80 bg-white px-2 shadow-xs dark:border-neutral-700 dark:bg-neutral-800">
+            <CurrLangDropdown
+              currencies={currencies}
+              locale={effectiveLocale}
+              panelAnchor={{
+                to: 'bottom end',
+                gap: 8,
+              }}
+              panelClassName="z-50 w-72 p-4!"
+            />
+          </div>
 
-        {/* 4. Dil ve Döviz Seçici */}
-        <div className="flex h-10 shrink-0 items-center justify-center rounded-xl border border-neutral-200/80 bg-white px-2 shadow-xs dark:border-neutral-700 dark:bg-neutral-800">
-          <CurrLangDropdown
-            currencies={currencies}
-            locale={effectiveLocale}
-            panelAnchor={{
-              to: 'bottom end',
-              gap: 8,
-            }}
-            panelClassName="z-50 w-72 p-4!"
-          />
+          {/* Bildirimler */}
+          <div className="flex size-10 shrink-0 items-center justify-center rounded-xl border border-neutral-200/80 bg-white text-neutral-700 shadow-xs transition hover:border-primary-300 hover:bg-primary-50 hover:text-primary-600 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-200 dark:hover:bg-primary-950/40 dark:hover:text-primary-400">
+            <NotifyDropdown btnClassName="relative flex size-10 cursor-pointer items-center justify-center rounded-xl hover:bg-transparent focus-visible:outline-hidden" />
+          </div>
+
+          {/* Hesabım */}
+          <Link
+            href={navItemHref(effectiveLocale, vitrinPath, role === 'guest' ? '/login' : '/account')}
+            onClick={handleClose}
+            aria-label={role === 'guest' ? (s.login || 'Giriş Yap') : s.account}
+            title={role === 'guest' ? (s.login || 'Giriş Yap') : s.account}
+            className="flex size-10 shrink-0 items-center justify-center rounded-xl border border-neutral-200/80 bg-white text-neutral-700 shadow-xs transition hover:border-primary-300 hover:bg-primary-50 hover:text-primary-600 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-200 dark:hover:bg-primary-950/40 dark:hover:text-primary-400"
+          >
+            <HugeiconsIcon icon={UserCircleIcon} size={22} strokeWidth={1.5} />
+          </Link>
         </div>
       </div>
 
