@@ -67,9 +67,9 @@ const SLUG_ICON: Record<string, IconSvgElement> = {
   transfer:       Bus01Icon,
 }
 
-/** Hamburger tetikleyici — masaüstü hero “diğer kategoriler” */
+/** Hamburger tetikleyici — masaüstü hero ve mobil modal “diğer kategoriler” */
 const OVERFLOW_TRIGGER_LABEL: Record<string, string> = {
-  tr: 'Diğer',
+  tr: 'Devamı',
   en: 'More',
   de: 'Mehr',
   ru: 'Ещё',
@@ -195,7 +195,7 @@ export function HeroMenuCategoryBar({
     <Popover className="relative flex shrink-0 flex-col items-center gap-1.5 sm:gap-2">
       <PopoverButton
         className="group/tab flex cursor-pointer flex-col items-center gap-1.5 rounded-lg outline-none focus:outline-hidden sm:gap-2"
-        aria-label={useCollapseDesktop ? overflowTriggerText : 'Menü'}
+        aria-label={overflowTriggerText}
       >
         <span
           className={clsx(
@@ -206,7 +206,7 @@ export function HeroMenuCategoryBar({
           <HugeiconsIcon icon={Menu01Icon} className="size-[1.15rem] sm:size-5" strokeWidth={1.5} />
         </span>
         <span className="max-w-[5.5rem] truncate text-center text-xs font-normal text-neutral-500 hover:text-neutral-600 sm:text-sm dark:text-neutral-400 dark:hover:text-neutral-300">
-          {useCollapseDesktop ? overflowTriggerText : 'Menü'}
+          {overflowTriggerText}
         </span>
       </PopoverButton>
       <PopoverPanel
