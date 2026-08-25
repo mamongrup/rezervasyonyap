@@ -21,7 +21,7 @@ import {
 import { aiErrorMessage, translateOneToMany } from '@/lib/manage-content-ai'
 import ButtonPrimary from '@/shared/ButtonPrimary'
 import Input from '@/shared/Input'
-import { Field, Label } from './CatalogFormField'
+import { Field, Label } from '@/components/manage/ManageFormField'
 import { ManageAiMagicTextButton } from '@/components/manage/ManageAiMagicTextButton'
 import clsx from 'clsx'
 import { Loader2, Trash2 } from 'lucide-react'

@@ -21,7 +21,7 @@ import {
 } from '@/lib/travel-api'
 import ButtonPrimary from '@/shared/ButtonPrimary'
 import Input from '@/shared/Input'
-import { Field, Label } from './CatalogFormField'
+import { Field, Label } from '@/components/manage/ManageFormField'
 import { Loader2, Plus, Trash2 } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 

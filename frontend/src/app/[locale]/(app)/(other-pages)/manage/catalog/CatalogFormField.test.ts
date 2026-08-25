@@ -2,7 +2,7 @@ import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
 
-import { Field, Label } from './CatalogFormField'
+import { Field, Label } from '@/components/manage/ManageFormField'
 
 describe('CatalogFormField', () => {
   it('renders catalog labels without an external context provider', () => {

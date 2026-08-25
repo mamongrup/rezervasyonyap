@@ -84,7 +84,7 @@ import {
 import ButtonPrimary from '@/shared/ButtonPrimary'
 import { HolidayHomeIcalManagedRow } from '@/components/manage/HolidayHomeIcalManagedRow'
 import ListingPerksManageCard from '@/components/manage/ListingPerksManageCard'
-import { Field, Label } from '../../../CatalogFormField'
+import { Field, Label } from '@/components/manage/ManageFormField'
 import Input from '@/shared/Input'
 import Textarea from '@/shared/Textarea'
 import Link from 'next/link'

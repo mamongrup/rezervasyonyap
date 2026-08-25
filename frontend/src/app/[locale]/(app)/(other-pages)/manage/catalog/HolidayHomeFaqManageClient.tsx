@@ -17,7 +17,7 @@ import { listSiteSettings, upsertSiteSetting } from '@/lib/travel-api'
 import ButtonPrimary from '@/shared/ButtonPrimary'
 import Input from '@/shared/Input'
 import Textarea from '@/shared/Textarea'
-import { Field, Label } from './CatalogFormField'
+import { Field, Label } from '@/components/manage/ManageFormField'
 import { GripVertical, Plus, Trash2 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 

@@ -1,18 +1,12 @@
 import clsx from 'clsx'
 import type { ComponentPropsWithoutRef } from 'react'
 
-/**
- * Katalog formlari icin bagimsiz alan elemanlari.
- *
- * Headless UI Label, Field context'i farkli bir istemci chunk'inda
- * kayboldugunda tum duzenleme sayfasini dusurebiliyor. Katalog alanlarinin
- * ihtiyaci yalnizca semantik HTML ve ortak stiller oldugu icin burada yerel,
- * context gerektirmeyen elemanlar kullanilir.
- */
+/** Context gerektirmeyen, panel formlarinda guvenle kullanilan alan kapsayicisi. */
 export function Field({ className, ...props }: ComponentPropsWithoutRef<'div'>) {
   return <div {...props} className={clsx(className)} />
 }
 
+/** Baslik ve form etiketi olarak calisan yerel HTML label'i. */
 export function Label({ className, ...props }: ComponentPropsWithoutRef<'label'>) {
   return (
     <label
