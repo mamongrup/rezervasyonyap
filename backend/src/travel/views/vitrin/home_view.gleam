@@ -1,11 +1,12 @@
 import gleam/int
 import gleam/list
 import travel/html/attribute.{
-  class_, href_, hx_get, hx_target, hx_trigger, name_, placeholder_,
-  src_, type_, value_,
+  class_, data_bs_target, data_bs_toggle, href_, hx_get,
+  hx_target, hx_trigger, id_, name_, placeholder_, src_, type_, value_,
 }
 import travel/html/element.{
-  type Node, a, button, div, form, h1, h2, h3, i, img, input, li, p, section, span, text, ul,
+  type Node, a, button, div, form, h1, h2, h5, h6, i, img, input, label,
+  p, section, small, span, text,
 }
 import travel/views/layout/base
 
@@ -24,375 +25,339 @@ pub type ListingPreview {
 }
 
 pub fn render_home(listings: List(ListingPreview)) -> Node {
-  base.render("Rezervasyon Yap — Otel, Villa, Tur ve Yat Kiralama", [
-    div([class_("relative overflow-hidden")], [
-      // 1. CHISFIS HERO SECTION
-      section([class_("relative pt-6 pb-16 lg:pt-12 lg:pb-24 overflow-visible")], [
-        div([class_("container mx-auto px-4 sm:px-6 lg:px-8")], [
-          div([class_("grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-8 items-center")], [
-            // Left Hero Text & Search
-            div([class_("flex flex-col items-start gap-y-6 lg:gap-y-8 z-10")], [
-              div([class_("inline-flex items-center gap-x-2 rounded-full bg-primary-50 px-4 py-1.5 text-xs font-semibold text-primary-700 dark:bg-primary-950/60 dark:text-primary-300")], [
-                i([class_("fa-solid fa-sparkles text-primary-600")], []),
-                text("2026 Erken Rezervasyon Fırsatları Başladı"),
+  base.render("Rezervasyon Yap — Oteller, Villalar, Turlar ve Tatil", [
+    // 1. HERO SECTION
+    section([class_("pt-0")], [
+      div([class_("container")], [
+        div([class_("row g-4 align-items-center justify-content-between pt-4 pt-lg-5 pb-5")], [
+          // Hero Left Text
+          div([class_("col-lg-6 col-xl-5")], [
+            span([class_("badge bg-primary bg-opacity-10 text-primary mb-3 px-3 py-2 fs-6")], [
+              i([class_("fa-solid fa-sparkles me-2")], []),
+              text("2026 Erken Rezervasyon Fırsatları"),
+            ]),
+            h1([class_("display-5 fw-bold mb-3")], [
+              text("Hayalinizdeki "),
+              span([class_("text-primary position-relative z-index-1")], [
+                text("Tatili"),
               ]),
-
-              h1([class_("text-3xl sm:text-5xl lg:text-6xl font-bold tracking-tight text-neutral-900 dark:text-white leading-[1.15]")], [
-                text("Hayalinizdeki "),
-                span([class_("text-primary-600 dark:text-primary-400 underline decoration-primary-300 decoration-wavy underline-offset-8")], [
-                  text("Tatili"),
-                ]),
-                text(" Kolayca Keşfedin & Yaşayın"),
+              text(" Keşfedin"),
+            ]),
+            p([class_("lead text-body-secondary mb-4")], [
+              text("Türkiye ve dünyanın en seçkin otelleri, lüks villaları ve rehberli turları en avantajlı fiyat garantisiyle sizleri bekliyor."),
+            ]),
+            div([class_("d-flex gap-3 align-items-center mb-4")], [
+              a([class_("btn btn-primary btn-lg mb-0"), href_("/htmx/hotels")], [
+                text("Otelleri İncele"),
+                i([class_("fa-solid fa-arrow-right ms-2")], []),
               ]),
-
-              p([class_("text-base sm:text-lg text-neutral-600 dark:text-neutral-300 max-w-lg leading-relaxed")], [
-                text("Türkiye'nin en popüler tatil rotalarında otel, kiralık villa, tekne turu ve araç seçenekleri tek tıkla kapınızda."),
-              ]),
-
-              // ChisFis Category Tabs
-              div([class_("flex flex-wrap items-center gap-2 pt-2")], [
-                button([type_("button"), class_("rounded-full bg-neutral-900 px-5 py-2 text-xs font-medium text-white shadow-sm dark:bg-white dark:text-neutral-900")], [
-                  i([class_("fa-solid fa-hotel me-1.5")], []),
-                  text("Oteller"),
-                ]),
-                button([type_("button"), class_("rounded-full bg-neutral-100 px-5 py-2 text-xs font-medium text-neutral-700 hover:bg-neutral-200 dark:bg-neutral-800 dark:text-neutral-300 dark:hover:bg-neutral-700 transition")], [
-                  i([class_("fa-solid fa-house-chimney-window me-1.5")], []),
-                  text("Villalar"),
-                ]),
-                button([type_("button"), class_("rounded-full bg-neutral-100 px-5 py-2 text-xs font-medium text-neutral-700 hover:bg-neutral-200 dark:bg-neutral-800 dark:text-neutral-300 dark:hover:bg-neutral-700 transition")], [
-                  i([class_("fa-solid fa-map-location-dot me-1.5")], []),
-                  text("Turlar"),
-                ]),
-                button([type_("button"), class_("rounded-full bg-neutral-100 px-5 py-2 text-xs font-medium text-neutral-700 hover:bg-neutral-200 dark:bg-neutral-800 dark:text-neutral-300 dark:hover:bg-neutral-700 transition")], [
-                  i([class_("fa-solid fa-ship me-1.5")], []),
-                  text("Yatlar"),
-                ]),
-                button([type_("button"), class_("rounded-full bg-neutral-100 px-5 py-2 text-xs font-medium text-neutral-700 hover:bg-neutral-200 dark:bg-neutral-800 dark:text-neutral-300 dark:hover:bg-neutral-700 transition")], [
-                  i([class_("fa-solid fa-car me-1.5")], []),
-                  text("Araç"),
-                ]),
-              ]),
-
-              // ChisFis Search Pill with Live HTMX
-              div([class_("w-full max-w-2xl rounded-3xl lg:rounded-full bg-white p-3 sm:p-4 shadow-2xl shadow-neutral-200/70 dark:bg-neutral-800 dark:shadow-none border border-neutral-200/80 dark:border-neutral-700")], [
-                form([class_("grid grid-cols-1 sm:grid-cols-12 gap-3 items-center")], [
-                  // Nereye?
-                  div([class_("sm:col-span-4 flex items-center gap-x-3 px-3 py-2 border-b sm:border-b-0 sm:border-r border-neutral-200 dark:border-neutral-700")], [
-                    i([class_("fa-solid fa-location-dot text-primary-600 text-lg shrink-0")], []),
-                    div([class_("flex flex-col w-full")], [
-                      span([class_("text-[11px] font-semibold tracking-wider text-neutral-400 uppercase")], [text("Konum")]),
-                      input([
-                        type_("text"),
-                        name_("q"),
-                        placeholder_("Bodrum, Kaş, Antalya..."),
-                        hx_get("/htmx/api/search"),
-                        hx_trigger("keyup changed delay:300ms"),
-                        hx_target("#listings-grid"),
-                        class_("w-full bg-transparent text-sm font-medium text-neutral-900 placeholder:text-neutral-400 focus:outline-none dark:text-white"),
-                      ]),
-                    ]),
-                  ]),
-
-                  // Tarihler
-                  div([class_("sm:col-span-3 flex items-center gap-x-3 px-3 py-2 border-b sm:border-b-0 sm:border-r border-neutral-200 dark:border-neutral-700")], [
-                    i([class_("fa-regular fa-calendar text-primary-600 text-lg shrink-0")], []),
-                    div([class_("flex flex-col w-full")], [
-                      span([class_("text-[11px] font-semibold tracking-wider text-neutral-400 uppercase")], [text("Giriş - Çıkış")]),
-                      input([
-                        type_("text"),
-                        placeholder_("Tarih Seçin"),
-                        value_("25 Haz - 30 Haz"),
-                        class_("w-full bg-transparent text-sm font-medium text-neutral-900 placeholder:text-neutral-400 focus:outline-none dark:text-white cursor-pointer"),
-                      ]),
-                    ]),
-                  ]),
-
-                  // Kişi Sayısı
-                  div([class_("sm:col-span-3 flex items-center gap-x-3 px-3 py-2")], [
-                    i([class_("fa-solid fa-user-group text-primary-600 text-lg shrink-0")], []),
-                    div([class_("flex flex-col w-full")], [
-                      span([class_("text-[11px] font-semibold tracking-wider text-neutral-400 uppercase")], [text("Misafir")]),
-                      span([class_("text-sm font-medium text-neutral-900 dark:text-white")], [text("2 Yetişkin, 1 Oda")]),
-                    ]),
-                  ]),
-
-                  // Search Button
-                  div([class_("sm:col-span-2 flex justify-end")], [
-                    button(
-                      [
-                        type_("button"),
-                        hx_get("/htmx/api/search"),
-                        hx_target("#listings-grid"),
-                        class_(
-                          "flex size-12 w-full sm:w-12 items-center justify-center rounded-full bg-primary-600 text-white shadow-lg shadow-primary-500/30 transition hover:bg-primary-700 focus:outline-none",
-                        ),
-                      ],
-                      [
-                        i([class_("fa-solid fa-magnifying-glass text-base")], []),
-                        span([class_("sm:hidden ms-2 font-medium")], [text("Ara")]),
-                      ],
-                    ),
-                  ]),
-                ]),
+              a([class_("btn btn-light btn-lg mb-0"), href_("/htmx/tours")], [
+                text("Turlar"),
               ]),
             ]),
+            div([class_("d-flex align-items-center gap-3 pt-2")], [
+              div([class_("avatar-group")], [
+                div([class_("avatar avatar-sm")], [img([class_("avatar-img rounded-circle"), src_("/assets/images/avatar/01.jpg"), attribute.alt_("user")])]),
+                div([class_("avatar avatar-sm")], [img([class_("avatar-img rounded-circle"), src_("/assets/images/avatar/02.jpg"), attribute.alt_("user")])]),
+                div([class_("avatar avatar-sm")], [img([class_("avatar-img rounded-circle"), src_("/assets/images/avatar/03.jpg"), attribute.alt_("user")])]),
+                div([class_("avatar avatar-sm")], [img([class_("avatar-img rounded-circle"), src_("/assets/images/avatar/04.jpg"), attribute.alt_("user")])]),
+              ]),
+              p([class_("mb-0 small text-body-secondary")], [
+                span([class_("fw-bold text-dark dark:text-light")], [text("50.000+")]),
+                text(" Mutlu Gezgin Tarafından Tercih Edildi"),
+              ]),
+            ]),
+          ]),
 
-            // Right Hero Mosaic Collage
-            div([class_("relative flex justify-center items-center lg:justify-end")], [
-              div([class_("relative w-full max-w-lg aspect-4/3 rounded-3xl overflow-hidden shadow-2xl")], [
-                img([
-                  src_("/assets/images/category/hotel/01.jpg"),
-                  class_("w-full h-full object-cover transform hover:scale-105 transition duration-700"),
-                  attribute.alt("Rezervasyon Yap"),
-                ]),
-                div([class_("absolute inset-0 bg-linear-to-t from-black/60 via-transparent to-transparent")], []),
-                div([class_("absolute bottom-6 start-6 end-6 text-white")], [
-                  span([class_("inline-block rounded-full bg-white/20 backdrop-blur-md px-3 py-1 text-xs font-semibold uppercase tracking-wider mb-2")], [
-                    text("Popüler Rota"),
-                  ]),
-                  h3([class_("text-xl font-bold")], [text("Kaş & Kalkan Lüks Villaları")]),
-                  p([class_("text-xs text-neutral-200 mt-1")], [text("Özel havuzlu, deniz manzaralı 250+ seçenek")]),
-                ]),
+          // Hero Right Image
+          div([class_("col-lg-6 position-relative")], [
+            img([class_("rounded-4 shadow-lg w-100"), src_("/assets/images/bg/06.jpg"), attribute.alt_("Hero Banner")]),
+            div([class_("position-absolute top-0 end-0 z-index-1 mt-n3 me-n2 d-none d-sm-block")], [
+              div([class_("bg-blur bg-white bg-opacity-75 border rounded-3 text-center shadow-lg p-3")], [
+                i([class_("bi bi-headset text-primary fs-3 mb-1")], []),
+                h5([class_("text-dark mb-0")], [text("7/24")]),
+                small([class_("text-body-secondary")], [text("Canlı Destek")]),
               ]),
             ]),
           ]),
         ]),
-      ]),
 
-      // 2. CHISFIS CATEGORIES (SectionGridCategoryBox)
-      section([class_("py-16 bg-neutral-50 dark:bg-neutral-800/40 border-y border-neutral-200/60 dark:border-neutral-800")], [
-        div([class_("container mx-auto px-4 sm:px-6 lg:px-8")], [
-          div([class_("flex flex-col sm:flex-row sm:items-end justify-between mb-10")], [
-            div([], [
-              span([class_("text-xs font-bold uppercase tracking-widest text-primary-600 dark:text-primary-400")], [text("Kategoriler")]),
-              h2([class_("text-2xl sm:text-3xl font-bold text-neutral-900 dark:text-white mt-1")], [text("Nereye Gitmek İstersiniz?")]),
-            ]),
-            span([class_("text-sm text-neutral-500 dark:text-neutral-400 mt-2 sm:mt-0")], [text("1.450+ aktif seçenek listeleniyor")]),
-          ]),
-
-          div([class_("grid grid-cols-2 md:grid-cols-4 gap-6")], [
-            render_category_box("Oteller", "850+ Tesis", "/assets/images/category/hotel/01.jpg", "/htmx?cat=oteller"),
-            render_category_box("Özel Villalar", "320+ Villa", "/assets/images/category/hotel/02.jpg", "/htmx?cat=villalar"),
-            render_category_box("Günübirlik Turlar", "190+ Tur", "/assets/images/category/hotel/03.jpg", "/htmx?cat=turlar"),
-            render_category_box("Mavi Tur & Yat", "95+ Tekne", "/assets/images/category/hotel/04.jpg", "/htmx?cat=yatlar"),
-          ]),
-        ]),
-      ]),
-
-      // 3. CHISFIS FEATURED LISTINGS (SectionGridFeaturePlaces + StayCard2)
-      section([class_("py-16 lg:py-24")], [
-        div([class_("container mx-auto px-4 sm:px-6 lg:px-8")], [
-          div([class_("flex flex-col sm:flex-row sm:items-end justify-between mb-12")], [
-            div([], [
-              span([class_("text-xs font-bold uppercase tracking-widest text-primary-600 dark:text-primary-400")], [text("Öne Çıkanlar")]),
-              h2([class_("text-2xl sm:text-3xl font-bold text-neutral-900 dark:text-white mt-1")], [text("En Çok Tercih Edilen Tesisler")]),
-            ]),
-            div([class_("flex items-center gap-2 mt-4 sm:mt-0")], [
-              button([type_("button"), class_("rounded-full bg-primary-50 text-primary-700 dark:bg-primary-950/60 dark:text-primary-300 px-4 py-1.5 text-xs font-semibold")], [text("Tümü")]),
-              button([type_("button"), class_("rounded-full bg-neutral-100 hover:bg-neutral-200 text-neutral-600 dark:bg-neutral-800 dark:text-neutral-300 px-4 py-1.5 text-xs font-medium transition")], [text("Otel")]),
-              button([type_("button"), class_("rounded-full bg-neutral-100 hover:bg-neutral-200 text-neutral-600 dark:bg-neutral-800 dark:text-neutral-300 px-4 py-1.5 text-xs font-medium transition")], [text("Villa")]),
-            ]),
-          ]),
-
-          div([attribute.id("listings-grid"), class_("grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8")],
-            list.map(listings, render_stay_card),
-          ),
-        ]),
-      ]),
-
-      // 4. CHISFIS OUR FEATURES (SectionOurFeatures)
-      section([class_("py-16 bg-neutral-50 dark:bg-neutral-800/40 border-y border-neutral-200/60 dark:border-neutral-800")], [
-        div([class_("container mx-auto px-4 sm:px-6 lg:px-8")], [
-          div([class_("grid grid-cols-1 lg:grid-cols-12 gap-12 items-center")], [
-            // Left Image with asymmetric corners
-            div([class_("lg:col-span-6")], [
-              div([class_("relative rounded-3xl overflow-hidden shadow-2xl aspect-4/3")], [
-                img([
-                  src_("/assets/images/category/hotel/02.jpg"),
-                  class_("w-full h-full object-cover"),
-                  attribute.alt("Neden Rezervasyon Yap?"),
-                ]),
+        // 2. HERO SEARCH CARD (HTMX Live Search)
+        div([class_("row justify-content-center")], [
+          div([class_("col-12 position-relative mt-n4 mt-lg-n5 z-index-2")], [
+            // Category Tabs
+            div([class_("nav nav-pills nav-justified nav-responsive bg-primary bg-opacity-10 rounded-top-4 p-2 mb-0 d-inline-flex gap-1 shadow-sm")], [
+              button([class_("nav-link active rounded-3 px-4 py-2 fw-semibold"), type_("button"), data_bs_toggle("pill"), data_bs_target("#tab-hotel")], [
+                i([class_("fa-solid fa-hotel me-2")], []),
+                text("Otel"),
+              ]),
+              a([class_("nav-link rounded-3 px-4 py-2 fw-semibold text-dark"), href_("/htmx/villas")], [
+                i([class_("fa-solid fa-house-chimney me-2")], []),
+                text("Villa"),
+              ]),
+              a([class_("nav-link rounded-3 px-4 py-2 fw-semibold text-dark"), href_("/htmx/tours")], [
+                i([class_("fa-solid fa-earth-americas me-2")], []),
+                text("Tur"),
+              ]),
+              a([class_("nav-link rounded-3 px-4 py-2 fw-semibold text-dark"), href_("/htmx/flights")], [
+                i([class_("fa-solid fa-plane me-2")], []),
+                text("Uçak"),
+              ]),
+              a([class_("nav-link rounded-3 px-4 py-2 fw-semibold text-dark"), href_("/htmx/cabs")], [
+                i([class_("fa-solid fa-car me-2")], []),
+                text("Transfer"),
               ]),
             ]),
 
-            // Right Features List
-            div([class_("lg:col-span-6 flex flex-col items-start gap-y-6 lg:ps-8")], [
-              span([class_("text-xs font-bold uppercase tracking-widest text-primary-600 dark:text-primary-400")], [text("Avantajlarımız")]),
-              h2([class_("text-3xl sm:text-4xl font-bold text-neutral-900 dark:text-white leading-tight")], [
-                text("Neden rezervasyonyap.tr ile Rezervasyon Yapmalısınız?"),
-              ]),
-
-              div([class_("flex flex-col gap-y-6 mt-4")], [
-                render_feature_item("blue", "01", "En İyi Fiyat Garantisi", "Tesislerle doğrudan sözleşmeli şeffaf fiyatlar; gizli ücret veya sürpriz komisyon yok."),
-                render_feature_item("green", "02", "256-Bit Güvenli Ödeme", "Tüm kredi kartlarına taksit imkanı ve 3D Secure güvencesiyle anında onay."),
-                render_feature_item("red", "03", "7/24 Kesintisiz Destek", "Tatil öncesi ve konaklama süresince uzman seyahat danışmanınız yanınızda."),
-              ]),
-            ]),
-          ]),
-        ]),
-      ]),
-
-      // 5. CHISFIS NEWSLETTER (SectionSubscribe2)
-      section([class_("py-20")], [
-        div([class_("container mx-auto px-4 sm:px-6 lg:px-8")], [
-          div([class_("relative rounded-3xl bg-primary-50 dark:bg-primary-950/30 p-8 sm:p-12 lg:p-16 overflow-hidden border border-primary-100 dark:border-primary-900/40")], [
-            div([class_("grid grid-cols-1 lg:grid-cols-2 gap-8 items-center")], [
-              div([class_("flex flex-col items-start gap-y-4")], [
-                span([class_("text-xs font-bold uppercase tracking-widest text-primary-600 dark:text-primary-400")], [text("Fırsatları Kaçırmayın")]),
-                h2([class_("text-2xl sm:text-4xl font-bold text-neutral-900 dark:text-white")], [
-                  text("Özel İndirim ve Kampanyalardan İlk Siz Haberdar Olun"),
-                ]),
-                p([class_("text-neutral-600 dark:text-neutral-300 text-sm sm:text-base max-w-md")], [
-                  text("Haftalık erken rezervasyon indirimleri, flaş fırsatlar ve gizli fiyatlar e-posta kutunuza gelsin."),
-                ]),
-                div([class_("mt-4 flex w-full max-w-md items-center rounded-full bg-white dark:bg-neutral-800 p-1.5 shadow-md border border-neutral-200 dark:border-neutral-700")], [
+            // Search Form
+            div([class_("card shadow-lg border-0 rounded-bottom-4 rounded-end-4 p-4")], [
+              form([class_("row g-3 align-items-center")], [
+                // Lokasyon / Arama
+                div([class_("col-md-6 col-lg-4")], [
+                  label([class_("form-label small fw-bold text-body-secondary mb-1")], [
+                    i([class_("fa-solid fa-location-dot text-primary me-2")], []),
+                    text("Nereye Gitmek İstiyorsunuz?"),
+                  ]),
                   input([
-                    type_("email"),
-                    placeholder_("E-posta adresinizi girin"),
-                    class_("w-full bg-transparent px-4 text-sm text-neutral-900 placeholder:text-neutral-400 focus:outline-none dark:text-white"),
+                    class_("form-control form-control-lg bg-light border-0"),
+                    type_("text"),
+                    name_("q"),
+                    placeholder_("Şehir, bölge veya otel adı yazın..."),
+                    hx_get("/htmx/api/search"),
+                    hx_trigger("keyup changed delay:300ms, search"),
+                    hx_target("#live-search-results"),
                   ]),
+                ]),
+
+                // Giriş & Çıkış Tarihi
+                div([class_("col-md-6 col-lg-3")], [
+                  label([class_("form-label small fw-bold text-body-secondary mb-1")], [
+                    i([class_("fa-regular fa-calendar text-primary me-2")], []),
+                    text("Tarih Aralığı"),
+                  ]),
+                  input([
+                    class_("form-control form-control-lg bg-light border-0"),
+                    type_("text"),
+                    placeholder_("Giriş — Çıkış Tarihi"),
+                    value_("15 Tem - 22 Tem 2026"),
+                  ]),
+                ]),
+
+                // Kişi & Oda Sayısı
+                div([class_("col-md-6 col-lg-3")], [
+                  label([class_("form-label small fw-bold text-body-secondary mb-1")], [
+                    i([class_("fa-solid fa-user-group text-primary me-2")], []),
+                    text("Misafir & Oda"),
+                  ]),
+                  input([
+                    class_("form-control form-control-lg bg-light border-0"),
+                    type_("text"),
+                    value_("2 Yetişkin, 1 Oda"),
+                  ]),
+                ]),
+
+                // Arama Butonu
+                div([class_("col-md-6 col-lg-2 d-grid")], [
+                  label([class_("form-label small fw-bold d-none d-lg-block invisible mb-1")], [text("Ara")]),
                   button(
                     [
+                      class_("btn btn-lg btn-primary mb-0"),
                       type_("button"),
-                      class_("flex size-10 shrink-0 items-center justify-center rounded-full bg-primary-600 text-white shadow transition hover:bg-primary-700"),
+                      hx_get("/htmx/api/search"),
+                      hx_target("#live-search-results"),
                     ],
                     [
-                      i([class_("fa-solid fa-arrow-right text-sm")], []),
+                      i([class_("fa-solid fa-magnifying-glass me-2")], []),
+                      text("Otelleri Bul"),
                     ],
                   ),
                 ]),
               ]),
-              div([class_("hidden lg:flex justify-end")], [
-                div([class_("relative w-72 aspect-square rounded-2xl overflow-hidden shadow-xl")], [
-                  img([src_("/assets/images/category/hotel/03.jpg"), class_("w-full h-full object-cover"), attribute.alt("Bülten")]),
+            ]),
+          ]),
+        ]),
+      ]),
+    ]),
+
+    // 3. POPÜLER DESTİNASYONLAR
+    section([class_("pt-5 pb-5 bg-light")], [
+      div([class_("container")], [
+        div([class_("row mb-4 align-items-center justify-content-between")], [
+          div([class_("col-12 col-md-8")], [
+            h2([class_("fw-bold mb-1")], [text("Popüler Tatil Rotaları")]),
+            p([class_("text-body-secondary mb-0")], [text("En çok tercih edilen tatil merkezlerini ve cazip konaklama seçeneklerini keşfedin.")]),
+          ]),
+          div([class_("col-12 col-md-4 text-md-end mt-2 mt-md-0")], [
+            a([class_("btn btn-link text-primary fw-semibold p-0"), href_("/htmx/hotels")], [
+              text("Tüm Lokasyonları Gör "),
+              i([class_("fa-solid fa-arrow-right-long ms-1")], []),
+            ]),
+          ]),
+        ]),
+
+        div([class_("row g-4")], [
+          destination_card("Antalya & Kaş", "1.240+ Konaklama", "/assets/images/category/hotel/01.jpg", "/htmx/hotels?q=Antalya"),
+          destination_card("Bodrum & Muğla", "850+ Konaklama", "/assets/images/category/hotel/02.jpg", "/htmx/hotels?q=Bodrum"),
+          destination_card("Fethiye & Ölüdeniz", "620+ Konaklama", "/assets/images/category/hotel/03.jpg", "/htmx/hotels?q=Fethiye"),
+          destination_card("Kapadokya", "430+ Konaklama", "/assets/images/category/hotel/04.jpg", "/htmx/hotels?q=Kapadokya"),
+        ]),
+      ]),
+    ]),
+
+    // 4. CANLI HTMX İLAN VE SONUÇ ALANI
+    section([class_("py-5")], [
+      div([class_("container")], [
+        div([class_("row mb-4 align-items-center justify-content-between")], [
+          div([class_("col-md-8")], [
+            h2([class_("fw-bold mb-1")], [text("Öne Çıkan Fırsatlar ve Tesisler")]),
+            p([class_("text-body-secondary mb-0")], [text("Misafirlerimizin en yüksek puan verdiği lüks villa, otel ve guletler.")]),
+          ]),
+          div([class_("col-md-4 text-md-end mt-3 mt-md-0")], [
+            div([class_("btn-group")], [
+              a([class_("btn btn-sm btn-outline-primary active"), href_("/htmx/hotels")], [text("Tümü")]),
+              a([class_("btn btn-sm btn-outline-primary"), href_("/htmx/villas")], [text("Villalar")]),
+              a([class_("btn btn-sm btn-outline-primary"), href_("/htmx/tours")], [text("Turlar")]),
+            ]),
+          ]),
+        ]),
+
+        // Dinamik HTMX Container
+        div([id_("live-search-results"), class_("row g-4")], [
+          render_search_results(listings),
+        ]),
+      ]),
+    ]),
+
+    // 5. NEDEN BİZ? (AVANTAJLAR)
+    section([class_("py-5 bg-light")], [
+      div([class_("container")], [
+        div([class_("row g-4")], [
+          feature_item("fa-shield-halved", "Güvenli ve Garantili Rezervasyon", "Tüm ödemeleriniz 3D Secure ve SSL koruması altındadır."),
+          feature_item("fa-percent", "En İyi Fiyat Garantisi", "Aynı odayı daha uyguna bulursanız aradaki farkı anında karşılıyoruz."),
+          feature_item("fa-headset", "7/24 Kesintisiz Destek", "Tatil öncesinde ve konaklama süresince uzman ekibimiz daima yanınızda."),
+          feature_item("fa-calendar-check", "Ücretsiz İptal Seçeneği", "Planlarınız değişirse seçili tesislerde esnek ve koşulsuz iptal imkanı."),
+        ]),
+      ]),
+    ]),
+
+    // 6. BÜLTEN & ÇAĞRI (CTA)
+    section([class_("py-5")], [
+      div([class_("container")], [
+        div([class_("bg-primary bg-opacity-10 rounded-4 p-4 p-sm-5 position-relative overflow-hidden")], [
+          div([class_("row align-items-center position-relative z-index-1")], [
+            div([class_("col-lg-7 mb-4 mb-lg-0")], [
+              h2([class_("fw-bold text-dark mb-2")], [text("Gizli İndirimleri ve Fırsatları Kaçırmayın!")]),
+              p([class_("text-body-secondary mb-0 lead fs-6")], [
+                text("Bültenimize kaydolun, sadece üyelere özel %25'e varan indirim kodları ve erken rezervasyon fırsatları e-postanıza gelsin."),
+              ]),
+            ]),
+            div([class_("col-lg-5")], [
+              form([class_("bg-white rounded-pill p-2 shadow-sm d-flex")], [
+                input([
+                  class_("form-control border-0 rounded-pill ps-3"),
+                  type_("email"),
+                  placeholder_("E-posta adresinizi yazın..."),
+                ]),
+                button([class_("btn btn-primary rounded-pill px-4 mb-0 flex-shrink-0"), type_("button")], [
+                  text("Abone Ol"),
                 ]),
               ]),
             ]),
           ]),
         ]),
       ]),
-    ]),
-  ])
-}
-
-fn render_category_box(title: String, count: String, image: String, href_url: String) -> Node {
-  a(
-    [
-      href_(href_url),
-      class_(
-        "group relative flex flex-col overflow-hidden rounded-2xl bg-white dark:bg-neutral-800 border border-neutral-200/70 dark:border-neutral-700/70 shadow-xs hover:shadow-xl transition-all duration-300",
-      ),
-    ],
-    [
-      div([class_("aspect-4/3 w-full overflow-hidden")], [
-        img([
-          src_(image),
-          class_("h-full w-full object-cover transform group-hover:scale-110 transition duration-500"),
-          attribute.alt(title),
-        ]),
-      ]),
-      div([class_("p-4 flex flex-col")], [
-        h3([class_("text-base font-semibold text-neutral-900 dark:text-white group-hover:text-primary-600 dark:group-hover:text-primary-400 transition")], [
-          text(title),
-        ]),
-        span([class_("text-xs text-neutral-500 dark:text-neutral-400 mt-1")], [text(count)]),
-      ]),
-    ],
-  )
-}
-
-fn render_stay_card(item: ListingPreview) -> Node {
-  div(
-    [
-      class_(
-        "group relative flex flex-col rounded-2xl overflow-hidden bg-white dark:bg-neutral-800 border border-neutral-200/70 dark:border-neutral-700/70 shadow-xs hover:shadow-xl transition-all duration-300",
-      ),
-    ],
-    [
-      // Image Container with Badge & Like button
-      div([class_("relative aspect-4/3 w-full overflow-hidden bg-neutral-100 dark:bg-neutral-800")], [
-        img([
-          src_(item.image_url),
-          class_("h-full w-full object-cover transform group-hover:scale-105 transition duration-500"),
-          attribute.alt(item.title),
-        ]),
-        span([class_("absolute start-3 top-3 rounded-full bg-white/90 dark:bg-neutral-900/90 backdrop-blur-md px-2.5 py-1 text-[11px] font-semibold text-neutral-900 dark:text-white shadow-xs")], [
-          text(item.badge),
-        ]),
-        button(
-          [
-            type_("button"),
-            attribute.aria_label("Favoriye Ekle"),
-            class_(
-              "absolute end-3 top-3 flex size-8 items-center justify-center rounded-full bg-white/80 dark:bg-neutral-900/80 backdrop-blur-md text-neutral-600 hover:text-red-500 transition shadow-xs",
-            ),
-          ],
-          [
-            i([class_("fa-regular fa-heart text-xs")], []),
-          ],
-        ),
-      ]),
-
-      // Content Box
-      div([class_("p-4 flex flex-col gap-y-2.5")], [
-        div([class_("flex items-center justify-between text-xs text-neutral-500 dark:text-neutral-400")], [
-          span([class_("font-medium text-primary-600 dark:text-primary-400")], [text(item.category_label)]),
-          div([class_("flex items-center gap-1 text-amber-500 font-semibold")], [
-            i([class_("fa-solid fa-star text-[11px]")], []),
-            span([], [text(item.rating)]),
-            span([class_("text-neutral-400 font-normal")], [text("(" <> int.to_string(item.review_count) <> ")")]),
-          ]),
-        ]),
-
-        h3([class_("text-base font-semibold text-neutral-900 dark:text-white group-hover:text-primary-600 dark:group-hover:text-primary-400 transition line-clamp-1")], [
-          text(item.title),
-        ]),
-
-        div([class_("flex items-center gap-1.5 text-xs text-neutral-500 dark:text-neutral-400")], [
-          i([class_("fa-solid fa-location-dot text-neutral-400 text-[11px]")], []),
-          span([], [text(item.location)]),
-        ]),
-
-        div([class_("mt-2 pt-3 border-t border-neutral-100 dark:border-neutral-700/80 flex items-center justify-between")], [
-          div([class_("flex items-baseline gap-1")], [
-            span([class_("text-lg font-bold text-neutral-900 dark:text-white")], [text(item.price_formatted)]),
-            span([class_("text-xs text-neutral-500 dark:text-neutral-400 font-normal")], [text("/ gece")]),
-          ]),
-          a(
-            [
-              href_("/htmx/listing/" <> item.id),
-              class_(
-                "rounded-full bg-neutral-100 hover:bg-primary-600 hover:text-white dark:bg-neutral-700 dark:hover:bg-primary-600 px-3 py-1.5 text-xs font-semibold text-neutral-700 dark:text-neutral-200 transition",
-              ),
-            ],
-            [text("İncele")],
-          ),
-        ]),
-      ]),
-    ],
-  )
-}
-
-fn render_feature_item(color: String, num: String, title: String, desc: String) -> Node {
-  let badge_bg = case color {
-    "green" -> "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300"
-    "red" -> "bg-rose-50 text-rose-700 dark:bg-rose-950/60 dark:text-rose-300"
-    _ -> "bg-blue-50 text-blue-700 dark:bg-blue-950/60 dark:text-blue-300"
-  }
-
-  div([class_("flex items-start gap-x-4")], [
-    span([class_("flex size-9 shrink-0 items-center justify-center rounded-xl text-xs font-bold " <> badge_bg)], [
-      text(num),
-    ]),
-    div([class_("flex flex-col")], [
-      h3([class_("text-base font-semibold text-neutral-900 dark:text-white")], [text(title)]),
-      p([class_("text-sm text-neutral-500 dark:text-neutral-400 mt-0.5 leading-relaxed")], [text(desc)]),
     ]),
   ])
 }
 
 pub fn render_search_results(listings: List(ListingPreview)) -> Node {
-  div([class_("grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8")],
-    list.map(listings, render_stay_card),
+  element.fragment(
+    listings
+    |> list.map(fn(item: ListingPreview) {
+      div([class_("col-md-6 col-lg-4 col-xl-3")], [
+        div([class_("card card-hover-shadow h-100 border rounded-4 overflow-hidden")], [
+          // Görsel & Badge
+          div([class_("position-relative")], [
+            img([class_("card-img-top object-fit-cover"), src_(item.image_url), attribute.alt_(item.title), attribute.style_("height: 200px; width: 100%;")]),
+            div([class_("position-absolute top-0 start-0 m-3")], [
+              span([class_("badge bg-primary text-white px-2 py-1")], [text(item.badge)]),
+            ]),
+            div([class_("position-absolute top-0 end-0 m-3")], [
+              a([class_("btn btn-sm btn-white btn-round mb-0"), href_("#")], [
+                i([class_("fa-regular fa-heart text-danger")], []),
+              ]),
+            ]),
+          ]),
+
+          // Kart İçeriği
+          div([class_("card-body d-flex flex-column justify-content-between p-3")], [
+            div([], [
+              // Kategori & Lokasyon
+              div([class_("d-flex justify-content-between align-items-center mb-1")], [
+                span([class_("small fw-semibold text-primary")], [text(item.category_label)]),
+                div([class_("d-flex align-items-center text-warning small")], [
+                  i([class_("fa-solid fa-star me-1")], []),
+                  span([class_("fw-bold text-dark")], [text(item.rating)]),
+                  span([class_("text-body-secondary ms-1 small")], [text("(" <> int.to_string(item.review_count) <> ")")]),
+                ]),
+              ]),
+
+              // Başlık
+              h6([class_("card-title fw-bold mb-2 text-truncate-2")], [
+                a([class_("text-reset"), href_("/htmx/hotel/" <> item.id)], [
+                  text(item.title),
+                ]),
+              ]),
+
+              // Lokasyon
+              p([class_("text-body-secondary small mb-3")], [
+                i([class_("fa-solid fa-location-dot me-1 text-danger")], []),
+                text(item.location),
+              ]),
+            ]),
+
+            // Fiyat & Rezervasyon Butonu
+            div([class_("d-flex justify-content-between align-items-center border-top pt-2 mt-auto")], [
+              div([], [
+                span([class_("text-body-secondary small d-block")], [text("Gecelik")]),
+                span([class_("fs-5 fw-bold text-primary")], [text(item.price_formatted)]),
+              ]),
+              a([class_("btn btn-sm btn-primary-soft mb-0"), href_("/htmx/hotel/" <> item.id)], [
+                text("İncele"),
+                i([class_("fa-solid fa-arrow-right ms-1")], []),
+              ]),
+            ]),
+          ]),
+        ]),
+      ])
+    }),
   )
+}
+
+fn destination_card(title: String, subtitle: String, image_url: String, target_url: String) -> Node {
+  div([class_("col-sm-6 col-lg-3")], [
+    div([class_("card card-image-scale card-hover-shadow rounded-4 overflow-hidden border-0")], [
+      img([class_("card-img object-fit-cover"), src_(image_url), attribute.alt_(title), attribute.style_("height: 280px; width: 100%;")]),
+      div([class_("card-img-overlay d-flex flex-column justify-content-end p-3 bg-dark bg-opacity-40")], [
+        h5([class_("text-white fw-bold mb-0")], [
+          a([class_("stretched-link text-white text-decoration-none"), href_(target_url)], [
+            text(title),
+          ]),
+        ]),
+        small([class_("text-white-50")], [text(subtitle)]),
+      ]),
+    ]),
+  ])
+}
+
+fn feature_item(icon: String, title: String, desc: String) -> Node {
+  div([class_("col-sm-6 col-lg-3")], [
+    div([class_("card card-body bg-transparent text-center border-0 p-3")], [
+      div([class_("icon-xl bg-primary bg-opacity-10 text-primary rounded-circle mx-auto mb-3 d-flex align-items-center justify-content-center"), attribute.style_("width: 60px; height: 60px;")], [
+        i([class_("fa-solid " <> icon <> " fs-4")], []),
+      ]),
+      h6([class_("fw-bold mb-2")], [text(title)]),
+      p([class_("text-body-secondary small mb-0")], [text(desc)]),
+    ]),
+  ])
 }

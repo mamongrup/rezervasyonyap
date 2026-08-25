@@ -1,91 +1,116 @@
-import travel/html/attribute.{class_, href_}
+import travel/html/attribute.{attr, class_, href_, src_}
 import travel/html/element.{
-  type Node, a, div, footer, h3, i, p, span, text,
+  type Node, a, div, footer, h5, hr, i, img, li, p, text, ul,
 }
 
 pub fn render() -> Node {
-  footer(
-    [
-      class_(
-        "mt-auto border-t border-neutral-200 bg-white text-neutral-600 transition-colors dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-400",
-      ),
-    ],
-    [
-      div([class_("container mx-auto px-4 py-16 sm:px-6 lg:px-8")], [
-        div([class_("grid grid-cols-2 gap-8 md:grid-cols-4 lg:grid-cols-5 lg:gap-12")], [
-          // Col 1: Logo & Bio
-          div([class_("col-span-2 md:col-span-4 lg:col-span-2 flex flex-col gap-y-4")], [
-            a([href_("/htmx"), class_("flex items-center gap-x-2 text-2xl font-bold text-neutral-900 dark:text-white")], [
-              div([class_("flex size-9 items-center justify-center rounded-xl bg-primary-600 text-white")], [
-                i([class_("fa-solid fa-compass text-base")], []),
-              ]),
-              span([], [
-                text("rezervasyon"),
-                span([class_("text-primary-600 dark:text-primary-400")], [text("yap")]),
-              ]),
-            ]),
-            p([class_("max-w-sm text-sm text-neutral-500 dark:text-neutral-400 leading-relaxed")], [
-              text(
-                "Türkiye'nin en seçkin tatil beldelerinde binlerce otel, lüks villa, mavi tur ve gezi deneyimi en uygun fiyat ve güvenli ödeme garantisiyle.",
-              ),
-            ]),
-            div([class_("flex items-center gap-x-3 text-neutral-500 dark:text-neutral-400")], [
-              a([href_("#"), class_("flex size-9 items-center justify-center rounded-full bg-neutral-100 hover:bg-primary-50 hover:text-primary-600 dark:bg-neutral-800 dark:hover:bg-primary-950/40 dark:hover:text-primary-400 transition")], [
-                i([class_("fa-brands fa-instagram text-sm")], []),
-              ]),
-              a([href_("#"), class_("flex size-9 items-center justify-center rounded-full bg-neutral-100 hover:bg-primary-50 hover:text-primary-600 dark:bg-neutral-800 dark:hover:bg-primary-950/40 dark:hover:text-primary-400 transition")], [
-                i([class_("fa-brands fa-facebook-f text-sm")], []),
-              ]),
-              a([href_("#"), class_("flex size-9 items-center justify-center rounded-full bg-neutral-100 hover:bg-primary-50 hover:text-primary-600 dark:bg-neutral-800 dark:hover:bg-primary-950/40 dark:hover:text-primary-400 transition")], [
-                i([class_("fa-brands fa-x-twitter text-sm")], []),
-              ]),
-              a([href_("#"), class_("flex size-9 items-center justify-center rounded-full bg-neutral-100 hover:bg-primary-50 hover:text-primary-600 dark:bg-neutral-800 dark:hover:bg-primary-950/40 dark:hover:text-primary-400 transition")], [
-                i([class_("fa-brands fa-whatsapp text-sm")], []),
-              ]),
+  footer([class_("bg-dark pt-5")], [
+    div([class_("container")], [
+      div([class_("row g-4")], [
+        // Widget 1: Logo & Info
+        div([class_("col-lg-3")], [
+          a([href_("/htmx")], [
+            img([
+              class_("h-40px"),
+              src_("/assets/images/logo-light.svg"),
+              attribute.alt_("logo"),
+              attribute.style_("height: 40px;"),
             ]),
           ]),
-
-          // Col 2: Keşfet
-          div([class_("flex flex-col gap-y-4 text-sm")], [
-            h3([class_("font-semibold text-neutral-900 dark:text-white")], [text("Keşfet")]),
-            a([href_("/htmx?cat=oteller"), class_("transition hover:text-primary-600 dark:hover:text-white")], [text("Otel Rezervasyonu")]),
-            a([href_("/htmx?cat=villalar"), class_("transition hover:text-primary-600 dark:hover:text-white")], [text("Lüks Villalar")]),
-            a([href_("/htmx?cat=turlar"), class_("transition hover:text-primary-600 dark:hover:text-white")], [text("Günübirlik Turlar")]),
-            a([href_("/htmx?cat=yatlar"), class_("transition hover:text-primary-600 dark:hover:text-white")], [text("Mavi Tur & Gulet")]),
+          p([class_("my-3 text-body-secondary")], [
+            text("En seçkin oteller, lüks villalar, rehberli turlar ve unutulmaz tatil deneyimleri tek platformda."),
           ]),
-
-          // Col 3: Kurumsal
-          div([class_("flex flex-col gap-y-4 text-sm")], [
-            h3([class_("font-semibold text-neutral-900 dark:text-white")], [text("Kurumsal")]),
-            a([href_("#"), class_("transition hover:text-primary-600 dark:hover:text-white")], [text("Hakkımızda")]),
-            a([href_("#"), class_("transition hover:text-primary-600 dark:hover:text-white")], [text("Acenteler İçin")]),
-            a([href_("#"), class_("transition hover:text-primary-600 dark:hover:text-white")], [text("Tesisinizi Ekleyin")]),
-            a([href_("#"), class_("transition hover:text-primary-600 dark:hover:text-white")], [text("İletişim & Yardım")]),
+          p([class_("mb-2")], [
+            a([href_("tel:+908501234567"), class_("text-body-secondary text-primary-hover")], [
+              i([class_("bi bi-telephone me-2")], []),
+              text("+90 (850) 123 45 67"),
+            ]),
           ]),
-
-          // Col 4: Güvenlik & Yasal
-          div([class_("flex flex-col gap-y-4 text-sm")], [
-            h3([class_("font-semibold text-neutral-900 dark:text-white")], [text("Güvenlik & Yasal")]),
-            a([href_("#"), class_("transition hover:text-primary-600 dark:hover:text-white")], [text("Gizlilik Politikası")]),
-            a([href_("#"), class_("transition hover:text-primary-600 dark:hover:text-white")], [text("Kullanım Şartları")]),
-            a([href_("#"), class_("transition hover:text-primary-600 dark:hover:text-white")], [text("KVKK Aydınlatma")]),
-            a([href_("#"), class_("transition hover:text-primary-600 dark:hover:text-white")], [text("İptal & İade Koşulları")]),
+          p([class_("mb-0")], [
+            a([href_("mailto:destek@travel.local"), class_("text-body-secondary text-primary-hover")], [
+              i([class_("bi bi-envelope me-2")], []),
+              text("destek@rezervasyonyap.com"),
+            ]),
           ]),
         ]),
 
-        // Bottom Bar: Copyright & 256-Bit SSL
-        div([class_("mt-12 flex flex-col items-center justify-between gap-4 border-t border-neutral-200/80 pt-8 sm:flex-row dark:border-neutral-800")], [
-          p([class_("text-xs text-neutral-500 dark:text-neutral-400")], [
-            text("© 2026 rezervasyonyap.tr — Tüm hakları saklıdır. TÜRSAB Onaylı A Grubu Seyahat Acentası."),
-          ]),
-          div([class_("flex items-center gap-x-4 text-xs font-medium text-neutral-500 dark:text-neutral-400")], [
-            span([class_("inline-flex items-center gap-1.5")], [
-              i([class_("fa-solid fa-shield-halved text-primary-600 dark:text-primary-400")], []),
-              text("256-Bit SSL Güvenli Ödeme"),
+        // Widget 2: Sayfalar
+        div([class_("col-lg-8 ms-auto")], [
+          div([class_("row g-4")], [
+            div([class_("col-6 col-md-3")], [
+              h5([class_("text-white mb-2 mb-md-4")], [text("Keşfet")]),
+              ul([class_("nav flex-column text-primary-hover")], [
+                li([class_("nav-item")], [a([class_("nav-link text-body-secondary"), href_("/htmx/hotels")], [text("Oteller")])]),
+                li([class_("nav-item")], [a([class_("nav-link text-body-secondary"), href_("/htmx/villas")], [text("Villalar")])]),
+                li([class_("nav-item")], [a([class_("nav-link text-body-secondary"), href_("/htmx/tours")], [text("Turlar")])]),
+                li([class_("nav-item")], [a([class_("nav-link text-body-secondary"), href_("/htmx/flights")], [text("Uçak Bileti")])]),
+                li([class_("nav-item")], [a([class_("nav-link text-body-secondary"), href_("/htmx/cabs")], [text("Transfer & Araç")])]),
+              ]),
+            ]),
+
+            div([class_("col-6 col-md-3")], [
+              h5([class_("text-white mb-2 mb-md-4")], [text("Kurumsal")]),
+              ul([class_("nav flex-column text-primary-hover")], [
+                li([class_("nav-item")], [a([class_("nav-link text-body-secondary"), href_("/htmx/faq")], [text("S.S.S.")])]),
+                li([class_("nav-item")], [a([class_("nav-link text-body-secondary"), href_("/htmx/blog")], [text("Blog")])]),
+                li([class_("nav-item")], [a([class_("nav-link text-body-secondary"), href_("/htmx/contact")], [text("İletişim")])]),
+                li([class_("nav-item")], [a([class_("nav-link text-body-secondary"), href_("/htmx/faq")], [text("Yardım Merkezi")])]),
+              ]),
+            ]),
+
+            div([class_("col-6 col-md-3")], [
+              h5([class_("text-white mb-2 mb-md-4")], [text("Hesap")]),
+              ul([class_("nav flex-column text-primary-hover")], [
+                li([class_("nav-item")], [a([class_("nav-link text-body-secondary"), href_("/htmx/login")], [text("Giriş Yap")])]),
+                li([class_("nav-item")], [a([class_("nav-link text-body-secondary"), href_("/htmx/register")], [text("Kayıt Ol")])]),
+                li([class_("nav-item")], [a([class_("nav-link text-body-secondary"), href_("/htmx/booking/1")], [text("Rezervasyonlarım")])]),
+                li([class_("nav-item")], [a([class_("nav-link text-body-secondary"), href_("/htmx/contact")], [text("Acente Başvurusu")])]),
+              ]),
+            ]),
+
+            div([class_("col-6 col-md-3")], [
+              h5([class_("text-white mb-2 mb-md-4")], [text("Bizi Takip Edin")]),
+              ul([class_("list-inline mt-2")], [
+                li([class_("list-inline-item me-2")], [
+                  a([class_("btn btn-sm btn-icon btn-light rounded-circle"), href_("#"), attr("aria-label", "Facebook")], [
+                    i([class_("fa-brands fa-facebook-f fa-fw")], []),
+                  ]),
+                ]),
+                li([class_("list-inline-item me-2")], [
+                  a([class_("btn btn-sm btn-icon btn-light rounded-circle"), href_("#"), attr("aria-label", "Instagram")], [
+                    i([class_("fa-brands fa-instagram fa-fw")], []),
+                  ]),
+                ]),
+                li([class_("list-inline-item me-2")], [
+                  a([class_("btn btn-sm btn-icon btn-light rounded-circle"), href_("#"), attr("aria-label", "Twitter")], [
+                    i([class_("fa-brands fa-twitter fa-fw")], []),
+                  ]),
+                ]),
+                li([class_("list-inline-item")], [
+                  a([class_("btn btn-sm btn-icon btn-light rounded-circle"), href_("#"), attr("aria-label", "Linkedin")], [
+                    i([class_("fa-brands fa-linkedin-in fa-fw")], []),
+                  ]),
+                ]),
+              ]),
+              p([class_("text-body-secondary small mt-3")], [
+                text("Güvenli 256-Bit SSL Şifreleme ile %100 Güvenli Ödeme."),
+              ]),
             ]),
           ]),
         ]),
       ]),
-    ],
-  )
+
+      hr([class_("mt-4 mb-0 opacity-1")]),
+
+      // Bottom Bar
+      div([class_("py-3 d-flex flex-wrap justify-content-between align-items-center text-body-secondary small")], [
+        div([], [text("© 2026 RezervasyonYap. Tüm hakları saklıdır.")]),
+        ul([class_("nav justify-content-end text-primary-hover")], [
+          li([class_("nav-item")], [a([class_("nav-link text-body-secondary ps-0"), href_("/htmx/faq")], [text("Gizlilik Politikası")])]),
+          li([class_("nav-item")], [a([class_("nav-link text-body-secondary"), href_("/htmx/faq")], [text("Kullanım Şartları")])]),
+          li([class_("nav-item")], [a([class_("nav-link text-body-secondary pe-0"), href_("/htmx/contact")], [text("İptal ve İade")])]),
+        ]),
+      ]),
+    ]),
+  ])
 }

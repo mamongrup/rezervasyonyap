@@ -115,6 +115,10 @@ pub fn data_bs_auto_close(val: String) -> Attribute {
   Attribute("data-bs-auto-close", val)
 }
 
+pub fn data_bs_parent(val: String) -> Attribute {
+  Attribute("data-bs-parent", val)
+}
+
 pub fn data_mode(val: String) -> Attribute {
   Attribute("data-mode", val)
 }

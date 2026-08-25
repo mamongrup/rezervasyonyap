@@ -1,4 +1,4 @@
-﻿import { en, type AppMessages } from './en'
+import { en, type AppMessages } from './en'
 import { navMenus } from './navMenus.zh'
 import { checkoutZh } from './checkout'
 
@@ -893,6 +893,16 @@ export const zh: AppMessages = {
       extraFeesTitle: '额外费用',
       rulesTitle: '活动规则',
       rulesSubtitle: '预订前请阅读。',
+      timelineTitle: '活动分步体验流程',
+      timelineSubtitle: '活动当天等待您的精彩体验与安排步骤。',
+      restrictionsTitle: '参与要求与健康限制',
+      restrictionsSubtitle: '为了您的安全与舒适体验，请确认符合参与要求。',
+      whatToBringTitle: '建议携带物品',
+      whatToBringSubtitle: '活动当天建议准备的服装与随身物品。',
+      transferTitle: '集合地点与酒店接送',
+      transferSubtitle: '前往活动地点的交通与集合详情。',
+      safetyGuaranteesTitle: '安全保障、退改政策与营业资质',
+      safetyGuaranteesSubtitle: '旅行社品质保证与合规资质证明。',
       defaultRules: [
         '请至少在预约时间前 15 分钟准备好。',
         '请遵守导游或教练的指示。',
@@ -910,13 +920,36 @@ export const zh: AppMessages = {
       overview: {
         duration: '时长',
         durationHours: '{hours}小时',
+        netDuration: '核心体验时长',
+        totalDuration: '全程总时长',
+        difficulty: '难度等级',
         minAge: '最低年龄',
         minAgeValue: '{age}岁以上',
+        ageRange: '年龄限制',
+        ageRangeValue: '{min} - {max} 岁',
+        weightLimit: '体重限制',
+        weightLimitValue: '{min} - {max} 公斤',
         capacity: '容量',
         maxParticipants: '最多{count}人',
         language: '语言',
         meetingPoint: '集合地点',
         equipment: '含装备',
+        sessionType: '活动模式',
+        sessionBased: '分场次（指定时段）',
+        fullDay: '全天 / 灵活开放时段',
+        transferStatus: '接送服务',
+        transferIncluded: '包含酒店往返接送',
+        transferOptional: '提供区域付费接送',
+        transferNone: '自行前往集合点',
+        weatherGuarantee: '天气无忧保障',
+        cancellationPolicy: '退改政策',
+        tursabLicense: 'TÜRSAB / 资质编号',
+        difficulties: {
+          easy: '简单（大众适宜）',
+          moderate: '中等（轻度运动）',
+          challenging: '挑战（肾上腺素）',
+          expert: '专家（需持证）',
+        },
       },
     },
     ferryDetail: {

@@ -23,9 +23,12 @@ import {
 } from 'lucide-react'
 
 export interface ActivityAgencyBasicsState {
+  session_based?: boolean
+  full_day?: boolean
   activity_category?: string
   duration_net?: string
   duration_total?: string
+  duration_hours?: string
   difficulty_level?: string
   guided_languages?: string[]
   meeting_point_name?: string
@@ -47,6 +50,10 @@ export interface ActivityAgencyBasicsState {
   tursab_no?: string
   weather_guarantee?: string
   cancellation_policy?: string
+  rules?: string[]
+  includes?: string[]
+  excludes?: string[]
+  preview_url?: string
 }
 
 export const ACTIVITY_CATEGORIES = [
@@ -106,6 +113,75 @@ export function ActivityBasicsStepPanel({
   }
   return (
     <div className="space-y-6">
+      {/* Aktivite Rezervasyon Modeli (Seanslı / Tam Gün) */}
+      <div className="rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm dark:border-neutral-700 dark:bg-neutral-800">
+        <h3 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-neutral-800 dark:text-neutral-200">
+          <Ticket className="h-4 w-4 text-primary-600" />
+          Aktivite Rezervasyon Modeli
+        </h3>
+        <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">
+          Aktivitenin seans bazlı (belirli saat dilimleri) mi yoksa tam gün / serbest zamanlı mı olduğunu belirleyin.
+        </p>
+
+        <div className="mt-4 grid gap-3 sm:grid-cols-2">
+          <label
+            className={`flex cursor-pointer items-start gap-3 rounded-xl border p-4 transition-all ${
+              values.session_based !== false
+                ? 'border-primary-600 bg-primary-50/70 ring-2 ring-primary-500/20 dark:border-primary-500 dark:bg-primary-950/30'
+                : 'border-neutral-200 bg-white hover:border-neutral-300 dark:border-neutral-700 dark:bg-neutral-900'
+            }`}
+          >
+            <input
+              type="checkbox"
+              className="mt-0.5 h-4 w-4 rounded text-primary-600 focus:ring-primary-500"
+              checked={values.session_based !== false}
+              onChange={(e) =>
+                emitChange({
+                  session_based: e.target.checked,
+                  full_day: e.target.checked ? false : values.full_day,
+                })
+              }
+            />
+            <div>
+              <span className="font-semibold text-sm text-neutral-900 dark:text-white">
+                Seans Bazlı (Belirli Saatler & Slotlar)
+              </span>
+              <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">
+                Günün belirli saatlerinde (ör. 08:30, 11:00, 14:30) kalkan ve kontenjanı saat saat yönetilen aktiviteler.
+              </p>
+            </div>
+          </label>
+
+          <label
+            className={`flex cursor-pointer items-start gap-3 rounded-xl border p-4 transition-all ${
+              values.full_day === true
+                ? 'border-primary-600 bg-primary-50/70 ring-2 ring-primary-500/20 dark:border-primary-500 dark:bg-primary-950/30'
+                : 'border-neutral-200 bg-white hover:border-neutral-300 dark:border-neutral-700 dark:bg-neutral-900'
+            }`}
+          >
+            <input
+              type="checkbox"
+              className="mt-0.5 h-4 w-4 rounded text-primary-600 focus:ring-primary-500"
+              checked={values.full_day === true}
+              onChange={(e) =>
+                emitChange({
+                  full_day: e.target.checked,
+                  session_based: e.target.checked ? false : values.session_based,
+                })
+              }
+            />
+            <div>
+              <span className="font-semibold text-sm text-neutral-900 dark:text-white">
+                Tam Gün / Serbest Saat Aktivite
+              </span>
+              <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">
+                Günün belirli açılış-kapanış saatleri arasında veya gün boyu süren tek blok aktiviteler.
+              </p>
+            </div>
+          </label>
+        </div>
+      </div>
+
       {/* Aktivite Kategorisi */}
       <div className="rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm dark:border-neutral-700 dark:bg-neutral-800">
         <h3 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-neutral-800 dark:text-neutral-200">
@@ -415,6 +491,83 @@ export function ActivityProgramRulesStepPanel({
             />
           </Field>
         </div>
+
+        {/* Sağlık Kısıtlamaları Kataloğu */}
+        <div className="mt-5 border-t border-neutral-100 pt-4 dark:border-neutral-700">
+          <Label className="mb-2 block text-xs font-semibold text-neutral-700 dark:text-neutral-300">
+            Sağlık Kısıtlamaları (Vitrinde Misafirlere Gösterilir)
+          </Label>
+          <div className="grid gap-2 sm:grid-cols-2">
+            {HEALTH_RESTRICTIONS_CATALOG.map((item) => {
+              const list = values.health_restrictions ?? [
+                'Hamile misafirler için uygun değildir',
+                'Kalp rahatsızlığı veya yüksek tansiyonu olanlara uygun değildir',
+                'Panik atak veya ileri derecede yükseklik korkusu olanlara uygun değildir',
+              ]
+              const isChecked = list.includes(item)
+              return (
+                <label
+                  key={item}
+                  className={`flex cursor-pointer items-start gap-2.5 rounded-xl border p-2.5 text-xs transition-all ${
+                    isChecked
+                      ? 'border-amber-500 bg-amber-50/60 font-medium text-amber-900 dark:border-amber-500/50 dark:bg-amber-950/30 dark:text-amber-200'
+                      : 'border-neutral-200 bg-white text-neutral-700 hover:border-neutral-300 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-300'
+                  }`}
+                >
+                  <input
+                    type="checkbox"
+                    className="mt-0.5 h-3.5 w-3.5 rounded text-amber-600 focus:ring-amber-500"
+                    checked={isChecked}
+                    onChange={(e) => {
+                      const next = e.target.checked ? [...list, item] : list.filter((x) => x !== item)
+                      emitChange({ health_restrictions: next })
+                    }}
+                  />
+                  <span>{item}</span>
+                </label>
+              )
+            })}
+          </div>
+        </div>
+
+        {/* Yanınızda Getirmeniz Gerekenler */}
+        <div className="mt-5 border-t border-neutral-100 pt-4 dark:border-neutral-700">
+          <Label className="mb-2 block text-xs font-semibold text-neutral-700 dark:text-neutral-300">
+            <Luggage className="mr-1 inline h-3.5 w-3.5 text-primary-600" />
+            Yanınızda Getirmeniz Gerekenler (Önerilen Eşyalar)
+          </Label>
+          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+            {DEFAULT_BRING_ITEMS.map((item) => {
+              const list = values.bring_items ?? [
+                'Spor ayakkabı (kaymaz taban)',
+                'Güneş gözlüğü & Güneş kremi',
+                'Rahat spor kıyafet veya şort',
+              ]
+              const isChecked = list.includes(item)
+              return (
+                <label
+                  key={item}
+                  className={`flex cursor-pointer items-center gap-2 rounded-xl border p-2.5 text-xs transition-all ${
+                    isChecked
+                      ? 'border-primary-500 bg-primary-50/60 font-medium text-primary-900 dark:border-primary-500/50 dark:bg-primary-950/30 dark:text-primary-200'
+                      : 'border-neutral-200 bg-white text-neutral-700 hover:border-neutral-300 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-300'
+                  }`}
+                >
+                  <input
+                    type="checkbox"
+                    className="h-3.5 w-3.5 rounded text-primary-600 focus:ring-primary-500"
+                    checked={isChecked}
+                    onChange={(e) => {
+                      const next = e.target.checked ? [...list, item] : list.filter((x) => x !== item)
+                      emitChange({ bring_items: next })
+                    }}
+                  />
+                  <span>{item}</span>
+                </label>
+              )
+            })}
+          </div>
+        </div>
       </div>
     </div>
   )
@@ -436,6 +589,22 @@ export function ActivityOperationsSafetyStepPanel({
     if (!onChange) return
     onChange((prev: any) => (typeof prev === 'object' && prev !== null ? { ...prev, ...patch } : patch))
   }
+  const rules = values.rules ?? [
+    'Rezervasyon saatinden en az 15 dakika önce buluşma noktasında hazır bulunun.',
+    'Uçuş veya aktivite öncesi eğitmen ve pilotların güvenlik talimatlarına kesinlikle uyun.',
+    'Aktivite sırasında yanınızda düşebilecek takı ve değerli eşya bulundurmayın.',
+  ]
+  const updateRule = (idx: number, text: string) => {
+    const next = rules.map((r, i) => (i === idx ? text : r))
+    emitChange({ rules: next })
+  }
+  const removeRule = (idx: number) => {
+    emitChange({ rules: rules.filter((_, i) => i !== idx) })
+  }
+  const addRule = () => {
+    emitChange({ rules: [...rules, ''] })
+  }
+
   return (
     <div className="space-y-6">
       <div className="rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm dark:border-neutral-700 dark:bg-neutral-800">
@@ -485,6 +654,40 @@ export function ActivityOperationsSafetyStepPanel({
               onChange={(e) => emitChange({ cancellation_policy: e.target.value })}
             />
           </Field>
+        </div>
+
+        {/* Özel Aktivite Kuralları */}
+        <div className="mt-5 border-t border-neutral-100 pt-4 dark:border-neutral-700">
+          <Label className="mb-2 block text-xs font-semibold text-neutral-700 dark:text-neutral-300">
+            Aktivite Kuralları & Şartlar (Vitrinde Listelenir)
+          </Label>
+          <div className="space-y-2">
+            {rules.map((rule, idx) => (
+              <div key={idx} className="flex gap-2">
+                <Input
+                  type="text"
+                  value={rule}
+                  placeholder="ör. 5 yaş altı misafirler katılamaz"
+                  className="flex-1 text-xs"
+                  onChange={(e) => updateRule(idx, e.target.value)}
+                />
+                <button
+                  type="button"
+                  onClick={() => removeRule(idx)}
+                  className="rounded-lg p-2 text-neutral-400 hover:bg-neutral-100 hover:text-red-500 dark:hover:bg-neutral-800"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              </div>
+            ))}
+            <button
+              type="button"
+              onClick={addRule}
+              className="flex items-center gap-1.5 text-xs font-medium text-primary-600 hover:text-primary-700 dark:text-primary-400"
+            >
+              <PlusCircle className="h-4 w-4" /> Yeni Kural Ekle
+            </button>
+          </div>
         </div>
       </div>
     </div>

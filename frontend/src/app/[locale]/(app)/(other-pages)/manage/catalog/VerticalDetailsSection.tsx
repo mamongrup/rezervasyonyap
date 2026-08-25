@@ -1051,7 +1051,7 @@ function ActivitySection({
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null)
   const [sessionsMsg, setSessionsMsg] = useState<{ ok: boolean; text: string } | null>(null)
   const [sessions, setSessions] = useState<ActivitySessionRow[]>([])
-  const [vitrin, setVitrin] = useState<ActivityVitrinManageValue>(emptyActivityVitrinManageValue)
+  const [rawMeta, setRawMeta] = useState<Record<string, unknown>>({})
   const save = useSave('activity', listingId)
 
   interface ActivityMeta {
@@ -1062,6 +1062,8 @@ function ActivitySection({
     rules?: string[]
   }
   const loading = useLoadMeta<ActivityMeta>(listingId, 'activity', (d) => {
+    const raw = (unwrapVerticalMetaPayload(d) || {}) as Record<string, unknown>
+    setRawMeta(raw)
     setForm({
       session_based: Boolean(d.session_based), full_day: Boolean(d.full_day),
       duration_hours: d.duration_hours ?? '', min_age: d.min_age ?? '',
@@ -1072,7 +1074,7 @@ function ActivitySection({
     if (d.includes?.length) setIncludes(d.includes)
     if (d.excludes?.length) setExcludes(d.excludes)
     if (d.rules?.length) setRules(d.rules)
-    setVitrin(loadActivityVitrinFromMetaPayload(unwrapVerticalMetaPayload(d)))
+    setVitrin(loadActivityVitrinFromMetaPayload(raw))
   })
 
   useEffect(() => {
@@ -1096,6 +1098,7 @@ function ActivitySection({
     setBusy(true); setMsg(null)
     try {
       await save({
+        ...rawMeta,
         ...form,
         includes: includes.filter(Boolean),
         excludes: excludes.filter(Boolean),

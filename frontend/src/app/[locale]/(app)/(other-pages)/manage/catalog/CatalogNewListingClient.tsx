@@ -865,6 +865,8 @@ export default function CatalogNewListingClient({
   })
 
   const [activityAgencyState, setActivityAgencyState] = useState<ActivityAgencyBasicsState>({
+    session_based: true,
+    full_day: false,
     activity_category: 'paragliding',
     duration_net: '45 Dakika Uçuş',
     duration_total: '2.5 Saat',
@@ -879,6 +881,23 @@ export default function CatalogNewListingClient({
     max_weight_kg: '105',
     weather_guarantee: 'Hava muhalefeti durumunda %100 kesintisiz iade veya ücretsiz erteleme.',
     cancellation_policy: 'Aktivite saatine 24 saat kalaya kadar koşulsuz %100 iade.',
+    operator_license_no: '',
+    tursab_no: '',
+    health_restrictions: [
+      'Hamile misafirler için uygun değildir',
+      'Kalp rahatsızlığı veya yüksek tansiyonu olanlara uygun değildir',
+      'Panik atak veya ileri derecede yükseklik korkusu olanlara uygun değildir',
+    ],
+    bring_items: [
+      'Spor ayakkabı (kaymaz taban)',
+      'Güneş gözlüğü & Güneş kremi',
+      'Rahat spor kıyafet veya şort',
+    ],
+    rules: [
+      'Rezervasyon saatinden en az 15 dakika önce buluşma noktasında hazır bulunun.',
+      'Uçuş veya aktivite öncesi eğitmen ve pilotların güvenlik talimatlarına kesinlikle uyun.',
+      'Aktivite sırasında yanınızda düşebilecek takı ve değerli eşya bulundurmayın.',
+    ],
     itinerary_flow: [
       { step: 1, title: 'Otelden Alma & Buluşma', description: 'Misafirlerin otellerinden veya ofisten karşılanması.' },
       { step: 2, title: 'Güvenlik Brifingi & Kuşanma', description: 'Uzman eğitmen eşliğinde ekipmanların giyilmesi ve kuralların anlatılması.' },
@@ -2057,9 +2076,12 @@ export default function CatalogNewListingClient({
           if (categoryCode === 'activity') {
             setActivityAgencyState((prev) => ({
               ...prev,
+              session_based: rawObj.session_based !== undefined ? (rawObj.session_based === true || rawObj.session_based === 'true') : prev.session_based ?? true,
+              full_day: rawObj.full_day !== undefined ? (rawObj.full_day === true || rawObj.full_day === 'true') : prev.full_day ?? false,
               activity_category: String(rawObj.activity_category ?? prev.activity_category),
               duration_net: String(rawObj.duration_net ?? prev.duration_net),
               duration_total: String(rawObj.duration_total ?? prev.duration_total),
+              duration_hours: String(rawObj.duration_hours ?? prev.duration_hours),
               difficulty_level: (rawObj.difficulty_level as 'easy' | 'moderate' | 'challenging' | 'expert') ?? prev.difficulty_level,
               guided_languages: Array.isArray(rawObj.guided_languages) ? (rawObj.guided_languages as string[]) : prev.guided_languages,
               meeting_point_name: String(rawObj.meeting_point_name ?? prev.meeting_point_name),
@@ -2071,10 +2093,40 @@ export default function CatalogNewListingClient({
               max_weight_kg: String(rawObj.max_weight_kg ?? prev.max_weight_kg),
               weather_guarantee: String(rawObj.weather_guarantee ?? prev.weather_guarantee),
               cancellation_policy: String(rawObj.cancellation_policy ?? prev.cancellation_policy),
+              operator_license_no: String(rawObj.operator_license_no ?? prev.operator_license_no ?? ''),
+              tursab_no: String(rawObj.tursab_no ?? prev.tursab_no ?? ''),
+              health_restrictions: Array.isArray(rawObj.health_restrictions) ? (rawObj.health_restrictions as string[]) : prev.health_restrictions,
+              bring_items: Array.isArray(rawObj.bring_items) ? (rawObj.bring_items as string[]) : prev.bring_items,
+              rules: Array.isArray(rawObj.rules) ? (rawObj.rules as string[]) : prev.rules,
+              equipment_included: Array.isArray(rawObj.equipment_included) ? (rawObj.equipment_included as string[]) : prev.equipment_included,
+              equipment_excluded: Array.isArray(rawObj.equipment_excluded) ? (rawObj.equipment_excluded as string[]) : prev.equipment_excluded,
               itinerary_flow: Array.isArray(rawObj.itinerary_flow) ? (rawObj.itinerary_flow as ActivityAgencyBasicsState['itinerary_flow']) : prev.itinerary_flow,
             }))
             if (Array.isArray(rawObj.sessions) && rawObj.sessions.length > 0) {
               setActivitySessions(rawObj.sessions as ActivitySessionItem[])
+            } else if (editListingId && token) {
+              void listManageActivitySessions(token, editListingId, orgParam)
+                .then((res) => {
+                  if (res?.sessions?.length > 0) {
+                    setActivitySessions(
+                      res.sessions.map((s) => ({
+                        id: s.id,
+                        session_name: s.session_name || `${s.start_time} Seansı`,
+                        start_time: s.start_time || '09:00',
+                        duration_minutes: s.duration_minutes ? String(s.duration_minutes) : '120',
+                        capacity: s.capacity ? String(s.capacity) : '10',
+                        adult_price: s.adult_price ? String(s.adult_price) : '0',
+                        child_price: s.child_price ? String(s.child_price) : '',
+                        currency_code: s.currency_code || 'TRY',
+                        valid_from: s.valid_from ? s.valid_from.slice(0, 10) : new Date().toISOString().slice(0, 10),
+                        valid_to: s.valid_to ? s.valid_to.slice(0, 10) : `${new Date().getFullYear()}-11-30`,
+                        is_active: s.is_active !== false,
+                        description: s.description || '',
+                      })),
+                    )
+                  }
+                })
+                .catch(() => {})
             }
           }
           if (categoryCode === 'tour') {
@@ -5786,25 +5838,6 @@ export default function CatalogNewListingClient({
               )}
             </Section>
             )}
-
-            {isActivity ? (
-              <Section
-                title="Aktivite Detayları"
-                subtitle="Rezervasyon modelini, katılım koşullarını ve vitrinde gösterilecek paket kapsamını yönetin."
-              >
-                {editListingId ? (
-                  <VerticalDetailsSection
-                    categoryCode="activity"
-                    listingId={editListingId}
-                    activityMode="details"
-                  />
-                ) : (
-                  <p className="rounded-xl border border-dashed border-neutral-300 bg-neutral-50 px-4 py-3 text-sm text-neutral-600 dark:border-neutral-600 dark:bg-neutral-800/40 dark:text-neutral-400">
-                    Aktivite detaylarını eklemek için önce temel bilgileri kaydedin. “Kaydet ve ilerle” ilanı oluşturur ve bu adımı otomatik olarak açar.
-                  </p>
-                )}
-              </Section>
-            ) : null}
 
             {hotelProfileSection}
 

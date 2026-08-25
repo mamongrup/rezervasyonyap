@@ -1,4 +1,4 @@
-﻿import { en, type AppMessages } from './en'
+import { en, type AppMessages } from './en'
 import { navMenus } from './navMenus.fr'
 import { checkoutFr } from './checkout'
 
@@ -906,6 +906,16 @@ export const fr: AppMessages = {
       extraFeesTitle: 'Frais supplémentaires',
       rulesTitle: "Règles de l'activité",
       rulesSubtitle: 'À lire avant la réservation.',
+      timelineTitle: 'Déroulement de l’expérience étape par étape',
+      timelineSubtitle: 'Les étapes de votre journée d’activité et les moments forts à vivre.',
+      restrictionsTitle: 'Conditions de participation et restrictions médicales',
+      restrictionsSubtitle: 'Conditions requises pour votre sécurité et une expérience optimale.',
+      whatToBringTitle: 'Ce qu’il faut apporter',
+      whatToBringSubtitle: 'Vêtements recommandés et effets personnels pour votre sortie.',
+      transferTitle: 'Point de rencontre et transfert hôtel',
+      transferSubtitle: 'Informations de transport et d’accès pour votre activité.',
+      safetyGuaranteesTitle: 'Sécurité, politique d’annulation et licence officielle',
+      safetyGuaranteesSubtitle: 'Garantie de l’agence et certifications officielles.',
       defaultRules: [
         "Soyez prêt au moins 15 minutes avant l'heure de réservation.",
         'Suivez les consignes du guide ou de l’instructeur.',
@@ -923,13 +933,36 @@ export const fr: AppMessages = {
       overview: {
         duration: 'Durée',
         durationHours: '{hours} heures',
+        netDuration: 'Durée nette',
+        totalDuration: 'Durée totale',
+        difficulty: 'Difficulté',
         minAge: 'Âge minimum',
         minAgeValue: '{age}+',
+        ageRange: 'Âge requis',
+        ageRangeValue: '{min} à {max} ans',
+        weightLimit: 'Limite de poids',
+        weightLimitValue: '{min} à {max} kg',
         capacity: 'Capacité',
         maxParticipants: 'Max. {count} personnes',
         language: 'Langue',
         meetingPoint: 'Point de rendez-vous',
         equipment: 'Équipement inclus',
+        sessionType: 'Formule d’activité',
+        sessionBased: 'Par créneaux horaires définis',
+        fullDay: 'Journée complète / horaires libres',
+        transferStatus: 'Service de transfert',
+        transferIncluded: 'Transfert hôtel inclus',
+        transferOptional: 'Transfert régional disponible',
+        transferNone: 'Rendez-vous sur place',
+        weatherGuarantee: 'Garantie météo',
+        cancellationPolicy: 'Conditions d’annulation',
+        tursabLicense: 'Licence TÜRSAB / N°',
+        difficulties: {
+          easy: 'Facile (Accessible à tous)',
+          moderate: 'Modéré (Effort léger)',
+          challenging: 'Difficile (Adrénaline)',
+          expert: 'Expert (Certifié requis)',
+        },
       },
     },
     ferryDetail: {

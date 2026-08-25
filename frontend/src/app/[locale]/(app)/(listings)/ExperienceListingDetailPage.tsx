@@ -80,6 +80,11 @@ import ActivityBookingPanel from './ActivityBookingPanel'
 import ActivityOverviewSection, {
   ActivityDescriptionSection,
   ActivityRulesSection,
+  ActivityTimelineSection,
+  ActivityRestrictionsSection,
+  ActivityWhatToBringSection,
+  ActivityTransferMeetingSection,
+  ActivitySafetyGuaranteesSection,
   type ActivityOverviewItem,
 } from './ActivityDetailSections'
 import ActivityExtraFeesSection from './ActivityExtraFeesSection'
@@ -138,16 +143,34 @@ type TourMeta = {
 type ActivityMeta = {
   session_based?: boolean
   full_day?: boolean
+  activity_category?: string
+  duration_net?: string
+  duration_total?: string
   duration_hours?: string
-  min_age?: string
-  max_participants?: string
+  difficulty_level?: string
+  guided_languages?: string[]
+  meeting_point_name?: string
   meeting_point?: string
-  equipment_included?: string
+  transfer_option?: string
+  transfer_regions?: string
+  min_age?: string
+  max_age?: string
+  min_weight_kg?: string
+  max_weight_kg?: string
+  health_restrictions?: string[]
+  bring_items?: string[]
+  equipment_included?: string[]
+  equipment_excluded?: string[]
   language?: string
   preview_url?: string
   includes?: string[]
   excludes?: string[]
   rules?: string[]
+  itinerary_flow?: Array<{ step: number; title: string; description: string; duration?: string }>
+  weather_guarantee?: string
+  cancellation_policy?: string
+  operator_license_no?: string
+  tursab_no?: string
 }
 
 function textFromMeta(value: unknown): string {
@@ -241,19 +264,74 @@ function parseTourMeta(raw: unknown): TourMeta {
 
 function parseActivityMeta(raw: unknown): ActivityMeta {
   const data = unwrapVerticalMetaPayload(raw)
+  const itineraryFlowRaw = Array.isArray(data.itinerary_flow) ? data.itinerary_flow : []
+  const itinerary_flow = itineraryFlowRaw
+    .map((item, index) => {
+      const row = item && typeof item === 'object' ? (item as Record<string, unknown>) : {}
+      const stepRaw = Number(row.step)
+      return {
+        step: Number.isFinite(stepRaw) && stepRaw > 0 ? stepRaw : index + 1,
+        title: textFromMeta(row.title),
+        description: textFromMeta(row.description),
+        duration: textFromMeta(row.duration),
+      }
+    })
+    .filter((s) => s.title || s.description)
+
+  const guided_languages = Array.isArray(data.guided_languages)
+    ? data.guided_languages.map((l) => textFromMeta(l)).filter(Boolean)
+    : splitMetaList(data.guided_languages as string | string[] | undefined)
+
+  const health_restrictions = Array.isArray(data.health_restrictions)
+    ? data.health_restrictions.map((h) => textFromMeta(h)).filter(Boolean)
+    : splitMetaList(data.health_restrictions as string | string[] | undefined)
+
+  const bring_items = Array.isArray(data.bring_items)
+    ? data.bring_items.map((b) => textFromMeta(b)).filter(Boolean)
+    : splitMetaList(data.bring_items as string | string[] | undefined)
+
+  const equipment_included = Array.isArray(data.equipment_included)
+    ? data.equipment_included.map((e) => textFromMeta(e)).filter(Boolean)
+    : splitMetaList((data.equipment_included || data.equipment) as string | string[] | undefined)
+
+  const equipment_excluded = Array.isArray(data.equipment_excluded)
+    ? data.equipment_excluded.map((e) => textFromMeta(e)).filter(Boolean)
+    : splitMetaList(data.equipment_excluded as string | string[] | undefined)
+
   return {
-    session_based: data.session_based === true,
-    full_day: data.full_day === true,
+    session_based:
+      data.session_based !== undefined
+        ? data.session_based === true || data.session_based === 'true'
+        : undefined,
+    full_day: data.full_day === true || data.full_day === 'true',
+    activity_category: textFromMeta(data.activity_category),
+    duration_net: textFromMeta(data.duration_net),
+    duration_total: textFromMeta(data.duration_total),
     duration_hours: textFromMeta(data.duration_hours),
+    difficulty_level: textFromMeta(data.difficulty_level),
+    guided_languages,
+    meeting_point_name: textFromMeta(data.meeting_point_name || data.meeting_point),
+    meeting_point: textFromMeta(data.meeting_point || data.meeting_point_name),
+    transfer_option: textFromMeta(data.transfer_option),
+    transfer_regions: textFromMeta(data.transfer_regions),
     min_age: textFromMeta(data.min_age),
-    max_participants: textFromMeta(data.max_participants),
-    meeting_point: textFromMeta(data.meeting_point),
-    equipment_included: textFromMeta(data.equipment_included),
+    max_age: textFromMeta(data.max_age),
+    min_weight_kg: textFromMeta(data.min_weight_kg),
+    max_weight_kg: textFromMeta(data.max_weight_kg),
+    health_restrictions,
+    bring_items,
+    equipment_included,
+    equipment_excluded,
     language: textFromMeta(data.language),
     preview_url: textFromMeta(data.preview_url),
-    includes: splitMetaList(data.includes as string[] | string | undefined),
-    excludes: splitMetaList(data.excludes as string[] | string | undefined),
-    rules: splitMetaList(data.rules as string[] | string | undefined),
+    includes: splitMetaList((data.includes || data.included_services) as string[] | string | undefined),
+    excludes: splitMetaList((data.excludes || data.excluded_services) as string[] | string | undefined),
+    rules: splitMetaList((data.rules || data.important_notes) as string[] | string | undefined),
+    itinerary_flow,
+    weather_guarantee: textFromMeta(data.weather_guarantee),
+    cancellation_policy: textFromMeta(data.cancellation_policy),
+    operator_license_no: textFromMeta(data.operator_license_no),
+    tursab_no: textFromMeta(data.tursab_no),
   }
 }
 
@@ -716,15 +794,101 @@ export default async function ExperienceListingDetailPage({
 
   const activityOverviewItems: ActivityOverviewItem[] = isActivity
     ? [
-        activityMeta?.min_age
+        activityMeta?.difficulty_level
           ? {
-              label: ad.overview.minAge,
-              value: interpolate(ad.overview.minAgeValue, { age: activityMeta.min_age }),
+              label: ad.overview.difficulty || 'Zorluk',
+              value:
+                (ad.overview.difficulties as Record<string, string>)?.[activityMeta.difficulty_level] ||
+                activityMeta.difficulty_level,
+              icon: 'difficulty',
+            }
+          : null,
+        activityMeta?.duration_net
+          ? {
+              label: ad.overview.netDuration || 'Net Süre',
+              value: activityMeta.duration_net,
+              icon: 'netDuration',
+            }
+          : activityMeta?.duration_hours
+            ? {
+                label: ad.overview.duration || 'Süre',
+                value: interpolate(ad.overview.durationHours, { hours: activityMeta.duration_hours }),
+                icon: 'duration',
+              }
+            : null,
+        activityMeta?.duration_total
+          ? {
+              label: ad.overview.totalDuration || 'Toplam Süre',
+              value: activityMeta.duration_total,
+              icon: 'totalDuration',
+            }
+          : null,
+        activityMeta?.session_based
+          ? {
+              label: ad.overview.sessionType || 'Aktivite Modeli',
+              value: ad.overview.sessionBased || 'Seans Bazlı',
+              icon: 'sessionType',
+            }
+          : activityMeta?.full_day
+            ? {
+                label: ad.overview.sessionType || 'Aktivite Modeli',
+                value: ad.overview.fullDay || 'Tam Gün Aktivite',
+                icon: 'sessionType',
+              }
+            : null,
+        activityMeta?.min_age || activityMeta?.max_age
+          ? {
+              label: ad.overview.ageRange || 'Yaş Sınırı',
+              value:
+                activityMeta.min_age && activityMeta.max_age
+                  ? interpolate(ad.overview.ageRangeValue, { min: activityMeta.min_age, max: activityMeta.max_age })
+                  : activityMeta.min_age
+                    ? interpolate(ad.overview.minAgeValue, { age: activityMeta.min_age })
+                    : interpolate(ad.overview.ageRangeValue, { min: '0', max: activityMeta.max_age }),
               icon: 'age',
             }
           : null,
-        activityMeta?.equipment_included
-          ? { label: ad.overview.equipment, value: activityMeta.equipment_included, icon: 'equipment' }
+        activityMeta?.min_weight_kg || activityMeta?.max_weight_kg
+          ? {
+              label: ad.overview.weightLimit || 'Kilo Sınırı',
+              value:
+                activityMeta.min_weight_kg && activityMeta.max_weight_kg
+                  ? interpolate(ad.overview.weightLimitValue, { min: activityMeta.min_weight_kg, max: activityMeta.max_weight_kg })
+                  : activityMeta.min_weight_kg
+                    ? `Min. ${activityMeta.min_weight_kg} kg`
+                    : `Maks. ${activityMeta.max_weight_kg} kg`,
+              icon: 'weight',
+            }
+          : null,
+        activityMeta?.guided_languages && activityMeta.guided_languages.length > 0
+          ? {
+              label: ad.overview.language || 'Dil',
+              value: activityMeta.guided_languages.join(', '),
+              icon: 'language',
+            }
+          : activityMeta?.language
+            ? {
+                label: ad.overview.language || 'Dil',
+                value: activityMeta.language,
+                icon: 'language',
+              }
+            : null,
+        activityMeta?.transfer_option && activityMeta.transfer_option !== 'none'
+          ? {
+              label: ad.overview.transferStatus || 'Transfer Durumu',
+              value:
+                activityMeta.transfer_option === 'included'
+                  ? ad.overview.transferIncluded || 'Otel Transferi Dahil'
+                  : ad.overview.transferOptional || 'Opsiyonel Transfer',
+              icon: 'transfer',
+            }
+          : null,
+        activityMeta?.equipment_included && activityMeta.equipment_included.length > 0
+          ? {
+              label: ad.overview.equipment || 'Dahil Ekipman',
+              value: activityMeta.equipment_included.join(', '),
+              icon: 'equipment',
+            }
           : null,
       ].filter((item): item is ActivityOverviewItem => item !== null)
     : []
@@ -967,6 +1131,35 @@ export default async function ExperienceListingDetailPage({
                 <ListingDescriptionExpandable locale={locale} html={description} />
               </ActivityDescriptionSection>
             ) : null}
+            <ActivityTimelineSection
+              steps={activityMeta?.itinerary_flow ?? []}
+              locale={locale}
+            />
+            <ActivityRestrictionsSection
+              minAge={activityMeta?.min_age}
+              maxAge={activityMeta?.max_age}
+              minWeight={activityMeta?.min_weight_kg}
+              maxWeight={activityMeta?.max_weight_kg}
+              healthRestrictions={activityMeta?.health_restrictions ?? []}
+              locale={locale}
+            />
+            <ActivityWhatToBringSection
+              items={activityMeta?.bring_items ?? []}
+              locale={locale}
+            />
+            <ActivityTransferMeetingSection
+              meetingPoint={activityMeta?.meeting_point_name || activityMeta?.meeting_point}
+              transferOption={activityMeta?.transfer_option}
+              transferRegions={activityMeta?.transfer_regions}
+              locale={locale}
+            />
+            <ActivitySafetyGuaranteesSection
+              weatherGuarantee={activityMeta?.weather_guarantee}
+              cancellationPolicy={activityMeta?.cancellation_policy}
+              tursabNo={activityMeta?.tursab_no}
+              operatorLicenseNo={activityMeta?.operator_license_no}
+              locale={locale}
+            />
             <ActivityRulesSection rules={activityMeta?.rules ?? []} locale={locale} />
             {(activityVitrin?.extra_fees?.length ?? 0) > 0 ? (
               <ActivityExtraFeesSection

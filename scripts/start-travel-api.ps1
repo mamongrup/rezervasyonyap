@@ -69,8 +69,19 @@ Write-Host "travel-api baslatiliyor: http://127.0.0.1:$port" -ForegroundColor Cy
 if (Test-Path "$BackendDir\build\dev\erlang\backend") {
   $targetPriv = "$BackendDir\build\dev\erlang\backend\priv"
   if (-not (Test-Path $targetPriv)) {
-    cmd.exe /c "mklink /J ""$targetPriv"" ""$BackendDir\priv"""
+    cmd.exe /c "mklink /J ""$targetPriv"" ""$BackendDir\priv""" 2>$null
   }
 }
 
-gleam run
+# BEAM VM'i dogrudan calistir (Windows symlink os error 1314 engelleyici)
+$dirs = @()
+Get-ChildItem -Path "$BackendDir\build\dev\erlang" -Directory | ForEach-Object {
+  $ebin = "$($_.FullName)\ebin"
+  if (Test-Path $ebin) { $dirs += "-pa"; $dirs += $ebin }
+  $gleamArt = "$($_.FullName)\_gleam_artefacts"
+  if (Test-Path $gleamArt) { $dirs += "-pa"; $dirs += $gleamArt }
+}
+
+& $erlExe $dirs -eval "backend:main()." -noshell
+
+

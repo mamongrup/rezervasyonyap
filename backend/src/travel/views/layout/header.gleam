@@ -1,105 +1,159 @@
-import travel/html/attribute.{class_, href_, type_}
+import travel/html/attribute.{
+  aria_controls, aria_expanded, aria_label, attr, class_, data_bs_target,
+  data_bs_toggle, href_, id_, type_,
+}
 import travel/html/element.{
-  type Node, a, button, div, header, i, nav, span, text,
+  type Node, a, button, div, header, i, img, li, nav, span, text, ul,
 }
 
 pub fn render() -> Node {
   header(
     [
-      class_(
-        "sticky top-0 z-40 w-full border-b border-neutral-200/80 bg-white/80 backdrop-blur-2xl transition-colors dark:border-neutral-700/80 dark:bg-neutral-900/80",
-      ),
+      class_("navbar-light header-sticky"),
     ],
     [
-      div([class_("container mx-auto flex h-20 items-center justify-between px-4 sm:px-6 lg:px-8")], [
-        // Brand Logo
-        div([class_("flex items-center gap-x-3")], [
+      nav([class_("navbar navbar-expand-xl")], [
+        div([class_("container")], [
+          // Logo
           a(
             [
+              class_("navbar-brand"),
               href_("/htmx"),
-              class_("flex items-center gap-x-2 text-2xl font-bold tracking-tight text-neutral-900 dark:text-white"),
             ],
             [
-              div(
-                [
-                  class_(
-                    "flex size-10 items-center justify-center rounded-xl bg-primary-600 text-white shadow-md shadow-primary-500/20",
-                  ),
-                ],
-                [
-                  i([class_("fa-solid fa-compass text-lg")], []),
-                ],
-              ),
-              span([], [
-                text("rezervasyon"),
-                span([class_("text-primary-600 dark:text-primary-400")], [text("yap")]),
+              img([
+                class_("light-mode-item navbar-brand-item"),
+                attribute.src_("/assets/images/logo.svg"),
+                attribute.alt_("logo"),
+                attribute.style_("height: 40px;"),
+              ]),
+              img([
+                class_("dark-mode-item navbar-brand-item"),
+                attribute.src_("/assets/images/logo-light.svg"),
+                attribute.alt_("logo"),
+                attribute.style_("height: 40px;"),
               ]),
             ],
           ),
-        ]),
 
-        // Navigation Links (ChisFis categories)
-        nav([class_("hidden lg:flex items-center gap-x-8 text-sm font-medium text-neutral-700 dark:text-neutral-200")], [
-          a([href_("/htmx?cat=oteller"), class_("transition hover:text-primary-600 dark:hover:text-primary-400")], [
-            text("Oteller"),
-          ]),
-          a([href_("/htmx?cat=villalar"), class_("transition hover:text-primary-600 dark:hover:text-primary-400")], [
-            text("Villalar"),
-          ]),
-          a([href_("/htmx?cat=turlar"), class_("transition hover:text-primary-600 dark:hover:text-primary-400")], [
-            text("Turlar"),
-          ]),
-          a([href_("/htmx?cat=yatlar"), class_("transition hover:text-primary-600 dark:hover:text-primary-400")], [
-            text("Yat Kiralama"),
-          ]),
-          a([href_("/htmx?cat=araclar"), class_("transition hover:text-primary-600 dark:hover:text-primary-400")], [
-            text("Araç Kiralama"),
-          ]),
-          a([href_("/htmx?cat=ucak"), class_("transition hover:text-primary-600 dark:hover:text-primary-400")], [
-            text("Uçak Bileti"),
-          ]),
-        ]),
-
-        // Right Actions: Currency, Dark Mode, Login Button
-        div([class_("flex items-center gap-x-3 sm:gap-x-4")], [
-          // Currency badge
-          span(
-            [
-              class_(
-                "hidden sm:inline-flex items-center rounded-full border border-neutral-200 px-3 py-1 text-xs font-semibold text-neutral-700 dark:border-neutral-700 dark:text-neutral-300",
-              ),
-            ],
-            [text("TRY ₺")],
-          ),
-
-          // Dark mode toggle button
+          // Responsive Toggler
           button(
             [
+              class_("navbar-toggler ms-auto ms-sm-0 p-0 p-sm-2"),
               type_("button"),
-              attribute.attr("onclick", "toggleTheme()"),
-              attribute.aria_label("Koyu/Açık Tema"),
-              class_(
-                "flex size-10 items-center justify-center rounded-full border border-neutral-200 text-neutral-600 transition hover:bg-neutral-100 hover:text-neutral-900 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800 dark:hover:text-white",
-              ),
+              data_bs_toggle("collapse"),
+              data_bs_target("#navbarCollapse"),
+              aria_controls("navbarCollapse"),
+              aria_expanded("false"),
+              aria_label("Menü"),
             ],
             [
-              i([class_("fa-regular fa-moon text-base dark:hidden")], []),
-              i([class_("fa-regular fa-sun text-base hidden dark:inline-block")], []),
+              span([class_("navbar-toggler-animation")], [
+                span([], []),
+                span([], []),
+                span([], []),
+              ]),
+              span([class_("d-none d-sm-inline-block small ms-1")], [text("Menü")]),
             ],
           ),
 
-          // Portal/Login button
-          a(
-            [
-              href_("/manage"),
-              class_(
-                "inline-flex items-center justify-center rounded-full bg-primary-600 px-5 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2",
+          // Navigation Links
+          div([class_("navbar-collapse collapse"), id_("navbarCollapse")], [
+            ul([class_("navbar-nav navbar-nav-scroll me-auto")], [
+              li([class_("nav-item")], [
+                a([class_("nav-link active"), href_("/htmx")], [text("Anasayfa")]),
+              ]),
+              li([class_("nav-item dropdown")], [
+                a(
+                  [
+                    class_("nav-link dropdown-toggle"),
+                    href_("#"),
+                    id_("hotelMenu"),
+                    data_bs_toggle("dropdown"),
+                    aria_expanded("false"),
+                  ],
+                  [text("Oteller & Konaklama")],
+                ),
+                ul([class_("dropdown-menu"), attribute.attr("aria-labelledby", "hotelMenu")], [
+                  li([], [a([class_("dropdown-item"), href_("/htmx/hotels")], [text("Tüm Oteller")])]),
+                  li([], [a([class_("dropdown-item"), href_("/htmx/villas")], [text("Lüks Villalar")])]),
+                  li([], [a([class_("dropdown-item"), href_("/htmx/hotel/1")], [text("Örnek Otel Detayı")])]),
+                ]),
+              ]),
+              li([class_("nav-item dropdown")], [
+                a(
+                  [
+                    class_("nav-link dropdown-toggle"),
+                    href_("#"),
+                    id_("tourMenu"),
+                    data_bs_toggle("dropdown"),
+                    aria_expanded("false"),
+                  ],
+                  [text("Turlar & Aktiviteler")],
+                ),
+                ul([class_("dropdown-menu"), attribute.attr("aria-labelledby", "tourMenu")], [
+                  li([], [a([class_("dropdown-item"), href_("/htmx/tours")], [text("Popüler Turlar")])]),
+                  li([], [a([class_("dropdown-item"), href_("/htmx/tour/1")], [text("Örnek Tur Detayı")])]),
+                ]),
+              ]),
+              li([class_("nav-item")], [
+                a([class_("nav-link"), href_("/htmx/flights")], [text("Uçak Bileti")]),
+              ]),
+              li([class_("nav-item")], [
+                a([class_("nav-link"), href_("/htmx/cabs")], [text("Transfer & Araç")]),
+              ]),
+              li([class_("nav-item dropdown")], [
+                a(
+                  [
+                    class_("nav-link dropdown-toggle"),
+                    href_("#"),
+                    id_("pagesMenu"),
+                    data_bs_toggle("dropdown"),
+                    aria_expanded("false"),
+                  ],
+                  [text("Sayfalar")],
+                ),
+                ul([class_("dropdown-menu"), attribute.attr("aria-labelledby", "pagesMenu")], [
+                  li([], [a([class_("dropdown-item"), href_("/htmx/blog")], [text("Blog & Rehber")])]),
+                  li([], [a([class_("dropdown-item"), href_("/htmx/faq")], [text("Sıkça Sorulan Sorular")])]),
+                  li([], [a([class_("dropdown-item"), href_("/htmx/contact")], [text("İletişim")])]),
+                ]),
+              ]),
+            ]),
+          ]),
+
+          // Right Icons & Auth
+          ul([class_("nav flex-row align-items-center list-unstyled ms-xl-auto")], [
+            // Dark Mode Toggle
+            li([class_("nav-item dropdown me-2")], [
+              button(
+                [
+                  class_("btn btn-light btn-round mb-0"),
+                  type_("button"),
+                  attr("onclick", "toggleTheme()"),
+                  aria_label("Tema Değiştir"),
+                ],
+                [
+                  i([class_("bi bi-moon-stars-fill fa-fw dark-mode-item text-warning")], []),
+                  i([class_("bi bi-sun-fill fa-fw light-mode-item text-warning")], []),
+                ],
               ),
-            ],
-            [
-              text("Giriş Yap"),
-            ],
-          ),
+            ]),
+
+            // Login / Register
+            li([class_("nav-item ms-2 d-none d-sm-block")], [
+              a([class_("btn btn-sm btn-primary-soft mb-0"), href_("/htmx/login")], [
+                i([class_("fa-solid fa-right-to-bracket me-2")], []),
+                text("Giriş Yap"),
+              ]),
+            ]),
+            li([class_("nav-item ms-2 d-none d-md-block")], [
+              a([class_("btn btn-sm btn-primary mb-0"), href_("/htmx/register")], [
+                i([class_("fa-solid fa-user-plus me-2")], []),
+                text("Kayıt Ol"),
+              ]),
+            ]),
+          ]),
         ]),
       ]),
     ],
