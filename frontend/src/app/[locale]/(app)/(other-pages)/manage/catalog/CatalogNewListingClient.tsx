@@ -28,6 +28,7 @@ import { DEFAULT_LISTING_PREPAYMENT_PERCENT } from '@/lib/listing-prepayment'
 import { managePublicDetailPathForVertical } from '@/lib/stay-detail-routes'
 import { DETAIL_SEGMENT_BY_VERTICAL } from '@/lib/listing-detail-routes'
 import {
+  activitySessionsForSave,
   activityStartingPrice,
   syncSingleActivitySessionPrice,
 } from '@/lib/activity-session-pricing'
@@ -1314,7 +1315,11 @@ export default function CatalogNewListingClient({
 
   const isStayRentalEdit = isStayRentalWizard && Boolean(editListingId)
   const isFacilityGalleryEdit = usesFacilityGallery && Boolean(editListingId)
-  const galleryTotalCount = isFacilityGalleryEdit
+  const isListingGalleryEdit = Boolean(editListingId)
+  const galleryPreviewKeys = isListingGalleryEdit
+    ? [...listingGalleryUrls, ...pendingGalleryKeys.filter((key) => !listingGalleryUrls.includes(key))]
+    : pendingGalleryKeys
+  const galleryTotalCount = isListingGalleryEdit
     ? listingGalleryUrls.length + pendingGalleryKeys.filter((k) => !listingGalleryUrls.includes(k)).length
     : pendingGalleryKeys.length
 
@@ -2565,7 +2570,7 @@ export default function CatalogNewListingClient({
 
   /** Galeri alt sayfasından dönünce önizlemeyi güncelle */
   useEffect(() => {
-    if (!usesFacilityGallery || !editListingId) return
+    if (!editListingId) return
     const reloadPreview = () => {
       const token = getStoredAuthToken()
       if (!token) return
@@ -2590,7 +2595,7 @@ export default function CatalogNewListingClient({
       window.removeEventListener('focus', reloadPreview)
       document.removeEventListener('visibilitychange', onVis)
     }
-  }, [usesFacilityGallery, categoryCode, editListingId, needOrg, orgId])
+  }, [categoryCode, editListingId, needOrg, orgId])
 
   /** Etiketsiz galeri: boş slotları sırayla doldur; geçersiz anahtarları temizle */
   useEffect(() => {
@@ -3985,7 +3990,7 @@ export default function CatalogNewListingClient({
       }
 
       if (isActivity) {
-        const sessionsToSave = syncSingleActivitySessionPrice(activitySessions, basePrice, currency)
+        const sessionsToSave = activitySessions
         await saveRequiredStep(
           'Aktivite acente özellikleri kaydı',
           putVerticalMeta(
@@ -4001,26 +4006,14 @@ export default function CatalogNewListingClient({
         )
 
         if (sessionsToSave.length > 0) {
-          const validSessions = sessionsToSave
-            .filter((s) => s.valid_from && s.valid_to && s.start_time)
-            .map((s, idx) => ({
-              id: s.id,
-              valid_from: s.valid_from,
-              valid_to: s.valid_to,
-              start_time: s.start_time,
-              duration_minutes: s.duration_minutes || '60',
-              capacity: s.capacity || '10',
-              is_active: s.is_active,
-              sort_order: String(idx),
-              adult_price: s.adult_price || '0',
-              child_price: s.child_price || null,
-              currency_code: s.currency_code || currency || 'TRY',
-            }))
+          const validSessions = activitySessionsForSave(sessionsToSave, currency)
           if (validSessions.length > 0) {
             await saveRequiredStep(
               'Aktivite seansları kaydı',
-              putManageActivitySessions(token, lid, validSessions, orgParam).catch(() => ({ ok: false })),
+              putManageActivitySessions(token, lid, validSessions, orgParam),
             )
+            setActivitySessions(sessionsToSave)
+            setBasePrice(activityStartingPrice(sessionsToSave))
           }
         }
       }
@@ -5386,13 +5379,13 @@ export default function CatalogNewListingClient({
 
               <div className="mt-4 max-w-4xl">
                 <ManageListingGalleryHeroPreview
-                  urls={usesFacilityGallery ? heroPreviewFiveKeys : pendingGalleryKeys}
-                  totalCount={usesFacilityGallery ? galleryTotalCount : pendingGalleryKeys.length}
+                  urls={usesFacilityGallery ? heroPreviewFiveKeys : galleryPreviewKeys.slice(0, 5)}
+                  totalCount={galleryTotalCount}
                   manageHref={galleryManageHref}
                   manageLabel="Galeriyi düzenle"
                   emptyHint={
-                    isFacilityGalleryEdit
-                      ? 'Henüz görsel yok — galeri sayfasından ekleyin.'
+                    isListingGalleryEdit
+                      ? 'Henüz görsel yok — aşağıdan yükleyip kaydedin.'
                       : 'Henüz görsel yok — aşağıdan yükleyin.'
                   }
                   interactiveSlots={
@@ -5493,15 +5486,17 @@ export default function CatalogNewListingClient({
                 />
               ) : null}
 
-              {!isStayRentalEdit && pendingGalleryKeys.length > 5 ? (
+              {!isStayRentalEdit && galleryPreviewKeys.length > 5 ? (
                 <p className="mt-2 text-xs text-neutral-500 dark:text-neutral-400">
-                  Aşağıda yer kaplamadan küçük özet ({pendingGalleryKeys.length} görsel). Çıkarmak için × kullanın.
+                  Aşağıda yer kaplamadan küçük özet ({galleryPreviewKeys.length} görsel).
                 </p>
               ) : null}
 
-              {!isStayRentalEdit && pendingGalleryKeys.length > 0 ? (
+              {!isStayRentalEdit && galleryPreviewKeys.length > 0 ? (
                 <div className="mt-3 flex max-w-4xl gap-2 overflow-x-auto pb-1 pt-1">
-                  {pendingGalleryKeys.map((im, idx) => (
+                  {galleryPreviewKeys.map((im, idx) => {
+                    const pendingIndex = pendingGalleryKeys.indexOf(im)
+                    return (
                     <div
                       key={`${im}-${idx}`}
                       className="relative h-14 w-[5.25rem] shrink-0 overflow-hidden rounded-lg border border-neutral-200 bg-neutral-100 dark:border-neutral-700 dark:bg-neutral-800"
@@ -5511,17 +5506,20 @@ export default function CatalogNewListingClient({
                         alt=""
                         className="h-full w-full object-cover"
                       />
-                      <button
-                        type="button"
-                        className="absolute end-0 top-0 rounded-bl-md bg-red-600 px-1 py-0.5 text-[10px] font-bold leading-none text-white hover:bg-red-700 disabled:opacity-50"
-                        onClick={() => removePendingGallery(idx)}
-                        disabled={saveLocked}
-                        title="Listeden çıkar"
-                      >
-                        ×
-                      </button>
+                      {pendingIndex >= 0 ? (
+                        <button
+                          type="button"
+                          className="absolute end-0 top-0 rounded-bl-md bg-red-600 px-1 py-0.5 text-[10px] font-bold leading-none text-white hover:bg-red-700 disabled:opacity-50"
+                          onClick={() => removePendingGallery(pendingIndex)}
+                          disabled={saveLocked}
+                          title="Yeni yüklenen görseli listeden çıkar"
+                        >
+                          ×
+                        </button>
+                      ) : null}
                     </div>
-                  ))}
+                    )
+                  })}
                 </div>
               ) : null}
 
@@ -5538,14 +5536,14 @@ export default function CatalogNewListingClient({
                       subPath={gallerySubPath}
                       prefix={gallerySlugBase}
                       imageIndex={
-                        (isFacilityGalleryEdit ? listingGalleryUrls.length : 0) +
+                        (isListingGalleryEdit ? listingGalleryUrls.length : 0) +
                         pendingGalleryKeys.length +
                         1
                       }
                       aspectRatio="4/3"
                       multiple
                       onBatchComplete={onPendingGalleryBatchUploaded}
-                      placeholder={`${gallerySlugBase}-${(isFacilityGalleryEdit ? listingGalleryUrls.length : 0) + pendingGalleryKeys.length + 1}.avif — çoklu seçim veya sürükleyip bırakın`}
+                      placeholder={`${gallerySlugBase}-${(isListingGalleryEdit ? listingGalleryUrls.length : 0) + pendingGalleryKeys.length + 1}.avif — çoklu seçim veya sürükleyip bırakın`}
                     />
                   </div>
                   <p className="mt-1 text-xs text-neutral-400">
@@ -6004,7 +6002,10 @@ export default function CatalogNewListingClient({
               >
                 <ActivitySessionsStepPanel
                   sessions={activitySessions}
-                  onChange={setActivitySessions}
+                  onChange={(nextSessions) => {
+                    setActivitySessions(nextSessions)
+                    setBasePrice(activityStartingPrice(nextSessions))
+                  }}
                   currency={currency}
                   disabled={saveLocked}
                 />
