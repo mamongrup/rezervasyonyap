@@ -157,7 +157,7 @@ import Textarea from '@/shared/Textarea'
 import RichEditor from '@/components/editor/RichEditor'
 import ImageUpload from '@/components/editor/ImageUpload'
 import MapPicker from '@/components/editor/MapPicker'
-import { Field, Label } from '@/shared/fieldset'
+import { Field, Label } from './CatalogFormField'
 import Link from 'next/link'
 import {
   ArrowLeft,

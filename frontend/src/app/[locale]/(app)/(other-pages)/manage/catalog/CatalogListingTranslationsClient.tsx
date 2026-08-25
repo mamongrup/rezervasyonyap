@@ -20,7 +20,7 @@ import {
 } from '@/lib/travel-api'
 import ButtonPrimary from '@/shared/ButtonPrimary'
 import Input from '@/shared/Input'
-import { Field, Label } from '@/shared/fieldset'
+import { Field, Label } from './CatalogFormField'
 import RichEditor from '@/components/editor/RichEditor'
 import { ManageAiMagicTextButton } from '@/components/manage/ManageAiMagicTextButton'
 import { ManageAiTranslateToolbar } from '@/components/manage/ManageAiTranslateToolbar'

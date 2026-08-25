@@ -34,7 +34,7 @@ import {
 import { uploadAttributeDefIcon } from '@/lib/upload-attribute-def-icon'
 import ButtonPrimary from '@/shared/ButtonPrimary'
 import Input from '@/shared/Input'
-import { Field, Label } from '@/shared/fieldset'
+import { Field, Label } from './CatalogFormField'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 /** Grup / öznitelik kodu: Türkçe → ascii, tire → alt çizgi */

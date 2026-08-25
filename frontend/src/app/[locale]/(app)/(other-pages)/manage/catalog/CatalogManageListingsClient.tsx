@@ -12,7 +12,7 @@ import { useManageT } from '@/lib/manage-i18n-context'
 import { getAuthMe, listManageCatalogListings, deleteManageCatalogListing, deleteManageCatalogListingsBulk, type ManageListingRow } from '@/lib/travel-api'
 import ButtonPrimary from '@/shared/ButtonPrimary'
 import Input from '@/shared/Input'
-import { Field, Label } from '@/shared/fieldset'
+import { Field, Label } from './CatalogFormField'
 import clsx from 'clsx'
 import Link from 'next/link'
 import {
