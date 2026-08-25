@@ -48,6 +48,7 @@ export type StayListingHost = {
   displayName: string
   avatarUrl: string
   handle: string
+  hasPublicProfile?: boolean
   description: string
   listingsCount: number
   reviewsCount: number
@@ -69,6 +70,7 @@ export function listingHostForSection(
     displayName: partial?.displayName?.trim() || t,
     avatarUrl: partial?.avatarUrl?.trim() || avatars1.src,
     handle: partial?.handle?.trim() || 'host',
+    hasPublicProfile: partial?.hasPublicProfile ?? false,
     description: partial?.description?.trim() ?? '',
     listingsCount: partial?.listingsCount ?? 0,
     reviewsCount: partial?.reviewsCount ?? 0,
@@ -352,6 +354,9 @@ export const getStayListingByHandle = cache(async (
       displayName: contactName?.trim() || listing.title?.trim() || 'Host',
       avatarUrl: avatars1.src,
       handle: listing.handle || 'host',
+      // Ilan slug'i bir tedarikci profili degildir. Profil API'si gercek bir
+      // profil dondurene kadar /authors/{ilan-slug'i} baglantisi uretmeyin.
+      hasPublicProfile: false,
       description: contactBio ?? '',
       listingsCount: 0,
       reviewsCount: listing.reviewCount ?? 0,
