@@ -106,6 +106,18 @@ export function ActivityBasicsStepPanel({
   }
   return (
     <div className="space-y-6">
+      <div className="rounded-2xl border border-emerald-200 bg-emerald-50/70 p-4 dark:border-emerald-900/50 dark:bg-emerald-950/20">
+        <div className="flex items-start gap-3">
+          <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-emerald-600" />
+          <div>
+            <h3 className="text-sm font-semibold text-emerald-950 dark:text-emerald-100">Hızlı ilan girişi</h3>
+            <p className="mt-1 text-xs leading-relaxed text-emerald-800 dark:text-emerald-300">
+              Kategori, toplam süre ve zorluk derecesini seçmeniz başlangıç için yeterlidir. Diğer ayrıntıları daha sonra da tamamlayabilirsiniz.
+            </p>
+          </div>
+        </div>
+      </div>
+
       {/* Aktivite Kategorisi */}
       <div className="rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm dark:border-neutral-700 dark:bg-neutral-800">
         <h3 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-neutral-800 dark:text-neutral-200">
@@ -116,30 +128,43 @@ export function ActivityBasicsStepPanel({
           Acentenizde sunduğunuz aktivitenin ana türünü seçin.
         </p>
 
-        <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {ACTIVITY_CATEGORIES.map((cat) => {
-            const isSelected = (values.activity_category || 'paragliding') === cat.value
-            return (
-              <button
-                key={cat.value}
-                type="button"
-                onClick={() => emitChange({ activity_category: cat.value })}
-                className={`flex flex-col items-start rounded-xl border p-3.5 text-left transition-all ${
-                  isSelected
-                    ? 'border-primary-600 bg-primary-50/70 ring-2 ring-primary-500/20 dark:border-primary-500 dark:bg-primary-950/30'
-                    : 'border-neutral-200 bg-neutral-50/50 hover:border-neutral-300 dark:border-neutral-700 dark:bg-neutral-900/30'
-                }`}
-              >
-                <span className="font-semibold text-sm text-neutral-900 dark:text-white">
-                  {cat.label}
-                </span>
-                <span className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">
-                  {cat.desc}
-                </span>
-              </button>
-            )
-          })}
-        </div>
+        <select
+          disabled={disabled}
+          className="mt-4 w-full rounded-xl border border-neutral-300 bg-white px-3 py-2.5 text-sm font-medium text-neutral-900 dark:border-neutral-600 dark:bg-neutral-900 dark:text-white"
+          value={values.activity_category || 'paragliding'}
+          onChange={(e) => emitChange({ activity_category: e.target.value })}
+        >
+          {ACTIVITY_CATEGORIES.map((cat) => (
+            <option key={cat.value} value={cat.value}>{cat.label}</option>
+          ))}
+        </select>
+
+        <details className="mt-3 rounded-xl border border-neutral-200 bg-neutral-50/60 dark:border-neutral-700 dark:bg-neutral-900/30">
+          <summary className="cursor-pointer px-4 py-3 text-xs font-semibold text-neutral-700 dark:text-neutral-300">
+            Kategorileri açıklamalarıyla göster
+          </summary>
+          <div className="grid gap-3 border-t border-neutral-200 p-4 sm:grid-cols-2 lg:grid-cols-3 dark:border-neutral-700">
+            {ACTIVITY_CATEGORIES.map((cat) => {
+              const isSelected = (values.activity_category || 'paragliding') === cat.value
+              return (
+                <button
+                  key={cat.value}
+                  type="button"
+                  disabled={disabled}
+                  onClick={() => emitChange({ activity_category: cat.value })}
+                  className={`flex flex-col items-start rounded-xl border p-3.5 text-left transition-all ${
+                    isSelected
+                      ? 'border-primary-600 bg-primary-50/70 ring-2 ring-primary-500/20 dark:border-primary-500 dark:bg-primary-950/30'
+                      : 'border-neutral-200 bg-white hover:border-neutral-300 dark:border-neutral-700 dark:bg-neutral-900'
+                  }`}
+                >
+                  <span className="text-sm font-semibold text-neutral-900 dark:text-white">{cat.label}</span>
+                  <span className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">{cat.desc}</span>
+                </button>
+              )
+            })}
+          </div>
+        </details>
       </div>
 
       {/* Süre ve Zorluk Seviyesi */}
@@ -857,7 +882,7 @@ export function ActivitySessionsStepPanel({
               </div>
             </div>
 
-            {/* Seans Alanları */}
+            {/* Sık kullanılan seans alanları */}
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
               <Field className="block sm:col-span-2">
                 <Label className="text-xs font-medium">Seans Adı / Tanımı</Label>
@@ -912,22 +937,6 @@ export function ActivitySessionsStepPanel({
               </Field>
 
               <Field className="block">
-                <Label className="text-xs font-medium">
-                  Çocuk Fiyatı ({session.currency_code || currency})
-                </Label>
-                <Input
-                  type="number"
-                  min="0"
-                  step="1"
-                  disabled={disabled}
-                  className="mt-1 font-mono"
-                  placeholder="2500 (Boşsa tam fiyat)"
-                  value={session.child_price || ''}
-                  onChange={(e) => handleUpdate(idx, { child_price: e.target.value })}
-                />
-              </Field>
-
-              <Field className="block">
                 <Label className="text-xs font-medium">Kontenjan (Kişi Kapasitesi)</Label>
                 <Input
                   type="number"
@@ -940,55 +949,47 @@ export function ActivitySessionsStepPanel({
                 />
               </Field>
 
-              <Field className="block">
-                <Label className="text-xs font-medium">Para Birimi</Label>
-                <select
-                  disabled={disabled}
-                  className="mt-1 w-full rounded-xl border border-neutral-300 bg-white px-3 py-2 text-sm dark:border-neutral-600 dark:bg-neutral-900"
-                  value={session.currency_code || currency}
-                  onChange={(e) => handleUpdate(idx, { currency_code: e.target.value })}
-                >
-                  <option value="TRY">TRY (₺)</option>
-                  <option value="EUR">EUR (€)</option>
-                  <option value="USD">USD ($)</option>
-                  <option value="GBP">GBP (£)</option>
-                </select>
-              </Field>
-
-              <Field className="block">
-                <Label className="text-xs font-medium">Sezon Başlangıç Tarihi</Label>
-                <Input
-                  type="date"
-                  disabled={disabled}
-                  className="mt-1"
-                  value={session.valid_from}
-                  onChange={(e) => handleUpdate(idx, { valid_from: e.target.value })}
-                />
-              </Field>
-
-              <Field className="block">
-                <Label className="text-xs font-medium">Sezon Bitiş Tarihi</Label>
-                <Input
-                  type="date"
-                  disabled={disabled}
-                  className="mt-1"
-                  value={session.valid_to}
-                  onChange={(e) => handleUpdate(idx, { valid_to: e.target.value })}
-                />
-              </Field>
-
-              <Field className="block sm:col-span-2">
-                <Label className="text-xs font-medium">Seans Notu / Ekstra Dahil Olanlar</Label>
-                <Input
-                  type="text"
-                  disabled={disabled}
-                  className="mt-1"
-                  placeholder="ör. Gün batımı kızıllığı, GoPro 4K video çekimi fiyata dahil"
-                  value={session.description || ''}
-                  onChange={(e) => handleUpdate(idx, { description: e.target.value })}
-                />
-              </Field>
             </div>
+
+            <details className="mt-4 rounded-xl border border-neutral-200 bg-neutral-50/70 dark:border-neutral-700 dark:bg-neutral-900/40">
+              <summary className="cursor-pointer px-4 py-3 text-xs font-semibold text-neutral-700 dark:text-neutral-300">
+                Gelişmiş seans ayarları: çocuk fiyatı, sezon, para birimi ve not
+              </summary>
+              <div className="grid gap-4 border-t border-neutral-200 p-4 sm:grid-cols-2 lg:grid-cols-4 dark:border-neutral-700">
+                <Field className="block">
+                  <Label className="text-xs font-medium">Çocuk Fiyatı ({session.currency_code || currency})</Label>
+                  <Input type="number" min="0" step="1" disabled={disabled} className="mt-1 font-mono"
+                    placeholder="Boşsa çocuk fiyatı kullanılmaz" value={session.child_price || ''}
+                    onChange={(e) => handleUpdate(idx, { child_price: e.target.value })} />
+                </Field>
+                <Field className="block">
+                  <Label className="text-xs font-medium">Para Birimi</Label>
+                  <select disabled={disabled}
+                    className="mt-1 w-full rounded-xl border border-neutral-300 bg-white px-3 py-2 text-sm dark:border-neutral-600 dark:bg-neutral-900"
+                    value={session.currency_code || currency}
+                    onChange={(e) => handleUpdate(idx, { currency_code: e.target.value })}>
+                    <option value="TRY">TRY (₺)</option><option value="EUR">EUR (€)</option>
+                    <option value="USD">USD ($)</option><option value="GBP">GBP (£)</option>
+                  </select>
+                </Field>
+                <Field className="block">
+                  <Label className="text-xs font-medium">Sezon Başlangıç Tarihi</Label>
+                  <Input type="date" disabled={disabled} className="mt-1" value={session.valid_from}
+                    onChange={(e) => handleUpdate(idx, { valid_from: e.target.value })} />
+                </Field>
+                <Field className="block">
+                  <Label className="text-xs font-medium">Sezon Bitiş Tarihi</Label>
+                  <Input type="date" disabled={disabled} className="mt-1" value={session.valid_to}
+                    onChange={(e) => handleUpdate(idx, { valid_to: e.target.value })} />
+                </Field>
+                <Field className="block sm:col-span-2 lg:col-span-4">
+                  <Label className="text-xs font-medium">Seans Notu / Ekstra Dahil Olanlar</Label>
+                  <Input type="text" disabled={disabled} className="mt-1"
+                    placeholder="ör. GoPro çekimi veya ikram fiyata dahil" value={session.description || ''}
+                    onChange={(e) => handleUpdate(idx, { description: e.target.value })} />
+                </Field>
+              </div>
+            </details>
           </div>
         ))}
       </div>
