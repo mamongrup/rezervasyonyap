@@ -27,6 +27,10 @@ import { isStayRentalCategory } from '@/lib/stay-rental-categories'
 import { DEFAULT_LISTING_PREPAYMENT_PERCENT } from '@/lib/listing-prepayment'
 import { managePublicDetailPathForVertical } from '@/lib/stay-detail-routes'
 import { DETAIL_SEGMENT_BY_VERTICAL } from '@/lib/listing-detail-routes'
+import {
+  activityStartingPrice,
+  syncSingleActivitySessionPrice,
+} from '@/lib/activity-session-pricing'
 import { notifyCatalogRevalidate } from '@/lib/notify-catalog-revalidate'
 import { SLUG_TO_CODE } from '@/lib/listings-fetcher'
 import { useVitrinHref } from '@/hooks/use-vitrin-href'
@@ -2152,8 +2156,7 @@ export default function CatalogNewListingClient({
           listManageActivitySessions(token, editListingId, orgParam)
             .then((r) => {
               if (!cancelled && r.sessions?.length > 0) {
-                setActivitySessions(
-                  r.sessions.map((s) => ({
+                const hydratedSessions = r.sessions.map((s) => ({
                     id: s.id,
                     session_name: `${s.start_time?.slice(0, 5) || ''} Seansı`,
                     start_time: s.start_time?.slice(0, 5) || '08:30',
@@ -2166,8 +2169,9 @@ export default function CatalogNewListingClient({
                     valid_to: s.valid_to || `${new Date().getFullYear()}-11-30`,
                     is_active: s.is_active !== false,
                     description: '',
-                  })),
-                )
+                  }))
+                setActivitySessions(hydratedSessions)
+                setBasePrice(activityStartingPrice(hydratedSessions))
               }
             })
             .catch(() => {})
@@ -2278,7 +2282,9 @@ export default function CatalogNewListingClient({
             }
           }
         }
-        if (hydratedNightly) setBasePrice(hydratedNightly)
+        // Activity storefront pricing comes from session fares. A generic price rule
+        // must not overwrite the session-derived amount hydrated above.
+        if (hydratedNightly && categoryCode !== 'activity') setBasePrice(hydratedNightly)
 
         const feedUrl = feedsRes.feeds[0]?.url
         if (feedUrl?.trim()) setIcalImportUrl(feedUrl.trim())
@@ -3979,6 +3985,7 @@ export default function CatalogNewListingClient({
       }
 
       if (isActivity) {
+        const sessionsToSave = syncSingleActivitySessionPrice(activitySessions, basePrice, currency)
         await saveRequiredStep(
           'Aktivite acente özellikleri kaydı',
           putVerticalMeta(
@@ -3987,14 +3994,14 @@ export default function CatalogNewListingClient({
             'activity',
             {
               ...activityAgencyState,
-              sessions: activitySessions,
+              sessions: sessionsToSave,
             },
             orgParam,
           ),
         )
 
-        if (activitySessions.length > 0) {
-          const validSessions = activitySessions
+        if (sessionsToSave.length > 0) {
+          const validSessions = sessionsToSave
             .filter((s) => s.valid_from && s.valid_to && s.start_time)
             .map((s, idx) => ({
               id: s.id,
@@ -7134,7 +7141,18 @@ export default function CatalogNewListingClient({
               >
                 <Field className="block max-w-md">
                   <Label>Para birimi <span className="text-red-500">*</span></Label>
-                  <select value={currency} onChange={(e) => setCurrency(e.target.value)} required className={`mt-1 ${selectCls}`}>
+                  <select
+                    value={currency}
+                    onChange={(e) => {
+                      const nextCurrency = e.target.value
+                      setCurrency(nextCurrency)
+                      setActivitySessions((sessions) =>
+                        syncSingleActivitySessionPrice(sessions, basePrice, nextCurrency),
+                      )
+                    }}
+                    required
+                    className={`mt-1 ${selectCls}`}
+                  >
                     {currencies.map((c) => <option key={c.code} value={c.code}>{c.code} — {c.name}</option>)}
                     {currencies.length === 0 && <option value="TRY">TRY — Turkish Lira</option>}
                   </select>
@@ -7147,8 +7165,27 @@ export default function CatalogNewListingClient({
                 </div>
                 <Field className="mt-4 block max-w-md">
                   <Label>Başlangıç fiyatı ({currency})</Label>
-                  <Input type="number" min="0" step="0.01" className="mt-1" value={basePrice} onChange={(e) => setBasePrice(e.target.value)} placeholder="Örn. 750" />
-                  <HintText>Kişi başı vitrin başlangıç fiyatı. Asıl satış fiyatları Seanslar & Fiyatlar adımında yönetilir.</HintText>
+                  <Input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    className="mt-1"
+                    value={activitySessions.length === 1 ? basePrice : activityStartingPrice(activitySessions)}
+                    disabled={activitySessions.length !== 1 || saveLocked}
+                    onChange={(e) => {
+                      const nextPrice = e.target.value
+                      setBasePrice(nextPrice)
+                      setActivitySessions((sessions) =>
+                        syncSingleActivitySessionPrice(sessions, nextPrice, currency),
+                      )
+                    }}
+                    placeholder="Örn. 750"
+                  />
+                  <HintText>
+                    {activitySessions.length === 1
+                      ? 'Bu fiyat tek seansın yetişkin fiyatıyla birlikte güncellenir.'
+                      : 'Vitrin başlangıç fiyatı seanslardaki en düşük aktif yetişkin fiyatıdır; Seanslar & Fiyatlar adımından düzenleyin.'}
+                  </HintText>
                 </Field>
               </Section>
             )}
