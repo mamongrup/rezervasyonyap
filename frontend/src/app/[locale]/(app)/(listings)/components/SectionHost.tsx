@@ -15,6 +15,8 @@ interface Props {
   avatarUrl: string
   displayName: string
   handle: string
+  /** Yalnizca gercek ve yayinda bir tedarikci profili varsa etkinlestirilir. */
+  hasPublicProfile?: boolean
   rating: number
   reviewsCount: number
   listingsCount: number
@@ -33,6 +35,7 @@ const SectionHost = ({
   description,
   displayName,
   handle,
+  hasPublicProfile = false,
   joinedDate,
   rating,
   responseRate,
@@ -47,6 +50,7 @@ const SectionHost = ({
     labelVariant === 'listingOwner'
       ? (detailPage.listingOwner ?? detailPage.host)
       : detailPage.host
+  const profileHref = hasPublicProfile && handle.trim() && handle !== 'host' ? `/authors/${handle}` : null
 
   return (
     <div className="listingSection__wrap">
@@ -54,7 +58,7 @@ const SectionHost = ({
         <HostAvatar avatarUrl={avatarUrl} />
         <div>
           <SectionHeading>
-            <Link href={'/authors/' + handle}>{displayName}</Link>
+            {profileHref ? <Link href={profileHref}>{displayName}</Link> : displayName}
           </SectionHeading>
           <div className="mt-1.5 flex items-center text-sm text-neutral-500 dark:text-neutral-400">
             <StartRating point={rating} reviewCount={reviewsCount} />
@@ -96,7 +100,7 @@ const SectionHost = ({
       </div>
 
       <div className="flex gap-2">
-        <ButtonSecondary href={'/authors/' + handle}>{h.viewProfile}</ButtonSecondary>
+        {profileHref ? <ButtonSecondary href={profileHref}>{h.viewProfile}</ButtonSecondary> : null}
         <ButtonSecondary outline>
           {h.share}
           <HugeiconsIcon icon={Navigation03Icon} size={20} color="currentColor" strokeWidth={1.5} className="mb-px" />

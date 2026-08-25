@@ -49,11 +49,18 @@ export type Yolcu360Settings = {
   listing_status: 'draft' | 'published'
 }
 
+export type CoreCruiseSettings = {
+  enabled: boolean
+  base_url: string
+  api_token: string
+}
+
 export type ListingApiProvidersSettings = {
   wtatil: WtatilSettings
   travelrobot: TravelrobotSettings
   turna: TurnaSettings
   yolcu360: Yolcu360Settings
+  core_cruise: CoreCruiseSettings
 }
 
 function preserveString(form: string, stored: string | undefined): string {
@@ -63,16 +70,13 @@ function preserveString(form: string, stored: string | undefined): string {
 
 export function mergeListingApiProvidersForSave(
   form: ListingApiProvidersSettings,
-  stored: ListingApiProvidersSettings | null | undefined,
+  stored: ListingApiProvidersSettings | null | undefined
 ): ListingApiProvidersSettings {
   const prev = stored
   return {
     wtatil: {
       ...form.wtatil,
-      application_secret_key: preserveString(
-        form.wtatil.application_secret_key,
-        prev?.wtatil.application_secret_key,
-      ),
+      application_secret_key: preserveString(form.wtatil.application_secret_key, prev?.wtatil.application_secret_key),
       password: preserveString(form.wtatil.password, prev?.wtatil.password),
       username: preserveString(form.wtatil.username, prev?.wtatil.username),
       agency_id: preserveString(form.wtatil.agency_id, prev?.wtatil.agency_id),
@@ -81,20 +85,11 @@ export function mergeListingApiProvidersForSave(
     travelrobot: {
       ...form.travelrobot,
       channel_code: preserveString(form.travelrobot.channel_code, prev?.travelrobot.channel_code),
-      channel_password: preserveString(
-        form.travelrobot.channel_password,
-        prev?.travelrobot.channel_password,
-      ),
+      channel_password: preserveString(form.travelrobot.channel_password, prev?.travelrobot.channel_password),
       base_url: preserveString(form.travelrobot.base_url, prev?.travelrobot.base_url),
       static_user: preserveString(form.travelrobot.static_user, prev?.travelrobot.static_user),
-      static_password: preserveString(
-        form.travelrobot.static_password,
-        prev?.travelrobot.static_password,
-      ),
-      static_base_url: preserveString(
-        form.travelrobot.static_base_url,
-        prev?.travelrobot.static_base_url,
-      ),
+      static_password: preserveString(form.travelrobot.static_password, prev?.travelrobot.static_password),
+      static_base_url: preserveString(form.travelrobot.static_base_url, prev?.travelrobot.static_base_url),
     },
     turna: {
       ...form.turna,
@@ -107,12 +102,15 @@ export function mergeListingApiProvidersForSave(
       api_secret: preserveString(form.yolcu360.api_secret, prev?.yolcu360.api_secret),
       base_url: preserveString(form.yolcu360.base_url, prev?.yolcu360.base_url),
     },
+    core_cruise: {
+      ...form.core_cruise,
+      api_token: preserveString(form.core_cruise.api_token, prev?.core_cruise.api_token),
+      base_url: preserveString(form.core_cruise.base_url, prev?.core_cruise.base_url),
+    },
   }
 }
 
-export function parseListingApiProvidersValue(
-  valueJson: unknown,
-): Partial<ListingApiProvidersSettings> | null {
+export function parseListingApiProvidersValue(valueJson: unknown): Partial<ListingApiProvidersSettings> | null {
   if (!valueJson) return null
   try {
     const v = typeof valueJson === 'string' ? JSON.parse(valueJson) : valueJson

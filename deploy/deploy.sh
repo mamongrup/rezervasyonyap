@@ -304,9 +304,12 @@ main() {
       NEXT_TELEMETRY_DISABLED=1 npm run build
     npm prune --omit=dev
 
-    if [[ "$WEB_STOPPED_FOR_BUILD" == "1" ]] && [[ "${RESTART_WEB}" != "1" ]]; then
+    # Frontend build tamamlanir tamamlanmaz siteyi geri ac. SQL modulleri, timer
+    # kurulumlari ve cache isitma uzun surebilir; web'i final restart asamasina
+    # kadar kapali tutmak gereksiz 503 kesintisi olusturur.
+    if [[ "$WEB_STOPPED_FOR_BUILD" == "1" ]]; then
       systemctl start travel-web.service
-      ok "travel-web yeniden baslatildi (RESTART_WEB=0)"
+      ok "travel-web frontend build sonrasi yeniden baslatildi"
     fi
   )
   ok "frontend build tamam"

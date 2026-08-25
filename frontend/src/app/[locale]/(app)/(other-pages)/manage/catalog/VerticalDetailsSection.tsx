@@ -50,7 +50,7 @@ import ActivityVitrinManageSection, {
 } from './ActivityVitrinManageSection'
 import { unwrapVerticalMetaPayload } from '@/lib/listing-pools'
 import ButtonPrimary from '@/shared/ButtonPrimary'
-import { Field, Label } from '@/shared/fieldset'
+import { Field, Label } from '@/components/manage/ManageFormField'
 import Input from '@/shared/Input'
 import { useVitrinHref } from '@/hooks/use-vitrin-href'
 import Link from 'next/link'

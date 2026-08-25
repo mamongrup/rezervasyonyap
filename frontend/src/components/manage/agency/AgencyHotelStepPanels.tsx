@@ -1,7 +1,7 @@
 'use client'
 
 import React from 'react'
-import { Field, Label } from '@/shared/fieldset'
+import { Field, Label } from '@/components/manage/ManageFormField'
 import Input from '@/shared/Input'
 import {
   Hotel,

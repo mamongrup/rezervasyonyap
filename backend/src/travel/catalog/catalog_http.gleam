@@ -2872,10 +2872,30 @@ fn put_activity_sessions_body_decoder() -> decode.Decoder(
   })
 }
 
-fn opt_text_param(raw: String) -> pog.Value {
-  case string.trim(raw) == "" {
-    True -> pog.null()
-    False -> pog.text(string.trim(raw))
+fn parse_activity_start_time(raw: String) -> Result(calendar.TimeOfDay, Nil) {
+  case string.split(string.trim(raw), ":") {
+    [hours_raw, minutes_raw] -> {
+      use hours <- result.try(int.parse(hours_raw))
+      use minutes <- result.try(int.parse(minutes_raw))
+      let time = calendar.TimeOfDay(hours, minutes, 0, 0)
+      case calendar.is_valid_time_of_day(time) {
+        True -> Ok(time)
+        False -> Error(Nil)
+      }
+    }
+    _ -> Error(Nil)
+  }
+}
+
+fn activity_non_negative_int(raw: String) -> Result(Int, Nil) {
+  let normalized = string.trim(raw)
+  case normalized == "" {
+    True -> Ok(0)
+    False ->
+      case int.parse(normalized) {
+        Ok(value) if value >= 0 -> Ok(value)
+        _ -> Error(Nil)
+      }
   }
 }
 
@@ -2917,24 +2937,38 @@ fn insert_activity_sessions(
         _, valid_from, valid_to, start_time, duration_minutes, capacity, is_active,
         sort_order, adult_price, child_price, currency_code,
       ) = first
-      case parse_iso_date_ymd(valid_from), parse_iso_date_ymd(valid_to) {
-        Ok(from_date), Ok(to_date) ->
+      case
+        parse_iso_date_ymd(valid_from),
+        parse_iso_date_ymd(valid_to),
+        parse_activity_start_time(start_time),
+        activity_non_negative_int(duration_minutes),
+        activity_non_negative_int(capacity),
+        activity_non_negative_int(sort_order)
+      {
+        Ok(from_date), Ok(to_date), Ok(start_time_value), Ok(duration_value),
+          Ok(capacity_value), Ok(sort_value) ->
           case
             pog.query(
-              "insert into listing_activity_sessions (listing_id, valid_from, valid_to, start_time, duration_minutes, capacity, is_active, sort_order) values ($1::uuid, $2::date, $3::date, $4::time, case when trim(coalesce($5::text,'')) = '' then 0 else $5::int end, case when trim(coalesce($6::text,'')) = '' then 0 else $6::int end, $7, case when trim(coalesce($8::text,'')) = '' then 0 else $8::int end) returning id::text",
+              "insert into listing_activity_sessions (listing_id, valid_from, valid_to, start_time, duration_minutes, capacity, is_active, sort_order) values ($1::uuid, $2::date, $3::date, $4::time, $5, $6, $7, $8) returning id::text",
             )
             |> pog.parameter(pog.text(listing_id))
             |> pog.parameter(pog.calendar_date(from_date))
             |> pog.parameter(pog.calendar_date(to_date))
-            |> pog.parameter(pog.text(string.trim(start_time)))
-            |> pog.parameter(opt_text_param(duration_minutes))
-            |> pog.parameter(opt_text_param(capacity))
+            |> pog.parameter(pog.calendar_time_of_day(start_time_value))
+            |> pog.parameter(pog.int(duration_value))
+            |> pog.parameter(pog.int(capacity_value))
             |> pog.parameter(pog.bool(is_active))
-            |> pog.parameter(opt_text_param(sort_order))
+            |> pog.parameter(pog.int(sort_value))
             |> pog.returning(one_string_row())
             |> pog.execute(conn)
           {
-            Error(_) -> Error("activity_session_insert_failed")
+            Error(e) -> {
+              io.println(
+                "[catalog.put_activity_sessions:insert] "
+                <> pog_errors.query_error_to_string(e),
+              )
+              Error("activity_session_insert_failed")
+            }
             Ok(ret) ->
               case ret.rows {
                 [session_id] ->
@@ -2949,7 +2983,12 @@ fn insert_activity_sessions(
                 _ -> Error("activity_session_missing_id")
               }
           }
-        _, _ -> Error("invalid_activity_session_date")
+        Error(_), _, _, _, _, _ -> Error("invalid_activity_session_date")
+        _, Error(_), _, _, _, _ -> Error("invalid_activity_session_date")
+        _, _, Error(_), _, _, _ -> Error("invalid_activity_session_time")
+        _, _, _, Error(_), _, _ -> Error("invalid_activity_session_duration")
+        _, _, _, _, Error(_), _ -> Error("invalid_activity_session_capacity")
+        _, _, _, _, _, Error(_) -> Error("invalid_activity_session_sort_order")
       }
     }
   }

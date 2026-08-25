@@ -27,6 +27,11 @@ import { isStayRentalCategory } from '@/lib/stay-rental-categories'
 import { DEFAULT_LISTING_PREPAYMENT_PERCENT } from '@/lib/listing-prepayment'
 import { managePublicDetailPathForVertical } from '@/lib/stay-detail-routes'
 import { DETAIL_SEGMENT_BY_VERTICAL } from '@/lib/listing-detail-routes'
+import {
+  activitySessionsForSave,
+  activityStartingPrice,
+  syncSingleActivitySessionPrice,
+} from '@/lib/activity-session-pricing'
 import { notifyCatalogRevalidate } from '@/lib/notify-catalog-revalidate'
 import { SLUG_TO_CODE } from '@/lib/listings-fetcher'
 import { useVitrinHref } from '@/hooks/use-vitrin-href'
@@ -157,7 +162,7 @@ import Textarea from '@/shared/Textarea'
 import RichEditor from '@/components/editor/RichEditor'
 import ImageUpload from '@/components/editor/ImageUpload'
 import MapPicker from '@/components/editor/MapPicker'
-import { Field, Label } from '@/shared/fieldset'
+import { Field, Label } from '@/components/manage/ManageFormField'
 import Link from 'next/link'
 import {
   ArrowLeft,
@@ -1329,7 +1334,11 @@ export default function CatalogNewListingClient({
 
   const isStayRentalEdit = isStayRentalWizard && Boolean(editListingId)
   const isFacilityGalleryEdit = usesFacilityGallery && Boolean(editListingId)
-  const galleryTotalCount = isFacilityGalleryEdit
+  const isListingGalleryEdit = Boolean(editListingId)
+  const galleryPreviewKeys = isListingGalleryEdit
+    ? [...listingGalleryUrls, ...pendingGalleryKeys.filter((key) => !listingGalleryUrls.includes(key))]
+    : pendingGalleryKeys
+  const galleryTotalCount = isListingGalleryEdit
     ? listingGalleryUrls.length + pendingGalleryKeys.filter((k) => !listingGalleryUrls.includes(k)).length
     : pendingGalleryKeys.length
 
@@ -2204,8 +2213,7 @@ export default function CatalogNewListingClient({
           listManageActivitySessions(token, editListingId, orgParam)
             .then((r) => {
               if (!cancelled && r.sessions?.length > 0) {
-                setActivitySessions(
-                  r.sessions.map((s) => ({
+                const hydratedSessions = r.sessions.map((s) => ({
                     id: s.id,
                     session_name: `${s.start_time?.slice(0, 5) || ''} Seansı`,
                     start_time: s.start_time?.slice(0, 5) || '08:30',
@@ -2218,8 +2226,9 @@ export default function CatalogNewListingClient({
                     valid_to: s.valid_to || `${new Date().getFullYear()}-11-30`,
                     is_active: s.is_active !== false,
                     description: '',
-                  })),
-                )
+                  }))
+                setActivitySessions(hydratedSessions)
+                setBasePrice(activityStartingPrice(hydratedSessions))
               }
             })
             .catch(() => {})
@@ -2330,7 +2339,9 @@ export default function CatalogNewListingClient({
             }
           }
         }
-        if (hydratedNightly) setBasePrice(hydratedNightly)
+        // Activity storefront pricing comes from session fares. A generic price rule
+        // must not overwrite the session-derived amount hydrated above.
+        if (hydratedNightly && categoryCode !== 'activity') setBasePrice(hydratedNightly)
 
         const feedUrl = feedsRes.feeds[0]?.url
         if (feedUrl?.trim()) setIcalImportUrl(feedUrl.trim())
@@ -2611,7 +2622,7 @@ export default function CatalogNewListingClient({
 
   /** Galeri alt sayfasından dönünce önizlemeyi güncelle */
   useEffect(() => {
-    if (!usesFacilityGallery || !editListingId) return
+    if (!editListingId) return
     const reloadPreview = () => {
       const token = getStoredAuthToken()
       if (!token) return
@@ -2636,7 +2647,7 @@ export default function CatalogNewListingClient({
       window.removeEventListener('focus', reloadPreview)
       document.removeEventListener('visibilitychange', onVis)
     }
-  }, [usesFacilityGallery, categoryCode, editListingId, needOrg, orgId])
+  }, [categoryCode, editListingId, needOrg, orgId])
 
   /** Etiketsiz galeri: boş slotları sırayla doldur; geçersiz anahtarları temizle */
   useEffect(() => {
@@ -4031,6 +4042,7 @@ export default function CatalogNewListingClient({
       }
 
       if (isActivity) {
+        const sessionsToSave = activitySessions
         await saveRequiredStep(
           'Aktivite acente özellikleri kaydı',
           putVerticalMeta(
@@ -4039,33 +4051,21 @@ export default function CatalogNewListingClient({
             'activity',
             {
               ...activityAgencyState,
-              sessions: activitySessions,
+              sessions: sessionsToSave,
             },
             orgParam,
           ),
         )
 
-        if (activitySessions.length > 0) {
-          const validSessions = activitySessions
-            .filter((s) => s.valid_from && s.valid_to && s.start_time)
-            .map((s, idx) => ({
-              id: s.id,
-              valid_from: s.valid_from,
-              valid_to: s.valid_to,
-              start_time: s.start_time,
-              duration_minutes: s.duration_minutes || '60',
-              capacity: s.capacity || '10',
-              is_active: s.is_active,
-              sort_order: String(idx),
-              adult_price: s.adult_price || '0',
-              child_price: s.child_price || null,
-              currency_code: s.currency_code || currency || 'TRY',
-            }))
+        if (sessionsToSave.length > 0) {
+          const validSessions = activitySessionsForSave(sessionsToSave, currency)
           if (validSessions.length > 0) {
             await saveRequiredStep(
               'Aktivite seansları kaydı',
-              putManageActivitySessions(token, lid, validSessions, orgParam).catch(() => ({ ok: false })),
+              putManageActivitySessions(token, lid, validSessions, orgParam),
             )
+            setActivitySessions(sessionsToSave)
+            setBasePrice(activityStartingPrice(sessionsToSave))
           }
         }
       }
@@ -5431,13 +5431,13 @@ export default function CatalogNewListingClient({
 
               <div className="mt-4 max-w-4xl">
                 <ManageListingGalleryHeroPreview
-                  urls={usesFacilityGallery ? heroPreviewFiveKeys : pendingGalleryKeys}
-                  totalCount={usesFacilityGallery ? galleryTotalCount : pendingGalleryKeys.length}
+                  urls={usesFacilityGallery ? heroPreviewFiveKeys : galleryPreviewKeys.slice(0, 5)}
+                  totalCount={galleryTotalCount}
                   manageHref={galleryManageHref}
                   manageLabel="Galeriyi düzenle"
                   emptyHint={
-                    isFacilityGalleryEdit
-                      ? 'Henüz görsel yok — galeri sayfasından ekleyin.'
+                    isListingGalleryEdit
+                      ? 'Henüz görsel yok — aşağıdan yükleyip kaydedin.'
                       : 'Henüz görsel yok — aşağıdan yükleyin.'
                   }
                   interactiveSlots={
@@ -5538,15 +5538,17 @@ export default function CatalogNewListingClient({
                 />
               ) : null}
 
-              {!isStayRentalEdit && pendingGalleryKeys.length > 5 ? (
+              {!isStayRentalEdit && galleryPreviewKeys.length > 5 ? (
                 <p className="mt-2 text-xs text-neutral-500 dark:text-neutral-400">
-                  Aşağıda yer kaplamadan küçük özet ({pendingGalleryKeys.length} görsel). Çıkarmak için × kullanın.
+                  Aşağıda yer kaplamadan küçük özet ({galleryPreviewKeys.length} görsel).
                 </p>
               ) : null}
 
-              {!isStayRentalEdit && pendingGalleryKeys.length > 0 ? (
+              {!isStayRentalEdit && galleryPreviewKeys.length > 0 ? (
                 <div className="mt-3 flex max-w-4xl gap-2 overflow-x-auto pb-1 pt-1">
-                  {pendingGalleryKeys.map((im, idx) => (
+                  {galleryPreviewKeys.map((im, idx) => {
+                    const pendingIndex = pendingGalleryKeys.indexOf(im)
+                    return (
                     <div
                       key={`${im}-${idx}`}
                       className="relative h-14 w-[5.25rem] shrink-0 overflow-hidden rounded-lg border border-neutral-200 bg-neutral-100 dark:border-neutral-700 dark:bg-neutral-800"
@@ -5556,17 +5558,20 @@ export default function CatalogNewListingClient({
                         alt=""
                         className="h-full w-full object-cover"
                       />
-                      <button
-                        type="button"
-                        className="absolute end-0 top-0 rounded-bl-md bg-red-600 px-1 py-0.5 text-[10px] font-bold leading-none text-white hover:bg-red-700 disabled:opacity-50"
-                        onClick={() => removePendingGallery(idx)}
-                        disabled={saveLocked}
-                        title="Listeden çıkar"
-                      >
-                        ×
-                      </button>
+                      {pendingIndex >= 0 ? (
+                        <button
+                          type="button"
+                          className="absolute end-0 top-0 rounded-bl-md bg-red-600 px-1 py-0.5 text-[10px] font-bold leading-none text-white hover:bg-red-700 disabled:opacity-50"
+                          onClick={() => removePendingGallery(pendingIndex)}
+                          disabled={saveLocked}
+                          title="Yeni yüklenen görseli listeden çıkar"
+                        >
+                          ×
+                        </button>
+                      ) : null}
                     </div>
-                  ))}
+                    )
+                  })}
                 </div>
               ) : null}
 
@@ -5583,14 +5588,14 @@ export default function CatalogNewListingClient({
                       subPath={gallerySubPath}
                       prefix={gallerySlugBase}
                       imageIndex={
-                        (isFacilityGalleryEdit ? listingGalleryUrls.length : 0) +
+                        (isListingGalleryEdit ? listingGalleryUrls.length : 0) +
                         pendingGalleryKeys.length +
                         1
                       }
                       aspectRatio="4/3"
                       multiple
                       onBatchComplete={onPendingGalleryBatchUploaded}
-                      placeholder={`${gallerySlugBase}-${(isFacilityGalleryEdit ? listingGalleryUrls.length : 0) + pendingGalleryKeys.length + 1}.avif — çoklu seçim veya sürükleyip bırakın`}
+                      placeholder={`${gallerySlugBase}-${(isListingGalleryEdit ? listingGalleryUrls.length : 0) + pendingGalleryKeys.length + 1}.avif — çoklu seçim veya sürükleyip bırakın`}
                     />
                   </div>
                   <p className="mt-1 text-xs text-neutral-400">
@@ -6030,7 +6035,10 @@ export default function CatalogNewListingClient({
               >
                 <ActivitySessionsStepPanel
                   sessions={activitySessions}
-                  onChange={setActivitySessions}
+                  onChange={(nextSessions) => {
+                    setActivitySessions(nextSessions)
+                    setBasePrice(activityStartingPrice(nextSessions))
+                  }}
                   currency={currency}
                   disabled={saveLocked}
                 />
@@ -7167,7 +7175,18 @@ export default function CatalogNewListingClient({
               >
                 <Field className="block max-w-md">
                   <Label>Para birimi <span className="text-red-500">*</span></Label>
-                  <select value={currency} onChange={(e) => setCurrency(e.target.value)} required className={`mt-1 ${selectCls}`}>
+                  <select
+                    value={currency}
+                    onChange={(e) => {
+                      const nextCurrency = e.target.value
+                      setCurrency(nextCurrency)
+                      setActivitySessions((sessions) =>
+                        syncSingleActivitySessionPrice(sessions, basePrice, nextCurrency),
+                      )
+                    }}
+                    required
+                    className={`mt-1 ${selectCls}`}
+                  >
                     {currencies.map((c) => <option key={c.code} value={c.code}>{c.code} — {c.name}</option>)}
                     {currencies.length === 0 && <option value="TRY">TRY — Turkish Lira</option>}
                   </select>
@@ -7180,8 +7199,27 @@ export default function CatalogNewListingClient({
                 </div>
                 <Field className="mt-4 block max-w-md">
                   <Label>Başlangıç fiyatı ({currency})</Label>
-                  <Input type="number" min="0" step="0.01" className="mt-1" value={basePrice} onChange={(e) => setBasePrice(e.target.value)} placeholder="Örn. 750" />
-                  <HintText>Kişi başı vitrin başlangıç fiyatı. Asıl satış fiyatları Seanslar & Fiyatlar adımında yönetilir.</HintText>
+                  <Input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    className="mt-1"
+                    value={activitySessions.length === 1 ? basePrice : activityStartingPrice(activitySessions)}
+                    disabled={activitySessions.length !== 1 || saveLocked}
+                    onChange={(e) => {
+                      const nextPrice = e.target.value
+                      setBasePrice(nextPrice)
+                      setActivitySessions((sessions) =>
+                        syncSingleActivitySessionPrice(sessions, nextPrice, currency),
+                      )
+                    }}
+                    placeholder="Örn. 750"
+                  />
+                  <HintText>
+                    {activitySessions.length === 1
+                      ? 'Bu fiyat tek seansın yetişkin fiyatıyla birlikte güncellenir.'
+                      : 'Vitrin başlangıç fiyatı seanslardaki en düşük aktif yetişkin fiyatıdır; Seanslar & Fiyatlar adımından düzenleyin.'}
+                  </HintText>
                 </Field>
               </Section>
             )}

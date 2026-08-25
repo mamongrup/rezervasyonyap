@@ -16,7 +16,7 @@ import {
   type ListingImage,
 } from '@/lib/travel-api'
 import ButtonPrimary from '@/shared/ButtonPrimary'
-import { Field, Label } from '@/shared/fieldset'
+import { Field, Label } from '@/components/manage/ManageFormField'
 import Input from '@/shared/Input'
 import { LISTING_IMAGE_SCENE_OPTIONS } from '@/lib/listing-image-scenes'
 import { GripVertical, Loader2, Sparkles, Trash2 } from 'lucide-react'
