@@ -469,6 +469,15 @@ export function coreCruiseClientFromEnv(env: NodeJS.ProcessEnv = process.env): C
   })
 }
 
+export function coreCruiseClientFromSettings(settings: {
+  enabled: boolean
+  base_url: string
+  api_token: string
+}): CoreCruiseClient {
+  if (!settings.enabled) throw new Error('CORE_CRUISE_disabled')
+  return new CoreCruiseClient({ token: settings.api_token, baseUrl: settings.base_url })
+}
+
 function hexBytes(value: string): Uint8Array | null {
   if (!/^[a-f\d]{64}$/i.test(value)) return null
   return Uint8Array.from(value.match(/.{2}/g) ?? [], (byte) => Number.parseInt(byte, 16))

@@ -1,22 +1,21 @@
 'use client'
 
-import { formatManageApiCatch } from '@/lib/manage-api-error-tr'
+import { getStoredAuthToken } from '@/lib/auth-storage'
 import {
   mergeListingApiProvidersForSave,
   parseListingApiProvidersValue,
+  type CoreCruiseSettings,
   type ListingApiProvidersSettings,
   type TravelrobotSettings,
   type TurnaSettings,
   type WtatilSettings,
   type Yolcu360Settings,
 } from '@/lib/listing-api-settings-merge'
-import React from 'react'
-import { getStoredAuthToken } from '@/lib/auth-storage'
-import {
-  fetchSiteSettingsFromPanel,
-  upsertSiteSettingFromPanel,
-} from '@/lib/travel-api'
+import { formatManageApiCatch } from '@/lib/manage-api-error-tr'
+import { fetchSiteSettingsFromPanel, upsertSiteSettingFromPanel } from '@/lib/travel-api'
 import { Loader2, Plug, Save } from 'lucide-react'
+import { useParams } from 'next/navigation'
+import React from 'react'
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? ''
 const SETTINGS_KEY = 'listing_api_providers'
@@ -66,12 +65,70 @@ const EMPTY_WTATIL: WtatilSettings = {
   listing_status: 'published',
 }
 
+const EMPTY_CORE_CRUISE: CoreCruiseSettings = {
+  enabled: false,
+  base_url: 'https://mamon.b2b.corecruise.ai/api/partner',
+  api_token: '',
+}
+
 const EMPTY: ListingApiProvidersSettings = {
   wtatil: EMPTY_WTATIL,
   travelrobot: EMPTY_TRAVELROBOT,
   turna: EMPTY_TURNA,
   yolcu360: EMPTY_YOLCU360,
+  core_cruise: EMPTY_CORE_CRUISE,
 }
+
+const CORE_CRUISE_COPY = {
+  tr: {
+    title: 'Core Cruise — Kruvaziyer turları',
+    description: 'Cruise kataloğu, müsaitlik, kabin, bekletme ve rezervasyon API ayarları.',
+    active: 'Aktif',
+    token: 'API Token',
+    tokenHint: 'Core Cruise yönetim panelindeki Ayarlar → API Tokens bölümünden alınır.',
+    saved: 'Core Cruise ayarları kaydedildi.',
+  },
+  en: {
+    title: 'Core Cruise — Cruise tours',
+    description: 'API settings for the cruise catalog, availability, cabins, holds, and bookings.',
+    active: 'Enabled',
+    token: 'API Token',
+    tokenHint: 'Create it under Settings → API Tokens in the Core Cruise admin panel.',
+    saved: 'Core Cruise settings saved.',
+  },
+  de: {
+    title: 'Core Cruise — Kreuzfahrten',
+    description: 'API-Einstellungen für Kreuzfahrtkatalog, Verfügbarkeit, Kabinen, Optionen und Buchungen.',
+    active: 'Aktiv',
+    token: 'API-Token',
+    tokenHint: 'Im Core-Cruise-Adminbereich unter Einstellungen → API-Tokens erstellen.',
+    saved: 'Core-Cruise-Einstellungen gespeichert.',
+  },
+  ru: {
+    title: 'Core Cruise — Круизные туры',
+    description: 'Настройки API для каталога круизов, наличия мест, кают, удержаний и бронирований.',
+    active: 'Включено',
+    token: 'API-токен',
+    tokenHint: 'Создайте токен в панели Core Cruise: Настройки → API Tokens.',
+    saved: 'Настройки Core Cruise сохранены.',
+  },
+  zh: {
+    title: 'Core Cruise — 邮轮旅游',
+    description: '邮轮目录、余位、舱房、保留和预订的 API 设置。',
+    active: '启用',
+    token: 'API 令牌',
+    tokenHint: '请在 Core Cruise 管理后台的“设置 → API Tokens”中创建。',
+    saved: 'Core Cruise 设置已保存。',
+  },
+  fr: {
+    title: 'Core Cruise — Croisières',
+    description: 'Paramètres API du catalogue, des disponibilités, cabines, options et réservations.',
+    active: 'Activé',
+    token: 'Jeton API',
+    tokenHint: 'Créez-le dans Paramètres → API Tokens du panneau Core Cruise.',
+    saved: 'Paramètres Core Cruise enregistrés.',
+  },
+} as const
 
 function Field({
   label,
@@ -99,7 +156,7 @@ function Field({
           value={value}
           onChange={(e) => onChange(e.target.value)}
           placeholder={placeholder}
-          className="w-full rounded-xl border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-900 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20 dark:border-neutral-700 dark:bg-neutral-800 dark:text-white"
+          className="w-full rounded-xl border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-900 focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 focus:outline-none dark:border-neutral-700 dark:bg-neutral-800 dark:text-white"
           autoComplete="off"
           spellCheck={false}
         />
@@ -107,7 +164,7 @@ function Field({
           <button
             type="button"
             onClick={() => setShow((s) => !s)}
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-neutral-400 hover:text-neutral-600"
+            className="absolute top-1/2 right-3 -translate-y-1/2 text-xs text-neutral-400 hover:text-neutral-600"
           >
             {show ? 'Gizle' : 'Göster'}
           </button>
@@ -118,19 +175,22 @@ function Field({
   )
 }
 
-function applyLoadedSettings(
-  parsed: Partial<ListingApiProvidersSettings> | null,
-): ListingApiProvidersSettings {
+function applyLoadedSettings(parsed: Partial<ListingApiProvidersSettings> | null): ListingApiProvidersSettings {
   if (!parsed) return EMPTY
   return {
     wtatil: { ...EMPTY_WTATIL, ...(parsed.wtatil ?? {}) },
     travelrobot: { ...EMPTY_TRAVELROBOT, ...(parsed.travelrobot ?? {}) },
     turna: { ...EMPTY_TURNA, ...(parsed.turna ?? {}) },
     yolcu360: { ...EMPTY_YOLCU360, ...(parsed.yolcu360 ?? {}) },
+    core_cruise: { ...EMPTY_CORE_CRUISE, ...(parsed.core_cruise ?? {}) },
   }
 }
 
 export default function AdminListingApiProvidersSection() {
+  const params = useParams<{ locale?: string }>()
+  const locale =
+    params?.locale && params.locale in CORE_CRUISE_COPY ? (params.locale as keyof typeof CORE_CRUISE_COPY) : 'tr'
+  const cruiseCopy = CORE_CRUISE_COPY[locale]
   const [settings, setSettings] = React.useState<ListingApiProvidersSettings>(EMPTY)
   const persistedRef = React.useRef<ListingApiProvidersSettings>(EMPTY)
   const [loading, setLoading] = React.useState(true)
@@ -147,6 +207,7 @@ export default function AdminListingApiProvidersSection() {
   const tr = settings.travelrobot
   const turna = settings.turna
   const y360 = settings.yolcu360
+  const coreCruise = settings.core_cruise
 
   const setWtatil = (patch: Partial<WtatilSettings>) => {
     setSettings((prev) => ({ ...prev, wtatil: { ...prev.wtatil, ...patch } }))
@@ -164,6 +225,10 @@ export default function AdminListingApiProvidersSection() {
     setSettings((prev) => ({ ...prev, yolcu360: { ...prev.yolcu360, ...patch } }))
   }
 
+  const setCoreCruise = (patch: Partial<CoreCruiseSettings>) => {
+    setSettings((prev) => ({ ...prev, core_cruise: { ...prev.core_cruise, ...patch } }))
+  }
+
   React.useEffect(() => {
     let cancelled = false
     const load = async () => {
@@ -172,9 +237,7 @@ export default function AdminListingApiProvidersSection() {
           scope: 'platform',
           key: SETTINGS_KEY,
         })
-        const row = Array.isArray(data.settings)
-          ? data.settings.find((s) => s.key === SETTINGS_KEY)
-          : null
+        const row = Array.isArray(data.settings) ? data.settings.find((s) => s.key === SETTINGS_KEY) : null
         const loaded = applyLoadedSettings(parseListingApiProvidersValue(row?.value_json))
         if (!cancelled) {
           persistedRef.current = loaded
@@ -202,36 +265,30 @@ export default function AdminListingApiProvidersSection() {
         wtatil: {
           ...merged.wtatil,
           enabled:
-            merged.wtatil.enabled
-            || (
-              merged.wtatil.application_secret_key.trim() !== ''
-              && merged.wtatil.username.trim() !== ''
-              && merged.wtatil.password.trim() !== ''
-            ),
+            merged.wtatil.enabled ||
+            (merged.wtatil.application_secret_key.trim() !== '' &&
+              merged.wtatil.username.trim() !== '' &&
+              merged.wtatil.password.trim() !== ''),
         },
         travelrobot: {
           ...merged.travelrobot,
           enabled:
-            merged.travelrobot.enabled
-            || (
-              merged.travelrobot.channel_code.trim() !== ''
-              && merged.travelrobot.channel_password.trim() !== ''
-            ),
+            merged.travelrobot.enabled ||
+            (merged.travelrobot.channel_code.trim() !== '' && merged.travelrobot.channel_password.trim() !== ''),
         },
         turna: {
           ...merged.turna,
-          enabled:
-            merged.turna.enabled
-            || merged.turna.api_key.trim() !== '',
+          enabled: merged.turna.enabled || merged.turna.api_key.trim() !== '',
         },
         yolcu360: {
           ...merged.yolcu360,
           enabled:
-            merged.yolcu360.enabled
-            || (
-              merged.yolcu360.api_key.trim() !== ''
-              && merged.yolcu360.api_secret.trim() !== ''
-            ),
+            merged.yolcu360.enabled ||
+            (merged.yolcu360.api_key.trim() !== '' && merged.yolcu360.api_secret.trim() !== ''),
+        },
+        core_cruise: {
+          ...merged.core_cruise,
+          enabled: merged.core_cruise.enabled || merged.core_cruise.api_token.trim() !== '',
         },
       }
       await upsertSiteSettingFromPanel({
@@ -247,21 +304,19 @@ export default function AdminListingApiProvidersSection() {
       if (payload.turna.api_key) {
         hints.push('Turna: uçak formunda nereden/nereye + tarih ile arayın')
       }
-      if (
-        payload.wtatil.application_secret_key
-        && payload.wtatil.username
-        && payload.wtatil.password
-      ) {
+      if (payload.wtatil.application_secret_key && payload.wtatil.username && payload.wtatil.password) {
         hints.push('Wtatil: node scripts/import-wtatil-tours.mjs --ping veya sync-wtatil-auto.mjs')
       }
       if (payload.travelrobot.channel_code && payload.travelrobot.channel_password) {
         hints.push('Travelrobot: sunucuda import script çalıştırın (tur/otel)')
       }
+      if (payload.core_cruise.api_token) hints.push(cruiseCopy.saved)
       setMsg({
         type: 'ok',
-        text: hints.length > 0
-          ? `Veritabanına kaydedildi (yeniden açılışta korunur). ${hints.join(' · ')}`
-          : 'Veritabanına kaydedildi (yeniden açılışta korunur). Token testi ile bağlantıyı doğrulayın.',
+        text:
+          hints.length > 0
+            ? `Veritabanına kaydedildi (yeniden açılışta korunur). ${hints.join(' · ')}`
+            : 'Veritabanına kaydedildi (yeniden açılışta korunur). Token testi ile bağlantıyı doğrulayın.',
       })
     } catch (e) {
       setMsg({ type: 'err', text: formatManageApiCatch(e, 'Kayıt başarısız') })
@@ -450,8 +505,7 @@ export default function AdminListingApiProvidersSection() {
       <div>
         <h1 className="text-2xl font-semibold text-neutral-900 dark:text-white">Entegrasyonlar — ilan API</h1>
         <p className="mt-1 text-sm text-neutral-500 dark:text-neutral-400">
-          Wtatil (tur), Travelrobot (KPlus), Turna (uçak) ve Yolcu360 (araç) — import ve canlı arama ayarları.
-          Yolcu360:{' '}
+          Wtatil (tur), Travelrobot (KPlus), Turna (uçak) ve Yolcu360 (araç) — import ve canlı arama ayarları. Yolcu360:{' '}
           <a
             href="https://apidocs.yolcu360.com/getting-started"
             target="_blank"
@@ -459,8 +513,8 @@ export default function AdminListingApiProvidersSection() {
             className="text-primary-600 underline"
           >
             apidocs.yolcu360.com
-          </a>
-          {' '}· API anahtarı: pro.yolcu360.com → API Keys.
+          </a>{' '}
+          · API anahtarı: pro.yolcu360.com → API Keys.
         </p>
       </div>
 
@@ -475,6 +529,50 @@ export default function AdminListingApiProvidersSection() {
           {msg.text}
         </div>
       )}
+
+      <div className="rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm dark:border-neutral-700 dark:bg-neutral-800/50">
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 className="text-lg font-semibold text-neutral-900 dark:text-white">{cruiseCopy.title}</h2>
+            <p className="text-xs text-neutral-500">{cruiseCopy.description}</p>
+          </div>
+          <label className="flex cursor-pointer items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={coreCruise.enabled}
+              onChange={(e) => setCoreCruise({ enabled: e.target.checked })}
+              className="rounded border-neutral-300"
+            />
+            {cruiseCopy.active}
+          </label>
+        </div>
+        <div className="space-y-4">
+          <Field
+            label="API Base URL"
+            value={coreCruise.base_url}
+            onChange={(v) => setCoreCruise({ base_url: v })}
+            placeholder="https://mamon.b2b.corecruise.ai/api/partner"
+          />
+          <Field
+            label={cruiseCopy.token}
+            hint={cruiseCopy.tokenHint}
+            value={coreCruise.api_token}
+            onChange={(v) => setCoreCruise({ api_token: v })}
+            type="password"
+          />
+        </div>
+        <div className="mt-6">
+          <button
+            type="button"
+            onClick={() => void save()}
+            disabled={saving}
+            className="inline-flex items-center gap-2 rounded-xl bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-50"
+          >
+            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+            Kaydet
+          </button>
+        </div>
+      </div>
 
       <div className="rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm dark:border-neutral-700 dark:bg-neutral-800/50">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
@@ -521,12 +619,7 @@ export default function AdminListingApiProvidersSection() {
             value={wtatil.username}
             onChange={(v) => setWtatil({ username: v })}
           />
-          <Field
-            label="Şifre"
-            value={wtatil.password}
-            onChange={(v) => setWtatil({ password: v })}
-            type="password"
-          />
+          <Field label="Şifre" value={wtatil.password} onChange={(v) => setWtatil({ password: v })} type="password" />
           <Field
             label="Agency ID"
             hint="search-tour fiyat zenginleştirmesi ve dönem senkronu için (WTATIL_AGENCY_ID)"
@@ -562,13 +655,8 @@ export default function AdminListingApiProvidersSection() {
           <button
             type="button"
             onClick={() => void testWtatil()}
-            disabled={
-              testingWtatil
-              || !wtatil.application_secret_key
-              || !wtatil.username
-              || !wtatil.password
-            }
-            className="inline-flex items-center gap-2 rounded-xl border border-neutral-200 px-4 py-2 text-sm font-medium hover:bg-neutral-50 dark:border-neutral-600 dark:hover:bg-neutral-800 disabled:opacity-50"
+            disabled={testingWtatil || !wtatil.application_secret_key || !wtatil.username || !wtatil.password}
+            className="inline-flex items-center gap-2 rounded-xl border border-neutral-200 px-4 py-2 text-sm font-medium hover:bg-neutral-50 disabled:opacity-50 dark:border-neutral-600 dark:hover:bg-neutral-800"
           >
             {testingWtatil ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plug className="h-4 w-4" />}
             Bağlantı testi (Token)
@@ -629,7 +717,7 @@ export default function AdminListingApiProvidersSection() {
               className="w-full rounded-xl border border-neutral-200 bg-white px-3 py-2 text-sm dark:border-neutral-700 dark:bg-neutral-800 dark:text-white"
             />
             <p className="text-xs text-neutral-500">
-              KPlus tarafından iletilen ham otel fiyatına eklenir. Varsayılan oran %15'tir.
+              KPlus tarafından iletilen ham otel fiyatına eklenir. Varsayılan oran %15&apos;tir.
             </p>
           </div>
 
@@ -659,7 +747,9 @@ export default function AdminListingApiProvidersSection() {
             </div>
           </div>
           <div className="space-y-1">
-            <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">Import ilan durumu</label>
+            <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">
+              Import ilan durumu
+            </label>
             <select
               value={tr.listing_status}
               onChange={(e) => setTr({ listing_status: e.target.value as 'draft' | 'published' })}
@@ -674,11 +764,19 @@ export default function AdminListingApiProvidersSection() {
             <p className="mb-2 text-xs font-medium text-neutral-600 dark:text-neutral-300">Import kategorileri</p>
             <div className="flex flex-wrap gap-4 text-sm">
               <label className="flex items-center gap-2">
-                <input type="checkbox" checked={tr.import_tours} onChange={(e) => setTr({ import_tours: e.target.checked })} />
+                <input
+                  type="checkbox"
+                  checked={tr.import_tours}
+                  onChange={(e) => setTr({ import_tours: e.target.checked })}
+                />
                 Tur
               </label>
               <label className="flex items-center gap-2">
-                <input type="checkbox" checked={tr.import_hotels} onChange={(e) => setTr({ import_hotels: e.target.checked })} />
+                <input
+                  type="checkbox"
+                  checked={tr.import_hotels}
+                  onChange={(e) => setTr({ import_hotels: e.target.checked })}
+                />
                 Otel
               </label>
               <label className="flex items-center gap-2">
@@ -691,7 +789,11 @@ export default function AdminListingApiProvidersSection() {
                 Otel oda tipleri (SearchHotel)
               </label>
               <label className="flex items-center gap-2">
-                <input type="checkbox" checked={tr.import_flights} onChange={(e) => setTr({ import_flights: e.target.checked })} />
+                <input
+                  type="checkbox"
+                  checked={tr.import_flights}
+                  onChange={(e) => setTr({ import_flights: e.target.checked })}
+                />
                 Uçak
               </label>
             </div>
@@ -712,7 +814,7 @@ export default function AdminListingApiProvidersSection() {
             type="button"
             onClick={() => void testConnection()}
             disabled={testing || !tr.channel_code || !tr.channel_password}
-            className="inline-flex items-center gap-2 rounded-xl border border-neutral-200 px-4 py-2 text-sm font-medium hover:bg-neutral-50 dark:border-neutral-600 dark:hover:bg-neutral-800 disabled:opacity-50"
+            className="inline-flex items-center gap-2 rounded-xl border border-neutral-200 px-4 py-2 text-sm font-medium hover:bg-neutral-50 disabled:opacity-50 dark:border-neutral-600 dark:hover:bg-neutral-800"
           >
             {testing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plug className="h-4 w-4" />}
             Bağlantı testi (CreateToken)
@@ -745,12 +847,7 @@ export default function AdminListingApiProvidersSection() {
             onChange={(v) => setTurna({ base_url: v })}
             placeholder="https://api.turna.com"
           />
-          <Field
-            label="API Key"
-            value={turna.api_key}
-            onChange={(v) => setTurna({ api_key: v })}
-            type="password"
-          />
+          <Field label="API Key" value={turna.api_key} onChange={(v) => setTurna({ api_key: v })} type="password" />
           <div className="grid grid-cols-3 gap-3">
             <Field
               label="Country Code"
@@ -772,7 +869,9 @@ export default function AdminListingApiProvidersSection() {
             />
           </div>
           <div className="space-y-1">
-            <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">Import ilan durumu</label>
+            <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">
+              Import ilan durumu
+            </label>
             <select
               value={turna.listing_status}
               onChange={(e) => setTurna({ listing_status: e.target.value as 'draft' | 'published' })}
@@ -798,7 +897,7 @@ export default function AdminListingApiProvidersSection() {
             type="button"
             onClick={() => void testTurna()}
             disabled={testingTurna || !turna.api_key}
-            className="inline-flex items-center gap-2 rounded-xl border border-neutral-200 px-4 py-2 text-sm font-medium hover:bg-neutral-50 dark:border-neutral-600 dark:hover:bg-neutral-800 disabled:opacity-50"
+            className="inline-flex items-center gap-2 rounded-xl border border-neutral-200 px-4 py-2 text-sm font-medium hover:bg-neutral-50 disabled:opacity-50 dark:border-neutral-600 dark:hover:bg-neutral-800"
           >
             {testingTurna ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plug className="h-4 w-4" />}
             Bağlantı testi (anonymousLogin)
@@ -833,11 +932,7 @@ export default function AdminListingApiProvidersSection() {
             onChange={(v) => setY360({ base_url: v })}
             placeholder="https://api.pro.yolcu360.com/api/v1"
           />
-          <Field
-            label="API Key"
-            value={y360.api_key}
-            onChange={(v) => setY360({ api_key: v })}
-          />
+          <Field label="API Key" value={y360.api_key} onChange={(v) => setY360({ api_key: v })} />
           <Field
             label="API Secret"
             value={y360.api_secret}
@@ -845,7 +940,9 @@ export default function AdminListingApiProvidersSection() {
             type="password"
           />
           <div className="space-y-1">
-            <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">Import ilan durumu</label>
+            <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">
+              Import ilan durumu
+            </label>
             <select
               value={y360.listing_status}
               onChange={(e) => setY360({ listing_status: e.target.value as 'draft' | 'published' })}
@@ -867,7 +964,7 @@ export default function AdminListingApiProvidersSection() {
               type="button"
               onClick={() => void searchYolcu360Locations()}
               disabled={testingY360 || !y360.api_key || !y360.api_secret}
-              className="rounded-xl border border-neutral-200 px-4 py-2 text-sm font-medium hover:bg-neutral-50 dark:border-neutral-600 dark:hover:bg-neutral-800 disabled:opacity-50"
+              className="rounded-xl border border-neutral-200 px-4 py-2 text-sm font-medium hover:bg-neutral-50 disabled:opacity-50 dark:border-neutral-600 dark:hover:bg-neutral-800"
             >
               Konum ara
             </button>
@@ -888,7 +985,7 @@ export default function AdminListingApiProvidersSection() {
             type="button"
             onClick={() => void testYolcu360()}
             disabled={testingY360 || !y360.api_key || !y360.api_secret}
-            className="inline-flex items-center gap-2 rounded-xl border border-neutral-200 px-4 py-2 text-sm font-medium hover:bg-neutral-50 dark:border-neutral-600 dark:hover:bg-neutral-800 disabled:opacity-50"
+            className="inline-flex items-center gap-2 rounded-xl border border-neutral-200 px-4 py-2 text-sm font-medium hover:bg-neutral-50 disabled:opacity-50 dark:border-neutral-600 dark:hover:bg-neutral-800"
           >
             {testingY360 ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plug className="h-4 w-4" />}
             Bağlantı testi (login + istanbul)
@@ -900,46 +997,70 @@ export default function AdminListingApiProvidersSection() {
         <p>Sunucuda import (repo kökünden):</p>
         <p>
           Wtatil:{' '}
-          <code className="rounded bg-neutral-100 px-1 dark:bg-neutral-800">node scripts/import-wtatil-tours.mjs --ping</code>
+          <code className="rounded bg-neutral-100 px-1 dark:bg-neutral-800">
+            node scripts/import-wtatil-tours.mjs --ping
+          </code>
           {' / '}
           <code className="rounded bg-neutral-100 px-1 dark:bg-neutral-800">node scripts/sync-wtatil-auto.mjs</code>
         </p>
         <p>
           Tur:{' '}
-          <code className="rounded bg-neutral-100 px-1 dark:bg-neutral-800">node scripts/import-travelrobot-tours.mjs --ping</code>
+          <code className="rounded bg-neutral-100 px-1 dark:bg-neutral-800">
+            node scripts/import-travelrobot-tours.mjs --ping
+          </code>
           {' / '}
-          <code className="rounded bg-neutral-100 px-1 dark:bg-neutral-800">node scripts/import-travelrobot-tours.mjs --dry-run --limit 5</code>
+          <code className="rounded bg-neutral-100 px-1 dark:bg-neutral-800">
+            node scripts/import-travelrobot-tours.mjs --dry-run --limit 5
+          </code>
         </p>
         <p>
           Otel:{' '}
-          <code className="rounded bg-neutral-100 px-1 dark:bg-neutral-800">node scripts/import-travelrobot-hotels.mjs --dry-run --limit 5</code>
+          <code className="rounded bg-neutral-100 px-1 dark:bg-neutral-800">
+            node scripts/import-travelrobot-hotels.mjs --dry-run --limit 5
+          </code>
         </p>
         <p>
           Travelrobot canlı/statik test:{' '}
-          <code className="rounded bg-neutral-100 px-1 dark:bg-neutral-800">node scripts/ping-travelrobot-live.mjs</code>
+          <code className="rounded bg-neutral-100 px-1 dark:bg-neutral-800">
+            node scripts/ping-travelrobot-live.mjs
+          </code>
           {' · '}
-          <code className="rounded bg-neutral-100 px-1 dark:bg-neutral-800">node scripts/apply-travelrobot-live-config.mjs</code>
+          <code className="rounded bg-neutral-100 px-1 dark:bg-neutral-800">
+            node scripts/apply-travelrobot-live-config.mjs
+          </code>
         </p>
         <p>
           Travelrobot Uçak:{' '}
-          <code className="rounded bg-neutral-100 px-1 dark:bg-neutral-800">node scripts/import-travelrobot-flights.mjs --dry-run --limit 5</code>
+          <code className="rounded bg-neutral-100 px-1 dark:bg-neutral-800">
+            node scripts/import-travelrobot-flights.mjs --dry-run --limit 5
+          </code>
         </p>
         <p>
           Turna Uçak:{' '}
-          <code className="rounded bg-neutral-100 px-1 dark:bg-neutral-800">./deploy/scripts/run-turna-live-setup.sh</code>
+          <code className="rounded bg-neutral-100 px-1 dark:bg-neutral-800">
+            ./deploy/scripts/run-turna-live-setup.sh
+          </code>
           {' · '}
           <code className="rounded bg-neutral-100 px-1 dark:bg-neutral-800">node scripts/diag-turna-config.mjs</code>
           {' · '}
-          <code className="rounded bg-neutral-100 px-1 dark:bg-neutral-800">node scripts/import-turna-flights.mjs --ping</code>
+          <code className="rounded bg-neutral-100 px-1 dark:bg-neutral-800">
+            node scripts/import-turna-flights.mjs --ping
+          </code>
           {' (rota: scripts/config/turna-flight-routes.json)'}
         </p>
         <p>
           Yolcu360 Araç:{' '}
-          <code className="rounded bg-neutral-100 px-1 dark:bg-neutral-800">node scripts/import-yolcu360-cars.mjs --ping</code>
+          <code className="rounded bg-neutral-100 px-1 dark:bg-neutral-800">
+            node scripts/import-yolcu360-cars.mjs --ping
+          </code>
           {' / '}
-          <code className="rounded bg-neutral-100 px-1 dark:bg-neutral-800">node scripts/import-yolcu360-cars.mjs --dry-run --limit 2</code>
+          <code className="rounded bg-neutral-100 px-1 dark:bg-neutral-800">
+            node scripts/import-yolcu360-cars.mjs --dry-run --limit 2
+          </code>
           {' · '}
-          <code className="rounded bg-neutral-100 px-1 dark:bg-neutral-800">./deploy/scripts/run-yolcu360-live-setup.sh</code>
+          <code className="rounded bg-neutral-100 px-1 dark:bg-neutral-800">
+            ./deploy/scripts/run-yolcu360-live-setup.sh
+          </code>
         </p>
       </div>
     </div>
