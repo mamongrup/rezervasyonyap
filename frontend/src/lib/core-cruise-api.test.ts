@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { CoreCruiseApiError, CoreCruiseClient } from './core-cruise-api'
+import { CoreCruiseApiError, CoreCruiseClient, verifyCoreCruiseWebhookSignature } from './core-cruise-api'
 
 describe('CoreCruiseClient', () => {
   it('fetches and combines every cruise cursor page', async () => {
@@ -70,5 +70,32 @@ describe('CoreCruiseClient', () => {
       status: 422,
       message: 'validation failed',
     } satisfies Partial<CoreCruiseApiError>)
+  })
+
+  it('exposes the documented deprecated confirmation route', async () => {
+    const fetcher = vi.fn().mockResolvedValue(new Response(JSON.stringify({ message: 'restricted' }), { status: 403 }))
+    const client = new CoreCruiseClient({ token: 'secret', fetch: fetcher })
+
+    await expect(client.confirmBooking('booking/id')).rejects.toMatchObject({ status: 403 })
+    expect(fetcher.mock.calls[0][0]).toContain('/v1/bookings/booking%2Fid/confirm')
+    expect(fetcher.mock.calls[0][1].method).toBe('POST')
+  })
+
+  it('verifies X-CCE-Signature using the raw webhook body', async () => {
+    const rawBody = '{"event":"hold.expired"}'
+    const secret = 'webhook-secret'
+    const key = await crypto.subtle.importKey(
+      'raw',
+      new TextEncoder().encode(secret),
+      { name: 'HMAC', hash: 'SHA-256' },
+      false,
+      ['sign']
+    )
+    const bytes = new Uint8Array(await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(rawBody)))
+    const signature = Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('')
+
+    await expect(verifyCoreCruiseWebhookSignature(rawBody, signature, secret)).resolves.toBe(true)
+    await expect(verifyCoreCruiseWebhookSignature(`${rawBody} `, signature, secret)).resolves.toBe(false)
+    await expect(verifyCoreCruiseWebhookSignature(rawBody, 'invalid', secret)).resolves.toBe(false)
   })
 })

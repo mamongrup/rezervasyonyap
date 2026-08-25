@@ -403,6 +403,17 @@ export class CoreCruiseClient {
       `/v1/catalog/packages/${encodeURIComponent(id)}/availability${queryString(params)}`
     )
 
+  async getAllPackages(params: Omit<PackageSearchParams, 'cursor'> = {}): Promise<CruisePackage[]> {
+    const packages: CruisePackage[] = []
+    let cursor: string | undefined
+    do {
+      const page = await this.listPackages({ ...params, cursor, per_page: params.per_page ?? 50 })
+      packages.push(...page.data)
+      cursor = page.pagination.next_cursor ?? undefined
+    } while (cursor)
+    return packages
+  }
+
   createHold = async (body: CreateHoldRequest, key = idempotencyKey()): Promise<HoldResource> =>
     (await this.json<{ data: HoldResource }>('/v1/holds', 'POST', body, key)).data
   getHold = async (id: string): Promise<HoldResource> =>
@@ -425,6 +436,14 @@ export class CoreCruiseClient {
         passengers,
       })
     ).data
+
+  /**
+   * @deprecated Kept by the upstream API for compatibility. Partner tokens
+   * always receive HTTP 403; confirmation belongs to the distributor workflow.
+   */
+  confirmBooking = (id: string): Promise<never> =>
+    this.request<never>(`/v1/bookings/${encodeURIComponent(id)}/confirm`, { method: 'POST' })
+
   cancelBooking = (
     id: string,
     body: { reason?: string | null; audit_note?: string | null } = {},
@@ -448,4 +467,39 @@ export function coreCruiseClientFromEnv(env: NodeJS.ProcessEnv = process.env): C
     token: env.CORE_CRUISE_API_TOKEN ?? '',
     baseUrl: env.CORE_CRUISE_API_BASE_URL,
   })
+}
+
+function hexBytes(value: string): Uint8Array | null {
+  if (!/^[a-f\d]{64}$/i.test(value)) return null
+  return Uint8Array.from(value.match(/.{2}/g) ?? [], (byte) => Number.parseInt(byte, 16))
+}
+
+function arrayBuffer(bytes: Uint8Array): ArrayBuffer {
+  const copy = new Uint8Array(bytes.byteLength)
+  copy.set(bytes)
+  return copy.buffer
+}
+
+/** Verifies X-CCE-Signature against the untouched request body. */
+export async function verifyCoreCruiseWebhookSignature(
+  rawBody: string | Uint8Array,
+  signature: string | null | undefined,
+  secret: string
+): Promise<boolean> {
+  const signatureBytes = signature ? hexBytes(signature.trim()) : null
+  if (!signatureBytes || !secret) return false
+  const encoder = new TextEncoder()
+  const key = await globalThis.crypto.subtle.importKey(
+    'raw',
+    encoder.encode(secret),
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['verify']
+  )
+  return globalThis.crypto.subtle.verify(
+    'HMAC',
+    key,
+    arrayBuffer(signatureBytes),
+    arrayBuffer(typeof rawBody === 'string' ? encoder.encode(rawBody) : rawBody)
+  )
 }
