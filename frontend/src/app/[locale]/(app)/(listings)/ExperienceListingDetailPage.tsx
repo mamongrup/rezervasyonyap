@@ -812,7 +812,7 @@ export default async function ExperienceListingDetailPage({
           : activityMeta?.duration_hours
             ? {
                 label: ad.overview.duration || 'Süre',
-                value: interpolate(ad.overview.durationHours, { hours: activityMeta.duration_hours }),
+                value: interpolate(ad.overview.durationHours, { hours: activityMeta.duration_hours || '' }),
                 icon: 'duration',
               }
             : null,
@@ -844,7 +844,7 @@ export default async function ExperienceListingDetailPage({
                   ? interpolate(ad.overview.ageRangeValue, { min: activityMeta.min_age, max: activityMeta.max_age })
                   : activityMeta.min_age
                     ? interpolate(ad.overview.minAgeValue, { age: activityMeta.min_age })
-                    : interpolate(ad.overview.ageRangeValue, { min: '0', max: activityMeta.max_age }),
+                    : interpolate(ad.overview.ageRangeValue, { min: '0', max: activityMeta.max_age || '' }),
               icon: 'age',
             }
           : null,
@@ -856,7 +856,7 @@ export default async function ExperienceListingDetailPage({
                   ? interpolate(ad.overview.weightLimitValue, { min: activityMeta.min_weight_kg, max: activityMeta.max_weight_kg })
                   : activityMeta.min_weight_kg
                     ? `Min. ${activityMeta.min_weight_kg} kg`
-                    : `Maks. ${activityMeta.max_weight_kg} kg`,
+                    : `Maks. ${activityMeta.max_weight_kg || ''} kg`,
               icon: 'weight',
             }
           : null,
