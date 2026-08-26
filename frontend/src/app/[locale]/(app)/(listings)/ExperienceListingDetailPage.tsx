@@ -3,6 +3,7 @@ import TourItineraryMapSection from '@/components/listing/TourItineraryMapSectio
 import NearbyPlacesSection from '@/components/travel/NearbyPlacesSection'
 import { getExperienceListingByHandle, listingHostForSection } from '@/data/listings'
 import { parseActivityVitrinMeta, pickActivitySectionTitle } from '@/lib/activity-vitrin-meta'
+import { formatLanguageCodes } from '@/lib/language-display-codes'
 import { guessCalendarMonthsShownFromRequest } from '@/lib/calendar-months-shown-server'
 import type { CatalogListingVerticalCode } from '@/lib/catalog-listing-vertical'
 import { normalizeCatalogVertical } from '@/lib/catalog-listing-vertical'
@@ -56,7 +57,6 @@ import {
   stripFlightScheduleBlockFromDescription,
 } from '@/lib/tour-flight-schedule'
 import { parseTourDayPins, parseTourItineraryPinsFromDays } from '@/lib/tour-itinerary-geocoder'
-import { formatTourLanguageLabels } from '@/lib/tour-listing-card-meta'
 import { mergeTourPeriodOptions } from '@/lib/tour-periods'
 import {
   fetchPublicListingAvailabilityDaysSafe,
@@ -636,7 +636,7 @@ export default async function ExperienceListingDetailPage({
   const activityInitialDate = isActivity ? firstActivityBookingDate(allActivitySessions, activityToday) : activityToday
   const initialActivitySessions = isActivity ? activitySessionsForDate(allActivitySessions, activityInitialDate) : []
   const tourLanguages = splitMetaList(tourMeta?.languages)
-  const tourLanguageLine = formatTourLanguageLabels(tourLanguages)
+  const tourLanguageLine = formatLanguageCodes(tourLanguages)
   const tourGroupLine = tourMeta?.max_people
     ? interpolate(td.maxPeople, { count: tourMeta.max_people })
     : maxGuests
@@ -875,13 +875,13 @@ export default async function ExperienceListingDetailPage({
         activityMeta?.guided_languages && activityMeta.guided_languages.length > 0
           ? {
               label: ad.overview.language || 'Dil',
-              value: activityMeta.guided_languages.join(', '),
+              value: formatLanguageCodes(activityMeta.guided_languages),
               icon: 'language',
             }
           : activityMeta?.language
             ? {
                 label: ad.overview.language || 'Dil',
-                value: activityMeta.language,
+                value: formatLanguageCodes(splitMetaList(activityMeta.language)),
                 icon: 'language',
               }
             : null,
@@ -965,13 +965,6 @@ export default async function ExperienceListingDetailPage({
       ? interpolate(dp.upToPeople, { count: String(maxGuests) })
       : td.capacityNotSpecified
 
-  const formatLanguagesCompact = (langList: string[]) => {
-    const list = langList.map((l) => l.trim()).filter(Boolean)
-    if (list.length === 0) return td.languagesNotSpecified
-    if (list.length <= 2) return list.join(', ')
-    return `${list.slice(0, 2).join(', ')} +${list.length - 2}`
-  }
-
   const rawActivityLanguages =
     activityMeta?.guided_languages && activityMeta.guided_languages.length > 0
       ? activityMeta.guided_languages
@@ -981,8 +974,8 @@ export default async function ExperienceListingDetailPage({
 
   const activityLanguagesLine =
     rawActivityLanguages.length > 0
-      ? formatLanguagesCompact(rawActivityLanguages)
-      : 'Türkçe, English +4'
+      ? formatLanguageCodes(rawActivityLanguages)
+      : 'TR, EN, DE, RU, ZH, FR'
 
   const siteConfig = getSitePublicConfig()
   const organizationName = siteConfig.orgName?.trim() || siteConfig.orgLegalName?.trim() || 'Travel'
@@ -1057,7 +1050,7 @@ export default async function ExperienceListingDetailPage({
                 : isActivity
                   ? activityLanguagesLine
                   : (languages ?? []).length > 0
-                    ? formatLanguagesCompact(languages ?? [])
+                    ? formatLanguageCodes(languages ?? [])
                     : td.languagesNotSpecified}
             </span>
           </div>
