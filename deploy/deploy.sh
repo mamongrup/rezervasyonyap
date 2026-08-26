@@ -703,6 +703,8 @@ main() {
       && systemctl enable --now travel-archive-expired-events.timer \
       && ok "travel-archive-expired-events.timer etkin" \
       || warn "Etkinlik arşivleme timer kurulamadı; elle: ./deploy/scripts/archive-expired-events.sh"
+  fi
+
   if [[ -f "$APP_ROOT/deploy/systemd/travel-currency-rates.service" && -f "$APP_ROOT/deploy/systemd/travel-currency-rates.timer" ]]; then
     step "TCMB döviz kurları otomatik senkronizasyon timer kurulumu"
     cp "$APP_ROOT/deploy/systemd/travel-currency-rates.service" /etc/systemd/system/travel-currency-rates.service \
