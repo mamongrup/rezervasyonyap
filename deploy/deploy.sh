@@ -624,6 +624,17 @@ main() {
     warn "İlan kaynak senkronizasyon systemd dosyaları bulunamadı."
   fi
 
+  if [[ -f "$APP_ROOT/deploy/systemd/travel-currency-rates.service" && -f "$APP_ROOT/deploy/systemd/travel-currency-rates.timer" ]]; then
+    step "TCMB otomatik döviz kuru timer kurulumu"
+    cp "$APP_ROOT/deploy/systemd/travel-currency-rates.service" /etc/systemd/system/travel-currency-rates.service \
+      && cp "$APP_ROOT/deploy/systemd/travel-currency-rates.timer" /etc/systemd/system/travel-currency-rates.timer \
+      && systemctl daemon-reload \
+      && systemctl enable --now travel-currency-rates.timer \
+      && systemctl start --no-block travel-currency-rates.service \
+      && ok "travel-currency-rates.timer etkin (saatlik TCMB kur senkronu)" \
+      || warn "travel-currency-rates.timer kurulamadı."
+  fi
+
   if [[ "${SKIP_HOLIDAY_NEARBY_POIS_TIMER:-0}" == "1" ]]; then
     warn "SKIP_HOLIDAY_NEARBY_POIS_TIMER=1 — tüm villa mesafe yenileme zamanlayıcısı atlandı."
   elif [[ -f "$APP_ROOT/deploy/systemd/travel-holiday-nearby-pois.service" && -f "$APP_ROOT/deploy/systemd/travel-holiday-nearby-pois.timer" ]]; then
