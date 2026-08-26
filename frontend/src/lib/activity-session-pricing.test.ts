@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 
 import {
   activityActiveSessionPrices,
+  activityLowestSessionPrice,
   activitySessionsForSave,
   activityStartingPrice,
   syncSingleActivitySessionPrice,
@@ -31,6 +32,15 @@ describe('activity session pricing', () => {
       { amount: 160, currencyCode: 'USD' },
       { amount: 140, currencyCode: 'TRY' },
     ])
+  })
+
+  it('keeps the original amount and currency of the cheapest converted session fare', () => {
+    const lowest = activityLowestSessionPrice(
+      [session('160'), { ...session('7000'), currency_code: 'TRY' }],
+      (amount, currency) => (currency === 'USD' ? amount * 44.5625 : amount),
+    )
+
+    expect(lowest).toMatchObject({ amount: 7000, currencyCode: 'TRY' })
   })
 
   it('keeps a single session aligned with the editable starting price', () => {

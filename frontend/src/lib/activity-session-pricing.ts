@@ -13,6 +13,19 @@ export function activityActiveSessionPrices<T extends ActivitySessionPriceRow>(s
   })
 }
 
+export function activityLowestSessionPrice<T extends ActivitySessionPriceRow>(
+  sessions: T[],
+  comparisonAmount: (amount: number, currencyCode: string) => number = (amount) => amount,
+) {
+  return activityActiveSessionPrices(sessions)
+    .map((price) => ({ ...price, comparisonAmount: comparisonAmount(price.amount, price.currencyCode) }))
+    .reduce<{ amount: number; currencyCode: string; comparisonAmount: number } | null>(
+      (lowest, candidate) =>
+        lowest == null || candidate.comparisonAmount < lowest.comparisonAmount ? candidate : lowest,
+      null,
+    )
+}
+
 export function activityStartingPrice<T extends ActivitySessionPriceRow>(sessions: T[]): string {
   const prices = activityActiveSessionPrices(sessions).map((price) => price.amount)
 
