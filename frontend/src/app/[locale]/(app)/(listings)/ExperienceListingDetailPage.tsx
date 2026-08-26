@@ -175,6 +175,10 @@ type ActivityMeta = {
   female_staff_option_enabled?: boolean
   female_staff_price?: string
   female_staff_surcharge?: string
+  female_pilot_option_enabled?: boolean
+  female_pilot_price?: string
+  female_captain_option_enabled?: boolean
+  female_captain_price?: string
 }
 
 function textFromMeta(value: unknown): string {
@@ -341,6 +345,12 @@ function parseActivityMeta(raw: unknown): ActivityMeta {
       data.female_staff_option_enabled === true || data.female_staff_option_enabled === 'true',
     female_staff_surcharge: textFromMeta(data.female_staff_surcharge),
     female_staff_price: textFromMeta(data.female_staff_price || data.female_staff_surcharge),
+    female_pilot_option_enabled:
+      data.female_pilot_option_enabled === true || data.female_pilot_option_enabled === 'true',
+    female_pilot_price: textFromMeta(data.female_pilot_price),
+    female_captain_option_enabled:
+      data.female_captain_option_enabled === true || data.female_captain_option_enabled === 'true',
+    female_captain_price: textFromMeta(data.female_captain_price),
   }
 }
 
@@ -1270,8 +1280,16 @@ export default async function ExperienceListingDetailPage({
               pageCurrency={(listing as { listingCurrencyCode?: string }).listingCurrencyCode}
               initialMonthsShown={calendarMonthsShown}
               activityCategory={activityMeta?.activity_category}
-              femaleStaffOptionEnabled={activityMeta?.female_staff_option_enabled}
-              femaleStaffPrice={activityMeta?.female_staff_price}
+              femaleStaffOptionEnabled={
+                activityMeta?.activity_category === 'boat_tour'
+                  ? activityMeta.female_captain_option_enabled || activityMeta.female_staff_option_enabled
+                  : activityMeta?.female_pilot_option_enabled || activityMeta?.female_staff_option_enabled
+              }
+              femaleStaffPrice={
+                activityMeta?.activity_category === 'boat_tour'
+                  ? activityMeta.female_captain_price || activityMeta.female_staff_price
+                  : activityMeta?.female_pilot_price || activityMeta?.female_staff_price
+              }
             />
           ) : (
             renderSidebarPriceAndForm()

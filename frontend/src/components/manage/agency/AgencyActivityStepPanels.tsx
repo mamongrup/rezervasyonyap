@@ -57,6 +57,10 @@ export interface ActivityAgencyBasicsState {
   female_staff_price?: string
   /** Eski kayıtlarla geriye uyumluluk. */
   female_staff_surcharge?: string
+  female_pilot_option_enabled?: boolean
+  female_pilot_price?: string
+  female_captain_option_enabled?: boolean
+  female_captain_price?: string
   preview_url?: string
 }
 
@@ -115,6 +119,15 @@ export function ActivityBasicsStepPanel({
     if (!onChange) return
     onChange((prev: any) => (typeof prev === 'object' && prev !== null ? { ...prev, ...patch } : patch))
   }
+  const activityCategory = values.activity_category || 'paragliding'
+  const isFemalePilotOption = activityCategory === 'paragliding'
+  const isFemaleCaptainOption = activityCategory === 'boat_tour'
+  const femaleOptionEnabled = isFemaleCaptainOption
+    ? values.female_captain_option_enabled === true
+    : values.female_pilot_option_enabled === true
+  const femaleOptionPrice = isFemaleCaptainOption
+    ? values.female_captain_price || ''
+    : values.female_pilot_price || ''
   return (
     <div className="space-y-6">
       <div className="rounded-2xl border border-emerald-200 bg-emerald-50/70 p-4 dark:border-emerald-900/50 dark:bg-emerald-950/20">
@@ -129,23 +142,29 @@ export function ActivityBasicsStepPanel({
         </div>
       </div>
 
-      {((values.activity_category || 'paragliding') === 'paragliding' || values.activity_category === 'boat_tour') && (
+      {(isFemalePilotOption || isFemaleCaptainOption) && (
         <div className="rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm dark:border-neutral-700 dark:bg-neutral-800">
           <h3 className="text-sm font-semibold uppercase tracking-wider text-neutral-800 dark:text-neutral-200">
-            {(values.activity_category || 'paragliding') === 'paragliding' ? 'Kadın Pilot Tercihi' : 'Kadın Kaptan Tercihi'}
+            {isFemalePilotOption ? 'Kadın Pilot Tercihi' : 'Kadın Kaptan Tercihi'}
           </h3>
           <label className="mt-4 flex items-center gap-3 text-sm font-medium">
             <input
               type="checkbox"
-              checked={values.female_staff_option_enabled === true}
-              onChange={(e) => emitChange({ female_staff_option_enabled: e.target.checked })}
+              checked={femaleOptionEnabled}
+              onChange={(e) =>
+                emitChange(
+                  isFemaleCaptainOption
+                    ? { female_captain_option_enabled: e.target.checked }
+                    : { female_pilot_option_enabled: e.target.checked },
+                )
+              }
             />
             Rezervasyonda tercih edilebilsin
           </label>
-          {values.female_staff_option_enabled === true ? (
+          {femaleOptionEnabled ? (
             <Field className="mt-4 block max-w-xs">
               <Label className="text-xs font-medium">
-                {(values.activity_category || 'paragliding') === 'paragliding'
+                {isFemalePilotOption
                   ? 'Kadın pilot kişi başı fiyatı'
                   : 'Kadın kaptan kişi başı fiyatı'}
               </Label>
@@ -154,8 +173,14 @@ export function ActivityBasicsStepPanel({
                 min="0"
                 step="0.01"
                 className="mt-1"
-                value={values.female_staff_price || ''}
-                onChange={(e) => emitChange({ female_staff_price: e.target.value })}
+                value={femaleOptionPrice}
+                onChange={(e) =>
+                  emitChange(
+                    isFemaleCaptainOption
+                      ? { female_captain_price: e.target.value }
+                      : { female_pilot_price: e.target.value },
+                  )
+                }
               />
             </Field>
           ) : null}

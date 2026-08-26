@@ -875,6 +875,10 @@ export default function CatalogNewListingClient({
     activity_category: 'paragliding',
     female_staff_option_enabled: false,
     female_staff_price: '',
+    female_pilot_option_enabled: false,
+    female_pilot_price: '',
+    female_captain_option_enabled: false,
+    female_captain_price: '',
     duration_net: '45 Dakika Uçuş',
     duration_total: '2.5 Saat',
     difficulty_level: 'easy',
@@ -2096,6 +2100,30 @@ export default function CatalogNewListingClient({
                   : prev.female_staff_option_enabled,
               female_staff_price: String(
                 rawObj.female_staff_price ?? rawObj.female_staff_surcharge ?? prev.female_staff_price ?? '',
+              ),
+              female_pilot_option_enabled:
+                rawObj.female_pilot_option_enabled !== undefined
+                  ? rawObj.female_pilot_option_enabled === true || rawObj.female_pilot_option_enabled === 'true'
+                  : rawObj.activity_category === 'paragliding'
+                    ? rawObj.female_staff_option_enabled === true || rawObj.female_staff_option_enabled === 'true'
+                    : prev.female_pilot_option_enabled,
+              female_pilot_price: String(
+                rawObj.female_pilot_price ??
+                  (rawObj.activity_category === 'paragliding' ? rawObj.female_staff_price ?? rawObj.female_staff_surcharge : '') ??
+                  prev.female_pilot_price ??
+                  '',
+              ),
+              female_captain_option_enabled:
+                rawObj.female_captain_option_enabled !== undefined
+                  ? rawObj.female_captain_option_enabled === true || rawObj.female_captain_option_enabled === 'true'
+                  : rawObj.activity_category === 'boat_tour'
+                    ? rawObj.female_staff_option_enabled === true || rawObj.female_staff_option_enabled === 'true'
+                    : prev.female_captain_option_enabled,
+              female_captain_price: String(
+                rawObj.female_captain_price ??
+                  (rawObj.activity_category === 'boat_tour' ? rawObj.female_staff_price ?? rawObj.female_staff_surcharge : '') ??
+                  prev.female_captain_price ??
+                  '',
               ),
               duration_net: String(rawObj.duration_net ?? prev.duration_net),
               duration_total: String(rawObj.duration_total ?? prev.duration_total),
