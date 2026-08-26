@@ -906,23 +906,76 @@ export default async function ExperienceListingDetailPage({
       ? activityDurationHours
       : undefined
 
+  const firstSessionMinutes = (() => {
+    const raw = initialActivitySessions.find(
+      (s) => Number(s.duration_minutes ?? 0) > 0
+    )?.duration_minutes
+    const n = Number(raw)
+    return Number.isFinite(n) && n > 0 ? n : 0
+  })()
+
+  const sessionDurationText = firstSessionMinutes > 0
+    ? firstSessionMinutes >= 60 && firstSessionMinutes % 60 === 0
+      ? `${firstSessionMinutes / 60} saat`
+      : `${firstSessionMinutes} dk`
+    : undefined
+
   const activityDurationLine = isActivity
     ? validDurationHours
       ? interpolate(ad.overview.durationHours, { hours: validDurationHours })
-      : durationTime?.trim() || td.durationNotSpecified
+      : activityMeta?.duration_net?.trim() ||
+        activityMeta?.duration_total?.trim() ||
+        sessionDurationText ||
+        durationTime?.trim() ||
+        td.durationNotSpecified
     : durationTime || td.durationNotSpecified
 
+  const firstSessionCapacity = (() => {
+    const raw = initialActivitySessions.find(
+      (s) => Number(s.capacity ?? 0) > 0
+    )?.capacity
+    const n = Number(raw)
+    return Number.isFinite(n) && n > 0 ? n : 0
+  })()
+
+  const validActivityMaxParticipants =
+    activityMeta?.max_participants &&
+    activityMeta.max_participants !== 'undefined' &&
+    activityMeta.max_participants !== 'null' &&
+    activityMeta.max_participants !== '0'
+      ? activityMeta.max_participants
+      : undefined
+
   const activityCapacityLine = isActivity
-    ? activityMeta?.max_participants
-      ? interpolate(dp.upToPeople, { count: activityMeta.max_participants })
-      : maxGuests
-        ? interpolate(dp.upToPeople, { count: String(maxGuests) })
-        : td.capacityNotSpecified
+    ? validActivityMaxParticipants
+      ? interpolate(dp.upToPeople, { count: validActivityMaxParticipants })
+      : firstSessionCapacity > 0
+        ? interpolate(dp.upToPeople, { count: String(firstSessionCapacity) })
+        : maxGuests
+          ? interpolate(dp.upToPeople, { count: String(maxGuests) })
+          : td.capacityNotSpecified
     : maxGuests
       ? interpolate(dp.upToPeople, { count: String(maxGuests) })
       : td.capacityNotSpecified
 
-  const siteLanguagesLine = SITE_LOCALE_CATALOG.map((l) => l.name).join(', ')
+  const formatLanguagesCompact = (langList: string[]) => {
+    const list = langList.map((l) => l.trim()).filter(Boolean)
+    if (list.length === 0) return td.languagesNotSpecified
+    if (list.length <= 2) return list.join(', ')
+    return `${list.slice(0, 2).join(', ')} +${list.length - 2}`
+  }
+
+  const rawActivityLanguages =
+    activityMeta?.guided_languages && activityMeta.guided_languages.length > 0
+      ? activityMeta.guided_languages
+      : (languages ?? []).length > 0
+        ? (languages ?? [])
+        : []
+
+  const activityLanguagesLine =
+    rawActivityLanguages.length > 0
+      ? formatLanguagesCompact(rawActivityLanguages)
+      : 'Türkçe, English +4'
 
   const siteConfig = getSitePublicConfig()
   const organizationName = siteConfig.orgName?.trim() || siteConfig.orgLegalName?.trim() || 'Travel'
@@ -994,9 +1047,9 @@ export default async function ExperienceListingDetailPage({
             {isTour
               ? tourLanguageLine || td.languagesNotSpecified
               : isActivity
-                ? siteLanguagesLine
+                ? activityLanguagesLine
                 : (languages ?? []).length > 0
-                  ? (languages ?? []).join(', ')
+                  ? formatLanguagesCompact(languages ?? [])
                   : td.languagesNotSpecified}
           </span>
         </div>
