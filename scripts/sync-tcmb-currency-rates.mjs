@@ -75,23 +75,30 @@ async function main() {
   await client.connect()
 
   try {
-    // Aktif para birimlerini al
-    const activeCurrenciesRes = await client.query(
-      'SELECT upper(trim(code)) as code FROM currencies WHERE is_active = true',
+    // Standart para birimlerinin var olduğundan emin ol (foreign key hatasını önler)
+    await client.query(`
+      INSERT INTO currencies (code, name, symbol, decimal_places, is_active)
+      VALUES 
+        ('TRY', 'Turkish Lira', '₺', 2, true),
+        ('USD', 'US Dollar', '$', 2, true),
+        ('EUR', 'Euro', '€', 2, true),
+        ('GBP', 'British Pound', '£', 2, true),
+        ('CHF', 'Swiss Franc', 'CHF', 2, true),
+        ('RUB', 'Russian Ruble', '₽', 2, true),
+        ('SAR', 'Saudi Riyal', 'SAR', 2, true),
+        ('AED', 'UAE Dirham', 'AED', 2, true)
+      ON CONFLICT (code) DO NOTHING;
+    `)
+
+    // Veritabanındaki tüm kayıtlı para birimlerini al
+    const existingCurrenciesRes = await client.query(
+      'SELECT upper(trim(code)) as code FROM currencies',
     )
-    const activeSet = new Set(activeCurrenciesRes.rows.map((r) => r.code))
-    // Temel kurların (USD, EUR, GBP) her zaman kaydedilmesini sağla
-    activeSet.add('USD')
-    activeSet.add('EUR')
-    activeSet.add('GBP')
-    activeSet.add('CHF')
-    activeSet.add('RUB')
-    activeSet.add('SAR')
-    activeSet.add('AED')
+    const existingSet = new Set(existingCurrenciesRes.rows.map((r) => r.code))
 
     let inserted = 0
     for (const { code, rate } of rates) {
-      if (!activeSet.has(code)) continue
+      if (!existingSet.has(code)) continue
 
       await client.query(
         `INSERT INTO currency_rates (base_code, quote_code, rate, source, fetched_at)
