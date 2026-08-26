@@ -56,6 +56,9 @@ export default function ActivityBookingPanel({
   fallbackPriceCurrency,
   pageCurrency,
   initialMonthsShown = 1,
+  activityCategory,
+  femaleStaffOptionEnabled = false,
+  femaleStaffSurcharge,
 }: {
   listingId: string
   locale?: string
@@ -67,6 +70,9 @@ export default function ActivityBookingPanel({
   fallbackPriceCurrency?: string
   pageCurrency?: string
   initialMonthsShown?: 1 | 2
+  activityCategory?: string
+  femaleStaffOptionEnabled?: boolean
+  femaleStaffSurcharge?: string
 }) {
   const m = getMessages(locale)
   const ab = m.listing.activityBooking
@@ -82,6 +88,7 @@ export default function ActivityBookingPanel({
   const [sessionId, setSessionId] = useState(initialSessions[0]?.id ?? '')
   const [adults, setAdults] = useState(1)
   const [children, setChildren] = useState(0)
+  const [femaleStaffSelected, setFemaleStaffSelected] = useState(false)
   const [quote, setQuote] = useState<ActivityQuote | null>(null)
   const [loading, setLoading] = useState(false)
   const [msg, setMsg] = useState<string | null>(null)
@@ -157,7 +164,11 @@ export default function ActivityBookingPanel({
   const childUnit = parseMoney(quote?.child_unit || activeSessionRow?.child_price)
   const adultsSubtotal = adultUnit * adults
   const childrenSubtotal = childUnit * children
-  const grandTotal = quote?.line_total != null && quote?.line_total !== '' ? parseMoney(quote.line_total) : (adultsSubtotal + childrenSubtotal)
+  const participantCount = adults + children
+  const femaleStaffUnit = femaleStaffOptionEnabled ? parseMoney(femaleStaffSurcharge) : 0
+  const femaleStaffTotal = femaleStaffSelected ? femaleStaffUnit * participantCount : 0
+  const baseGrandTotal = quote?.line_total != null && quote?.line_total !== '' ? parseMoney(quote.line_total) : (adultsSubtotal + childrenSubtotal)
+  const grandTotal = baseGrandTotal + femaleStaffTotal
   const listingCurrency = (fallbackPriceCurrency || pageCurrency || currency || 'TRY').trim().toUpperCase()
   const targetCurrency = (currencyContext?.preferredCode || listingCurrency).trim().toUpperCase()
   const convertForDisplay = (amount: number, sourceCurrency: string): number => {
@@ -214,6 +225,11 @@ export default function ActivityBookingPanel({
         currencyCode: payment.currencyCode,
         unitPrice: payment.unitPrice,
         startTime: quote?.start_time || activeSessionRow?.start_time,
+        femaleStaffPreference: femaleStaffSelected
+          ? activityCategory === 'paragliding'
+            ? 'female_pilot'
+            : 'female_captain'
+          : undefined,
       }),
     )
   }
@@ -264,6 +280,25 @@ export default function ActivityBookingPanel({
           onChildrenChange={setChildren}
         />
       </div>
+
+      {femaleStaffOptionEnabled && femaleStaffUnit > 0 && (activityCategory === 'paragliding' || activityCategory === 'boat_tour') ? (
+        <label className="mt-4 flex cursor-pointer items-start gap-3 rounded-2xl border border-neutral-200 p-4 dark:border-neutral-700">
+          <input
+            type="checkbox"
+            className="mt-1 h-4 w-4 rounded text-primary-600"
+            checked={femaleStaffSelected}
+            onChange={(e) => setFemaleStaffSelected(e.target.checked)}
+          />
+          <span className="min-w-0 text-sm">
+            <span className="block font-semibold text-neutral-900 dark:text-neutral-100">
+              {activityCategory === 'paragliding' ? ab.femalePilotOption : ab.femaleCaptainOption}
+            </span>
+            <span className="mt-1 block text-neutral-500 dark:text-neutral-400">
+              {ab.perPersonSurcharge.replace('{price}', displayMoney(convertForDisplay(femaleStaffUnit, currency), displayCurrency))}
+            </span>
+          </span>
+        </label>
+      ) : null}
 
       <div className="mt-4 space-y-3 rounded-2xl bg-neutral-50 p-4 dark:bg-neutral-800/50">
         <DescriptionList>

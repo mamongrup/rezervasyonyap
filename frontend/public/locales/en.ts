@@ -1990,6 +1990,9 @@ export const en = {
       reserve: 'Book now',
       timeNotSpecified: 'Time not specified',
       minutesShort: '{min} min',
+      femalePilotOption: 'I prefer a female pilot',
+      femaleCaptainOption: 'I prefer a female captain',
+      perPersonSurcharge: '+{price} per person',
     },
     shareGallery: {
       openTitle: 'Share listing',

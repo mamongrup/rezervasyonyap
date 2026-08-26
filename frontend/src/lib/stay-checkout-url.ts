@@ -172,6 +172,7 @@ export type ActivityCheckoutQueryParams = {
   adults: number
   children: number
   startTime: string | null
+  femaleStaffPreference: string | null
 }
 
 function readActivityCount(
@@ -202,6 +203,7 @@ export function parseActivityCheckoutParams(
       searchParams.get('activityStartTime')?.trim() ||
       searchParams.get('activity_start_time')?.trim() ||
       null,
+    femaleStaffPreference: searchParams.get('activityStaffPreference')?.trim() || null,
   }
 }
 
@@ -232,6 +234,7 @@ export function buildActivityCheckoutUrl(
     currencyCode: string
     unitPrice: number
     startTime?: string
+    femaleStaffPreference?: 'female_pilot' | 'female_captain'
   },
 ): string {
   const u = new URLSearchParams()
@@ -247,6 +250,7 @@ export function buildActivityCheckoutUrl(
   u.set('activityAdults', String(Math.max(1, params.adults)))
   u.set('activityChildren', String(Math.max(0, params.children)))
   if (params.startTime?.trim()) u.set('activityStartTime', params.startTime.trim())
+  if (params.femaleStaffPreference) u.set('activityStaffPreference', params.femaleStaffPreference)
   u.set('currency', (params.currencyCode || 'TRY').trim().toUpperCase())
   const price = Number.isFinite(params.unitPrice) && params.unitPrice > 0 ? params.unitPrice : 0
   u.set('unitPrice', price.toFixed(2))

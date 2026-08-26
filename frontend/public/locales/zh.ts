@@ -1084,6 +1084,9 @@ export const zh: AppMessages = {
       reserve: '立即预订',
       timeNotSpecified: '未注明时间',
       minutesShort: '{min}分钟',
+      femalePilotOption: '我希望选择女飞行员',
+      femaleCaptainOption: '我希望选择女船长',
+      perPersonSurcharge: '每人加收 {price}',
     },
     shareGallery: {
       openTitle: '分享房源',

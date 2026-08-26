@@ -1429,6 +1429,9 @@ export const tr = {
       reserve: 'Rezervasyon yap',
       timeNotSpecified: 'Saat belirtilmedi',
       minutesShort: '{min} dk',
+      femalePilotOption: 'Kadın pilot tercih ediyorum',
+      femaleCaptainOption: 'Kadın kaptan tercih ediyorum',
+      perPersonSurcharge: 'Kişi başı +{price}',
     },
     shareGallery: {
       openTitle: 'İlanı paylaş',

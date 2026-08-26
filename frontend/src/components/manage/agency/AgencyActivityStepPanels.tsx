@@ -53,6 +53,8 @@ export interface ActivityAgencyBasicsState {
   rules?: string[]
   includes?: string[]
   excludes?: string[]
+  female_staff_option_enabled?: boolean
+  female_staff_surcharge?: string
   preview_url?: string
 }
 
@@ -124,6 +126,35 @@ export function ActivityBasicsStepPanel({
           </div>
         </div>
       </div>
+
+      {((values.activity_category || 'paragliding') === 'paragliding' || values.activity_category === 'boat_tour') && (
+        <div className="rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm dark:border-neutral-700 dark:bg-neutral-800">
+          <h3 className="text-sm font-semibold uppercase tracking-wider text-neutral-800 dark:text-neutral-200">
+            {(values.activity_category || 'paragliding') === 'paragliding' ? 'Kadın Pilot Tercihi' : 'Kadın Kaptan Tercihi'}
+          </h3>
+          <label className="mt-4 flex items-center gap-3 text-sm font-medium">
+            <input
+              type="checkbox"
+              checked={values.female_staff_option_enabled === true}
+              onChange={(e) => emitChange({ female_staff_option_enabled: e.target.checked })}
+            />
+            Rezervasyonda tercih edilebilsin
+          </label>
+          {values.female_staff_option_enabled === true ? (
+            <Field className="mt-4 block max-w-xs">
+              <Label className="text-xs font-medium">Kişi başı fiyat farkı</Label>
+              <Input
+                type="number"
+                min="0"
+                step="0.01"
+                className="mt-1"
+                value={values.female_staff_surcharge || ''}
+                onChange={(e) => emitChange({ female_staff_surcharge: e.target.value })}
+              />
+            </Field>
+          ) : null}
+        </div>
+      )}
 
       {/* Aktivite Rezervasyon Modeli (Seanslı / Tam Gün) */}
       <div className="rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm dark:border-neutral-700 dark:bg-neutral-800">
@@ -331,6 +362,30 @@ export function ActivityMeetingTransferStepPanel({
   }
   return (
     <div className="space-y-6">
+      <div className="grid gap-4 rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm sm:grid-cols-2 dark:border-neutral-700 dark:bg-neutral-800">
+        <Field className="block">
+          <Label className="text-xs font-medium">Fiyata Dahil Olanlar</Label>
+          <textarea
+            rows={6}
+            disabled={disabled}
+            className="mt-1 w-full rounded-xl border border-neutral-200 bg-white px-3 py-2 text-sm dark:border-neutral-700 dark:bg-neutral-900"
+            placeholder={'Her hizmeti ayrı satıra yazın\nÖrn. Transfer\nGüvenlik ekipmanı'}
+            value={(values.includes ?? []).join('\n')}
+            onChange={(e) => emitChange({ includes: e.target.value.split('\n').map((x) => x.trim()).filter(Boolean) })}
+          />
+        </Field>
+        <Field className="block">
+          <Label className="text-xs font-medium">Fiyata Hariç Olanlar</Label>
+          <textarea
+            rows={6}
+            disabled={disabled}
+            className="mt-1 w-full rounded-xl border border-neutral-200 bg-white px-3 py-2 text-sm dark:border-neutral-700 dark:bg-neutral-900"
+            placeholder={'Her hizmeti ayrı satıra yazın\nÖrn. Fotoğraf ve video\nKişisel harcamalar'}
+            value={(values.excludes ?? []).join('\n')}
+            onChange={(e) => emitChange({ excludes: e.target.value.split('\n').map((x) => x.trim()).filter(Boolean) })}
+          />
+        </Field>
+      </div>
       <div className="rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm dark:border-neutral-700 dark:bg-neutral-800">
         <h3 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-neutral-800 dark:text-neutral-200">
           <Car className="h-4 w-4 text-primary-600" />

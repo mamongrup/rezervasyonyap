@@ -172,6 +172,8 @@ type ActivityMeta = {
   cancellation_policy?: string
   operator_license_no?: string
   tursab_no?: string
+  female_staff_option_enabled?: boolean
+  female_staff_surcharge?: string
 }
 
 function textFromMeta(value: unknown): string {
@@ -334,6 +336,9 @@ function parseActivityMeta(raw: unknown): ActivityMeta {
     cancellation_policy: textFromMeta(data.cancellation_policy),
     operator_license_no: textFromMeta(data.operator_license_no),
     tursab_no: textFromMeta(data.tursab_no),
+    female_staff_option_enabled:
+      data.female_staff_option_enabled === true || data.female_staff_option_enabled === 'true',
+    female_staff_surcharge: textFromMeta(data.female_staff_surcharge),
   }
 }
 
@@ -1269,6 +1274,9 @@ export default async function ExperienceListingDetailPage({
               fallbackPriceCurrency={(listing as { priceCurrency?: string }).priceCurrency}
               pageCurrency={(listing as { listingCurrencyCode?: string }).listingCurrencyCode}
               initialMonthsShown={calendarMonthsShown}
+              activityCategory={activityMeta?.activity_category}
+              femaleStaffOptionEnabled={activityMeta?.female_staff_option_enabled}
+              femaleStaffSurcharge={activityMeta?.female_staff_surcharge}
             />
           ) : (
             renderSidebarPriceAndForm()

@@ -1103,6 +1103,9 @@ export const de: AppMessages = {
       reserve: 'Jetzt buchen',
       timeNotSpecified: 'Uhrzeit nicht angegeben',
       minutesShort: '{min} Min.',
+      femalePilotOption: 'Ich bevorzuge eine Pilotin',
+      femaleCaptainOption: 'Ich bevorzuge eine Kapitänin',
+      perPersonSurcharge: '+{price} pro Person',
     },
     shareGallery: {
       openTitle: 'Inserat teilen',

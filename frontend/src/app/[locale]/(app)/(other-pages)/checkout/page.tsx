@@ -382,6 +382,9 @@ function CheckoutPageContent() {
                   ...(activityCheckout.startTime
                     ? { activity_start_time: activityCheckout.startTime }
                     : {}),
+                  ...(activityCheckout.femaleStaffPreference
+                    ? { activity_staff_preference: activityCheckout.femaleStaffPreference }
+                    : {}),
                 })
               : hotelRoomId
                 ? JSON.stringify({

@@ -1102,6 +1102,9 @@ export const ru: AppMessages = {
       reserve: 'Забронировать',
       timeNotSpecified: 'Время не указано',
       minutesShort: '{min} мин',
+      femalePilotOption: 'Предпочитаю женщину-пилота',
+      femaleCaptainOption: 'Предпочитаю женщину-капитана',
+      perPersonSurcharge: '+{price} с человека',
     },
     shareGallery: {
       openTitle: 'Поделиться объявлением',
