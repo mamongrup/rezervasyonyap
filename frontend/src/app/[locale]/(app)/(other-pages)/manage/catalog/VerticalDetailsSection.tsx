@@ -1051,6 +1051,7 @@ function ActivitySection({
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null)
   const [sessionsMsg, setSessionsMsg] = useState<{ ok: boolean; text: string } | null>(null)
   const [sessions, setSessions] = useState<ActivitySessionRow[]>([])
+  const [vitrin, setVitrin] = useState<ActivityVitrinManageValue>(emptyActivityVitrinManageValue())
   const [rawMeta, setRawMeta] = useState<Record<string, unknown>>({})
   const save = useSave('activity', listingId)
 

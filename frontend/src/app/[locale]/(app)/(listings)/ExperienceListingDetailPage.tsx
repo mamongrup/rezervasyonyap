@@ -157,6 +157,7 @@ type ActivityMeta = {
   max_age?: string
   min_weight_kg?: string
   max_weight_kg?: string
+  max_participants?: string
   health_restrictions?: string[]
   bring_items?: string[]
   equipment_included?: string[]
@@ -318,6 +319,7 @@ function parseActivityMeta(raw: unknown): ActivityMeta {
     max_age: textFromMeta(data.max_age),
     min_weight_kg: textFromMeta(data.min_weight_kg),
     max_weight_kg: textFromMeta(data.max_weight_kg),
+    max_participants: textFromMeta(data.max_participants || data.capacity),
     health_restrictions,
     bring_items,
     equipment_included,

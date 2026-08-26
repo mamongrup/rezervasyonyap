@@ -2119,6 +2119,7 @@ export async function patchManageHotelDetails(
 
 export type ActivitySessionRow = {
   id?: string
+  session_name?: string | null
   valid_from: string
   valid_to: string
   start_time: string
@@ -2132,6 +2133,7 @@ export type ActivitySessionRow = {
   adult_min_age?: string | null
   adult_max_age?: string | null
   child_min_age?: string | null
+  description?: string | null
 }
 
 export async function listManageActivitySessions(
