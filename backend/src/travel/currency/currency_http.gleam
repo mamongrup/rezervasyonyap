@@ -77,7 +77,7 @@ pub fn list_currencies(req: Request, ctx: Context) -> Response {
 pub fn list_latest_rates(req: Request, ctx: Context) -> Response {
   use <- wisp.require_method(req, http.Get)
   let sql =
-    "select distinct on (base_code, quote_code) base_code::text, quote_code::text, rate::float8, source, fetched_at::text from currency_rates order by base_code, quote_code, fetched_at desc"
+    "select distinct on (base_code, quote_code) base_code::text, quote_code::text, rate::float8, source, fetched_at::text from currency_rates order by base_code, quote_code, fetched_at desc, id desc"
   case
     pog.query(sql)
     |> pog.returning(rate_row())
@@ -100,6 +100,7 @@ pub fn list_latest_rates(req: Request, ctx: Context) -> Response {
         json.object([#("rates", json.array(from: arr, of: fn(x) { x }))])
         |> json.to_string
       wisp.json_response(body, 200)
+      |> wisp.set_header("cache-control", "no-store, no-cache, must-revalidate")
     }
   }
 }

@@ -109,6 +109,26 @@ async function main() {
       inserted++
     }
 
+    if (inserted === 0) {
+      throw new Error('Aktif para birimleri için hiçbir kur yazılamadı.')
+    }
+
+    const usdFromFeed = rates.find((row) => row.code === 'USD')?.rate
+    if (usdFromFeed) {
+      const latestUsd = await client.query(
+        `SELECT rate::float8 AS rate, fetched_at
+           FROM currency_rates
+          WHERE base_code = 'USD' AND quote_code = 'TRY'
+          ORDER BY fetched_at DESC, id DESC
+          LIMIT 1`,
+      )
+      const storedUsd = Number(latestUsd.rows[0]?.rate)
+      if (!Number.isFinite(storedUsd) || Math.abs(storedUsd - usdFromFeed) > 0.000001) {
+        throw new Error(`USD/TRY doğrulaması başarısız: feed=${usdFromFeed}, db=${storedUsd}`)
+      }
+      console.log(`[tcmb-sync] Doğrulandı: 1 USD = ${storedUsd.toFixed(4)} TRY.`)
+    }
+
     console.log(`[tcmb-sync] BAŞARILI: Toplam ${inserted} kur kaydı güncellendi.`)
   } finally {
     await client.end()

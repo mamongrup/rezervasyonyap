@@ -630,7 +630,7 @@ main() {
       && cp "$APP_ROOT/deploy/systemd/travel-currency-rates.timer" /etc/systemd/system/travel-currency-rates.timer \
       && systemctl daemon-reload \
       && systemctl enable --now travel-currency-rates.timer \
-      && systemctl start --no-block travel-currency-rates.service \
+      && systemctl restart travel-currency-rates.service \
       && ok "travel-currency-rates.timer etkin (saatlik TCMB kur senkronu)" \
       || warn "travel-currency-rates.timer kurulamadı."
   fi
@@ -711,12 +711,14 @@ main() {
       && cp "$APP_ROOT/deploy/systemd/travel-currency-rates.timer" /etc/systemd/system/travel-currency-rates.timer \
       && systemctl daemon-reload \
       && systemctl enable --now travel-currency-rates.timer \
+      && systemctl restart travel-currency-rates.service \
       && ok "travel-currency-rates.timer etkin" \
       || warn "Döviz kurları timer kurulamadı; elle: node scripts/sync-tcmb-currency-rates.mjs"
   fi
 
-  if [[ -f "$APP_ROOT/scripts/sync-tcmb-currency-rates.mjs" ]]; then
-    node "$APP_ROOT/scripts/sync-tcmb-currency-rates.mjs" || warn "TCMB kurları senkronize edilemedi."
+  if [[ -f "$APP_ROOT/deploy/scripts/run-currency-rates-sync.sh" ]]; then
+    bash "$APP_ROOT/deploy/scripts/run-currency-rates-sync.sh" \
+      || fail "TCMB kurları senkronize edilemedi; eski kurla deploy tamamlanmadı."
   fi
 
   if [[ -f "$APP_ROOT/scripts/sync-activity-listing-prices.mjs" ]]; then
