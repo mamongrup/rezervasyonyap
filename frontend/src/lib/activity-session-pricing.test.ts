@@ -44,6 +44,15 @@ describe('activity session pricing', () => {
     expect(lowest).toMatchObject({ amount: 7000, currencyCode: 'TRY' })
   })
 
+  it('does not compare raw amounts when a session currency cannot be converted', () => {
+    const lowest = activityLowestSessionPrice(
+      [session('160'), { ...session('7000'), currency_code: 'TRY' }],
+      (amount, currency) => (currency === 'TRY' ? amount : null),
+    )
+
+    expect(lowest).toMatchObject({ amount: 7000, currencyCode: 'TRY' })
+  })
+
   it('uses the female pilot price instead of adding it to the standard total', () => {
     expect(activityTotalWithStaffPrice(320, 2, 190, true)).toBe(380)
     expect(activityTotalWithStaffPrice(320, 2, 190, false)).toBe(320)

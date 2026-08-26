@@ -5,9 +5,9 @@ type Edge = { from: string; to: string; factor: number }
 function buildEdges(rates: PublicCurrencyRateRow[]): Edge[] {
   const edges: Edge[] = []
   for (const r of rates) {
-    const b = r.base_code.toUpperCase()
-    const q = r.quote_code.toUpperCase()
-    if (!b || !q || !Number.isFinite(r.rate) || r.rate === 0) continue
+    const b = r.base_code.trim().toUpperCase()
+    const q = r.quote_code.trim().toUpperCase()
+    if (!b || !q || !Number.isFinite(r.rate) || r.rate <= 0) continue
     edges.push({ from: b, to: q, factor: r.rate })
     edges.push({ from: q, to: b, factor: 1 / r.rate })
   }
@@ -24,8 +24,10 @@ export function convertAmountWithRates(
   toCode: string,
   rates: PublicCurrencyRateRow[],
 ): number | null {
-  const F = fromCode.toUpperCase()
-  const T = toCode.toUpperCase()
+  if (!Number.isFinite(amount)) return null
+  const F = fromCode.trim().toUpperCase()
+  const T = toCode.trim().toUpperCase()
+  if (!F || !T) return null
   if (F === T) return amount
   const edges = buildEdges(rates)
   const queue: { cur: string; val: number }[] = [{ cur: F, val: amount }]
@@ -41,4 +43,32 @@ export function convertAmountWithRates(
     }
   }
   return null
+}
+
+export type DisplayMoney = {
+  amount: number
+  currencyCode: string
+  converted: boolean
+}
+
+/**
+ * Vitrinde tutar ile para birimi simgesinin ayrışmasını önler.
+ * Kur yolu yoksa kaynak tutarı ve kaynak para birimini birlikte korur.
+ */
+export function resolveDisplayMoney(
+  amount: number,
+  fromCode: string,
+  preferredCode: string,
+  rates: PublicCurrencyRateRow[],
+): DisplayMoney | null {
+  if (!Number.isFinite(amount)) return null
+  const source = fromCode.trim().toUpperCase()
+  const target = preferredCode.trim().toUpperCase() || source
+  if (!source) return null
+  if (source === target) return { amount, currencyCode: source, converted: false }
+
+  const converted = convertAmountWithRates(amount, source, target, rates)
+  return converted == null
+    ? { amount, currencyCode: source, converted: false }
+    : { amount: converted, currencyCode: target, converted: true }
 }

@@ -1,4 +1,6 @@
-import { formatMoneyIntl } from '@/lib/parse-listing-price'
+'use client'
+
+import { useFormatMoneyInPreferredCurrency } from '@/contexts/preferred-currency-context'
 import type { FerryTicketFare, FerryPortTax, FerryAgePolicy } from '@/lib/travel-api'
 import { getMessages } from '@/utils/getT'
 
@@ -19,8 +21,6 @@ export default function FerryPriceTableSection({
 }) {
   const fd = getMessages(locale).listing.ferryDetail
   const ticketLabels = fd.ticketType as Record<string, string>
-
-  const fmt = (n: number) => formatMoneyIntl(n, currencyCode)
 
   return (
     <div className="listingSection__wrap flex flex-col gap-8">
@@ -43,14 +43,12 @@ export default function FerryPriceTableSection({
           </thead>
           <tbody className="divide-y divide-neutral-200 dark:divide-neutral-700">
             {fares.map((fare) => (
-              <tr key={fare.type}>
-                <td className="px-4 py-3 font-medium">
-                  {ticketLabels[fare.type] ?? fare.label_tr ?? fare.type}
-                </td>
-                <td className="px-4 py-3">{fmt(fare.official.adult)}</td>
-                <td className="px-4 py-3">{fmt(fare.official.child)}</td>
-                <td className="px-4 py-3">{fmt(fare.official.baby)}</td>
-              </tr>
+              <FerryFareRow
+                key={fare.type}
+                fare={fare}
+                label={ticketLabels[fare.type] ?? fare.label_tr ?? fare.type}
+                currencyCode={currencyCode}
+              />
             ))}
           </tbody>
         </table>
@@ -61,13 +59,7 @@ export default function FerryPriceTableSection({
           <h3 className="text-base font-semibold">{fd.portTaxesTitle}</h3>
           <ul className="mt-2 space-y-1 text-sm text-neutral-600 dark:text-neutral-300">
             {portTaxes.map((tax) => (
-              <li key={tax.port}>
-                <span className="font-medium text-neutral-800 dark:text-neutral-100">{tax.port}</span>
-                {' — '}
-                {fd.portTaxOw}: {fmt(tax.ow)}
-                {tax.sdr !== tax.ow ? ` · ${fd.portTaxSdr}: ${fmt(tax.sdr)}` : ''}
-                {tax.or !== tax.ow && tax.or !== tax.sdr ? ` · ${fd.portTaxOr}: ${fmt(tax.or)}` : ''}
-              </li>
+              <FerryPortTaxRow key={tax.port} tax={tax} currencyCode={currencyCode} labels={fd} />
             ))}
           </ul>
         </div>
@@ -86,5 +78,50 @@ export default function FerryPriceTableSection({
         </div>
       ) : null}
     </div>
+  )
+}
+
+function FerryFareRow({
+  fare,
+  label,
+  currencyCode,
+}: {
+  fare: FerryTicketFare
+  label: string
+  currencyCode: string
+}) {
+  const adult = useFormatMoneyInPreferredCurrency(fare.official.adult, currencyCode)
+  const child = useFormatMoneyInPreferredCurrency(fare.official.child, currencyCode)
+  const baby = useFormatMoneyInPreferredCurrency(fare.official.baby, currencyCode)
+  return (
+    <tr>
+      <td className="px-4 py-3 font-medium">{label}</td>
+      <td className="px-4 py-3">{adult}</td>
+      <td className="px-4 py-3">{child}</td>
+      <td className="px-4 py-3">{baby}</td>
+    </tr>
+  )
+}
+
+function FerryPortTaxRow({
+  tax,
+  currencyCode,
+  labels,
+}: {
+  tax: FerryPortTax
+  currencyCode: string
+  labels: ReturnType<typeof getMessages>['listing']['ferryDetail']
+}) {
+  const ow = useFormatMoneyInPreferredCurrency(tax.ow, currencyCode)
+  const sdr = useFormatMoneyInPreferredCurrency(tax.sdr, currencyCode)
+  const or = useFormatMoneyInPreferredCurrency(tax.or, currencyCode)
+  return (
+    <li>
+      <span className="font-medium text-neutral-800 dark:text-neutral-100">{tax.port}</span>
+      {' — '}
+      {labels.portTaxOw}: {ow}
+      {tax.sdr !== tax.ow ? ` · ${labels.portTaxSdr}: ${sdr}` : ''}
+      {tax.or !== tax.ow && tax.or !== tax.sdr ? ` · ${labels.portTaxOr}: ${or}` : ''}
+    </li>
   )
 }

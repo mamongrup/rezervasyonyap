@@ -1,9 +1,9 @@
 'use client'
 
 import { hotelRoomCapacityOrDefault } from '@/lib/accommodation-units'
+import { useFormatMoneyInPreferredCurrency } from '@/contexts/preferred-currency-context'
 import { buildBoardTypeLabelsFromMessages, resolveHotelBoardTypeLabel } from '@/lib/hotel-room-board-type'
 import type { HotelRoomBookingOption } from '@/lib/hotel-room-availability-public'
-import { formatMoneyIntl } from '@/lib/parse-listing-price'
 import { getMessages } from '@/utils/getT'
 import { interpolate } from '@/utils/interpolate'
 import clsx from 'clsx'
@@ -32,8 +32,8 @@ function SidebarRoomOption({
   )
   const board = resolveHotelBoardTypeLabel(room.board_type, boardLabels)
   const cap = hotelRoomCapacityOrDefault(room.capacity)
-  const priceLabel =
-    nightly > 0 ? formatMoneyIntl(nightly, currencyCode || 'TRY') : null
+  const convertedNightly = useFormatMoneyInPreferredCurrency(nightly, currencyCode || 'TRY')
+  const priceLabel = nightly > 0 ? convertedNightly : null
 
   return (
     <button

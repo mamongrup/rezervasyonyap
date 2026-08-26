@@ -2,6 +2,7 @@
 
 import React from 'react'
 
+import { useFormatMoneyInPreferredCurrency } from '@/contexts/preferred-currency-context'
 import { apiOriginForFetch } from '@/lib/api-origin'
 
 type Perks = {
@@ -14,8 +15,8 @@ type Props = {
   listingId: string
   /** Mobil-özel indirim yüzdesi göstermek için temel fiyat (varsa). */
   basePrice?: number
-  /** Para birimi simgesi (örn. "₺", "$"). */
-  currencySymbol?: string
+  /** Temel fiyatın para birimi. */
+  currencyCode?: string
   className?: string
   /** Başlık satırında ayrı gösterildiğinde burada tekrarlamayı önle */
   hideInstantBook?: boolean
@@ -30,7 +31,7 @@ function isMobileDevice(): boolean {
 export default function ListingPerksBadges({
   listingId,
   basePrice,
-  currencySymbol = '₺',
+  currencyCode = 'TRY',
   className,
   hideInstantBook = false,
 }: Props) {
@@ -56,13 +57,17 @@ export default function ListingPerksBadges({
     }
   }, [listingId])
 
-  if (!perks) return null
-
-  const hasMobileDiscount = isMobile && perks.mobile_discount_percent > 0
+  const hasMobileDiscount = isMobile && (perks?.mobile_discount_percent ?? 0) > 0
   const mobileDiscountAmount =
     hasMobileDiscount && basePrice && basePrice > 0
-      ? (basePrice * perks.mobile_discount_percent) / 100
+      ? (basePrice * (perks?.mobile_discount_percent ?? 0)) / 100
       : 0
+  const mobileDiscountLabel = useFormatMoneyInPreferredCurrency(
+    mobileDiscountAmount,
+    currencyCode,
+  )
+
+  if (!perks) return null
 
   const items: { icon: string; label: string; tone: 'sky' | 'amber' | 'violet' }[] = []
   if (perks.instant_book && !hideInstantBook) {
@@ -100,7 +105,7 @@ export default function ListingPerksBadges({
       {hasMobileDiscount && (
         <div className="rounded-xl border border-fuchsia-300 bg-fuchsia-50 px-3 py-2 text-xs font-medium text-fuchsia-800 dark:border-fuchsia-700 dark:bg-fuchsia-900/30 dark:text-fuchsia-200">
           {mobileDiscountAmount > 0
-            ? `📱 Mobil cihazınızdasınız — %${perks.mobile_discount_percent} ek indirim: ${currencySymbol}${mobileDiscountAmount.toFixed(0)} tasarruf`
+            ? `📱 Mobil cihazınızdasınız — %${perks.mobile_discount_percent} ek indirim: ${mobileDiscountLabel} tasarruf`
             : `📱 Mobil cihazınızdasınız — %${perks.mobile_discount_percent} mobil indirim aktif`}
         </div>
       )}

@@ -15,10 +15,15 @@ export function activityActiveSessionPrices<T extends ActivitySessionPriceRow>(s
 
 export function activityLowestSessionPrice<T extends ActivitySessionPriceRow>(
   sessions: T[],
-  comparisonAmount: (amount: number, currencyCode: string) => number = (amount) => amount,
+  comparisonAmount: (amount: number, currencyCode: string) => number | null = (amount) => amount,
 ) {
   return activityActiveSessionPrices(sessions)
-    .map((price) => ({ ...price, comparisonAmount: comparisonAmount(price.amount, price.currencyCode) }))
+    .flatMap((price) => {
+      const comparable = comparisonAmount(price.amount, price.currencyCode)
+      return comparable == null || !Number.isFinite(comparable)
+        ? []
+        : [{ ...price, comparisonAmount: comparable }]
+    })
     .reduce<{ amount: number; currencyCode: string; comparisonAmount: number } | null>(
       (lowest, candidate) =>
         lowest == null || candidate.comparisonAmount < lowest.comparisonAmount ? candidate : lowest,

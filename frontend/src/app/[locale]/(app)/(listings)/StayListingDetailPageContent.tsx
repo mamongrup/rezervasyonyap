@@ -1595,7 +1595,7 @@ export default async function StayListingDetailPageContent({
     <ListingPerksBadges
       listingId={listing.id}
       basePrice={typeof reservationPriceAmount === 'number' ? reservationPriceAmount : undefined}
-      currencySymbol={priceCurrency === 'USD' ? '$' : priceCurrency === 'EUR' ? '€' : '₺'}
+      currencyCode={priceCurrency}
       hideInstantBook
       className="px-1"
     />

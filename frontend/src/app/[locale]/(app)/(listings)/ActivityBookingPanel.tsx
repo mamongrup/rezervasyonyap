@@ -5,7 +5,7 @@ import ActivitySessionInputPopover from '@/app/[locale]/(app)/(listings)/compone
 import SingleDateInputPopover from '@/app/[locale]/(app)/(listings)/components/SingleDateInputPopover'
 import { useVitrinHref } from '@/hooks/use-vitrin-href'
 import { usePreferredCurrencyContext, useCheckoutPaymentAmount } from '@/contexts/preferred-currency-context'
-import { convertAmountWithRates } from '@/lib/currency-convert'
+import { resolveDisplayMoney } from '@/lib/currency-convert'
 import { activityLowestSessionPrice, activityTotalWithStaffPrice } from '@/lib/activity-session-pricing'
 import { formatLocalYmd } from '@/lib/date-format-local'
 import { buildActivityCheckoutUrl } from '@/lib/stay-checkout-url'
@@ -174,28 +174,32 @@ export default function ActivityBookingPanel({
   )
   const listingCurrency = (fallbackPriceCurrency || pageCurrency || currency || 'TRY').trim().toUpperCase()
   const targetCurrency = (currencyContext?.preferredCode || listingCurrency).trim().toUpperCase()
-  const convertForDisplay = (amount: number, sourceCurrency: string): number => {
-    const source = (sourceCurrency || listingCurrency).trim().toUpperCase()
-    if (amount <= 0 || source === targetCurrency) return amount
-    const converted = convertAmountWithRates(amount, source, targetCurrency, currencyContext?.rates ?? [])
-    return converted ?? amount
+  const displayMoneyValue = (amount: number, sourceCurrency: string) =>
+    resolveDisplayMoney(
+      amount,
+      sourceCurrency || listingCurrency,
+      targetCurrency,
+      currencyContext?.rates ?? [],
+    )
+  const comparableAmount = (amount: number, sourceCurrency: string): number | null => {
+    const value = displayMoneyValue(amount, sourceCurrency)
+    return value?.currencyCode === targetCurrency ? value.amount : null
   }
-  const displayGrandTotal = convertForDisplay(grandTotal, currency)
-  const displayCurrency = targetCurrency
+  const displayGrandTotal = displayMoneyValue(grandTotal, currency)
 
   const parsedFallbackPrice = parseListingPriceString(stripActivityFromAffix(fallbackPrice))
-  const sessionStartingPrice = activityLowestSessionPrice(allSessionRanges, convertForDisplay)
+  const sessionStartingPrice = activityLowestSessionPrice(allSessionRanges, comparableAmount)
   const convertedHeaderPrice =
     fallbackPriceAmount != null && Number.isFinite(fallbackPriceAmount) && fallbackPriceAmount > 0
-        ? convertForDisplay(fallbackPriceAmount, listingCurrency)
+        ? displayMoneyValue(fallbackPriceAmount, listingCurrency)
         : parsedFallbackPrice
-          ? convertForDisplay(parsedFallbackPrice.amount, parsedFallbackPrice.currency)
-          : convertForDisplay(adultUnit, currency)
+          ? displayMoneyValue(parsedFallbackPrice.amount, parsedFallbackPrice.currency)
+          : displayMoneyValue(adultUnit, currency)
   const headerPrice =
     sessionStartingPrice != null
-      ? displayMoney(sessionStartingPrice.comparisonAmount, displayCurrency)
-      : convertedHeaderPrice > 0
-        ? displayMoney(convertedHeaderPrice, displayCurrency)
+      ? displayMoney(sessionStartingPrice.comparisonAmount, targetCurrency)
+      : convertedHeaderPrice != null && convertedHeaderPrice.amount > 0
+        ? displayMoney(convertedHeaderPrice.amount, convertedHeaderPrice.currencyCode)
         : ab.priceBySelection
 
   const canCheckout =
@@ -291,20 +295,28 @@ export default function ActivityBookingPanel({
               {activityCategory === 'paragliding' ? ab.femalePilotOption : ab.femaleCaptainOption}
             </span>
             <span className="mt-1 block text-neutral-500 dark:text-neutral-400">
-              {ab.specialPricePerPerson.replace('{price}', displayMoney(convertForDisplay(femaleStaffUnit, currency), displayCurrency))}
+              {(() => {
+                const value = displayMoneyValue(femaleStaffUnit, currency)
+                return ab.specialPricePerPerson.replace(
+                  '{price}',
+                  value ? displayMoney(value.amount, value.currencyCode) : '—',
+                )
+              })()}
             </span>
           </span>
         </label>
       ) : null}
 
       <div className="mt-4 space-y-3 rounded-2xl bg-neutral-50 p-4 dark:bg-neutral-800/50">
-        {quote || (activeSessionRow && displayGrandTotal > 0) ? (
+        {quote || (activeSessionRow && displayGrandTotal != null && displayGrandTotal.amount > 0) ? (
           <DescriptionList>
             <DescriptionTerm className="font-semibold text-neutral-900 dark:text-white">
               {sidebar.total}
             </DescriptionTerm>
             <DescriptionDetails className="font-semibold text-neutral-900 sm:text-right dark:text-white">
-              {displayMoney(displayGrandTotal, displayCurrency)}
+              {displayGrandTotal
+                ? displayMoney(displayGrandTotal.amount, displayGrandTotal.currencyCode)
+                : '—'}
             </DescriptionDetails>
           </DescriptionList>
         ) : null}
