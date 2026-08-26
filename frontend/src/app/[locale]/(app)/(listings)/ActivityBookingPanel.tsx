@@ -21,7 +21,6 @@ import { Divider } from '@/shared/divider'
 import { getMessages } from '@/utils/getT'
 import { parseListingPriceString } from '@/lib/parse-listing-price'
 import { parseLocalYmd } from '@/utils/format-local-ymd'
-import Form from 'next/form'
 import { useRouter } from 'next/navigation'
 import { useEffect, useMemo, useState } from 'react'
 
@@ -187,8 +186,8 @@ export default function ActivityBookingPanel({
 
   const canCheckout =
     Boolean(listingId?.trim()) &&
-    Boolean(sessionId) &&
-    quote != null &&
+    Boolean(sessionId || activeSessionRow?.id) &&
+    (quote != null || activeSessionRow != null) &&
     grandTotal > 0 &&
     adults + children > 0 &&
     Boolean(date)
@@ -196,17 +195,19 @@ export default function ActivityBookingPanel({
   const payment = useCheckoutPaymentAmount(currency, grandTotal)
 
   function goCheckout() {
-    if (!canCheckout || !quote || !date.trim()) return
+    if (!canCheckout || !date.trim()) return
+    const targetSessionId = sessionId || activeSessionRow?.id || ''
+    if (!targetSessionId) return
     router.push(
       buildActivityCheckoutUrl(vitrinHref('/checkout'), {
         listingId,
         date,
-        sessionId,
+        sessionId: targetSessionId,
         adults,
         children,
         currencyCode: payment.currencyCode,
         unitPrice: payment.unitPrice,
-        startTime: quote.start_time,
+        startTime: quote?.start_time || activeSessionRow?.start_time,
       }),
     )
   }
@@ -222,10 +223,7 @@ export default function ActivityBookingPanel({
         </span>
       </div>
 
-      <Form
-        action={async () => {
-          goCheckout()
-        }}
+      <div
         className="mt-2 flex flex-col overflow-visible rounded-3xl border border-neutral-200 dark:border-neutral-700"
         id="activity-booking-form"
       >
@@ -259,11 +257,11 @@ export default function ActivityBookingPanel({
           onAdultsChange={setAdults}
           onChildrenChange={setChildren}
         />
-      </Form>
+      </div>
 
       <div className="mt-4 space-y-3 rounded-2xl bg-neutral-50 p-4 dark:bg-neutral-800/50">
         <DescriptionList>
-          {quote && adults > 0 ? (
+          {(quote || activeSessionRow) && adults > 0 ? (
             <>
               <DescriptionTerm className="text-sm text-neutral-600 dark:text-neutral-400">
                 {displayMoney(displayAdultUnit, displayCurrency)} × {adults} {ab.adult.toLowerCase()}
@@ -273,7 +271,7 @@ export default function ActivityBookingPanel({
               </DescriptionDetails>
             </>
           ) : null}
-          {quote && children > 0 ? (
+          {(quote || activeSessionRow) && children > 0 ? (
             <>
               <DescriptionTerm className="text-sm text-neutral-600 dark:text-neutral-400">
                 {displayMoney(displayChildUnit, displayCurrency)} × {children} {ab.child.toLowerCase()}
@@ -284,7 +282,7 @@ export default function ActivityBookingPanel({
             </>
           ) : null}
         </DescriptionList>
-        {quote ? (
+        {quote || (activeSessionRow && displayGrandTotal > 0) ? (
           <>
             <Divider />
             <DescriptionList>
@@ -302,8 +300,8 @@ export default function ActivityBookingPanel({
       {msg ? <p className="mt-3 text-sm text-amber-600 dark:text-amber-300">{msg}</p> : null}
 
       <ButtonPrimary
-        form="activity-booking-form"
-        type="submit"
+        type="button"
+        onClick={goCheckout}
         className="mt-4 w-full"
         disabled={!canCheckout || loading}
       >

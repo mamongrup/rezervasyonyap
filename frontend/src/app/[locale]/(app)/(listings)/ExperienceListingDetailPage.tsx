@@ -625,7 +625,7 @@ export default async function ExperienceListingDetailPage({
         ? formatCruiseRouteSummary(city)
         : undefined
   const activityVitrin = isActivity ? parseActivityVitrinMeta(unwrapVerticalMetaPayload(rawActivityMeta)) : null
-  const allActivitySessions = isActivity ? activitySessionsResult.sessions : []
+  const allActivitySessions = isActivity ? (activitySessionsResult?.sessions ?? []) : []
   const activityInitialDate = isActivity ? firstActivityBookingDate(allActivitySessions, activityToday) : activityToday
   const initialActivitySessions = isActivity ? activitySessionsForDate(allActivitySessions, activityInitialDate) : []
   const tourLanguages = splitMetaList(tourMeta?.languages)
