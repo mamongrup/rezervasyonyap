@@ -1106,6 +1106,7 @@ export const fr: AppMessages = {
       femalePilotOption: 'Je préfère une pilote',
       femaleCaptainOption: 'Je préfère une capitaine',
       perPersonSurcharge: '+{price} par personne',
+      specialPricePerPerson: 'Tarif spécial : {price} par personne',
     },
     shareGallery: {
       openTitle: 'Partager l’annonce',

@@ -1432,6 +1432,7 @@ export const tr = {
       femalePilotOption: 'Kadın pilot tercih ediyorum',
       femaleCaptainOption: 'Kadın kaptan tercih ediyorum',
       perPersonSurcharge: 'Kişi başı +{price}',
+      specialPricePerPerson: 'Özel fiyat: kişi başı {price}',
     },
     shareGallery: {
       openTitle: 'İlanı paylaş',

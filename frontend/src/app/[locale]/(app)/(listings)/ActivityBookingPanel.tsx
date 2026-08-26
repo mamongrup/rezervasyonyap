@@ -6,7 +6,7 @@ import SingleDateInputPopover from '@/app/[locale]/(app)/(listings)/components/S
 import { useVitrinHref } from '@/hooks/use-vitrin-href'
 import { usePreferredCurrencyContext, useCheckoutPaymentAmount } from '@/contexts/preferred-currency-context'
 import { convertAmountWithRates } from '@/lib/currency-convert'
-import { activityLowestSessionPrice } from '@/lib/activity-session-pricing'
+import { activityLowestSessionPrice, activityTotalWithStaffPrice } from '@/lib/activity-session-pricing'
 import { formatLocalYmd } from '@/lib/date-format-local'
 import { buildActivityCheckoutUrl } from '@/lib/stay-checkout-url'
 import {
@@ -57,7 +57,7 @@ export default function ActivityBookingPanel({
   initialMonthsShown = 1,
   activityCategory,
   femaleStaffOptionEnabled = false,
-  femaleStaffSurcharge,
+  femaleStaffPrice,
 }: {
   listingId: string
   locale?: string
@@ -71,7 +71,7 @@ export default function ActivityBookingPanel({
   initialMonthsShown?: 1 | 2
   activityCategory?: string
   femaleStaffOptionEnabled?: boolean
-  femaleStaffSurcharge?: string
+  femaleStaffPrice?: string
 }) {
   const m = getMessages(locale)
   const ab = m.listing.activityBooking
@@ -164,10 +164,14 @@ export default function ActivityBookingPanel({
   const adultsSubtotal = adultUnit * adults
   const childrenSubtotal = childUnit * children
   const participantCount = adults + children
-  const femaleStaffUnit = femaleStaffOptionEnabled ? parseMoney(femaleStaffSurcharge) : 0
-  const femaleStaffTotal = femaleStaffSelected ? femaleStaffUnit * participantCount : 0
+  const femaleStaffUnit = femaleStaffOptionEnabled ? parseMoney(femaleStaffPrice) : 0
   const baseGrandTotal = quote?.line_total != null && quote?.line_total !== '' ? parseMoney(quote.line_total) : (adultsSubtotal + childrenSubtotal)
-  const grandTotal = baseGrandTotal + femaleStaffTotal
+  const grandTotal = activityTotalWithStaffPrice(
+    baseGrandTotal,
+    participantCount,
+    femaleStaffUnit,
+    femaleStaffSelected,
+  )
   const listingCurrency = (fallbackPriceCurrency || pageCurrency || currency || 'TRY').trim().toUpperCase()
   const targetCurrency = (currencyContext?.preferredCode || listingCurrency).trim().toUpperCase()
   const convertForDisplay = (amount: number, sourceCurrency: string): number => {
@@ -287,7 +291,7 @@ export default function ActivityBookingPanel({
               {activityCategory === 'paragliding' ? ab.femalePilotOption : ab.femaleCaptainOption}
             </span>
             <span className="mt-1 block text-neutral-500 dark:text-neutral-400">
-              {ab.perPersonSurcharge.replace('{price}', displayMoney(convertForDisplay(femaleStaffUnit, currency), displayCurrency))}
+              {ab.specialPricePerPerson.replace('{price}', displayMoney(convertForDisplay(femaleStaffUnit, currency), displayCurrency))}
             </span>
           </span>
         </label>

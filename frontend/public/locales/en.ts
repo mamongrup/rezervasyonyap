@@ -1993,6 +1993,7 @@ export const en = {
       femalePilotOption: 'I prefer a female pilot',
       femaleCaptainOption: 'I prefer a female captain',
       perPersonSurcharge: '+{price} per person',
+      specialPricePerPerson: 'Special price: {price} per person',
     },
     shareGallery: {
       openTitle: 'Share listing',

@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 import {
   activityActiveSessionPrices,
   activityLowestSessionPrice,
+  activityTotalWithStaffPrice,
   activitySessionsForSave,
   activityStartingPrice,
   syncSingleActivitySessionPrice,
@@ -41,6 +42,11 @@ describe('activity session pricing', () => {
     )
 
     expect(lowest).toMatchObject({ amount: 7000, currencyCode: 'TRY' })
+  })
+
+  it('uses the female pilot price instead of adding it to the standard total', () => {
+    expect(activityTotalWithStaffPrice(320, 2, 190, true)).toBe(380)
+    expect(activityTotalWithStaffPrice(320, 2, 190, false)).toBe(320)
   })
 
   it('keeps a single session aligned with the editable starting price', () => {

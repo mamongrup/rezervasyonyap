@@ -1105,6 +1105,7 @@ export const ru: AppMessages = {
       femalePilotOption: 'Предпочитаю женщину-пилота',
       femaleCaptainOption: 'Предпочитаю женщину-капитана',
       perPersonSurcharge: '+{price} с человека',
+      specialPricePerPerson: 'Специальная цена: {price} с человека',
     },
     shareGallery: {
       openTitle: 'Поделиться объявлением',

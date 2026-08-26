@@ -26,6 +26,16 @@ export function activityLowestSessionPrice<T extends ActivitySessionPriceRow>(
     )
 }
 
+export function activityTotalWithStaffPrice(
+  baseTotal: number,
+  participantCount: number,
+  specialUnitPrice: number,
+  selected: boolean,
+): number {
+  if (!selected || specialUnitPrice <= 0 || participantCount <= 0) return baseTotal
+  return specialUnitPrice * participantCount
+}
+
 export function activityStartingPrice<T extends ActivitySessionPriceRow>(sessions: T[]): string {
   const prices = activityActiveSessionPrices(sessions).map((price) => price.amount)
 

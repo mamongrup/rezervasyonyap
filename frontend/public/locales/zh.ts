@@ -1087,6 +1087,7 @@ export const zh: AppMessages = {
       femalePilotOption: '我希望选择女飞行员',
       femaleCaptainOption: '我希望选择女船长',
       perPersonSurcharge: '每人加收 {price}',
+      specialPricePerPerson: '特别价格：每人 {price}',
     },
     shareGallery: {
       openTitle: '分享房源',

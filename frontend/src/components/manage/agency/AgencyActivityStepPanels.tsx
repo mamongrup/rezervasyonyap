@@ -54,6 +54,8 @@ export interface ActivityAgencyBasicsState {
   includes?: string[]
   excludes?: string[]
   female_staff_option_enabled?: boolean
+  female_staff_price?: string
+  /** Eski kayıtlarla geriye uyumluluk. */
   female_staff_surcharge?: string
   preview_url?: string
 }
@@ -142,14 +144,18 @@ export function ActivityBasicsStepPanel({
           </label>
           {values.female_staff_option_enabled === true ? (
             <Field className="mt-4 block max-w-xs">
-              <Label className="text-xs font-medium">Kişi başı fiyat farkı</Label>
+              <Label className="text-xs font-medium">
+                {(values.activity_category || 'paragliding') === 'paragliding'
+                  ? 'Kadın pilot kişi başı fiyatı'
+                  : 'Kadın kaptan kişi başı fiyatı'}
+              </Label>
               <Input
                 type="number"
                 min="0"
                 step="0.01"
                 className="mt-1"
-                value={values.female_staff_surcharge || ''}
-                onChange={(e) => emitChange({ female_staff_surcharge: e.target.value })}
+                value={values.female_staff_price || ''}
+                onChange={(e) => emitChange({ female_staff_price: e.target.value })}
               />
             </Field>
           ) : null}

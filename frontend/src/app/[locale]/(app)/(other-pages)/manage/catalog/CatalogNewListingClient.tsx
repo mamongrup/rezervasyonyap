@@ -873,6 +873,8 @@ export default function CatalogNewListingClient({
     session_based: true,
     full_day: false,
     activity_category: 'paragliding',
+    female_staff_option_enabled: false,
+    female_staff_price: '',
     duration_net: '45 Dakika Uçuş',
     duration_total: '2.5 Saat',
     difficulty_level: 'easy',
@@ -2088,6 +2090,13 @@ export default function CatalogNewListingClient({
               session_based: rawObj.session_based !== undefined ? (rawObj.session_based === true || rawObj.session_based === 'true') : prev.session_based ?? true,
               full_day: rawObj.full_day !== undefined ? (rawObj.full_day === true || rawObj.full_day === 'true') : prev.full_day ?? false,
               activity_category: String(rawObj.activity_category ?? prev.activity_category),
+              female_staff_option_enabled:
+                rawObj.female_staff_option_enabled !== undefined
+                  ? rawObj.female_staff_option_enabled === true || rawObj.female_staff_option_enabled === 'true'
+                  : prev.female_staff_option_enabled,
+              female_staff_price: String(
+                rawObj.female_staff_price ?? rawObj.female_staff_surcharge ?? prev.female_staff_price ?? '',
+              ),
               duration_net: String(rawObj.duration_net ?? prev.duration_net),
               duration_total: String(rawObj.duration_total ?? prev.duration_total),
               duration_hours: String(rawObj.duration_hours ?? prev.duration_hours),
@@ -2109,6 +2118,8 @@ export default function CatalogNewListingClient({
               rules: Array.isArray(rawObj.rules) ? (rawObj.rules as string[]) : prev.rules,
               equipment_included: Array.isArray(rawObj.equipment_included) ? (rawObj.equipment_included as string[]) : prev.equipment_included,
               equipment_excluded: Array.isArray(rawObj.equipment_excluded) ? (rawObj.equipment_excluded as string[]) : prev.equipment_excluded,
+              includes: Array.isArray(rawObj.includes) ? (rawObj.includes as string[]) : prev.includes,
+              excludes: Array.isArray(rawObj.excludes) ? (rawObj.excludes as string[]) : prev.excludes,
               itinerary_flow: Array.isArray(rawObj.itinerary_flow) ? (rawObj.itinerary_flow as ActivityAgencyBasicsState['itinerary_flow']) : prev.itinerary_flow,
             }))
             if (Array.isArray(rawObj.sessions) && rawObj.sessions.length > 0) {
