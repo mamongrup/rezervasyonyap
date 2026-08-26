@@ -1022,9 +1022,9 @@ export default async function ExperienceListingDetailPage({
         title={title}
         shareGallery={{ galleryUrls: galleryForShare, listingTitle: title, locale }}
       >
-        {!isActivity && (
-          <div className="flex flex-col items-center space-y-3 text-center sm:flex-row sm:space-y-0 sm:gap-x-3 sm:text-start">
-            <HugeiconsIcon icon={Clock01Icon} className="h-6 w-6" strokeWidth={1.75} />
+        <div className="grid w-full grid-cols-1 gap-x-6 gap-y-2 sm:grid-cols-3">
+          <div className="flex items-center gap-x-3 text-start">
+            <HugeiconsIcon icon={Clock01Icon} className="h-6 w-6 shrink-0" strokeWidth={1.75} />
             <span>
               {isTour
                 ? tourDurationLine
@@ -1033,26 +1033,28 @@ export default async function ExperienceListingDetailPage({
                       nights: String(cruiseMeta.night_count),
                       days: String(cruiseMeta.night_count + 1),
                     })
-                  : tourDurationLine}
+                  : isCruise
+                    ? tourDurationLine
+                    : activityDurationLine}
             </span>
           </div>
-        )}
-        <div className="flex flex-col items-center space-y-3 text-center sm:flex-row sm:space-y-0 sm:gap-x-3 sm:text-start">
-          <HugeiconsIcon icon={UserMultiple02Icon} className="h-6 w-6" strokeWidth={1.75} />
-          <span>{isTour ? tourGroupLine : activityCapacityLine}</span>
-        </div>
-        {!isActivity && (
-          <div className="flex flex-col items-center space-y-3 text-center sm:flex-row sm:space-y-0 sm:gap-x-3 sm:text-start">
-            <HugeiconsIcon icon={Globe02Icon} className="h-6 w-6" strokeWidth={1.75} />
+          <div className="flex items-center gap-x-3 text-start">
+            <HugeiconsIcon icon={UserMultiple02Icon} className="h-6 w-6 shrink-0" strokeWidth={1.75} />
+            <span>{isTour ? tourGroupLine : activityCapacityLine}</span>
+          </div>
+          <div className="flex items-center gap-x-3 text-start">
+            <HugeiconsIcon icon={Globe02Icon} className="h-6 w-6 shrink-0" strokeWidth={1.75} />
             <span>
               {isTour
                 ? tourLanguageLine || td.languagesNotSpecified
-                : (languages ?? []).length > 0
-                  ? formatLanguagesCompact(languages ?? [])
-                  : td.languagesNotSpecified}
+                : isActivity
+                  ? activityLanguagesLine
+                  : (languages ?? []).length > 0
+                    ? formatLanguagesCompact(languages ?? [])
+                    : td.languagesNotSpecified}
             </span>
           </div>
-        )}
+        </div>
       </SectionHeader>
     )
   }
