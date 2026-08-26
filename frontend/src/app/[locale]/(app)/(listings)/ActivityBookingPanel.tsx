@@ -6,6 +6,7 @@ import SingleDateInputPopover from '@/app/[locale]/(app)/(listings)/components/S
 import { useVitrinHref } from '@/hooks/use-vitrin-href'
 import { usePreferredCurrencyContext, useCheckoutPaymentAmount } from '@/contexts/preferred-currency-context'
 import { convertAmountWithRates } from '@/lib/currency-convert'
+import { activityActiveSessionPrices } from '@/lib/activity-session-pricing'
 import { formatLocalYmd } from '@/lib/date-format-local'
 import { buildActivityCheckoutUrl } from '@/lib/stay-checkout-url'
 import {
@@ -173,9 +174,14 @@ export default function ActivityBookingPanel({
   const displayCurrency = targetCurrency
 
   const parsedFallbackPrice = parseListingPriceString(stripActivityFromAffix(fallbackPrice))
+  const convertedSessionStartingPrices = activityActiveSessionPrices(allSessionRanges).map((sessionPrice) =>
+    convertForDisplay(sessionPrice.amount, sessionPrice.currencyCode),
+  )
+  const sessionStartingPrice =
+    convertedSessionStartingPrices.length > 0 ? Math.min(...convertedSessionStartingPrices) : 0
   const convertedHeaderPrice =
-    displayAdultUnit > 0
-      ? displayAdultUnit
+    sessionStartingPrice > 0
+      ? sessionStartingPrice
       : fallbackPriceAmount != null && Number.isFinite(fallbackPriceAmount) && fallbackPriceAmount > 0
         ? convertForDisplay(fallbackPriceAmount, listingCurrency)
         : parsedFallbackPrice

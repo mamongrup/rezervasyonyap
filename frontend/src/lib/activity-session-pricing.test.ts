@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import {
+  activityActiveSessionPrices,
   activitySessionsForSave,
   activityStartingPrice,
   syncSingleActivitySessionPrice,
@@ -15,6 +16,21 @@ const session = (price: string, active = true) => ({
 describe('activity session pricing', () => {
   it('derives the storefront starting price from active session fares', () => {
     expect(activityStartingPrice([session('160'), session('140'), session('90', false)])).toBe('140')
+  })
+
+  it('returns only valid active session fares with normalized currencies', () => {
+    expect(
+      activityActiveSessionPrices([
+        session('160'),
+        { ...session('140'), currency_code: ' try ' },
+        session('90', false),
+        session('0'),
+        session('invalid'),
+      ]),
+    ).toEqual([
+      { amount: 160, currencyCode: 'USD' },
+      { amount: 140, currencyCode: 'TRY' },
+    ])
   })
 
   it('keeps a single session aligned with the editable starting price', () => {

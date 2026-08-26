@@ -4,11 +4,17 @@ export type ActivitySessionPriceRow = {
   is_active: boolean
 }
 
+export function activityActiveSessionPrices<T extends ActivitySessionPriceRow>(sessions: T[]) {
+  return sessions.flatMap((session) => {
+    if (!session.is_active) return []
+    const amount = Number(session.adult_price.replace(',', '.'))
+    if (!Number.isFinite(amount) || amount <= 0) return []
+    return [{ amount, currencyCode: (session.currency_code || 'TRY').trim().toUpperCase() }]
+  })
+}
+
 export function activityStartingPrice<T extends ActivitySessionPriceRow>(sessions: T[]): string {
-  const prices = sessions
-    .filter((session) => session.is_active)
-    .map((session) => Number(session.adult_price.replace(',', '.')))
-    .filter((price) => Number.isFinite(price) && price > 0)
+  const prices = activityActiveSessionPrices(sessions).map((price) => price.amount)
 
   return prices.length > 0 ? String(Math.min(...prices)) : ''
 }
