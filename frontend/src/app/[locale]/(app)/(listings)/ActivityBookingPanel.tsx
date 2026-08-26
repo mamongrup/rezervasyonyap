@@ -18,7 +18,6 @@ import {
 import ButtonPrimary from '@/shared/ButtonPrimary'
 import { formatMoneyIntl } from '@/lib/parse-listing-price'
 import { DescriptionDetails, DescriptionList, DescriptionTerm } from '@/shared/description-list'
-import { Divider } from '@/shared/divider'
 import { getMessages } from '@/utils/getT'
 import { parseListingPriceString } from '@/lib/parse-listing-price'
 import { parseLocalYmd } from '@/utils/format-local-ymd'
@@ -177,10 +176,6 @@ export default function ActivityBookingPanel({
     const converted = convertAmountWithRates(amount, source, targetCurrency, currencyContext?.rates ?? [])
     return converted ?? amount
   }
-  const displayAdultUnit = convertForDisplay(adultUnit, currency)
-  const displayChildUnit = convertForDisplay(childUnit, currency)
-  const displayAdultsSubtotal = convertForDisplay(adultsSubtotal, currency)
-  const displayChildrenSubtotal = convertForDisplay(childrenSubtotal, currency)
   const displayGrandTotal = convertForDisplay(grandTotal, currency)
   const displayCurrency = targetCurrency
 
@@ -191,10 +186,10 @@ export default function ActivityBookingPanel({
         ? convertForDisplay(fallbackPriceAmount, listingCurrency)
         : parsedFallbackPrice
           ? convertForDisplay(parsedFallbackPrice.amount, parsedFallbackPrice.currency)
-          : displayAdultUnit
+          : convertForDisplay(adultUnit, currency)
   const headerPrice =
     sessionStartingPrice != null
-      ? displayMoney(sessionStartingPrice.amount, sessionStartingPrice.currencyCode)
+      ? displayMoney(sessionStartingPrice.comparisonAmount, displayCurrency)
       : convertedHeaderPrice > 0
         ? displayMoney(convertedHeaderPrice, displayCurrency)
         : ab.priceBySelection
@@ -299,40 +294,15 @@ export default function ActivityBookingPanel({
       ) : null}
 
       <div className="mt-4 space-y-3 rounded-2xl bg-neutral-50 p-4 dark:bg-neutral-800/50">
-        <DescriptionList>
-          {(quote || activeSessionRow) && adults > 0 ? (
-            <>
-              <DescriptionTerm className="text-sm text-neutral-600 dark:text-neutral-400">
-                {displayMoney(displayAdultUnit, displayCurrency)} × {adults} {ab.adult.toLowerCase()}
-              </DescriptionTerm>
-              <DescriptionDetails className="text-sm text-neutral-800 sm:text-right dark:text-neutral-200">
-                {displayMoney(displayAdultsSubtotal, displayCurrency)}
-              </DescriptionDetails>
-            </>
-          ) : null}
-          {(quote || activeSessionRow) && children > 0 ? (
-            <>
-              <DescriptionTerm className="text-sm text-neutral-600 dark:text-neutral-400">
-                {displayMoney(displayChildUnit, displayCurrency)} × {children} {ab.child.toLowerCase()}
-              </DescriptionTerm>
-              <DescriptionDetails className="text-sm text-neutral-800 sm:text-right dark:text-neutral-200">
-                {displayMoney(displayChildrenSubtotal, displayCurrency)}
-              </DescriptionDetails>
-            </>
-          ) : null}
-        </DescriptionList>
         {quote || (activeSessionRow && displayGrandTotal > 0) ? (
-          <>
-            <Divider />
-            <DescriptionList>
-              <DescriptionTerm className="font-semibold text-neutral-900 dark:text-white">
-                {sidebar.total}
-              </DescriptionTerm>
-              <DescriptionDetails className="font-semibold text-neutral-900 sm:text-right dark:text-white">
-                {displayMoney(displayGrandTotal, displayCurrency)}
-              </DescriptionDetails>
-            </DescriptionList>
-          </>
+          <DescriptionList>
+            <DescriptionTerm className="font-semibold text-neutral-900 dark:text-white">
+              {sidebar.total}
+            </DescriptionTerm>
+            <DescriptionDetails className="font-semibold text-neutral-900 sm:text-right dark:text-white">
+              {displayMoney(displayGrandTotal, displayCurrency)}
+            </DescriptionDetails>
+          </DescriptionList>
         ) : null}
       </div>
 

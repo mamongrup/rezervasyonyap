@@ -61,7 +61,7 @@ const ActivityParticipantsInputPopover: FC<Props> = ({
           onChange={onAdultsChange}
           inputName="activityAdults"
           max={99}
-          min={1}
+          min={0}
           label={ab.adult}
         />
         <NcInputNumber

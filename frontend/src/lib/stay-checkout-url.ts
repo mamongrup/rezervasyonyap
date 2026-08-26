@@ -197,7 +197,7 @@ export function parseActivityCheckoutParams(
     null
   return {
     sessionId,
-    adults: readActivityCount(searchParams, 'activityAdults', 'activity_adults', 1, 1),
+    adults: readActivityCount(searchParams, 'activityAdults', 'activity_adults', 1),
     children: readActivityCount(searchParams, 'activityChildren', 'activity_children', 0),
     startTime:
       searchParams.get('activityStartTime')?.trim() ||
@@ -247,7 +247,7 @@ export function buildActivityCheckoutUrl(
     u.set('endDate', checkoutDateYmd(noon))
   }
   u.set('activitySessionId', params.sessionId.trim())
-  u.set('activityAdults', String(Math.max(1, params.adults)))
+  u.set('activityAdults', String(Math.max(0, params.adults)))
   u.set('activityChildren', String(Math.max(0, params.children)))
   if (params.startTime?.trim()) u.set('activityStartTime', params.startTime.trim())
   if (params.femaleStaffPreference) u.set('activityStaffPreference', params.femaleStaffPreference)
@@ -255,7 +255,7 @@ export function buildActivityCheckoutUrl(
   const price = Number.isFinite(params.unitPrice) && params.unitPrice > 0 ? params.unitPrice : 0
   u.set('unitPrice', price.toFixed(2))
   appendCheckoutGuestParams(u, {
-    guestAdults: Math.max(1, params.adults),
+    guestAdults: Math.max(0, params.adults),
     guestChildren: Math.max(0, params.children),
     guestInfants: 0,
   })

@@ -23,4 +23,19 @@ describe('activity checkout staff preference', () => {
       femaleStaffPreference: 'female_pilot',
     })
   })
+
+  it('allows a child-only activity reservation', () => {
+    const url = buildActivityCheckoutUrl('/checkout', {
+      listingId: 'listing-1',
+      date: '2026-08-27',
+      sessionId: 'session-1',
+      adults: 0,
+      children: 1,
+      currencyCode: 'TRY',
+      unitPrice: 4500,
+    })
+    const params = new URL(url, 'https://example.test').searchParams
+
+    expect(parseActivityCheckoutParams(params)).toMatchObject({ adults: 0, children: 1 })
+  })
 })
