@@ -3016,7 +3016,22 @@ pub fn put_manage_activity_sessions(req: Request, ctx: Context, listing_id: Stri
                       |> pog.execute(conn)
                     {
                       Error(_) -> Error("activity_sessions_delete_failed")
-                      Ok(_) -> insert_activity_sessions(conn, listing_id, sessions)
+                      Ok(_) ->
+                        case insert_activity_sessions(conn, listing_id, sessions) {
+                          Error(e) -> Error(e)
+                          Ok(Nil) -> {
+                            let _ =
+                              pog.query(
+                                "update listings set "
+                                <> "first_charge_amount = (select min(f.price_amount) from listing_activity_session_fares f join listing_activity_sessions s on s.id = f.session_id where s.listing_id = $1::uuid and s.is_active = true and f.fare_type = 'adult' and f.price_amount > 0), "
+                                <> "currency_code = coalesce((select f.currency_code from listing_activity_session_fares f join listing_activity_sessions s on s.id = f.session_id where s.listing_id = $1::uuid and s.is_active = true and f.fare_type = 'adult' and f.price_amount > 0 order by s.sort_order, s.start_time limit 1), currency_code) "
+                                <> "where id = $1::uuid",
+                              )
+                              |> pog.parameter(pog.text(listing_id))
+                              |> pog.execute(conn)
+                            Ok(Nil)
+                          }
+                        }
                     }
                   }) {
                     Ok(Nil) -> wisp.json_response("{\"ok\":true}", 200)
