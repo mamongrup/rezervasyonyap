@@ -74,7 +74,7 @@ export function PreferredCurrencyProvider({
     let cancelled = false
     ;(async () => {
       try {
-        const rateRows = await getPublicCurrencyRates()
+        const rateRows = await getPublicCurrencyRates({ cache: 'no-store' })
         if (!cancelled) setRates(rateRows)
       } catch {
         if (!cancelled) setRates([])

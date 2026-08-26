@@ -29,7 +29,7 @@ function todayIso() {
   return formatLocalYmd(new Date())
 }
 
-function parseMoney(raw: string | undefined): number {
+function parseMoney(raw: string | null | undefined): number {
   const n = Number(String(raw ?? '').replace(',', '.'))
   return Number.isFinite(n) ? n : 0
 }
@@ -151,12 +151,13 @@ export default function ActivityBookingPanel({
     })
   }
 
-  const currency = quote?.currency_code || sessions.find((s) => s.id === sessionId)?.currency_code || 'TRY'
-  const adultUnit = parseMoney(quote?.adult_unit)
-  const childUnit = parseMoney(quote?.child_unit)
+  const activeSessionRow = sessions.find((s) => s.id === sessionId)
+  const currency = quote?.currency_code || activeSessionRow?.currency_code || 'TRY'
+  const adultUnit = parseMoney(quote?.adult_unit || activeSessionRow?.adult_price)
+  const childUnit = parseMoney(quote?.child_unit || activeSessionRow?.child_price)
   const adultsSubtotal = adultUnit * adults
   const childrenSubtotal = childUnit * children
-  const grandTotal = parseMoney(quote?.line_total)
+  const grandTotal = quote?.line_total != null && quote?.line_total !== '' ? parseMoney(quote.line_total) : (adultsSubtotal + childrenSubtotal)
   const listingCurrency = (fallbackPriceCurrency || pageCurrency || currency || 'TRY').trim().toUpperCase()
   const targetCurrency = (currencyContext?.preferredCode || listingCurrency).trim().toUpperCase()
   const convertForDisplay = (amount: number, sourceCurrency: string): number => {
@@ -174,11 +175,13 @@ export default function ActivityBookingPanel({
 
   const parsedFallbackPrice = parseListingPriceString(stripActivityFromAffix(fallbackPrice))
   const convertedHeaderPrice =
-    fallbackPriceAmount != null && Number.isFinite(fallbackPriceAmount) && fallbackPriceAmount > 0
-      ? convertForDisplay(fallbackPriceAmount, listingCurrency)
-      : parsedFallbackPrice
-        ? convertForDisplay(parsedFallbackPrice.amount, parsedFallbackPrice.currency)
-        : displayAdultUnit
+    displayAdultUnit > 0
+      ? displayAdultUnit
+      : fallbackPriceAmount != null && Number.isFinite(fallbackPriceAmount) && fallbackPriceAmount > 0
+        ? convertForDisplay(fallbackPriceAmount, listingCurrency)
+        : parsedFallbackPrice
+          ? convertForDisplay(parsedFallbackPrice.amount, parsedFallbackPrice.currency)
+          : displayAdultUnit
   const headerPrice =
     convertedHeaderPrice > 0 ? displayMoney(convertedHeaderPrice, displayCurrency) : ab.priceBySelection
 

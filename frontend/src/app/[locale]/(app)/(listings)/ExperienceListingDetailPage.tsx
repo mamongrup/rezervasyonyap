@@ -811,10 +811,13 @@ export default async function ExperienceListingDetailPage({
               value: activityMeta.duration_net,
               icon: 'netDuration',
             }
-          : activityMeta?.duration_hours
+          : activityMeta?.duration_hours &&
+            activityMeta.duration_hours.trim() !== '' &&
+            activityMeta.duration_hours !== 'undefined' &&
+            activityMeta.duration_hours !== 'null'
             ? {
                 label: ad.overview.duration || 'Süre',
-                value: interpolate(ad.overview.durationHours, { hours: activityMeta.duration_hours || '' }),
+                value: interpolate(ad.overview.durationHours, { hours: activityMeta.duration_hours.trim() }),
                 icon: 'duration',
               }
             : null,
@@ -895,9 +898,17 @@ export default async function ExperienceListingDetailPage({
       ].filter((item): item is ActivityOverviewItem => item !== null)
     : []
 
+  const activityDurationHours = activityMeta?.duration_hours?.trim()
+  const validDurationHours =
+    activityDurationHours &&
+    activityDurationHours !== 'undefined' &&
+    activityDurationHours !== 'null'
+      ? activityDurationHours
+      : undefined
+
   const activityDurationLine = isActivity
-    ? activityMeta?.duration_hours
-      ? interpolate(ad.overview.durationHours, { hours: activityMeta.duration_hours })
+    ? validDurationHours
+      ? interpolate(ad.overview.durationHours, { hours: validDurationHours })
       : durationTime?.trim() || td.durationNotSpecified
     : durationTime || td.durationNotSpecified
 
