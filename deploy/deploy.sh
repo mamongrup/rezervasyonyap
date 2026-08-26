@@ -703,6 +703,22 @@ main() {
       && systemctl enable --now travel-archive-expired-events.timer \
       && ok "travel-archive-expired-events.timer etkin" \
       || warn "Etkinlik arşivleme timer kurulamadı; elle: ./deploy/scripts/archive-expired-events.sh"
+  if [[ -f "$APP_ROOT/deploy/systemd/travel-currency-rates.service" && -f "$APP_ROOT/deploy/systemd/travel-currency-rates.timer" ]]; then
+    step "TCMB döviz kurları otomatik senkronizasyon timer kurulumu"
+    cp "$APP_ROOT/deploy/systemd/travel-currency-rates.service" /etc/systemd/system/travel-currency-rates.service \
+      && cp "$APP_ROOT/deploy/systemd/travel-currency-rates.timer" /etc/systemd/system/travel-currency-rates.timer \
+      && systemctl daemon-reload \
+      && systemctl enable --now travel-currency-rates.timer \
+      && ok "travel-currency-rates.timer etkin" \
+      || warn "Döviz kurları timer kurulamadı; elle: node scripts/sync-tcmb-currency-rates.mjs"
+  fi
+
+  if [[ -f "$APP_ROOT/scripts/sync-tcmb-currency-rates.mjs" ]]; then
+    node "$APP_ROOT/scripts/sync-tcmb-currency-rates.mjs" || warn "TCMB kurları senkronize edilemedi."
+  fi
+
+  if [[ -f "$APP_ROOT/scripts/sync-activity-listing-prices.mjs" ]]; then
+    node "$APP_ROOT/scripts/sync-activity-listing-prices.mjs" || warn "Aktivite başlangıç fiyatları eşitlenemedi."
   fi
 
   step "Servis restart"
