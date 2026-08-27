@@ -197,7 +197,7 @@ export const FlightLocationInputField: FC<Props> = ({
             static
             unmount={false}
             portal
-            anchor={{ to: 'bottom start', gap: 12 }}
+            anchor={{ to: 'bottom start', gap: fieldStyle === 'small' ? 36 : 54 }}
             transition
             className={clsx(styles.panel.base, styles.panel[fieldStyle])}
           >

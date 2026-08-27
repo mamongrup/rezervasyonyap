@@ -6,22 +6,10 @@ import { Calendar04Icon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
 import clsx from 'clsx'
 import { useResponsiveCalendarMonthsShown } from '@/hooks/use-responsive-calendar-months-shown'
-import dynamic from 'next/dynamic'
 import { formatLocalYmd, parseLocalYmd } from '@/utils/format-local-ymd'
 import { FC, useEffect, useState } from 'react'
 import { ClearDataButton } from './ClearDataButton'
-
-const DateRangePickerPanel = dynamic(() => import('./DateRangePickerPanel'), {
-  ssr: false,
-  loading: () => (
-    <div
-      className="flex min-h-[22rem] w-full items-center justify-center rounded-2xl bg-neutral-100/90 dark:bg-neutral-800/90"
-      aria-busy="true"
-    >
-      <div className="h-48 w-full max-w-md animate-pulse rounded-xl bg-neutral-200/80 dark:bg-neutral-700/80" />
-    </div>
-  ),
-})
+import DateRangePickerPanel from './DateRangePickerPanel'
 
 const styles = {
   button: {
@@ -35,7 +23,7 @@ const styles = {
     small: 'text-base',
   },
   panel: {
-    base: 'z-[9999] w-3xl overflow-hidden rounded-3xl bg-white p-8 shadow-lg ring-1 ring-black/5 transition duration-150 data-closed:translate-y-1 data-closed:opacity-0 dark:bg-neutral-800',
+    base: 'z-[9999] w-3xl overflow-hidden rounded-3xl bg-white p-8 shadow-lg ring-1 ring-black/5 transition duration-100 ease-out data-closed:translate-y-1 data-closed:opacity-0 dark:bg-neutral-800',
     default: '',
     small: '',
   },
@@ -128,6 +116,7 @@ export const DateRangeField: FC<Props> = ({
 
             <PopoverPanel
               portal
+              unmount={false}
               anchor={{ to: 'bottom', gap: 12 }}
               transition
               className={clsx(panelClassName, styles.panel.base, styles.panel[fieldStyle])}
