@@ -141,13 +141,15 @@ modules/296_gtc_provider_refs.sql
 modules/297_travelrobot_provider_refs.sql
 modules/298_api_keys_bookings_write_scope.sql
 modules/299_agency_api_settings.sql
+modules/300_turkey_tourism_destinations_seed.sql
+modules/301_tourism_destination_coords.sql
 modules/302_holiday_home_default_faq_common_seed.sql
+modules/302_sync_hierarchy_coords.sql
 modules/303_holiday_home_property_types_four_types.sql
 modules/304_travelrobot_hotel_flight_refs.sql
 modules/305_cart_lines_schema_guard.sql
 modules/306_yacht_charter_stay_rental_parity.sql
 modules/307_yacht_charter_amenity_filter_groups.sql
-modules/307_ai_trip_and_cruise_routes.sql
 modules/308_listings_is_locked.sql
 modules/309_provider_sync_jobs.sql
 modules/310_ferry_details_extended.sql
@@ -163,7 +165,6 @@ modules/319_ferry_return_routes_ensure.sql
 modules/320_hotel_rooms_unit_count_and_availability.sql
 modules/321_ai_listing_content_batch.sql
 modules/322_locales_tr_active_ensure.sql
-modules/322_ferry_meis_images_pexels_fix.sql
 modules/323_ferry_meis_images_kas_kastellorizo.sql
 modules/324_ferry_meis_images_wikimedia_direct.sql
 modules/325_listing_hotel_promotions.sql
@@ -257,6 +258,7 @@ modules/412_repair_listing_turkish_ascii_content.sql
 modules/413_ai_listing_content_seed_charset_dirty.sql
 modules/414_ai_seo_keywords_required.sql
 modules/415_repair_listing_turkish_ascii_content_v2.sql
+modules/416_repair_listing_turkish_ascii_content_v3.sql
 modules/417_repair_listing_turkish_ascii_content_v4.sql
 modules/418_repair_listing_turkish_html_apostrophe.sql
 modules/419_repair_remaining_holiday_home_turkish_ascii.sql
@@ -271,6 +273,9 @@ modules/427_repair_source_calendar_half_day_boundaries.sql
 modules/428_repair_mamon_checkout_boundary.sql
 modules/429_repair_all_source_villa_checkout_boundaries.sql
 modules/430_inherit_global_logo_colors_on_tr_domains.sql
+modules/431_ai_trip_and_cruise_routes.sql
+modules/432_ferry_meis_images_pexels_fix.sql
+modules/433_ai_autopilot_orchestrator_superseded.sql
 
 # Kurulum doğrulama (install_order’a dahil değil — elle çalıştırın):
 #   psql -U postgres -d travel -f priv/sql/check_installation.sql

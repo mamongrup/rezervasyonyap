@@ -1,9 +1,9 @@
 -- Tatil evi vitrin temaları: pool / jacuzzi (theme_codes ile uyumlu etiketler)
 
-INSERT INTO category_theme_items (category_code, code, sort_order, facet)
+INSERT INTO category_theme_items (category_code, code, sort_order)
 VALUES
-  ('holiday_home', 'pool', 75, 'theme'),
-  ('holiday_home', 'jacuzzi', 76, 'theme')
+  ('holiday_home', 'pool', 75),
+  ('holiday_home', 'jacuzzi', 76)
 ON CONFLICT (category_code, code) DO NOTHING;
 
 INSERT INTO category_theme_item_translations (item_id, locale_id, label)
