@@ -3020,16 +3020,34 @@ pub fn put_manage_activity_sessions(req: Request, ctx: Context, listing_id: Stri
                         case insert_activity_sessions(conn, listing_id, sessions) {
                           Error(e) -> Error(e)
                           Ok(Nil) -> {
-                            let _ =
+                            let update_result =
                               pog.query(
                                 "update listings set "
                                 <> "first_charge_amount = (select min(f.price_amount) from listing_activity_session_fares f join listing_activity_sessions s on s.id = f.session_id where s.listing_id = $1::uuid and s.is_active = true and f.fare_type = 'adult' and f.price_amount > 0), "
-                                <> "currency_code = coalesce((select f.currency_code from listing_activity_session_fares f join listing_activity_sessions s on s.id = f.session_id where s.listing_id = $1::uuid and s.is_active = true and f.fare_type = 'adult' and f.price_amount > 0 order by s.sort_order, s.start_time limit 1), currency_code) "
+                                <> "vitrin_price = (select min(f.price_amount) from listing_activity_session_fares f join listing_activity_sessions s on s.id = f.session_id where s.listing_id = $1::uuid and s.is_active = true and f.fare_type = 'adult' and f.price_amount > 0), "
+                                <> "currency_code = coalesce((select f.currency_code from listing_activity_session_fares f join listing_activity_sessions s on s.id = f.session_id where s.listing_id = $1::uuid and s.is_active = true and f.fare_type = 'adult' and f.price_amount > 0 order by f.price_amount, s.sort_order, s.start_time limit 1), currency_code), "
+                                <> "updated_at = now() "
                                 <> "where id = $1::uuid",
                               )
                               |> pog.parameter(pog.text(listing_id))
                               |> pog.execute(conn)
-                            Ok(Nil)
+                            case update_result {
+                              Error(_) -> Error("activity_listing_price_sync_failed")
+                              Ok(_) -> {
+                                // Aktivite satış fiyatının tek kaynağı seans ücretidir.
+                                // Eski/import fiyat kuralı canlı seans fiyatını gölgelememelidir.
+                                case
+                                  pog.query(
+                                    "delete from listing_price_rules where listing_id = $1::uuid",
+                                  )
+                                  |> pog.parameter(pog.text(listing_id))
+                                  |> pog.execute(conn)
+                                {
+                                  Error(_) -> Error("activity_legacy_price_cleanup_failed")
+                                  Ok(_) -> Ok(Nil)
+                                }
+                              }
+                            }
                           }
                         }
                     }

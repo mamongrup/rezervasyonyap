@@ -1688,12 +1688,11 @@ fn search_listings_impl(
     <> "coalesce((select lt.title from listing_translations lt join locales lo on lo.id = lt.locale_id where lt.listing_id = l.id and lower(lo.code) = lower($4) limit 1), l.slug), "
     <> "coalesce(pc.code::text, ''), "
     <> "coalesce(case when trim(coalesce(l.featured_image_url, '')) = '' then null when trim(l.featured_image_url) ilike 'http%' then trim(l.featured_image_url) when trim(l.featured_image_url) like '/%' then trim(l.featured_image_url) else '/' || trim(l.featured_image_url) end, case when trim(coalesce(l.thumbnail_url, '')) = '' then null when trim(l.thumbnail_url) ilike 'http%' then trim(l.thumbnail_url) when trim(l.thumbnail_url) like '/%' then trim(l.thumbnail_url) else '/' || trim(l.thumbnail_url) end, (select case when trim(li.storage_key) is null or trim(li.storage_key) = '' then null when trim(li.storage_key) ilike 'http%' then trim(li.storage_key) when trim(li.storage_key) like '/%' then trim(li.storage_key) else '/' || trim(li.storage_key) end from listing_images li where li.listing_id = l.id order by li.sort_order asc, li.created_at asc limit 1), ''), "
-    // Vitrin fiyat: önce önbellek (vitrin_price) — canlı lateral yalnızca cache boşsa.
-    // Cache doluyken price_rule/meal lateralları yine join edilir ama price_from kısa yol alır.
-    <> "coalesce(nullif(hotel_range_price.min_nightly::text, ''), nullif(l.vitrin_price::text, ''), case when pc.code = 'tour' then "
-    <> tour_listing_vitrin_price_sql()
-    <> " else null end, case when pc.code = 'activity' then "
+    // Aktivitede seans ücreti doğruluk kaynağıdır; diğer dikeylerde önbellek kısa yoludur.
+    <> "coalesce(nullif(hotel_range_price.min_nightly::text, ''), case when pc.code = 'activity' then "
     <> activity_listing_vitrin_price_sql()
+    <> " else null end, nullif(l.vitrin_price::text, ''), case when pc.code = 'tour' then "
+    <> tour_listing_vitrin_price_sql()
     <> " else null end, nullif(price_rule.min_price::text, ''), nullif(l.first_charge_amount::text, ''), nullif(meal_vitrin.room_only_price, ''), nullif(meal_vitrin.min_other_price, ''), nullif(meal_vitrin.min_fallback_price, ''), ''), "
     <> "coalesce(nullif(trim(lm.meta->>'region_display'), ''), nullif(trim(both ', ' from concat_ws(', ', nullif(trim(lm.meta->>'district_label'), ''), nullif(trim(lm.meta->>'city'), ''), (case when trim(coalesce(lm.meta->>'province_city', '')) ~ '/' then nullif(trim(substring(trim(lm.meta->>'province_city') from '[^/]+$')), '') else nullif(trim(lm.meta->>'province_city'), '') end))), ''), nullif(trim(l.location_name), ''), nullif(trim(lm.meta->>'address'), ''), ''), "
     <> "coalesce(l.review_avg::text, ''), "
