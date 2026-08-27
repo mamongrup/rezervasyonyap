@@ -161,8 +161,11 @@ export const getStayListingByHandle = cache(async (
   if (!catalogId) return null
 
   const [pub, vitrine] = await Promise.all([
-    searchPublicListings({ listingIds: [catalogId], perPage: 1, locale }),
-    getPublicListingVitrine(catalogId, locale),
+    searchPublicListings(
+      { listingIds: [catalogId], perPage: 1, locale },
+      { cache: 'no-store' },
+    ),
+    getPublicListingVitrine(catalogId, locale, { cache: 'no-store' }),
   ])
   let item = pub?.listings?.[0]
   // Liste kapıları (görsel/otel fiyatı) detay hydrate'i artık engellemez; yine de

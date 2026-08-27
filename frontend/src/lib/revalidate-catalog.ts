@@ -39,6 +39,9 @@ export function revalidateListingDetailCaches(opts: {
   /** Örn. otel, tur — verilirse locale × segment × handle path bust */
   detailSegment?: string
 }): void {
+  // Ana sayfadaki ertelenmiş vitrin endpoint'i kendi 15 dakikalık route cache'ine sahiptir.
+  // İlan fiyatı değişince kategori/detay ile birlikte onu da düşür.
+  revalidatePath('/api/homepage-featured', 'page')
   const handle = opts.handle?.trim()
   if (handle) {
     revalidateTag(listingDetailTag(handle), 'max')

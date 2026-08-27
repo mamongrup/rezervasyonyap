@@ -2188,7 +2188,7 @@ export async function listPublicActivitySessions(
   try {
     const res = await fetch(
       `${b}/api/v1/catalog/public/listings/${encodeURIComponent(listingId)}/activity-sessions${u.toString() ? `?${u}` : ''}`,
-      typeof window === 'undefined' ? { next: { revalidate: 60 } } : {},
+      { cache: 'no-store' },
     )
     if (!res.ok) return { sessions: [] }
     return json(res)

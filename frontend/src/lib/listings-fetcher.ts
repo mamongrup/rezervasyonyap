@@ -65,6 +65,14 @@ export { HOLIDAY_TYPE_HANDLE_MAP, YACHT_TYPE_HANDLE_MAP } from '@/lib/stay-renta
 // korunur. Aynı 5 dakikalık pencere, farklı sayfalardaki aynı katalog isteğinin
 // de her dakika yeniden pahalı SQL çalıştırmasını önler.
 const CATALOG_LISTINGS_FETCH_INIT: RequestInit = { next: { revalidate: 300 } }
+function categoryListingsFetchInit(categorySlug: string): RequestInit {
+  return {
+    next: {
+      revalidate: 300,
+      tags: [`category-listings-${categorySlug.trim().toLowerCase()}`],
+    },
+  } as RequestInit
+}
 /** Tarih / misafir / konum araması — boş veya yavaş yanıtı 5 dk cache’leme (0+ otel). */
 const CATALOG_SEARCH_FETCH_INIT: RequestInit = { cache: 'no-store' }
 /** Nadiren değişen katalog meta (emlak tipi vb.). */
@@ -798,7 +806,7 @@ export async function fetchCategoryListings(
   )
   const listingsFetchInit = isInteractiveSearch
     ? CATALOG_SEARCH_FETCH_INIT
-    : CATALOG_LISTINGS_FETCH_INIT
+    : categoryListingsFetchInit(categorySlug)
 
   const [apiSearch, holidayPtItems, yachtPtItems] = await Promise.all([
     searchPublicListingsResilient(apiParams, listingsFetchInit),
@@ -876,7 +884,7 @@ export async function fetchListingsByIds(
       perPage: Math.min(100, ids.length),
       locale: locale || 'tr',
     },
-    CATALOG_LISTINGS_FETCH_INIT,
+    categoryListingsFetchInit(categorySlug),
   )
   if (!apiSearch.result?.listings?.length) return []
 

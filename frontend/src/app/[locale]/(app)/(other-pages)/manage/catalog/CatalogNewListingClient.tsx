@@ -4335,7 +4335,7 @@ export default function CatalogNewListingClient({
         const detailSegment =
           DETAIL_SEGMENT_BY_VERTICAL[catalogVertical as keyof typeof DETAIL_SEGMENT_BY_VERTICAL] ?? ''
         if (handle || categorySlug) {
-          notifyCatalogRevalidate({
+          await notifyCatalogRevalidate({
             handle: handle || undefined,
             category_slug: categorySlug || undefined,
             detail_segment: detailSegment || undefined,

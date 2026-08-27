@@ -1,19 +1,25 @@
 /**
- * Panel kaydı sonrası vitrin ISR/tag önbelleğini düşürmek için fire-and-forget.
- * Hata yutülür — kayıt akışını bozmaz.
+ * Panel kaydı sonrası vitrin ISR/tag önbelleğini düşürür.
+ * Çağıran isterse sonucu bekleyebilir; ağ hatası kayıt akışını bozmaz.
  */
-export function notifyCatalogRevalidate(body: {
+export async function notifyCatalogRevalidate(body: {
   handle?: string
   category_slug?: string
   detail_segment?: string
   blog_slug?: string
   blog?: boolean
-}): void {
-  if (typeof window === 'undefined') return
-  void fetch('/api/manage/revalidate-catalog', {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    credentials: 'same-origin',
-    body: JSON.stringify(body),
-  }).catch(() => {})
+}): Promise<boolean> {
+  if (typeof window === 'undefined') return false
+  try {
+    const response = await fetch('/api/manage/revalidate-catalog', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      credentials: 'same-origin',
+      cache: 'no-store',
+      body: JSON.stringify(body),
+    })
+    return response.ok
+  } catch {
+    return false
+  }
 }
