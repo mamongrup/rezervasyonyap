@@ -1,7 +1,7 @@
 'use client'
 
+import { useFormatMoneyInPreferredCurrency } from '@/contexts/preferred-currency-context'
 import type { ActivitySessionRow } from '@/lib/travel-api'
-import { toIntlLocale } from '@/lib/intl-locale'
 import { getMessages } from '@/utils/getT'
 import { interpolate } from '@/utils/interpolate'
 import { Popover, PopoverButton, PopoverPanel } from '@headlessui/react'
@@ -10,17 +10,17 @@ import { HugeiconsIcon } from '@hugeicons/react'
 import clsx from 'clsx'
 import { FC, useMemo } from 'react'
 
-function sessionPrice(session: ActivitySessionRow, locale: string) {
+function SessionPriceBadge({ session }: { session: ActivitySessionRow }) {
   const raw = session.adult_price
-  if (!raw?.trim()) return null
-  const n = Number(String(raw).replace(',', '.'))
-  if (!Number.isFinite(n) || n <= 0) return null
+  const n = raw ? Number(String(raw).replace(',', '.')) : 0
   const currency = (session.currency_code || 'TRY').trim().toUpperCase()
-  try {
-    return new Intl.NumberFormat(toIntlLocale(locale), { style: 'currency', currency }).format(n)
-  } catch {
-    return `${n} ${currency}`
-  }
+  const formatted = useFormatMoneyInPreferredCurrency(n > 0 ? n : undefined, currency)
+  if (!formatted || formatted === '—') return null
+  return (
+    <span className="ml-2 text-xs font-medium text-neutral-600 dark:text-neutral-300">
+      {formatted}
+    </span>
+  )
 }
 
 function sessionLabel(session: ActivitySessionRow, locale: string) {
@@ -97,11 +97,7 @@ const ActivitySessionInputPopover: FC<Props> = ({
                     )}
                   >
                     <span className="font-semibold">{sessionLabel(session, locale ?? 'tr')}</span>
-                    {sessionPrice(session, locale ?? 'tr') ? (
-                      <span className="ml-2 text-xs font-medium text-neutral-600 dark:text-neutral-300">
-                        {sessionPrice(session, locale ?? 'tr')}
-                      </span>
-                    ) : null}
+                    <SessionPriceBadge session={session} />
                     {session.capacity ? (
                       <span className="ml-2 text-xs text-neutral-400">
                         {ab.capacity} {session.capacity}
