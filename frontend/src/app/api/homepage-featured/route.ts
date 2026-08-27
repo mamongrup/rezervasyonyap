@@ -2,7 +2,7 @@ import { loadFeaturedPlacesModuleData } from '@/components/page-builder/modules/
 import { getCategoryBySlug } from '@/data/category-registry'
 import { NextRequest, NextResponse } from 'next/server'
 
-export const revalidate = 900
+export const revalidate = 60
 
 export async function GET(request: NextRequest) {
   const category = (request.nextUrl.searchParams.get('category') ?? '').trim()
@@ -27,7 +27,7 @@ export async function GET(request: NextRequest) {
       {
         headers: {
           // Önce önerilenler (lite) kısa TTL ile ayrı cache anahtarı; last_minute ayrı istek.
-          'Cache-Control': 'public, s-maxage=900, stale-while-revalidate=3600',
+          'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=300',
         },
       },
     )

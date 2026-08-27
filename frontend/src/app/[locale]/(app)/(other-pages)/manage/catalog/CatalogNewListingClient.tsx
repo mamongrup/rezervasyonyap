@@ -3887,6 +3887,7 @@ export default function CatalogNewListingClient({
       if (cancellationPolicyText.trim()) basicsBody.cancellation_policy_text = cancellationPolicyText.trim()
       if (ministryLicenseRef.trim()) basicsBody.ministry_license_ref = ministryLicenseRef.trim()
       if (externalListingRef.trim()) basicsBody.external_listing_ref = externalListingRef.trim()
+      if (currency.trim()) basicsBody.currency_code = currency.trim().toUpperCase()
       basicsBody.share_to_social = shareToSocial
       basicsBody.allow_ai_caption = allowAiCaption
       basicsBody.allow_sub_min_stay_gap_booking = allowSubMinStayGap
@@ -4081,7 +4082,11 @@ export default function CatalogNewListingClient({
       }
 
       if (isActivity) {
-        const sessionsToSave = activitySessions
+        let sessionsToSave = activitySessions
+        const currentStarting = basePrice.trim() || depositAmount.trim()
+        if (sessionsToSave.length === 0 && currentStarting && currentStarting !== '0') {
+          sessionsToSave = syncSingleActivitySessionPrice([], currentStarting, currency)
+        }
         await saveRequiredStep(
           'Aktivite acente özellikleri kaydı',
           putVerticalMeta(

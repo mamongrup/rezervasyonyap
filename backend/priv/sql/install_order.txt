@@ -276,6 +276,7 @@ modules/430_inherit_global_logo_colors_on_tr_domains.sql
 modules/431_ai_trip_and_cruise_routes.sql
 modules/432_ferry_meis_images_pexels_fix.sql
 modules/433_ai_autopilot_orchestrator_superseded.sql
+modules/434_activity_session_price_single_source.sql
 
 # Kurulum doğrulama (install_order’a dahil değil — elle çalıştırın):
 #   psql -U postgres -d travel -f priv/sql/check_installation.sql

@@ -39,9 +39,18 @@ export function revalidateListingDetailCaches(opts: {
   /** Örn. otel, tur — verilirse locale × segment × handle path bust */
   detailSegment?: string
 }): void {
-  // Ana sayfadaki ertelenmiş vitrin endpoint'i kendi 15 dakikalık route cache'ine sahiptir.
-  // İlan fiyatı değişince kategori/detay ile birlikte onu da düşür.
+  // 1. Ana sayfadaki vitrin ve arama etiketlerini düşür
+  revalidateTag('public-listings', 'max')
+  revalidateTag('homepage-featured', 'max')
   revalidatePath('/api/homepage-featured', 'page')
+
+  // 2. Ana sayfa rotalarını tüm vitrin dillerinde düşür
+  for (const loc of fallbackLocaleCodes) {
+    revalidatePath(`/${loc}`, 'page')
+    revalidatePath(`/${loc}`, 'layout')
+  }
+
+  // 3. İlan detay sayfasını düşür
   const handle = opts.handle?.trim()
   if (handle) {
     revalidateTag(listingDetailTag(handle), 'max')
@@ -63,10 +72,13 @@ export function revalidateListingDetailCaches(opts: {
       }
     }
   }
+
+  // 4. Kategori sayfasını düşür
   if (opts.categorySlug) {
     revalidateCategoryDataTags(opts.categorySlug)
     for (const loc of fallbackLocaleCodes) {
       revalidatePath(`/${loc}/${opts.categorySlug}`, 'layout')
+      revalidatePath(`/${loc}/${opts.categorySlug}`, 'page')
     }
   }
 }

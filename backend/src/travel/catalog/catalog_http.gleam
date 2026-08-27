@@ -3858,6 +3858,7 @@ type BasicsPatch {
     cancellation_policy_text: String,
     ministry_license_ref: String,
     external_listing_ref: String,
+    currency_code: String,
     share_to_social: Option(Bool),
     allow_ai_caption: Option(Bool),
     allow_sub_min_stay_gap_booking: Option(Bool),
@@ -3881,35 +3882,38 @@ fn patch_basics_decoder() -> decode.Decoder(BasicsPatch) {
                           decode.optional_field("cancellation_policy_text", "", decode.string, fn(cpt) {
                             decode.optional_field("ministry_license_ref", "", decode.string, fn(mlr) {
                               decode.optional_field("external_listing_ref", "", decode.string, fn(elr) {
-                              decode.optional_field("share_to_social", None, decode.optional(decode.bool), fn(sts_opt) {
-                                decode.optional_field("allow_ai_caption", None, decode.optional(decode.bool), fn(aai_opt) {
-                                  decode.optional_field("allow_sub_min_stay_gap_booking", None, decode.optional(decode.bool), fn(asg_opt) {
-                                    decode.optional_field("is_locked", None, decode.optional(decode.bool), fn(locked_opt) {
-                                      decode.success(BasicsPatch(
-                                        status: status,
-                                        min_stay_nights: msn,
-                                        cleaning_fee_amount: cfa,
-                                        first_charge_amount: fca,
-                                        prepayment_percent: pp,
-                                        pool_size_label: psl,
-                                        commission_percent: comm,
-                                        high_season_dates_json: hsd,
-                                        confirm_deadline_normal_h: cdn,
-                                        confirm_deadline_high_h: cdh,
-                                        supplier_payment_note: spn,
-                                        avg_ad_cost_percent: aac,
-                                        cancellation_policy_text: cpt,
-                                        ministry_license_ref: mlr,
-                                        external_listing_ref: elr,
-                                        share_to_social: sts_opt,
-                                        allow_ai_caption: aai_opt,
-                                        allow_sub_min_stay_gap_booking: asg_opt,
-                                        is_locked: locked_opt,
-                                      ))
+                                decode.optional_field("currency_code", "", decode.string, fn(cc) {
+                                  decode.optional_field("share_to_social", None, decode.optional(decode.bool), fn(sts_opt) {
+                                    decode.optional_field("allow_ai_caption", None, decode.optional(decode.bool), fn(aai_opt) {
+                                      decode.optional_field("allow_sub_min_stay_gap_booking", None, decode.optional(decode.bool), fn(asg_opt) {
+                                        decode.optional_field("is_locked", None, decode.optional(decode.bool), fn(locked_opt) {
+                                          decode.success(BasicsPatch(
+                                            status: status,
+                                            min_stay_nights: msn,
+                                            cleaning_fee_amount: cfa,
+                                            first_charge_amount: fca,
+                                            prepayment_percent: pp,
+                                            pool_size_label: psl,
+                                            commission_percent: comm,
+                                            high_season_dates_json: hsd,
+                                            confirm_deadline_normal_h: cdn,
+                                            confirm_deadline_high_h: cdh,
+                                            supplier_payment_note: spn,
+                                            avg_ad_cost_percent: aac,
+                                            cancellation_policy_text: cpt,
+                                            ministry_license_ref: mlr,
+                                            external_listing_ref: elr,
+                                            currency_code: cc,
+                                            share_to_social: sts_opt,
+                                            allow_ai_caption: aai_opt,
+                                            allow_sub_min_stay_gap_booking: asg_opt,
+                                            is_locked: locked_opt,
+                                          ))
+                                        })
+                                      })
                                     })
                                   })
                                 })
-                              })
                               })
                             })
                           })
@@ -3997,6 +4001,7 @@ fn do_patch_listing_basics(
                       <> "allow_ai_caption = case when $19 = '' then allow_ai_caption when $19 = 'true' then true else false end, "
                       <> "allow_sub_min_stay_gap_booking = case when $20 = '' then allow_sub_min_stay_gap_booking when $20 = 'true' then true else false end, "
                       <> "is_locked = case when $21 = '' then is_locked when $21 = 'true' then true else false end, "
+                      <> "currency_code = case when $22 = '' then currency_code else upper($22::char(3)) end, "
                       <> "updated_at = now() "
                       <> "where id = $1::uuid and organization_id = $2::uuid returning id::text",
                     )
@@ -4023,6 +4028,7 @@ fn do_patch_listing_basics(
                       p.allow_sub_min_stay_gap_booking,
                     )))
                     |> pog.parameter(pog.text(basics_patch_bool_param(p.is_locked)))
+                    |> pog.parameter(pog.text(string.trim(p.currency_code)))
                     |> pog.returning(one_string_row())
                     |> db_exec.execute(db)
                   {

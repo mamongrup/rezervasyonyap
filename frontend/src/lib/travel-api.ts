@@ -10318,7 +10318,13 @@ export async function searchPublicListings(
       typeof window === 'undefined'
         ? fetchInit?.cache === 'no-store'
           ? fetchInit
-          : ({ next: { revalidate: 300 }, ...(fetchInit ?? {}) } as RequestInit)
+          : ({
+              next: {
+                revalidate: 300,
+                tags: ['public-listings', ...(fetchInit?.next?.tags ?? [])],
+              },
+              ...(fetchInit ?? {}),
+            } as RequestInit)
         : fetchInit ?? {}
 
     const res = await fetch(
@@ -10366,23 +10372,21 @@ export async function resolvePublicListingIdBySlug(
   slug: string,
   categoryCode?: string,
 ): Promise<string | null> {
-  const s = slug.trim()
-  if (!s) return null
   const b = base()
   if (!b) return null
+  const s = slug.trim()
+  if (!s) return null
   try {
-    const query = new URLSearchParams()
-    if (categoryCode?.trim()) query.set('category_code', categoryCode.trim())
-    const suffix = query.size > 0 ? `?${query.toString()}` : ''
+    const u = new URLSearchParams()
+    if (categoryCode?.trim()) u.set('category_code', categoryCode.trim())
+    const qs = u.toString() ? `?${u.toString()}` : ''
     const res = await fetch(
-      `${b}/api/v1/catalog/public/listings/by-slug/${encodeURIComponent(s)}${suffix}`,
-      { next: { revalidate: 60 } },
+      `${b}/api/v1/catalog/public/listings/by-slug/${encodeURIComponent(s)}${qs}`,
+      { cache: 'no-store' },
     )
-    if (res.status === 404) return null
     if (!res.ok) return null
     const data = (await res.json()) as { id?: string }
-    const id = data.id?.trim()
-    return id || null
+    return data?.id?.trim() || null
   } catch {
     return null
   }
@@ -10462,6 +10466,7 @@ export interface ListingBasicsPatch {
   /** Tutar metni veya kolonu temizlemek için tam olarak `'__null__'` */
   cleaning_fee_amount?: string
   first_charge_amount?: string
+  currency_code?: string
   prepayment_percent?: string
   commission_percent?: string
   pool_size_label?: string

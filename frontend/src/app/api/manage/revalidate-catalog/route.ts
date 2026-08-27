@@ -14,8 +14,13 @@ export const dynamic = 'force-dynamic'
  */
 export async function POST(req: NextRequest) {
   const jar = await cookies()
-  const token = jar.get(AUTH_COOKIE_NAME)?.value
-  const auth = await verifyAdminToken(token, 'admin.users.read')
+  const tokenFromCookie = jar.get(AUTH_COOKIE_NAME)?.value
+  const authHeader = req.headers.get('authorization')
+  const tokenFromHeader = authHeader?.startsWith('Bearer ')
+    ? authHeader.slice(7).trim()
+    : null
+  const token = tokenFromHeader || tokenFromCookie
+  const auth = await verifyAdminToken(token)
   if (!auth.ok) {
     return NextResponse.json({ ok: false, error: 'unauthorized' }, { status: auth.status })
   }

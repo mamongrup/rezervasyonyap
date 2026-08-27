@@ -91,6 +91,9 @@ export default function ActivityBookingPanel({
   const [quote, setQuote] = useState<ActivityQuote | null>(null)
   const [loading, setLoading] = useState(false)
   const [msg, setMsg] = useState<string | null>(null)
+  const [allSessionList, setAllSessionList] = useState<ActivitySessionRow[]>(
+    allSessions ?? initialSessions,
+  )
 
   useEffect(() => {
     let cancelled = false
@@ -100,6 +103,14 @@ export default function ActivityBookingPanel({
       .then((r) => {
         if (cancelled) return
         setSessions(r.sessions)
+        setAllSessionList((prev) => {
+          if (!r.sessions.length) return prev
+          const map = new Map(prev.map((s) => [s.id, s]))
+          for (const s of r.sessions) {
+            map.set(s.id, s)
+          }
+          return Array.from(map.values())
+        })
         setSessionId((prev) => {
           if (r.sessions.some((s) => s.id === prev)) return prev
           return r.sessions[0]?.id ?? ''
@@ -146,7 +157,7 @@ export default function ActivityBookingPanel({
     }
   }, [adults, children, date, listingId, sessionId, ab.quoteError])
 
-  const allSessionRanges = allSessions ?? initialSessions
+  const allSessionRanges = allSessionList.length > 0 ? allSessionList : (allSessions ?? initialSessions)
   const dateHasSession = (d: Date): boolean => {
     if (allSessionRanges.length === 0) return true
     const ymd = formatLocalYmd(d)
@@ -188,7 +199,22 @@ export default function ActivityBookingPanel({
   const displayGrandTotal = displayMoneyValue(grandTotal, currency)
 
   const parsedFallbackPrice = parseListingPriceString(stripActivityFromAffix(fallbackPrice))
-  const sessionStartingPrice = activityLowestSessionPrice(allSessionRanges, comparableAmount)
+  const sessionStartingPrice = useMemo(() => {
+    const fromSessions = activityLowestSessionPrice(allSessionRanges, comparableAmount)
+    if (quote?.adult_unit) {
+      const quoteAdult = parseMoney(quote.adult_unit)
+      if (quoteAdult > 0) {
+        const quoteCur = (quote.currency_code || currency || 'TRY').trim().toUpperCase()
+        const quoteComp = comparableAmount(quoteAdult, quoteCur)
+        if (quoteComp != null && Number.isFinite(quoteComp) && quoteComp > 0) {
+          if (fromSessions == null || quoteComp < fromSessions.comparisonAmount) {
+            return { amount: quoteAdult, currencyCode: quoteCur, comparisonAmount: quoteComp }
+          }
+        }
+      }
+    }
+    return fromSessions
+  }, [allSessionRanges, comparableAmount, currency, quote])
   const convertedHeaderPrice =
     fallbackPriceAmount != null && Number.isFinite(fallbackPriceAmount) && fallbackPriceAmount > 0
         ? displayMoneyValue(fallbackPriceAmount, listingCurrency)

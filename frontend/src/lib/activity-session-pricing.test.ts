@@ -73,6 +73,12 @@ describe('activity session pricing', () => {
     ])
   })
 
+  it('initializes a default session when syncing price on empty sessions list', () => {
+    const result = syncSingleActivitySessionPrice([], '160', 'USD')
+    expect(result.length).toBe(1)
+    expect(result[0]).toMatchObject({ adult_price: '160', currency_code: 'USD', is_active: true })
+  })
+
   it('serializes a new session without a null child fare', () => {
     const saved = activitySessionsForSave(
       [{

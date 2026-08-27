@@ -52,6 +52,29 @@ export function syncSingleActivitySessionPrice<T extends ActivitySessionPriceRow
   price: string,
   currency: string,
 ): T[] {
+  // Seans yoksa → verilen başlangıç fiyatı ve para birimiyle varsayılan 1 seans oluştur
+  if (sessions.length === 0) {
+    const trimmed = String(price ?? '').trim()
+    if (!trimmed || trimmed === '0') return []
+    const today = new Date().toISOString().slice(0, 10)
+    const nextYear = new Date(Date.now() + 365 * 86_400_000).toISOString().slice(0, 10)
+    return [
+      {
+        session_name: 'Standart Seans',
+        valid_from: today,
+        valid_to: nextYear,
+        start_time: '09:00',
+        duration_minutes: '120',
+        capacity: '10',
+        adult_price: trimmed,
+        child_price: '',
+        currency_code: currency || 'TRY',
+        is_active: true,
+        description: '',
+      } as unknown as T,
+    ]
+  }
+
   // Tek seans → doğrudan güncelle
   if (sessions.length === 1) {
     return [
