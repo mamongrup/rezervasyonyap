@@ -64,9 +64,13 @@ describe('activity session pricing', () => {
     ])
   })
 
-  it('does not overwrite independent prices when multiple sessions exist', () => {
+  it('syncs all active sessions when multiple sessions exist', () => {
     const sessions = [session('140'), session('180')]
-    expect(syncSingleActivitySessionPrice(sessions, '160', 'USD')).toBe(sessions)
+    const result = syncSingleActivitySessionPrice(sessions, '160', 'USD')
+    expect(result).toEqual([
+      { adult_price: '160', currency_code: 'USD', is_active: true },
+      { adult_price: '160', currency_code: 'USD', is_active: true },
+    ])
   })
 
   it('serializes a new session without a null child fare', () => {

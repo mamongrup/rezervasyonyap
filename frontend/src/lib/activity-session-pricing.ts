@@ -52,15 +52,27 @@ export function syncSingleActivitySessionPrice<T extends ActivitySessionPriceRow
   price: string,
   currency: string,
 ): T[] {
-  if (sessions.length !== 1) return sessions
+  // Tek seans → doğrudan güncelle
+  if (sessions.length === 1) {
+    return [
+      {
+        ...sessions[0],
+        adult_price: price,
+        currency_code: currency,
+      },
+    ]
+  }
 
-  return [
-    {
-      ...sessions[0],
+  // Çoklu seans → vitrin fiyatı en düşük aktif seans fiyatından hesaplandığından,
+  // tüm aktif seansların yetişkin fiyatını yeni değere senkronize et.
+  return sessions.map((session) => {
+    if (session.is_active === false) return session
+    return {
+      ...session,
       adult_price: price,
       currency_code: currency,
-    },
-  ]
+    }
+  })
 }
 
 export type ActivitySessionSaveRow = ActivitySessionPriceRow & {
@@ -77,7 +89,19 @@ export function activitySessionsForSave<T extends ActivitySessionSaveRow>(
   sessions: T[],
   fallbackCurrency: string,
 ) {
+  // İçe aktarılan ilanlarda valid_from/valid_to/start_time eksik olabilir;
+  // bu durumda seans kaydı sessizce atlanır ve eski fiyatlar DB'de kalır.
+  // Default tarih ekleyerek kaydın her zaman çalışmasını sağla.
+  const today = new Date().toISOString().slice(0, 10)
+  const nextYear = new Date(Date.now() + 365 * 86_400_000).toISOString().slice(0, 10)
+
   return sessions
+    .map((session) => ({
+      ...session,
+      valid_from: session.valid_from || today,
+      valid_to: session.valid_to || nextYear,
+      start_time: session.start_time || '09:00',
+    }))
     .filter((session) => session.valid_from && session.valid_to && session.start_time)
     .map((session, index) => ({
       id: session.id,

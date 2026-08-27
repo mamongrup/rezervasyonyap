@@ -7244,10 +7244,11 @@ export default function CatalogNewListingClient({
                     step="0.01"
                     className="mt-1"
                     value={activitySessions.length === 1 ? basePrice : activityStartingPrice(activitySessions)}
-                    disabled={activitySessions.length !== 1 || saveLocked}
+                    disabled={saveLocked}
                     onChange={(e) => {
                       const nextPrice = e.target.value
                       setBasePrice(nextPrice)
+                      setDepositAmount(nextPrice)
                       setActivitySessions((sessions) =>
                         syncSingleActivitySessionPrice(sessions, nextPrice, currency),
                       )
@@ -7257,7 +7258,7 @@ export default function CatalogNewListingClient({
                   <HintText>
                     {activitySessions.length === 1
                       ? 'Bu fiyat tek seansın yetişkin fiyatıyla birlikte güncellenir.'
-                      : 'Vitrin başlangıç fiyatı seanslardaki en düşük aktif yetişkin fiyatıdır; Seanslar & Fiyatlar adımından düzenleyin.'}
+                      : 'Tüm aktif seansların yetişkin fiyatını bu değere günceller. Farklı fiyatlar için Seanslar & Fiyatlar adımından düzenleyin.'}
                   </HintText>
                 </Field>
               </Section>

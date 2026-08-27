@@ -4056,6 +4056,9 @@ fn do_patch_listing_basics(
                             old_status,
                             new_status,
                           )
+                          // Aktivitede first_charge_amount değiştiyse vitrin_price'ı da tazele.
+                          // Bu, seans kaydı atlanırsa bile kart/detay fiyatının güncel kalmasını sağlar.
+                          refresh_one_listing_vitrin_price(ctx, listing_id)
                           wisp.json_response("{\"ok\":true}", 200)
                         }
                       }
