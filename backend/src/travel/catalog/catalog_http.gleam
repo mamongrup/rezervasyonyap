@@ -4058,7 +4058,10 @@ fn do_patch_listing_basics(
                           )
                           // Aktivitede first_charge_amount değiştiyse vitrin_price'ı da tazele.
                           // Bu, seans kaydı atlanırsa bile kart/detay fiyatının güncel kalmasını sağlar.
-                          refresh_one_listing_vitrin_price(ctx, listing_id)
+                          let _ =
+                            pog.query("select refresh_listing_vitrin_prices_for($1::uuid)")
+                            |> pog.parameter(pog.text(listing_id))
+                            |> db_exec.execute(db)
                           wisp.json_response("{\"ok\":true}", 200)
                         }
                       }
