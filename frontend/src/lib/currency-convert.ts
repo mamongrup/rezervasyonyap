@@ -3,13 +3,38 @@ import type { PublicCurrencyRateRow } from '@/lib/travel-api'
 type Edge = { from: string; to: string; factor: number }
 
 function buildEdges(rates: PublicCurrencyRateRow[]): Edge[] {
-  const edges: Edge[] = []
-  for (const r of rates) {
-    const b = r.base_code.trim().toUpperCase()
-    const q = r.quote_code.trim().toUpperCase()
+  // En yeni tarihli kurlar öncelikli olsun
+  const sorted = [...rates].sort((a, b) => {
+    const ta = a.fetched_at ? new Date(a.fetched_at).getTime() : 0
+    const tb = b.fetched_at ? new Date(b.fetched_at).getTime() : 0
+    return tb - ta
+  })
+
+  const directMap = new Map<string, Edge>()
+  const invertedMap = new Map<string, Edge>()
+
+  for (const r of sorted) {
+    const b = r.base_code?.trim().toUpperCase()
+    const q = r.quote_code?.trim().toUpperCase()
     if (!b || !q || !Number.isFinite(r.rate) || r.rate <= 0) continue
-    edges.push({ from: b, to: q, factor: r.rate })
-    edges.push({ from: q, to: b, factor: 1 / r.rate })
+
+    const keyDirect = `${b}->${q}`
+    if (!directMap.has(keyDirect)) {
+      directMap.set(keyDirect, { from: b, to: q, factor: r.rate })
+    }
+
+    const keyInverted = `${q}->${b}`
+    if (!invertedMap.has(keyInverted)) {
+      invertedMap.set(keyInverted, { from: q, to: b, factor: 1 / r.rate })
+    }
+  }
+
+  // Önce doğrudan kurlar, ardından doğrudan karşılığı olmayan çiftler için ters kurlar
+  const edges: Edge[] = Array.from(directMap.values())
+  for (const [key, inv] of invertedMap.entries()) {
+    if (!directMap.has(key)) {
+      edges.push(inv)
+    }
   }
   return edges
 }
