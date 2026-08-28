@@ -39,9 +39,14 @@ async function main() {
 
   try {
     let query = `
-      SELECT l.id::text, l.title, l.slug, l.category_code, l.featured_image_url,
+      SELECT l.id::text,
+             coalesce((SELECT lt.title FROM listing_translations lt WHERE lt.listing_id = l.id LIMIT 1), l.slug) as title,
+             l.slug,
+             pc.code as category_code,
+             l.featured_image_url,
              count(li.id)::int as image_count
       FROM listings l
+      JOIN product_categories pc ON pc.id = l.category_id
       INNER JOIN listing_images li ON li.listing_id = l.id
       WHERE 1=1
     `
@@ -55,7 +60,7 @@ async function main() {
       query += ` AND l.slug = $${params.length}`
     } else if (CATEGORY) {
       params.push(CATEGORY)
-      query += ` AND l.category_code = $${params.length}`
+      query += ` AND pc.code = $${params.length}`
     } else if (!ALL) {
       console.log(`Lütfen bir hedef belirtin:
   --all                 : Tüm ilanları yeniden sıralar
@@ -67,7 +72,7 @@ async function main() {
     }
 
     query += `
-      GROUP BY l.id, l.title, l.slug, l.category_code, l.featured_image_url
+      GROUP BY l.id, l.slug, pc.code, l.featured_image_url, l.created_at
       HAVING count(li.id) > 1
       ORDER BY l.created_at DESC
     `
