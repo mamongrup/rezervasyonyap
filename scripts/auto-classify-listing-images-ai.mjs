@@ -1,6 +1,6 @@
 /**
  * Numaralandırılmış (1.avif, 2.avif...) ve ismi olmayan fotoğrafları
- * doğrudan Vision AI (DeepSeek / OpenAI) ile tarayıp banyo, havuz, salon vb. etiketler ve vitrini sıralar.
+ * doğrudan Vision AI (Gemini / OpenAI / DeepSeek) ile tarayıp banyo, havuz, salon vb. etiketler ve vitrini sıralar.
  *
  * Kullanım:
  *   node scripts/auto-classify-listing-images-ai.mjs --slug kayakoy-kuzey-villa
@@ -19,7 +19,6 @@ loadBackendEnvFile()
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const REPO_ROOT = path.resolve(__dirname, '..')
-const PUBLIC_ROOT = path.join(REPO_ROOT, 'frontend', 'public')
 
 function loadSharp() {
   const candidates = [
@@ -49,13 +48,35 @@ const ALL = argv.includes('--all')
 const SLUG = valueAfter('--slug')
 const CATEGORY = valueAfter('--category')
 
-const OPENAI_KEY = process.env.OPENAI_API_KEY?.trim()
-const DEEPSEEK_KEY = process.env.DEEPSEEK_API_KEY?.trim()
+const PROMPT = `Bu tatil evi / otel / villa fotoğrafının türünü tespit et.
+Yalnızca şu kodlardan birini JSON olarak döndür:
+sea_view (dış mekan, manzara, deniz, genel bina görünümü)
+pool (havuz, bahçe, şezlong, dış teras)
+living (salon, oturma odası, mutfak, lobi, yemek alanı)
+bedroom (yatak odası, yatak)
+bathroom (banyo, jakuzi, duş, wc, tuvalet)
+sauna (sauna)
+hammam (hamam)
+unspecified (diğer)
 
-async function classifyImageWithVision(absPath) {
-  if (!existsSync(absPath)) return null
+Örnek yanıt: {"scene_code":"pool"}`
 
-  let dataUri
+function resolveImageAbs(storageKey) {
+  const rel = String(storageKey || '').trim().replace(/^\/+/, '')
+  const candidates = [
+    path.join(REPO_ROOT, 'frontend', 'public', rel),
+    path.join(REPO_ROOT, 'public', rel),
+    path.join(REPO_ROOT, rel),
+    path.join('/var/www/vhosts/rezervasyonyap.tr/httpdocs', 'frontend', 'public', rel),
+    path.join('/var/www/vhosts/rezervasyonyap.tr/httpdocs', 'public', rel),
+  ]
+  for (const c of candidates) {
+    if (existsSync(c)) return c
+  }
+  return null
+}
+
+async function prepareImagePayload(absPath) {
   try {
     const input = await fs.readFile(absPath)
     if (sharp) {
@@ -64,75 +85,119 @@ async function classifyImageWithVision(absPath) {
         .resize({ width: 768, height: 768, fit: 'inside', withoutEnlargement: true })
         .jpeg({ quality: 80 })
         .toBuffer()
-      dataUri = `data:image/jpeg;base64,${buf.toString('base64')}`
-    } else {
-      const ext = path.extname(absPath).replace('.', '').toLowerCase() || 'jpeg'
-      const mime = ext === 'avif' ? 'image/avif' : ext === 'webp' ? 'image/webp' : ext === 'png' ? 'image/png' : 'image/jpeg'
-      dataUri = `data:${mime};base64,${input.toString('base64')}`
+      return { mime: 'image/jpeg', base64: buf.toString('base64') }
     }
+    const ext = path.extname(absPath).replace('.', '').toLowerCase() || 'jpeg'
+    const mime = ext === 'avif' ? 'image/avif' : ext === 'webp' ? 'image/webp' : ext === 'png' ? 'image/png' : 'image/jpeg'
+    return { mime, base64: input.toString('base64') }
   } catch (e) {
-    console.error(`[Vision] Görsel okunamadı (${absPath}):`, e.message)
+    console.warn(`[Image Read Error] ${absPath}: ${e.message}`)
     return null
   }
+}
 
-  const prompt = `Bu tatil evi / otel fotoğrafının türünü tespit et.
-Yalnızca şu kodlardan birini JSON olarak döndür:
-sea_view (dış mekan, manzara, deniz, genel bina görünümü)
-pool (havuz, bahçe, şezlong, dış teras)
-living (salon, oturma odası, mutfak, lobi)
-bedroom (yatak odası, yatak)
-bathroom (banyo, jakuzi, duş, wc, tuvalet)
-sauna (sauna)
-hammam (hamam)
-unspecified (diğer)
-
-Örnek çıktı formatı: {"scene_code":"pool"}`
-
-  const apiKey = OPENAI_KEY || DEEPSEEK_KEY
-  if (!apiKey) return 'unspecified'
-
-  const isDeepSeek = !OPENAI_KEY && Boolean(DEEPSEEK_KEY)
-  const endpoint = isDeepSeek
-    ? (process.env.DEEPSEEK_BASE_URL || 'https://api.deepseek.com/v1') + '/chat/completions'
-    : 'https://api.openai.com/v1/chat/completions'
-  const model = isDeepSeek ? 'deepseek-v4-flash' : (process.env.OPENAI_IMAGE_SCENE_MODEL || 'gpt-4o-mini')
-
-  try {
-    const res = await fetch(endpoint, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model,
-        temperature: 0.1,
-        max_tokens: 60,
-        response_format: { type: 'json_object' },
-        messages: [
-          {
-            role: 'user',
-            content: [
-              { type: 'text', text: prompt },
-              { type: 'image_url', image_url: { url: dataUri, detail: 'low' } },
-            ],
-          },
-        ],
-      }),
-    })
-    if (res.ok) {
-      const data = await res.json()
-      const raw = data.choices?.[0]?.message?.content || '{}'
-      try {
-        const parsed = JSON.parse(raw)
-        return parsed.scene_code || 'unspecified'
-      } catch {}
-    } else {
-      const errTxt = await res.text()
-      console.warn(`[Vision API Error ${res.status}]:`, errTxt.slice(0, 200))
+async function loadAiConfig(pg) {
+  // 1. Gemini slots
+  let geminiKey = process.env.GEMINI_API_KEY?.trim() || ''
+  if (!geminiKey) {
+    const slots = await pg.query(
+      `SELECT api_key FROM ai_api_key_slots WHERE is_enabled=true AND (exhausted_until IS NULL OR exhausted_until <= now()) ORDER BY last_used_at NULLS FIRST LIMIT 1`,
+    ).catch(() => ({ rows: [] }))
+    if (slots.rows[0]?.api_key) {
+      geminiKey = slots.rows[0].api_key.trim()
     }
-  } catch (e) {
-    console.warn(`[Vision Network Error]:`, e.message)
+  }
+
+  // 2. Settings JSON
+  const aiCfg = await pg.query(
+    `SELECT value_json FROM site_settings WHERE key='ai' AND organization_id IS NULL ORDER BY id DESC LIMIT 1`,
+  ).catch(() => ({ rows: [] }))
+  const cfgRaw = aiCfg.rows[0]?.value_json
+  const obj = typeof cfgRaw === 'string' ? JSON.parse(cfgRaw) : cfgRaw || {}
+
+  const openaiKey = process.env.OPENAI_API_KEY?.trim() || obj.openai_api_key?.trim() || ''
+  const deepseekKey = process.env.DEEPSEEK_API_KEY?.trim() || obj.deepseek_api_key?.trim() || ''
+
+  return {
+    geminiKey,
+    openaiKey,
+    deepseekKey,
+  }
+}
+
+async function callAiVision(aiConfig, imagePayload) {
+  const { geminiKey, openaiKey, deepseekKey } = aiConfig
+  const { mime, base64 } = imagePayload
+
+  // 1. Gemini Vision (Öncelikli)
+  if (geminiKey) {
+    try {
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${encodeURIComponent(geminiKey)}`
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        signal: AbortSignal.timeout(30_000),
+        body: JSON.stringify({
+          system_instruction: { parts: [{ text: PROMPT }] },
+          contents: [
+            {
+              role: 'user',
+              parts: [
+                { text: 'Bu görselin sahne kodunu tek bir JSON olarak ver.' },
+                { inline_data: { mime_type: mime, data: base64 } },
+              ],
+            },
+          ],
+          generationConfig: {
+            temperature: 0.1,
+            response_mime_type: 'application/json',
+          },
+        }),
+      })
+
+      if (res.ok) {
+        const data = await res.json()
+        const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '{}'
+        const parsed = JSON.parse(text)
+        if (parsed.scene_code) return parsed.scene_code
+      }
+    } catch {}
+  }
+
+  // 2. OpenAI Vision
+  if (openaiKey) {
+    try {
+      const dataUri = `data:${mime};base64,${base64}`
+      const res = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${openaiKey}`,
+        },
+        signal: AbortSignal.timeout(30_000),
+        body: JSON.stringify({
+          model: 'gpt-4o-mini',
+          temperature: 0.1,
+          max_tokens: 60,
+          response_format: { type: 'json_object' },
+          messages: [
+            {
+              role: 'user',
+              content: [
+                { type: 'text', text: PROMPT },
+                { type: 'image_url', image_url: { url: dataUri, detail: 'low' } },
+              ],
+            },
+          ],
+        }),
+      })
+      if (res.ok) {
+        const data = await res.json()
+        const text = data.choices?.[0]?.message?.content || '{}'
+        const parsed = JSON.parse(text)
+        if (parsed.scene_code) return parsed.scene_code
+      }
+    } catch {}
   }
 
   return 'unspecified'
@@ -143,6 +208,14 @@ async function main() {
   await pg.connect()
 
   try {
+    const aiConfig = await loadAiConfig(pg)
+    const activeProvider = aiConfig.geminiKey ? 'Gemini' : aiConfig.openaiKey ? 'OpenAI' : aiConfig.deepseekKey ? 'DeepSeek' : 'YOK'
+    console.log(`🤖 Aktif Yapay Zeka Sağlayıcısı: ${activeProvider}`)
+    if (activeProvider === 'YOK') {
+      console.error('❌ Hata: Panelde veya backend.env içinde hiçbir AI anahtarı (Gemini / OpenAI / DeepSeek) bulunamadı.')
+      process.exit(1)
+    }
+
     let query = `
       SELECT l.id::text,
              coalesce((SELECT lt.title FROM listing_translations lt WHERE lt.listing_id = l.id LIMIT 1), l.slug) as title,
@@ -187,15 +260,22 @@ async function main() {
       const results = []
       for (let i = 0; i < images.length; i++) {
         const img = images[i]
-        const rel = img.storage_key.replace(/^\/+/, '')
-        const abs = path.join(PUBLIC_ROOT, rel)
-
-        process.stdout.write(`  -> [${i + 1}/${images.length}] Görsel taranıyor... `)
-        let scene = img.scene_code
-        if (!scene || scene === 'unspecified') {
-          scene = await classifyImageWithVision(abs)
+        const abs = resolveImageAbs(img.storage_key)
+        if (!abs) {
+          console.log(`  -> [${i + 1}/${images.length}] Dosya diskte bulunamadı: ${img.storage_key}`)
+          results.push({ ...img, scene_code: 'unspecified', priority: 40, originalIndex: i })
+          continue
         }
-        console.log(`[${scene || 'unspecified'}]`)
+
+        const payload = await prepareImagePayload(abs)
+        if (!payload) {
+          results.push({ ...img, scene_code: 'unspecified', priority: 40, originalIndex: i })
+          continue
+        }
+
+        process.stdout.write(`  -> [${i + 1}/${images.length}] Görsel analiz ediliyor... `)
+        const scene = await callAiVision(aiConfig, payload)
+        console.log(`[${scene}]`)
 
         await pg.query(
           `UPDATE listing_images SET scene_code = nullif($2, '') WHERE id = $1::uuid`,
@@ -208,10 +288,12 @@ async function main() {
           priority: SCENE_PRIORITIES[scene] ?? 40,
           originalIndex: i,
         })
-        await new Promise((r) => setTimeout(r, 200))
+
+        // Rate limit önleyici kısa bekleme
+        await new Promise((r) => setTimeout(r, 150))
       }
 
-      // Sıralama
+      // Sıralama (Dış mekan -> Havuz -> Salon -> Oda -> Banyo)
       results.sort((a, b) => {
         if (a.priority !== b.priority) return a.priority - b.priority
         return a.originalIndex - b.originalIndex
@@ -233,7 +315,8 @@ async function main() {
         )
       }
 
-      console.log(`✅ ${listing.title} için sıralama güncellendi. Yeni kapak: [${results[0]?.scene_code}] ${bestHero}\n`)
+      console.log(`\n✅ ${listing.title} sıralaması tamamlandı!`)
+      console.log(`🌟 Yeni Kapak Görseli: [${results[0]?.scene_code}] ${bestHero}\n`)
     }
   } finally {
     await pg.end()
