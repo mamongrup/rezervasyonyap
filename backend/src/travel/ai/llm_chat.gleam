@@ -87,7 +87,9 @@ fn list_available_gemini_keys(db: pog.Connection) -> List(KeySlot) {
 
 fn mark_key_used(db: pog.Connection, id: String) -> Nil {
   let _ =
-    pog.query("update ai_api_key_slots set last_used_at = now() where id = $1::uuid")
+    pog.query(
+      "update ai_api_key_slots set last_used_at = now() where id = $1::uuid",
+    )
     |> pog.parameter(pog.text(id))
     |> db_exec.execute(db)
   Nil
@@ -121,7 +123,16 @@ fn try_gemini_pool(
         [] -> Error("gemini_no_available_keys")
         _ -> {
           let model = gemini_model(db)
-          try_gemini_keys(db, keys, model, system_prompt, user_msg, temperature, timeout_ms, "")
+          try_gemini_keys(
+            db,
+            keys,
+            model,
+            system_prompt,
+            user_msg,
+            temperature,
+            timeout_ms,
+            "",
+          )
         }
       }
     }
@@ -188,6 +199,73 @@ fn try_gemini_keys(
   }
 }
 
+fn try_gemini_image_keys(
+  db: pog.Connection,
+  keys: List(KeySlot),
+  model: String,
+  system_prompt: String,
+  user_msg: String,
+  image_mime: String,
+  image_base64: String,
+  temperature: Float,
+  timeout_ms: Int,
+  last_err: String,
+) -> Result(String, String) {
+  case keys {
+    [] ->
+      case last_err == "" {
+        True -> Error("gemini_all_image_keys_failed")
+        False -> Error(last_err)
+      }
+    [KeySlot(id, api_key), ..rest] ->
+      case
+        gemini_chat.generate_content_with_image(
+          api_key,
+          model,
+          system_prompt,
+          user_msg,
+          image_mime,
+          image_base64,
+          temperature,
+          timeout_ms,
+        )
+      {
+        gemini_chat.GeminiOk(text) -> {
+          mark_key_used(db, id)
+          Ok(text)
+        }
+        gemini_chat.GeminiQuota(e) -> {
+          mark_key_exhausted(db, id)
+          try_gemini_image_keys(
+            db,
+            rest,
+            model,
+            system_prompt,
+            user_msg,
+            image_mime,
+            image_base64,
+            temperature,
+            timeout_ms,
+            "gemini_quota: " <> string.slice(e, 0, 200),
+          )
+        }
+        gemini_chat.GeminiError(e) ->
+          try_gemini_image_keys(
+            db,
+            rest,
+            model,
+            system_prompt,
+            user_msg,
+            image_mime,
+            image_base64,
+            temperature,
+            timeout_ms,
+            e,
+          )
+      }
+  }
+}
+
 fn try_deepseek(
   db: pog.Connection,
   system_prompt: String,
@@ -231,6 +309,40 @@ pub fn complete(
             <> string.slice(deepseek_err, 0, 120),
           )
       }
+  }
+}
+
+/// Gemini anahtar havuzuyla görsel analiz eder; kota dolan anahtar otomatik atlanır.
+pub fn complete_image(
+  db: pog.Connection,
+  system_prompt: String,
+  user_msg: String,
+  image_mime: String,
+  image_base64: String,
+  temperature: Float,
+  timeout_ms: Int,
+) -> Result(String, String) {
+  case provider_active(db, "gemini") {
+    False -> Error("gemini_provider_inactive")
+    True -> {
+      let keys = list_available_gemini_keys(db)
+      case keys {
+        [] -> Error("gemini_no_available_keys")
+        _ ->
+          try_gemini_image_keys(
+            db,
+            keys,
+            gemini_model(db),
+            system_prompt,
+            user_msg,
+            image_mime,
+            image_base64,
+            temperature,
+            timeout_ms,
+            "",
+          )
+      }
+    }
   }
 }
 

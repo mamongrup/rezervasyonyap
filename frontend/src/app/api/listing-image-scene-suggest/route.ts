@@ -91,10 +91,11 @@ function extractJsonObject(raw: string): Record<string, unknown> | null {
   }
 }
 
-type VisionMode = 'auto' | 'deepseek' | 'openai'
+type VisionMode = 'auto' | 'gemini' | 'deepseek' | 'openai'
 
 function listingSceneVisionMode(): VisionMode {
   const p = process.env.LISTING_SCENE_VISION_PROVIDER?.trim().toLowerCase()
+  if (p === 'gemini') return 'gemini'
   if (p === 'openai') return 'openai'
   if (p === 'deepseek') return 'deepseek'
   return 'auto'
@@ -119,6 +120,7 @@ function deepseekSceneModel(baseModel: string): string {
 }
 
 type VisionUpstream =
+  | { provider: 'gemini'; timeoutMs: number }
   | { provider: 'deepseek'; apiKey: string; model: string; url: string; timeoutMs: number }
   | { provider: 'openai'; apiKey: string; model: string; timeoutMs: number }
 
@@ -127,18 +129,12 @@ async function resolveVisionUpstream(token: string): Promise<VisionUpstream | nu
   const oaiKey = process.env.OPENAI_API_KEY?.trim()
   const oaiModel = process.env.OPENAI_IMAGE_SCENE_MODEL?.trim() || 'gpt-5.6-luna'
 
-  if (mode === 'openai') {
-    if (!oaiKey) return null
-    return {
-      provider: 'openai',
-      apiKey: oaiKey,
-      model: oaiModel,
-      timeoutMs: visionTimeoutMs(),
-    }
+  if (mode === 'gemini' || mode === 'auto') {
+    return { provider: 'gemini', timeoutMs: visionTimeoutMs() }
   }
 
-  /** Otomatik modda görüntü analizi için önce OpenAI'nin yerel görsel girdili Responses API'si. */
-  if (mode === 'auto' && oaiKey) {
+  if (mode === 'openai') {
+    if (!oaiKey) return null
     return {
       provider: 'openai',
       apiKey: oaiKey,
@@ -178,10 +174,39 @@ async function runVisionCompletion(opts: {
   upstream: VisionUpstream
   prompt: string
   jpegBase64: string
+  token: string
   signal: AbortSignal
 }): Promise<{ raw: string; provider: string }> {
-  const { upstream, prompt, jpegBase64, signal } = opts
+  const { upstream, prompt, jpegBase64, token, signal } = opts
   const dataUri = `data:image/jpeg;base64,${jpegBase64}`
+
+  if (upstream.provider === 'gemini') {
+    const apiBase = apiOriginForFetch()
+    if (!apiBase) throw new Error('gemini_error:api_origin_missing')
+    const res = await fetch(`${apiBase}/api/v1/ai/complete`, {
+      method: 'POST',
+      signal,
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        system: prompt,
+        user: 'Bu görselin sahnesini ve kapak uygunluğunu tek bir JSON olarak ver.',
+        image_mime: 'image/jpeg',
+        image_base64: jpegBase64,
+        temperature: 0.1,
+        timeout_ms: upstream.timeoutMs,
+      }),
+    })
+    if (!res.ok) {
+      const errText = await res.text()
+      console.error('[listing-image-scene-suggest] gemini', res.status, errText)
+      throw new Error(`gemini_error:${res.status}`)
+    }
+    const data = (await res.json()) as { text?: string }
+    return { raw: data.text?.trim() ?? '', provider: 'gemini' }
+  }
 
   const isOpenAi = upstream.provider === 'openai'
   const body: Record<string, unknown> = isOpenAi
@@ -309,7 +334,7 @@ export async function POST(req: NextRequest) {
       {
         error: 'vision_not_configured',
         message:
-          'Görüntülü sahne önerisi için OPENAI_API_KEY veya DeepSeek (DEEPSEEK_API_KEY / Ayarlar → Yapay zeka) gerekir. Varsayılan: önce OpenAI.',
+          'Görüntülü sahne önerisi için sistemde aktif Gemini anahtarı gerekir. OpenAI/DeepSeek yalnızca açıkça seçilirse kullanılır.',
       },
       { status: 503 }
     )
@@ -347,27 +372,42 @@ Yanıt YALNIZCA şu JSON biçiminde olsun: {"scene_code":"<kod>","hero_score":0,
         upstream,
         prompt,
         jpegBase64,
+        token,
         signal: controller.signal,
       })
     } catch (firstErr) {
-      const ds =
-        upstream.provider === 'openai' && listingSceneVisionMode() === 'auto'
-          ? await resolveDeepseekConfigForManage(token)
-          : null
-      if (!ds) throw firstErr
-
-      console.warn('[listing-image-scene-suggest] OpenAI başarısız, DeepSeek yedeği deneniyor')
-      const fallbackUpstream: VisionUpstream = {
-        provider: 'deepseek',
-        apiKey: ds.apiKey,
-        model: deepseekSceneModel(ds.model),
-        url: ds.url,
-        timeoutMs: upstream.timeoutMs,
+      if (listingSceneVisionMode() !== 'auto') throw firstErr
+      const oaiKey = process.env.OPENAI_API_KEY?.trim()
+      let fallbackUpstream: VisionUpstream | null = null
+      if (oaiKey && upstream.provider === 'gemini') {
+        fallbackUpstream = {
+          provider: 'openai',
+          apiKey: oaiKey,
+          model: process.env.OPENAI_IMAGE_SCENE_MODEL?.trim() || 'gpt-5.6-luna',
+          timeoutMs: upstream.timeoutMs,
+        }
+      } else if (upstream.provider === 'gemini' || upstream.provider === 'openai') {
+        const ds = await resolveDeepseekConfigForManage(token)
+        if (ds) {
+          fallbackUpstream = {
+            provider: 'deepseek',
+            apiKey: ds.apiKey,
+            model: deepseekSceneModel(ds.model),
+            url: ds.url,
+            timeoutMs: upstream.timeoutMs,
+          }
+        }
       }
+      if (!fallbackUpstream) throw firstErr
+
+      console.warn(
+        `[listing-image-scene-suggest] ${upstream.provider} başarısız, ${fallbackUpstream.provider} yedeği deneniyor`,
+      )
       completion = await runVisionCompletion({
         upstream: fallbackUpstream,
         prompt,
         jpegBase64,
+        token,
         signal: controller.signal,
       })
     }
@@ -394,7 +434,7 @@ Yanıt YALNIZCA şu JSON biçiminde olsun: {"scene_code":"<kod>","hero_score":0,
       return NextResponse.json({ error: 'upstream_timeout', timeoutMs: upstream.timeoutMs }, { status: 504 })
     }
     const msg = e instanceof Error ? e.message : ''
-    if (msg.includes('deepseek_error') || msg.includes('openai_error')) {
+    if (msg.includes('gemini_error') || msg.includes('deepseek_error') || msg.includes('openai_error')) {
       return NextResponse.json({ error: 'upstream_error', detail: msg }, { status: 502 })
     }
     console.error('[listing-image-scene-suggest]', e)

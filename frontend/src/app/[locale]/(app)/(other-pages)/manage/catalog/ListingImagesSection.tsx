@@ -199,7 +199,7 @@ export default function ListingImagesSection({ listingId, categoryCode, listingS
       const detail =
         code === 'vision_not_configured'
           ? (data.message ??
-            'OpenAI veya DeepSeek anahtarı tanımlı değil. OPENAI_API_KEY ya da panel Yapay zeka ayarını kontrol edin.')
+            'Aktif Gemini anahtarı bulunamadı. Panelde Genel Ayarlar → Yapay zeka bölümündeki Gemini anahtarlarını kontrol edin.')
           : code === 'rate_limited'
             ? `Çok sık istek. ${data.retryAfterSec ? `${data.retryAfterSec}s sonra deneyin.` : ''}`
             : code === 'forbidden'
@@ -389,8 +389,7 @@ export default function ListingImagesSection({ listingId, categoryCode, listingS
       </p>
       <p className="text-xs text-neutral-500 dark:text-neutral-400">
         <strong className="font-medium text-neutral-700 dark:text-neutral-300">Yapay zeka önerisi:</strong> Sunucuda
-        önce <code className="rounded bg-neutral-100 px-0.5 font-mono dark:bg-neutral-800">OPENAI_API_KEY</code> ile
-        yüksek ayrıntılı görsel analiz kullanılır; gerekirse paneldeki DeepSeek ayarı yedektir. Sonucu gözden geçirin.
+        sistemdeki Gemini anahtar havuzu kullanılır; kota dolan anahtar otomatik atlanır. Sonucu gözden geçirin.
       </p>
       {images.some((im) => canAiSuggestStorageKey(im.storage_key)) ? (
         <div className="flex flex-wrap items-center gap-2">

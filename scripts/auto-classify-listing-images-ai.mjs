@@ -52,7 +52,7 @@ const valueAfter = (flag) => {
 
 const ALL = argv.includes('--all')
 const FORCE = argv.includes('--force') || argv.includes('--reanalyze')
-const PROVIDER = String(valueAfter('--provider') || 'auto').trim().toLowerCase()
+const PROVIDER = String(valueAfter('--provider') || 'gemini').trim().toLowerCase()
 const SLUG = valueAfter('--slug')
 const CATEGORY = valueAfter('--category')
 
@@ -157,15 +157,16 @@ async function prepareImagePayload(absPath) {
 }
 
 async function loadAiConfig(pg) {
-  // 1. Gemini slots
-  let geminiKey = process.env.GEMINI_API_KEY?.trim() || ''
-  if (!geminiKey) {
+  // 1. Gemini anahtar havuzu (kota dolan anahtar sonraki anahtara geçer)
+  const envGeminiKey = process.env.GEMINI_API_KEY?.trim() || ''
+  let geminiKeys = envGeminiKey ? [{ id: null, api_key: envGeminiKey }] : []
+  if (!geminiKeys.length) {
     const slots = await pg.query(
-      `SELECT api_key FROM ai_api_key_slots WHERE is_enabled=true AND (exhausted_until IS NULL OR exhausted_until <= now()) ORDER BY last_used_at NULLS FIRST LIMIT 1`,
+      `SELECT id::text, api_key FROM ai_api_key_slots WHERE provider_code='gemini' AND is_enabled=true AND (exhausted_until IS NULL OR exhausted_until <= now()) ORDER BY sort_order ASC, last_used_at NULLS FIRST, created_at ASC`,
     ).catch(() => ({ rows: [] }))
-    if (slots.rows[0]?.api_key) {
-      geminiKey = slots.rows[0].api_key.trim()
-    }
+    geminiKeys = slots.rows
+      .filter((row) => row.api_key)
+      .map((row) => ({ id: row.id, api_key: row.api_key.trim() }))
   }
 
   // 2. Settings JSON
@@ -177,7 +178,7 @@ async function loadAiConfig(pg) {
 
   const openaiKey = process.env.OPENAI_API_KEY?.trim() || obj.openai_api_key?.trim() || ''
   return {
-    geminiKey,
+    geminiKeys,
     openaiKey,
   }
 }
@@ -233,6 +234,7 @@ function parseAnalysisFromAiText(text) {
 
 let discoveredGeminiModels = []
 let activeGeminiModel = null
+let activeGeminiKeyIndex = 0
 
 const GEMINI_CANDIDATES = [
   'gemini-2.0-flash',
@@ -244,22 +246,25 @@ const GEMINI_CANDIDATES = [
 ]
 
 async function callAiVision(aiConfig, imagePayload) {
-  const { geminiKey, openaiKey } = aiConfig
+  const { geminiKeys, openaiKey } = aiConfig
   const { mime, base64 } = imagePayload
 
   // 1. Gemini Vision (Öncelikli)
-  if (geminiKey) {
+  if (geminiKeys?.length) {
     const tryModels = [
       ...(activeGeminiModel ? [activeGeminiModel] : []),
       ...discoveredGeminiModels,
       ...GEMINI_CANDIDATES,
     ].filter((v, i, a) => a.indexOf(v) === i)
 
-    for (const model of tryModels) {
-      try {
-        const cleanModel = model.replace(/^models\//, '')
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/${cleanModel}:generateContent?key=${encodeURIComponent(geminiKey)}`
-        const res = await fetch(url, {
+    for (let keyOffset = 0; keyOffset < geminiKeys.length; keyOffset++) {
+      const keyIndex = (activeGeminiKeyIndex + keyOffset) % geminiKeys.length
+      const geminiKey = geminiKeys[keyIndex].api_key
+      for (const model of tryModels) {
+        try {
+          const cleanModel = model.replace(/^models\//, '')
+          const url = `https://generativelanguage.googleapis.com/v1beta/models/${cleanModel}:generateContent?key=${encodeURIComponent(geminiKey)}`
+          const res = await fetch(url, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           signal: AbortSignal.timeout(30_000),
@@ -279,28 +284,29 @@ async function callAiVision(aiConfig, imagePayload) {
               responseMimeType: 'application/json',
             },
           }),
-        })
+          })
 
-        if (res.ok) {
-          if (!activeGeminiModel) {
-            activeGeminiModel = cleanModel
-            console.log(`\n🤖 Aktif Çalışan Gemini Modeli Kilitlendi: ${activeGeminiModel}`)
+          if (res.ok) {
+            activeGeminiKeyIndex = keyIndex
+            if (!activeGeminiModel) {
+              activeGeminiModel = cleanModel
+              console.log(`\n🤖 Aktif Çalışan Gemini Modeli Kilitlendi: ${activeGeminiModel}`)
+            }
+            const data = await res.json()
+            const text = data.candidates?.[0]?.content?.parts?.[0]?.text || ''
+            return parseAnalysisFromAiText(text)
           }
-          const data = await res.json()
-          const text = data.candidates?.[0]?.content?.parts?.[0]?.text || ''
-          return parseAnalysisFromAiText(text)
-        } else {
           const errTxt = await res.text()
-          if (activeGeminiModel === cleanModel) {
-            activeGeminiModel = null
+          if (activeGeminiModel === cleanModel) activeGeminiModel = null
+          if (res.status === 429 || errTxt.includes('RESOURCE_EXHAUSTED') || errTxt.includes('quota')) {
+            activeGeminiKeyIndex = (keyIndex + 1) % geminiKeys.length
+            break
           }
-          if (res.status === 404 || errTxt.includes('not found') || errTxt.includes('no longer available')) {
-            continue
-          }
+          if (res.status === 404 || errTxt.includes('not found') || errTxt.includes('no longer available')) continue
           console.warn(`[Gemini ${cleanModel} ${res.status}]:`, errTxt.slice(0, 120))
+        } catch (e) {
+          console.warn(`[Gemini Error ${model}]:`, e.message)
         }
-      } catch (e) {
-        console.warn(`[Gemini Error ${model}]:`, e.message)
       }
     }
   }
@@ -420,11 +426,11 @@ async function main() {
     if (!['auto', 'openai', 'gemini'].includes(PROVIDER)) {
       throw new Error('--provider yalnızca auto, openai veya gemini olabilir')
     }
-    if (PROVIDER === 'openai') aiConfig.geminiKey = ''
+    if (PROVIDER === 'openai') aiConfig.geminiKeys = []
     if (PROVIDER === 'gemini') aiConfig.openaiKey = ''
     let geminiSetup = null
-    if (aiConfig.geminiKey) {
-      geminiSetup = await initGeminiModel(aiConfig.geminiKey)
+    if (aiConfig.geminiKeys.length) {
+      geminiSetup = await initGeminiModel(aiConfig.geminiKeys[0].api_key)
       if (geminiSetup) {
         activeGeminiModel = geminiSetup.model
         console.log(`🚀 Seçilen Aktif Gemini Modeli: ${geminiSetup.apiVer}/${activeGeminiModel}`)
@@ -460,7 +466,7 @@ async function main() {
   node scripts/auto-classify-listing-images-ai.mjs --slug <slug> --force
   node scripts/auto-classify-listing-images-ai.mjs --category holiday_home
   node scripts/auto-classify-listing-images-ai.mjs --all
-  --provider openai|gemini|auto : Görsel sağlayıcısını seçer
+  --provider gemini|openai|auto : Görsel sağlayıcısını seçer (varsayılan Gemini)
   --force / --reanalyze : Var olan yanlış etiketleri de yeniden analiz eder`)
       process.exit(0)
     }
