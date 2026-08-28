@@ -1,9 +1,9 @@
 /**
  * Numaralandırılmış (1.avif, 2.avif...) ve ismi olmayan fotoğrafları
- * doğrudan Vision AI (Gemini / OpenAI / DeepSeek) ile tarayıp banyo, havuz, salon vb. etiketler ve vitrini sıralar.
+ * doğrudan Vision AI (Gemini / OpenAI) ile tarayıp sahne + kapak kalitesini belirler ve vitrini sıralar.
  *
  * Kullanım:
- *   node scripts/auto-classify-listing-images-ai.mjs --slug kayakoy-kuzey-villa
+ *   node scripts/auto-classify-listing-images-ai.mjs --slug kayakoy-kuzey-villa --provider openai --force
  *   node scripts/auto-classify-listing-images-ai.mjs --category holiday_home
  *   node scripts/auto-classify-listing-images-ai.mjs --all
  */
@@ -13,7 +13,6 @@ import { createRequire } from 'node:module'
 import { fileURLToPath } from 'node:url'
 import { loadBackendEnvFile } from './lib/load-backend-env.mjs'
 import { createPgClient } from './lib/pg-client.mjs'
-import { SCENE_PRIORITIES } from './lib/listing-image-ranking.mjs'
 
 loadBackendEnvFile()
 
@@ -52,21 +51,75 @@ const valueAfter = (flag) => {
 }
 
 const ALL = argv.includes('--all')
+const FORCE = argv.includes('--force') || argv.includes('--reanalyze')
+const PROVIDER = String(valueAfter('--provider') || 'auto').trim().toLowerCase()
 const SLUG = valueAfter('--slug')
 const CATEGORY = valueAfter('--category')
 
-const PROMPT = `Bu tatil evi / otel / villa fotoğrafının türünü tespit et.
-Yalnızca şu kodlardan birini JSON olarak döndür:
-sea_view (dış mekan, manzara, deniz, genel bina görünümü)
-pool (havuz, bahçe, şezlong, dış teras)
-living (salon, oturma odası, mutfak, lobi, yemek alanı)
-bedroom (yatak odası, yatak)
-bathroom (banyo, jakuzi, duş, wc, tuvalet)
-sauna (sauna)
-hammam (hamam)
-unspecified (diğer)
+const ALLOWED_SCENES = [
+  'exterior', 'sea_view', 'pool', 'terrace', 'garden', 'living', 'kitchen', 'dining',
+  'bedroom', 'bathroom', 'spa', 'sauna', 'hammam', 'detail', 'unspecified',
+]
+const ALLOWED_SCENE_SET = new Set(ALLOWED_SCENES)
+const SCENE_SUITABILITY = {
+  exterior: 100, pool: 96, sea_view: 94, terrace: 90, garden: 86, living: 78,
+  kitchen: 70, dining: 68, bedroom: 58, spa: 42, sauna: 38, hammam: 38,
+  bathroom: 22, detail: 10, unspecified: 4,
+}
+const SCENE_GROUP_ORDER = [...ALLOWED_SCENES]
+const COVER_EXCLUDED_SCENES = new Set(['bathroom', 'spa', 'sauna', 'hammam', 'detail', 'unspecified'])
 
-Örnek yanıt: {"scene_code":"pool"}`
+const PROMPT = `Bu fotoğraf bir tatil konutu, villa, otel veya yat ilanı galerisinden. Görseli emlak/turizm fotoğraf editörü gibi değerlendir.
+İzinli kodlar: ${ALLOWED_SCENES.join('|')}.
+Sınıflar: dış cephe/yapının bütünü → exterior; uzak manzara veya deniz → sea_view; yüzme havuzu → pool; teras/balkon/veranda → terrace; bahçe/açık yeşil alan → garden; salon/oturma → living; mutfak → kitchen; yemek masası/alanı → dining; yatak odası → bedroom; banyo/WC/duş/küvet → bathroom; özel spa alanı veya bağımsız jakuzi → spa; sauna → sauna; Türk hamamı → hammam; yakın plan dekorasyon/nesne → detail; hiçbiri → unspecified.
+KRİTİK: Banyo içinde bulunan küvet veya jakuzi pool değildir; bathroom seç. Pool yalnızca yüzme havuzu görünüyorsa seçilir.
+hero_score 0–100 tam sayı olsun: geniş açılı, aydınlık, net ve mülkü temsil eden kapak fotoğrafına yüksek; banyo, yakın plan, tekrarlı, karanlık, bulanık veya dar kadraja düşük puan ver. confidence 0–1 arası sayı olsun.
+Yanıt yalnızca şu JSON biçiminde olsun: {"scene_code":"<kod>","hero_score":0,"confidence":0,"note_tr":"kısa gerekçe"}`
+
+function clampScore(value, fallback = 50) {
+  const n = Number(value)
+  return Number.isFinite(n) ? Math.max(0, Math.min(100, Math.round(n))) : fallback
+}
+
+function orderAnalyzedResults(results) {
+  if (results.length < 2) return [...results]
+  const enriched = results.map((item) => {
+    const scene = ALLOWED_SCENE_SET.has(item.scene_code) ? item.scene_code : 'unspecified'
+    const heroScore = clampScore(item.hero_score)
+    return {
+      ...item,
+      scene_code: scene,
+      hero_score: heroScore,
+      rank: (SCENE_SUITABILITY[scene] ?? 0) + heroScore,
+    }
+  })
+  const compare = (a, b) => b.rank - a.rank || b.hero_score - a.hero_score || a.originalIndex - b.originalIndex
+  const eligibleCover = enriched.filter((item) => !COVER_EXCLUDED_SCENES.has(item.scene_code))
+  const cover = [...(eligibleCover.length ? eligibleCover : enriched)].sort(compare)[0]
+  const selected = [cover]
+  const usedIds = new Set([cover.id])
+  const usedScenes = new Set([cover.scene_code])
+
+  while (selected.length < 5) {
+    const candidate = enriched
+      .filter((item) => !usedIds.has(item.id) && !usedScenes.has(item.scene_code))
+      .sort(compare)[0]
+    if (!candidate) break
+    selected.push(candidate)
+    usedIds.add(candidate.id)
+    usedScenes.add(candidate.scene_code)
+  }
+  for (const candidate of [...enriched].sort(compare)) {
+    if (selected.length >= 5) break
+    if (usedIds.has(candidate.id)) continue
+    selected.push(candidate)
+    usedIds.add(candidate.id)
+  }
+  const rest = enriched
+    .filter((item) => !usedIds.has(item.id))
+    .sort((a, b) => SCENE_GROUP_ORDER.indexOf(a.scene_code) - SCENE_GROUP_ORDER.indexOf(b.scene_code) || compare(a, b))
+  return [...selected, ...rest]
+}
 
 function resolveImageAbs(storageKey) {
   const rel = String(storageKey || '').trim().replace(/^\/+/, '')
@@ -89,8 +142,8 @@ async function prepareImagePayload(absPath) {
     if (sharp) {
       const buf = await sharp(input)
         .rotate()
-        .resize({ width: 768, height: 768, fit: 'inside', withoutEnlargement: true })
-        .jpeg({ quality: 80 })
+        .resize({ width: 1024, height: 1024, fit: 'inside', withoutEnlargement: true })
+        .jpeg({ quality: 82 })
         .toBuffer()
       return { mime: 'image/jpeg', base64: buf.toString('base64') }
     }
@@ -123,12 +176,9 @@ async function loadAiConfig(pg) {
   const obj = typeof cfgRaw === 'string' ? JSON.parse(cfgRaw) : cfgRaw || {}
 
   const openaiKey = process.env.OPENAI_API_KEY?.trim() || obj.openai_api_key?.trim() || ''
-  const deepseekKey = process.env.DEEPSEEK_API_KEY?.trim() || obj.deepseek_api_key?.trim() || ''
-
   return {
     geminiKey,
     openaiKey,
-    deepseekKey,
   }
 }
 
@@ -150,20 +200,35 @@ function extractJsonObject(raw) {
   return null
 }
 
-function parseSceneFromAiText(text) {
+function parseAnalysisFromAiText(text) {
   const parsed = extractJsonObject(text)
-  const code = String(parsed?.scene_code || parsed?.scene || '').toLowerCase().trim()
-  if (code && code !== 'unspecified') return code
+  let code = String(parsed?.scene_code || parsed?.scene || '').toLowerCase().trim()
+  if (!ALLOWED_SCENE_SET.has(code)) code = ''
 
-  const low = String(text || '').toLowerCase()
-  if (low.includes('bathroom') || low.includes('banyo') || low.includes('jakuzi') || low.includes('toilet') || low.includes('shower')) return 'bathroom'
-  if (low.includes('pool') || low.includes('havuz') || low.includes('sezlong')) return 'pool'
-  if (low.includes('sea_view') || low.includes('manzara') || low.includes('deniz') || low.includes('exterior') || low.includes('cephe')) return 'sea_view'
-  if (low.includes('living') || low.includes('salon') || low.includes('mutfak') || low.includes('kitchen') || low.includes('lobi')) return 'living'
-  if (low.includes('bedroom') || low.includes('yatak')) return 'bedroom'
-  if (low.includes('sauna')) return 'sauna'
-  if (low.includes('hammam') || low.includes('hamam')) return 'hammam'
-  return code || 'unspecified'
+  if (!code) {
+    const low = String(text || '').toLowerCase()
+    if (low.includes('bathroom') || low.includes('banyo') || low.includes('toilet') || low.includes('shower')) code = 'bathroom'
+    else if (low.includes('pool') || low.includes('havuz') || low.includes('sezlong')) code = 'pool'
+    else if (low.includes('sea_view') || low.includes('manzara') || low.includes('deniz')) code = 'sea_view'
+    else if (low.includes('exterior') || low.includes('cephe')) code = 'exterior'
+    else if (low.includes('terrace') || low.includes('teras') || low.includes('balkon')) code = 'terrace'
+    else if (low.includes('garden') || low.includes('bahçe') || low.includes('bahce')) code = 'garden'
+    else if (low.includes('kitchen') || low.includes('mutfak')) code = 'kitchen'
+    else if (low.includes('dining') || low.includes('yemek')) code = 'dining'
+    else if (low.includes('living') || low.includes('salon') || low.includes('lobi')) code = 'living'
+    else if (low.includes('bedroom') || low.includes('yatak')) code = 'bedroom'
+    else if (low.includes('sauna')) code = 'sauna'
+    else if (low.includes('hammam') || low.includes('hamam')) code = 'hammam'
+    else if (low.includes('spa') || low.includes('jakuzi')) code = 'spa'
+    else code = 'unspecified'
+  }
+
+  const confidenceRaw = Number(parsed?.confidence)
+  return {
+    scene_code: code,
+    hero_score: clampScore(parsed?.hero_score),
+    confidence: Number.isFinite(confidenceRaw) ? Math.max(0, Math.min(1, confidenceRaw)) : undefined,
+  }
 }
 
 let discoveredGeminiModels = []
@@ -179,7 +244,7 @@ const GEMINI_CANDIDATES = [
 ]
 
 async function callAiVision(aiConfig, imagePayload) {
-  const { geminiKey, openaiKey, deepseekKey } = aiConfig
+  const { geminiKey, openaiKey } = aiConfig
   const { mime, base64 } = imagePayload
 
   // 1. Gemini Vision (Öncelikli)
@@ -204,7 +269,7 @@ async function callAiVision(aiConfig, imagePayload) {
               {
                 role: 'user',
                 parts: [
-                  { text: 'Bu görselin sahne kodunu tek bir JSON olarak ver.' },
+                  { text: 'Bu görselin sahnesini ve kapak uygunluğunu tek bir JSON olarak ver.' },
                   { inlineData: { mimeType: mime, data: base64 } },
                 ],
               },
@@ -223,8 +288,7 @@ async function callAiVision(aiConfig, imagePayload) {
           }
           const data = await res.json()
           const text = data.candidates?.[0]?.content?.parts?.[0]?.text || ''
-          const scene = parseSceneFromAiText(text)
-          return scene
+          return parseAnalysisFromAiText(text)
         } else {
           const errTxt = await res.text()
           if (activeGeminiModel === cleanModel) {
@@ -241,11 +305,11 @@ async function callAiVision(aiConfig, imagePayload) {
     }
   }
 
-  // 2. OpenAI Vision
+  // 2. OpenAI Responses Vision
   if (openaiKey) {
     try {
       const dataUri = `data:${mime};base64,${base64}`
-      const res = await fetch('https://api.openai.com/v1/chat/completions', {
+      const res = await fetch('https://api.openai.com/v1/responses', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -253,16 +317,32 @@ async function callAiVision(aiConfig, imagePayload) {
         },
         signal: AbortSignal.timeout(30_000),
         body: JSON.stringify({
-          model: 'gpt-4o-mini',
-          temperature: 0.1,
-          max_tokens: 60,
-          response_format: { type: 'json_object' },
-          messages: [
+          model: process.env.OPENAI_IMAGE_SCENE_MODEL?.trim() || 'gpt-5.6-luna',
+          max_output_tokens: 260,
+          text: {
+            format: {
+              type: 'json_schema',
+              name: 'listing_image_analysis',
+              strict: true,
+              schema: {
+                type: 'object',
+                properties: {
+                  scene_code: { type: 'string', enum: ALLOWED_SCENES },
+                  hero_score: { type: 'integer', minimum: 0, maximum: 100 },
+                  confidence: { type: 'number', minimum: 0, maximum: 1 },
+                  note_tr: { type: 'string' },
+                },
+                required: ['scene_code', 'hero_score', 'confidence', 'note_tr'],
+                additionalProperties: false,
+              },
+            },
+          },
+          input: [
             {
               role: 'user',
               content: [
-                { type: 'text', text: PROMPT },
-                { type: 'image_url', image_url: { url: dataUri, detail: 'low' } },
+                { type: 'input_text', text: PROMPT },
+                { type: 'input_image', image_url: dataUri, detail: 'high' },
               ],
             },
           ],
@@ -270,14 +350,18 @@ async function callAiVision(aiConfig, imagePayload) {
       })
       if (res.ok) {
         const data = await res.json()
-        const text = data.choices?.[0]?.message?.content || '{}'
-        const parsed = JSON.parse(text)
-        if (parsed.scene_code) return parsed.scene_code
+        const nestedText = data.output
+          ?.flatMap((item) => item.content || [])
+          .find((item) => item.type === 'output_text' && typeof item.text === 'string')?.text
+        return parseAnalysisFromAiText(data.output_text || nestedText || '{}')
       }
-    } catch {}
+      console.warn(`[OpenAI ${res.status}]:`, (await res.text()).slice(0, 160))
+    } catch (e) {
+      console.warn('[OpenAI Vision Error]:', e.message)
+    }
   }
 
-  return 'unspecified'
+  return { scene_code: 'unspecified', hero_score: 0, confidence: 0 }
 }
 
 async function initGeminiModel(geminiKey) {
@@ -333,6 +417,11 @@ async function main() {
 
   try {
     const aiConfig = await loadAiConfig(pg)
+    if (!['auto', 'openai', 'gemini'].includes(PROVIDER)) {
+      throw new Error('--provider yalnızca auto, openai veya gemini olabilir')
+    }
+    if (PROVIDER === 'openai') aiConfig.geminiKey = ''
+    if (PROVIDER === 'gemini') aiConfig.openaiKey = ''
     let geminiSetup = null
     if (aiConfig.geminiKey) {
       geminiSetup = await initGeminiModel(aiConfig.geminiKey)
@@ -342,10 +431,11 @@ async function main() {
       }
     }
 
-    const activeProvider = activeGeminiModel ? `Gemini (${activeGeminiModel})` : aiConfig.openaiKey ? 'OpenAI' : aiConfig.deepseekKey ? 'DeepSeek' : 'YOK'
+    const activeProvider = activeGeminiModel ? `Gemini (${activeGeminiModel})` : aiConfig.openaiKey ? 'OpenAI' : 'YOK'
     console.log(`🤖 Aktif Yapay Zeka Sağlayıcısı: ${activeProvider}`)
+    console.log(`🔁 Mevcut etiketleri yeniden analiz et: ${FORCE ? 'EVET' : 'HAYIR (--force ile açılır)'}`)
     if (activeProvider === 'YOK') {
-      console.error('❌ Hata: Panelde veya backend.env içinde hiçbir AI anahtarı (Gemini / OpenAI / DeepSeek) bulunamadı.')
+      console.error('❌ Hata: Panelde veya backend.env içinde görüntü destekli Gemini / OpenAI anahtarı bulunamadı.')
       process.exit(1)
     }
 
@@ -367,9 +457,11 @@ async function main() {
       query += ` AND pc.code = $${params.length}`
     } else if (!ALL) {
       console.log(`Kullanım:
-  node scripts/auto-classify-listing-images-ai.mjs --slug <slug>
+  node scripts/auto-classify-listing-images-ai.mjs --slug <slug> --force
   node scripts/auto-classify-listing-images-ai.mjs --category holiday_home
-  node scripts/auto-classify-listing-images-ai.mjs --all`)
+  node scripts/auto-classify-listing-images-ai.mjs --all
+  --provider openai|gemini|auto : Görsel sağlayıcısını seçer
+  --force / --reanalyze : Var olan yanlış etiketleri de yeniden analiz eder`)
       process.exit(0)
     }
 
@@ -396,52 +488,54 @@ async function main() {
         const abs = resolveImageAbs(img.storage_key)
         if (!abs) {
           console.log(`  -> [${i + 1}/${images.length}] Dosya diskte bulunamadı: ${img.storage_key}`)
-          results.push({ ...img, scene_code: 'unspecified', priority: 40, originalIndex: i })
+          const existingScene = ALLOWED_SCENE_SET.has(img.scene_code) ? img.scene_code : 'unspecified'
+          results.push({ ...img, scene_code: existingScene, hero_score: 0, originalIndex: i })
           continue
         }
 
-        let scene = img.scene_code
-        if (!scene || scene === 'unspecified') {
+        let analysis = {
+          scene_code: ALLOWED_SCENE_SET.has(img.scene_code) ? img.scene_code : 'unspecified',
+          hero_score: 50,
+          confidence: undefined,
+        }
+        if (FORCE || !analysis.scene_code || analysis.scene_code === 'unspecified') {
           const payload = await prepareImagePayload(abs)
           if (payload) {
             process.stdout.write(`  -> [${i + 1}/${images.length}] Görsel analiz ediliyor... `)
-            scene = await callAiVision(aiConfig, payload)
-            console.log(`[${scene}]`)
+            analysis = await callAiVision(aiConfig, payload)
+            console.log(`[${analysis.scene_code}] kapak=${analysis.hero_score}`)
             await pg.query(
               `UPDATE listing_images SET scene_code = nullif($2, '') WHERE id = $1::uuid`,
-              [img.id, scene],
+              [img.id, analysis.scene_code],
             )
-            await new Promise((r) => setTimeout(r, 150))
+            await new Promise((r) => setTimeout(r, 650))
           } else {
-            scene = 'unspecified'
+            analysis = { scene_code: 'unspecified', hero_score: 0, confidence: 0 }
           }
         } else {
-          console.log(`  -> [${i + 1}/${images.length}] Mevcut etiket kullanıldı: [${scene}]`)
+          console.log(`  -> [${i + 1}/${images.length}] Mevcut etiket kullanıldı: [${analysis.scene_code}]`)
         }
         results.push({
           ...img,
-          scene_code: scene || 'unspecified',
-          priority: SCENE_PRIORITIES[scene] ?? 40,
+          scene_code: analysis.scene_code || 'unspecified',
+          hero_score: analysis.hero_score,
+          confidence: analysis.confidence,
           originalIndex: i,
         })
       }
 
-      // Sıralama (Dış mekan -> Havuz -> Salon -> Oda -> Banyo)
-      results.sort((a, b) => {
-        if (a.priority !== b.priority) return a.priority - b.priority
-        return a.originalIndex - b.originalIndex
-      })
+      const orderedResults = orderAnalyzedResults(results)
 
-      for (let i = 0; i < results.length; i++) {
+      for (let i = 0; i < orderedResults.length; i++) {
         await pg.query(
           `UPDATE listing_images SET sort_order = $2 WHERE id = $1::uuid`,
-          [results[i].id, i],
+          [orderedResults[i].id, i],
         )
       }
 
-      const bestHero = results[0]?.storage_key
+      const bestHero = orderedResults[0]?.storage_key
       if (bestHero) {
-        const heroUrl = bestHero.startsWith('/') ? bestHero : `/${bestHero}`
+        const heroUrl = bestHero.startsWith('http') || bestHero.startsWith('/') ? bestHero : `/${bestHero}`
         await pg.query(
           `UPDATE listings SET featured_image_url = $2, thumbnail_url = $2, updated_at = now() WHERE id = $1::uuid`,
           [listing.id, heroUrl],
@@ -449,7 +543,7 @@ async function main() {
       }
 
       // listing_attributes içindeki 5'li hero önizleme anahtarlarını yeni sıralamayla senkronize et
-      const top5Keys = results.slice(0, 5).map((r) => r.storage_key).filter(Boolean)
+      const top5Keys = orderedResults.slice(0, 5).map((r) => r.storage_key).filter(Boolean)
       try {
         const attrRes = await pg.query(
           `SELECT id, value_json FROM listing_attributes WHERE listing_id = $1::uuid AND group_code IN ('vertical_holiday_home', 'vertical_extra') AND key = 'v1'`,
@@ -470,7 +564,7 @@ async function main() {
       }
 
       console.log(`\n✅ ${listing.title} sıralaması tamamlandı!`)
-      console.log(`🌟 Yeni Kapak Görseli: [${results[0]?.scene_code}] ${bestHero}`)
+      console.log(`🌟 Yeni Kapak Görseli: [${orderedResults[0]?.scene_code}] ${bestHero}`)
       console.log(`🌟 İlk 5 Hero Görseli:`, top5Keys.join(', '), '\n')
     }
   } finally {
