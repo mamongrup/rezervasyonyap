@@ -448,8 +448,30 @@ async function main() {
         )
       }
 
+      // vertical_meta içindeki 5'li hero önizleme anahtarlarını yeni sıralamayla senkronize et
+      const top5Keys = results.slice(0, 5).map((r) => r.storage_key)
+      try {
+        const metaRes = await pg.query(
+          `SELECT id, payload_json FROM vertical_meta WHERE listing_id = $1::uuid`,
+          [listing.id],
+        )
+        if (metaRes.rows.length) {
+          for (const row of metaRes.rows) {
+            const payload = typeof row.payload_json === 'string' ? JSON.parse(row.payload_json) : (row.payload_json || {})
+            payload.manage_hero_preview_storage_keys = top5Keys
+            await pg.query(
+              `UPDATE vertical_meta SET payload_json = $2::jsonb, updated_at = now() WHERE id = $1`,
+              [row.id, JSON.stringify(payload)],
+            )
+          }
+        }
+      } catch (e) {
+        console.warn(`[vertical_meta güncelleme uyarısı]:`, e.message)
+      }
+
       console.log(`\n✅ ${listing.title} sıralaması tamamlandı!`)
-      console.log(`🌟 Yeni Kapak Görseli: [${results[0]?.scene_code}] ${bestHero}\n`)
+      console.log(`🌟 Yeni Kapak Görseli: [${results[0]?.scene_code}] ${bestHero}`)
+      console.log(`🌟 İlk 5 Hero Görseli:`, top5Keys.join(', '), '\n')
     }
   } finally {
     await pg.end()
