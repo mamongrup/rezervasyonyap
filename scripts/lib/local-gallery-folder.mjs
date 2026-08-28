@@ -59,6 +59,8 @@ async function walkImages(dir, base = dir) {
   return out
 }
 
+import { sortGalleryImages, classifyImageScene } from './listing-image-ranking.mjs'
+
 /**
  * @param {string} folderPath
  * @returns {Promise<{ abs: string, rel: string, size: number, low: boolean }[]>}
@@ -67,16 +69,13 @@ export async function listLocalGalleryFiles(folderPath) {
   const root = path.resolve(folderPath)
   if (!existsSync(root)) throw new Error(`Klasör yok: ${root}`)
   const files = await walkImages(root)
+  // Önce temel dosya/boyut sıralaması yap
   files.sort((a, b) => {
-    const aDir = path.dirname(a.rel)
-    const bDir = path.dirname(b.rel)
-    const aNested = aDir === '.' ? 0 : 1
-    const bNested = bDir === '.' ? 0 : 1
-    if (aNested !== bNested) return aNested - bNested
     if (Boolean(a.low) !== Boolean(b.low)) return a.low ? 1 : -1
     return a.rel.localeCompare(b.rel, 'tr')
   })
-  return files
+  // Ardından vitrin hiyerarşisine (Dış mekan -> Havuz -> Salon -> Oda -> Banyo -> Plan) göre diz
+  return sortGalleryImages(files, (f) => f.rel)
 }
 
 /**
@@ -145,12 +144,13 @@ export async function applyLocalGalleryToListing(pg, opts) {
 
   for (const row of results) {
     if (!row) continue
+    const { scene_code } = classifyImageScene(row.rel)
     await pg.query(
-      `INSERT INTO listing_images (listing_id, sort_order, storage_key, original_mime)
-       VALUES ($1::uuid, $2, $3, 'image/avif')`,
-      [listingId, row.sort, row.storageKey],
+      `INSERT INTO listing_images (listing_id, sort_order, storage_key, original_mime, scene_code)
+       VALUES ($1::uuid, $2, $3, 'image/avif', nullif($4, ''))`,
+      [listingId, row.sort, row.storageKey, scene_code],
     )
-    rows.push(row)
+    rows.push({ ...row, scene_code })
   }
 
   const hero = rows[0]?.storageKey
