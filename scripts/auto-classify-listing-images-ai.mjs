@@ -9,14 +9,35 @@
  */
 import { existsSync, promises as fs } from 'node:fs'
 import path from 'node:path'
+import { createRequire } from 'node:module'
 import { fileURLToPath } from 'node:url'
-import sharp from 'sharp'
+import { loadBackendEnvFile } from './lib/load-backend-env.mjs'
 import { createPgClient } from './lib/pg-client.mjs'
 import { SCENE_PRIORITIES } from './lib/listing-image-ranking.mjs'
+
+loadBackendEnvFile()
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const REPO_ROOT = path.resolve(__dirname, '..')
 const PUBLIC_ROOT = path.join(REPO_ROOT, 'frontend', 'public')
+
+function loadSharp() {
+  const candidates = [
+    path.join(REPO_ROOT, 'frontend', 'package.json'),
+    path.join(REPO_ROOT, 'scripts', 'package.json'),
+  ]
+  for (const pkg of candidates) {
+    try {
+      return createRequire(pkg)('sharp')
+    } catch {}
+  }
+  return null
+}
+
+const sharp = loadSharp()
+if (sharp) {
+  sharp.cache(false)
+}
 
 const argv = process.argv.slice(2)
 const valueAfter = (flag) => {
@@ -31,22 +52,28 @@ const CATEGORY = valueAfter('--category')
 const OPENAI_KEY = process.env.OPENAI_API_KEY?.trim()
 const DEEPSEEK_KEY = process.env.DEEPSEEK_API_KEY?.trim()
 
-if (!OPENAI_KEY && !DEEPSEEK_KEY) {
-  console.error('UYARI: DEEPSEEK_API_KEY veya OPENAI_API_KEY ortam değişkeni bulunamadı. (backend.env kontrol edin).')
-}
-
 async function classifyImageWithVision(absPath) {
   if (!existsSync(absPath)) return null
 
-  // Görseli optimize et
-  const input = await fs.readFile(absPath)
-  const buf = await sharp(input)
-    .rotate()
-    .resize({ width: 768, height: 768, fit: 'inside', withoutEnlargement: true })
-    .jpeg({ quality: 80 })
-    .toBuffer()
-  const base64 = buf.toString('base64')
-  const dataUri = `data:image/jpeg;base64,${base64}`
+  let dataUri
+  try {
+    const input = await fs.readFile(absPath)
+    if (sharp) {
+      const buf = await sharp(input)
+        .rotate()
+        .resize({ width: 768, height: 768, fit: 'inside', withoutEnlargement: true })
+        .jpeg({ quality: 80 })
+        .toBuffer()
+      dataUri = `data:image/jpeg;base64,${buf.toString('base64')}`
+    } else {
+      const ext = path.extname(absPath).replace('.', '').toLowerCase() || 'jpeg'
+      const mime = ext === 'avif' ? 'image/avif' : ext === 'webp' ? 'image/webp' : ext === 'png' ? 'image/png' : 'image/jpeg'
+      dataUri = `data:${mime};base64,${input.toString('base64')}`
+    }
+  } catch (e) {
+    console.error(`[Vision] Görsel okunamadı (${absPath}):`, e.message)
+    return null
+  }
 
   const prompt = `Bu tatil evi / otel fotoğrafının türünü tespit et.
 Yalnızca şu kodlardan birini JSON olarak döndür:
@@ -61,17 +88,26 @@ unspecified (diğer)
 
 Örnek çıktı formatı: {"scene_code":"pool"}`
 
-  if (OPENAI_KEY) {
-    const res = await fetch('https://api.openai.com/v1/chat/completions', {
+  const apiKey = OPENAI_KEY || DEEPSEEK_KEY
+  if (!apiKey) return 'unspecified'
+
+  const isDeepSeek = !OPENAI_KEY && Boolean(DEEPSEEK_KEY)
+  const endpoint = isDeepSeek
+    ? (process.env.DEEPSEEK_BASE_URL || 'https://api.deepseek.com/v1') + '/chat/completions'
+    : 'https://api.openai.com/v1/chat/completions'
+  const model = isDeepSeek ? 'deepseek-v4-flash' : (process.env.OPENAI_IMAGE_SCENE_MODEL || 'gpt-4o-mini')
+
+  try {
+    const res = await fetch(endpoint, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${OPENAI_KEY}`,
+        Authorization: `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        model: 'gpt-4o-mini',
+        model,
         temperature: 0.1,
-        max_tokens: 50,
+        max_tokens: 60,
         response_format: { type: 'json_object' },
         messages: [
           {
@@ -91,7 +127,12 @@ unspecified (diğer)
         const parsed = JSON.parse(raw)
         return parsed.scene_code || 'unspecified'
       } catch {}
+    } else {
+      const errTxt = await res.text()
+      console.warn(`[Vision API Error ${res.status}]:`, errTxt.slice(0, 200))
     }
+  } catch (e) {
+    console.warn(`[Vision Network Error]:`, e.message)
   }
 
   return 'unspecified'
