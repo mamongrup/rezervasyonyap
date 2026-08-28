@@ -127,35 +127,14 @@ async function loadAiConfig(pg) {
 
 let activeGeminiModel = null
 
-async function resolveGeminiModel(geminiKey) {
-  if (activeGeminiModel) return activeGeminiModel
-  try {
-    const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models?key=${encodeURIComponent(geminiKey)}`,
-      { signal: AbortSignal.timeout(15_000) },
-    )
-    if (res.ok) {
-      const data = await res.json()
-      const models = Array.isArray(data.models) ? data.models : []
-      const candidates = models
-        .filter((m) => m.supportedGenerationMethods?.includes('generateContent'))
-        .map((m) => m.name?.replace(/^models\//, ''))
-      
-      const preferred = candidates.find((m) => m.includes('flash') && !m.includes('8b')) ||
-                        candidates.find((m) => m.includes('flash')) ||
-                        candidates.find((m) => m.includes('gemini'))
-      if (preferred) {
-        activeGeminiModel = preferred
-        console.log(`🤖 Otomatik Seçilen Gemini Modeli: ${activeGeminiModel}`)
-        return activeGeminiModel
-      }
-    }
-  } catch (e) {
-    console.warn('[Gemini Model Listesi Alınamadı]:', e.message)
-  }
-  activeGeminiModel = 'gemini-2.0-flash'
-  return activeGeminiModel
-}
+const GEMINI_CANDIDATES = [
+  'gemini-2.0-flash',
+  'gemini-1.5-flash-latest',
+  'gemini-1.5-flash',
+  'gemini-2.0-flash-exp',
+  'gemini-2.5-flash',
+  'gemini-1.5-pro',
+]
 
 async function callAiVision(aiConfig, imagePayload) {
   const { geminiKey, openaiKey, deepseekKey } = aiConfig
@@ -163,42 +142,57 @@ async function callAiVision(aiConfig, imagePayload) {
 
   // 1. Gemini Vision (Öncelikli)
   if (geminiKey) {
-    const model = await resolveGeminiModel(geminiKey)
-    try {
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(geminiKey)}`
-      const res = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        signal: AbortSignal.timeout(30_000),
-        body: JSON.stringify({
-          system_instruction: { parts: [{ text: PROMPT }] },
-          contents: [
-            {
-              role: 'user',
-              parts: [
-                { text: 'Bu görselin sahne kodunu tek bir JSON olarak ver.' },
-                { inlineData: { mimeType: mime, data: base64 } },
-              ],
-            },
-          ],
-          generationConfig: {
-            temperature: 0.1,
-            responseMimeType: 'application/json',
-          },
-        }),
-      })
+    const tryModels = activeGeminiModel ? [activeGeminiModel] : GEMINI_CANDIDATES
 
-      if (res.ok) {
-        const data = await res.json()
-        const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '{}'
-        const parsed = JSON.parse(text)
-        if (parsed.scene_code) return parsed.scene_code
-      } else {
-        const errTxt = await res.text()
-        console.warn(`[Gemini ${model} ${res.status}]:`, errTxt.slice(0, 150))
+    for (const model of tryModels) {
+      try {
+        const cleanModel = model.replace(/^models\//, '')
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/${cleanModel}:generateContent?key=${encodeURIComponent(geminiKey)}`
+        const res = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          signal: AbortSignal.timeout(30_000),
+          body: JSON.stringify({
+            system_instruction: { parts: [{ text: PROMPT }] },
+            contents: [
+              {
+                role: 'user',
+                parts: [
+                  { text: 'Bu görselin sahne kodunu tek bir JSON olarak ver.' },
+                  { inlineData: { mimeType: mime, data: base64 } },
+                ],
+              },
+            ],
+            generationConfig: {
+              temperature: 0.1,
+              responseMimeType: 'application/json',
+            },
+          }),
+        })
+
+        if (res.ok) {
+          if (!activeGeminiModel) {
+            activeGeminiModel = cleanModel
+            console.log(`\n🤖 Aktif Çalışan Gemini Modeli Kilitlendi: ${activeGeminiModel}`)
+          }
+          const data = await res.json()
+          const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '{}'
+          const parsed = JSON.parse(text)
+          if (parsed.scene_code) return parsed.scene_code
+        } else {
+          const errTxt = await res.text()
+          // Model desteklenmiyorsa veya 404 ise sıradaki modeli dene
+          if (activeGeminiModel === cleanModel) {
+            activeGeminiModel = null // Kilitli model bozulduysa sıfırla
+          }
+          if (res.status === 404 || errTxt.includes('not found') || errTxt.includes('no longer available')) {
+            continue
+          }
+          console.warn(`[Gemini ${cleanModel} ${res.status}]:`, errTxt.slice(0, 120))
+        }
+      } catch (e) {
+        console.warn(`[Gemini Error ${model}]:`, e.message)
       }
-    } catch (e) {
-      console.warn(`[Gemini Error ${model}]:`, e.message)
     }
   }
 
