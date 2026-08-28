@@ -275,13 +275,52 @@ async function callAiVision(aiConfig, imagePayload) {
   return 'unspecified'
 }
 
+async function initGeminiModel(geminiKey) {
+  if (!geminiKey) return null
+  for (const apiVer of ['v1beta', 'v1']) {
+    try {
+      const res = await fetch(
+        `https://generativelanguage.googleapis.com/${apiVer}/models?key=${encodeURIComponent(geminiKey)}`,
+        { signal: AbortSignal.timeout(15_000) },
+      )
+      if (res.ok) {
+        const data = await res.json()
+        const models = Array.isArray(data.models) ? data.models : []
+        const names = models.map((m) => m.name)
+        console.log(`📋 Google API (${apiVer}) Kullanılabilir Modeller:`, names.slice(0, 8).join(', '))
+        const candidate = models.find((m) => m.supportedGenerationMethods?.includes('generateContent') && m.name?.includes('flash')) ||
+                          models.find((m) => m.supportedGenerationMethods?.includes('generateContent'))
+        if (candidate?.name) {
+          const clean = candidate.name.replace(/^models\//, '')
+          return { model: clean, apiVer }
+        }
+      } else {
+        const errTxt = await res.text()
+        console.warn(`[Google API ${apiVer} Listeleme Hatası ${res.status}]:`, errTxt.slice(0, 150))
+      }
+    } catch (e) {
+      console.warn(`[Google API ${apiVer} Bağlantı Hatası]:`, e.message)
+    }
+  }
+  return null
+}
+
 async function main() {
   const pg = createPgClient()
   await pg.connect()
 
   try {
     const aiConfig = await loadAiConfig(pg)
-    const activeProvider = aiConfig.geminiKey ? 'Gemini' : aiConfig.openaiKey ? 'OpenAI' : aiConfig.deepseekKey ? 'DeepSeek' : 'YOK'
+    let geminiSetup = null
+    if (aiConfig.geminiKey) {
+      geminiSetup = await initGeminiModel(aiConfig.geminiKey)
+      if (geminiSetup) {
+        activeGeminiModel = geminiSetup.model
+        console.log(`🚀 Seçilen Aktif Gemini Modeli: ${geminiSetup.apiVer}/${activeGeminiModel}`)
+      }
+    }
+
+    const activeProvider = activeGeminiModel ? `Gemini (${activeGeminiModel})` : aiConfig.openaiKey ? 'OpenAI' : aiConfig.deepseekKey ? 'DeepSeek' : 'YOK'
     console.log(`🤖 Aktif Yapay Zeka Sağlayıcısı: ${activeProvider}`)
     if (activeProvider === 'YOK') {
       console.error('❌ Hata: Panelde veya backend.env içinde hiçbir AI anahtarı (Gemini / OpenAI / DeepSeek) bulunamadı.')
