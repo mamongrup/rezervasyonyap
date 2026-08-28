@@ -460,7 +460,7 @@ async function main() {
             const payload = typeof row.value_json === 'string' ? JSON.parse(row.value_json) : (row.value_json || {})
             payload.manage_hero_preview_storage_keys = top5Keys
             await pg.query(
-              `UPDATE listing_attributes SET value_json = $2::jsonb, updated_at = now() WHERE id = $1`,
+              `UPDATE listing_attributes SET value_json = $2::jsonb WHERE id = $1`,
               [row.id, JSON.stringify(payload)],
             )
           }
