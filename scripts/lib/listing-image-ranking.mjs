@@ -229,5 +229,26 @@ export async function reorderListingImagesInDb(pg, listingId, opts = {}) {
     )
   }
 
+  // vertical_meta içindeki 5'li hero önizleme anahtarlarını yeni sıralamayla senkronize et
+  const top5Keys = classified.slice(0, 5).map((r) => r.storage_key).filter(Boolean)
+  try {
+    const metaRes = await pg.query(
+      `SELECT id, payload_json FROM vertical_meta WHERE listing_id = $1::uuid`,
+      [listingId],
+    )
+    if (metaRes.rows.length) {
+      for (const row of metaRes.rows) {
+        const payload = typeof row.payload_json === 'string' ? JSON.parse(row.payload_json) : (row.payload_json || {})
+        payload.manage_hero_preview_storage_keys = top5Keys
+        await pg.query(
+          `UPDATE vertical_meta SET payload_json = $2::jsonb, updated_at = now() WHERE id = $1`,
+          [row.id, JSON.stringify(payload)],
+        )
+      }
+    }
+  } catch (e) {
+    // vertical_meta tablosu yoksa veya farklı şemaysa sessizce devam et
+  }
+
   return { total: classified.length, updated: hasOrderChanged, hero: bestHero }
 }

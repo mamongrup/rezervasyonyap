@@ -400,30 +400,30 @@ async function main() {
           continue
         }
 
-        const payload = await prepareImagePayload(abs)
-        if (!payload) {
-          results.push({ ...img, scene_code: 'unspecified', priority: 40, originalIndex: i })
-          continue
+        let scene = img.scene_code
+        if (!scene || scene === 'unspecified') {
+          const payload = await prepareImagePayload(abs)
+          if (payload) {
+            process.stdout.write(`  -> [${i + 1}/${images.length}] Görsel analiz ediliyor... `)
+            scene = await callAiVision(aiConfig, payload)
+            console.log(`[${scene}]`)
+            await pg.query(
+              `UPDATE listing_images SET scene_code = nullif($2, '') WHERE id = $1::uuid`,
+              [img.id, scene],
+            )
+            await new Promise((r) => setTimeout(r, 150))
+          } else {
+            scene = 'unspecified'
+          }
+        } else {
+          console.log(`  -> [${i + 1}/${images.length}] Mevcut etiket kullanıldı: [${scene}]`)
         }
-
-        process.stdout.write(`  -> [${i + 1}/${images.length}] Görsel analiz ediliyor... `)
-        const scene = await callAiVision(aiConfig, payload)
-        console.log(`[${scene}]`)
-
-        await pg.query(
-          `UPDATE listing_images SET scene_code = nullif($2, '') WHERE id = $1::uuid`,
-          [img.id, scene],
-        )
-
         results.push({
           ...img,
           scene_code: scene || 'unspecified',
           priority: SCENE_PRIORITIES[scene] ?? 40,
           originalIndex: i,
         })
-
-        // Rate limit önleyici kısa bekleme
-        await new Promise((r) => setTimeout(r, 150))
       }
 
       // Sıralama (Dış mekan -> Havuz -> Salon -> Oda -> Banyo)
@@ -448,25 +448,25 @@ async function main() {
         )
       }
 
-      // vertical_meta içindeki 5'li hero önizleme anahtarlarını yeni sıralamayla senkronize et
-      const top5Keys = results.slice(0, 5).map((r) => r.storage_key)
+      // listing_attributes içindeki 5'li hero önizleme anahtarlarını yeni sıralamayla senkronize et
+      const top5Keys = results.slice(0, 5).map((r) => r.storage_key).filter(Boolean)
       try {
-        const metaRes = await pg.query(
-          `SELECT id, payload_json FROM vertical_meta WHERE listing_id = $1::uuid`,
+        const attrRes = await pg.query(
+          `SELECT id, value_json FROM listing_attributes WHERE listing_id = $1::uuid AND group_code IN ('vertical_holiday_home', 'vertical_extra') AND key = 'v1'`,
           [listing.id],
         )
-        if (metaRes.rows.length) {
-          for (const row of metaRes.rows) {
-            const payload = typeof row.payload_json === 'string' ? JSON.parse(row.payload_json) : (row.payload_json || {})
+        if (attrRes.rows.length) {
+          for (const row of attrRes.rows) {
+            const payload = typeof row.value_json === 'string' ? JSON.parse(row.value_json) : (row.value_json || {})
             payload.manage_hero_preview_storage_keys = top5Keys
             await pg.query(
-              `UPDATE vertical_meta SET payload_json = $2::jsonb, updated_at = now() WHERE id = $1`,
+              `UPDATE listing_attributes SET value_json = $2::jsonb, updated_at = now() WHERE id = $1`,
               [row.id, JSON.stringify(payload)],
             )
           }
         }
       } catch (e) {
-        console.warn(`[vertical_meta güncelleme uyarısı]:`, e.message)
+        console.warn(`[listing_attributes güncelleme uyarısı]:`, e.message)
       }
 
       console.log(`\n✅ ${listing.title} sıralaması tamamlandı!`)
