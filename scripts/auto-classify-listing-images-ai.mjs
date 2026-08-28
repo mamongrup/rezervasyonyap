@@ -144,7 +144,7 @@ async function callAiVision(aiConfig, imagePayload) {
               role: 'user',
               parts: [
                 { text: 'Bu görselin sahne kodunu tek bir JSON olarak ver.' },
-                { inline_data: { mime_type: mime, data: base64 } },
+                { inlineData: { mimeType: mime, data: base64 } },
               ],
             },
           ],
@@ -160,8 +160,13 @@ async function callAiVision(aiConfig, imagePayload) {
         const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '{}'
         const parsed = JSON.parse(text)
         if (parsed.scene_code) return parsed.scene_code
+      } else {
+        const errTxt = await res.text()
+        console.warn(`[Gemini ${res.status}]:`, errTxt.slice(0, 150))
       }
-    } catch {}
+    } catch (e) {
+      console.warn(`[Gemini Error]:`, e.message)
+    }
   }
 
   // 2. OpenAI Vision
