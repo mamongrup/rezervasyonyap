@@ -21,15 +21,21 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const REPO_ROOT = path.resolve(__dirname, '..')
 
 function loadSharp() {
-  const candidates = [
-    path.join(REPO_ROOT, 'frontend', 'package.json'),
-    path.join(REPO_ROOT, 'scripts', 'package.json'),
+  const reqLocations = [
+    path.join(REPO_ROOT, 'frontend', 'node_modules'),
+    path.join(REPO_ROOT, 'scripts', 'node_modules'),
+    REPO_ROOT,
   ]
-  for (const pkg of candidates) {
+  for (const loc of reqLocations) {
     try {
-      return createRequire(pkg)('sharp')
+      const req = createRequire(path.join(loc, 'package.json'))
+      const s = req('sharp')
+      if (s) return s
     } catch {}
   }
+  try {
+    return createRequire(import.meta.url)('sharp')
+  } catch {}
   return null
 }
 
@@ -37,6 +43,7 @@ const sharp = loadSharp()
 if (sharp) {
   sharp.cache(false)
 }
+console.log(`🖼️ Sharp Görsel İşleyici: ${sharp ? 'Aktif (AVIF->JPEG dönüştürücü devrede)' : 'YOK'}`)
 
 const argv = process.argv.slice(2)
 const valueAfter = (flag) => {
