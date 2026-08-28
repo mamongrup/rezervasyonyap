@@ -30,11 +30,12 @@ const LIMIT_RAW = valueAfter('--limit')
 const LIMIT = LIMIT_RAW ? Number.parseInt(LIMIT_RAW, 10) : null
 
 async function main() {
-  const pg = await createPgClient()
+  const pg = createPgClient()
   if (!pg) {
-    console.error('PostgreSQL bağlantısı kurulamadı. Ortam değişkenlerini kontrol edin.')
+    console.error('PostgreSQL client oluşturulamadı.')
     process.exit(1)
   }
+  await pg.connect()
 
   try {
     let query = `
