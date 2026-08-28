@@ -166,6 +166,7 @@ function parseSceneFromAiText(text) {
   return code || 'unspecified'
 }
 
+let discoveredGeminiModels = []
 let activeGeminiModel = null
 
 const GEMINI_CANDIDATES = [
@@ -278,9 +279,6 @@ async function callAiVision(aiConfig, imagePayload) {
 
   return 'unspecified'
 }
-
-let discoveredGeminiModels = []
-let activeGeminiModel = null
 
 async function initGeminiModel(geminiKey) {
   if (!geminiKey) return null
