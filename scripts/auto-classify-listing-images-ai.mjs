@@ -132,6 +132,40 @@ async function loadAiConfig(pg) {
   }
 }
 
+function extractJsonObject(raw) {
+  const t = String(raw || '').trim()
+  const fence = /^```(?:json)?\s*([\s\S]*?)```$/m.exec(t)
+  const inner = fence?.[1]?.trim() ? fence[1].trim() : t
+  try {
+    const o = JSON.parse(inner)
+    if (typeof o === 'object' && o !== null) return o
+  } catch {}
+  const m = /\{[\s\S]*\}/.exec(inner)
+  if (m) {
+    try {
+      const o = JSON.parse(m[0])
+      if (typeof o === 'object' && o !== null) return o
+    } catch {}
+  }
+  return null
+}
+
+function parseSceneFromAiText(text) {
+  const parsed = extractJsonObject(text)
+  const code = String(parsed?.scene_code || parsed?.scene || '').toLowerCase().trim()
+  if (code && code !== 'unspecified') return code
+
+  const low = String(text || '').toLowerCase()
+  if (low.includes('bathroom') || low.includes('banyo') || low.includes('jakuzi') || low.includes('toilet') || low.includes('shower')) return 'bathroom'
+  if (low.includes('pool') || low.includes('havuz') || low.includes('sezlong')) return 'pool'
+  if (low.includes('sea_view') || low.includes('manzara') || low.includes('deniz') || low.includes('exterior') || low.includes('cephe')) return 'sea_view'
+  if (low.includes('living') || low.includes('salon') || low.includes('mutfak') || low.includes('kitchen') || low.includes('lobi')) return 'living'
+  if (low.includes('bedroom') || low.includes('yatak')) return 'bedroom'
+  if (low.includes('sauna')) return 'sauna'
+  if (low.includes('hammam') || low.includes('hamam')) return 'hammam'
+  return code || 'unspecified'
+}
+
 let activeGeminiModel = null
 
 const GEMINI_CANDIDATES = [
@@ -183,14 +217,13 @@ async function callAiVision(aiConfig, imagePayload) {
             console.log(`\n🤖 Aktif Çalışan Gemini Modeli Kilitlendi: ${activeGeminiModel}`)
           }
           const data = await res.json()
-          const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '{}'
-          const parsed = JSON.parse(text)
-          if (parsed.scene_code) return parsed.scene_code
+          const text = data.candidates?.[0]?.content?.parts?.[0]?.text || ''
+          const scene = parseSceneFromAiText(text)
+          return scene
         } else {
           const errTxt = await res.text()
-          // Model desteklenmiyorsa veya 404 ise sıradaki modeli dene
           if (activeGeminiModel === cleanModel) {
-            activeGeminiModel = null // Kilitli model bozulduysa sıfırla
+            activeGeminiModel = null
           }
           if (res.status === 404 || errTxt.includes('not found') || errTxt.includes('no longer available')) {
             continue
