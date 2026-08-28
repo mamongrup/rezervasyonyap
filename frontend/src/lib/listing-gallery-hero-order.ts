@@ -6,13 +6,20 @@
 import { hostApexKey, shouldPreferPageOriginForApi } from '@/lib/api-origin'
 
 export const LISTING_IMAGE_SCENE_ORDER = [
+  'exterior',
   'sea_view',
   'pool',
+  'terrace',
+  'garden',
   'living',
+  'kitchen',
+  'dining',
   'bedroom',
+  'spa',
   'sauna',
   'hammam',
   'bathroom',
+  'detail',
   'unspecified',
 ] as const
 
@@ -143,7 +150,7 @@ export function orderGalleryUrlsBySortOrder(rows: ImageRowForHero[]): string[] {
  */
 export function galleryUrlsForStayDetailHeader(
   featuredImage: string | undefined | null,
-  galleryImgs: string[] | undefined | null,
+  galleryImgs: string[] | undefined | null
 ): string[] {
   const trimmed = (galleryImgs ?? []).map((u) => (typeof u === 'string' ? u.trim() : ''))
   const hasAny = trimmed.some(Boolean)

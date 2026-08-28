@@ -1,5 +1,9 @@
-import { dedupeGalleryUrlsPreserveOrder, orderGalleryUrlsBySortOrder, storageKeyToPublicUrl } from '@/lib/listing-gallery-hero-order'
 import { preferListingGalleryFullAsset } from '@/lib/listing-gallery-display-url'
+import {
+  dedupeGalleryUrlsPreserveOrder,
+  orderGalleryUrlsBySortOrder,
+  storageKeyToPublicUrl,
+} from '@/lib/listing-gallery-hero-order'
 import type { ListingImage } from '@/lib/travel-api'
 
 /** Panel önizlemesi + `vertical-meta` ile uyumlu anahtar */
@@ -24,77 +28,47 @@ export function parseHeroPreviewKeysFromVertical(data: Record<string, unknown>):
 
 /** İlk 5 sıralı depolama anahtarı (boş doldurulur). */
 export function defaultHeroKeysFromSort(images: ListingImage[]): string[] {
-  const sorted = [...images].sort(SORT_IMAGES).map((im) => im.storage_key).filter(Boolean)
+  const sorted = [...images]
+    .sort(SORT_IMAGES)
+    .map((im) => im.storage_key)
+    .filter(Boolean)
   const out = sorted.slice(0, 5)
   while (out.length < 5) out.push('')
   return out
 }
 
-/**
- * Etiketli görsellerden vitrin özet sırası:
- * 1 manzara (sea_view) · yoksa ilk havuz
- * 2 havuz (ikinci havuz; manzara yoksa birinci zaten havuz olabilir)
- * 3 salon / oturma (living → “salon & mutfak” panel dilinde)
- * 4 yatak · 5 banyo · kalan boşluklar sırayla doldurulur.
- */
+/** Etiketli görsellerden, panel sırasını koruyarak ilk beşte sahne çeşitliliği sağlar. */
 export function pickHeroKeysFromTaggedImages(images: ListingImage[]): string[] {
   const sorted = [...images].sort(SORT_IMAGES)
   const used = new Set<string>()
+  const usedScenes = new Set<string>()
+  const slots: string[] = []
 
-  const poolKeys = sorted
-    .filter((im) => (im.scene_code ?? '').trim() === 'pool')
-    .map((im) => im.storage_key)
-    .filter(Boolean)
-  const seaKeys = sorted
-    .filter((im) => (im.scene_code ?? '').trim() === 'sea_view')
-    .map((im) => im.storage_key)
-    .filter(Boolean)
-
-  let pi = 0
-  const slots: (string | null)[] = [null, null, null, null, null]
-
-  if (seaKeys.length > 0 && seaKeys[0]) {
-    slots[0] = seaKeys[0]
-    used.add(seaKeys[0])
-  } else if (poolKeys[pi]) {
-    slots[0] = poolKeys[pi]
-    used.add(poolKeys[pi]!)
-    pi++
+  for (const im of sorted) {
+    if (slots.length >= 5) break
+    const key = im.storage_key.trim()
+    const scene = (im.scene_code ?? '').trim().toLowerCase()
+    if (!key || used.has(key) || !imageHasMeaningfulScene(scene) || usedScenes.has(scene)) continue
+    slots.push(key)
+    used.add(key)
+    usedScenes.add(scene)
   }
 
-  while (pi < poolKeys.length && used.has(poolKeys[pi]!)) pi++
-  if (pi < poolKeys.length && poolKeys[pi]) {
-    slots[1] = poolKeys[pi]
-    used.add(poolKeys[pi]!)
-    pi++
-  }
-
-  const takeScene = (code: string): string | null => {
+  while (slots.length < 5) {
+    let appended = false
     for (const im of sorted) {
-      if (used.has(im.storage_key)) continue
-      if ((im.scene_code ?? '').trim() === code) {
-        used.add(im.storage_key)
-        return im.storage_key
-      }
-    }
-    return null
-  }
-
-  slots[2] = takeScene('living')
-  slots[3] = takeScene('bedroom')
-  slots[4] = takeScene('bathroom')
-
-  for (let i = 0; i < 5; i++) {
-    if (slots[i]) continue
-    for (const im of sorted) {
-      if (used.has(im.storage_key)) continue
-      used.add(im.storage_key)
-      slots[i] = im.storage_key
+      const key = im.storage_key.trim()
+      if (!key || used.has(key)) continue
+      used.add(key)
+      slots.push(key)
+      appended = true
       break
     }
+    if (!appended) break
   }
 
-  return slots.map((s) => s ?? '')
+  while (slots.length < 5) slots.push('')
+  return slots
 }
 
 /**
@@ -103,7 +77,7 @@ export function pickHeroKeysFromTaggedImages(images: ListingImage[]): string[] {
  */
 export function galleryUrlsWithHolidayHeroPreview(
   previewKeysFromMeta: string[] | null | undefined,
-  images: ListingImage[],
+  images: ListingImage[]
 ): string[] {
   const rows = images.map((im) => ({
     storage_key: im.storage_key,
@@ -111,9 +85,7 @@ export function galleryUrlsWithHolidayHeroPreview(
     scene_code: im.scene_code ?? null,
     created_at: im.created_at,
   }))
-  const baseUrls = dedupeGalleryUrlsPreserveOrder(
-    orderGalleryUrlsBySortOrder(rows).map(preferListingGalleryFullAsset),
-  )
+  const baseUrls = dedupeGalleryUrlsPreserveOrder(orderGalleryUrlsBySortOrder(rows).map(preferListingGalleryFullAsset))
 
   const orderedKeys = [...images].sort(SORT_IMAGES)
   const keyToUrl = new Map<string, string>()

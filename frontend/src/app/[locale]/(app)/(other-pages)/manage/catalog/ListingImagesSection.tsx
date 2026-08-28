@@ -1,24 +1,29 @@
 'use client'
 
-import { formatManageApiError } from '@/lib/manage-api-error-tr'
-import { useCatalogListingUi } from '@/hooks/useCatalogListingUi'
 import ImageUpload from '@/components/editor/ImageUpload'
+import { Field, Label } from '@/components/manage/ManageFormField'
+import { useCatalogListingUi } from '@/hooks/useCatalogListingUi'
 import { getStoredAuthToken } from '@/lib/auth-storage'
-import { listingImageSubPath, slugifyMediaSegment } from '@/lib/upload-media-paths'
+import { MANAGE_HERO_PREVIEW_META_KEY } from '@/lib/holiday-listing-hero-preview'
+import { autoOrderListingImages, type ListingImageAiAnalysis } from '@/lib/listing-image-auto-order'
+import { LISTING_IMAGE_SCENE_OPTIONS } from '@/lib/listing-image-scenes'
+import { formatManageApiError } from '@/lib/manage-api-error-tr'
+import { notifyCatalogRevalidate } from '@/lib/notify-catalog-revalidate'
 import {
   addListingImage,
   deleteListingImage,
   getListingMeta,
+  getVerticalMeta,
   listListingImages,
   patchListingImageScene,
   putListingMeta,
+  putVerticalMeta,
   reorderListingImages,
   type ListingImage,
 } from '@/lib/travel-api'
+import { listingImageSubPath, slugifyMediaSegment } from '@/lib/upload-media-paths'
 import ButtonPrimary from '@/shared/ButtonPrimary'
-import { Field, Label } from '@/components/manage/ManageFormField'
 import Input from '@/shared/Input'
-import { LISTING_IMAGE_SCENE_OPTIONS } from '@/lib/listing-image-scenes'
 import { GripVertical, Loader2, Sparkles, Trash2 } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
 
@@ -31,12 +36,26 @@ type Props = {
   organizationId?: string
 }
 
-export default function ListingImagesSection({
-  listingId,
-  categoryCode,
-  listingSlug,
-  organizationId,
-}: Props) {
+const PUBLIC_CATEGORY_SLUG_BY_CODE: Record<string, string> = {
+  hotel: 'oteller',
+  holiday_home: 'tatil-evleri',
+  yacht_charter: 'yat-kiralama',
+  tour: 'turlar',
+  activity: 'aktiviteler',
+  cruise: 'kruvaziyer',
+  hajj: 'hac-umre',
+  visa: 'vize',
+  car_rental: 'arac-kiralama',
+  transfer: 'transfer',
+  ferry: 'feribot',
+  flight: 'ucak-bileti',
+  beach_lounger: 'plaj-sezlong',
+  cinema_ticket: 'sinema-biletleri',
+  event: 'etkinlikler',
+  restaurant_table: 'restoran-rezervasyon',
+}
+
+export default function ListingImagesSection({ listingId, categoryCode, listingSlug, organizationId }: Props) {
   const ui = useCatalogListingUi()
   const [images, setImages] = useState<ListingImage[]>([])
   const [loading, setLoading] = useState(true)
@@ -103,9 +122,9 @@ export default function ListingImagesSection({
               original_mime: 'image/avif',
               sort_order: baseOrder + i,
             },
-            organizationId,
-          ),
-        ),
+            organizationId
+          )
+        )
       )
       await load()
       setUploadKey((k) => k + 1)
@@ -160,7 +179,7 @@ export default function ListingImagesSection({
     return k.startsWith('uploads/listings/')
   }
 
-  async function fetchAiSceneSuggestion(storageKey: string): Promise<{ scene_code: string; note_tr?: string }> {
+  async function fetchAiSceneSuggestion(storageKey: string): Promise<ListingImageAiAnalysis & { note_tr?: string }> {
     const res = await fetch('/api/listing-image-scene-suggest', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -168,6 +187,8 @@ export default function ListingImagesSection({
     })
     const data = (await res.json()) as {
       scene_code?: string
+      hero_score?: number
+      confidence?: number
       note_tr?: string
       error?: string
       message?: string
@@ -177,8 +198,8 @@ export default function ListingImagesSection({
       const code = data.error ?? `http_${res.status}`
       const detail =
         code === 'vision_not_configured'
-          ? data.message ??
-            'DeepSeek veya OpenAI anahtarı tanımlı değil. Önce DEEPSEEK_API_KEY (veya panel Yapay zeka ayarı), gerekirse OPENAI_API_KEY ekleyin.'
+          ? (data.message ??
+            'OpenAI veya DeepSeek anahtarı tanımlı değil. OPENAI_API_KEY ya da panel Yapay zeka ayarını kontrol edin.')
           : code === 'rate_limited'
             ? `Çok sık istek. ${data.retryAfterSec ? `${data.retryAfterSec}s sonra deneyin.` : ''}`
             : code === 'forbidden'
@@ -189,12 +210,42 @@ export default function ListingImagesSection({
                   ? 'Dosya bulunamadı.'
                   : code === 'invalid_storage_key'
                     ? 'Geçersiz dosya yolu.'
-                    : data.message ?? code
+                    : (data.message ?? code)
       throw new Error(detail)
     }
     const sc = typeof data.scene_code === 'string' ? data.scene_code.trim() : ''
     if (!sc) throw new Error('Öneri alınamadı')
-    return { scene_code: sc, note_tr: data.note_tr }
+    return {
+      scene_code: sc,
+      hero_score: data.hero_score,
+      confidence: data.confidence,
+      note_tr: data.note_tr,
+    }
+  }
+
+  function verticalHeroMetaGroup(): 'holiday_home' | 'yacht_extra' | null {
+    const code = categoryCode.trim().toLowerCase()
+    if (code === 'holiday_home') return 'holiday_home'
+    if (code === 'yacht_charter') return 'yacht_extra'
+    return null
+  }
+
+  async function syncStoredHeroPreview(token: string, ordered: ListingImage[]) {
+    const metaGroup = verticalHeroMetaGroup()
+    if (!metaGroup) return
+    const existing = await getVerticalMeta<Record<string, unknown>>(listingId, metaGroup).catch(() => ({}))
+    const keys = ordered.slice(0, 5).map((im) => im.storage_key.trim())
+    while (keys.length < 5) keys.push('')
+    const orgParam = organizationId?.trim() ? { organizationId: organizationId.trim() } : undefined
+    await putVerticalMeta(token, listingId, metaGroup, { ...existing, [MANAGE_HERO_PREVIEW_META_KEY]: keys }, orgParam)
+  }
+
+  async function revalidateGalleryCaches() {
+    const categorySlug = PUBLIC_CATEGORY_SLUG_BY_CODE[categoryCode.trim().toLowerCase()]
+    await notifyCatalogRevalidate({
+      handle: listingSlug.trim() || undefined,
+      category_slug: categorySlug || undefined,
+    })
   }
 
   async function applyAiSuggestion(im: ListingImage) {
@@ -205,13 +256,7 @@ export default function ListingImagesSection({
     setErr(null)
     try {
       const { scene_code, note_tr } = await fetchAiSceneSuggestion(im.storage_key)
-      await patchListingImageScene(
-        token,
-        listingId,
-        im.id,
-        { scene_code },
-        organizationId,
-      )
+      await patchListingImageScene(token, listingId, im.id, { scene_code }, organizationId)
       await load()
       setAiMsg(note_tr ? `Öneri uygulandı: ${note_tr}` : 'Öneri uygulandı.')
     } catch (e) {
@@ -221,9 +266,9 @@ export default function ListingImagesSection({
     }
   }
 
-  async function applyAiSuggestionBatch() {
+  async function applyAiSuggestionBatch(forceAll = false) {
     const targets = images.filter(
-      (im) => sceneLooksUntagged(im.scene_code) && canAiSuggestStorageKey(im.storage_key),
+      (im) => canAiSuggestStorageKey(im.storage_key) && (forceAll || sceneLooksUntagged(im.scene_code))
     )
     if (targets.length === 0) {
       setAiMsg('Önerilecek etiketsiz görsel yok.')
@@ -231,7 +276,9 @@ export default function ListingImagesSection({
     }
     if (
       !confirm(
-        `${targets.length} görsel için yapay zeka sahne önerisi çalıştırılacak (API ücreti oluşabilir). Devam edilsin mi?`,
+        forceAll
+          ? `${targets.length} görsel yeniden analiz edilecek; mevcut etiketler, kapak, ilk 5 ve galeri sırası değiştirilecek (API ücreti oluşabilir). Devam edilsin mi?`
+          : `${targets.length} etiketsiz görsel analiz edilip galeri yeniden sıralanacak (API ücreti oluşabilir). Devam edilsin mi?`
       )
     ) {
       return
@@ -243,19 +290,32 @@ export default function ListingImagesSection({
     setErr(null)
     try {
       let ok = 0
+      const analysisById = new Map<string, ListingImageAiAnalysis>()
       for (const im of targets) {
         try {
-          const { scene_code } = await fetchAiSceneSuggestion(im.storage_key)
+          const analysis = await fetchAiSceneSuggestion(im.storage_key)
+          const { scene_code } = analysis
           await patchListingImageScene(token, listingId, im.id, { scene_code }, organizationId)
+          analysisById.set(im.id, analysis)
           ok++
+          setAiMsg(`AI analizi: ${ok}/${targets.length}`)
         } catch (e) {
           const msg = e instanceof Error ? e.message : String(e)
           throw new Error(`${ok} görsel güncellendi; durdu: ${msg}`)
         }
-        await new Promise((r) => setTimeout(r, 350))
+        await new Promise((r) => setTimeout(r, 650))
       }
+      const ordered = autoOrderListingImages(images, analysisById)
+      await reorderListingImages(
+        token,
+        listingId,
+        ordered.map((im) => im.id),
+        organizationId
+      )
+      await syncStoredHeroPreview(token, ordered)
+      await revalidateGalleryCaches()
       await load()
-      setAiMsg(`${ok} görsel için sahne önerisi uygulandı.`)
+      setAiMsg(`${ok} görsel analiz edildi; kapak, ilk 5 ve galeri sırası güncellendi.`)
     } catch (e) {
       setErr(e instanceof Error ? formatManageApiError(e.message) : 'Toplu öneri yarıda kesildi')
       await load()
@@ -270,13 +330,7 @@ export default function ListingImagesSection({
     setBusy(true)
     setErr(null)
     try {
-      await patchListingImageScene(
-        token,
-        listingId,
-        imageId,
-        { scene_code: sceneCode },
-        organizationId,
-      )
+      await patchListingImageScene(token, listingId, imageId, { scene_code: sceneCode }, organizationId)
       await load()
     } catch (e) {
       setErr(e instanceof Error ? formatManageApiError(e.message) : 'Sahne güncellenemedi')
@@ -297,6 +351,15 @@ export default function ListingImagesSection({
     setErr(null)
     try {
       await reorderListingImages(token, listingId, ids, organizationId)
+      const byId = new Map(images.map((image) => [image.id, image]))
+      const ordered = ids
+        .map((id, sort_order) => {
+          const image = byId.get(id)
+          return image ? { ...image, sort_order } : null
+        })
+        .filter((image): image is ListingImage => image !== null)
+      await syncStoredHeroPreview(token, ordered)
+      await revalidateGalleryCaches()
       await load()
     } catch (e) {
       setErr(e instanceof Error ? formatManageApiError(e.message) : 'Sıra güncellenemedi')
@@ -310,39 +373,47 @@ export default function ListingImagesSection({
   return (
     <div className="space-y-4">
       <p className="text-sm text-neutral-600 dark:text-neutral-400">
-        Dosyalar <code className="rounded bg-neutral-100 px-1 font-mono text-xs dark:bg-neutral-800">/uploads/listings/{sub}/</code>{' '}
-        altında <code className="font-mono text-xs">{slugBase}-1.avif</code>, <code className="font-mono text-xs">{slugBase}-2.avif</code>…
-        olarak saklanır.
+        Dosyalar{' '}
+        <code className="rounded bg-neutral-100 px-1 font-mono text-xs dark:bg-neutral-800">
+          /uploads/listings/{sub}/
+        </code>{' '}
+        altında <code className="font-mono text-xs">{slugBase}-1.avif</code>,{' '}
+        <code className="font-mono text-xs">{slugBase}-2.avif</code>… olarak saklanır.
       </p>
       <p className="text-xs text-neutral-500 dark:text-neutral-400">
-        <strong className="font-medium text-neutral-700 dark:text-neutral-300">Ön vitrin sırası:</strong> Her sahneden (deniz, havuz, salon…) en az bir fotoğraf seçilir; etiket yoksa yükleme sırası kullanılır.{' '}
-        <span className="text-neutral-600 dark:text-neutral-400">Kartları sürükleyip bırakarak sırayı değiştirebilirsiniz.</span>
+        <strong className="font-medium text-neutral-700 dark:text-neutral-300">Ön vitrin sırası:</strong> Her sahneden
+        (deniz, havuz, salon…) en az bir fotoğraf seçilir; etiket yoksa yükleme sırası kullanılır.{' '}
+        <span className="text-neutral-600 dark:text-neutral-400">
+          Kartları sürükleyip bırakarak sırayı değiştirebilirsiniz.
+        </span>
       </p>
       <p className="text-xs text-neutral-500 dark:text-neutral-400">
-        <strong className="font-medium text-neutral-700 dark:text-neutral-300">Yapay zeka önerisi:</strong>{' '}
-        Sunucuda önce{' '}
-        <code className="rounded bg-neutral-100 px-0.5 font-mono dark:bg-neutral-800">DEEPSEEK_API_KEY</code>{' '}
-        (veya panel → Yapay zeka); görüntülü uç desteklemiyorsa{' '}
-        <code className="rounded bg-neutral-100 px-0.5 font-mono dark:bg-neutral-800">OPENAI_API_KEY</code>{' '}
-        kullanılabilir. Sonucu gözden geçirin.
+        <strong className="font-medium text-neutral-700 dark:text-neutral-300">Yapay zeka önerisi:</strong> Sunucuda
+        önce <code className="rounded bg-neutral-100 px-0.5 font-mono dark:bg-neutral-800">OPENAI_API_KEY</code> ile
+        yüksek ayrıntılı görsel analiz kullanılır; gerekirse paneldeki DeepSeek ayarı yedektir. Sonucu gözden geçirin.
       </p>
-      {images.some(
-        (im) => sceneLooksUntagged(im.scene_code) && canAiSuggestStorageKey(im.storage_key),
-      ) ? (
+      {images.some((im) => canAiSuggestStorageKey(im.storage_key)) ? (
         <div className="flex flex-wrap items-center gap-2">
           <button
             type="button"
             disabled={busy || aiBatchBusy || !!aiSuggestBusyId}
-            onClick={() => void applyAiSuggestionBatch()}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-violet-300 bg-violet-50 px-2.5 py-1 text-xs font-semibold text-violet-900 hover:bg-violet-100 disabled:opacity-50 dark:border-violet-700 dark:bg-violet-950/50 dark:text-violet-100 dark:hover:bg-violet-950"
+            onClick={() => void applyAiSuggestionBatch(true)}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-violet-400 bg-violet-100 px-2.5 py-1 text-xs font-semibold text-violet-950 hover:bg-violet-200 disabled:opacity-50 dark:border-violet-600 dark:bg-violet-900/60 dark:text-violet-50 dark:hover:bg-violet-900"
           >
-            {aiBatchBusy ? (
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            ) : (
-              <Sparkles className="h-3.5 w-3.5" />
-            )}
-            Etiketsizlere AI öner
+            {aiBatchBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+            Tümünü AI ile yeniden analiz et ve sırala
           </button>
+          {images.some((im) => sceneLooksUntagged(im.scene_code) && canAiSuggestStorageKey(im.storage_key)) ? (
+            <button
+              type="button"
+              disabled={busy || aiBatchBusy || !!aiSuggestBusyId}
+              onClick={() => void applyAiSuggestionBatch()}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-violet-300 bg-violet-50 px-2.5 py-1 text-xs font-semibold text-violet-900 hover:bg-violet-100 disabled:opacity-50 dark:border-violet-700 dark:bg-violet-950/50 dark:text-violet-100 dark:hover:bg-violet-950"
+            >
+              {aiBatchBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+              Etiketsizlere AI öner
+            </button>
+          ) : null}
         </div>
       ) : null}
 
@@ -446,15 +517,10 @@ export default function ListingImagesSection({
                   onDragStart={(e) => e.stopPropagation()}
                   className="shrink-0 rounded p-0.5 text-violet-700 hover:bg-violet-50 disabled:opacity-40 dark:text-violet-300 dark:hover:bg-violet-950/40"
                   onClick={() => void applyAiSuggestion(im)}
-                  disabled={
-                    busy ||
-                    aiBatchBusy ||
-                    aiSuggestBusyId !== null ||
-                    !canAiSuggestStorageKey(im.storage_key)
-                  }
+                  disabled={busy || aiBatchBusy || aiSuggestBusyId !== null || !canAiSuggestStorageKey(im.storage_key)}
                   title={
                     canAiSuggestStorageKey(im.storage_key)
-                      ? 'Yapay zeka ile sahne öner (DeepSeek öncelikli)'
+                      ? 'Yapay zeka ile sahne etiketi öner'
                       : 'Yalnızca uploads/listings altındaki dosyalar için öneri'
                   }
                 >

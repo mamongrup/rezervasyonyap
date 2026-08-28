@@ -4044,7 +4044,9 @@ export default function CatalogNewListingClient({
         let heroPad = heroManualStorageKeys.map((k) => k.trim())
         while (heroPad.length < 5) heroPad.push('')
         heroPad = heroPad.slice(0, 5)
-        if (!taggedForSave && imgsForHeroSave.length > 0 && heroPad.every((k) => !k)) {
+        if (taggedForSave && imgsForHeroSave.length > 0 && heroPad.every((k) => !k)) {
+          heroPad = pickHeroKeysFromTaggedImages(imgsForHeroSave)
+        } else if (imgsForHeroSave.length > 0 && heroPad.every((k) => !k)) {
           heroPad = defaultHeroKeysFromSort(imgsForHeroSave)
         }
         vert[MANAGE_HERO_PREVIEW_META_KEY] = heroPad

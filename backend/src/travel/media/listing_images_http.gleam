@@ -10,9 +10,9 @@ import gleam/option.{type Option, None, Some}
 import gleam/result
 import gleam/string
 import pog
-import travel/db/resilient_pog as db_exec
 import travel/catalog/catalog_http
 import travel/db/decode_helpers as row_dec
+import travel/db/resilient_pog as db_exec
 import wisp.{type Request, type Response}
 
 fn json_err(status: Int, msg: String) -> Response {
@@ -43,7 +43,9 @@ fn require_listing_manage_access(
   }
 }
 
-fn img_row() -> decode.Decoder(#(String, Int, String, String, String, String, String)) {
+fn img_row() -> decode.Decoder(
+  #(String, Int, String, String, String, String, String),
+) {
   use id <- decode.field(0, decode.string)
   use sort <- decode.field(1, decode.int)
   use sk <- decode.field(2, decode.string)
@@ -54,7 +56,9 @@ fn img_row() -> decode.Decoder(#(String, Int, String, String, String, String, St
   decode.success(#(id, sort, sk, mime, alt, created, scene))
 }
 
-fn img_json(row: #(String, Int, String, String, String, String, String)) -> json.Json {
+fn img_json(
+  row: #(String, Int, String, String, String, String, String),
+) -> json.Json {
   let #(id, sort, sk, mime, alt, created, scene) = row
   let altj = case alt == "" {
     True -> json.null()
@@ -89,7 +93,10 @@ fn fetch_manage_listing_image_rows(
   conn: pog.Connection,
   listing_id: String,
   with_scene_column: Bool,
-) -> Result(List(#(String, Int, String, String, String, String, String)), pog.QueryError) {
+) -> Result(
+  List(#(String, Int, String, String, String, String, String)),
+  pog.QueryError,
+) {
   let sql = case with_scene_column {
     True ->
       "select id::text, sort_order, storage_key, coalesce(original_mime, ''), coalesce(alt_text_key, ''), created_at::text, coalesce(scene_code, '') from listing_images where listing_id = $1::uuid order by sort_order asc, created_at asc"
@@ -111,7 +118,10 @@ fn fetch_public_listing_image_rows(
   conn: pog.Connection,
   listing_id: String,
   with_scene_column: Bool,
-) -> Result(List(#(String, Int, String, String, String, String, String)), pog.QueryError) {
+) -> Result(
+  List(#(String, Int, String, String, String, String, String)),
+  pog.QueryError,
+) {
   let sql = case with_scene_column {
     True ->
       "select li.id::text, li.sort_order, li.storage_key, coalesce(li.original_mime, ''), coalesce(li.alt_text_key, ''), li.created_at::text, coalesce(li.scene_code, '') from listing_images li inner join listings l on l.id = li.listing_id where li.listing_id = $1::uuid and l.status = 'published' order by li.sort_order asc, li.created_at asc"
@@ -274,7 +284,11 @@ fn reorder_decoder() -> decode.Decoder(List(String)) {
 }
 
 /// PATCH /api/v1/listings/:id/images/order — göreli sıra (sürükle-bırak / alfabetik UI).
-pub fn reorder_images(req: Request, ctx: Context, listing_id: String) -> Response {
+pub fn reorder_images(
+  req: Request,
+  ctx: Context,
+  listing_id: String,
+) -> Response {
   use <- wisp.require_method(req, http.Patch)
   case require_listing_manage_access(req, ctx, listing_id) {
     Error(r) -> r
@@ -290,7 +304,7 @@ pub fn reorder_images(req: Request, ctx: Context, listing_id: String) -> Respons
                 False ->
                   case
                     db_exec.transaction(ctx.db, fn(conn) {
-                      reorder_loop(conn, string.trim(listing_id), ids, 0)
+                      reorder_and_sync_cover(conn, string.trim(listing_id), ids)
                     })
                   {
                     Ok(_) -> {
@@ -301,8 +315,7 @@ pub fn reorder_images(req: Request, ctx: Context, listing_id: String) -> Respons
                     }
                     Error(pog.TransactionQueryError(_)) ->
                       json_err(500, "reorder_failed")
-                    Error(pog.TransactionRolledBack(msg)) ->
-                      json_err(400, msg)
+                    Error(pog.TransactionRolledBack(msg)) -> json_err(400, msg)
                   }
               }
           }
@@ -341,8 +354,44 @@ fn reorder_loop(
   }
 }
 
+fn reorder_and_sync_cover(
+  conn: pog.Connection,
+  listing_id: String,
+  ids: List(String),
+) -> Result(Nil, String) {
+  case reorder_loop(conn, listing_id, ids, 0) {
+    Error(error) -> Error(error)
+    Ok(Nil) -> sync_listing_cover_from_first_image(conn, listing_id)
+  }
+}
+
+/// Galerinin ilk satırı kart ve detay kapağının da tek kaynağıdır.
+fn sync_listing_cover_from_first_image(
+  conn: pog.Connection,
+  listing_id: String,
+) -> Result(Nil, String) {
+  case
+    pog.query(
+      "with first_image as (select case when trim(storage_key) ilike 'http%' then trim(storage_key) when trim(storage_key) like '/%' then trim(storage_key) else '/' || trim(storage_key) end as image_url from listing_images where listing_id = $1::uuid order by sort_order asc, created_at asc limit 1) update listings l set featured_image_url = fi.image_url, thumbnail_url = fi.image_url, updated_at = now() from first_image fi where l.id = $1::uuid returning l.id::text",
+    )
+    |> pog.parameter(pog.text(listing_id))
+    |> pog.returning(row_dec.col0_string())
+    |> pog.execute(conn)
+  {
+    Error(_) -> Error("cover_sync_failed")
+    Ok(ret) ->
+      case ret.rows {
+        [_] -> Ok(Nil)
+        [] -> Error("listing_or_first_image_not_found")
+        _ -> Error("unexpected")
+      }
+  }
+}
+
 fn patch_scene_decoder() -> decode.Decoder(String) {
-  decode.optional_field("scene_code", "", decode.string, fn(s) { decode.success(s) })
+  decode.optional_field("scene_code", "", decode.string, fn(s) {
+    decode.success(s)
+  })
 }
 
 /// PATCH /api/v1/listings/:lid/images/:image_id — vitrin sahnesi (boş string = temizle)
@@ -379,7 +428,10 @@ pub fn patch_image_scene(
                     [] -> json_err(404, "not_found")
                     [id] -> {
                       let out =
-                        json.object([#("ok", json.bool(True)), #("id", json.string(id))])
+                        json.object([
+                          #("ok", json.bool(True)),
+                          #("id", json.string(id)),
+                        ])
                         |> json.to_string
                       wisp.json_response(out, 200)
                     }
@@ -393,7 +445,11 @@ pub fn patch_image_scene(
 }
 
 /// GET /api/v1/catalog/public/listings/:id/images — yalnızca status=published ilanlar
-pub fn list_public_images(req: Request, ctx: Context, listing_id: String) -> Response {
+pub fn list_public_images(
+  req: Request,
+  ctx: Context,
+  listing_id: String,
+) -> Response {
   use <- wisp.require_method(req, http.Get)
   case
     pog.query(

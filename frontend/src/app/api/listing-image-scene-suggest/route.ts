@@ -1,29 +1,24 @@
-import { createHash } from 'node:crypto'
-import { constants as fsConstants, promises as fs } from 'node:fs'
-import path from 'node:path'
 import { apiOriginForFetch } from '@/lib/api-origin'
-import {
-  isListingImageSceneAiCode,
-  LISTING_IMAGE_SCENE_AI_CODES,
-} from '@/lib/listing-image-scenes'
+import { isListingImageSceneAiCode, LISTING_IMAGE_SCENE_AI_CODES } from '@/lib/listing-image-scenes'
 import { resolveDeepseekConfigForManage } from '@/lib/manage-deepseek-config'
-import { NextRequest, NextResponse } from 'next/server'
-import sharp from 'sharp'
 import { cookies } from 'next/headers'
+import { NextRequest, NextResponse } from 'next/server'
+import { createHash } from 'node:crypto'
+import { promises as fs, constants as fsConstants } from 'node:fs'
+import path from 'node:path'
+import sharp from 'sharp'
 
 export const runtime = 'nodejs'
 
 const ADMIN_PERM = 'admin.users.read'
 
 const RATE_WINDOW_MS = 60_000
-const RATE_MAX_PER_WINDOW = 18
+/** Büyük galeriler (50–90 görsel) tek, sıralı panel işi olarak tamamlanabilsin. */
+const RATE_MAX_PER_WINDOW = 90
 const rateBuckets = new Map<string, { n: number; t: number }>()
 
 function rateLimitKey(req: NextRequest, token: string): string {
-  const ip =
-    req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
-    req.headers.get('x-real-ip') ||
-    'unknown'
+  const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || req.headers.get('x-real-ip') || 'unknown'
   const tok = createHash('sha256').update(token).digest('hex').slice(0, 16)
   return `${ip}:${tok}`
 }
@@ -83,17 +78,13 @@ function extractJsonObject(raw: string): Record<string, unknown> | null {
   const inner = fence?.[1]?.trim() ? fence[1].trim() : t
   try {
     const o = JSON.parse(inner) as unknown
-    return typeof o === 'object' && o !== null && !Array.isArray(o)
-      ? (o as Record<string, unknown>)
-      : null
+    return typeof o === 'object' && o !== null && !Array.isArray(o) ? (o as Record<string, unknown>) : null
   } catch {
     const m = /\{[\s\S]*\}/.exec(inner)
     if (!m) return null
     try {
       const o = JSON.parse(m[0]) as unknown
-      return typeof o === 'object' && o !== null && !Array.isArray(o)
-        ? (o as Record<string, unknown>)
-        : null
+      return typeof o === 'object' && o !== null && !Array.isArray(o) ? (o as Record<string, unknown>) : null
     } catch {
       return null
     }
@@ -111,9 +102,7 @@ function listingSceneVisionMode(): VisionMode {
 
 function visionTimeoutMs(fallbackFromDeepseek?: number): number {
   const raw =
-    process.env.LISTING_SCENE_VISION_TIMEOUT_MS?.trim() ||
-    process.env.OPENAI_IMAGE_SCENE_TIMEOUT_MS?.trim() ||
-    ''
+    process.env.LISTING_SCENE_VISION_TIMEOUT_MS?.trim() || process.env.OPENAI_IMAGE_SCENE_TIMEOUT_MS?.trim() || ''
   const n = Number.parseInt(raw, 10)
   if (Number.isFinite(n) && n >= 5000) return n
   if (fallbackFromDeepseek != null && Number.isFinite(fallbackFromDeepseek)) return fallbackFromDeepseek
@@ -136,20 +125,7 @@ type VisionUpstream =
 async function resolveVisionUpstream(token: string): Promise<VisionUpstream | null> {
   const mode = listingSceneVisionMode()
   const oaiKey = process.env.OPENAI_API_KEY?.trim()
-  const oaiModel = process.env.OPENAI_IMAGE_SCENE_MODEL?.trim() || 'gpt-4o-mini'
-
-  const ds = await resolveDeepseekConfigForManage(token)
-
-  if (mode === 'deepseek') {
-    if (!ds) return null
-    return {
-      provider: 'deepseek',
-      apiKey: ds.apiKey,
-      model: deepseekSceneModel(ds.model),
-      url: ds.url,
-      timeoutMs: visionTimeoutMs(ds.timeoutMs),
-    }
-  }
+  const oaiModel = process.env.OPENAI_IMAGE_SCENE_MODEL?.trim() || 'gpt-5.6-luna'
 
   if (mode === 'openai') {
     if (!oaiKey) return null
@@ -161,7 +137,19 @@ async function resolveVisionUpstream(token: string): Promise<VisionUpstream | nu
     }
   }
 
-  if (ds) {
+  /** Otomatik modda görüntü analizi için önce OpenAI'nin yerel görsel girdili Responses API'si. */
+  if (mode === 'auto' && oaiKey) {
+    return {
+      provider: 'openai',
+      apiKey: oaiKey,
+      model: oaiModel,
+      timeoutMs: visionTimeoutMs(),
+    }
+  }
+
+  const ds = await resolveDeepseekConfigForManage(token)
+  if (mode === 'deepseek') {
+    if (!ds) return null
     return {
       provider: 'deepseek',
       apiKey: ds.apiKey,
@@ -171,12 +159,13 @@ async function resolveVisionUpstream(token: string): Promise<VisionUpstream | nu
     }
   }
 
-  if (oaiKey) {
+  if (ds) {
     return {
-      provider: 'openai',
-      apiKey: oaiKey,
-      model: oaiModel,
-      timeoutMs: visionTimeoutMs(),
+      provider: 'deepseek',
+      apiKey: ds.apiKey,
+      model: deepseekSceneModel(ds.model),
+      url: ds.url,
+      timeoutMs: visionTimeoutMs(ds.timeoutMs),
     }
   }
 
@@ -194,37 +183,56 @@ async function runVisionCompletion(opts: {
   const { upstream, prompt, jpegBase64, signal } = opts
   const dataUri = `data:image/jpeg;base64,${jpegBase64}`
 
-  const imagePart =
-    upstream.provider === 'openai'
-      ? ({
-          type: 'image_url',
-          image_url: { url: dataUri, detail: 'low' as const },
-        } as const)
-      : ({
-          type: 'image_url',
-          image_url: { url: dataUri },
-        } as const)
+  const isOpenAi = upstream.provider === 'openai'
+  const body: Record<string, unknown> = isOpenAi
+    ? {
+        model: upstream.model,
+        max_output_tokens: 260,
+        text: {
+          format: {
+            type: 'json_schema',
+            name: 'listing_image_analysis',
+            strict: true,
+            schema: {
+              type: 'object',
+              properties: {
+                scene_code: { type: 'string', enum: LISTING_IMAGE_SCENE_AI_CODES },
+                hero_score: { type: 'integer', minimum: 0, maximum: 100 },
+                confidence: { type: 'number', minimum: 0, maximum: 1 },
+                note_tr: { type: 'string' },
+              },
+              required: ['scene_code', 'hero_score', 'confidence', 'note_tr'],
+              additionalProperties: false,
+            },
+          },
+        },
+        input: [
+          {
+            role: 'user',
+            content: [
+              { type: 'input_text', text: prompt },
+              { type: 'input_image', image_url: dataUri, detail: 'high' },
+            ],
+          },
+        ],
+      }
+    : {
+        model: upstream.model,
+        temperature: 0.15,
+        max_tokens: 260,
+        response_format: { type: 'json_object' },
+        messages: [
+          {
+            role: 'user',
+            content: [
+              { type: 'text', text: prompt },
+              { type: 'image_url', image_url: { url: dataUri } },
+            ],
+          },
+        ],
+      }
 
-  const body: Record<string, unknown> = {
-    model: upstream.model,
-    temperature: 0.15,
-    max_tokens: 180,
-    messages: [
-      {
-        role: 'user',
-        content: [{ type: 'text', text: prompt }, imagePart],
-      },
-    ],
-  }
-
-  if (upstream.provider === 'deepseek') {
-    body.response_format = { type: 'json_object' }
-  }
-
-  const url =
-    upstream.provider === 'openai'
-      ? 'https://api.openai.com/v1/chat/completions'
-      : upstream.url
+  const url = isOpenAi ? 'https://api.openai.com/v1/responses' : upstream.url
 
   const res = await fetch(url, {
     method: 'POST',
@@ -243,9 +251,14 @@ async function runVisionCompletion(opts: {
   }
 
   const data = (await res.json()) as {
+    output_text?: string
+    output?: Array<{ content?: Array<{ type?: string; text?: string }> }>
     choices?: Array<{ message?: { content?: string } }>
   }
-  const raw = data.choices?.[0]?.message?.content?.trim() ?? ''
+  const responseText = data.output
+    ?.flatMap((item) => item.content ?? [])
+    .find((item) => item.type === 'output_text' && typeof item.text === 'string')?.text
+  const raw = data.output_text?.trim() ?? responseText?.trim() ?? data.choices?.[0]?.message?.content?.trim() ?? ''
   return { raw, provider: upstream.provider }
 }
 
@@ -267,7 +280,7 @@ export async function POST(req: NextRequest) {
       {
         status: 429,
         headers: rl.retryAfterSec ? { 'Retry-After': String(rl.retryAfterSec) } : undefined,
-      },
+      }
     )
   }
 
@@ -296,9 +309,9 @@ export async function POST(req: NextRequest) {
       {
         error: 'vision_not_configured',
         message:
-          'Görüntülü sahne önerisi için DeepSeek (DEEPSEEK_API_KEY veya Ayarlar → Yapay zeka) veya OPENAI_API_KEY gerekir. Varsayılan: önce DeepSeek.',
+          'Görüntülü sahne önerisi için OPENAI_API_KEY veya DeepSeek (DEEPSEEK_API_KEY / Ayarlar → Yapay zeka) gerekir. Varsayılan: önce OpenAI.',
       },
-      { status: 503 },
+      { status: 503 }
     )
   }
 
@@ -317,12 +330,12 @@ export async function POST(req: NextRequest) {
   }
 
   const allowed = LISTING_IMAGE_SCENE_AI_CODES.join('|')
-  const prompt = `Bu fotoğraf bir tatil konutu / villa ilanı galerisinden. Tek bir sahne kodu seç.
+  const prompt = `Bu fotoğraf bir tatil konutu, villa, otel veya yat ilanı galerisinden. Görseli emlak/turizm fotoğraf editörü gibi değerlendir.
 İzinli kodlar (tam eşleşme): ${allowed}.
-Anlam eşlemesi: deniz, manzara, terastan uzak görünüm → sea_view; havuz, jakuzi dış mekan → pool; salon, oturma odası, mutfak, yemek alanı → living; yatak odası → bedroom; banyo, WC, duş → bathroom; sauna → sauna; hamam / Türk hamamı → hammam; spa spor salonu buna uymuyorsa unspecified.
-Birden fazla sahne varsa baskın olanı seç. Metin/kaplama yoksa görsel içeriğe bak.
-Yanıt YALNIZCA tek bir JSON nesnesi: {"scene_code":"<kod>","note_tr":"kısa Türkçe bir satır (isteğe bağlı)"}
-İngilizce kod dışında başka şey yazma.`
+Sınıflar: dış cephe/yapının bütünü → exterior; uzak manzara veya deniz → sea_view; yüzme havuzu → pool; teras/balkon/veranda → terrace; bahçe/açık yeşil alan → garden; salon/oturma → living; mutfak → kitchen; yemek masası/alanı → dining; yatak odası → bedroom; banyo/WC/duş/küvet → bathroom; özel spa alanı veya bağımsız jakuzi → spa; sauna → sauna; Türk hamamı → hammam; yakın plan dekorasyon/nesne → detail; hiçbiri → unspecified.
+KRİTİK: Banyo içinde bulunan küvet veya jakuzi pool değildir; bathroom seç. Pool yalnızca yüzme havuzu görünüyorsa seçilir. Görselde birden fazla alan varsa en baskın ve en geniş görünen alanı seç.
+hero_score alanı 0–100 tam sayı olsun: ilanın kapağı olmaya uygun, geniş açılı, aydınlık, net ve mülkü temsil eden fotoğrafa yüksek; banyo, yakın plan, tekrarlı, karanlık, bulanık veya dar kadraja düşük puan ver. confidence 0–1 arası sayı olsun.
+Yanıt YALNIZCA şu JSON biçiminde olsun: {"scene_code":"<kod>","hero_score":0,"confidence":0,"note_tr":"kısa Türkçe gerekçe"}`
 
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), upstream.timeoutMs)
@@ -337,24 +350,22 @@ Yanıt YALNIZCA tek bir JSON nesnesi: {"scene_code":"<kod>","note_tr":"kısa Tü
         signal: controller.signal,
       })
     } catch (firstErr) {
-      const oaiKey = process.env.OPENAI_API_KEY?.trim()
-      const fallback =
-        upstream.provider === 'deepseek' &&
-        listingSceneVisionMode() === 'auto' &&
-        oaiKey &&
-        process.env.LISTING_SCENE_VISION_FALLBACK_OPENAI?.trim() === '1'
+      const ds =
+        upstream.provider === 'openai' && listingSceneVisionMode() === 'auto'
+          ? await resolveDeepseekConfigForManage(token)
+          : null
+      if (!ds) throw firstErr
 
-      if (!fallback) throw firstErr
-
-      console.warn('[listing-image-scene-suggest] DeepSeek başarısız, OpenAI yedeği deneniyor')
-      const oaiUpstream: VisionUpstream = {
-        provider: 'openai',
-        apiKey: oaiKey,
-        model: process.env.OPENAI_IMAGE_SCENE_MODEL?.trim() || 'gpt-4o-mini',
+      console.warn('[listing-image-scene-suggest] OpenAI başarısız, DeepSeek yedeği deneniyor')
+      const fallbackUpstream: VisionUpstream = {
+        provider: 'deepseek',
+        apiKey: ds.apiKey,
+        model: deepseekSceneModel(ds.model),
+        url: ds.url,
         timeoutMs: upstream.timeoutMs,
       }
       completion = await runVisionCompletion({
-        upstream: oaiUpstream,
+        upstream: fallbackUpstream,
         prompt,
         jpegBase64,
         signal: controller.signal,
@@ -363,12 +374,17 @@ Yanıt YALNIZCA tek bir JSON nesnesi: {"scene_code":"<kod>","note_tr":"kısa Tü
 
     const parsed = extractJsonObject(completion.raw)
     const codeRaw = typeof parsed?.scene_code === 'string' ? parsed.scene_code.trim() : ''
-    const scene_code =
-      codeRaw && isListingImageSceneAiCode(codeRaw) ? codeRaw : ('unspecified' as const)
+    const scene_code = codeRaw && isListingImageSceneAiCode(codeRaw) ? codeRaw : ('unspecified' as const)
     const note_tr = typeof parsed?.note_tr === 'string' ? parsed.note_tr.trim() : ''
+    const heroRaw = typeof parsed?.hero_score === 'number' ? parsed.hero_score : Number(parsed?.hero_score)
+    const confidenceRaw = typeof parsed?.confidence === 'number' ? parsed.confidence : Number(parsed?.confidence)
+    const hero_score = Number.isFinite(heroRaw) ? Math.max(0, Math.min(100, Math.round(heroRaw))) : 50
+    const confidence = Number.isFinite(confidenceRaw) ? Math.max(0, Math.min(1, confidenceRaw)) : undefined
 
     return NextResponse.json({
       scene_code,
+      hero_score,
+      confidence,
       note_tr: note_tr || undefined,
       provider: completion.provider,
     })
