@@ -183,7 +183,11 @@ async function callAiVision(aiConfig, imagePayload) {
 
   // 1. Gemini Vision (Öncelikli)
   if (geminiKey) {
-    const tryModels = activeGeminiModel ? [activeGeminiModel] : GEMINI_CANDIDATES
+    const tryModels = [
+      ...(activeGeminiModel ? [activeGeminiModel] : []),
+      ...discoveredGeminiModels,
+      ...GEMINI_CANDIDATES,
+    ].filter((v, i, a) => a.indexOf(v) === i)
 
     for (const model of tryModels) {
       try {
@@ -275,6 +279,9 @@ async function callAiVision(aiConfig, imagePayload) {
   return 'unspecified'
 }
 
+let discoveredGeminiModels = []
+let activeGeminiModel = null
+
 async function initGeminiModel(geminiKey) {
   if (!geminiKey) return null
   for (const apiVer of ['v1beta', 'v1']) {
@@ -286,13 +293,30 @@ async function initGeminiModel(geminiKey) {
       if (res.ok) {
         const data = await res.json()
         const models = Array.isArray(data.models) ? data.models : []
-        const names = models.map((m) => m.name)
-        console.log(`📋 Google API (${apiVer}) Kullanılabilir Modeller:`, names.slice(0, 8).join(', '))
-        const candidate = models.find((m) => m.supportedGenerationMethods?.includes('generateContent') && m.name?.includes('flash')) ||
-                          models.find((m) => m.supportedGenerationMethods?.includes('generateContent'))
-        if (candidate?.name) {
-          const clean = candidate.name.replace(/^models\//, '')
-          return { model: clean, apiVer }
+        const valid = models
+          .filter((m) => m.supportedGenerationMethods?.includes('generateContent'))
+          .map((m) => m.name?.replace(/^models\//, ''))
+          .filter((name) => !name.includes('tts') && !name.includes('preview') && !name.includes('gemini-2.5-flash') && !name.startsWith('gemma'))
+        
+        console.log(`📋 Google API (${apiVer}) Kullanılabilir Modeller:`, valid.slice(0, 8).join(', '))
+        
+        // Tercih sırası: gemini-flash-latest -> gemini-flash-lite-latest -> gemini-2.0-flash -> diğerleri
+        const sorted = [...valid].sort((a, b) => {
+          const score = (m) => {
+            if (m === 'gemini-flash-latest') return 1
+            if (m === 'gemini-flash-lite-latest') return 2
+            if (m.includes('2.0-flash')) return 3
+            if (m.includes('flash-latest')) return 4
+            if (m.includes('flash')) return 5
+            return 10
+          }
+          return score(a) - score(b)
+        })
+
+        discoveredGeminiModels = sorted
+        if (sorted[0]) {
+          activeGeminiModel = sorted[0]
+          return { model: sorted[0], apiVer }
         }
       } else {
         const errTxt = await res.text()
