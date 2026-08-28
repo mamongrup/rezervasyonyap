@@ -10055,7 +10055,12 @@ export async function getVerticalMeta<T = Record<string, unknown>>(
   if (raw != null && typeof raw === 'object' && !Array.isArray(raw)) {
     const root = raw as Record<string, unknown>
     if (root.data != null && typeof root.data === 'object' && !Array.isArray(root.data)) {
-      return root.data as T
+      // Bazı eski vertical-meta yanıtlarında alanlar hem `data` içinde hem de
+      // kök seviyede bulunur. Kök, panelde en son kaydedilen değeri taşıdığı
+      // için iki nesneyi birleştirirken kök alanları öncelikli tutuyoruz;
+      // yalnızca `root.data` döndürmek eski hero görsel sırasını geri getirir.
+      const { data: _data, ...rootFields } = root
+      return { ...(root.data as Record<string, unknown>), ...rootFields } as T
     }
   }
   return raw as T
