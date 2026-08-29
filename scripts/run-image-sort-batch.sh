@@ -15,10 +15,10 @@ cd "$REPO_ROOT"
 echo "[$(date -Is)] güvenli görsel sıralama worker başladı" >> "$LOG_FILE"
 
 while true; do
-  load_one="$(cut -d' ' -f1 /proc/loadavg)"
-  if awk -v load="$load_one" 'BEGIN { exit !(load > 3.00) }'; then
-    echo "[$(date -Is)] yük yüksek ($load_one); 120 saniye bekleniyor" >> "$LOG_FILE"
-    sleep 120
+  read -r load_one load_five _ < /proc/loadavg
+  if awk -v one="$load_one" -v five="$load_five" 'BEGIN { exit !((one > 2.50) || (five > 2.50)) }'; then
+    echo "[$(date -Is)] yük yüksek (1dk=$load_one, 5dk=$load_five); 300 saniye bekleniyor" >> "$LOG_FILE"
+    sleep 300
     continue
   fi
 
