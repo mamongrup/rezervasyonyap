@@ -14,6 +14,9 @@ const PROXY_HOST_SUFFIXES = [
   'upload.wikimedia.org',
   'integration-static.yolcu360.com',
   'static.yolcu360.com',
+  // Bazı otel siteleri görsel gövdesini JPEG gönderirken text/html MIME başlığı
+  // döndürüyor; doğrudan <img> bunu reddediyor, güvenli proxy başlığı düzeltiyor.
+  'beltomhotel.com',
 ] as const
 
 export function listingExtImageNeedsProxy(url: string): boolean {
@@ -62,6 +65,7 @@ export function isAllowedListingExtImageHost(hostname: string): boolean {
     'integration-static.yolcu360.com',
     'static.yolcu360.com',
     'yolcu360.com',
+    'beltomhotel.com',
     ...PROXY_HOST_SUFFIXES,
   ] as const
   for (const suffix of allowed) {

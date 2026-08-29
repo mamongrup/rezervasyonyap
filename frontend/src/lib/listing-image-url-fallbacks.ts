@@ -48,6 +48,12 @@ const CDN_AVIF_REPAIR: Array<{ test: (host: string) => boolean; to: string }> = 
     test: (h) => h === 'images.gezinomi.com' || h.includes('gezinomi.com'),
     to: '.jpg',
   },
+  {
+    // Beltom görsel uçları gerçek JPEG gövdesini text/html MIME ile döndürüyor;
+    // veritabanındaki .avif uzantısını kaynağın sunduğu .jpg'e çevir.
+    test: (h) => h === 'beltomhotel.com' || h.endsWith('.beltomhotel.com'),
+    to: '.jpg',
+  },
 ]
 
 /**

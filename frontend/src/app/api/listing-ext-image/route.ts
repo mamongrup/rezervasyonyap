@@ -17,6 +17,40 @@ function boundedInt(raw: string | null, fallback: number, min: number, max: numb
   return Number.isFinite(value) ? Math.min(max, Math.max(min, value)) : fallback
 }
 
+/** Bazı sağlayıcılar gerçek görsel gövdesini text/html MIME ile döndürür. */
+function detectImageContentType(bytes: Buffer): string | null {
+  if (bytes.length >= 3 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) {
+    return 'image/jpeg'
+  }
+  if (
+    bytes.length >= 8 &&
+    bytes[0] === 0x89 &&
+    bytes[1] === 0x50 &&
+    bytes[2] === 0x4e &&
+    bytes[3] === 0x47 &&
+    bytes[4] === 0x0d &&
+    bytes[5] === 0x0a &&
+    bytes[6] === 0x1a &&
+    bytes[7] === 0x0a
+  ) {
+    return 'image/png'
+  }
+  if (bytes.length >= 6 && bytes.subarray(0, 6).toString('ascii').match(/^GIF8[79]a$/)) {
+    return 'image/gif'
+  }
+  if (
+    bytes.length >= 12 &&
+    bytes.subarray(0, 4).toString('ascii') === 'RIFF' &&
+    bytes.subarray(8, 12).toString('ascii') === 'WEBP'
+  ) {
+    return 'image/webp'
+  }
+  if (bytes.length >= 12 && bytes.subarray(4, 12).toString('ascii').startsWith('ftypavif')) {
+    return 'image/avif'
+  }
+  return null
+}
+
 function normalizeUpstreamUrl(raw: string): string | null {
   const trimmed = raw.trim()
   if (!trimmed || !/^https?:\/\//i.test(trimmed)) return null
@@ -117,13 +151,19 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'upstream_image_failed' }, { status: okResponse.status })
     }
 
-    const contentType = okResponse.headers.get('content-type') ?? ''
+    let contentType = okResponse.headers.get('content-type') ?? ''
+    let bufferedBody: Buffer | null = null
     if (!contentType.toLowerCase().startsWith('image/')) {
-      return NextResponse.json({ error: 'upstream_not_image' }, { status: 502 })
+      bufferedBody = Buffer.from(await okResponse.arrayBuffer())
+      const detected = detectImageContentType(bufferedBody)
+      if (!detected) {
+        return NextResponse.json({ error: 'upstream_not_image' }, { status: 502 })
+      }
+      contentType = detected
     }
 
     if (requestedWidth != null && requestedFormat === 'webp') {
-      const original = Buffer.from(await okResponse.arrayBuffer())
+      const original = bufferedBody ?? Buffer.from(await okResponse.arrayBuffer())
       try {
         const optimized = await sharp(original)
           .rotate()
@@ -151,7 +191,7 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    return new NextResponse(okResponse.body, {
+    return new NextResponse(bufferedBody ? new Uint8Array(bufferedBody) : okResponse.body, {
       status: 200,
       headers: {
         'Content-Type': contentType,

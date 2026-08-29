@@ -6,9 +6,10 @@ import { useEffect, useState } from 'react'
 import { LayoutGrid } from 'lucide-react'
 import Link from 'next/link'
 import { storageKeyToPublicUrl } from '@/lib/listing-gallery-hero-order'
+import { resolveListingDisplayImageUrl } from '@/lib/listing-ext-image-proxy'
 
 function srcForKey(key: string) {
-  return storageKeyToPublicUrl(key)
+  return resolveListingDisplayImageUrl(storageKeyToPublicUrl(key))
 }
 
 function GalleryPreviewImage({ storageKey }: { storageKey: string }) {
