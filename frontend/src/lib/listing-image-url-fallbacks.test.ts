@@ -101,6 +101,14 @@ describe('listing-image-url-fallbacks', () => {
     )
   })
 
+  it('repairs Beltom hotel .avif to the source JPEG', () => {
+    const src =
+      'https://beltomhotel.com/Upload/beltom/tr/fotograf-galeri/genel-fotograflar/img_gallery/img/big/genel-fotograflar-5561f.avif'
+    expect(repairExternalListingImageExt(src)).toBe(
+      'https://beltomhotel.com/Upload/beltom/tr/fotograf-galeri/genel-fotograflar/img_gallery/img/big/genel-fotograflar-5561f.jpg',
+    )
+  })
+
   it('falls back local uploads .avif to .webp when AVIF missing', () => {
     const avif = '/uploads/listings/ilanlar/tatil-evleri/puzzle-villa/villa-puzzle-18.avif'
     const next = nextListingImageUrlFallback(avif, new Set([avif]))
