@@ -55,6 +55,8 @@ const FORCE = argv.includes('--force') || argv.includes('--reanalyze')
 const PROVIDER = String(valueAfter('--provider') || 'gemini').trim().toLowerCase()
 const SLUG = valueAfter('--slug')
 const CATEGORY = valueAfter('--category')
+const LOCAL_ONLY = argv.includes('--local-only')
+const LIMIT = Math.max(0, Number.parseInt(valueAfter('--limit') || '0', 10) || 0)
 
 const ALLOWED_SCENES = [
   'exterior', 'sea_view', 'pool', 'terrace', 'garden', 'living', 'kitchen', 'dining',
@@ -467,8 +469,25 @@ async function main() {
   node scripts/auto-classify-listing-images-ai.mjs --category holiday_home
   node scripts/auto-classify-listing-images-ai.mjs --all
   --provider gemini|openai|auto : Görsel sağlayıcısını seçer (varsayılan Gemini)
+  --local-only : Yalnız sunucuda fiziksel dosyası bulunan galerileri işle
+  --limit <n> : Her çalıştırmada en fazla n ilan işle (kaldığı yerden devam eden batch için)
   --force / --reanalyze : Var olan yanlış etiketleri de yeniden analiz eder`)
       process.exit(0)
+    }
+
+    if (LOCAL_ONLY) {
+      query += ` AND EXISTS (
+        SELECT 1 FROM listing_images pending
+        WHERE pending.listing_id = l.id
+          AND pending.storage_key NOT LIKE 'http%'
+          AND (pending.scene_code IS NULL OR pending.scene_code = 'unspecified')
+      )`
+    }
+
+    query += ` ORDER BY l.created_at ASC, l.id ASC`
+    if (LIMIT > 0) {
+      params.push(LIMIT)
+      query += ` LIMIT $${params.length}`
     }
 
     const { rows: listings } = await pg.query(query, params)
@@ -482,6 +501,7 @@ async function main() {
         `SELECT id::text, sort_order, storage_key, scene_code
          FROM listing_images
          WHERE listing_id = $1::uuid
+           ${LOCAL_ONLY ? "AND storage_key NOT LIKE 'http%'" : ''}
          ORDER BY sort_order ASC, created_at ASC`,
         [listing.id],
       )
