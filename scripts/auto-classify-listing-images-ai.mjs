@@ -232,6 +232,7 @@ function parseAnalysisFromAiText(text) {
     scene_code: code,
     hero_score: clampScore(parsed?.hero_score),
     confidence: Number.isFinite(confidenceRaw) ? Math.max(0, Math.min(1, confidenceRaw)) : undefined,
+    provider_failed: false,
   }
 }
 
@@ -370,7 +371,7 @@ async function callAiVision(aiConfig, imagePayload) {
     }
   }
 
-  return { scene_code: 'unspecified', hero_score: 0, confidence: 0 }
+  return { scene_code: 'unspecified', hero_score: 0, confidence: 0, provider_failed: true }
 }
 
 async function initGeminiModel(geminiKey) {
@@ -531,6 +532,12 @@ async function main() {
           if (payload) {
             process.stdout.write(`  -> [${i + 1}/${images.length}] Görsel analiz ediliyor... `)
             analysis = await callAiVision(aiConfig, payload)
+            if (analysis.provider_failed) {
+              throw new Error('Gemini/OpenAI görsel analizi başarısız; aynı ilanı döngüye sokmamak için batch durduruldu')
+            }
+            // Gemini'nin geçerli fakat sınıflanamayan sonucu düşük öncelikli detaydır;
+            // aksi halde aynı ilan sonraki batch'te sonsuza kadar yeniden seçilir.
+            if (analysis.scene_code === 'unspecified') analysis.scene_code = 'detail'
             console.log(`[${analysis.scene_code}] kapak=${analysis.hero_score}`)
             await pg.query(
               `UPDATE listing_images SET scene_code = nullif($2, '') WHERE id = $1::uuid`,
