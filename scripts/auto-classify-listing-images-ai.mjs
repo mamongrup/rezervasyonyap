@@ -13,6 +13,7 @@ import { createRequire } from 'node:module'
 import { fileURLToPath } from 'node:url'
 import { loadBackendEnvFile } from './lib/load-backend-env.mjs'
 import { createPgClient } from './lib/pg-client.mjs'
+import { repairHotelRoomImageSets } from './lib/hotel-room-scene-repair.mjs'
 
 loadBackendEnvFile()
 
@@ -450,7 +451,8 @@ async function main() {
     let query = `
       SELECT l.id::text,
              coalesce((SELECT lt.title FROM listing_translations lt WHERE lt.listing_id = l.id LIMIT 1), l.slug) as title,
-             l.slug
+             l.slug,
+             pc.code AS category_code
       FROM listings l
       JOIN product_categories pc ON pc.id = l.category_id
       WHERE 1=1
@@ -566,6 +568,26 @@ async function main() {
           `UPDATE listings SET featured_image_url = $2, thumbnail_url = $2, updated_at = now() WHERE id = $1::uuid`,
           [listing.id, heroUrl],
         )
+      }
+
+      if (listing.category_code === 'hotel') {
+        const { rows: rooms } = await pg.query(
+          `SELECT id::text, meta_json FROM hotel_rooms WHERE listing_id = $1::uuid ORDER BY name ASC`,
+          [listing.id],
+        )
+        const repairedRooms = repairHotelRoomImageSets(rooms, orderedResults)
+        let changedRooms = 0
+        for (const repaired of repairedRooms) {
+          if (JSON.stringify(repaired.before) === JSON.stringify(repaired.after)) continue
+          await pg.query(
+            `UPDATE hotel_rooms SET meta_json = $2::jsonb WHERE id = $1::uuid`,
+            [repaired.id, JSON.stringify(repaired.meta)],
+          )
+          changedRooms += 1
+        }
+        if (changedRooms > 0) {
+          console.log(`🏨 ${changedRooms} oda galerisi güvenli Gemini sahnelerine göre temizlendi.`)
+        }
       }
 
       // listing_attributes içindeki 5'li hero önizleme anahtarlarını yeni sıralamayla senkronize et

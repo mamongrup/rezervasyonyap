@@ -99,7 +99,7 @@ try {
         continue
       }
       const picked = roomImagesFromGallery(gallery, room.name || `oda-${i + 1}`, i, {
-        allowUnlabeledFallback: true,
+        allowUnlabeledFallback: false,
       })
       if (!picked.length) {
         roomsSkipped += 1

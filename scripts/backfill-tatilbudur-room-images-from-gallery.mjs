@@ -86,7 +86,7 @@ try {
       if (hasLocal) return
 
       const picked = roomImagesFromGallery(galleryUrls, room.name || `oda-${i + 1}`, i, {
-        allowUnlabeledFallback: true,
+        allowUnlabeledFallback: false,
       })
       if (!picked.length) return
 
