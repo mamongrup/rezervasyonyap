@@ -580,6 +580,13 @@ main() {
       || fail "430 logo renk mirasi uygulanamadi"
   fi
 
+  if [[ -f "$APP_ROOT/backend/priv/sql/modules/435_contact_form_channel.sql" ]]; then
+    step "Contact form support channel (435)"
+    APPLY_SQL_SKIP_AI_ENQUEUE=1 bash "$APP_ROOT/deploy/apply-sql.sh" \
+      "$APP_ROOT/backend/priv/sql/modules/435_contact_form_channel.sql" \
+      || fail "435 contact form channel could not be applied"
+  fi
+
   if [[ "${SKIP_AI_WORKER_TIMER:-0}" == "1" ]]; then
     warn "SKIP_AI_WORKER_TIMER=1 — AI watchdog ve kuyruk worker timer kurulumu atlandı."
   elif [[ -f "$APP_ROOT/deploy/systemd/travel-ai-worker.service" && -f "$APP_ROOT/deploy/systemd/travel-ai-worker.timer" ]]; then

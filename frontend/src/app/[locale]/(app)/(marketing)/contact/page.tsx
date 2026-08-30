@@ -3,17 +3,14 @@
 import SectionSubscribe2 from '@/components/SectionSubscribe2'
 import { getSitePublicConfig, mergeBrandingIntoEnvContact } from '@/lib/site-public-config'
 import { buildSocialLinksFromSiteConfig } from '@/lib/site-social-links'
-import {
-  createSupportChatSession,
-  getSitePublicConfig as fetchSitePublicConfig,
-  postSupportChatMessage,
-} from '@/lib/travel-api'
+import { getSitePublicConfig as fetchSitePublicConfig } from '@/lib/travel-api'
+import { submitContactForm } from '@/lib/contact-form'
 import { getMessages } from '@/utils/getT'
 import ButtonPrimary from '@/shared/ButtonPrimary'
 import { Divider } from '@/shared/divider'
 import SocialsList from '@/shared/SocialsList'
 import { useParams } from 'next/navigation'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 export default function PageContact() {
   const params = useParams()
@@ -25,6 +22,7 @@ export default function PageContact() {
   const [email, setEmail] = useState('')
   const [message, setMessage] = useState('')
   const [pending, setPending] = useState(false)
+  const submitting = useRef(false)
   const [sent, setSent] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -59,18 +57,17 @@ export default function PageContact() {
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault()
-    if (!name.trim() || !email.trim() || !message.trim()) return
+    if (submitting.current) return
+    submitting.current = true
     setError(null)
     setPending(true)
     try {
-      const session = await createSupportChatSession({ channel_code: 'contact' })
-      await postSupportChatMessage(session.id, {
-        body: `Ad: ${name.trim()}\nE-posta: ${email.trim()}\n\n${message.trim()}`,
-      })
+      await submitContactForm({ name, email, message, locale })
       setSent(true)
     } catch {
       setError(T.errorMessage)
     } finally {
+      submitting.current = false
       setPending(false)
     }
   }
@@ -127,27 +124,27 @@ export default function PageContact() {
             ) : (
               <form className="grid grid-cols-1 gap-6" onSubmit={onSubmit}>
                 {error && (
-                  <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-800 dark:bg-red-950/40 dark:text-red-200">
+                  <p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-800 dark:bg-red-950/40 dark:text-red-200">
                     {error}
                   </p>
                 )}
                 <div className="block">
-                  <label className="block text-sm font-medium text-neutral-800 dark:text-neutral-200">{T.nameLabel}</label>
-                  <input type="text" required value={name} onChange={(e) => setName(e.target.value)}
+                  <label htmlFor="contact-name" className="block text-sm font-medium text-neutral-800 dark:text-neutral-200">{T.nameLabel}</label>
+                  <input id="contact-name" name="name" autoComplete="name" disabled={pending} type="text" required value={name} onChange={(e) => setName(e.target.value)}
                     placeholder={T.namePlaceholder}
                     className="mt-1 block w-full rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-sm focus:border-primary-300 focus:outline-none dark:border-neutral-700 dark:bg-neutral-900 dark:text-white"
                   />
                 </div>
                 <div className="block">
-                  <label className="block text-sm font-medium text-neutral-800 dark:text-neutral-200">{T.emailInputLabel}</label>
-                  <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)}
+                  <label htmlFor="contact-email" className="block text-sm font-medium text-neutral-800 dark:text-neutral-200">{T.emailInputLabel}</label>
+                  <input id="contact-email" name="email" autoComplete="email" disabled={pending} type="email" required value={email} onChange={(e) => setEmail(e.target.value)}
                     placeholder={T.emailPlaceholder}
                     className="mt-1 block w-full rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-sm focus:border-primary-300 focus:outline-none dark:border-neutral-700 dark:bg-neutral-900 dark:text-white"
                   />
                 </div>
                 <div className="block">
-                  <label className="block text-sm font-medium text-neutral-800 dark:text-neutral-200">{T.messageLabel}</label>
-                  <textarea required rows={6} value={message} onChange={(e) => setMessage(e.target.value)}
+                  <label htmlFor="contact-message" className="block text-sm font-medium text-neutral-800 dark:text-neutral-200">{T.messageLabel}</label>
+                  <textarea id="contact-message" name="message" disabled={pending} required rows={6} value={message} onChange={(e) => setMessage(e.target.value)}
                     placeholder={T.messagePlaceholder}
                     className="mt-1 block w-full resize-none rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-sm focus:border-primary-300 focus:outline-none dark:border-neutral-700 dark:bg-neutral-900 dark:text-white"
                   />
