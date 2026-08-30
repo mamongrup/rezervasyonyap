@@ -57,11 +57,11 @@ describe('contact form delivery', () => {
   })
 
   it('ships an idempotent contact channel migration in both SQL distributions', () => {
-    const module = 'modules/435_contact_form_channel.sql'
+    const migration = 'modules/435_contact_form_channel.sql'
     for (const folder of ['priv', 'priv_data']) {
       const root = resolve(process.cwd(), '../backend', folder, 'sql')
-      expect(readFileSync(resolve(root, 'install_order.txt'), 'utf8')).toContain(module)
-      const sql = readFileSync(resolve(root, module), 'utf8')
+      expect(readFileSync(resolve(root, 'install_order.txt'), 'utf8')).toContain(migration)
+      const sql = readFileSync(resolve(root, migration), 'utf8')
       expect(sql).toContain("VALUES ('contact', '{}')")
       expect(sql).toContain('ON CONFLICT (code) DO NOTHING')
     }
