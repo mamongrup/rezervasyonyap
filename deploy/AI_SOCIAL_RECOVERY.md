@@ -22,12 +22,13 @@ Bu komut:
   Eşzamanlı ayar değişikliği algılanırsa yazmaz.
 - DeepSeek kimlik doğrulamasını modeller uç noktasından kontrol eder; `http_401`/`http_403`
   görülürse yönetimde geçerli anahtar girilmesi gerekir. DeepSeek üretimi bu komutta sınanmaz.
-- İlk iki bekleyen sosyal iş için kayıtlı/dinamik kapak, public JPEG ve loopback JPEG erişimini raporlar.
+- Worker ile aynı şekilde yalnızca yayımlanmış ilanların ilk iki bekleyen sosyal işi için kayıtlı/dinamik kapak, public/loopback kaynak ve JPEG erişimini raporlar.
+- Son bir saatte tamamlanan AI adımlarını dil/aşama bazında ve sosyal paylaşımları ağ bazında sayar.
 - **Hiçbir sosyal gönderi yayımlamaz; AI kuyruğunu sıfırlamaz, iş eklemez veya yayın kalite kapısını atlamaz.**
 
 Bayraksız kullanım ayarlara yazmaz ve Gemini içerik üretimi yapmaz. `--social-only` yalnızca
 sosyal görselleri kontrol eder. Kaynak ve JPEG istekleri mevcut görüntü üretim uçlarını çağırır.
-Sosyal sonuçlar job ID, HTTP durumu ve güvenli hata kodlarından oluşur; anahtarlar ve ham sağlayıcı cevapları yazılmaz.
+Sosyal sonuçlar job ID, ağ, ilan slug'ı, HTTP durumu ve güvenli hata kodlarından oluşur; anahtarlar ve ham sağlayıcı cevapları yazılmaz.
 
 ## Sonuçların anlamı
 
@@ -40,6 +41,8 @@ Sosyal sonuçlar job ID, HTTP durumu ve güvenli hata kodlarından oluşur; anah
 - Dinamik kapak ve JPEG başarılı, kayıtlı kapak başarısız: eksik eski kapak dosyası.
 - Public JPEG başarısız, loopback JPEG başarılı: sunucunun kendi public alan adına erişimi araştırılmalı.
 - Her iki JPEG başarısız: `error` ve varsa `upstream_status` kaynağı/dönüşümü ayırır.
+- Kaynak public 404, loopback kaynak 200: public proxy/yönlendirme katmanı araştırılmalı.
+- Kaynak hem public hem loopback 404: ilgili ilan/OG route yanıtı araştırılmalı.
 
 ## Frontend düzeltmesinin dağıtımı
 
@@ -47,6 +50,9 @@ Sosyal worker artık eksik özel kapak yerine **aynı ilanın dinamik markalı k
 Markasız galeri veya başka ilan görseliyle paylaşım yapmaz. Kapak URL'si worker'ın site köküyle
 üretilir; erişim hatalarında güvenli HTTP/hata ayrıntısı kaydedilir. Bu kod değişikliği için
 normal frontend build/deploy gerekir; tanılama/model onarımı için build gerekmez.
+Bir ilanın medya hatası artık aynı ağdaki diğer işleri atlatmaz; gerçek Meta hız sınırı
+aynı ağı durdurmaya devam eder. Bu değişiklik seçilmiş batch için geçerlidir; tüm eski
+işlerin otomatik onarıldığı veya kuyruğun tamamlandığı anlamına gelmez.
 
 Tanılama çıktısı alınmadan başarısız binlerce işi topluca `pending` yapmayın. Geçerli anahtar
 gerekiyorsa panelde güncelleyin; ardından sağlayıcı testini ve tek ilan ilerlemesini doğrulayın.

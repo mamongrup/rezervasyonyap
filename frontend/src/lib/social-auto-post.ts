@@ -1150,8 +1150,11 @@ export async function processPendingSocialJobs(options?: {
       posted += 1
     } else if (r.error === 'social_worker_stopped') {
       break
-    } else if (r.error && (isMetaRateLimitError(r.error) || isTransientSocialAssetError(r.error))) {
+    } else if (r.error && isMetaRateLimitError(r.error)) {
       rateLimitedNetworks.add(job.network)
+    } else if (r.error && isTransientSocialAssetError(r.error)) {
+      // A missing listing cover is not an account-wide rate limit. Leave this
+      // job pending, but keep processing other listings on the same network.
     } else if (r.error && isMetaAuthError(r.error)) {
       failed += 1
       break

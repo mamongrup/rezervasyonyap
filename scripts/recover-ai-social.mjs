@@ -11,6 +11,15 @@ loadBackendEnvFile(process.env.FRONTEND_ENV_FILE || '/etc/rezervasyonyap/fronten
 const report = { ai: {}, social: [] }
 try {
   await db.connect()
+  report.progress = {
+    ai_completed_last_hour: (await db.query(`SELECT phase,locale_code,count(*)::int AS completed
+      FROM ai_listing_content_batch_progress WHERE completed_at>now()-interval '1 hour'
+      GROUP BY phase,locale_code ORDER BY phase,locale_code`)).rows,
+    social: (await db.query(`SELECT network,
+      count(*) FILTER (WHERE status='posted' AND posted_at>now()-interval '1 hour')::int AS posted_last_hour,
+      max(posted_at) FILTER (WHERE status='posted') AS last_posted_at
+      FROM social_share_jobs GROUP BY network ORDER BY network`)).rows,
+  }
   if (!args.has('--social-only')) {
     const settings = (await db.query("SELECT id,value_json FROM site_settings WHERE key='ai' AND organization_id IS NULL ORDER BY id DESC LIMIT 1")).rows[0]
     const config = settings?.value_json ?? {}
@@ -60,11 +69,11 @@ try {
   const site = process.env.NEXT_PUBLIC_SITE_URL?.trim().replace(/\/$/, '')
   if (!site || !site.startsWith('https://')) report.social.push({ error: 'NEXT_PUBLIC_SITE_URL_missing_or_not_https' })
   else {
-    const jobs = (await db.query(`SELECT j.id,j.entity_id,j.image_keys,l.slug,pc.code AS category_code,
+    const jobs = (await db.query(`SELECT j.id,j.network,j.entity_id,j.image_keys,l.slug,pc.code AS category_code,
       coalesce((SELECT lt.title FROM listing_translations lt JOIN locales loc ON loc.id=lt.locale_id
         WHERE lt.listing_id=l.id AND loc.code='tr' LIMIT 1),l.slug) AS title
       FROM social_share_jobs j JOIN listings l ON l.id=j.entity_id JOIN product_categories pc ON pc.id=l.category_id
-      WHERE j.status='pending' AND j.entity_type='listing' ORDER BY j.created_at,j.id LIMIT 2`)).rows
+      WHERE j.status='pending' AND j.entity_type='listing' AND l.status='published' ORDER BY j.created_at,j.id LIMIT 2`)).rows
     for (const job of jobs) {
       const cover = new URL('/api/og/listing', site)
       for (const [key,value] of Object.entries({kind:['activity','tour','cruise'].includes(job.category_code)?'experience':'stay',handle:job.slug,locale:'tr',variant:'social',listing_id:job.entity_id,title:job.title,category_code:job.category_code})) cover.searchParams.set(key,value)
@@ -72,9 +81,10 @@ try {
       const probes = [{ name: 'dynamic_cover', url: cover.toString() }]
       if (stored) probes.push({ name: 'stored_cover', url: new URL(stored.replace(/^\/+/, ''), `${site}/`).toString() })
       for (const probe of probes) {
-        for (const mode of ['source','public_jpeg','loopback_jpeg']) {
+        for (const mode of ['source','loopback_source','public_jpeg','loopback_jpeg']) {
           const proxy = `/api/social/share-jpeg?src=${encodeURIComponent(probe.url)}`
-          const url = mode==='source' ? probe.url : mode==='public_jpeg' ? `${site}${proxy}` : `http://127.0.0.1:3000${proxy}`
+          const source = new URL(probe.url)
+          const url = mode==='source' ? probe.url : mode==='loopback_source' ? `http://127.0.0.1:3000${source.pathname}${source.search}` : mode==='public_jpeg' ? `${site}${proxy}` : `http://127.0.0.1:3000${proxy}`
           try {
             const res = await fetch(url, { redirect: 'error', signal: AbortSignal.timeout(25000) })
             const type = res.headers.get('content-type') || ''
@@ -85,7 +95,7 @@ try {
               if (/^(social_share_[a-z_]+|invalid_social_share_image_src)$/.test(data.error ?? '')) code = data.error
               if (Number.isInteger(data.upstream_status)) upstreamStatus = data.upstream_status
             } else await res.body?.cancel()
-            report.social.push({ job_id:job.id, probe:probe.name, mode, http:res.status, upstream_status:upstreamStatus, content_type:type, error:code })
+            report.social.push({ job_id:job.id, network:job.network, listing_slug:job.slug, probe:probe.name, mode, http:res.status, upstream_status:upstreamStatus, content_type:type, error:code })
           } catch { report.social.push({ job_id:job.id, probe:probe.name, mode, error:'network_timeout_or_redirect' }) }
         }
       }
