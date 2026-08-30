@@ -279,6 +279,7 @@ modules/433_ai_autopilot_orchestrator_superseded.sql
 modules/434_activity_session_price_single_source.sql
 modules/435_contact_form_channel.sql
 modules/436_admin_email_notifications.sql
+modules/437_admin_important_events.sql
 
 # Kurulum doğrulama (install_order’a dahil değil — elle çalıştırın):
 #   psql -U postgres -d travel -f priv/sql/check_installation.sql

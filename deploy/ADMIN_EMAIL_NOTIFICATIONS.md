@@ -10,13 +10,32 @@ Bu posta akışı müşteri/tedarikçi bildirimlerini değiştirmez; yalnızca i
 - Yeni üyelik ve misafir hesabının üyeliğe dönüşmesi (parola, doğrulama kodu ve kimlik numarası gönderilmez).
 - Yeni destek talebi ve müşterinin destek talebine yazdığı mesaj (dahili notlar hariç).
 - Yeni rezervasyon eskalasyonu / yönetim müdahalesi ihtiyacı.
+- Yeni ilan, yayın/taslak/arşiv durumu değişikliği ve ilan silme (beş dakikalık özet).
+- Tedarikçi başvurusunun gönderilmesi, incelemeye alınması, onayı veya reddi.
+- Ödeme yetkilendirme/tahsilat, başarısız ödeme ve iade; para transferi oluşturma ve durum değişiklikleri.
+- Yeni kurum/acente/tedarikçi; acente ve tedarikçi faturalarının düzenlenmesi veya iptali.
+- Yeni müşteri yorumu, moderasyon durumu değişikliği; ilan şikâyeti ve işlem durumu.
+- Yönetici/personel yetkisi verilmesi, değiştirilmesi veya kaldırılması.
+- Sağlayıcı aktarımının tamamlanması veya hata vermesi; kayıt altına alınan entegrasyon,
+  sosyal paylaşım, yapay zekâ işi ve müşteri bildirim hataları (beş dakikalık özet).
+
+Yalnızca gerçek durum geçişleri bildirilir; aynı durumun yeniden kaydedilmesi bildirim
+üretmez. İlan açıklaması/fiyat/görsel güncellemeleri, sayfa görüntülemeleri, başarılı arka plan
+AI işleri, giriş denemeleri ve kimlik doğrulama kodları bu kapsamda değildir. Bu sistem,
+uygulama dışında oluşan sunucu kesintilerini algılayan bir uptime izleyicisi değildir.
+
+Özet olayları `admin_email_digest_events` tablosunda tek tek tutulur. Her beş dakikalık
+pencere kapandıktan sonra worker bunları tür/işlem bazında birleştirir. Bir özette toplam
+olay sayısı ve ilk 100 olayın ayrıntıları yer alır; kalan olaylar silinmez. Kuyruk gecikirse
+birden çok kapanmış pencere aynı özette birleşebilir. E-postalar dakika başı çalışan worker
+ile gönderilir; kuyruk/sağlayıcı hataları teslim süresini uzatabilir.
 
 Geçmiş kayıtlar geriye dönük gönderilmez. Olay ve kuyruk kaydı aynı veritabanı işlemiyle commit edilir.
 Yönetim mesajları Türkçedir; ziyaretçi vitrin metinleri değişmez.
 
 ## Kurulum ve kontrol
 
-Normal `DEPLOY_REF=main ./deploy/deploy.sh` akışı 435/436 modüllerini uygular ve dakikalık
+Normal `DEPLOY_REF=main ./deploy/deploy.sh` akışı 435/436/437 modüllerini uygular ve dakikalık
 `travel-admin-email.timer` servisini kurar. Çalışan backend ile aynı
 `/etc/rezervasyonyap/backend.env` bağlantısını kullanır. Node 25+ ve mevcut `pg` bağımlılığı gerekir.
 

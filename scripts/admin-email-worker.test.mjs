@@ -65,6 +65,28 @@ test('PostgreSQL triggers and durable delivery', { skip: process.env.ADMIN_EMAIL
     `)
     await db.query(migration)
     await db.query(migration) // reinstall must not duplicate triggers or events
+    await db.query(`
+      CREATE TABLE listings(id uuid PRIMARY KEY DEFAULT gen_random_uuid(),slug text,status text,organization_id uuid,category_id int);
+      CREATE TABLE supplier_applications(id uuid PRIMARY KEY DEFAULT gen_random_uuid(),user_id uuid,business_name text,category_code text,status text,tax_number text);
+      CREATE TABLE payments(id uuid PRIMARY KEY DEFAULT gen_random_uuid(),reservation_id uuid,amount numeric,currency_code text,status text,raw_response_json jsonb);
+      CREATE TABLE supplier_transfers(id uuid PRIMARY KEY DEFAULT gen_random_uuid(),reservation_id uuid,transfer_type text,amount numeric,currency_code text,status text,reference text);
+      CREATE TABLE reviews(id uuid PRIMARY KEY DEFAULT gen_random_uuid(),entity_id uuid,rating int,title text,body text,status text,ip inet);
+      CREATE TABLE listing_reports(id uuid PRIMARY KEY DEFAULT gen_random_uuid(),listing_id uuid,reason_code text,message text,status text);
+      CREATE TABLE organizations(id uuid PRIMARY KEY DEFAULT gen_random_uuid(),name text,org_type text,slug text);
+      CREATE TABLE agency_invoices(id uuid PRIMARY KEY DEFAULT gen_random_uuid(),invoice_number text,agency_organization_id uuid,gross_total numeric,currency_code text,status text);
+      CREATE TABLE supplier_invoices(id uuid PRIMARY KEY DEFAULT gen_random_uuid(),invoice_number text,supplier_organization_id uuid,gross_total numeric,currency_code text,status text);
+      CREATE TABLE provider_sync_jobs(id uuid PRIMARY KEY DEFAULT gen_random_uuid(),provider text,status text,progress int,total int,error_text text);
+      CREATE TABLE integration_sync_logs(id bigserial PRIMARY KEY,integration_account_id uuid,operation text,status text,detail_json jsonb);
+      CREATE TABLE social_share_jobs(id uuid PRIMARY KEY DEFAULT gen_random_uuid(),entity_id uuid,entity_type text,status text);
+      CREATE TABLE ai_jobs(id uuid PRIMARY KEY DEFAULT gen_random_uuid(),profile_code text,status text,input_json jsonb,error text);
+      CREATE TABLE notification_jobs(id bigserial PRIMARY KEY,channel text,reservation_id uuid,status text,payload_json jsonb);
+      CREATE TABLE roles(id int PRIMARY KEY,code text);
+      CREATE TABLE user_roles(user_id uuid,role_id int REFERENCES roles,organization_id uuid);
+      INSERT INTO listings(slug,status) VALUES('historical','draft');
+    `)
+    const expandedMigration = await readFile(new URL('../backend/priv/sql/modules/437_admin_important_events.sql', import.meta.url), 'utf8')
+    await db.query(expandedMigration)
+    await db.query(expandedMigration)
     const count = async (type) => Number((await db.query('SELECT count(*) FROM admin_email_outbox WHERE event_type=$1', [type])).rows[0].count)
     await t.test('registration excludes guests and secrets; guest conversion emits once', async () => {
       await db.query("INSERT INTO users(display_name,email,password_hash,tc_kimlik_no) VALUES('Test','test@example.com','SECRET_PASSWORD','SECRET_ID')")
@@ -167,6 +189,111 @@ test('PostgreSQL triggers and durable delivery', { skip: process.env.ADMIN_EMAIL
       assert.equal(result.failed, 1)
       const row = (await db.query("SELECT status,error_message FROM admin_email_outbox WHERE event_key='permanent'")).rows[0]
       assert.deepEqual(row, { status: 'failed', error_message: 'provider_http_403' })
+    })
+    await t.test('bulk listings produce a bounded digest, with no historical backfill or duplicate delivery', async () => {
+      assert.equal(Number((await db.query('SELECT count(*) FROM admin_email_digest_events')).rows[0].count), 0)
+      await db.query("INSERT INTO listings(slug,status) SELECT 'bulk-' || n,'draft' FROM generate_series(1,105) n")
+      await db.query("UPDATE listings SET slug=slug || '-edited'")
+      assert.equal(await count('listing'), 0)
+      assert.equal(Number((await db.query('SELECT count(*) FROM admin_email_digest_events')).rows[0].count), 105)
+      assert.equal((await db.query('SELECT flush_admin_email_digests() AS n')).rows[0].n, 0)
+      await db.query('UPDATE admin_email_digest_events SET bucket_end=now()')
+      assert.equal((await db.query('SELECT flush_admin_email_digests() AS n')).rows[0].n, 1)
+      assert.equal(await count('listing'), 1)
+      const mail = (await db.query("SELECT body,subject FROM admin_email_outbox WHERE event_type='listing'")).rows[0]
+      assert.match(mail.subject, /105 olay/)
+      assert.match(mail.body, /İlk 100 olay/)
+      assert.equal((await db.query('SELECT flush_admin_email_digests() AS n')).rows[0].n, 0)
+      await db.query("UPDATE listings SET status='published' WHERE slug LIKE 'bulk-1-%'")
+      await db.query("DELETE FROM listings WHERE slug LIKE 'bulk-2-%'")
+      assert.equal(Number((await db.query('SELECT count(*) FROM admin_email_digest_events WHERE processed_at IS NULL')).rows[0].count), 2)
+      await db.query('UPDATE admin_email_digest_events SET bucket_end=now() WHERE processed_at IS NULL')
+      assert.equal((await db.query('SELECT flush_admin_email_digests() AS n')).rows[0].n, 2)
+    })
+    await t.test('digest rollback and late events cannot lose or duplicate events', async () => {
+      await db.query("INSERT INTO listings(slug,status) VALUES('late','draft')")
+      await db.query('UPDATE admin_email_digest_events SET bucket_end=now() WHERE processed_at IS NULL')
+      const before = await count('listing')
+      await db.query('BEGIN')
+      await db.query('SELECT flush_admin_email_digests()')
+      await db.query('ROLLBACK')
+      assert.equal(await count('listing'), before)
+      await db.query('SELECT flush_admin_email_digests()')
+      assert.equal(await count('listing'), before+1)
+    })
+    await t.test('payments and refunds notify only meaningful states, without raw provider data', async () => {
+      await db.query(`INSERT INTO payments(amount,currency_code,status,raw_response_json) VALUES(1234.50,'TRY','initiated','{"secret":"CARD_SECRET"}')`)
+      assert.equal(await count('payment'), 0)
+      for (const status of ['authorized','captured','refunded','failed']) {
+        await db.query('UPDATE payments SET status=$1', [status])
+        await db.query('UPDATE payments SET status=$1', [status])
+      }
+      assert.equal(await count('payment'), 4)
+      const mails = (await db.query("SELECT body FROM admin_email_outbox WHERE event_type='payment'")).rows
+      assert.ok(mails.every(({body}) => body.includes('1234.5') && !body.includes('CARD_SECRET')))
+    })
+    for (const [table,type,start,end,expected] of [
+      ['supplier_applications','supplier_application','draft','submitted',1],
+      ['supplier_transfers','supplier_transfer','pending','failed',2],
+      ['reviews','review','pending','approved',2],
+      ['listing_reports','listing_report','open','resolved',2],
+      ['agency_invoices','agency_invoice','draft','issued',1],
+      ['supplier_invoices','supplier_invoice','issued','cancelled',2],
+    ]) {
+      await t.test(`${type} creation and status changes notify without no-op duplicates`, async () => {
+        await db.query(`INSERT INTO ${table}(status) VALUES($1)`, [start])
+        await db.query(`UPDATE ${table} SET status=$1`, [end])
+        await db.query(`UPDATE ${table} SET status=$1`, [end])
+        assert.equal(await count(type), expected)
+      })
+    }
+    await t.test('new organizations and privileged role changes notify without customer-role noise', async () => {
+      await db.query("INSERT INTO organizations(name,org_type,slug) VALUES('Test Acente','agency','test-agency')")
+      assert.equal(await count('organization'), 1)
+      await db.query("INSERT INTO roles VALUES(1,'customer'),(2,'admin'),(3,'staff')")
+      await db.query('INSERT INTO user_roles(user_id,role_id) VALUES(gen_random_uuid(),1)')
+      assert.equal(await count('privileged_role'), 0)
+      await db.query('UPDATE user_roles SET role_id=2')
+      await db.query('UPDATE user_roles SET role_id=2')
+      await db.query('UPDATE user_roles SET role_id=3')
+      await db.query('DELETE FROM user_roles')
+      assert.equal(await count('privileged_role'), 3)
+    })
+    await t.test('background failures are summarized with no input secrets or recursive admin alerts', async () => {
+      await db.query(`INSERT INTO ai_jobs(profile_code,status,input_json,error) VALUES('test','running','{"secret":"SECRET_AI"}','SECRET_ERROR')`)
+      await db.query("UPDATE ai_jobs SET status='failed'")
+      await db.query("UPDATE ai_jobs SET status='failed'")
+      await db.query("INSERT INTO provider_sync_jobs(provider,status,error_text) VALUES('test','error','SECRET_PROVIDER')")
+      await db.query(`INSERT INTO integration_sync_logs(operation,status,detail_json) VALUES('sync','failed','{"token":"SECRET_TOKEN"}')`)
+      await db.query("INSERT INTO social_share_jobs(status) VALUES('failed')")
+      await db.query(`INSERT INTO notification_jobs(channel,status,payload_json) VALUES('email','failed','{"code":"SECRET_OTP"}')`)
+      assert.equal(Number((await db.query('SELECT count(*) FROM admin_email_digest_events WHERE processed_at IS NULL')).rows[0].count), 5)
+      await db.query('UPDATE admin_email_digest_events SET bucket_end=now() WHERE processed_at IS NULL')
+      await db.query('SELECT flush_admin_email_digests()')
+      for (const type of ['ai_failure','provider_sync','integration_failure','social_failure','notification_failure']) assert.equal(await count(type),1)
+      assert.ok((await db.query('SELECT body FROM admin_email_digest_events')).rows.every(({body}) => !body.includes('SECRET')))
+      await db.query("UPDATE admin_email_outbox SET status='failed'")
+      assert.equal(Number((await db.query('SELECT count(*) FROM admin_email_digest_events WHERE processed_at IS NULL')).rows[0].count), 0)
+    })
+    await t.test('late transaction commits remain deliverable after a digest flush', async () => {
+      const other = new Client({ host: '127.0.0.1', port: 55436, user: 'postgres', database: 'postgres' })
+      await other.connect()
+      try {
+        await other.query(`SET search_path TO ${schema},public`)
+        await other.query('BEGIN')
+        await other.query("INSERT INTO listings(slug,status) VALUES('late-commit','draft')")
+        await other.query('UPDATE admin_email_digest_events SET bucket_end=now() WHERE processed_at IS NULL')
+        assert.equal((await db.query('SELECT flush_admin_email_digests() AS n')).rows[0].n, 0)
+        await other.query('COMMIT')
+        const requests = []
+        const result = await processAdminEmails(db, { ...options, fetchImpl: async (_url, init) => {
+          requests.push(JSON.parse(init.body))
+          return Response.json({ id: 'late-provider-id' })
+        } })
+        assert.equal(result.accepted, 1)
+        assert.match(requests[0].text, /late-commit/)
+        assert.equal(Number((await db.query('SELECT count(*) FROM admin_email_digest_events WHERE processed_at IS NULL')).rows[0].count), 0)
+      } finally { await other.end() }
     })
   } finally {
     await db.query(`DROP SCHEMA ${schema} CASCADE`)

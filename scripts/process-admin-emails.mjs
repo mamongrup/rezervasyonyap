@@ -9,6 +9,7 @@ try {
       EXISTS(SELECT 1 FROM site_settings WHERE key='integrations' AND organization_id IS NULL
         AND nullif(trim(value_json->>'resend_api_key'),'') IS NOT NULL) AS db_key,
       (SELECT count(*)::int FROM admin_email_outbox WHERE status='pending') AS pending,
+      (SELECT count(*)::int FROM admin_email_digest_events WHERE processed_at IS NULL) AS digest_pending,
       (SELECT count(*)::int FROM admin_email_outbox WHERE status='failed') AS failed`)
     const { db_key, ...counts } = result.rows[0]
     const configured = db_key || !!process.env.RESEND_API_KEY?.trim()
@@ -21,7 +22,7 @@ try {
   }
 } catch {
   // Avoid printing connection strings, credentials or message bodies.
-  console.error('Admin email worker failed. Check database connectivity, migration 436 and Resend configuration.')
+  console.error('Admin email worker failed. Check database connectivity, migrations 436/437 and Resend configuration.')
   process.exitCode = 1
 } finally {
   await db.end()

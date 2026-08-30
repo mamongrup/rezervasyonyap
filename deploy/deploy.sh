@@ -591,6 +591,9 @@ main() {
   APPLY_SQL_SKIP_AI_ENQUEUE=1 bash "$APP_ROOT/deploy/apply-sql.sh" \
     "$APP_ROOT/backend/priv/sql/modules/436_admin_email_notifications.sql" \
     || fail "436 admin email outbox could not be applied"
+  APPLY_SQL_SKIP_AI_ENQUEUE=1 bash "$APP_ROOT/deploy/apply-sql.sh" \
+    "$APP_ROOT/backend/priv/sql/modules/437_admin_important_events.sql" \
+    || fail "437 important event notifications could not be applied"
   # Use this checkout and the same Node runtime used by the deploy build.
   NODE_MAIL_BIN="$(command -v node)"
   [[ -n "$NODE_MAIL_BIN" ]] || fail "Node runtime missing for admin email worker"

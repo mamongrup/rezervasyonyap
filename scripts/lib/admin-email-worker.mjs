@@ -52,6 +52,7 @@ export async function processAdminEmails(db, { env = process.env, fetchImpl = fe
       from: values.supplier_notify_from?.trim() || env.SUPPLIER_NOTIFY_FROM?.trim() || env.INVOICE_NOTIFY_FROM?.trim() || 'rezervasyon@rezervasyonyap.com.tr',
     }
     if (!config.key) throw new Error('resend_not_configured')
+    await db.query('SELECT flush_admin_email_digests()')
     // Resend retains idempotency keys for 24h. Never automatically retry uncertain
     // deliveries outside that window; an operator must reconcile them first.
     const expired = await db.query(`UPDATE admin_email_outbox SET status='failed', error_message='delivery_uncertain_manual_review'
