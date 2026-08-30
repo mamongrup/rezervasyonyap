@@ -587,6 +587,22 @@ main() {
       || fail "435 contact form channel could not be applied"
   fi
 
+  step "Internal operational email notifications (436)"
+  APPLY_SQL_SKIP_AI_ENQUEUE=1 bash "$APP_ROOT/deploy/apply-sql.sh" \
+    "$APP_ROOT/backend/priv/sql/modules/436_admin_email_notifications.sql" \
+    || fail "436 admin email outbox could not be applied"
+  # Use this checkout and the same Node runtime used by the deploy build.
+  NODE_MAIL_BIN="$(command -v node)"
+  [[ -n "$NODE_MAIL_BIN" ]] || fail "Node runtime missing for admin email worker"
+  sed -e "s|^WorkingDirectory=.*|WorkingDirectory=$APP_ROOT|" \
+      -e "s|^ExecStart=.*|ExecStart=$NODE_MAIL_BIN $APP_ROOT/scripts/process-admin-emails.mjs|" \
+    "$APP_ROOT/deploy/systemd/travel-admin-email.service" > /etc/systemd/system/travel-admin-email.service
+  cp "$APP_ROOT/deploy/systemd/travel-admin-email.timer" /etc/systemd/system/travel-admin-email.timer
+  systemctl daemon-reload
+  systemctl enable --now travel-admin-email.timer || fail "Admin email timer could not be enabled"
+  TRAVEL_DB_ENV=/etc/rezervasyonyap/backend.env "$NODE_MAIL_BIN" "$APP_ROOT/scripts/process-admin-emails.mjs" --check \
+    || warn "Admin email is not ready: check Resend configuration and outbox failures"
+
   if [[ "${SKIP_AI_WORKER_TIMER:-0}" == "1" ]]; then
     warn "SKIP_AI_WORKER_TIMER=1 — AI watchdog ve kuyruk worker timer kurulumu atlandı."
   elif [[ -f "$APP_ROOT/deploy/systemd/travel-ai-worker.service" && -f "$APP_ROOT/deploy/systemd/travel-ai-worker.timer" ]]; then

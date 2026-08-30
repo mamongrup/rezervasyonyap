@@ -1,0 +1,10 @@
+[Unit]
+Description=Process operational notification emails every minute
+
+[Timer]
+OnBootSec=60
+OnUnitInactiveSec=60
+Unit=travel-admin-email.service
+
+[Install]
+WantedBy=timers.target

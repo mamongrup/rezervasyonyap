@@ -1,0 +1,15 @@
+[Unit]
+Description=Travel operational email outbox
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+EnvironmentFile=/etc/rezervasyonyap/backend.env
+Environment=TRAVEL_DB_ENV=/etc/rezervasyonyap/backend.env
+WorkingDirectory=/var/www/vhosts/rezervasyonyap.tr/httpdocs
+ExecStart=/usr/bin/env node scripts/process-admin-emails.mjs
+TimeoutStartSec=420
+NoNewPrivileges=true
+PrivateTmp=true
+UMask=0077

@@ -1,0 +1,42 @@
+name: admin-email-ci
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/*admin-email*'
+      - 'scripts/lib/admin-email-worker.mjs'
+      - 'backend/priv/sql/modules/436_admin_email_notifications.sql'
+      - '.github/workflows/admin-email-ci.yml'
+  pull_request:
+    paths:
+      - 'scripts/*admin-email*'
+      - 'scripts/lib/admin-email-worker.mjs'
+      - 'backend/priv/sql/modules/436_admin_email_notifications.sql'
+      - '.github/workflows/admin-email-ci.yml'
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports:
+          - 55436:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '25'
+          cache: npm
+          cache-dependency-path: scripts/package-lock.json
+      - run: npm ci --prefix scripts
+      - run: node --test scripts/admin-email-worker.test.mjs
+        env:
+          ADMIN_EMAIL_TEST_DB: '1'
