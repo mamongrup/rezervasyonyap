@@ -6,6 +6,7 @@
 import { getPublicSiteUrl } from '@/lib/site-branding-seo'
 import { preferListingGalleryFullAsset } from '@/lib/listing-gallery-display-url'
 import { buildListingOgImageUrl } from '@/lib/social-share/listing-og-image-url'
+import { probeShareImage, resolveSocialCover } from '@/lib/social-share/cover-probe'
 import { isMetaAuthError } from '@/lib/social-meta-auth'
 import { generateAndStoreListingReelVideo } from '@/lib/social-video-generate'
 
@@ -148,7 +149,7 @@ function listingSocialOgKind(categoryCode: string): 'stay' | 'experience' {
     : 'stay'
 }
 
-function listingSocialCoverUrl(job: PendingSocialJob): string {
+function listingSocialCoverUrl(job: PendingSocialJob, siteUrl: string): string {
   return (
     buildListingOgImageUrl({
       kind: listingSocialOgKind(job.category_code),
@@ -158,6 +159,7 @@ function listingSocialCoverUrl(job: PendingSocialJob): string {
       listingId: job.entity_id,
       title: job.listing_title,
       categoryCode: job.category_code,
+      siteBase: siteUrl,
     }) ?? ''
   )
 }
@@ -194,13 +196,7 @@ export function absoluteMediaUrl(siteUrl: string, storageKey: string): string {
 }
 
 async function probeShareJpegUrl(url: string): Promise<boolean> {
-  try {
-    const res = await fetch(url, { cache: 'no-store' })
-    const ct = (res.headers.get('content-type') ?? '').toLowerCase()
-    return res.ok && ct.includes('image/jpeg')
-  } catch {
-    return false
-  }
+  return (await probeShareImage(url)).ok
 }
 
 async function metaReadyImageUrls(siteUrl: string, sourceUrls: string[]): Promise<string[]> {
@@ -237,7 +233,7 @@ function isMetaRateLimitError(message: string): boolean {
 }
 
 function isTransientSocialAssetError(message: string): boolean {
-  return message === 'social_cover_unavailable' || message === 'social_share_images_unreachable'
+  return message.startsWith('social_cover_unavailable') || message === 'social_share_images_unreachable'
 }
 
 async function validateFacebookPageToken(pageId: string, token: string): Promise<{ id: string; name?: string }> {
@@ -902,7 +898,7 @@ export async function processOneSocialJob(
   const imageUrls = selectedKeys
     .map((k) => absoluteMediaUrl(siteUrl, k))
     .filter((u) => u.startsWith('https://'))
-  const coverUrl = listingSocialCoverUrl(job)
+  const coverUrl = listingSocialCoverUrl(job, siteUrl)
   const generatedCoverKey = selectedKeys.find(isGeneratedSocialCoverKey) ?? ''
   const coverCandidateUrl = generatedCoverKey
     ? absoluteMediaUrl(siteUrl, generatedCoverKey)
@@ -915,9 +911,9 @@ export async function processOneSocialJob(
   // erisilemezse yalniz galeri fotograflariyla yayin yapmak yerine isi pending
   // birakip sonraki worker turunda yeniden deneriz.
   const isFeedPost = (job.post_type ?? 'feed') === 'feed'
-  const metaCoverUrls = coverCandidateUrl
-    ? await metaReadyImageUrls(siteUrl, [coverCandidateUrl])
-    : []
+  const cover = await resolveSocialCover(siteUrl, [coverCandidateUrl, coverUrl])
+  const metaCoverUrls = cover.url ? [cover.url] : []
+  if (cover.source && postImageUrls.length) postImageUrls[0] = cover.source
   const coverUnavailable = isFeedPost && metaCoverUrls.length === 0
   const metaGalleryUrls = await metaReadyImageUrls(siteUrl, postImageUrls.slice(1))
   const metaPostImageUrls = [...metaCoverUrls, ...metaGalleryUrls]
@@ -927,7 +923,7 @@ export async function processOneSocialJob(
 
   try {
     if (coverUnavailable) {
-      throw new Error('social_cover_unavailable')
+      throw new Error(cover.error)
     }
     if (shouldStop && (await shouldStop())) {
       return { ok: false, network: job.network, post_type: job.post_type, job_id: job.id, error: 'social_worker_stopped' }

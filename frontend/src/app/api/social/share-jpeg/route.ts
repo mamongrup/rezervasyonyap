@@ -72,7 +72,7 @@ export async function GET(req: NextRequest) {
       signal: AbortSignal.timeout(15_000),
     })
     if (!upstream.ok) {
-      return NextResponse.json({ error: 'social_share_image_fetch_failed' }, { status: 502 })
+      return NextResponse.json({ error: 'social_share_image_fetch_failed', upstream_status: upstream.status }, { status: 502 })
     }
 
     const contentType = (upstream.headers.get('content-type') ?? '').toLowerCase()
