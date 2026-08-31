@@ -6,6 +6,34 @@ vi.mock('@/lib/site-branding-seo', () => ({ getPublicSiteUrl: () => 'https://exa
 
 afterEach(() => { vi.unstubAllGlobals(); vi.useRealTimers() })
 
+test('a second batch cannot fetch or publish while the first request remains unresolved', async () => {
+  let release!: (response: Response) => void
+  const held = new Promise<Response>((resolve) => { release = resolve })
+  const fetchMock = vi.fn(() => held)
+  vi.stubGlobal('fetch', fetchMock)
+  const options = { apiOrigin: 'http://backend.test', secret: 'test-only', siteUrl: 'https://example.com' }
+  const running = processPendingSocialJobs(options)
+  try {
+    expect(await processPendingSocialJobs(options)).toMatchObject({ processed: 0, skipped: 'worker_busy' })
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+  } finally {
+    release(Response.json({ jobs: [] }))
+    await running
+  }
+  fetchMock.mockImplementation(() => Promise.resolve(Response.json({ jobs: [] })))
+  expect(await processPendingSocialJobs(options)).toMatchObject({ processed: 0, posted: 0 })
+  expect(fetchMock).toHaveBeenCalledTimes(2)
+})
+
+test('a failed backend request releases the batch guard for the next timer tick', async () => {
+  vi.stubGlobal('fetch', vi.fn()
+    .mockRejectedValueOnce(new Error('backend unavailable'))
+    .mockResolvedValueOnce(Response.json({ jobs: [] })))
+  const options = { apiOrigin: 'http://backend.test', secret: 'test-only', siteUrl: 'https://example.com' }
+  await expect(processPendingSocialJobs(options)).rejects.toThrow('backend unavailable')
+  expect(await processPendingSocialJobs(options)).toMatchObject({ processed: 0, posted: 0 })
+})
+
 test('a missing cover stays pending without blocking a valid listing on the same network', async () => {
   vi.useFakeTimers()
   const patches: Array<{ id: string; status: string }> = []

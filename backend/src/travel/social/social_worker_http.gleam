@@ -401,7 +401,7 @@ pub fn patch_worker_job(req: Request, ctx: Context, job_id: String) -> Response 
                         pog.query(
                           "update social_share_jobs set "
                           <> "status = $2, external_post_id = coalesce($3::text, external_post_id), "
-                          <> "error_message = coalesce($4::text, error_message), "
+                          <> "error_message = case when $2 = 'posted' then null else coalesce($4::text, error_message) end, "
                           <> "caption_ai_generated = coalesce($5::text, caption_ai_generated), "
                           <> "posted_at = "
                           <> posted_at_sql

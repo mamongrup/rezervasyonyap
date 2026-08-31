@@ -27,7 +27,7 @@ BATCH_SLEEP="${SOCIAL_WORKER_BATCH_SLEEP:-90}"
 RATE_LIMIT_SLEEP="${SOCIAL_WORKER_RATE_LIMIT_SLEEP:-300}"
 SOCIAL_WORKER_ROTATE="${SOCIAL_WORKER_ROTATE:-0}"
 CURL_CONNECT_TIMEOUT="${SOCIAL_WORKER_CURL_CONNECT_TIMEOUT:-5}"
-CURL_MAX_TIME="${SOCIAL_WORKER_CURL_MAX_TIME:-120}"
+CURL_MAX_TIME="${SOCIAL_WORKER_CURL_MAX_TIME:-360}"
 
 if [[ -f "$FRONTEND_ENV_FILE" ]]; then
   set -a
@@ -53,13 +53,19 @@ while true; do
   fi
 
   URL="${WEB_ORIGIN%/}${WORKER_PATH}?limit=${REQUEST_LIMIT}${ROTATE_PARAM}"
+  curl_status=0
   code="$(curl -sS -o "$TMP" -w "%{http_code}" \
     --connect-timeout "$CURL_CONNECT_TIMEOUT" \
     --max-time "$CURL_MAX_TIME" \
     -X POST \
     -H "x-travel-social-worker-secret: ${SECRET}" \
     -H "Accept: application/json" \
-    "$URL")"
+    "$URL")" || curl_status=$?
+
+  if [[ "$curl_status" -ne 0 ]]; then
+    echo "[FAIL] social worker transport error=${curl_status}; result unknown. Server may still be processing; check posted records before retrying." >&2
+    exit "$curl_status"
+  fi
 
   if [[ ! "$code" =~ ^2 ]]; then
     echo "[FAIL] social-process-pending batch ${batch} HTTP ${code}" >&2
@@ -73,6 +79,11 @@ while true; do
   failed="$(node -e "const fs=require('fs'); const p=JSON.parse(fs.readFileSync(process.argv[1],'utf8')); console.log(Number(p.failed||0))" "$TMP" 2>/dev/null || echo 0)"
   last_err="$(node -e "const fs=require('fs'); const p=JSON.parse(fs.readFileSync(process.argv[1],'utf8')); const r=(p.results||[]).find(x=>x&&!x.ok); console.log(r&&r.error?String(r.error).slice(0,160):'')" "$TMP" 2>/dev/null || echo "")"
   echo "[OK] social-process-pending batch ${batch} HTTP ${code} processed=${processed} posted=${posted} failed=${failed}"
+  skipped="$(node -e "const fs=require('fs'); const p=JSON.parse(fs.readFileSync(process.argv[1],'utf8')); console.log(p.skipped==='worker_busy'?'worker_busy':'')" "$TMP" 2>/dev/null || echo '')"
+  if [[ "$skipped" == "worker_busy" ]]; then
+    echo "[SKIP] Existing social batch is still running; no new batch started."
+    exit 0
+  fi
 
   # Geçersiz / iptal edilmiş Meta token — kuyruğu yakmadan dur (token yenilenene kadar).
   if [[ -n "$last_err" ]] && echo "$last_err" | grep -qiE 'error validating access token|session has been invalidated|session has expired|password has been changed|invalid oauth|#190|meta_token_invalid|meta_access_token_invalid|facebook_page_token'; then
@@ -84,6 +95,10 @@ while true; do
   if [[ "$processed" -gt 0 && "$posted" -eq 0 && "$failed" -eq 0 && -n "$last_err" ]]; then
     if echo "$last_err" | grep -qiE 'rate.?limit|#613|user request limit|too many calls'; then
       echo "[WARN] Meta limit — iş pending kaldı: ${last_err}" >&2
+      if [[ "$LOOP_UNTIL_EMPTY" != "1" ]]; then
+        echo "[WARN] One-shot run: retry deferred to the next timer tick."
+        exit 0
+      fi
       echo "[WARN] ${RATE_LIMIT_SLEEP}s bekleniyor, sonra tekrar denenecek..." >&2
       sleep "$RATE_LIMIT_SLEEP"
       batch=$((batch + 1))

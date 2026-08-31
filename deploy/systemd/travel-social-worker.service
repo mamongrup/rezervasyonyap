@@ -19,14 +19,14 @@ Wants=network-online.target
 Type=oneshot
 EnvironmentFile=-/etc/rezervasyonyap/frontend.env
 Environment=WEB_ORIGIN=http://127.0.0.1:3000
-Environment=SOCIAL_WORKER_REQUEST_LIMIT=3
+Environment=SOCIAL_WORKER_REQUEST_LIMIT=1
 Environment=SOCIAL_WORKER_ROTATE=1
 Environment=LOOP_UNTIL_EMPTY=0
-Environment=SOCIAL_WORKER_CURL_MAX_TIME=120
+Environment=SOCIAL_WORKER_CURL_MAX_TIME=360
 # Onaylı hesap: turlar arası daha kısa bekleme (Meta #613 izlenmeli)
 Environment=SOCIAL_WORKER_BATCH_SLEEP=60
 Environment=SOCIAL_WORKER_RATE_LIMIT_SLEEP=300
-TimeoutStartSec=180
+TimeoutStartSec=420
 ExecStart=/bin/bash /var/www/vhosts/rezervasyonyap.tr/httpdocs/deploy/scripts/social-process-pending.sh
 
 [Install]

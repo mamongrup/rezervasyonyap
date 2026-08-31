@@ -1,0 +1,8 @@
+# Plesk > rezervasyonyap.tr > Apache & nginx Settings
+# Append to Additional directives for HTTPS. NOT a shell command or nginx config.
+# Keep existing proxy directives. Do not disable the whole WAF or rule globally.
+# Confirm these custom IDs are unused before installing in another environment.
+<IfModule security2_module>
+SecRule REQUEST_URI "@rx ^/api/social/share-jpeg(?:\?|$)" "id:1000218530,phase:1,t:none,pass,nolog,ctl:ruleRemoveTargetById=218530;ARGS:src"
+SecRule REQUEST_URI "@rx ^/api/og/listing(?:\?|$)" "id:1000218531,phase:1,t:none,pass,nolog,ctl:ruleRemoveTargetById=218530;ARGS:handle,ctl:ruleRemoveTargetById=218530;ARGS:title"
+</IfModule>

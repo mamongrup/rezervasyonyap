@@ -1091,7 +1091,23 @@ export async function enqueueRotationSocialJobs(options?: {
   return { enqueued: data.enqueued ?? 0 }
 }
 
-export async function processPendingSocialJobs(options?: {
+// Shared across route bundles in this Node process. Keep the guard until the
+// operation actually ends, even when the HTTP caller has already timed out.
+const workerRuntime = globalThis as typeof globalThis & { travelSocialBatchRunning?: boolean }
+
+export async function processPendingSocialJobs(options?: Parameters<typeof processPendingSocialJobsUnlocked>[0]) {
+  if (workerRuntime.travelSocialBatchRunning) {
+    return { processed: 0, posted: 0, failed: 0, results: [], skipped: 'worker_busy' }
+  }
+  workerRuntime.travelSocialBatchRunning = true
+  try {
+    return await processPendingSocialJobsUnlocked(options)
+  } finally {
+    workerRuntime.travelSocialBatchRunning = false
+  }
+}
+
+async function processPendingSocialJobsUnlocked(options?: {
   apiOrigin?: string
   secret?: string
   limit?: number

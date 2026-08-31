@@ -135,7 +135,7 @@ kick_social_async() {
   log "Sosyal worker arka plan tetik (nohup)"
   (
     LOOP_UNTIL_EMPTY=0 SOCIAL_WORKER_ROTATE="${SOCIAL_WORKER_ROTATE:-1}" \
-      timeout "${SOCIAL_WORKER_FALLBACK_TIMEOUT:-180}" \
+      timeout "${SOCIAL_WORKER_FALLBACK_TIMEOUT:-420}" \
         bash "$APP_ROOT/deploy/scripts/social-process-pending.sh"
   ) >/tmp/travel-social-worker-kick.log 2>&1 &
   disown $! 2>/dev/null || true
