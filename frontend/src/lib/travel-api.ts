@@ -1147,6 +1147,8 @@ export type ManageListingTranslationRow = {
   locale_code: string
   title: string
   description: string
+  cancellation_policy_text?: string
+  supplier_payment_note?: string
 }
 
 /** GET — ilan çevirileri (aktif diller); yönetici için `organizationId` sorguda. */
@@ -1175,7 +1177,7 @@ export async function getManageListingTranslations(
 export async function putManageListingTranslations(
   token: string,
   listingId: string,
-  body: { entries: { locale_code: string; title: string; description?: string }[] },
+  body: { entries: { locale_code: string; title: string; description?: string; cancellation_policy_text?: string; supplier_payment_note?: string }[] },
   params?: { organizationId?: string },
 ): Promise<{ ok: boolean }> {
   const b = base()

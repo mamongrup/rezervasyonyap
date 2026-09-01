@@ -66,7 +66,7 @@ export default function CatalogListingTranslationsClient({
   const vitrinPath = useVitrinHref()
   const { allLocales, translateTargets, primaryLocale } = useManageAiLocaleRows()
   const [rows, setRows] = useState<ManageListingTranslationRow[]>([])
-  const [draft, setDraft] = useState<Record<string, { title: string; description: string }>>({})
+  const [draft, setDraft] = useState<Record<string, { title: string; description: string; cancellation_policy_text: string; supplier_payment_note: string }>>({})
   const [seoDraft, setSeoDraft] = useState<Record<string, SeoDraftRow>>({})
   const [orgId, setOrgId] = useState('')
   const [needOrg, setNeedOrg] = useState(false)
@@ -128,11 +128,13 @@ export default function CatalogListingTranslationsClient({
         organizationId: orgId.trim() || undefined,
       })
       setRows(r.translations)
-      const d: Record<string, { title: string; description: string }> = {}
+      const d: Record<string, { title: string; description: string; cancellation_policy_text: string; supplier_payment_note: string }> = {}
       for (const x of r.translations) {
         d[x.locale_code] = {
           title: repairTurkishContentAscii(x.title),
           description: repairTurkishContentAscii(x.description ?? ''),
+          cancellation_policy_text: repairTurkishContentAscii(x.cancellation_policy_text ?? ''),
+          supplier_payment_note: repairTurkishContentAscii(x.supplier_payment_note ?? ''),
         }
       }
       setDraft(d)
@@ -192,11 +194,13 @@ export default function CatalogListingTranslationsClient({
     try {
       const entries = rows.map((r) => {
         const lc = r.locale_code
-        const row = draft[lc] ?? { title: '', description: '' }
+        const row = draft[lc] ?? { title: '', description: '', cancellation_policy_text: '', supplier_payment_note: '' }
         return {
           locale_code: lc,
           title: row.title.trim(),
           description: row.description.trim(),
+          cancellation_policy_text: row.cancellation_policy_text.trim() || undefined,
+          supplier_payment_note: row.supplier_payment_note.trim() || undefined,
         }
       })
       await putManageListingTranslations(token, listingId, { entries }, {
@@ -259,7 +263,7 @@ export default function CatalogListingTranslationsClient({
   }, [nonPrimaryRowCodesKey, primaryLocale, rows])
 
   async function runListingTranslationsToLocale(targetCode: string) {
-    const src = draft[primaryLocale] ?? { title: '', description: '' }
+    const src = draft[primaryLocale] ?? { title: '', description: '', cancellation_policy_text: '', supplier_payment_note: '' }
     const name = src.title.trim()
     const desc = src.description.trim()
     const srcSeo = seoDraft[primaryLocale] ?? emptySeoDraft()
@@ -333,6 +337,8 @@ export default function CatalogListingTranslationsClient({
       [targetCode]: {
         title: tTitle || prev[targetCode]?.title || '',
         description: tDesc || prev[targetCode]?.description || '',
+        cancellation_policy_text: prev[targetCode]?.cancellation_policy_text || '',
+        supplier_payment_note: prev[targetCode]?.supplier_payment_note || '',
       },
     }))
     setSeoDraft((prev) => ({
@@ -351,7 +357,7 @@ export default function CatalogListingTranslationsClient({
       setErr(`Hedef dil, birincil kaynak dilden (${primaryLocale.toUpperCase()}) farklı olmalı.`)
       return
     }
-    const src = draft[primaryLocale] ?? { title: '', description: '' }
+    const src = draft[primaryLocale] ?? { title: '', description: '', cancellation_policy_text: '', supplier_payment_note: '' }
     const name = src.title.trim()
     const desc = src.description.trim()
     if (!name && !desc) {
@@ -373,7 +379,7 @@ export default function CatalogListingTranslationsClient({
   }
 
   const handleAiTranslateAllListingLocales = async () => {
-    const src = draft[primaryLocale] ?? { title: '', description: '' }
+    const src = draft[primaryLocale] ?? { title: '', description: '', cancellation_policy_text: '', supplier_payment_note: '' }
     const name = src.title.trim()
     const desc = src.description.trim()
     if (!name && !desc) {
@@ -577,6 +583,34 @@ export default function CatalogListingTranslationsClient({
                     placeholder="İlan açıklaması…"
                     minHeight={160}
                     className="mt-1"
+                  />
+                </Field>
+                <Field className="mt-3 block">
+                  <Label>İptal Politikası ({lc.toUpperCase()})</Label>
+                  <textarea
+                    value={cur.cancellation_policy_text}
+                    onChange={(e) =>
+                      setDraft((prev) => ({
+                        ...prev,
+                        [lc]: { ...cur, cancellation_policy_text: e.target.value },
+                      }))
+                    }
+                    placeholder="İptal ve değiştirme koşulları…"
+                    className="mt-1 min-h-[72px] w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm dark:border-neutral-600 dark:bg-neutral-900"
+                  />
+                </Field>
+                <Field className="mt-3 block">
+                  <Label>Tedarikçi Ödeme Notu ({lc.toUpperCase()})</Label>
+                  <textarea
+                    value={cur.supplier_payment_note}
+                    onChange={(e) =>
+                      setDraft((prev) => ({
+                        ...prev,
+                        [lc]: { ...cur, supplier_payment_note: e.target.value },
+                      }))
+                    }
+                    placeholder="Tedarikçiye özel ödeme koşulları…"
+                    className="mt-1 min-h-[72px] w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm dark:border-neutral-600 dark:bg-neutral-900"
                   />
                 </Field>
                 <details className="mt-4 rounded-lg border border-neutral-200 bg-neutral-50/80 p-3 dark:border-neutral-600 dark:bg-neutral-900/40">

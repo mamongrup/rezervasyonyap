@@ -279,9 +279,9 @@ function stripHtmlToPlain(html: string): string {
     .trim()
 }
 
-function emptyListingByLocaleForCodes(codes: readonly string[]): Record<string, { title: string; description: string }> {
-  const o: Record<string, { title: string; description: string }> = {}
-  for (const c of codes) o[c] = { title: '', description: '' }
+function emptyListingByLocaleForCodes(codes: readonly string[]): Record<string, { title: string; description: string; cancellation_policy_text: string; supplier_payment_note: string }> {
+  const o: Record<string, { title: string; description: string; cancellation_policy_text: string; supplier_payment_note: string }> = {}
+  for (const c of codes) o[c] = { title: '', description: '', cancellation_policy_text: '', supplier_payment_note: '' }
   return o
 }
 
@@ -1132,7 +1132,7 @@ export default function CatalogNewListingClient({
       let changed = false
       for (const c of localeCodes) {
         if (!next[c]) {
-          next[c] = { title: '', description: '' }
+          next[c] = { title: '', description: '', cancellation_policy_text: '', supplier_payment_note: '' }
           changed = true
         }
       }
@@ -1916,6 +1916,8 @@ export default function CatalogNewListingClient({
             next[tr.locale_code] = {
               title: repairTurkishContentAscii(tr.title ?? ''),
               description: repairTurkishContentAscii(tr.description ?? ''),
+              cancellation_policy_text: repairTurkishContentAscii(tr.cancellation_policy_text ?? ''),
+              supplier_payment_note: repairTurkishContentAscii(tr.supplier_payment_note ?? ''),
             }
           }
           return next
@@ -3767,11 +3769,17 @@ export default function CatalogNewListingClient({
             title: repairTurkishContentAscii(listingByLocale[loc.code]?.title ?? '').trim(),
             description:
               repairTurkishContentAscii(listingByLocale[loc.code]?.description ?? '').trim() || undefined,
+            cancellation_policy_text:
+              repairTurkishContentAscii(listingByLocale[loc.code]?.cancellation_policy_text ?? '').trim() || undefined,
+            supplier_payment_note:
+              repairTurkishContentAscii(listingByLocale[loc.code]?.supplier_payment_note ?? '').trim() || undefined,
           })).filter((e) => e.title.length > 0 || (e.description?.length ?? 0) > 0)
         : [{
             locale_code: locale,
             title: repairTurkishContentAscii(title).trim(),
             description: repairTurkishContentAscii(description).trim() || undefined,
+            cancellation_policy_text: cancellationPolicyText.trim() || undefined,
+            supplier_payment_note: supplierPaymentNote.trim() || undefined,
           }]
       await saveRequiredStep(
         'Çeviri/açıklama kaydı',
