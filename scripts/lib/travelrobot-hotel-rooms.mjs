@@ -176,6 +176,7 @@ export async function enrichHotelRowWithRoomPrices(cfg, tokenCode, row, opts = {
       checkOutDate: opts.checkOutDate ?? defaultHotelSearchDates(opts).checkOutDate,
       onRequest: opts.onRequest,
       isAsync: opts.isAsync,
+      rooms: opts.rooms,
       timeoutMs: opts.timeoutMs,
     })
     found = pickHotelRows(searchPayload).find((h) => hotelCodeMatches(h, code)) ?? null

@@ -76,6 +76,38 @@ type HotelStayBookingContextValue = {
   currencyCode: string
   childPolicy: HotelChildPolicy
   adultsOnly: boolean
+  liveKplus: boolean
+  livePriceLoading: boolean
+  livePriceReady: boolean
+  livePriceAvailable: boolean
+  selectedLiveRoomAvailable: boolean
+  livePriceError: boolean
+  livePriceCheckedAt: string | null
+}
+
+type KplusLiveRoom = {
+  name: string
+  nightlyPrice: number
+  currency: string
+  boardType: string | null
+  availableUnits: number
+}
+
+function liveRoomKey(value: string): string {
+  return value
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLocaleLowerCase('tr-TR')
+    .replace(/ı/g, 'i')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim()
+}
+
+function formatYmd(date: Date): string {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
 }
 
 const HotelStayBookingContext = createContext<HotelStayBookingContextValue | null>(null)
@@ -86,6 +118,7 @@ export function HotelStayBookingProvider({
   activities = [],
   quoteProps,
   priceRules = [],
+  liveKplus = false,
   reservationAnchorId = 'stay-reservation-card',
   children,
 }: {
@@ -95,6 +128,7 @@ export function HotelStayBookingProvider({
   quoteProps: HotelStayBookingQuoteProps
   /** Oda adıyla eşleşen `listing_price_rules` — oda kartı fiyat farkı için. */
   priceRules?: ListingPriceRuleRow[]
+  liveKplus?: boolean
   reservationAnchorId?: string
   children: ReactNode
 }) {
@@ -103,6 +137,11 @@ export function HotelStayBookingProvider({
   const [rangeEnd, setRangeEnd] = useState<Date | null>(null)
   const [guests, setGuestsState] = useState<GuestsObject>(DEFAULT_GUESTS_STAY)
   const [urlHydrated, setUrlHydrated] = useState(false)
+  const [liveRooms, setLiveRooms] = useState<KplusLiveRoom[]>([])
+  const [livePriceLoading, setLivePriceLoading] = useState(false)
+  const [livePriceReady, setLivePriceReady] = useState(false)
+  const [livePriceError, setLivePriceError] = useState(false)
+  const [livePriceCheckedAt, setLivePriceCheckedAt] = useState<string | null>(null)
 
   const childPolicy = quoteProps.childPolicy ?? DEFAULT_HOTEL_CHILD_POLICY
   const adultsOnly = !childPolicy.childrenAllowed
@@ -179,6 +218,89 @@ export function HotelStayBookingProvider({
     setRangeEnd(end)
   }, [])
 
+  useEffect(() => {
+    if (!liveKplus || !rangeStart || !rangeEnd || rangeEnd <= rangeStart) {
+      setLiveRooms([])
+      setLivePriceReady(false)
+      setLivePriceError(false)
+      setLivePriceLoading(false)
+      setLivePriceCheckedAt(null)
+      return
+    }
+
+    let cancelled = false
+    let controller: AbortController | null = null
+    let intervalId: ReturnType<typeof setInterval> | null = null
+    setLiveRooms([])
+    setLivePriceReady(false)
+    setLivePriceError(false)
+
+    const refresh = async () => {
+      controller?.abort()
+      controller = new AbortController()
+      setLivePriceLoading(true)
+      setLivePriceError(false)
+      try {
+        const response = await fetch('/api/kplus/hotel-live', {
+          method: 'POST',
+          cache: 'no-store',
+          headers: { 'Content-Type': 'application/json' },
+          signal: controller.signal,
+          body: JSON.stringify({
+            listingId,
+            checkIn: formatYmd(rangeStart),
+            checkOut: formatYmd(rangeEnd),
+            adults: Math.max(1, guests.guestAdults ?? 2),
+            childAges: guests.childAges ?? [],
+          }),
+        })
+        if (!response.ok) throw new Error(`kplus_live_${response.status}`)
+        const data = (await response.json()) as {
+          available?: boolean
+          rooms?: KplusLiveRoom[]
+          checkedAt?: string
+        }
+        if (cancelled) return
+        setLiveRooms(Array.isArray(data.rooms) ? data.rooms : [])
+        setLivePriceReady(true)
+        setLivePriceError(false)
+        setLivePriceCheckedAt(data.checkedAt ?? new Date().toISOString())
+      } catch (error) {
+        if (cancelled || (error instanceof DOMException && error.name === 'AbortError')) return
+        setLiveRooms([])
+        setLivePriceReady(false)
+        setLivePriceError(true)
+      } finally {
+        if (!cancelled) setLivePriceLoading(false)
+      }
+    }
+
+    const debounceId = setTimeout(() => {
+      void refresh()
+      intervalId = setInterval(() => void refresh(), 60_000)
+    }, 500)
+
+    return () => {
+      cancelled = true
+      clearTimeout(debounceId)
+      if (intervalId) clearInterval(intervalId)
+      controller?.abort()
+    }
+  }, [
+    liveKplus,
+    listingId,
+    rangeStart,
+    rangeEnd,
+    guests.guestAdults,
+    guests.guestChildren,
+    guests.childAges,
+  ])
+
+  const liveRoomsByName = useMemo(
+    () => new Map(liveRooms.map((room) => [liveRoomKey(room.name), room])),
+    [liveRooms],
+  )
+
   const scrollToReservation = useCallback(() => {
     if (typeof window === 'undefined') return
     const el = document.getElementById(reservationAnchorId)
@@ -249,8 +371,11 @@ export function HotelStayBookingProvider({
   )
 
   const roomFallbackNightly = useCallback(
-    (room: HotelRoomBookingOption) =>
-      resolveHotelRoomFallbackNightly({
+    (room: HotelRoomBookingOption) => {
+      if (liveKplus && rangeStart && rangeEnd) {
+        return liveRoomsByName.get(liveRoomKey(room.name))?.nightlyPrice ?? 0
+      }
+      return resolveHotelRoomFallbackNightly({
         roomId: room.id,
         roomName: room.name,
         metaJson: room.meta_json,
@@ -259,20 +384,25 @@ export function HotelStayBookingProvider({
         priceRules,
         listingFallbackNightly: fallbackNightly,
         listingHasRoomScopedPrices: listingHasRoomScoped,
-      }),
-    [rangeStart, rangeEnd, priceRules, fallbackNightly, listingHasRoomScoped],
+      })
+    },
+    [liveKplus, liveRoomsByName, rangeStart, rangeEnd, priceRules, fallbackNightly, listingHasRoomScoped],
   )
 
   const resolveRoomNightlyForDay = useCallback(
-    (room: HotelRoomBookingOption, ymd: string) =>
-      resolveHotelRoomNightlyForDay({
+    (room: HotelRoomBookingOption, ymd: string) => {
+      if (liveKplus && rangeStart && rangeEnd) {
+        return liveRoomsByName.get(liveRoomKey(room.name))?.nightlyPrice ?? null
+      }
+      return resolveHotelRoomNightlyForDay({
         ymd,
         roomName: room.name,
         metaJson: room.meta_json,
         priceRules,
         allowUnscopedRules: !listingHasRoomScoped,
-      }),
-    [priceRules, listingHasRoomScoped],
+      })
+    },
+    [liveKplus, liveRoomsByName, rangeStart, rangeEnd, priceRules, listingHasRoomScoped],
   )
 
   const selectedRoomFallbackNightly = useMemo(() => {
@@ -318,6 +448,15 @@ export function HotelStayBookingProvider({
       currencyCode,
       childPolicy: adultsOnly ? ADULTS_ONLY_CHILD_POLICY : childPolicy,
       adultsOnly,
+      liveKplus,
+      livePriceLoading,
+      livePriceReady,
+      livePriceAvailable: liveRooms.length > 0,
+      selectedLiveRoomAvailable: selectedRoom
+        ? liveRoomsByName.has(liveRoomKey(selectedRoom.name))
+        : false,
+      livePriceError,
+      livePriceCheckedAt,
     }),
     [
       listingId,
@@ -347,6 +486,13 @@ export function HotelStayBookingProvider({
       currencyCode,
       childPolicy,
       adultsOnly,
+      liveKplus,
+      livePriceLoading,
+      livePriceReady,
+      liveRooms.length,
+      liveRoomsByName,
+      livePriceError,
+      livePriceCheckedAt,
     ],
   )
 

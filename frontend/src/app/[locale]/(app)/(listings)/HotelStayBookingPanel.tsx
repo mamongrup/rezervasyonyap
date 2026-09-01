@@ -276,7 +276,8 @@ export function HotelStayBookingSidebar(props: SharedProps) {
     roomChosen &&
     quote.grandTotal > 0 &&
     quote.available &&
-    selectedRoom?.id
+    selectedRoom?.id &&
+    (!booking.liveKplus || (booking.livePriceReady && booking.selectedLiveRoomAvailable))
 
   function goCheckout() {
     if (!canCheckout || !rangeStart || !rangeEnd || !selectedRoom) return
@@ -316,8 +317,32 @@ export function HotelStayBookingSidebar(props: SharedProps) {
       </div>
 
       <div className="mt-4 space-y-4">
-        {availLoading || quote.availLoading ? (
-          <p className="text-xs text-neutral-400">{hotelBooking.roomAvailabilityLoading}</p>
+        {availLoading || quote.availLoading || booking.livePriceLoading ? (
+          <p className="text-xs text-neutral-400">
+            {booking.liveKplus ? hotelBooking.livePriceLoading : hotelBooking.roomAvailabilityLoading}
+          </p>
+        ) : null}
+
+        {booking.liveKplus && booking.livePriceError && hasSelectedRange ? (
+          <p className="text-xs font-medium text-red-600 dark:text-red-400">
+            {hotelBooking.livePriceError}
+          </p>
+        ) : null}
+
+        {booking.liveKplus && booking.livePriceReady && !booking.livePriceAvailable && hasSelectedRange ? (
+          <p className="text-xs font-medium text-red-600 dark:text-red-400">
+            {hotelBooking.livePriceUnavailable}
+          </p>
+        ) : null}
+
+        {booking.liveKplus &&
+        booking.livePriceReady &&
+        booking.livePriceAvailable &&
+        roomChosen &&
+        !booking.selectedLiveRoomAvailable ? (
+          <p className="text-xs font-medium text-red-600 dark:text-red-400">
+            {hotelBooking.livePriceUnavailable}
+          </p>
         ) : null}
 
         {!quote.available && hasSelectedRange && roomChosen ? (

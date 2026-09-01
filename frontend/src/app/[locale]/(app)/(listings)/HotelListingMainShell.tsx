@@ -15,6 +15,7 @@ export default function HotelListingMainShell({
   activities = [],
   quoteProps,
   priceRules = [],
+  liveKplus = false,
   children,
 }: {
   enabled: boolean
@@ -23,6 +24,7 @@ export default function HotelListingMainShell({
   activities?: HotelListingActivity[]
   quoteProps: HotelStayBookingQuoteProps
   priceRules?: ListingPriceRuleRow[]
+  liveKplus?: boolean
   children: ReactNode
 }) {
   if (!enabled) return children
@@ -34,6 +36,7 @@ export default function HotelListingMainShell({
         activities={activities}
         quoteProps={quoteProps}
         priceRules={priceRules}
+        liveKplus={liveKplus}
       >
         {children}
       </HotelStayBookingProvider>
