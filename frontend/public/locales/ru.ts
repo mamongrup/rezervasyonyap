@@ -642,7 +642,7 @@ export const ru: AppMessages = {
       roomTypeLabel: 'Тип номера',
       defaultRoomName: 'Стандартный номер',
       roomAvailabilityLoading: 'Загрузка доступности номеров…',
-      livePriceLoading: 'Проверяем актуальные цены и наличие в KPlus…',
+      livePriceLoading: 'Проверяем актуальные цены и наличие…',
       livePriceError: 'Не удалось подтвердить актуальную цену. Система повторит попытку автоматически.',
       livePriceUnavailable: 'На выбранные даты и для указанного числа гостей свободных номеров нет.',
       roomUnitCount: '({count} ном.)',

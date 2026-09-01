@@ -634,7 +634,7 @@ export const zh: AppMessages = {
       roomTypeLabel: '房型',
       defaultRoomName: '标准间',
       roomAvailabilityLoading: '正在加载房态…',
-      livePriceLoading: '正在查询 KPlus 的最新价格和房态…',
+      livePriceLoading: '正在查询最新价格和房态…',
       livePriceError: '无法验证当前价格，系统将自动重试。',
       livePriceUnavailable: '所选日期和入住人数暂无可订客房。',
       roomUnitCount: '（{count} 间）',

@@ -642,7 +642,7 @@ export const fr: AppMessages = {
       roomTypeLabel: 'Type de chambre',
       defaultRoomName: 'Chambre Standard',
       roomAvailabilityLoading: 'Chargement des disponibilités…',
-      livePriceLoading: 'Vérification des tarifs et disponibilités KPlus en cours…',
+      livePriceLoading: 'Vérification des tarifs et disponibilités en cours…',
       livePriceError: 'Le tarif actuel n’a pas pu être vérifié. Le système réessaiera automatiquement.',
       livePriceUnavailable: 'Aucune chambre n’est disponible pour les dates et les voyageurs sélectionnés.',
       roomUnitCount: '({count} chambres)',

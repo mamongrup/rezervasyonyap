@@ -1424,7 +1424,7 @@ export const en = {
       roomTypeLabel: 'Room type',
       defaultRoomName: 'Standard Room',
       roomAvailabilityLoading: 'Loading room availability…',
-      livePriceLoading: 'Checking current KPlus prices and availability…',
+      livePriceLoading: 'Checking current prices and availability…',
       livePriceError: 'The current price could not be verified. The system will retry automatically.',
       livePriceUnavailable: 'No room is available for the selected dates and guests.',
       roomUnitCount: '({count} rooms)',

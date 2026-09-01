@@ -1714,7 +1714,7 @@ export default async function StayListingDetailPageContent({
         activities={hotelActivities}
         quoteProps={hotelBookingQuoteProps}
         priceRules={hotelPriceRules}
-        liveKplus={/-tr-K[A-Z]{2}\d+$/i.test(handle)}
+        liveKplus={Boolean(listing.externalProviderCode)}
       >
       <main className="relative z-[1] flex flex-col gap-6 lg:flex-row lg:items-start xl:gap-8">
         {/* LEFT COLUMN */}

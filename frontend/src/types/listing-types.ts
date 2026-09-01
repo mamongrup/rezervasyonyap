@@ -60,6 +60,8 @@ export interface TListingBase {
   ministryLicenseRef?: string
   /** Panel `listings.external_listing_ref` — vitrin referans kodu */
   externalListingRef?: string
+  /** İçe aktarılan ilanın sağlayıcı kodu; canlı fiyat/müsaitlik doğrulama yönlendirmesi. */
+  externalProviderCode?: string
   /** Ön ödeme yüzdesi (sayısal metin) — vitrin */
   prepaymentPercent?: string
   /** İptal politikası — panelden serbest metin (`listings.cancellation_policy_text`) */

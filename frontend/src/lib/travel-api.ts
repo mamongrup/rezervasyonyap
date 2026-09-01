@@ -1928,6 +1928,7 @@ export type PublicListingVitrine = {
   /** listing_meta.province_city — il */
   location_province?: string | null
   external_listing_ref?: string | null
+  external_provider_code?: string | null
 }
 
 export type PublicListingPriceLines = {

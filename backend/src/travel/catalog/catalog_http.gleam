@@ -6384,7 +6384,7 @@ pub fn list_public_listing_bedrooms(
   }
 }
 
-fn vitrine_row() -> decode.Decoder(#(String, String, String, String, String, String, String, String, String)) {
+fn vitrine_row() -> decode.Decoder(#(String, String, String, String, String, String, String, String, String, String)) {
   use title <- decode.field(0, decode.string)
   use description <- decode.field(1, decode.string)
   use contact_name <- decode.field(2, decode.string)
@@ -6394,6 +6394,7 @@ fn vitrine_row() -> decode.Decoder(#(String, String, String, String, String, Str
   use location_district <- decode.field(6, decode.string)
   use location_province <- decode.field(7, decode.string)
   use contact_bio <- decode.field(8, decode.string)
+  use external_provider_code <- decode.field(9, decode.string)
   decode.success(#(
     title,
     description,
@@ -6404,6 +6405,7 @@ fn vitrine_row() -> decode.Decoder(#(String, String, String, String, String, Str
     location_district,
     location_province,
     contact_bio,
+    external_provider_code,
   ))
 }
 
@@ -6447,7 +6449,8 @@ pub fn get_public_listing_vitrine(
       <> "then nullif(trim(substring(trim(la.value_json->>'province_city') from '[^/]+$')), '') "
       <> "else nullif(trim(la.value_json->>'province_city'), '') end "
       <> "from listing_attributes la where la.listing_id = l.id and la.group_code = 'listing_meta' and la.key = 'v1' limit 1)), ''), ''), "
-      <> "coalesce((select c.contact_bio from listing_owner_contacts c where c.listing_id = l.id limit 1), '') "
+      <> "coalesce((select c.contact_bio from listing_owner_contacts c where c.listing_id = l.id limit 1), ''), "
+      <> "coalesce(l.external_provider_code::text, '') "
       <> "from listings l where l.id = $1::uuid and l.status = 'published'",
     )
     |> pog.parameter(pog.text(listing_id))
@@ -6470,6 +6473,7 @@ pub fn get_public_listing_vitrine(
             location_district,
             location_province,
             contact_bio,
+            external_provider_code,
           ) = first
           let cnj = case string.trim(contact_name) == "" {
             True -> json.null()
@@ -6507,6 +6511,10 @@ pub fn get_public_listing_vitrine(
               #("contact_bio", bio_j),
               #("location_label", loc_j),
               #("external_listing_ref", ref_j),
+              #("external_provider_code", case string.trim(external_provider_code) == "" {
+                True -> json.null()
+                False -> json.string(string.trim(external_provider_code))
+              }),
               #("location_area", area_j),
               #("location_district", district_j),
               #("location_province", province_j),

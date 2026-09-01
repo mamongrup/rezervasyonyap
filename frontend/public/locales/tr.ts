@@ -927,7 +927,7 @@ export const tr = {
       roomTypeLabel: 'Oda tipi',
       defaultRoomName: 'Standart Oda',
       roomAvailabilityLoading: 'Oda müsaitliği yükleniyor…',
-      livePriceLoading: 'KPlus güncel fiyat ve müsaitlik sorgulanıyor…',
+      livePriceLoading: 'Güncel fiyat ve müsaitlik sorgulanıyor…',
       livePriceError: 'Güncel fiyat doğrulanamadı. Sistem otomatik olarak yeniden deneyecek.',
       livePriceUnavailable: 'Seçilen tarihler ve misafirler için müsait oda bulunamadı.',
       roomUnitCount: '({count} oda)',

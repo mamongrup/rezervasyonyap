@@ -335,6 +335,7 @@ export const getStayListingByHandle = cache(async (
   const contactName = vitrine?.contact_name?.trim()
   const contactBio = vitrine?.contact_bio?.trim()
   const externalListingRef = vitrine?.external_listing_ref?.trim() || undefined
+  const externalProviderCode = vitrine?.external_provider_code?.trim() || undefined
 
   const featuredNorm = listing.featuredImage?.trim()
     ? resolveListingDisplayImageUrl(listing.featuredImage.trim())
@@ -353,6 +354,7 @@ export const getStayListingByHandle = cache(async (
     ...(listingExtraFees?.length ? { listingExtraFees } : {}),
     ...(holidayHomeFaqItems?.length ? { holidayHomeFaqItems } : {}),
     ...(externalListingRef ? { externalListingRef } : {}),
+    ...(externalProviderCode ? { externalProviderCode } : {}),
     host: {
       displayName: contactName?.trim() || listing.title?.trim() || 'Host',
       avatarUrl: avatars1.src,

@@ -643,7 +643,7 @@ export const de: AppMessages = {
       roomTypeLabel: 'Zimmertyp',
       defaultRoomName: 'Standardzimmer',
       roomAvailabilityLoading: 'Zimmverfügbarkeit wird geladen…',
-      livePriceLoading: 'Aktuelle KPlus-Preise und Verfügbarkeit werden geprüft…',
+      livePriceLoading: 'Aktuelle Preise und Verfügbarkeit werden geprüft…',
       livePriceError: 'Der aktuelle Preis konnte nicht bestätigt werden. Das System versucht es automatisch erneut.',
       livePriceUnavailable: 'Für die gewählten Daten und Gäste ist kein Zimmer verfügbar.',
       roomUnitCount: '({count} Zimmer)',
