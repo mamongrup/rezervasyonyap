@@ -328,8 +328,14 @@ export const getStayListingByHandle = cache(async (
     if (mlr) ministryLicenseRef = mlr
     const pp = safeTrimOrNull(item.prepayment_percent)
     if (pp) prepaymentPercent = pp
-    const cpt = safeTrimOrNull(item.cancellation_policy_text)
-    if (cpt) cancellationPolicyText = cpt
+    // Vitrin (locale-specific) cancelledPolicyText tercih edilir; search API tek dilli.
+    const cptVitrine = safeTrimOrNull(vitrine?.cancellation_policy_text)
+    if (cptVitrine) {
+      cancellationPolicyText = cptVitrine
+    } else {
+      const cpt = safeTrimOrNull(item.cancellation_policy_text)
+      if (cpt) cancellationPolicyText = cpt
+    }
   }
 
   const contactName = vitrine?.contact_name?.trim()

@@ -1929,6 +1929,10 @@ export type PublicListingVitrine = {
   location_province?: string | null
   external_listing_ref?: string | null
   external_provider_code?: string | null
+  /** İptal politikası — dile göre değişen metin */
+  cancellation_policy_text?: string | null
+  /** Tedarikçi ödeme notu — dile göre değişen metin */
+  supplier_payment_note?: string | null
 }
 
 export type PublicListingPriceLines = {

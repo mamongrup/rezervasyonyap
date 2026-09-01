@@ -280,6 +280,8 @@ modules/434_activity_session_price_single_source.sql
 modules/435_contact_form_channel.sql
 modules/436_admin_email_notifications.sql
 modules/437_admin_important_events.sql
+modules/438_listing_translations_locale_fields.sql
+modules/439_listing_image_scene_taxonomy.sql
 
 # Kurulum doğrulama (install_order’a dahil değil — elle çalıştırın):
 #   psql -U postgres -d travel -f priv/sql/check_installation.sql

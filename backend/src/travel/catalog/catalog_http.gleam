@@ -952,11 +952,13 @@ pub fn delete_manage_listings_bulk(req: Request, ctx: Context) -> Response {
   }
 }
 
-fn lt_locale_row() -> decode.Decoder(#(String, String, String)) {
+fn lt_locale_row() -> decode.Decoder(#(String, String, String, String, String)) {
   use code <- decode.field(0, decode.string)
   use title <- decode.field(1, decode.string)
   use desc <- decode.field(2, decode.string)
-  decode.success(#(code, title, desc))
+  use cpt <- decode.field(3, decode.string)
+  use spn <- decode.field(4, decode.string)
+  decode.success(#(code, title, desc, cpt, spn))
 }
 
 /// GET /api/v1/catalog/listings/:id/translations — aktif diller + mevcut başlık/açıklama.
@@ -975,7 +977,8 @@ pub fn get_listing_translations(
         Ok(True) ->
           case
             pog.query(
-              "select loc.code::text, coalesce(lt.title, ''), coalesce(lt.description, '') "
+              "select loc.code::text, coalesce(lt.title, ''), coalesce(lt.description, ''), "
+              <> "coalesce(lt.cancellation_policy_text, ''), coalesce(lt.supplier_payment_note, '') "
               <> "from locales loc "
               <> "left join listing_translations lt on lt.locale_id = loc.id and lt.listing_id = $1::uuid "
               <> "where coalesce(loc.is_active, true) = true order by loc.id",
@@ -988,11 +991,13 @@ pub fn get_listing_translations(
             Ok(ret) -> {
               let arr =
                 list.map(ret.rows, fn(row) {
-                  let #(code, title, desc) = row
+                  let #(code, title, desc, cpt, spn) = row
                   json.object([
                     #("locale_code", json.string(code)),
                     #("title", json.string(title)),
                     #("description", json.string(desc)),
+                    #("cancellation_policy_text", json.string(cpt)),
+                    #("supplier_payment_note", json.string(spn)),
                   ])
                 })
               let body =
@@ -1005,18 +1010,22 @@ pub fn get_listing_translations(
   }
 }
 
-fn put_translation_entry_decoder() -> decode.Decoder(#(String, String, String)) {
+fn put_translation_entry_decoder() -> decode.Decoder(#(String, String, String, String, String)) {
   decode.field("locale_code", decode.string, fn(lc) {
     decode.field("title", decode.string, fn(t) {
       decode.optional_field("description", "", decode.string, fn(d) {
-        decode.success(#(lc, t, d))
+        decode.optional_field("cancellation_policy_text", "", decode.string, fn(cpt) {
+          decode.optional_field("supplier_payment_note", "", decode.string, fn(spn) {
+            decode.success(#(lc, t, d, cpt, spn))
+          })
+        })
       })
     })
   })
 }
 
 fn put_listing_translations_body_decoder() -> decode.Decoder(
-  List(#(String, String, String)),
+  List(#(String, String, String, String, String)),
 ) {
   decode.field("entries", decode.list(put_translation_entry_decoder()), fn(entries) {
     decode.success(entries)
@@ -1029,23 +1038,37 @@ fn upsert_listing_translation_row(
   locale_code: String,
   title: String,
   description: String,
+  cancellation_policy_text: String,
+  supplier_payment_note: String,
 ) -> Result(Nil, Nil) {
   let desc_param = case description == "" {
     True -> pog.null()
     False -> pog.text(description)
   }
+  let cpt_param = case cancellation_policy_text == "" {
+    True -> pog.null()
+    False -> pog.text(cancellation_policy_text)
+  }
+  let spn_param = case supplier_payment_note == "" {
+    True -> pog.null()
+    False -> pog.text(supplier_payment_note)
+  }
   case
     pog.query(
-      "insert into listing_translations (listing_id, locale_id, title, description) "
-      <> "select $1::uuid, loc.id, $3::text, $4::text from locales loc "
+      "insert into listing_translations (listing_id, locale_id, title, description, cancellation_policy_text, supplier_payment_note) "
+      <> "select $1::uuid, loc.id, $3::text, $4::text, $5::text, $6::text from locales loc "
       <> "where lower(loc.code) = lower($2) and coalesce(loc.is_active, true) = true limit 1 "
-      <> "on conflict (listing_id, locale_id) do update set title = excluded.title, description = excluded.description "
+      <> "on conflict (listing_id, locale_id) do update set title = excluded.title, description = excluded.description, "
+      <> "cancellation_policy_text = case when excluded.cancellation_policy_text is null or excluded.cancellation_policy_text = '' then listing_translations.cancellation_policy_text else excluded.cancellation_policy_text end, "
+      <> "supplier_payment_note = case when excluded.supplier_payment_note is null or excluded.supplier_payment_note = '' then listing_translations.supplier_payment_note else excluded.supplier_payment_note end "
       <> "returning 1",
     )
     |> pog.parameter(pog.text(listing_id))
     |> pog.parameter(pog.text(locale_code))
     |> pog.parameter(pog.text(title))
     |> pog.parameter(desc_param)
+    |> pog.parameter(cpt_param)
+    |> pog.parameter(spn_param)
     |> pog.returning(translation_upsert_return_row())
     |> pog.execute(conn)
   {
@@ -1080,10 +1103,12 @@ pub fn put_listing_translations(
                 Ok(entries) -> {
                   let applied =
                     list.try_map(entries, fn(ent) {
-                      let #(lc_raw, title_raw, desc_raw) = ent
+                      let #(lc_raw, title_raw, desc_raw, cpt_raw, spn_raw) = ent
                       let lc = string.lowercase(string.trim(lc_raw))
                       let title = string.trim(title_raw)
                       let desc = string.trim(desc_raw)
+                      let cpt = string.trim(cpt_raw)
+                      let spn = string.trim(spn_raw)
                       case lc == "" || title == "" {
                         True -> Error(Nil)
                         False ->
@@ -1094,6 +1119,8 @@ pub fn put_listing_translations(
                               lc,
                               title,
                               desc,
+                              cpt,
+                              spn,
                             )
                           {
                             Ok(Nil) -> Ok(Nil)
@@ -6384,7 +6411,7 @@ pub fn list_public_listing_bedrooms(
   }
 }
 
-fn vitrine_row() -> decode.Decoder(#(String, String, String, String, String, String, String, String, String, String)) {
+fn vitrine_row() -> decode.Decoder(#(String, String, String, String, String, String, String, String, String, String, String, String)) {
   use title <- decode.field(0, decode.string)
   use description <- decode.field(1, decode.string)
   use contact_name <- decode.field(2, decode.string)
@@ -6395,6 +6422,8 @@ fn vitrine_row() -> decode.Decoder(#(String, String, String, String, String, Str
   use location_province <- decode.field(7, decode.string)
   use contact_bio <- decode.field(8, decode.string)
   use external_provider_code <- decode.field(9, decode.string)
+  use cancellation_policy_text <- decode.field(10, decode.string)
+  use supplier_payment_note <- decode.field(11, decode.string)
   decode.success(#(
     title,
     description,
@@ -6406,6 +6435,8 @@ fn vitrine_row() -> decode.Decoder(#(String, String, String, String, String, Str
     location_province,
     contact_bio,
     external_provider_code,
+    cancellation_policy_text,
+    supplier_payment_note,
   ))
 }
 
@@ -6450,7 +6481,9 @@ pub fn get_public_listing_vitrine(
       <> "else nullif(trim(la.value_json->>'province_city'), '') end "
       <> "from listing_attributes la where la.listing_id = l.id and la.group_code = 'listing_meta' and la.key = 'v1' limit 1)), ''), ''), "
       <> "coalesce((select c.contact_bio from listing_owner_contacts c where c.listing_id = l.id limit 1), ''), "
-      <> "coalesce(l.external_provider_code::text, '') "
+      <> "coalesce(l.external_provider_code::text, ''), "
+      <> listing_translation_sql.cancellation_policy_select_sql("l.id", "$2")
+      <> listing_translation_sql.supplier_payment_note_select_sql("l.id", "$2")
       <> "from listings l where l.id = $1::uuid and l.status = 'published'",
     )
     |> pog.parameter(pog.text(listing_id))
@@ -6474,6 +6507,8 @@ pub fn get_public_listing_vitrine(
             location_province,
             contact_bio,
             external_provider_code,
+            cancellation_policy_text,
+            supplier_payment_note,
           ) = first
           let cnj = case string.trim(contact_name) == "" {
             True -> json.null()
@@ -6518,6 +6553,14 @@ pub fn get_public_listing_vitrine(
               #("location_area", area_j),
               #("location_district", district_j),
               #("location_province", province_j),
+              #("cancellation_policy_text", case string.trim(cancellation_policy_text) == "" {
+                True -> json.null()
+                False -> json.string(string.trim(cancellation_policy_text))
+              }),
+              #("supplier_payment_note", case string.trim(supplier_payment_note) == "" {
+                True -> json.null()
+                False -> json.string(string.trim(supplier_payment_note))
+              }),
             ])
             |> json.to_string
           wisp.json_response(body, 200)
