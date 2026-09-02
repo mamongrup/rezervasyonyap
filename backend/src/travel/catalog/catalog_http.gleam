@@ -6411,7 +6411,7 @@ pub fn list_public_listing_bedrooms(
   }
 }
 
-fn vitrine_row() -> decode.Decoder(#(String, String, String, String, String, String, String, String, String, String, String, String)) {
+fn vitrine_row() -> decode.Decoder(#(String, String, String, String, String, String, String, String, String, String, String, String, String)) {
   use title <- decode.field(0, decode.string)
   use description <- decode.field(1, decode.string)
   use contact_name <- decode.field(2, decode.string)
@@ -6424,6 +6424,7 @@ fn vitrine_row() -> decode.Decoder(#(String, String, String, String, String, Str
   use external_provider_code <- decode.field(9, decode.string)
   use cancellation_policy_text <- decode.field(10, decode.string)
   use supplier_payment_note <- decode.field(11, decode.string)
+  use pool_size_label <- decode.field(12, decode.string)
   decode.success(#(
     title,
     description,
@@ -6437,6 +6438,7 @@ fn vitrine_row() -> decode.Decoder(#(String, String, String, String, String, Str
     external_provider_code,
     cancellation_policy_text,
     supplier_payment_note,
+    pool_size_label,
   ))
 }
 
@@ -6480,10 +6482,11 @@ pub fn get_public_listing_vitrine(
       <> "then nullif(trim(substring(trim(la.value_json->>'province_city') from '[^/]+$')), '') "
       <> "else nullif(trim(la.value_json->>'province_city'), '') end "
       <> "from listing_attributes la where la.listing_id = l.id and la.group_code = 'listing_meta' and la.key = 'v1' limit 1)), ''), ''), "
-      <> "coalesce((select c.contact_bio from listing_owner_contacts c where c.listing_id = l.id limit 1), ''), "
+      <> listing_translation_sql.contact_bio_select_sql("l.id", "$2")
       <> "coalesce(l.external_provider_code::text, ''), "
       <> listing_translation_sql.cancellation_policy_select_sql("l.id", "$2")
       <> listing_translation_sql.supplier_payment_note_select_sql("l.id", "$2")
+      <> listing_translation_sql.pool_size_label_select_sql("l.id", "$2")
       <> "from listings l where l.id = $1::uuid and l.status = 'published'",
     )
     |> pog.parameter(pog.text(listing_id))
@@ -6509,6 +6512,7 @@ pub fn get_public_listing_vitrine(
             external_provider_code,
             cancellation_policy_text,
             supplier_payment_note,
+            pool_size_label,
           ) = first
           let cnj = case string.trim(contact_name) == "" {
             True -> json.null()
@@ -6560,6 +6564,10 @@ pub fn get_public_listing_vitrine(
               #("supplier_payment_note", case string.trim(supplier_payment_note) == "" {
                 True -> json.null()
                 False -> json.string(string.trim(supplier_payment_note))
+              }),
+              #("pool_size_label", case string.trim(pool_size_label) == "" {
+                True -> json.null()
+                False -> json.string(string.trim(pool_size_label))
               }),
             ])
             |> json.to_string

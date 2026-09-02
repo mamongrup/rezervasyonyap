@@ -18,6 +18,7 @@ import travel/db/decode_helpers as row_dec
 import travel/db/pog_errors
 import travel/db/resilient_pog as db_exec
 import travel/identity/admin_gate
+import travel/catalog/listing_translation_sql
 import wisp.{type Request, type Response}
 
 /// Vitrin liste sayfası sorgusu için pog zaman aşımı. pog varsayılanı 5000 ms —
@@ -1710,7 +1711,7 @@ fn search_listings_impl(
     <> ", coalesce(nullif(trim(lm.meta->>'property_type'), ''), '') "
     <> ", coalesce(nullif(array_to_string(h.theme_codes, ','), ''), nullif(array_to_string(y.theme_codes, ','), ''), '') "
     <> ", coalesce(public_ministry_license_display(l.ministry_license_ref), ''), coalesce(l.prepayment_percent::text, '') "
-    <> ", coalesce(l.cancellation_policy_text::text, '') "
+    <> ", " <> listing_translation_sql.cancellation_policy_select_sql("l.id", "$4") ", "
     <> ", coalesce(l.min_stay_nights::text, '') "
     <> ", case when coalesce(l.allow_sub_min_stay_gap_booking, false) then 'true' else 'false' end "
     <> ", coalesce(nullif(trim(lm.meta->>'min_advance_booking_days'), ''), '') "

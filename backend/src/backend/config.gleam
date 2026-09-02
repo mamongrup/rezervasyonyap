@@ -205,12 +205,23 @@ fn default_database(
     Error(_) -> None
   }
 
+  let ssl_mode = case envoy.get("PGSSLMODE") {
+    Ok(m) -> string.lowercase(string.trim(m))
+    Error(_) -> "disable"
+  }
+  let ssl_config = case ssl_mode == "verify-ca" || ssl_mode == "verify-full" {
+    True -> pog.SslVerified
+    False -> case ssl_mode == "require" || ssl_mode == "prefer" {
+      True -> pog.SslUnverified
+      False -> pog.SslDisabled
+    }
+  }
   pog.default_config(pool_name)
   |> pog.host(host)
   |> pog.port(port)
   |> pog.database(database)
   |> pog.user(user)
   |> pog.password(password)
-  |> pog.ssl(pog.SslDisabled)
+  |> pog.ssl(ssl_config)
   |> finish_pool_config(pool_size, idle_ms, app_name)
 }

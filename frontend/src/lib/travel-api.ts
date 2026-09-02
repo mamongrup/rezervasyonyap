@@ -1935,6 +1935,8 @@ export type PublicListingVitrine = {
   cancellation_policy_text?: string | null
   /** Tedarikçi ödeme notu — dile göre değişen metin */
   supplier_payment_note?: string | null
+  /** Havuz boyutu etiketi — dile göre değişen metin */
+  pool_size_label?: string | null
 }
 
 export type PublicListingPriceLines = {
