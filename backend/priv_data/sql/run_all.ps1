@@ -23,7 +23,15 @@ $files = Get-Content (Join-Path $base 'install_order.txt') -Encoding UTF8 |
 foreach ($rel in $files) {
   $rel = $rel.Trim()
   $path = Join-Path $base $rel
-  if (-not (Test-Path $path)) { throw "Dosya yok: $path" }
+  if (-not (Test-Path $path)) {
+    $fallbackBase = [System.IO.Path]::GetFullPath((Join-Path $base '..\..\priv_data\sql'))
+    $fallbackPath = Join-Path $fallbackBase $rel
+    if (Test-Path $fallbackPath) {
+      $path = $fallbackPath
+    } else {
+      throw "Dosya yok: $path (fallback: $fallbackPath)"
+    }
+  }
   Write-Host "=== $rel ==="
   & $psql -U $user -d $db -v ON_ERROR_STOP=1 -f $path
   if ($LASTEXITCODE -ne 0) { throw "Hata: $rel (exit $LASTEXITCODE)" }
