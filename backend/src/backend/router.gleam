@@ -115,17 +115,23 @@ pub fn handle_request(req: Request, ctx: Context) -> Response {
   let resp = case is_rate_limited_path {
     True -> {
       let ip = global_rate_limit.resolve_ip(req)
-      case global_rate_limit.check(ctx, ip) {
-        global_rate_limit.Blocked(secs) -> {
-          let body =
-            json.object([#("error", json.string("rate_limit_exceeded")), #("retry_after", json.int(secs))])
-            |> json.to_string
-          wisp.json_response(body, 429)
-            |> response.set_header("retry-after", int.to_string(secs))
-        }
-        global_rate_limit.Allowed -> {
-          let _ = global_rate_limit.record(ctx, ip)
-          dispatch(req, ctx)
+      // Localhost (deploy verify, health check) rate limit'ten muaf
+      case ip == "127.0.0.1" || ip == "::1" {
+        True -> dispatch(req, ctx)
+        False -> {
+          case global_rate_limit.check(ctx, ip) {
+            global_rate_limit.Blocked(secs) -> {
+              let body =
+                json.object([#("error", json.string("rate_limit_exceeded")), #("retry_after", json.int(secs))])
+                |> json.to_string
+              wisp.json_response(body, 429)
+                |> response.set_header("retry-after", int.to_string(secs))
+            }
+            global_rate_limit.Allowed -> {
+              let _ = global_rate_limit.record(ctx, ip)
+              dispatch(req, ctx)
+            }
+          }
         }
       }
     }

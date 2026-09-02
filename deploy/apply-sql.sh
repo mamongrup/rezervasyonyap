@@ -53,7 +53,13 @@ resolve_sql_path() {
   elif [[ -f "$APP_ROOT/$input" ]]; then
     echo "$APP_ROOT/$input"
   else
-    fail "SQL dosyası bulunamadı: $input (cwd: $(pwd))"
+    # Fallback: backend/priv/ → backend/priv_data/ (sunucuda symlink yoksa)
+    local alt="$(echo "$input" | sed 's|backend/priv/sql/|backend/priv_data/sql/|')"
+    if [[ -f "$APP_ROOT/$alt" ]]; then
+      echo "$APP_ROOT/$alt"
+    else
+      fail "SQL dosyası bulunamadı: $input (cwd: $(pwd))\nİpucu: priv_data yolunu deneyin — ./deploy/apply-sql.sh $alt"
+    fi
   fi
 }
 
