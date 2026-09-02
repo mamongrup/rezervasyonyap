@@ -140,4 +140,39 @@ describe('buildSeasonalPricingTableRows', () => {
     expect(discount?.discountPercent).toBe(15)
     expect(discount?.periodLabel).toMatch(/22 Ağustos.*10 Eylül/)
   })
+
+  it('hides discount row if all nights in the discount period are booked/unavailable', () => {
+    const rules = [
+      rule('summer', '2026-07-01', '2026-09-10', 1300),
+      {
+        id: 'discount',
+        valid_from: '2026-09-03',
+        valid_to: '2026-09-06',
+        rule_json: JSON.stringify({
+          discount_nightly: '1000',
+          discount_from: '2026-09-03',
+          discount_to: '2026-09-06',
+        }),
+      },
+    ]
+
+    // 3, 4, 5 Eylül geceleri dolu
+    const availabilityDays = [
+      { day: '2026-09-03', is_available: false },
+      { day: '2026-09-04', is_available: false },
+      { day: '2026-09-05', is_available: false },
+      { day: '2026-09-06', is_available: true }, // çıkış günü
+    ]
+
+    const rows = buildSeasonalPricingTableRows(
+      rules,
+      'tr',
+      'TRY',
+      msg,
+      { availabilityDays },
+    )
+
+    const discount = rows.find((row) => row.isDiscount)
+    expect(discount).toBeUndefined()
+  })
 })

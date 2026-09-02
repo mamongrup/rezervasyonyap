@@ -793,7 +793,7 @@ export default async function StayListingDetailPageContent({
       locale,
       listingCurrencyUpper,
       seasonalMsg,
-      { preferDualMealColumns: dualMealPricing },
+      { preferDualMealColumns: dualMealPricing, availabilityDays: availabilityCalendarDays },
     )
     stayPriceDiscounts = buildStayPriceDiscounts(holidayHomePriceRules, listingCurrencyUpper)
   }

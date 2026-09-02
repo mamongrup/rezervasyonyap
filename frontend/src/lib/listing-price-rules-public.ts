@@ -173,6 +173,8 @@ export type SeasonalPricingCopy = {
 export type SeasonalPricingBuildOptions = {
   /** İlanda hem yemekli hem yemeksiz seçenek varsa — tabloda iki sütun çifti */
   preferDualMealColumns?: boolean
+  /** Müsaitlik takvimi — dolu olan indirim dönemlerini tablodan gizlemek için */
+  availabilityDays?: readonly { day: string; is_available?: boolean; pm_available?: boolean }[] | null
 }
 
 const PERIOD_TITLE_DATE_SEP = ' - '
@@ -476,6 +478,7 @@ export function buildSeasonalPricingTableRows(
   // Panel kampanyayı ayrı bir price-rule satırı olarak kaydedebilir. Bu durumda
   // indirim satırını, tarih aralığını kapsayan normal sezon fiyatıyla eşleştir.
   for (const discount of buildStayPriceDiscounts(rules, code)) {
+    if (!isStayDiscountAvailable(discount, options?.availabilityDays)) continue
     if (out.some((row) => row.isDiscount && row.nightlyAmount === discount.discountNightly)) continue
     out.push({
       periodLabel: `${discountPeriodLabel(locale)}: ${formatLongDate(discount.from, locale)} ${msg.rangeSep} ${formatLongDate(discount.to, locale)}`,
@@ -489,6 +492,24 @@ export function buildSeasonalPricingTableRows(
     })
   }
   return out
+}
+
+/**
+ * İndirimli tarih aralığının takvimde müsait (kullanılabilir) olup olmadığını doğrular.
+ * Giriş günü `from` ve çıkış günü `to` arasındaki gecelerden [from, to) herhangi biri doluysa false döner.
+ */
+export function isStayDiscountAvailable(
+  discount: { from: string; to: string },
+  availabilityDays?: readonly { day: string; is_available?: boolean; pm_available?: boolean }[] | null,
+): boolean {
+  if (!availabilityDays || availabilityDays.length === 0) return true
+  const relevantDays = availabilityDays.filter((d) => d.day >= discount.from && d.day < discount.to)
+  if (relevantDays.length === 0) return true
+  return relevantDays.every((d) => {
+    if (d.pm_available !== undefined) return Boolean(d.pm_available)
+    if (d.is_available !== undefined) return Boolean(d.is_available)
+    return true
+  })
 }
 
 export function buildStayPriceDiscounts(

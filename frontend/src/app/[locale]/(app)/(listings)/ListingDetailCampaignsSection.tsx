@@ -9,7 +9,10 @@ import {
   type ListingDetailCampaignItem,
 } from '@/lib/listing-detail-campaigns'
 import type { ListingAvailabilityDay } from '@/lib/travel-api'
-import type { StayPriceDiscountModel } from '@/lib/listing-price-rules-public'
+import {
+  isStayDiscountAvailable,
+  type StayPriceDiscountModel,
+} from '@/lib/listing-price-rules-public'
 import { formatMoneyIntl } from '@/lib/parse-listing-price'
 import { Divider } from '@/shared/divider'
 import { Calendar03Icon, CreditCardIcon, Tag01Icon } from '@hugeicons/core-free-icons'
@@ -194,8 +197,9 @@ export default function ListingDetailCampaignsSection({
 }) {
   const installment = campaigns.find((item) => item.kind === 'card_installment')
   const discounts = campaigns.filter((item) => item.kind !== 'card_installment')
+  const availableStayDiscounts = stayDiscounts.filter((d) => isStayDiscountAvailable(d, availabilityDays))
   const availableDay = nearestAvailableDay(availabilityDays)
-  if (!installment && discounts.length === 0 && stayDiscounts.length === 0 && !availableDay) return null
+  if (!installment && discounts.length === 0 && availableStayDiscounts.length === 0 && !availableDay) return null
 
   return (
     <section aria-labelledby="listing-detail-campaigns-heading" className="listingSection__wrap">
@@ -213,7 +217,7 @@ export default function ListingDetailCampaignsSection({
           {discounts.map((item) => (
             <CampaignCard key={item.id} item={item} locale={locale} labels={labels} />
           ))}
-          {stayDiscounts.map((discount) => (
+          {availableStayDiscounts.map((discount) => (
             <StayDiscountCard key={discount.id} discount={discount} locale={locale} labels={labels} />
           ))}
           {availableDay ? (

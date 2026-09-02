@@ -26,8 +26,12 @@ import {
   detailPathForVertical,
   stayDetailPathForVertical,
 } from '@/lib/listing-detail-routes'
-import { getPublicListingPriceRules } from '@/lib/travel-api'
-import { buildStayPriceDiscounts, type StayPriceDiscountModel } from '@/lib/listing-price-rules-public'
+import { getPublicListingPriceRules, getPublicListingAvailabilityCalendar } from '@/lib/travel-api'
+import {
+  buildStayPriceDiscounts,
+  isStayDiscountAvailable,
+  type StayPriceDiscountModel,
+} from '@/lib/listing-price-rules-public'
 import { useFormatMoneyInPreferredCurrency } from '@/contexts/preferred-currency-context'
 
 interface ListingCardProps {
@@ -89,13 +93,32 @@ const ListingCard: FC<ListingCardProps> = ({
   useEffect(() => {
     if (!isStayRental) return
     let cancelled = false
-    void getPublicListingPriceRules(String(data.id)).then((rules) => {
+    void getPublicListingPriceRules(String(data.id)).then(async (rules) => {
       if (cancelled) return
       const today = new Date().toISOString().slice(0, 10)
       const discounts = buildStayPriceDiscounts(rules, data.listingCurrencyCode ?? data.priceCurrency ?? 'TRY')
         .filter((discount) => discount.to >= today)
         .sort((a, b) => a.from.localeCompare(b.from))
-      setDatedDiscount(discounts[0] ?? null)
+
+      if (discounts.length === 0) {
+        setDatedDiscount(null)
+        return
+      }
+
+      // Tarih aralığı kiralanmış (dolu) ise rozeti gösterme; sıradaki müsait indirime bak
+      for (const candidate of discounts) {
+        if (cancelled) return
+        const days = await getPublicListingAvailabilityCalendar(String(data.id), {
+          from: candidate.from,
+          to: candidate.to,
+        })
+        if (cancelled) return
+        if (isStayDiscountAvailable(candidate, days)) {
+          setDatedDiscount(candidate)
+          return
+        }
+      }
+      setDatedDiscount(null)
     })
     return () => { cancelled = true }
   }, [data.id, data.listingCurrencyCode, data.priceCurrency, isStayRental])
