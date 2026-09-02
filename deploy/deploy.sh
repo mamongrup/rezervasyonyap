@@ -594,6 +594,21 @@ main() {
   APPLY_SQL_SKIP_AI_ENQUEUE=1 bash "$APP_ROOT/deploy/apply-sql.sh" \
     "$APP_ROOT/backend/priv/sql/modules/437_admin_important_events.sql" \
     || fail "437 important event notifications could not be applied"
+
+  step "Catalog localization, search indexes and DB integrity (438-442)"
+  for sql_module in \
+    438_listing_translations_locale_fields.sql \
+    439_listing_image_scene_taxonomy.sql \
+    440_perf_listing_search_lateral_indexes.sql \
+    441_db_integrity_fixes.sql \
+    442_sync_hierarchy_coords.sql
+  do
+    APPLY_SQL_SKIP_AI_ENQUEUE=1 bash "$APP_ROOT/deploy/apply-sql.sh" \
+      "$APP_ROOT/backend/priv/sql/modules/$sql_module" \
+      || fail "$sql_module could not be applied"
+  done
+  ok "438-442 catalog and database migrations applied"
+
   # Use this checkout and the same Node runtime used by the deploy build.
   NODE_MAIL_BIN="$(command -v node)"
   [[ -n "$NODE_MAIL_BIN" ]] || fail "Node runtime missing for admin email worker"
