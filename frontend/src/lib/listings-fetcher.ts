@@ -73,8 +73,8 @@ function categoryListingsFetchInit(categorySlug: string): RequestInit {
     },
   } as RequestInit
 }
-/** Tarih / misafir / konum araması — 60 sn cache (aynı arama同一 istek içinde tekrarlanırsa DB'yi atlar). */
-const CATALOG_SEARCH_FETCH_INIT: RequestInit = { next: { revalidate: 60 } }
+/** Tarih / misafir / konum araması canlı müsaitlik içerir; sonuçları kullanıcılar arasında cache'leme. */
+const CATALOG_SEARCH_FETCH_INIT: RequestInit = { cache: 'no-store' }
 /** Nadiren değişen katalog meta (emlak tipi vb.). */
 const CATALOG_META_FETCH_INIT: RequestInit = { next: { revalidate: 300 } }
 

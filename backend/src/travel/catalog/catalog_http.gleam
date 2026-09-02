@@ -1032,6 +1032,33 @@ fn put_listing_translations_body_decoder() -> decode.Decoder(
   })
 }
 
+fn localized_policy_fields_complete(
+  entries: List(#(String, String, String, String, String)),
+) -> Bool {
+  let required_locales = ["tr", "en", "de", "ru", "zh", "fr"]
+  let has_cancellation = list.any(entries, fn(entry) {
+    let #(_, _, _, value, _) = entry
+    string.trim(value) != ""
+  })
+  let has_supplier_note = list.any(entries, fn(entry) {
+    let #(_, _, _, _, value) = entry
+    string.trim(value) != ""
+  })
+  let cancellation_complete = !has_cancellation || list.all(required_locales, fn(required) {
+    list.any(entries, fn(entry) {
+      let #(locale, _, _, value, _) = entry
+      string.lowercase(string.trim(locale)) == required && string.trim(value) != ""
+    })
+  })
+  let supplier_note_complete = !has_supplier_note || list.all(required_locales, fn(required) {
+    list.any(entries, fn(entry) {
+      let #(locale, _, _, _, value) = entry
+      string.lowercase(string.trim(locale)) == required && string.trim(value) != ""
+    })
+  })
+  cancellation_complete && supplier_note_complete
+}
+
 fn upsert_listing_translation_row(
   conn: pog.Connection,
   listing_id: String,
@@ -1101,8 +1128,9 @@ pub fn put_listing_translations(
               case json.parse(body, put_listing_translations_body_decoder()) {
                 Error(_) -> json_err(400, "invalid_json")
                 Ok(entries) -> {
-                  let applied =
-                    list.try_map(entries, fn(ent) {
+                  let applied = case localized_policy_fields_complete(entries) {
+                    False -> Error(Nil)
+                    True -> list.try_map(entries, fn(ent) {
                       let #(lc_raw, title_raw, desc_raw, cpt_raw, spn_raw) = ent
                       let lc = string.lowercase(string.trim(lc_raw))
                       let title = string.trim(title_raw)
@@ -1128,6 +1156,7 @@ pub fn put_listing_translations(
                           }
                       }
                     })
+                  }
                   case applied {
                     Error(_) ->
                       json_err(
@@ -6482,11 +6511,11 @@ pub fn get_public_listing_vitrine(
       <> "then nullif(trim(substring(trim(la.value_json->>'province_city') from '[^/]+$')), '') "
       <> "else nullif(trim(la.value_json->>'province_city'), '') end "
       <> "from listing_attributes la where la.listing_id = l.id and la.group_code = 'listing_meta' and la.key = 'v1' limit 1)), ''), ''), "
-      <> listing_translation_sql.contact_bio_select_sql("l.id", "$2")
+      <> "coalesce((select c.contact_bio from listing_owner_contacts c where c.listing_id = l.id limit 1), ''), "
       <> "coalesce(l.external_provider_code::text, ''), "
       <> listing_translation_sql.cancellation_policy_select_sql("l.id", "$2")
       <> listing_translation_sql.supplier_payment_note_select_sql("l.id", "$2")
-      <> listing_translation_sql.pool_size_label_select_sql("l.id", "$2")
+      <> "coalesce(l.pool_size_label::text, '') "
       <> "from listings l where l.id = $1::uuid and l.status = 'published'",
     )
     |> pog.parameter(pog.text(listing_id))

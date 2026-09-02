@@ -105,9 +105,18 @@ pub fn create_context(cfg: AppConfig) -> Result(Context, String) {
 
 pub fn handle_request(req: Request, ctx: Context) -> Response {
   use <- wisp.log_request(req)
+  // Only trust proxy-provided client IP headers when the deployment explicitly
+  // enables the limiter after sanitizing and overwriting those headers.
+  let rate_limit_enabled = case envoy.get("GLOBAL_RATE_LIMIT_ENABLED") {
+    Ok(value) -> {
+      let normalized = string.lowercase(string.trim(value))
+      normalized == "1" || normalized == "true" || normalized == "on"
+    }
+    Error(_) -> False
+  }
   // Global rate limit — /api/* ve /ical/* için IP bazlı
   let path = wisp.path_segments(req)
-  let is_rate_limited_path = case path {
+  let is_rate_limited_path = rate_limit_enabled && case path {
     ["api", ..] -> True
     ["ical", ..] -> True
     _ -> False

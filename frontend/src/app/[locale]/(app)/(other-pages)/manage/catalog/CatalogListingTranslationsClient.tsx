@@ -192,6 +192,16 @@ export default function CatalogListingTranslationsClient({
     setErr(null)
     setOk(null)
     try {
+      for (const field of ['cancellation_policy_text', 'supplier_payment_note'] as const) {
+        const fieldIsUsed = rows.some((r) => (draft[r.locale_code]?.[field] ?? '').trim().length > 0)
+        const missingLocales = fieldIsUsed
+          ? rows.filter((r) => !(draft[r.locale_code]?.[field] ?? '').trim()).map((r) => r.locale_code.toUpperCase())
+          : []
+        if (missingLocales.length > 0) {
+          const label = field === 'cancellation_policy_text' ? 'İptal politikası' : 'Tedarikçi ödeme notu'
+          throw new Error(`${label} tüm aktif dillerde doldurulmalıdır. Eksik: ${missingLocales.join(', ')}`)
+        }
+      }
       const entries = rows.map((r) => {
         const lc = r.locale_code
         const row = draft[lc] ?? { title: '', description: '', cancellation_policy_text: '', supplier_payment_note: '' }

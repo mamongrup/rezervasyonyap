@@ -44,7 +44,8 @@ pub fn description_select_sql(
   <> "limit 1), '')"
 }
 
-/// İptal politikası metni: locale → en → tr → listings tablosu.
+/// İptal politikası metni yalnızca istenen locale'den okunur. Ziyaretçiye başka
+/// dilde politika göstermek yerine eksik çeviri boş bırakılır.
 fn locale_cancellation_subquery(
   listing_id_sql: String,
   locale_expr: String,
@@ -64,17 +65,10 @@ pub fn cancellation_policy_select_sql(
 ) -> String {
   "coalesce("
   <> locale_cancellation_subquery(listing_id_sql, locale_placeholder)
-  <> locale_cancellation_subquery(listing_id_sql, "'en'")
-  <> locale_cancellation_subquery(listing_id_sql, "'tr'")
-  <> "(select lt_any.cancellation_policy_text from listing_translations lt_any where lt_any.listing_id = "
-  <> listing_id_sql
-  <> " and nullif(trim(lt_any.cancellation_policy_text), '') is not null limit 1), "
-  <> "(select l.cancellation_policy_text from listings l where l.id = "
-  <> listing_id_sql
-  <> "), ''), "
+  <> "''), "
 }
 
-/// Tedarikçi ödeme notu: locale → en → tr → listings tablosu.
+/// Tedarikçi ödeme notu yalnızca istenen locale'den okunur.
 fn locale_supplier_note_subquery(
   listing_id_sql: String,
   locale_expr: String,
@@ -94,14 +88,7 @@ pub fn supplier_payment_note_select_sql(
 ) -> String {
   "coalesce("
   <> locale_supplier_note_subquery(listing_id_sql, locale_placeholder)
-  <> locale_supplier_note_subquery(listing_id_sql, "'en'")
-  <> locale_supplier_note_subquery(listing_id_sql, "'tr'")
-  <> "(select lt_any.supplier_payment_note from listing_translations lt_any where lt_any.listing_id = "
-  <> listing_id_sql
-  <> " and nullif(trim(lt_any.supplier_payment_note), '') is not null limit 1), "
-  <> "(select l.supplier_payment_note from listings l where l.id = "
-  <> listing_id_sql
-  <> "), ''), "
+  <> "''), "
 }
 
 /// Havuz boyutu etiketi: locale → en → tr → listings tablosu.
