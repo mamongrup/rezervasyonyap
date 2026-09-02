@@ -78,3 +78,63 @@ DROP TRIGGER IF EXISTS trg_calendar_vitrin_refresh ON listing_availability_calen
 CREATE TRIGGER trg_calendar_vitrin_refresh
   AFTER UPDATE OF price_override ON listing_availability_calendar
   FOR EACH ROW EXECUTE FUNCTION trg_refresh_vitrin_on_calendar_price_change();
+
+-- ═══════════════════════════════════════════════════════════════════════════════
+-- 5) Eksik ON DELETE foreign key constraints
+-- ═══════════════════════════════════════════════════════════════════════════════
+
+-- listings.category_id — product_category silinirse ilan da silinmesin, hata versin
+DO $$ BEGIN
+  IF EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conrelid = 'listings'::regclass
+      AND conname LIKE '%category%'
+      AND NOT confdeltype = 'r'
+  ) THEN
+    ALTER TABLE listings
+      DROP CONSTRAINT IF EXISTS listings_category_id_fkey;
+    ALTER TABLE listings
+      ADD CONSTRAINT listings_category_id_fkey
+      FOREIGN KEY (category_id) REFERENCES product_categories (id)
+      ON DELETE RESTRICT;
+  END IF;
+END $$;
+
+-- listings.currency_code — para birimi silinmesin
+DO $$ BEGIN
+  IF EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conrelid = 'listings'::regclass
+      AND conname LIKE '%currency%'
+      AND NOT confdeltype = 'r'
+  ) THEN
+    ALTER TABLE listings
+      DROP CONSTRAINT IF EXISTS listings_currency_code_fkey;
+    ALTER TABLE listings
+      ADD CONSTRAINT listings_currency_code_fkey
+      FOREIGN KEY (currency_code) REFERENCES currencies (code)
+      ON DELETE RESTRICT;
+  END IF;
+END $$;
+
+-- listing_owner_contacts — ilan silinince contact bilgisi de silinsin
+DO $$ BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.table_constraints
+    WHERE table_name = 'listing_owner_contacts'
+      AND constraint_type = 'FOREIGN KEY'
+      AND NOT EXISTS (
+        SELECT 1 FROM information_schema.referential_constraints rc
+        JOIN information_schema.table_constraints tc ON rc.constraint_name = tc.constraint_name
+        WHERE tc.table_name = 'listing_owner_contacts'
+          AND rc.delete_rule != 'CASCADE'
+      )
+  ) THEN
+    ALTER TABLE listing_owner_contacts
+      DROP CONSTRAINT IF EXISTS listing_owner_contacts_listing_id_fkey;
+    ALTER TABLE listing_owner_contacts
+      ADD CONSTRAINT listing_owner_contacts_listing_id_fkey
+      FOREIGN KEY (listing_id) REFERENCES listings (id)
+      ON DELETE CASCADE;
+  END IF;
+END $$;

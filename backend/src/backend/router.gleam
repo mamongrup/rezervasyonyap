@@ -2,6 +2,7 @@ import backend/config.{type AppConfig}
 import backend/context.{type Context, Context}
 import envoy
 import gleam/dynamic/decode
+import gleam/int
 import gleam/http
 import gleam/http/request
 import gleam/http/response
@@ -50,6 +51,7 @@ import travel/htmx/static_server
 import travel/i18n/i18n_http
 import travel/i18n/localized_routes_http
 import travel/ical/ical_export_http
+import travel/identity/global_rate_limit
 import travel/identity/identity_http
 import travel/integrations/integrations_http
 import travel/integrations/kplus_booking_http
@@ -103,7 +105,32 @@ pub fn create_context(cfg: AppConfig) -> Result(Context, String) {
 
 pub fn handle_request(req: Request, ctx: Context) -> Response {
   use <- wisp.log_request(req)
-  let resp = dispatch(req, ctx)
+  // Global rate limit — /api/* ve /ical/* için IP bazlı
+  let path = wisp.path_segments(req)
+  let is_rate_limited_path = case path {
+    ["api", ..] -> True
+    ["ical", ..] -> True
+    _ -> False
+  }
+  let resp = case is_rate_limited_path {
+    True -> {
+      let ip = global_rate_limit.resolve_ip(req)
+      case global_rate_limit.check(ctx, ip) {
+        global_rate_limit.Blocked(secs) -> {
+          let body =
+            json.object([#("error", json.string("rate_limit_exceeded")), #("retry_after", json.int(secs))])
+            |> json.to_string
+          wisp.json_response(body, 429)
+            |> response.set_header("retry-after", int.to_string(secs))
+        }
+        global_rate_limit.Allowed -> {
+          let _ = global_rate_limit.record(ctx, ip)
+          dispatch(req, ctx)
+        }
+      }
+    }
+    False -> dispatch(req, ctx)
+  }
   with_cors(resp, req)
 }
 
