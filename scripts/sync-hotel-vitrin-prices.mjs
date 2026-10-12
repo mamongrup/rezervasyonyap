@@ -287,7 +287,7 @@ async function main() {
     )
 
     const { tokenCode } = await createTravelrobotToken(cfg)
-    console.log(`Token: ${tokenCode.slice(0, 8)}…`)
+    console.log('Travelrobot authentication succeeded')
 
     let ok = 0
     let skipNoApi = 0
