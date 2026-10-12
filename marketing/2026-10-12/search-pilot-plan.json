@@ -1,12 +1,12 @@
 {
   "prepared_at": "2026-10-12",
   "account": "517-550-3933",
-  "deployment_status": "not_uploaded_browser_disconnected",
+  "deployment_status": "uploaded_paused_live_settings_partially_verified",
   "pmax_status": "all_seven_paused_verified_in_google_ads",
   "campaigns": [
     {
       "campaign": "RY | Arama | hotel | Kontrollü Pilot",
-      "status": "prepared_not_uploaded",
+      "status": "uploaded_paused",
       "average_daily_budget_try": 1000,
       "initial_max_cpc_try": 15,
       "networks": [
@@ -17,7 +17,7 @@
       "ai_max": false,
       "broad_match": false,
       "target_country": "TR",
-      "target_presence": "presence",
+      "target_presence": "pending_live_verification",
       "languages": [
         "tr",
         "en",
@@ -37,7 +37,7 @@
     },
     {
       "campaign": "RY | Arama | holiday-home | Kontrollü Pilot",
-      "status": "prepared_not_uploaded",
+      "status": "uploaded_paused",
       "average_daily_budget_try": 1000,
       "initial_max_cpc_try": 15,
       "networks": [
@@ -48,7 +48,7 @@
       "ai_max": false,
       "broad_match": false,
       "target_country": "TR",
-      "target_presence": "presence",
+      "target_presence": "pending_live_verification",
       "languages": [
         "tr",
         "en",
@@ -68,7 +68,7 @@
     },
     {
       "campaign": "RY | Arama | yacht | Kontrollü Pilot",
-      "status": "prepared_not_uploaded",
+      "status": "uploaded_paused",
       "average_daily_budget_try": 1000,
       "initial_max_cpc_try": 15,
       "networks": [
@@ -79,7 +79,7 @@
       "ai_max": false,
       "broad_match": false,
       "target_country": "TR",
-      "target_presence": "presence",
+      "target_presence": "pending_live_verification",
       "languages": [
         "tr",
         "en",
@@ -99,7 +99,7 @@
     },
     {
       "campaign": "RY | Arama | tour | Kontrollü Pilot",
-      "status": "prepared_not_uploaded",
+      "status": "uploaded_paused",
       "average_daily_budget_try": 1000,
       "initial_max_cpc_try": 15,
       "networks": [
@@ -110,7 +110,7 @@
       "ai_max": false,
       "broad_match": false,
       "target_country": "TR",
-      "target_presence": "presence",
+      "target_presence": "pending_live_verification",
       "languages": [
         "tr",
         "en",
@@ -130,7 +130,7 @@
     },
     {
       "campaign": "RY | Arama | cruise | Kontrollü Pilot",
-      "status": "prepared_not_uploaded",
+      "status": "uploaded_paused",
       "average_daily_budget_try": 1000,
       "initial_max_cpc_try": 15,
       "networks": [
@@ -141,7 +141,7 @@
       "ai_max": false,
       "broad_match": false,
       "target_country": "TR",
-      "target_presence": "presence",
+      "target_presence": "pending_live_verification",
       "languages": [
         "tr",
         "en",
@@ -161,7 +161,7 @@
     },
     {
       "campaign": "RY | Arama | club-med | Kontrollü Pilot",
-      "status": "prepared_not_uploaded",
+      "status": "uploaded_paused",
       "average_daily_budget_try": 1000,
       "initial_max_cpc_try": 15,
       "networks": [
@@ -172,7 +172,7 @@
       "ai_max": false,
       "broad_match": false,
       "target_country": "TR",
-      "target_presence": "presence",
+      "target_presence": "pending_live_verification",
       "languages": [
         "tr",
         "en",
@@ -192,7 +192,7 @@
     },
     {
       "campaign": "RY | Arama | activity | Kontrollü Pilot",
-      "status": "prepared_not_uploaded",
+      "status": "uploaded_paused",
       "average_daily_budget_try": 1000,
       "initial_max_cpc_try": 15,
       "networks": [
@@ -203,7 +203,7 @@
       "ai_max": false,
       "broad_match": false,
       "target_country": "TR",
-      "target_presence": "presence",
+      "target_presence": "pending_live_verification",
       "languages": [
         "tr",
         "en",
@@ -271,5 +271,16 @@
     "Location presence and negative keywords require explicit live configuration; they are not applied by this CSV.",
     "1000 TRY is an average daily budget, not a strict daily spending cap.",
     "Do not activate all seven categories together. Club Med remains blocked until inventory is verified."
+  ],
+  "upload_execution": "6645118223634768253",
+  "successful_upload_rows": 259,
+  "negative_keywords_live_status": "not_applied_invalid_web_bulk_match_type",
+  "verified_live_settings": [
+    "seven_search_campaigns_paused",
+    "budget_1000_try_each",
+    "manual_cpc",
+    "google_search_only",
+    "turkey_location",
+    "six_languages_tr_en_de_ru_zh_fr"
   ]
 }
