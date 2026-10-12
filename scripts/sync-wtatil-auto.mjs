@@ -34,11 +34,13 @@ const DEFAULT_ORG = 'a0000000-0000-4000-8000-000000000001'
 const args = new Set(process.argv.slice(2))
 const DRY_RUN = args.has('--dry-run')
 const PING = args.has('--ping')
+// Operational price refresh must preserve edited and translated visitor content.
+const PRICES_ONLY = args.has('--prices-only')
 
 const jobIdIdx = process.argv.indexOf('--job-id')
 const JOB_ID = jobIdIdx >= 0 ? process.argv[jobIdIdx + 1] : (process.env.SYNC_JOB_ID || '')
 const reporter = createJobReporter(JOB_ID)
-const SKIP_NEW = args.has('--skip-new')
+const SKIP_NEW = args.has('--skip-new') || PRICES_ONLY
 const limitIdx = process.argv.indexOf('--limit')
 const LIMIT = limitIdx >= 0 ? Number(process.argv[limitIdx + 1]) : 0
 const newLimitIdx = process.argv.indexOf('--import-new-limit')
@@ -168,7 +170,7 @@ async function main() {
         replacePeriods: true,
       })
 
-      await refreshWtatilTourVitrin(client, ctx, listingId, tour, enrich)
+      if (!PRICES_ONLY) await refreshWtatilTourVitrin(client, ctx, listingId, tour, enrich)
 
       const periodCount = Array.isArray(enrich.periods) ? enrich.periods.length : 0
       if (result.cheapest_price != null) {

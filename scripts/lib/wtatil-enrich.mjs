@@ -58,7 +58,7 @@ export async function searchTourPeriodsWide(userName, token, tourId, agencyId, o
         childCount: 0,
         detail: 0,
       })
-      const row = hits.find((h) => Number(h.id) === Number(tourId)) || hits[0]
+      const row = hits.find((h) => Number(h.id) === Number(tourId))
       for (const p of row?.periods || []) {
         const id = p?.id ?? p?.periodId ?? p?.tourPeriodId
         if (id != null) byId.set(String(id).trim(), p)
@@ -82,8 +82,7 @@ export async function enrichWtatilTour(userName, token, tour, agencyId, { withPr
   try {
     enrich.periods = await fetchTourPeriods(userName, token, tourId)
   } catch (e) {
-    console.warn(`  [uyarı] dönem tur ${tourId}: ${e.message}`)
-    enrich.periods = []
+    throw new Error(`Wtatil periods unavailable for ${tourId}: ${e.message}`)
   }
 
   if (withPrices && agencyId) {
@@ -101,7 +100,7 @@ export async function enrichWtatilTour(userName, token, tour, agencyId, { withPr
         childCount: 0,
         detail: 0,
       })
-      const row = hits.find((h) => Number(h.id) === tourId) || hits[0]
+      const row = hits.find((h) => Number(h.id) === tourId)
       if (row?.cheapestPrice) enrich.cheapestPrice = row.cheapestPrice
       if (row?.periods?.length) {
         enrich.periods = mergePeriodsById(enrich.periods, row.periods)
@@ -118,7 +117,7 @@ export async function enrichWtatilTour(userName, token, tour, agencyId, { withPr
     try {
       enrich.periodPrices = await fetchTourPeriodPrices(userName, token, periodIds)
     } catch (e) {
-      console.warn(`  [uyarı] dönem fiyat tur ${tourId}: ${e.message}`)
+      throw new Error(`Wtatil period prices unavailable for ${tourId}: ${e.message}`)
     }
   }
 

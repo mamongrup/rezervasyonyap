@@ -1,4 +1,5 @@
 import { mergePeriodsById } from './wtatil-enrich.mjs'
+import { priceWtatilEnrichment, providerMarkupPercent } from './provider-sales-pricing.mjs'
 import {
   applyWtatilTourVitrinFields,
   buildWtatilTourDescription,
@@ -87,6 +88,8 @@ function minPeriodPrice(periodPrices) {
   let min = null
   for (const row of periodPrices) {
     const candidates = [
+      row?.double,
+      row?.triple,
       row?.price,
       row?.amount,
       row?.adultPrice,
@@ -97,7 +100,10 @@ function minPeriodPrice(periodPrices) {
     ]
     for (const c of candidates) {
       const num = normalizeCheapestPrice(c)
-      if (num != null && (min == null || num < min)) min = num
+      if (num != null) {
+        if (min == null || num < min) min = num
+        break
+      }
     }
   }
   return min
@@ -146,6 +152,8 @@ export async function upsertWtatilTourListing(
     return { action: 'dry-run', tourId, slug, title: title.slice(0, 60) }
   }
 
+  enrich = priceWtatilEnrichment(enrich, await providerMarkupPercent(pgClient, PROVIDER))
+
   let listingId = await findListingByWtatilRef(pgClient, ctx.orgId, tourId)
   const isNew = !listingId
 
@@ -188,6 +196,8 @@ export async function upsertWtatilTourListing(
     period_prices: enrich?.periodPrices ?? null,
     transport: enrich?.transport ?? null,
     cheapest_price: cheapestFromEnrich,
+    pricing: enrich?.pricing ?? null,
+    provider_net_prices: enrich?.provider_net_prices ?? null,
   }
 
   await pgClient.query(
@@ -338,6 +348,7 @@ export async function updateWtatilTourPricesOnly(
   enrich,
   { currencyCode = null, replacePeriods = false } = {},
 ) {
+  enrich = priceWtatilEnrichment(enrich, await providerMarkupPercent(pgClient, PROVIDER))
   const cheapestFromEnrich =
     normalizeCheapestPrice(enrich?.cheapestPrice) ??
     minPeriodPrice(enrich?.periodPrices)
@@ -355,6 +366,8 @@ export async function updateWtatilTourPricesOnly(
     source: PROVIDER,
     wtatil_tour_id: Number(tourId),
     price_synced_at: new Date().toISOString(),
+    pricing: enrich?.pricing ?? null,
+    provider_net_prices: enrich?.provider_net_prices ?? null,
   }
   if (enrich?.periods != null) {
     patch.periods = replacePeriods
@@ -381,7 +394,7 @@ export async function updateWtatilTourPricesOnly(
   if (enrich?.transport != null) {
     patch.transport = enrich.transport
   }
-  if (cheapestFromEnrich != null) patch.cheapest_price = cheapestFromEnrich
+  if (cheapestFromEnrich != null || replacePeriods) patch.cheapest_price = cheapestFromEnrich
 
   const merged = { ...prev, ...patch }
 

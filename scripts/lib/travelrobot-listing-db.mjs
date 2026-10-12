@@ -7,6 +7,7 @@ import { applyTravelrobotHotelExtrasFields } from './travelrobot-hotel-extras-db
 import { extractHotelMinNightlyPrice, collectHotelGalleryEntries } from './travelrobot-hotel-extras.mjs'
 import { assessAndPersistHotelImportQuality } from './hotel-import-quality.mjs'
 import { looksLikeEnglishHotelText } from './travelrobot-hotel-vitrin.mjs'
+import { providerMarkupPercent, salePrice } from './provider-sales-pricing.mjs'
 
 export { extractHotelMinNightlyPrice } from './travelrobot-hotel-extras.mjs'
 
@@ -677,7 +678,7 @@ export async function upsertTravelrobotTourListing(
     await clearListingCover(pgClient, core.listingId)
   }
 
-  const tourPrice = extractTourPriceAmount(tour)
+  const tourPrice = salePrice(extractTourPriceAmount(tour), await providerMarkupPercent(pgClient, PROVIDER))
   if (tourPrice != null) {
     await pgClient.query(
       `UPDATE listing_tour_details
@@ -906,7 +907,7 @@ export async function upsertTravelrobotFlightListing(
     [core.listingId, JSON.stringify({ catalog: flight })],
   )
 
-  const flightPrice = extractFlightMinPrice(flight)
+  const flightPrice = salePrice(extractFlightMinPrice(flight), await providerMarkupPercent(pgClient, PROVIDER))
   await upsertNightlyPriceRule(pgClient, core.listingId, flightPrice, 'TRY')
 
   await mergeListingMetaFlightFields(
