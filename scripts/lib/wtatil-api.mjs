@@ -242,7 +242,7 @@ export async function fetchTourCategories(userName, token) {
   return pickArray(unwrapData(json), ['items', 'categories', 'Categories'])
 }
 
-export async function fetchTourPeriods(userName, token, tourId, pageSize = 100) {
+export async function fetchTourPeriods(userName, token, tourId, pageSize = 10) {
   const all = []
   let pageNumber = 1
   let pageCount = 1
@@ -261,7 +261,7 @@ export async function fetchTourPeriods(userName, token, tourId, pageSize = 100) 
   return all
 }
 
-export async function fetchTourPeriodPrices(userName, token, periodIds, pageSize = 200) {
+export async function fetchTourPeriodPrices(userName, token, periodIds, pageSize = 10) {
   if (!periodIds?.length) return []
   const all = []
   let pageNumber = 1
