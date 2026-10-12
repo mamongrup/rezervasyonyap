@@ -15,12 +15,12 @@ const keywords = {
   activity: [['aktivite rezervasyonu','Türkiye aktivite rezervasyonu'],['book activities Turkey','Turkey activity booking'],['Aktivitäten Türkei buchen','Ausflüge Türkei buchen'],['бронирование активностей Турция','забронировать экскурсию Турция'],['土耳其活动预订','预订土耳其体验活动'],['réserver activités Turquie','réservation activités Turquie']],
 };
 const negatives = {
-  tr: ['iş ilanı','kariyer','ücretsiz','bedava','ikinci el','satılık'],
-  en: ['jobs','careers','free','second hand','for sale'],
-  de: ['Stellenangebote','Karriere','kostenlos','gebraucht','zu verkaufen'],
-  ru: ['вакансии','работа','бесплатно','продажа'],
-  zh: ['招聘','求职','免费','二手','出售'],
-  fr: ['emploi','recrutement','gratuit','occasion','à vendre'],
+  tr: ['iş ilanı','kariyer','ikinci el','satılık'],
+  en: ['jobs','careers','second hand','for sale'],
+  de: ['Stellenangebote','Karriere','gebraucht','zu verkaufen'],
+  ru: ['вакансии','работа','продажа'],
+  zh: ['招聘','求职','二手','出售'],
+  fr: ['emploi','recrutement','à vendre'],
 };
 const headers = ['Campaign','Campaign type','EU political ads','Campaign status','Budget','Bid strategy type','Networks','Languages','Ad group','Ad group status','Max CPC','Ad type','Ad status','Final URL',...Array.from({length:15},(_,i)=>`Headline ${i+1}`),...Array.from({length:4},(_,i)=>`Description ${i+1}`),'Keyword','Match type'];
 const rows = [];
@@ -45,6 +45,7 @@ const quote = value => `"${String(value ?? '').replaceAll('"','""')}"`;
 writeFileSync(new URL('google-ads-search-pilot-editor.csv',root),'\uFEFF'+[headers,...rows.map(row=>headers.map(key=>row[key]??''))].map(row=>row.map(quote).join(',')).join('\r\n'));
 const negativeRows = campaigns.flatMap(campaign => locales.flatMap(locale => negatives[locale].map(term => [`RY | Arama | ${campaign.id} | Kontrollü Pilot`,term,'Negative phrase'])));
 writeFileSync(new URL('google-ads-search-pilot-negatives.csv',root),'\uFEFF'+[['Campaign','Keyword','Match type'],...negativeRows].map(row=>row.map(quote).join(',')).join('\r\n'));
-writeFileSync(new URL('search-pilot-plan.json',root),JSON.stringify({prepared_at:'2026-10-12',account:'517-550-3933',deployment_status:'not_uploaded_browser_disconnected',pmax_status:'all_seven_paused_verified_in_google_ads',campaigns:plan,negative_keywords:negatives,notes:['CSV is an Editor-format preparation artifact; Google Ads upload preview must validate the schema before applying.','Location presence and negative keywords require explicit live configuration; they are not applied by this CSV.','1000 TRY is an average daily budget, not a strict daily spending cap.','Do not activate all seven categories together. Club Med remains blocked until inventory is verified.']},null,2));
+// Preparation must not overwrite the separately verified live deployment record.
+writeFileSync(new URL('search-pilot-prepared-plan.json',root),JSON.stringify({prepared_at:'2026-10-12',account:'517-550-3933',deployment_status:'prepared_not_uploaded',campaigns:plan,negative_keywords:negatives,notes:['CSV is an Editor-format preparation artifact; Google Ads upload preview must validate the schema before applying.','Location presence and negative keywords require explicit live configuration; they are not applied by this CSV.','1000 TRY is an average daily budget, not a strict daily spending cap.','Do not activate all seven categories together. Club Med remains blocked until inventory is verified.']},null,2));
 console.log(JSON.stringify({campaigns:plan.length,languages:locales.length,ads:42,keywords:168,initial_max_cpc_try:initialMaxCpcTry,status:'prepared_not_uploaded'}));
 
