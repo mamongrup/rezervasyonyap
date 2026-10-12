@@ -1,4 +1,4 @@
-import { LOCALIZED_FIRST_SEGMENT_ALIASES } from '@/data/localized-middleware-rewrites'
+import { resolveLocalizedFirstSegment } from '@/data/localized-middleware-rewrites'
 import { facetQueryRedirectResponse } from '@/lib/category-facet-proxy-redirect'
 import { defaultLocale, isAppLocale } from '@/lib/i18n-config'
 import {
@@ -92,9 +92,8 @@ function applyFirstSegmentAlias(pathname: string, locLower: string): string {
   if (segments.length < 2) return pathname
   if (segments[0].toLowerCase() !== locLower) return pathname
   const rest = segments.slice(1)
-  const aliasMap = LOCALIZED_FIRST_SEGMENT_ALIASES[locLower]
   const key = rest[0].toLowerCase()
-  const canonical = aliasMap?.[key]
+  const canonical = resolveLocalizedFirstSegment(locLower, key, rest.slice(1))
   if (canonical && canonical !== rest[0]) {
     const tail = rest.slice(1)
     const mid = tail.length > 0 ? `/${canonical}/${tail.join('/')}` : `/${canonical}`

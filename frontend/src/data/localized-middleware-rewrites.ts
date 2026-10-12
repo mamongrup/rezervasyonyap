@@ -15,3 +15,22 @@ function buildAliasTable(): Record<string, Record<string, string>> {
 }
 
 export const LOCALIZED_FIRST_SEGMENT_ALIASES = buildAliasTable()
+
+const CATEGORY_KEYS = new Set([
+  'oteller', 'tatil-evleri', 'yat-kiralama', 'turlar', 'aktiviteler',
+  'kruvaziyer', 'arac-kiralama', 'feribot', 'transfer', 'ucak-bileti',
+  'hac-umre', 'vize',
+])
+
+/** A category root or /all is a browse page, even if a detail prefix shares its alias. */
+export function resolveLocalizedFirstSegment(locale: string, segment: string, tail: string[]): string | undefined {
+  const loc = locale.toLowerCase()
+  const key = segment.toLowerCase()
+  if (tail.length === 0 || tail[0].toLowerCase() === 'all') {
+    const category = LOCALIZED_ROUTES_STATIC_FALLBACK.find((row) =>
+      row.locale === loc && row.path_segment.toLowerCase() === key && CATEGORY_KEYS.has(row.logical_key),
+    )
+    if (category) return category.logical_key
+  }
+  return LOCALIZED_FIRST_SEGMENT_ALIASES[loc]?.[key]
+}
