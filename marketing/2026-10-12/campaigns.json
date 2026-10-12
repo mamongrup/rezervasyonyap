@@ -1,0 +1,1795 @@
+{
+  "generated_at": "2026-10-12",
+  "total_daily_budget_try": 7000,
+  "campaigns": [
+    {
+      "id": "hotel",
+      "name": "RY | Otel Rezervasyonu | TR | 1000 TL",
+      "daily_budget_try": 1000,
+      "status": "prepared",
+      "target_country": "TR",
+      "target_presence": "presence",
+      "dates": null,
+      "final_url": "https://www.rezervasyonyap.tr/tr/oteller",
+      "final_url_verified": false,
+      "asset": "assets/hotel.png",
+      "asset_kind": "editorial_illustration",
+      "channels": [
+        "responsive_search",
+        "responsive_display",
+        "performance_max",
+        "social_feed",
+        "social_story"
+      ],
+      "publication_requirements": [
+        "verified_live_inventory",
+        "verified_landing_page",
+        "verified_conversion_tracking"
+      ],
+      "languages": {
+        "tr": {
+          "title": "Otel Rezervasyonu",
+          "headlines": [
+            "Otel Rezervasyonu",
+            "Rezervasyon Yap",
+            "Tatilini Planlamaya Başla",
+            "Tarihine Uygun Seçenekler",
+            "Yeni Rotalar Keşfet",
+            "Tatil Detaylarını İncele",
+            "Bir Sonraki Tatilini Seç",
+            "Seyahatine İlham Bul",
+            "Seçeneklere Göz At",
+            "Tatil Planın Burada Başlar",
+            "Müsaitliği Kontrol Et",
+            "Sana Uygun Tatili Bul",
+            "Rota ve Detayları İncele",
+            "Tatil Seçeneklerini Gör",
+            "Şimdi Keşfet"
+          ],
+          "descriptions": [
+            "Tarihlerini seç, müsait seçenekleri ve rezervasyon koşullarını incele.",
+            "Bir sonraki seyahatin için seçenekleri keşfet. Detayları sitede karşılaştır.",
+            "Fiyat, tarih ve dahil olan hizmetleri inceleyerek tatilini planla.",
+            "Sana uygun seçeneği bul. Güncel müsaitliği rezervasyon öncesinde kontrol et."
+          ],
+          "cta": "Seçenekleri keşfet",
+          "display_headlines": [
+            "Otel Rezervasyonu",
+            "Tatilini Planlamaya Başla",
+            "Tarihine Uygun Seçenekler",
+            "Yeni Rotalar Keşfet",
+            "Tatil Detaylarını İncele"
+          ],
+          "long_headline": "Otel Rezervasyonu · Rezervasyon Yap",
+          "social_text": "Otel Rezervasyonu. Tarihlerini seç, müsait seçenekleri ve rezervasyon koşullarını incele. Seçenekleri keşfet."
+        },
+        "en": {
+          "title": "Hotel Booking",
+          "headlines": [
+            "Hotel Booking",
+            "Rezervasyon Yap",
+            "Start Planning Your Holiday",
+            "Options for Your Dates",
+            "Discover New Routes",
+            "Explore Holiday Details",
+            "Choose Your Next Holiday",
+            "Find Travel Inspiration",
+            "Browse Your Options",
+            "Your Holiday Starts Here",
+            "Check Availability",
+            "Find Your Kind of Holiday",
+            "Explore Routes and Details",
+            "View Holiday Options",
+            "Explore Today"
+          ],
+          "descriptions": [
+            "Choose your dates and review available options and booking conditions.",
+            "Discover ideas for your next trip. Compare the details on our website.",
+            "Plan your holiday with clear prices, dates and included services.",
+            "Find an option that suits you. Check availability before booking."
+          ],
+          "cta": "Explore your options",
+          "display_headlines": [
+            "Hotel Booking",
+            "Start Planning Your Holiday",
+            "Options for Your Dates",
+            "Discover New Routes",
+            "Explore Holiday Details"
+          ],
+          "long_headline": "Hotel Booking · Rezervasyon Yap",
+          "social_text": "Hotel Booking. Choose your dates and review available options and booking conditions. Explore your options."
+        },
+        "de": {
+          "title": "Hotels buchen",
+          "headlines": [
+            "Hotels buchen",
+            "Rezervasyon Yap",
+            "Urlaub planen",
+            "Passend zu Ihren Reisedaten",
+            "Neue Reiseziele entdecken",
+            "Urlaubsdetails ansehen",
+            "Den nächsten Urlaub finden",
+            "Inspiration für Ihre Reise",
+            "Angebote entdecken",
+            "Hier beginnt Ihr Urlaub",
+            "Verfügbarkeit prüfen",
+            "Urlaub nach Ihren Wünschen",
+            "Routen und Details ansehen",
+            "Urlaubsangebote ansehen",
+            "Jetzt entdecken"
+          ],
+          "descriptions": [
+            "Wählen Sie Ihre Reisedaten und prüfen Sie Verfügbarkeit und Buchungsbedingungen.",
+            "Entdecken Sie Ideen für Ihre nächste Reise. Vergleichen Sie die Details online.",
+            "Planen Sie Ihren Urlaub mit Informationen zu Preisen, Terminen und Leistungen.",
+            "Finden Sie Ihren passenden Urlaub. Prüfen Sie die Verfügbarkeit vor der Buchung."
+          ],
+          "cta": "Angebote entdecken",
+          "display_headlines": [
+            "Hotels buchen",
+            "Urlaub planen",
+            "Passend zu Ihren Reisedaten",
+            "Neue Reiseziele entdecken",
+            "Urlaubsdetails ansehen"
+          ],
+          "long_headline": "Hotels buchen · Rezervasyon Yap",
+          "social_text": "Hotels buchen. Wählen Sie Ihre Reisedaten und prüfen Sie Verfügbarkeit und Buchungsbedingungen. Angebote entdecken."
+        },
+        "ru": {
+          "title": "Бронирование отелей",
+          "headlines": [
+            "Бронирование отелей",
+            "Rezervasyon Yap",
+            "Планируйте свой отдых",
+            "Варианты на ваши даты",
+            "Откройте новые маршруты",
+            "Узнайте детали отдыха",
+            "Выберите следующий отпуск",
+            "Идеи для путешествий",
+            "Посмотрите варианты",
+            "Ваш отдых начинается здесь",
+            "Проверьте наличие мест",
+            "Найдите подходящий отдых",
+            "Маршруты и подробности",
+            "Варианты для отпуска",
+            "Откройте больше"
+          ],
+          "descriptions": [
+            "Выберите даты и ознакомьтесь с доступными вариантами и условиями бронирования.",
+            "Найдите идеи для следующей поездки. Сравните подробности на нашем сайте.",
+            "Планируйте отдых с учётом цен, дат и услуг, включённых в предложение.",
+            "Выберите подходящий вариант. Проверьте наличие мест перед бронированием."
+          ],
+          "cta": "Посмотреть варианты",
+          "display_headlines": [
+            "Бронирование отелей",
+            "Планируйте свой отдых",
+            "Варианты на ваши даты",
+            "Откройте новые маршруты",
+            "Узнайте детали отдыха"
+          ],
+          "long_headline": "Бронирование отелей · Rezervasyon Yap",
+          "social_text": "Бронирование отелей. Выберите даты и ознакомьтесь с доступными вариантами и условиями бронирования. Посмотреть варианты."
+        },
+        "zh": {
+          "title": "酒店预订",
+          "headlines": [
+            "酒店预订",
+            "Rezervasyon Yap",
+            "开始规划假期",
+            "查看适合您日期的选择",
+            "探索全新路线",
+            "了解度假详情",
+            "选择下一次假期",
+            "寻找旅行灵感",
+            "浏览旅行选择",
+            "从这里开启假期",
+            "查询可订情况",
+            "寻找适合您的假期",
+            "查看路线与详情",
+            "探索度假选择",
+            "现在探索"
+          ],
+          "descriptions": [
+            "选择出行日期，查看可订选项和预订条件。",
+            "为下一次旅程寻找灵感，在网站上比较详细信息。",
+            "了解价格、日期与包含的服务，规划适合您的假期。",
+            "找到心仪的选择，预订前请确认最新可订情况。"
+          ],
+          "cta": "探索旅行选择",
+          "display_headlines": [
+            "酒店预订",
+            "开始规划假期",
+            "查看适合您日期的选择",
+            "探索全新路线",
+            "了解度假详情"
+          ],
+          "long_headline": "酒店预订 · Rezervasyon Yap",
+          "social_text": "酒店预订. 选择出行日期，查看可订选项和预订条件。 探索旅行选择."
+        },
+        "fr": {
+          "title": "Réserver un hôtel",
+          "headlines": [
+            "Réserver un hôtel",
+            "Rezervasyon Yap",
+            "Préparez vos vacances",
+            "Des options pour vos dates",
+            "Découvrez de nouveaux lieux",
+            "Consultez les détails",
+            "Choisissez votre séjour",
+            "Trouvez des idées de voyage",
+            "Explorez les possibilités",
+            "Vos vacances commencent ici",
+            "Vérifiez les disponibilités",
+            "Un séjour à votre goût",
+            "Itinéraires et détails",
+            "Découvrez les séjours",
+            "Explorez dès maintenant"
+          ],
+          "descriptions": [
+            "Choisissez vos dates et consultez les disponibilités et conditions de réservation.",
+            "Trouvez des idées pour votre prochain voyage. Comparez les détails sur notre site.",
+            "Préparez votre séjour avec les prix, les dates et les prestations incluses.",
+            "Trouvez le séjour qui vous convient. Vérifiez les disponibilités avant de réserver."
+          ],
+          "cta": "Découvrez les options",
+          "display_headlines": [
+            "Réserver un hôtel",
+            "Préparez vos vacances",
+            "Des options pour vos dates",
+            "Découvrez de nouveaux lieux",
+            "Consultez les détails"
+          ],
+          "long_headline": "Réserver un hôtel · Rezervasyon Yap",
+          "social_text": "Réserver un hôtel. Choisissez vos dates et consultez les disponibilités et conditions de réservation. Découvrez les options."
+        }
+      },
+      "keywords_tr": [
+        "otel rezervasyonu",
+        "otel rezervasyonu"
+      ],
+      "negative_keywords_tr": [
+        "iş ilanı",
+        "kariyer",
+        "ücretsiz",
+        "bedava",
+        "ikinci el",
+        "satılık"
+      ]
+    },
+    {
+      "id": "holiday-home",
+      "name": "RY | Tatil Evi Kiralama | TR | 1000 TL",
+      "daily_budget_try": 1000,
+      "status": "prepared",
+      "target_country": "TR",
+      "target_presence": "presence",
+      "dates": null,
+      "final_url": "https://www.rezervasyonyap.tr/tr/tatil-evleri",
+      "final_url_verified": false,
+      "asset": "assets/holiday-home.png",
+      "asset_kind": "editorial_illustration",
+      "channels": [
+        "responsive_search",
+        "responsive_display",
+        "performance_max",
+        "social_feed",
+        "social_story"
+      ],
+      "publication_requirements": [
+        "verified_live_inventory",
+        "verified_landing_page",
+        "verified_conversion_tracking"
+      ],
+      "languages": {
+        "tr": {
+          "title": "Tatil Evi Kiralama",
+          "headlines": [
+            "Tatil Evi Kiralama",
+            "Rezervasyon Yap",
+            "Tatilini Planlamaya Başla",
+            "Tarihine Uygun Seçenekler",
+            "Yeni Rotalar Keşfet",
+            "Tatil Detaylarını İncele",
+            "Bir Sonraki Tatilini Seç",
+            "Seyahatine İlham Bul",
+            "Seçeneklere Göz At",
+            "Tatil Planın Burada Başlar",
+            "Müsaitliği Kontrol Et",
+            "Sana Uygun Tatili Bul",
+            "Rota ve Detayları İncele",
+            "Tatil Seçeneklerini Gör",
+            "Şimdi Keşfet"
+          ],
+          "descriptions": [
+            "Tarihlerini seç, müsait seçenekleri ve rezervasyon koşullarını incele.",
+            "Bir sonraki seyahatin için seçenekleri keşfet. Detayları sitede karşılaştır.",
+            "Fiyat, tarih ve dahil olan hizmetleri inceleyerek tatilini planla.",
+            "Sana uygun seçeneği bul. Güncel müsaitliği rezervasyon öncesinde kontrol et."
+          ],
+          "cta": "Seçenekleri keşfet",
+          "display_headlines": [
+            "Tatil Evi Kiralama",
+            "Tatilini Planlamaya Başla",
+            "Tarihine Uygun Seçenekler",
+            "Yeni Rotalar Keşfet",
+            "Tatil Detaylarını İncele"
+          ],
+          "long_headline": "Tatil Evi Kiralama · Rezervasyon Yap",
+          "social_text": "Tatil Evi Kiralama. Tarihlerini seç, müsait seçenekleri ve rezervasyon koşullarını incele. Seçenekleri keşfet."
+        },
+        "en": {
+          "title": "Holiday Home Rentals",
+          "headlines": [
+            "Holiday Home Rentals",
+            "Rezervasyon Yap",
+            "Start Planning Your Holiday",
+            "Options for Your Dates",
+            "Discover New Routes",
+            "Explore Holiday Details",
+            "Choose Your Next Holiday",
+            "Find Travel Inspiration",
+            "Browse Your Options",
+            "Your Holiday Starts Here",
+            "Check Availability",
+            "Find Your Kind of Holiday",
+            "Explore Routes and Details",
+            "View Holiday Options",
+            "Explore Today"
+          ],
+          "descriptions": [
+            "Choose your dates and review available options and booking conditions.",
+            "Discover ideas for your next trip. Compare the details on our website.",
+            "Plan your holiday with clear prices, dates and included services.",
+            "Find an option that suits you. Check availability before booking."
+          ],
+          "cta": "Explore your options",
+          "display_headlines": [
+            "Holiday Home Rentals",
+            "Start Planning Your Holiday",
+            "Options for Your Dates",
+            "Discover New Routes",
+            "Explore Holiday Details"
+          ],
+          "long_headline": "Holiday Home Rentals · Rezervasyon Yap",
+          "social_text": "Holiday Home Rentals. Choose your dates and review available options and booking conditions. Explore your options."
+        },
+        "de": {
+          "title": "Ferienhäuser mieten",
+          "headlines": [
+            "Ferienhäuser mieten",
+            "Rezervasyon Yap",
+            "Urlaub planen",
+            "Passend zu Ihren Reisedaten",
+            "Neue Reiseziele entdecken",
+            "Urlaubsdetails ansehen",
+            "Den nächsten Urlaub finden",
+            "Inspiration für Ihre Reise",
+            "Angebote entdecken",
+            "Hier beginnt Ihr Urlaub",
+            "Verfügbarkeit prüfen",
+            "Urlaub nach Ihren Wünschen",
+            "Routen und Details ansehen",
+            "Urlaubsangebote ansehen",
+            "Jetzt entdecken"
+          ],
+          "descriptions": [
+            "Wählen Sie Ihre Reisedaten und prüfen Sie Verfügbarkeit und Buchungsbedingungen.",
+            "Entdecken Sie Ideen für Ihre nächste Reise. Vergleichen Sie die Details online.",
+            "Planen Sie Ihren Urlaub mit Informationen zu Preisen, Terminen und Leistungen.",
+            "Finden Sie Ihren passenden Urlaub. Prüfen Sie die Verfügbarkeit vor der Buchung."
+          ],
+          "cta": "Angebote entdecken",
+          "display_headlines": [
+            "Ferienhäuser mieten",
+            "Urlaub planen",
+            "Passend zu Ihren Reisedaten",
+            "Neue Reiseziele entdecken",
+            "Urlaubsdetails ansehen"
+          ],
+          "long_headline": "Ferienhäuser mieten · Rezervasyon Yap",
+          "social_text": "Ferienhäuser mieten. Wählen Sie Ihre Reisedaten und prüfen Sie Verfügbarkeit und Buchungsbedingungen. Angebote entdecken."
+        },
+        "ru": {
+          "title": "Аренда домов для отдыха",
+          "headlines": [
+            "Аренда домов для отдыха",
+            "Rezervasyon Yap",
+            "Планируйте свой отдых",
+            "Варианты на ваши даты",
+            "Откройте новые маршруты",
+            "Узнайте детали отдыха",
+            "Выберите следующий отпуск",
+            "Идеи для путешествий",
+            "Посмотрите варианты",
+            "Ваш отдых начинается здесь",
+            "Проверьте наличие мест",
+            "Найдите подходящий отдых",
+            "Маршруты и подробности",
+            "Варианты для отпуска",
+            "Откройте больше"
+          ],
+          "descriptions": [
+            "Выберите даты и ознакомьтесь с доступными вариантами и условиями бронирования.",
+            "Найдите идеи для следующей поездки. Сравните подробности на нашем сайте.",
+            "Планируйте отдых с учётом цен, дат и услуг, включённых в предложение.",
+            "Выберите подходящий вариант. Проверьте наличие мест перед бронированием."
+          ],
+          "cta": "Посмотреть варианты",
+          "display_headlines": [
+            "Аренда домов для отдыха",
+            "Планируйте свой отдых",
+            "Варианты на ваши даты",
+            "Откройте новые маршруты",
+            "Узнайте детали отдыха"
+          ],
+          "long_headline": "Аренда домов для отдыха · Rezervasyon Yap",
+          "social_text": "Аренда домов для отдыха. Выберите даты и ознакомьтесь с доступными вариантами и условиями бронирования. Посмотреть варианты."
+        },
+        "zh": {
+          "title": "度假屋租赁",
+          "headlines": [
+            "度假屋租赁",
+            "Rezervasyon Yap",
+            "开始规划假期",
+            "查看适合您日期的选择",
+            "探索全新路线",
+            "了解度假详情",
+            "选择下一次假期",
+            "寻找旅行灵感",
+            "浏览旅行选择",
+            "从这里开启假期",
+            "查询可订情况",
+            "寻找适合您的假期",
+            "查看路线与详情",
+            "探索度假选择",
+            "现在探索"
+          ],
+          "descriptions": [
+            "选择出行日期，查看可订选项和预订条件。",
+            "为下一次旅程寻找灵感，在网站上比较详细信息。",
+            "了解价格、日期与包含的服务，规划适合您的假期。",
+            "找到心仪的选择，预订前请确认最新可订情况。"
+          ],
+          "cta": "探索旅行选择",
+          "display_headlines": [
+            "度假屋租赁",
+            "开始规划假期",
+            "查看适合您日期的选择",
+            "探索全新路线",
+            "了解度假详情"
+          ],
+          "long_headline": "度假屋租赁 · Rezervasyon Yap",
+          "social_text": "度假屋租赁. 选择出行日期，查看可订选项和预订条件。 探索旅行选择."
+        },
+        "fr": {
+          "title": "Location de vacances",
+          "headlines": [
+            "Location de vacances",
+            "Rezervasyon Yap",
+            "Préparez vos vacances",
+            "Des options pour vos dates",
+            "Découvrez de nouveaux lieux",
+            "Consultez les détails",
+            "Choisissez votre séjour",
+            "Trouvez des idées de voyage",
+            "Explorez les possibilités",
+            "Vos vacances commencent ici",
+            "Vérifiez les disponibilités",
+            "Un séjour à votre goût",
+            "Itinéraires et détails",
+            "Découvrez les séjours",
+            "Explorez dès maintenant"
+          ],
+          "descriptions": [
+            "Choisissez vos dates et consultez les disponibilités et conditions de réservation.",
+            "Trouvez des idées pour votre prochain voyage. Comparez les détails sur notre site.",
+            "Préparez votre séjour avec les prix, les dates et les prestations incluses.",
+            "Trouvez le séjour qui vous convient. Vérifiez les disponibilités avant de réserver."
+          ],
+          "cta": "Découvrez les options",
+          "display_headlines": [
+            "Location de vacances",
+            "Préparez vos vacances",
+            "Des options pour vos dates",
+            "Découvrez de nouveaux lieux",
+            "Consultez les détails"
+          ],
+          "long_headline": "Location de vacances · Rezervasyon Yap",
+          "social_text": "Location de vacances. Choisissez vos dates et consultez les disponibilités et conditions de réservation. Découvrez les options."
+        }
+      },
+      "keywords_tr": [
+        "tatil evi kiralama",
+        "tatil evi kiralama"
+      ],
+      "negative_keywords_tr": [
+        "iş ilanı",
+        "kariyer",
+        "ücretsiz",
+        "bedava",
+        "ikinci el",
+        "satılık"
+      ]
+    },
+    {
+      "id": "yacht",
+      "name": "RY | Yat Kiralama | TR | 1000 TL",
+      "daily_budget_try": 1000,
+      "status": "prepared",
+      "target_country": "TR",
+      "target_presence": "presence",
+      "dates": null,
+      "final_url": "https://www.rezervasyonyap.tr/tr/yat-kiralama",
+      "final_url_verified": false,
+      "asset": "assets/yacht.png",
+      "asset_kind": "editorial_illustration",
+      "channels": [
+        "responsive_search",
+        "responsive_display",
+        "performance_max",
+        "social_feed",
+        "social_story"
+      ],
+      "publication_requirements": [
+        "verified_live_inventory",
+        "verified_landing_page",
+        "verified_conversion_tracking"
+      ],
+      "languages": {
+        "tr": {
+          "title": "Yat Kiralama",
+          "headlines": [
+            "Yat Kiralama",
+            "Rezervasyon Yap",
+            "Tatilini Planlamaya Başla",
+            "Tarihine Uygun Seçenekler",
+            "Yeni Rotalar Keşfet",
+            "Tatil Detaylarını İncele",
+            "Bir Sonraki Tatilini Seç",
+            "Seyahatine İlham Bul",
+            "Seçeneklere Göz At",
+            "Tatil Planın Burada Başlar",
+            "Müsaitliği Kontrol Et",
+            "Sana Uygun Tatili Bul",
+            "Rota ve Detayları İncele",
+            "Tatil Seçeneklerini Gör",
+            "Şimdi Keşfet"
+          ],
+          "descriptions": [
+            "Tarihlerini seç, müsait seçenekleri ve rezervasyon koşullarını incele.",
+            "Bir sonraki seyahatin için seçenekleri keşfet. Detayları sitede karşılaştır.",
+            "Fiyat, tarih ve dahil olan hizmetleri inceleyerek tatilini planla.",
+            "Sana uygun seçeneği bul. Güncel müsaitliği rezervasyon öncesinde kontrol et."
+          ],
+          "cta": "Seçenekleri keşfet",
+          "display_headlines": [
+            "Yat Kiralama",
+            "Tatilini Planlamaya Başla",
+            "Tarihine Uygun Seçenekler",
+            "Yeni Rotalar Keşfet",
+            "Tatil Detaylarını İncele"
+          ],
+          "long_headline": "Yat Kiralama · Rezervasyon Yap",
+          "social_text": "Yat Kiralama. Tarihlerini seç, müsait seçenekleri ve rezervasyon koşullarını incele. Seçenekleri keşfet."
+        },
+        "en": {
+          "title": "Yacht Charters",
+          "headlines": [
+            "Yacht Charters",
+            "Rezervasyon Yap",
+            "Start Planning Your Holiday",
+            "Options for Your Dates",
+            "Discover New Routes",
+            "Explore Holiday Details",
+            "Choose Your Next Holiday",
+            "Find Travel Inspiration",
+            "Browse Your Options",
+            "Your Holiday Starts Here",
+            "Check Availability",
+            "Find Your Kind of Holiday",
+            "Explore Routes and Details",
+            "View Holiday Options",
+            "Explore Today"
+          ],
+          "descriptions": [
+            "Choose your dates and review available options and booking conditions.",
+            "Discover ideas for your next trip. Compare the details on our website.",
+            "Plan your holiday with clear prices, dates and included services.",
+            "Find an option that suits you. Check availability before booking."
+          ],
+          "cta": "Explore your options",
+          "display_headlines": [
+            "Yacht Charters",
+            "Start Planning Your Holiday",
+            "Options for Your Dates",
+            "Discover New Routes",
+            "Explore Holiday Details"
+          ],
+          "long_headline": "Yacht Charters · Rezervasyon Yap",
+          "social_text": "Yacht Charters. Choose your dates and review available options and booking conditions. Explore your options."
+        },
+        "de": {
+          "title": "Yachtcharter",
+          "headlines": [
+            "Yachtcharter",
+            "Rezervasyon Yap",
+            "Urlaub planen",
+            "Passend zu Ihren Reisedaten",
+            "Neue Reiseziele entdecken",
+            "Urlaubsdetails ansehen",
+            "Den nächsten Urlaub finden",
+            "Inspiration für Ihre Reise",
+            "Angebote entdecken",
+            "Hier beginnt Ihr Urlaub",
+            "Verfügbarkeit prüfen",
+            "Urlaub nach Ihren Wünschen",
+            "Routen und Details ansehen",
+            "Urlaubsangebote ansehen",
+            "Jetzt entdecken"
+          ],
+          "descriptions": [
+            "Wählen Sie Ihre Reisedaten und prüfen Sie Verfügbarkeit und Buchungsbedingungen.",
+            "Entdecken Sie Ideen für Ihre nächste Reise. Vergleichen Sie die Details online.",
+            "Planen Sie Ihren Urlaub mit Informationen zu Preisen, Terminen und Leistungen.",
+            "Finden Sie Ihren passenden Urlaub. Prüfen Sie die Verfügbarkeit vor der Buchung."
+          ],
+          "cta": "Angebote entdecken",
+          "display_headlines": [
+            "Yachtcharter",
+            "Urlaub planen",
+            "Passend zu Ihren Reisedaten",
+            "Neue Reiseziele entdecken",
+            "Urlaubsdetails ansehen"
+          ],
+          "long_headline": "Yachtcharter · Rezervasyon Yap",
+          "social_text": "Yachtcharter. Wählen Sie Ihre Reisedaten und prüfen Sie Verfügbarkeit und Buchungsbedingungen. Angebote entdecken."
+        },
+        "ru": {
+          "title": "Аренда яхт",
+          "headlines": [
+            "Аренда яхт",
+            "Rezervasyon Yap",
+            "Планируйте свой отдых",
+            "Варианты на ваши даты",
+            "Откройте новые маршруты",
+            "Узнайте детали отдыха",
+            "Выберите следующий отпуск",
+            "Идеи для путешествий",
+            "Посмотрите варианты",
+            "Ваш отдых начинается здесь",
+            "Проверьте наличие мест",
+            "Найдите подходящий отдых",
+            "Маршруты и подробности",
+            "Варианты для отпуска",
+            "Откройте больше"
+          ],
+          "descriptions": [
+            "Выберите даты и ознакомьтесь с доступными вариантами и условиями бронирования.",
+            "Найдите идеи для следующей поездки. Сравните подробности на нашем сайте.",
+            "Планируйте отдых с учётом цен, дат и услуг, включённых в предложение.",
+            "Выберите подходящий вариант. Проверьте наличие мест перед бронированием."
+          ],
+          "cta": "Посмотреть варианты",
+          "display_headlines": [
+            "Аренда яхт",
+            "Планируйте свой отдых",
+            "Варианты на ваши даты",
+            "Откройте новые маршруты",
+            "Узнайте детали отдыха"
+          ],
+          "long_headline": "Аренда яхт · Rezervasyon Yap",
+          "social_text": "Аренда яхт. Выберите даты и ознакомьтесь с доступными вариантами и условиями бронирования. Посмотреть варианты."
+        },
+        "zh": {
+          "title": "游艇租赁",
+          "headlines": [
+            "游艇租赁",
+            "Rezervasyon Yap",
+            "开始规划假期",
+            "查看适合您日期的选择",
+            "探索全新路线",
+            "了解度假详情",
+            "选择下一次假期",
+            "寻找旅行灵感",
+            "浏览旅行选择",
+            "从这里开启假期",
+            "查询可订情况",
+            "寻找适合您的假期",
+            "查看路线与详情",
+            "探索度假选择",
+            "现在探索"
+          ],
+          "descriptions": [
+            "选择出行日期，查看可订选项和预订条件。",
+            "为下一次旅程寻找灵感，在网站上比较详细信息。",
+            "了解价格、日期与包含的服务，规划适合您的假期。",
+            "找到心仪的选择，预订前请确认最新可订情况。"
+          ],
+          "cta": "探索旅行选择",
+          "display_headlines": [
+            "游艇租赁",
+            "开始规划假期",
+            "查看适合您日期的选择",
+            "探索全新路线",
+            "了解度假详情"
+          ],
+          "long_headline": "游艇租赁 · Rezervasyon Yap",
+          "social_text": "游艇租赁. 选择出行日期，查看可订选项和预订条件。 探索旅行选择."
+        },
+        "fr": {
+          "title": "Location de yachts",
+          "headlines": [
+            "Location de yachts",
+            "Rezervasyon Yap",
+            "Préparez vos vacances",
+            "Des options pour vos dates",
+            "Découvrez de nouveaux lieux",
+            "Consultez les détails",
+            "Choisissez votre séjour",
+            "Trouvez des idées de voyage",
+            "Explorez les possibilités",
+            "Vos vacances commencent ici",
+            "Vérifiez les disponibilités",
+            "Un séjour à votre goût",
+            "Itinéraires et détails",
+            "Découvrez les séjours",
+            "Explorez dès maintenant"
+          ],
+          "descriptions": [
+            "Choisissez vos dates et consultez les disponibilités et conditions de réservation.",
+            "Trouvez des idées pour votre prochain voyage. Comparez les détails sur notre site.",
+            "Préparez votre séjour avec les prix, les dates et les prestations incluses.",
+            "Trouvez le séjour qui vous convient. Vérifiez les disponibilités avant de réserver."
+          ],
+          "cta": "Découvrez les options",
+          "display_headlines": [
+            "Location de yachts",
+            "Préparez vos vacances",
+            "Des options pour vos dates",
+            "Découvrez de nouveaux lieux",
+            "Consultez les détails"
+          ],
+          "long_headline": "Location de yachts · Rezervasyon Yap",
+          "social_text": "Location de yachts. Choisissez vos dates et consultez les disponibilités et conditions de réservation. Découvrez les options."
+        }
+      },
+      "keywords_tr": [
+        "yat kiralama",
+        "yat kiralama"
+      ],
+      "negative_keywords_tr": [
+        "iş ilanı",
+        "kariyer",
+        "ücretsiz",
+        "bedava",
+        "ikinci el",
+        "satılık"
+      ]
+    },
+    {
+      "id": "tour",
+      "name": "RY | Tur Seçeneklerini Keşfet | TR | 1000 TL",
+      "daily_budget_try": 1000,
+      "status": "prepared",
+      "target_country": "TR",
+      "target_presence": "presence",
+      "dates": null,
+      "final_url": "https://www.rezervasyonyap.tr/tr/turlar",
+      "final_url_verified": false,
+      "asset": "assets/tour.png",
+      "asset_kind": "editorial_illustration",
+      "channels": [
+        "responsive_search",
+        "responsive_display",
+        "performance_max",
+        "social_feed",
+        "social_story"
+      ],
+      "publication_requirements": [
+        "verified_live_inventory",
+        "verified_landing_page",
+        "verified_conversion_tracking"
+      ],
+      "languages": {
+        "tr": {
+          "title": "Tur Seçeneklerini Keşfet",
+          "headlines": [
+            "Tur Seçeneklerini Keşfet",
+            "Rezervasyon Yap",
+            "Tatilini Planlamaya Başla",
+            "Tarihine Uygun Seçenekler",
+            "Yeni Rotalar Keşfet",
+            "Tatil Detaylarını İncele",
+            "Bir Sonraki Tatilini Seç",
+            "Seyahatine İlham Bul",
+            "Seçeneklere Göz At",
+            "Tatil Planın Burada Başlar",
+            "Müsaitliği Kontrol Et",
+            "Sana Uygun Tatili Bul",
+            "Rota ve Detayları İncele",
+            "Tatil Seçeneklerini Gör",
+            "Şimdi Keşfet"
+          ],
+          "descriptions": [
+            "Tarihlerini seç, müsait seçenekleri ve rezervasyon koşullarını incele.",
+            "Bir sonraki seyahatin için seçenekleri keşfet. Detayları sitede karşılaştır.",
+            "Fiyat, tarih ve dahil olan hizmetleri inceleyerek tatilini planla.",
+            "Sana uygun seçeneği bul. Güncel müsaitliği rezervasyon öncesinde kontrol et."
+          ],
+          "cta": "Seçenekleri keşfet",
+          "display_headlines": [
+            "Tur Seçeneklerini Keşfet",
+            "Tatilini Planlamaya Başla",
+            "Tarihine Uygun Seçenekler",
+            "Yeni Rotalar Keşfet",
+            "Tatil Detaylarını İncele"
+          ],
+          "long_headline": "Tur Seçeneklerini Keşfet · Rezervasyon Yap",
+          "social_text": "Tur Seçeneklerini Keşfet. Tarihlerini seç, müsait seçenekleri ve rezervasyon koşullarını incele. Seçenekleri keşfet."
+        },
+        "en": {
+          "title": "Discover Tours",
+          "headlines": [
+            "Discover Tours",
+            "Rezervasyon Yap",
+            "Start Planning Your Holiday",
+            "Options for Your Dates",
+            "Discover New Routes",
+            "Explore Holiday Details",
+            "Choose Your Next Holiday",
+            "Find Travel Inspiration",
+            "Browse Your Options",
+            "Your Holiday Starts Here",
+            "Check Availability",
+            "Find Your Kind of Holiday",
+            "Explore Routes and Details",
+            "View Holiday Options",
+            "Explore Today"
+          ],
+          "descriptions": [
+            "Choose your dates and review available options and booking conditions.",
+            "Discover ideas for your next trip. Compare the details on our website.",
+            "Plan your holiday with clear prices, dates and included services.",
+            "Find an option that suits you. Check availability before booking."
+          ],
+          "cta": "Explore your options",
+          "display_headlines": [
+            "Discover Tours",
+            "Start Planning Your Holiday",
+            "Options for Your Dates",
+            "Discover New Routes",
+            "Explore Holiday Details"
+          ],
+          "long_headline": "Discover Tours · Rezervasyon Yap",
+          "social_text": "Discover Tours. Choose your dates and review available options and booking conditions. Explore your options."
+        },
+        "de": {
+          "title": "Reisen entdecken",
+          "headlines": [
+            "Reisen entdecken",
+            "Rezervasyon Yap",
+            "Urlaub planen",
+            "Passend zu Ihren Reisedaten",
+            "Neue Reiseziele entdecken",
+            "Urlaubsdetails ansehen",
+            "Den nächsten Urlaub finden",
+            "Inspiration für Ihre Reise",
+            "Angebote entdecken",
+            "Hier beginnt Ihr Urlaub",
+            "Verfügbarkeit prüfen",
+            "Urlaub nach Ihren Wünschen",
+            "Routen und Details ansehen",
+            "Urlaubsangebote ansehen",
+            "Jetzt entdecken"
+          ],
+          "descriptions": [
+            "Wählen Sie Ihre Reisedaten und prüfen Sie Verfügbarkeit und Buchungsbedingungen.",
+            "Entdecken Sie Ideen für Ihre nächste Reise. Vergleichen Sie die Details online.",
+            "Planen Sie Ihren Urlaub mit Informationen zu Preisen, Terminen und Leistungen.",
+            "Finden Sie Ihren passenden Urlaub. Prüfen Sie die Verfügbarkeit vor der Buchung."
+          ],
+          "cta": "Angebote entdecken",
+          "display_headlines": [
+            "Reisen entdecken",
+            "Urlaub planen",
+            "Passend zu Ihren Reisedaten",
+            "Neue Reiseziele entdecken",
+            "Urlaubsdetails ansehen"
+          ],
+          "long_headline": "Reisen entdecken · Rezervasyon Yap",
+          "social_text": "Reisen entdecken. Wählen Sie Ihre Reisedaten und prüfen Sie Verfügbarkeit und Buchungsbedingungen. Angebote entdecken."
+        },
+        "ru": {
+          "title": "Выберите свой тур",
+          "headlines": [
+            "Выберите свой тур",
+            "Rezervasyon Yap",
+            "Планируйте свой отдых",
+            "Варианты на ваши даты",
+            "Откройте новые маршруты",
+            "Узнайте детали отдыха",
+            "Выберите следующий отпуск",
+            "Идеи для путешествий",
+            "Посмотрите варианты",
+            "Ваш отдых начинается здесь",
+            "Проверьте наличие мест",
+            "Найдите подходящий отдых",
+            "Маршруты и подробности",
+            "Варианты для отпуска",
+            "Откройте больше"
+          ],
+          "descriptions": [
+            "Выберите даты и ознакомьтесь с доступными вариантами и условиями бронирования.",
+            "Найдите идеи для следующей поездки. Сравните подробности на нашем сайте.",
+            "Планируйте отдых с учётом цен, дат и услуг, включённых в предложение.",
+            "Выберите подходящий вариант. Проверьте наличие мест перед бронированием."
+          ],
+          "cta": "Посмотреть варианты",
+          "display_headlines": [
+            "Выберите свой тур",
+            "Планируйте свой отдых",
+            "Варианты на ваши даты",
+            "Откройте новые маршруты",
+            "Узнайте детали отдыха"
+          ],
+          "long_headline": "Выберите свой тур · Rezervasyon Yap",
+          "social_text": "Выберите свой тур. Выберите даты и ознакомьтесь с доступными вариантами и условиями бронирования. Посмотреть варианты."
+        },
+        "zh": {
+          "title": "探索旅行线路",
+          "headlines": [
+            "探索旅行线路",
+            "Rezervasyon Yap",
+            "开始规划假期",
+            "查看适合您日期的选择",
+            "探索全新路线",
+            "了解度假详情",
+            "选择下一次假期",
+            "寻找旅行灵感",
+            "浏览旅行选择",
+            "从这里开启假期",
+            "查询可订情况",
+            "寻找适合您的假期",
+            "查看路线与详情",
+            "探索度假选择",
+            "现在探索"
+          ],
+          "descriptions": [
+            "选择出行日期，查看可订选项和预订条件。",
+            "为下一次旅程寻找灵感，在网站上比较详细信息。",
+            "了解价格、日期与包含的服务，规划适合您的假期。",
+            "找到心仪的选择，预订前请确认最新可订情况。"
+          ],
+          "cta": "探索旅行选择",
+          "display_headlines": [
+            "探索旅行线路",
+            "开始规划假期",
+            "查看适合您日期的选择",
+            "探索全新路线",
+            "了解度假详情"
+          ],
+          "long_headline": "探索旅行线路 · Rezervasyon Yap",
+          "social_text": "探索旅行线路. 选择出行日期，查看可订选项和预订条件。 探索旅行选择."
+        },
+        "fr": {
+          "title": "Découvrez nos circuits",
+          "headlines": [
+            "Découvrez nos circuits",
+            "Rezervasyon Yap",
+            "Préparez vos vacances",
+            "Des options pour vos dates",
+            "Découvrez de nouveaux lieux",
+            "Consultez les détails",
+            "Choisissez votre séjour",
+            "Trouvez des idées de voyage",
+            "Explorez les possibilités",
+            "Vos vacances commencent ici",
+            "Vérifiez les disponibilités",
+            "Un séjour à votre goût",
+            "Itinéraires et détails",
+            "Découvrez les séjours",
+            "Explorez dès maintenant"
+          ],
+          "descriptions": [
+            "Choisissez vos dates et consultez les disponibilités et conditions de réservation.",
+            "Trouvez des idées pour votre prochain voyage. Comparez les détails sur notre site.",
+            "Préparez votre séjour avec les prix, les dates et les prestations incluses.",
+            "Trouvez le séjour qui vous convient. Vérifiez les disponibilités avant de réserver."
+          ],
+          "cta": "Découvrez les options",
+          "display_headlines": [
+            "Découvrez nos circuits",
+            "Préparez vos vacances",
+            "Des options pour vos dates",
+            "Découvrez de nouveaux lieux",
+            "Consultez les détails"
+          ],
+          "long_headline": "Découvrez nos circuits · Rezervasyon Yap",
+          "social_text": "Découvrez nos circuits. Choisissez vos dates et consultez les disponibilités et conditions de réservation. Découvrez les options."
+        }
+      },
+      "keywords_tr": [
+        "tur seçeneklerini keşfet",
+        "tur seçeneklerini"
+      ],
+      "negative_keywords_tr": [
+        "iş ilanı",
+        "kariyer",
+        "ücretsiz",
+        "bedava",
+        "ikinci el",
+        "satılık"
+      ]
+    },
+    {
+      "id": "cruise",
+      "name": "RY | Gemi Turlarını Keşfet | TR | 1000 TL",
+      "daily_budget_try": 1000,
+      "status": "prepared",
+      "target_country": "TR",
+      "target_presence": "presence",
+      "dates": null,
+      "final_url": "https://www.rezervasyonyap.tr/tr/kruvaziyer",
+      "final_url_verified": false,
+      "asset": "assets/cruise.png",
+      "asset_kind": "editorial_illustration",
+      "channels": [
+        "responsive_search",
+        "responsive_display",
+        "performance_max",
+        "social_feed",
+        "social_story"
+      ],
+      "publication_requirements": [
+        "verified_live_inventory",
+        "verified_landing_page",
+        "verified_conversion_tracking"
+      ],
+      "languages": {
+        "tr": {
+          "title": "Gemi Turlarını Keşfet",
+          "headlines": [
+            "Gemi Turlarını Keşfet",
+            "Rezervasyon Yap",
+            "Tatilini Planlamaya Başla",
+            "Tarihine Uygun Seçenekler",
+            "Yeni Rotalar Keşfet",
+            "Tatil Detaylarını İncele",
+            "Bir Sonraki Tatilini Seç",
+            "Seyahatine İlham Bul",
+            "Seçeneklere Göz At",
+            "Tatil Planın Burada Başlar",
+            "Müsaitliği Kontrol Et",
+            "Sana Uygun Tatili Bul",
+            "Rota ve Detayları İncele",
+            "Tatil Seçeneklerini Gör",
+            "Şimdi Keşfet"
+          ],
+          "descriptions": [
+            "Tarihlerini seç, müsait seçenekleri ve rezervasyon koşullarını incele.",
+            "Bir sonraki seyahatin için seçenekleri keşfet. Detayları sitede karşılaştır.",
+            "Fiyat, tarih ve dahil olan hizmetleri inceleyerek tatilini planla.",
+            "Sana uygun seçeneği bul. Güncel müsaitliği rezervasyon öncesinde kontrol et."
+          ],
+          "cta": "Seçenekleri keşfet",
+          "display_headlines": [
+            "Gemi Turlarını Keşfet",
+            "Tatilini Planlamaya Başla",
+            "Tarihine Uygun Seçenekler",
+            "Yeni Rotalar Keşfet",
+            "Tatil Detaylarını İncele"
+          ],
+          "long_headline": "Gemi Turlarını Keşfet · Rezervasyon Yap",
+          "social_text": "Gemi Turlarını Keşfet. Tarihlerini seç, müsait seçenekleri ve rezervasyon koşullarını incele. Seçenekleri keşfet."
+        },
+        "en": {
+          "title": "Discover Cruises",
+          "headlines": [
+            "Discover Cruises",
+            "Rezervasyon Yap",
+            "Start Planning Your Holiday",
+            "Options for Your Dates",
+            "Discover New Routes",
+            "Explore Holiday Details",
+            "Choose Your Next Holiday",
+            "Find Travel Inspiration",
+            "Browse Your Options",
+            "Your Holiday Starts Here",
+            "Check Availability",
+            "Find Your Kind of Holiday",
+            "Explore Routes and Details",
+            "View Holiday Options",
+            "Explore Today"
+          ],
+          "descriptions": [
+            "Choose your dates and review available options and booking conditions.",
+            "Discover ideas for your next trip. Compare the details on our website.",
+            "Plan your holiday with clear prices, dates and included services.",
+            "Find an option that suits you. Check availability before booking."
+          ],
+          "cta": "Explore your options",
+          "display_headlines": [
+            "Discover Cruises",
+            "Start Planning Your Holiday",
+            "Options for Your Dates",
+            "Discover New Routes",
+            "Explore Holiday Details"
+          ],
+          "long_headline": "Discover Cruises · Rezervasyon Yap",
+          "social_text": "Discover Cruises. Choose your dates and review available options and booking conditions. Explore your options."
+        },
+        "de": {
+          "title": "Kreuzfahrten entdecken",
+          "headlines": [
+            "Kreuzfahrten entdecken",
+            "Rezervasyon Yap",
+            "Urlaub planen",
+            "Passend zu Ihren Reisedaten",
+            "Neue Reiseziele entdecken",
+            "Urlaubsdetails ansehen",
+            "Den nächsten Urlaub finden",
+            "Inspiration für Ihre Reise",
+            "Angebote entdecken",
+            "Hier beginnt Ihr Urlaub",
+            "Verfügbarkeit prüfen",
+            "Urlaub nach Ihren Wünschen",
+            "Routen und Details ansehen",
+            "Urlaubsangebote ansehen",
+            "Jetzt entdecken"
+          ],
+          "descriptions": [
+            "Wählen Sie Ihre Reisedaten und prüfen Sie Verfügbarkeit und Buchungsbedingungen.",
+            "Entdecken Sie Ideen für Ihre nächste Reise. Vergleichen Sie die Details online.",
+            "Planen Sie Ihren Urlaub mit Informationen zu Preisen, Terminen und Leistungen.",
+            "Finden Sie Ihren passenden Urlaub. Prüfen Sie die Verfügbarkeit vor der Buchung."
+          ],
+          "cta": "Angebote entdecken",
+          "display_headlines": [
+            "Kreuzfahrten entdecken",
+            "Urlaub planen",
+            "Passend zu Ihren Reisedaten",
+            "Neue Reiseziele entdecken",
+            "Urlaubsdetails ansehen"
+          ],
+          "long_headline": "Kreuzfahrten entdecken · Rezervasyon Yap",
+          "social_text": "Kreuzfahrten entdecken. Wählen Sie Ihre Reisedaten und prüfen Sie Verfügbarkeit und Buchungsbedingungen. Angebote entdecken."
+        },
+        "ru": {
+          "title": "Откройте мир круизов",
+          "headlines": [
+            "Откройте мир круизов",
+            "Rezervasyon Yap",
+            "Планируйте свой отдых",
+            "Варианты на ваши даты",
+            "Откройте новые маршруты",
+            "Узнайте детали отдыха",
+            "Выберите следующий отпуск",
+            "Идеи для путешествий",
+            "Посмотрите варианты",
+            "Ваш отдых начинается здесь",
+            "Проверьте наличие мест",
+            "Найдите подходящий отдых",
+            "Маршруты и подробности",
+            "Варианты для отпуска",
+            "Откройте больше"
+          ],
+          "descriptions": [
+            "Выберите даты и ознакомьтесь с доступными вариантами и условиями бронирования.",
+            "Найдите идеи для следующей поездки. Сравните подробности на нашем сайте.",
+            "Планируйте отдых с учётом цен, дат и услуг, включённых в предложение.",
+            "Выберите подходящий вариант. Проверьте наличие мест перед бронированием."
+          ],
+          "cta": "Посмотреть варианты",
+          "display_headlines": [
+            "Откройте мир круизов",
+            "Планируйте свой отдых",
+            "Варианты на ваши даты",
+            "Откройте новые маршруты",
+            "Узнайте детали отдыха"
+          ],
+          "long_headline": "Откройте мир круизов · Rezervasyon Yap",
+          "social_text": "Откройте мир круизов. Выберите даты и ознакомьтесь с доступными вариантами и условиями бронирования. Посмотреть варианты."
+        },
+        "zh": {
+          "title": "探索邮轮之旅",
+          "headlines": [
+            "探索邮轮之旅",
+            "Rezervasyon Yap",
+            "开始规划假期",
+            "查看适合您日期的选择",
+            "探索全新路线",
+            "了解度假详情",
+            "选择下一次假期",
+            "寻找旅行灵感",
+            "浏览旅行选择",
+            "从这里开启假期",
+            "查询可订情况",
+            "寻找适合您的假期",
+            "查看路线与详情",
+            "探索度假选择",
+            "现在探索"
+          ],
+          "descriptions": [
+            "选择出行日期，查看可订选项和预订条件。",
+            "为下一次旅程寻找灵感，在网站上比较详细信息。",
+            "了解价格、日期与包含的服务，规划适合您的假期。",
+            "找到心仪的选择，预订前请确认最新可订情况。"
+          ],
+          "cta": "探索旅行选择",
+          "display_headlines": [
+            "探索邮轮之旅",
+            "开始规划假期",
+            "查看适合您日期的选择",
+            "探索全新路线",
+            "了解度假详情"
+          ],
+          "long_headline": "探索邮轮之旅 · Rezervasyon Yap",
+          "social_text": "探索邮轮之旅. 选择出行日期，查看可订选项和预订条件。 探索旅行选择."
+        },
+        "fr": {
+          "title": "Découvrez les croisières",
+          "headlines": [
+            "Découvrez les croisières",
+            "Rezervasyon Yap",
+            "Préparez vos vacances",
+            "Des options pour vos dates",
+            "Découvrez de nouveaux lieux",
+            "Consultez les détails",
+            "Choisissez votre séjour",
+            "Trouvez des idées de voyage",
+            "Explorez les possibilités",
+            "Vos vacances commencent ici",
+            "Vérifiez les disponibilités",
+            "Un séjour à votre goût",
+            "Itinéraires et détails",
+            "Découvrez les séjours",
+            "Explorez dès maintenant"
+          ],
+          "descriptions": [
+            "Choisissez vos dates et consultez les disponibilités et conditions de réservation.",
+            "Trouvez des idées pour votre prochain voyage. Comparez les détails sur notre site.",
+            "Préparez votre séjour avec les prix, les dates et les prestations incluses.",
+            "Trouvez le séjour qui vous convient. Vérifiez les disponibilités avant de réserver."
+          ],
+          "cta": "Découvrez les options",
+          "display_headlines": [
+            "Découvrez les croisières",
+            "Préparez vos vacances",
+            "Des options pour vos dates",
+            "Découvrez de nouveaux lieux",
+            "Consultez les détails"
+          ],
+          "long_headline": "Découvrez les croisières · Rezervasyon Yap",
+          "social_text": "Découvrez les croisières. Choisissez vos dates et consultez les disponibilités et conditions de réservation. Découvrez les options."
+        }
+      },
+      "keywords_tr": [
+        "gemi turlarını keşfet",
+        "gemi turlarını"
+      ],
+      "negative_keywords_tr": [
+        "iş ilanı",
+        "kariyer",
+        "ücretsiz",
+        "bedava",
+        "ikinci el",
+        "satılık"
+      ]
+    },
+    {
+      "id": "club-med",
+      "name": "RY | Club Med Tatil Seçenekleri | TR | 1000 TL",
+      "daily_budget_try": 1000,
+      "status": "prepared",
+      "target_country": "TR",
+      "target_presence": "presence",
+      "dates": null,
+      "final_url": null,
+      "final_url_verified": false,
+      "asset": "assets/club-med.png",
+      "asset_kind": "editorial_illustration",
+      "channels": [
+        "responsive_search",
+        "responsive_display",
+        "performance_max",
+        "social_feed",
+        "social_story"
+      ],
+      "publication_requirements": [
+        "verified_live_inventory",
+        "verified_landing_page",
+        "verified_conversion_tracking"
+      ],
+      "languages": {
+        "tr": {
+          "title": "Club Med Tatil Seçenekleri",
+          "headlines": [
+            "Club Med Tatil Seçenekleri",
+            "Rezervasyon Yap",
+            "Tatilini Planlamaya Başla",
+            "Tarihine Uygun Seçenekler",
+            "Yeni Rotalar Keşfet",
+            "Tatil Detaylarını İncele",
+            "Bir Sonraki Tatilini Seç",
+            "Seyahatine İlham Bul",
+            "Seçeneklere Göz At",
+            "Tatil Planın Burada Başlar",
+            "Müsaitliği Kontrol Et",
+            "Sana Uygun Tatili Bul",
+            "Rota ve Detayları İncele",
+            "Tatil Seçeneklerini Gör",
+            "Şimdi Keşfet"
+          ],
+          "descriptions": [
+            "Tarihlerini seç, müsait seçenekleri ve rezervasyon koşullarını incele.",
+            "Bir sonraki seyahatin için seçenekleri keşfet. Detayları sitede karşılaştır.",
+            "Fiyat, tarih ve dahil olan hizmetleri inceleyerek tatilini planla.",
+            "Sana uygun seçeneği bul. Güncel müsaitliği rezervasyon öncesinde kontrol et."
+          ],
+          "cta": "Seçenekleri keşfet",
+          "display_headlines": [
+            "Club Med Tatil Seçenekleri",
+            "Tatilini Planlamaya Başla",
+            "Tarihine Uygun Seçenekler",
+            "Yeni Rotalar Keşfet",
+            "Tatil Detaylarını İncele"
+          ],
+          "long_headline": "Club Med Tatil Seçenekleri · Rezervasyon Yap",
+          "social_text": "Club Med Tatil Seçenekleri. Tarihlerini seç, müsait seçenekleri ve rezervasyon koşullarını incele. Seçenekleri keşfet."
+        },
+        "en": {
+          "title": "Club Med Holidays",
+          "headlines": [
+            "Club Med Holidays",
+            "Rezervasyon Yap",
+            "Start Planning Your Holiday",
+            "Options for Your Dates",
+            "Discover New Routes",
+            "Explore Holiday Details",
+            "Choose Your Next Holiday",
+            "Find Travel Inspiration",
+            "Browse Your Options",
+            "Your Holiday Starts Here",
+            "Check Availability",
+            "Find Your Kind of Holiday",
+            "Explore Routes and Details",
+            "View Holiday Options",
+            "Explore Today"
+          ],
+          "descriptions": [
+            "Choose your dates and review available options and booking conditions.",
+            "Discover ideas for your next trip. Compare the details on our website.",
+            "Plan your holiday with clear prices, dates and included services.",
+            "Find an option that suits you. Check availability before booking."
+          ],
+          "cta": "Explore your options",
+          "display_headlines": [
+            "Club Med Holidays",
+            "Start Planning Your Holiday",
+            "Options for Your Dates",
+            "Discover New Routes",
+            "Explore Holiday Details"
+          ],
+          "long_headline": "Club Med Holidays · Rezervasyon Yap",
+          "social_text": "Club Med Holidays. Choose your dates and review available options and booking conditions. Explore your options."
+        },
+        "de": {
+          "title": "Club Med Urlaub",
+          "headlines": [
+            "Club Med Urlaub",
+            "Rezervasyon Yap",
+            "Urlaub planen",
+            "Passend zu Ihren Reisedaten",
+            "Neue Reiseziele entdecken",
+            "Urlaubsdetails ansehen",
+            "Den nächsten Urlaub finden",
+            "Inspiration für Ihre Reise",
+            "Angebote entdecken",
+            "Hier beginnt Ihr Urlaub",
+            "Verfügbarkeit prüfen",
+            "Urlaub nach Ihren Wünschen",
+            "Routen und Details ansehen",
+            "Urlaubsangebote ansehen",
+            "Jetzt entdecken"
+          ],
+          "descriptions": [
+            "Wählen Sie Ihre Reisedaten und prüfen Sie Verfügbarkeit und Buchungsbedingungen.",
+            "Entdecken Sie Ideen für Ihre nächste Reise. Vergleichen Sie die Details online.",
+            "Planen Sie Ihren Urlaub mit Informationen zu Preisen, Terminen und Leistungen.",
+            "Finden Sie Ihren passenden Urlaub. Prüfen Sie die Verfügbarkeit vor der Buchung."
+          ],
+          "cta": "Angebote entdecken",
+          "display_headlines": [
+            "Club Med Urlaub",
+            "Urlaub planen",
+            "Passend zu Ihren Reisedaten",
+            "Neue Reiseziele entdecken",
+            "Urlaubsdetails ansehen"
+          ],
+          "long_headline": "Club Med Urlaub · Rezervasyon Yap",
+          "social_text": "Club Med Urlaub. Wählen Sie Ihre Reisedaten und prüfen Sie Verfügbarkeit und Buchungsbedingungen. Angebote entdecken."
+        },
+        "ru": {
+          "title": "Отдых в Club Med",
+          "headlines": [
+            "Отдых в Club Med",
+            "Rezervasyon Yap",
+            "Планируйте свой отдых",
+            "Варианты на ваши даты",
+            "Откройте новые маршруты",
+            "Узнайте детали отдыха",
+            "Выберите следующий отпуск",
+            "Идеи для путешествий",
+            "Посмотрите варианты",
+            "Ваш отдых начинается здесь",
+            "Проверьте наличие мест",
+            "Найдите подходящий отдых",
+            "Маршруты и подробности",
+            "Варианты для отпуска",
+            "Откройте больше"
+          ],
+          "descriptions": [
+            "Выберите даты и ознакомьтесь с доступными вариантами и условиями бронирования.",
+            "Найдите идеи для следующей поездки. Сравните подробности на нашем сайте.",
+            "Планируйте отдых с учётом цен, дат и услуг, включённых в предложение.",
+            "Выберите подходящий вариант. Проверьте наличие мест перед бронированием."
+          ],
+          "cta": "Посмотреть варианты",
+          "display_headlines": [
+            "Отдых в Club Med",
+            "Планируйте свой отдых",
+            "Варианты на ваши даты",
+            "Откройте новые маршруты",
+            "Узнайте детали отдыха"
+          ],
+          "long_headline": "Отдых в Club Med · Rezervasyon Yap",
+          "social_text": "Отдых в Club Med. Выберите даты и ознакомьтесь с доступными вариантами и условиями бронирования. Посмотреть варианты."
+        },
+        "zh": {
+          "title": "Club Med 度假",
+          "headlines": [
+            "Club Med 度假",
+            "Rezervasyon Yap",
+            "开始规划假期",
+            "查看适合您日期的选择",
+            "探索全新路线",
+            "了解度假详情",
+            "选择下一次假期",
+            "寻找旅行灵感",
+            "浏览旅行选择",
+            "从这里开启假期",
+            "查询可订情况",
+            "寻找适合您的假期",
+            "查看路线与详情",
+            "探索度假选择",
+            "现在探索"
+          ],
+          "descriptions": [
+            "选择出行日期，查看可订选项和预订条件。",
+            "为下一次旅程寻找灵感，在网站上比较详细信息。",
+            "了解价格、日期与包含的服务，规划适合您的假期。",
+            "找到心仪的选择，预订前请确认最新可订情况。"
+          ],
+          "cta": "探索旅行选择",
+          "display_headlines": [
+            "Club Med 度假",
+            "开始规划假期",
+            "查看适合您日期的选择",
+            "探索全新路线",
+            "了解度假详情"
+          ],
+          "long_headline": "Club Med 度假 · Rezervasyon Yap",
+          "social_text": "Club Med 度假. 选择出行日期，查看可订选项和预订条件。 探索旅行选择."
+        },
+        "fr": {
+          "title": "Vacances Club Med",
+          "headlines": [
+            "Vacances Club Med",
+            "Rezervasyon Yap",
+            "Préparez vos vacances",
+            "Des options pour vos dates",
+            "Découvrez de nouveaux lieux",
+            "Consultez les détails",
+            "Choisissez votre séjour",
+            "Trouvez des idées de voyage",
+            "Explorez les possibilités",
+            "Vos vacances commencent ici",
+            "Vérifiez les disponibilités",
+            "Un séjour à votre goût",
+            "Itinéraires et détails",
+            "Découvrez les séjours",
+            "Explorez dès maintenant"
+          ],
+          "descriptions": [
+            "Choisissez vos dates et consultez les disponibilités et conditions de réservation.",
+            "Trouvez des idées pour votre prochain voyage. Comparez les détails sur notre site.",
+            "Préparez votre séjour avec les prix, les dates et les prestations incluses.",
+            "Trouvez le séjour qui vous convient. Vérifiez les disponibilités avant de réserver."
+          ],
+          "cta": "Découvrez les options",
+          "display_headlines": [
+            "Vacances Club Med",
+            "Préparez vos vacances",
+            "Des options pour vos dates",
+            "Découvrez de nouveaux lieux",
+            "Consultez les détails"
+          ],
+          "long_headline": "Vacances Club Med · Rezervasyon Yap",
+          "social_text": "Vacances Club Med. Choisissez vos dates et consultez les disponibilités et conditions de réservation. Découvrez les options."
+        }
+      },
+      "keywords_tr": [
+        "club med tatil seçenekleri",
+        "club med tatil seçenekleri"
+      ],
+      "negative_keywords_tr": [
+        "iş ilanı",
+        "kariyer",
+        "ücretsiz",
+        "bedava",
+        "ikinci el",
+        "satılık"
+      ]
+    },
+    {
+      "id": "activity",
+      "name": "RY | Aktiviteleri Keşfet | TR | 1000 TL",
+      "daily_budget_try": 1000,
+      "status": "prepared",
+      "target_country": "TR",
+      "target_presence": "presence",
+      "dates": null,
+      "final_url": "https://www.rezervasyonyap.tr/tr/aktiviteler",
+      "final_url_verified": false,
+      "asset": "assets/activity.png",
+      "asset_kind": "editorial_illustration",
+      "channels": [
+        "responsive_search",
+        "responsive_display",
+        "performance_max",
+        "social_feed",
+        "social_story"
+      ],
+      "publication_requirements": [
+        "verified_live_inventory",
+        "verified_landing_page",
+        "verified_conversion_tracking"
+      ],
+      "languages": {
+        "tr": {
+          "title": "Aktiviteleri Keşfet",
+          "headlines": [
+            "Aktiviteleri Keşfet",
+            "Rezervasyon Yap",
+            "Tatilini Planlamaya Başla",
+            "Tarihine Uygun Seçenekler",
+            "Yeni Rotalar Keşfet",
+            "Tatil Detaylarını İncele",
+            "Bir Sonraki Tatilini Seç",
+            "Seyahatine İlham Bul",
+            "Seçeneklere Göz At",
+            "Tatil Planın Burada Başlar",
+            "Müsaitliği Kontrol Et",
+            "Sana Uygun Tatili Bul",
+            "Rota ve Detayları İncele",
+            "Tatil Seçeneklerini Gör",
+            "Şimdi Keşfet"
+          ],
+          "descriptions": [
+            "Tarihlerini seç, müsait seçenekleri ve rezervasyon koşullarını incele.",
+            "Bir sonraki seyahatin için seçenekleri keşfet. Detayları sitede karşılaştır.",
+            "Fiyat, tarih ve dahil olan hizmetleri inceleyerek tatilini planla.",
+            "Sana uygun seçeneği bul. Güncel müsaitliği rezervasyon öncesinde kontrol et."
+          ],
+          "cta": "Seçenekleri keşfet",
+          "display_headlines": [
+            "Aktiviteleri Keşfet",
+            "Tatilini Planlamaya Başla",
+            "Tarihine Uygun Seçenekler",
+            "Yeni Rotalar Keşfet",
+            "Tatil Detaylarını İncele"
+          ],
+          "long_headline": "Aktiviteleri Keşfet · Rezervasyon Yap",
+          "social_text": "Aktiviteleri Keşfet. Tarihlerini seç, müsait seçenekleri ve rezervasyon koşullarını incele. Seçenekleri keşfet."
+        },
+        "en": {
+          "title": "Discover Activities",
+          "headlines": [
+            "Discover Activities",
+            "Rezervasyon Yap",
+            "Start Planning Your Holiday",
+            "Options for Your Dates",
+            "Discover New Routes",
+            "Explore Holiday Details",
+            "Choose Your Next Holiday",
+            "Find Travel Inspiration",
+            "Browse Your Options",
+            "Your Holiday Starts Here",
+            "Check Availability",
+            "Find Your Kind of Holiday",
+            "Explore Routes and Details",
+            "View Holiday Options",
+            "Explore Today"
+          ],
+          "descriptions": [
+            "Choose your dates and review available options and booking conditions.",
+            "Discover ideas for your next trip. Compare the details on our website.",
+            "Plan your holiday with clear prices, dates and included services.",
+            "Find an option that suits you. Check availability before booking."
+          ],
+          "cta": "Explore your options",
+          "display_headlines": [
+            "Discover Activities",
+            "Start Planning Your Holiday",
+            "Options for Your Dates",
+            "Discover New Routes",
+            "Explore Holiday Details"
+          ],
+          "long_headline": "Discover Activities · Rezervasyon Yap",
+          "social_text": "Discover Activities. Choose your dates and review available options and booking conditions. Explore your options."
+        },
+        "de": {
+          "title": "Aktivitäten entdecken",
+          "headlines": [
+            "Aktivitäten entdecken",
+            "Rezervasyon Yap",
+            "Urlaub planen",
+            "Passend zu Ihren Reisedaten",
+            "Neue Reiseziele entdecken",
+            "Urlaubsdetails ansehen",
+            "Den nächsten Urlaub finden",
+            "Inspiration für Ihre Reise",
+            "Angebote entdecken",
+            "Hier beginnt Ihr Urlaub",
+            "Verfügbarkeit prüfen",
+            "Urlaub nach Ihren Wünschen",
+            "Routen und Details ansehen",
+            "Urlaubsangebote ansehen",
+            "Jetzt entdecken"
+          ],
+          "descriptions": [
+            "Wählen Sie Ihre Reisedaten und prüfen Sie Verfügbarkeit und Buchungsbedingungen.",
+            "Entdecken Sie Ideen für Ihre nächste Reise. Vergleichen Sie die Details online.",
+            "Planen Sie Ihren Urlaub mit Informationen zu Preisen, Terminen und Leistungen.",
+            "Finden Sie Ihren passenden Urlaub. Prüfen Sie die Verfügbarkeit vor der Buchung."
+          ],
+          "cta": "Angebote entdecken",
+          "display_headlines": [
+            "Aktivitäten entdecken",
+            "Urlaub planen",
+            "Passend zu Ihren Reisedaten",
+            "Neue Reiseziele entdecken",
+            "Urlaubsdetails ansehen"
+          ],
+          "long_headline": "Aktivitäten entdecken · Rezervasyon Yap",
+          "social_text": "Aktivitäten entdecken. Wählen Sie Ihre Reisedaten und prüfen Sie Verfügbarkeit und Buchungsbedingungen. Angebote entdecken."
+        },
+        "ru": {
+          "title": "Откройте новые впечатления",
+          "headlines": [
+            "Откройте новые впечатления",
+            "Rezervasyon Yap",
+            "Планируйте свой отдых",
+            "Варианты на ваши даты",
+            "Откройте новые маршруты",
+            "Узнайте детали отдыха",
+            "Выберите следующий отпуск",
+            "Идеи для путешествий",
+            "Посмотрите варианты",
+            "Ваш отдых начинается здесь",
+            "Проверьте наличие мест",
+            "Найдите подходящий отдых",
+            "Маршруты и подробности",
+            "Варианты для отпуска",
+            "Откройте больше"
+          ],
+          "descriptions": [
+            "Выберите даты и ознакомьтесь с доступными вариантами и условиями бронирования.",
+            "Найдите идеи для следующей поездки. Сравните подробности на нашем сайте.",
+            "Планируйте отдых с учётом цен, дат и услуг, включённых в предложение.",
+            "Выберите подходящий вариант. Проверьте наличие мест перед бронированием."
+          ],
+          "cta": "Посмотреть варианты",
+          "display_headlines": [
+            "Откройте новые впечатления",
+            "Планируйте свой отдых",
+            "Варианты на ваши даты",
+            "Откройте новые маршруты",
+            "Узнайте детали отдыха"
+          ],
+          "long_headline": "Откройте новые впечатления · Rezervasyon Yap",
+          "social_text": "Откройте новые впечатления. Выберите даты и ознакомьтесь с доступными вариантами и условиями бронирования. Посмотреть варианты."
+        },
+        "zh": {
+          "title": "探索精彩体验",
+          "headlines": [
+            "探索精彩体验",
+            "Rezervasyon Yap",
+            "开始规划假期",
+            "查看适合您日期的选择",
+            "探索全新路线",
+            "了解度假详情",
+            "选择下一次假期",
+            "寻找旅行灵感",
+            "浏览旅行选择",
+            "从这里开启假期",
+            "查询可订情况",
+            "寻找适合您的假期",
+            "查看路线与详情",
+            "探索度假选择",
+            "现在探索"
+          ],
+          "descriptions": [
+            "选择出行日期，查看可订选项和预订条件。",
+            "为下一次旅程寻找灵感，在网站上比较详细信息。",
+            "了解价格、日期与包含的服务，规划适合您的假期。",
+            "找到心仪的选择，预订前请确认最新可订情况。"
+          ],
+          "cta": "探索旅行选择",
+          "display_headlines": [
+            "探索精彩体验",
+            "开始规划假期",
+            "查看适合您日期的选择",
+            "探索全新路线",
+            "了解度假详情"
+          ],
+          "long_headline": "探索精彩体验 · Rezervasyon Yap",
+          "social_text": "探索精彩体验. 选择出行日期，查看可订选项和预订条件。 探索旅行选择."
+        },
+        "fr": {
+          "title": "Découvrez les activités",
+          "headlines": [
+            "Découvrez les activités",
+            "Rezervasyon Yap",
+            "Préparez vos vacances",
+            "Des options pour vos dates",
+            "Découvrez de nouveaux lieux",
+            "Consultez les détails",
+            "Choisissez votre séjour",
+            "Trouvez des idées de voyage",
+            "Explorez les possibilités",
+            "Vos vacances commencent ici",
+            "Vérifiez les disponibilités",
+            "Un séjour à votre goût",
+            "Itinéraires et détails",
+            "Découvrez les séjours",
+            "Explorez dès maintenant"
+          ],
+          "descriptions": [
+            "Choisissez vos dates et consultez les disponibilités et conditions de réservation.",
+            "Trouvez des idées pour votre prochain voyage. Comparez les détails sur notre site.",
+            "Préparez votre séjour avec les prix, les dates et les prestations incluses.",
+            "Trouvez le séjour qui vous convient. Vérifiez les disponibilités avant de réserver."
+          ],
+          "cta": "Découvrez les options",
+          "display_headlines": [
+            "Découvrez les activités",
+            "Préparez vos vacances",
+            "Des options pour vos dates",
+            "Découvrez de nouveaux lieux",
+            "Consultez les détails"
+          ],
+          "long_headline": "Découvrez les activités · Rezervasyon Yap",
+          "social_text": "Découvrez les activités. Choisissez vos dates et consultez les disponibilités et conditions de réservation. Découvrez les options."
+        }
+      },
+      "keywords_tr": [
+        "aktiviteleri keşfet",
+        "aktiviteleri"
+      ],
+      "negative_keywords_tr": [
+        "iş ilanı",
+        "kariyer",
+        "ücretsiz",
+        "bedava",
+        "ikinci el",
+        "satılık"
+      ]
+    }
+  ],
+  "sources": [
+    "https://support.google.com/google-ads/answer/7684791",
+    "https://support.google.com/google-ads/answer/7005917"
+  ]
+}

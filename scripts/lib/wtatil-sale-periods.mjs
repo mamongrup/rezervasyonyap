@@ -1,8 +1,10 @@
 export function supplierDate(value) {
   const s=String(value || '').trim()
-  if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0,10)
   const m=s.match(/^(\d{2})[./](\d{2})[./](\d{4})$/)
-  return m ? `${m[3]}-${m[2]}-${m[1]}` : null
+  const iso=/^\d{4}-\d{2}-\d{2}/.test(s) ? s.slice(0,10) : m ? `${m[3]}-${m[2]}-${m[1]}` : null
+  if (!iso) return null
+  const parsed=new Date(`${iso}T00:00:00Z`)
+  return Number.isFinite(parsed.getTime()) && parsed.toISOString().slice(0,10)===iso ? iso : null
 }
 
 export function saleableWtatilEnrichment(enrich, today=new Date().toISOString().slice(0,10)) {
