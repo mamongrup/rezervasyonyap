@@ -3164,6 +3164,11 @@ export type ReservationDetail = {
   price_breakdown_json: string
   created_at: string
   lines: ReservationLineDetail[]
+  analytics_purchase?: {
+    transaction_id: string
+    value: string
+    currency: string
+  } | null
 }
 
 export async function getReservationByPublicCode(

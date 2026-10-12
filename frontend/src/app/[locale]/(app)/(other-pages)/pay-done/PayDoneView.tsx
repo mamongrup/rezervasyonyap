@@ -1,6 +1,7 @@
 'use client'
 
 import { useVitrinHref } from '@/hooks/use-vitrin-href'
+import { queueVerifiedPurchase } from '@/lib/verified-purchase-event'
 import {
   checkoutStatusLabel,
   checkoutT,
@@ -131,15 +132,33 @@ export default function PayDoneView() {
       setLoading(false)
       return
     }
-    getReservationByPublicCode(publicCode, email)
-      .then((data) => {
+    let cancelled = false
+    let attempts = 0
+    let timer: ReturnType<typeof setTimeout> | undefined
+    const load = async () => {
+      attempts += 1
+      try {
+        const data = await getReservationByPublicCode(publicCode, email)
+        if (cancelled) return
         setReservation(data)
-        localStorage.removeItem('travel_paydone_email')
-      })
-      .catch(() => {
-        /* statik fallback */
-      })
-      .finally(() => setLoading(false))
+        queueVerifiedPurchase(data)
+        // Provider callbacks can arrive after the browser redirect.
+        if (!data.analytics_purchase && attempts < 12 && !['cancelled', 'canceled', 'refunded'].includes(data.status)) {
+          timer = setTimeout(load, 5000)
+        } else {
+          localStorage.removeItem('travel_paydone_email')
+        }
+      } catch {
+        /* Keep the existing static fallback; never infer a paid conversion. */
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    }
+    void load()
+    return () => {
+      cancelled = true
+      if (timer) clearTimeout(timer)
+    }
   }, [publicCode])
 
   const totalFromLines = React.useMemo(() => {

@@ -2161,6 +2161,31 @@ pub fn get_by_public_code(req: Request, ctx: Context, code: String) -> Response 
                         #("meta_json", json.string(meta)),
                       ])
                     })
+                  // Only a provider-verified capture may become a purchase event.
+                  // Never infer payment from the redirect or browser session data.
+                  let analytics_purchase = case
+                    pog.query(
+                      "select p.id::text, p.amount::text, trim(p.currency_code::text) from payments p join reservations r on r.id = p.reservation_id where p.reservation_id = $1::uuid and p.status = 'captured' and p.amount > 0 and r.status not in ('cancelled', 'canceled', 'refunded') order by p.created_at, p.id limit 1",
+                    )
+                    |> pog.parameter(pog.text(rid))
+                    |> pog.returning({
+                      use payment_id <- decode.field(0, decode.string)
+                      use amount <- decode.field(1, decode.string)
+                      use currency <- decode.field(2, decode.string)
+                      decode.success(#(payment_id, amount, currency))
+                    })
+                    |> db_exec.execute(ctx.db)
+                  {
+                    Ok(payment_result) -> case payment_result.rows {
+                      [#(payment_id, amount, currency)] -> json.object([
+                        #("transaction_id", json.string(payment_id)),
+                        #("value", json.string(amount)),
+                        #("currency", json.string(currency)),
+                      ])
+                      _ -> json.null()
+                    }
+                    Error(_) -> json.null()
+                  }
                   let body =
                     json.object([
                       #("id", json.string(rid)),
@@ -2172,6 +2197,7 @@ pub fn get_by_public_code(req: Request, ctx: Context, code: String) -> Response 
                       #("ends_on", json.string(s2)),
                       #("price_breakdown_json", json.string(pj)),
                       #("created_at", json.string(ts)),
+                      #("analytics_purchase", analytics_purchase),
                       #("lines", json.preprocessed_array(line_json)),
                     ])
                     |> json.to_string
