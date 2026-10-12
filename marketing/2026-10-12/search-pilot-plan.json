@@ -226,43 +226,35 @@
     "tr": [
       "iş ilanı",
       "kariyer",
-      "ücretsiz",
-      "bedava",
       "ikinci el",
       "satılık"
     ],
     "en": [
       "jobs",
       "careers",
-      "free",
       "second hand",
       "for sale"
     ],
     "de": [
       "Stellenangebote",
       "Karriere",
-      "kostenlos",
       "gebraucht",
       "zu verkaufen"
     ],
     "ru": [
       "вакансии",
       "работа",
-      "бесплатно",
       "продажа"
     ],
     "zh": [
       "招聘",
       "求职",
-      "免费",
       "二手",
       "出售"
     ],
     "fr": [
       "emploi",
       "recrutement",
-      "gratuit",
-      "occasion",
       "à vendre"
     ]
   },
@@ -274,7 +266,7 @@
   ],
   "upload_execution": "6645118223634768253",
   "successful_upload_rows": 259,
-  "negative_keywords_live_status": "not_applied_invalid_web_bulk_match_type",
+  "negative_keywords_live_status": "shared_phrase_list_applied_to_all_seven_search_campaigns",
   "verified_live_settings": [
     "seven_search_campaigns_paused",
     "budget_1000_try_each",
@@ -282,5 +274,8 @@
     "google_search_only",
     "turkey_location",
     "six_languages_tr_en_de_ru_zh_fr"
-  ]
+  ],
+  "shared_negative_list_id": "12270912707",
+  "shared_negative_count": 22,
+  "purchase_measurement_status": "not_verified_live_campaign_defaults_contacts_pageviews_and_pay_done_has_no_purchase_event"
 }
