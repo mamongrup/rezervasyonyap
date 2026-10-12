@@ -9,17 +9,19 @@ export function supplierDate(value) {
 
 export function saleableWtatilEnrichment(enrich, today=new Date().toISOString().slice(0,10)) {
   if (!enrich) return enrich
-  const periods=(enrich.periods || []).filter(p=> {
+  const source=enrich.provider_net_prices ? {...enrich,...enrich.provider_net_prices} : enrich
+  const periods=(source.periods || []).filter(p=> {
     const start=supplierDate(p.startDate ?? p.periodStartDate)
     return p.isActive === true && start != null && start >= today
   })
   const ids=new Set(periods.map(p=>String(p.id ?? p.periodId ?? p.tourPeriodId)))
-  const periodPrices=(enrich.periodPrices || []).filter(p=> {
+  const periodPrices=(source.periodPrices || []).filter(p=> {
     const start=supplierDate(p.startDate)
     return p.isActive === true && ids.has(String(p.tourPeriodId ?? p.periodId ?? p.id))
       && start != null && start >= today
   })
   // An undated cheapest price cannot establish live availability.
   return {...enrich, periods, periodPrices, cheapestPrice:null,
+    ...(enrich.provider_net_prices ? {provider_net_prices:{periods,periodPrices,cheapestPrice:null}} : {}),
     supplier_inventory_checked_at:new Date().toISOString()}
 }
