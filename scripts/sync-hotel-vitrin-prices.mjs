@@ -22,6 +22,7 @@ import {
   upsertTravelrobotMealPlans,
   upsertTravelrobotHotelRoomsWithExtras,
   upsertTravelrobotRoomAvailabilityCalendar,
+  upsertTravelrobotPriceRules,
 } from './lib/travelrobot-hotel-extras-db.mjs'
 import { createPgClient } from './lib/pg-client.mjs'
 
@@ -329,6 +330,7 @@ async function main() {
           continue
         }
 
+        await pg.query('BEGIN')
         let storedPrice = false
         if (!ROOMS_ONLY) {
           if (plans.length) {
@@ -365,12 +367,16 @@ async function main() {
         }
 
         if (storedPrice) {
+          await upsertTravelrobotPriceRules(pg, hotel.listingId, enriched, hotel.currencyCode, true)
           await markAppliedCommission(pg, hotel.listingId, cfg.hotelCommissionPercent)
+          await pg.query('SELECT refresh_listing_vitrin_prices_for($1::uuid)', [hotel.listingId])
         }
+        await pg.query('COMMIT')
 
         ok++
         console.log(`${prefix} — +${window.checkInDays}g — ${planSummary} | ${roomSummary}`)
       } catch (e) {
+        if (!DRY_RUN) await pg.query('ROLLBACK')
         fail++
         const msg = String(e.message || e)
         if (/bulunamad|not found|empty/i.test(msg)) skipNoApi++

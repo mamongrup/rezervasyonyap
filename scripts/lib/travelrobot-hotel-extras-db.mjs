@@ -77,11 +77,23 @@ export async function upsertTravelrobotHotelRoomsWithExtras(pgClient, listingId,
   const rows = buildTravelrobotHotelRoomRows(hotel)
   if (!rows.length) return { count: 0, roomIdsByKey: new Map(), skipped: true }
 
-  await pgClient.query(`DELETE FROM hotel_rooms WHERE listing_id = $1::uuid`, [listingId])
+  // Preserve room identities referenced by bookings and availability calendars.
+  const existing = await pgClient.query(
+    `SELECT id::text, name, capacity, board_type FROM hotel_rooms WHERE listing_id = $1::uuid`,
+    [listingId],
+  )
+  const roomKey = (name, capacity, board) => JSON.stringify([String(name).trim().toLowerCase().replace(/\s+/g, ' '), Number(capacity), board || null])
+  const existingByKey = new Map(existing.rows.map((r) => [roomKey(r.name, r.capacity, r.board_type), r.id]))
   const roomIdsByKey = new Map()
 
   for (const r of rows) {
-    const ins = await pgClient.query(
+    const previousId = existingByKey.get(roomKey(r.name, r.capacity, r.boardType))
+    const ins = previousId ? await pgClient.query(
+      `UPDATE hotel_rooms SET name = $2, capacity = $3, board_type = $4,
+       meta_json = coalesce(meta_json, '{}'::jsonb) || $5::jsonb, unit_count = $6
+       WHERE id = $1::uuid RETURNING id::text`,
+      [previousId, r.name, r.capacity, r.boardType, JSON.stringify(r.meta), Math.max(1, Math.min(r.unitCount ?? 1, 99))],
+    ) : await pgClient.query(
       `INSERT INTO hotel_rooms (listing_id, name, capacity, board_type, meta_json, unit_count)
        VALUES ($1::uuid, $2, $3, $4, $5::jsonb, $6)
        RETURNING id::text`,
