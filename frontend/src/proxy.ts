@@ -361,9 +361,8 @@ export function proxy(request: NextRequest) {
     const loc = first.toLowerCase()
     const rest = segments.slice(1)
     if (rest.length > 0) {
-      const aliasMap = LOCALIZED_FIRST_SEGMENT_ALIASES[loc]
       const key = rest[0].toLowerCase()
-      const canonical = aliasMap?.[key]
+      const canonical = resolveLocalizedFirstSegment(loc, key, rest.slice(1))
       if (canonical && canonical !== rest[0]) {
         const tail = rest.slice(1)
         const mid = tail.length > 0 ? `/${canonical}/${tail.join('/')}` : `/${canonical}`
