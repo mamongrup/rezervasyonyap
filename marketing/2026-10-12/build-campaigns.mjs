@@ -1,4 +1,5 @@
-import { writeFileSync } from 'node:fs'
+import { readFileSync, writeFileSync } from 'node:fs'
+const verifiedUrls=new Set(JSON.parse(readFileSync(new URL('./landing-page-checks.json',import.meta.url))).checks.filter(c=>c.status===200).map(c=>c.url))
 
 const locales = ['tr','en','de','ru','zh','fr']
 const categories = [
@@ -40,7 +41,7 @@ const campaigns = categories.map(([id,path,titles]) => ({
   id, name:`RY | ${titles[0]} | TR | 1000 TL`, daily_budget_try:1000,
   status:'prepared', target_country:'TR', target_presence:'presence', dates:null,
   final_url:path ? `https://www.rezervasyonyap.tr/tr/${path}` : null,
-  final_url_verified:false, asset:`assets/${id}.png`, asset_kind:'editorial_illustration',
+  final_url_verified:path ? verifiedUrls.has(`https://www.rezervasyonyap.tr/tr/${path}`) : false, asset:`assets/${id}.png`, asset_kind:'editorial_illustration',
   channels:['responsive_search','responsive_display','performance_max','social_feed','social_story'],
   publication_requirements:['verified_live_inventory','verified_landing_page','verified_conversion_tracking'],
   languages:Object.fromEntries(locales.map((locale,i)=>[locale,{

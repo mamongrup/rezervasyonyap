@@ -11,7 +11,7 @@
       "target_presence": "presence",
       "dates": null,
       "final_url": "https://www.rezervasyonyap.tr/tr/oteller",
-      "final_url_verified": false,
+      "final_url_verified": true,
       "asset": "assets/hotel.png",
       "asset_kind": "editorial_illustration",
       "channels": [
@@ -266,7 +266,7 @@
       "target_presence": "presence",
       "dates": null,
       "final_url": "https://www.rezervasyonyap.tr/tr/tatil-evleri",
-      "final_url_verified": false,
+      "final_url_verified": true,
       "asset": "assets/holiday-home.png",
       "asset_kind": "editorial_illustration",
       "channels": [
@@ -521,7 +521,7 @@
       "target_presence": "presence",
       "dates": null,
       "final_url": "https://www.rezervasyonyap.tr/tr/yat-kiralama",
-      "final_url_verified": false,
+      "final_url_verified": true,
       "asset": "assets/yacht.png",
       "asset_kind": "editorial_illustration",
       "channels": [
@@ -776,7 +776,7 @@
       "target_presence": "presence",
       "dates": null,
       "final_url": "https://www.rezervasyonyap.tr/tr/turlar",
-      "final_url_verified": false,
+      "final_url_verified": true,
       "asset": "assets/tour.png",
       "asset_kind": "editorial_illustration",
       "channels": [
@@ -1031,7 +1031,7 @@
       "target_presence": "presence",
       "dates": null,
       "final_url": "https://www.rezervasyonyap.tr/tr/kruvaziyer",
-      "final_url_verified": false,
+      "final_url_verified": true,
       "asset": "assets/cruise.png",
       "asset_kind": "editorial_illustration",
       "channels": [
@@ -1541,7 +1541,7 @@
       "target_presence": "presence",
       "dates": null,
       "final_url": "https://www.rezervasyonyap.tr/tr/aktiviteler",
-      "final_url_verified": false,
+      "final_url_verified": true,
       "asset": "assets/activity.png",
       "asset_kind": "editorial_illustration",
       "channels": [
