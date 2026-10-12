@@ -20,7 +20,18 @@ Dil grupları kendi kategori kampanyasının 1.000 TRY günlük bütçesini payl
   aktarım dosyası. Club Med'in doğrulanmış hedef sayfası henüz bulunmadığından
   bu aktarımda yer almaz. Dosya henüz Google Ads'e yüklenmemiştir.
 
-## Yayın durumu
+## Güncel kampanya durumu
+
+Kontrollü arama kampanyaları canlı hesaba yüklendi: yedi kampanya, 42 dil grubu,
+42 onaylanmış reklam. Her kategori 1.000 TRY ortalama günlük bütçe kullanır.
+Tüm gruplarda 15 TRY tıklama teklifi, Türkiye için yalnızca bulunma hedeflemesi,
+altı dil ve 22 ortak negatif kelime doğrulandı. Kampanyalar duraklatılmıştır.
+`search-live-verified.json` canlı hesap kontrolünü, `completion-report-tr.md`
+tamamlanan işleri ve ilan kalitesi/sağlayıcı erişimi engellerini açıklar.
+GTM sürüm 11, gerçek tahsilat için GA4 ve Google Ads satın alma etiketlerini içerir.
+Hazırlama betiği canlı doğrulama dosyasını artık üzerine yazmaz.
+
+## Önceki Maksimum Performans kurulumu
 
 Google Ads hesabında yedi Maksimum Performans kampanyası oluşturulmuştur.
 Her biri duraklatılmıştır ve ayrı, paylaşılmayan günlük 1.000 TRY bütçeye sahiptir.
