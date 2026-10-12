@@ -347,7 +347,7 @@ async function main() {
             minPrice != null && Number(minPrice) > 0 ? minPrice : plans[0]?.price_per_night
           if (priceToStore != null && Number(priceToStore) > 0) {
             await pg.query(
-              `UPDATE listings SET first_charge_amount = $1, updated_at = now()
+              `UPDATE listings SET first_charge_amount = $1, last_synced_at = now(), updated_at = now()
                WHERE id = $2::uuid
                  AND ($3 OR first_charge_amount IS NULL OR first_charge_amount = 0)`,
               [priceToStore, hotel.listingId, FORCE || hotel.needsCommissionRefresh],
@@ -369,7 +369,7 @@ async function main() {
         if (storedPrice) {
           await upsertTravelrobotPriceRules(pg, hotel.listingId, enriched, hotel.currencyCode, true)
           await markAppliedCommission(pg, hotel.listingId, cfg.hotelCommissionPercent)
-          await pg.query('UPDATE listings SET vitrin_price = $2::numeric WHERE id = $1::uuid',
+          await pg.query('UPDATE listings SET vitrin_price = $2::numeric, last_synced_at = now() WHERE id = $1::uuid',
             [hotel.listingId, minPrice != null && Number(minPrice) > 0 ? minPrice : plans[0]?.price_per_night])
         }
         await pg.query('COMMIT')
