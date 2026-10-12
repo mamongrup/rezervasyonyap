@@ -24,10 +24,10 @@ Dil grupları kendi kategori kampanyasının 1.000 TRY günlük bütçesini payl
 
 Google Ads hesabında yedi Maksimum Performans kampanyası oluşturulmuştur.
 Her biri duraklatılmıştır ve ayrı, paylaşılmayan günlük 1.000 TRY bütçeye sahiptir.
-Hesap okumasıyla doğrulanan 39 dil grubu ve kampanya kimlikleri
-`account-campaign-state.json` dosyasındadır. Yat kampanyasının İngilizce,
-Almanca ve Fransızca grupları canlı hedef sayfa düzeltmesini beklemektedir.
-Diğer altı kampanyada altı dil grubu oluşturulmuştur.
+Hesap okumasıyla doğrulanan 42 dil grubu ve kampanya kimlikleri
+`account-campaign-state.json` dosyasındadır. Her kampanyada altı dil grubu vardır.
+Yatın İngilizce, Almanca ve Fransızca kategori yönlendirmesi canlıda
+düzeltilmiş; üç hedef sayfa HTTP 200 ile doğrulanmıştır.
 Hedef URL'ler, canlı envanter ve dönüşüm ölçümü doğrulanmadan reklamlar çalıştırılmaz.
 Club Med için mevcut gerçek ilanlar ve hedef sayfa ayrıca doğrulanmalıdır.
 İndirim oranı, garanti veya dahil hizmet iddiası eklenmemiştir.

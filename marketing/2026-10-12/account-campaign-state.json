@@ -9,7 +9,6 @@
   },
   "url_evidence": "Domain-specific creative creation payloads accepted; read API omits final URLs.",
   "pending": [
-    "Yacht EN/DE/FR landing route deployment",
     "Club Med inventory verification",
     "Live supplier inventory and conversion measurement verification"
   ],
@@ -147,6 +146,21 @@
         {
           "id": "6758794188",
           "name": "Yat | Türkçe | rezervasyonyap.com.tr",
+          "status": "PAUSED"
+        },
+        {
+          "id": "6758797498",
+          "name": "Yat | FR | reservationinturkey.com",
+          "status": "PAUSED"
+        },
+        {
+          "id": "6758799860",
+          "name": "Yat | EN | reservationinturkey.com",
+          "status": "PAUSED"
+        },
+        {
+          "id": "6758898183",
+          "name": "Yat | DE | reservationinturkey.com",
           "status": "PAUSED"
         }
       ],
