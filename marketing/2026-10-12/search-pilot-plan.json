@@ -273,9 +273,16 @@
     "manual_cpc",
     "google_search_only",
     "turkey_location",
-    "six_languages_tr_en_de_ru_zh_fr"
+    "six_languages_tr_en_de_ru_zh_fr",
+    "presence_only_all_seven_search_campaigns",
+    "all_42_ad_groups_cpc_bid_15_try",
+    "all_42_search_ads_approved"
   ],
   "shared_negative_list_id": "12270912707",
   "shared_negative_count": 22,
-  "purchase_measurement_status": "not_verified_live_campaign_defaults_contacts_pageviews_and_pay_done_has_no_purchase_event"
+  "purchase_measurement_status": "gtm_version_11_published_ads_purchase_action_7839588230_created_server_deployment_in_progress",
+  "purchase_conversion_id": "16862787475",
+  "purchase_conversion_label": "7rwnCIa_mpodEJPv5ug-",
+  "purchase_code_commit": "ecb3cf96",
+  "page_view_default_goal": false
 }

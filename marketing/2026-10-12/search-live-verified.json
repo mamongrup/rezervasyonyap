@@ -1,0 +1,293 @@
+{
+  "verified_on": "2026-10-12",
+  "source": "Supermetrics Google Ads connector",
+  "campaigns": [
+    {
+      "campaign_id": "24351628786",
+      "name": "RY | Arama | club-med | Kontrollü Pilot",
+      "status": "PAUSED",
+      "budget_amount": 1000,
+      "geo_target_type": "PRESENCE",
+      "network_settings": {
+        "search": true,
+        "search_partners": false,
+        "display": false
+      },
+      "targeting": {
+        "locations": [
+          "TR"
+        ],
+        "languages": [
+          "en",
+          "de",
+          "fr",
+          "zh_CN",
+          "ru",
+          "tr"
+        ]
+      },
+      "ad_group_count": 6,
+      "ad_count": 6,
+      "cpc_bids": [
+        15
+      ],
+      "ad_reviews": [
+        "APPROVED"
+      ],
+      "negative_keyword_lists": [
+        {
+          "id": "12270912707",
+          "name": "RY | Arama | Alakasız niyet | 6 dil",
+          "keyword_count": 22,
+          "campaign_count": 7
+        }
+      ]
+    },
+    {
+      "campaign_id": "24351624412",
+      "name": "RY | Arama | tour | Kontrollü Pilot",
+      "status": "PAUSED",
+      "budget_amount": 1000,
+      "geo_target_type": "PRESENCE",
+      "network_settings": {
+        "search": true,
+        "search_partners": false,
+        "display": false
+      },
+      "targeting": {
+        "locations": [
+          "TR"
+        ],
+        "languages": [
+          "en",
+          "de",
+          "fr",
+          "zh_CN",
+          "ru",
+          "tr"
+        ]
+      },
+      "ad_group_count": 6,
+      "ad_count": 6,
+      "cpc_bids": [
+        15
+      ],
+      "ad_reviews": [
+        "APPROVED"
+      ],
+      "negative_keyword_lists": [
+        {
+          "id": "12270912707",
+          "name": "RY | Arama | Alakasız niyet | 6 dil",
+          "keyword_count": 22,
+          "campaign_count": 7
+        }
+      ]
+    },
+    {
+      "campaign_id": "24351624175",
+      "name": "RY | Arama | holiday-home | Kontrollü Pilot",
+      "status": "PAUSED",
+      "budget_amount": 1000,
+      "geo_target_type": "PRESENCE",
+      "network_settings": {
+        "search": true,
+        "search_partners": false,
+        "display": false
+      },
+      "targeting": {
+        "locations": [
+          "TR"
+        ],
+        "languages": [
+          "en",
+          "de",
+          "fr",
+          "zh_CN",
+          "ru",
+          "tr"
+        ]
+      },
+      "ad_group_count": 6,
+      "ad_count": 6,
+      "cpc_bids": [
+        15
+      ],
+      "ad_reviews": [
+        "APPROVED"
+      ],
+      "negative_keyword_lists": [
+        {
+          "id": "12270912707",
+          "name": "RY | Arama | Alakasız niyet | 6 dil",
+          "keyword_count": 22,
+          "campaign_count": 7
+        }
+      ]
+    },
+    {
+      "campaign_id": "24345593189",
+      "name": "RY | Arama | activity | Kontrollü Pilot",
+      "status": "PAUSED",
+      "budget_amount": 1000,
+      "geo_target_type": "PRESENCE",
+      "network_settings": {
+        "search": true,
+        "search_partners": false,
+        "display": false
+      },
+      "targeting": {
+        "locations": [
+          "TR"
+        ],
+        "languages": [
+          "en",
+          "de",
+          "fr",
+          "zh_CN",
+          "ru",
+          "tr"
+        ]
+      },
+      "ad_group_count": 6,
+      "ad_count": 6,
+      "cpc_bids": [
+        15
+      ],
+      "ad_reviews": [
+        "APPROVED"
+      ],
+      "negative_keyword_lists": [
+        {
+          "id": "12270912707",
+          "name": "RY | Arama | Alakasız niyet | 6 dil",
+          "keyword_count": 22,
+          "campaign_count": 7
+        }
+      ]
+    },
+    {
+      "campaign_id": "24345590555",
+      "name": "RY | Arama | cruise | Kontrollü Pilot",
+      "status": "PAUSED",
+      "budget_amount": 1000,
+      "geo_target_type": "PRESENCE",
+      "network_settings": {
+        "search": true,
+        "search_partners": false,
+        "display": false
+      },
+      "targeting": {
+        "locations": [
+          "TR"
+        ],
+        "languages": [
+          "en",
+          "de",
+          "fr",
+          "zh_CN",
+          "ru",
+          "tr"
+        ]
+      },
+      "ad_group_count": 6,
+      "ad_count": 6,
+      "cpc_bids": [
+        15
+      ],
+      "ad_reviews": [
+        "APPROVED"
+      ],
+      "negative_keyword_lists": [
+        {
+          "id": "12270912707",
+          "name": "RY | Arama | Alakasız niyet | 6 dil",
+          "keyword_count": 22,
+          "campaign_count": 7
+        }
+      ]
+    },
+    {
+      "campaign_id": "24345589439",
+      "name": "RY | Arama | yacht | Kontrollü Pilot",
+      "status": "PAUSED",
+      "budget_amount": 1000,
+      "geo_target_type": "PRESENCE",
+      "network_settings": {
+        "search": true,
+        "search_partners": false,
+        "display": false
+      },
+      "targeting": {
+        "locations": [
+          "TR"
+        ],
+        "languages": [
+          "en",
+          "de",
+          "fr",
+          "zh_CN",
+          "ru",
+          "tr"
+        ]
+      },
+      "ad_group_count": 6,
+      "ad_count": 6,
+      "cpc_bids": [
+        15
+      ],
+      "ad_reviews": [
+        "APPROVED"
+      ],
+      "negative_keyword_lists": [
+        {
+          "id": "12270912707",
+          "name": "RY | Arama | Alakasız niyet | 6 dil",
+          "keyword_count": 22,
+          "campaign_count": 7
+        }
+      ]
+    },
+    {
+      "campaign_id": "24345586745",
+      "name": "RY | Arama | hotel | Kontrollü Pilot",
+      "status": "PAUSED",
+      "budget_amount": 1000,
+      "geo_target_type": "PRESENCE",
+      "network_settings": {
+        "search": true,
+        "search_partners": false,
+        "display": false
+      },
+      "targeting": {
+        "locations": [
+          "TR"
+        ],
+        "languages": [
+          "en",
+          "de",
+          "fr",
+          "zh_CN",
+          "ru",
+          "tr"
+        ]
+      },
+      "ad_group_count": 6,
+      "ad_count": 6,
+      "cpc_bids": [
+        15
+      ],
+      "ad_reviews": [
+        "APPROVED"
+      ],
+      "negative_keyword_lists": [
+        {
+          "id": "12270912707",
+          "name": "RY | Arama | Alakasız niyet | 6 dil",
+          "keyword_count": 22,
+          "campaign_count": 7
+        }
+      ]
+    }
+  ]
+}

@@ -220,6 +220,12 @@ main() {
     warn "Backend shipment doğrulaması ve senkronu atlandı."
   else
     [[ -d "$SHIP" ]] || fail "Erlang shipment yok: $SHIP — gleam export erlang-shipment başarısız (gleam sürümü, Hex/Rebar)."
+    # Bazı Gleam sürümleri lisans yorumlarını shebang'in önüne koyuyor.
+    # systemd doğrudan çalıştırdığında bu paketler 203/EXEC ile kapanır.
+    if [[ "$(head -n 1 "$SHIP/entrypoint.sh")" != '#!'* ]]; then
+      sed -i '1i#!/bin/sh' "$SHIP/entrypoint.sh"
+    fi
+    chmod +x "$SHIP/entrypoint.sh"
     SHIP_ABS="$(cd "$SHIP" && pwd -P)"
     UNIT_WD="$(systemctl show travel-api.service -p WorkingDirectory --value 2>/dev/null || true)"
     if [[ -n "${TRAVEL_API_SHIP_DEST_OVERRIDE:-}" ]]; then
@@ -238,6 +244,11 @@ main() {
         refuse_unsafe_shipment_dest "$SHIP" "$UNIT_WD"
         step "travel-api shipment senkronu → $UNIT_ABS"
         sync_erlang_shipment_dir "$SHIP" "$UNIT_WD"
+        # Web kökünden gelen SELinux etiketlerini servis hedefinin standart
+        # etiketleriyle değiştir; SELinux korumasını kapatma.
+        if command -v restorecon >/dev/null 2>&1; then
+          restorecon -RF "$UNIT_ABS"
+        fi
         ok "shipment senkronu tamam"
       fi
     fi
