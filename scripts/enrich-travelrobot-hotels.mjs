@@ -72,6 +72,8 @@ async function loadTravelrobotHotels(pgClient, orgId) {
      LEFT JOIN listing_attributes la
        ON la.listing_id = l.id AND la.group_code = 'travelrobot' AND la.key = 'snapshot'
      WHERE l.organization_id = $1::uuid
+       AND l.status = 'published'
+       AND coalesce(pc.is_active, true) = true
        AND l.external_provider_code = 'travelrobot'
        AND lhd.travelrobot_hotel_code IS NOT NULL
        AND trim(lhd.travelrobot_hotel_code) <> ''

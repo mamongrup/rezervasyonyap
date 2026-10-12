@@ -68,6 +68,8 @@ const lowIoBuild =
   process.env.TRAVEL_LOW_IO_BUILD === 'true'
 
 const nextConfig = {
+  // Build a separate release without replacing files served by the running app.
+  distDir: process.env.NEXT_BUILD_DIR || '.next',
   /** Düşük kaynaklı VPS / uzak API: SSG sayfa üretimi 60 sn’de kesilmesin (manage çok dillı rotalar). */
   staticPageGenerationTimeout: 300,
   /**

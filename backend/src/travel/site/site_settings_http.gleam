@@ -161,6 +161,16 @@ fn settings_response(rows: List(#(String, String, String, String))) -> Response 
   wisp.json_response(body, 200)
 }
 
+// Merge AI settings atomically. An omitted or blank credential must never erase
+// a saved credential when another administrator changes models or timeouts.
+fn settings_update_sql() -> String {
+  "case when excluded.key = 'ai' then coalesce(site_settings.value_json, '{}'::jsonb) || "
+  <> "(excluded.value_json - ARRAY(select e.key from jsonb_each(excluded.value_json) e "
+  <> "where e.key in ('deepseek_api_key', 'openai_api_key') "
+  <> "and (e.value = 'null'::jsonb or btrim(e.value #>> '{}') = ''))) "
+  <> "else excluded.value_json end"
+}
+
 fn upsert_decoder() -> decode.Decoder(#(Option(String), String, String)) {
   decode.optional_field("organization_id", "", decode.string, fn(oid) {
     decode.field("key", decode.string, fn(k) {
@@ -198,7 +208,7 @@ pub fn upsert_setting(req: Request, ctx: Context) -> Response {
                     None ->
                       case
                         pog.query(
-                          "insert into site_settings (organization_id, key, value_json) values (null, $1, $2::jsonb) on conflict (key) where organization_id is null do update set value_json = excluded.value_json returning id::text",
+                          "insert into site_settings (organization_id, key, value_json) values (null, $1, $2::jsonb) on conflict (key) where organization_id is null do update set value_json = " <> settings_update_sql() <> " returning id::text",
                         )
                         |> pog.parameter(pog.text(k))
                         |> pog.parameter(pog.text(cfg))
@@ -223,7 +233,7 @@ pub fn upsert_setting(req: Request, ctx: Context) -> Response {
                     Some(o) ->
                       case
                         pog.query(
-                          "insert into site_settings (organization_id, key, value_json) values ($1::uuid, $2, $3::jsonb) on conflict (organization_id, key) do update set value_json = excluded.value_json returning id::text",
+                          "insert into site_settings (organization_id, key, value_json) values ($1::uuid, $2, $3::jsonb) on conflict (organization_id, key) do update set value_json = " <> settings_update_sql() <> " returning id::text",
                         )
                         |> pog.parameter(pog.text(o))
                         |> pog.parameter(pog.text(k))

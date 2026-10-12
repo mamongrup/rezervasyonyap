@@ -1,4 +1,5 @@
 'use client'
+import { aiSettingsUpdate } from '@/lib/ai-settings-update'
 import { normalizeGoogleAnalyticsIds } from '@/lib/google-analytics-config'
 import { formatManageApiCatch } from '@/lib/manage-api-error-tr'
 import ButtonPrimary from '@/shared/ButtonPrimary'
@@ -328,7 +329,7 @@ export default function GeneralSettingsClient({ embedded = false }: GeneralSetti
   const [openaiApiKey, setOpenaiApiKey] = useState('')
   const [deepseekModel, setDeepseekModel] = useState('deepseek-chat')
   const [deepseekApiUrl, setDeepseekApiUrl] = useState('https://api.deepseek.com/v1/chat/completions')
-  const [geminiModel, setGeminiModel] = useState('gemini-1.5-flash')
+  const [geminiModel, setGeminiModel] = useState('gemini-2.5-flash')
   const [requestTimeoutSec, setRequestTimeoutSec] = useState('300')
   const [moduleTimeoutsSec, setModuleTimeoutsSec] = useState<Record<string, string>>(() => {
     const o: Record<string, string> = {}
@@ -344,6 +345,7 @@ export default function GeneralSettingsClient({ embedded = false }: GeneralSetti
   >([])
   const [aiProfilesList, setAiProfilesList] = useState<{ code: string; temperature: string }[]>([])
   const [geminiKeys, setGeminiKeys] = useState<AiApiKeySlot[]>([])
+  const [aiMetaError, setAiMetaError] = useState(false)
   const [geminiKeyLabel, setGeminiKeyLabel] = useState('')
   const [geminiKeyValue, setGeminiKeyValue] = useState('')
   const [geminiKeyBusy, setGeminiKeyBusy] = useState(false)
@@ -359,11 +361,12 @@ export default function GeneralSettingsClient({ embedded = false }: GeneralSetti
     const token = getStoredAuthToken()
     if (!token) return
     setAiMetaLoading(true)
+    setAiMetaError(false)
     try {
       const [p, f, keysRes] = await Promise.all([
         listAiProviders(token),
         listAiFeatureProfiles(token),
-        listAiApiKeys(token, 'gemini').catch(() => ({ keys: [] as AiApiKeySlot[] })),
+        listAiApiKeys(token, 'gemini'),
       ])
       setAiProvidersList(
         p.providers.map((x) => ({ code: x.code, display_name: x.display_name, is_active: x.is_active })),
@@ -371,9 +374,8 @@ export default function GeneralSettingsClient({ embedded = false }: GeneralSetti
       setAiProfilesList(f.profiles.map((x) => ({ code: x.code, temperature: x.temperature })))
       setGeminiKeys(keysRes.keys)
     } catch {
-      setAiProvidersList([])
-      setAiProfilesList([])
-      setGeminiKeys([])
+      setAiMetaError(true)
+      setStatus({ kind: 'err', text: 'Yapay zeka sağlayıcıları veya anahtarları yüklenemedi. Kayıtlı anahtarlar silinmedi; oturumunuzu kontrol edip yeniden deneyin.' })
     } finally {
       setAiMetaLoading(false)
     }
@@ -544,10 +546,8 @@ export default function GeneralSettingsClient({ embedded = false }: GeneralSetti
             )
             setGeminiModel(
               typeof obj.gemini_model === 'string' && obj.gemini_model.trim()
-                ? obj.gemini_model.trim() === 'gemini-2.0-flash'
-                  ? 'gemini-1.5-flash'
-                  : obj.gemini_model.trim()
-                : 'gemini-1.5-flash',
+                ? obj.gemini_model.trim()
+                : 'gemini-2.5-flash',
             )
             setRequestTimeoutSec(String(requestTimeoutSecFromAiJson(obj)))
             setModuleTimeoutsSec((prev) => {
@@ -751,11 +751,12 @@ export default function GeneralSettingsClient({ embedded = false }: GeneralSetti
         openai_api_key: openaiApiKey.trim(),
         deepseek_model: deepseekModel.trim() || 'deepseek-chat',
         deepseek_api_url: deepseekApiUrl.trim() || 'https://api.deepseek.com/v1/chat/completions',
-        gemini_model: geminiModel.trim() || 'gemini-1.5-flash',
+        gemini_model: geminiModel.trim() || 'gemini-2.5-flash',
         request_timeout_sec: rtParsed,
         module_timeouts_sec,
       }
-      await upsertSiteSettingFromPanel({ key: 'ai', value_json: JSON.stringify(next) })
+      const changes = aiSettingsUpdate(next, aiRest)
+      await upsertSiteSettingFromPanel({ key: 'ai', value_json: JSON.stringify(changes) })
       setAiRest(next as Record<string, unknown>)
       setRequestTimeoutSec(String(rtParsed))
       setModuleTimeoutsSec(() => {
@@ -2052,7 +2053,11 @@ export default function GeneralSettingsClient({ embedded = false }: GeneralSetti
                 </p>
               </Field>
               <ul className="space-y-2">
-                {geminiKeys.length === 0 ? (
+                {aiMetaError ? (
+                  <li role="alert" className="text-xs text-amber-700">Anahtar listesi alınamadı. Bu durum kayıtlı anahtar olmadığı anlamına gelmez.</li>
+                ) : aiMetaLoading ? (
+                  <li className="text-xs text-neutral-500">Anahtarlar yükleniyor…</li>
+                ) : geminiKeys.length === 0 ? (
                   <li className="text-xs text-neutral-500">Henüz Gemini anahtarı yok.</li>
                 ) : (
                   geminiKeys.map((k) => (

@@ -16,6 +16,7 @@ import gleam/result
 import gleam/string
 import pog
 import travel/ai/ai_job_run
+import travel/ai/listing_locale_policy
 import travel/db/decode_helpers as row_dec
 import travel/db/resilient_pog as db_exec
 import travel/identity/admin_gate
@@ -60,14 +61,6 @@ fn query_param(req: Request, key: String) -> String {
     Error(_) -> ""
     Ok(v) -> string.trim(v)
   }
-}
-
-fn target_locales() -> List(String) {
-  ["en", "de", "ru", "zh", "fr"]
-}
-
-fn all_locales() -> List(String) {
-  ["tr", "en", "de", "ru", "zh", "fr"]
 }
 
 fn hotel_content_standard() -> String {
@@ -501,6 +494,7 @@ fn need_work_sql() -> String {
       where lt.listing_id = l.id
         and coalesce(lo.is_active, true) = true
         and lower(lo.code) <> 'tr'
+        and pc.code <> 'tour'
         and length(coalesce(lt.title, '')) > 0
         and length(coalesce(lt.description, '')) > 80
         and position('&nbsp' in lower(coalesce(lt.description, ''))) = 0
@@ -509,6 +503,7 @@ fn need_work_sql() -> String {
       select count(*)::int from locales lo
       where coalesce(lo.is_active, true) = true
         and lower(lo.code) <> 'tr'
+        and pc.code <> 'tour'
     )
     or (
       select count(*)::int
@@ -518,11 +513,13 @@ fn need_work_sql() -> String {
         and sm.entity_id = l.id
         and coalesce(lo.is_active, true) = true
         and length(coalesce(sm.title, '')) > 10
+        and (pc.code <> 'tour' or lower(lo.code) = 'tr')
         and length(coalesce(sm.description, '')) > 40
         and length(trim(coalesce(sm.keywords, ''))) >= 8
     ) < (
       select count(*)::int from locales lo
       where coalesce(lo.is_active, true) = true
+        and (pc.code <> 'tour' or lower(lo.code) = 'tr')
     )
   )
   "
@@ -902,6 +899,8 @@ fn load_listing_context(
     from listings l
     join product_categories pc on pc.id = l.category_id
     where l.id = $1::uuid
+      and l.status = 'published'
+      and coalesce(pc.is_active, true) = true
     limit 1
     "
   case
@@ -1314,6 +1313,7 @@ fn run_translations_phase(
   ctx: Context,
   batch_id: String,
   listing_id: String,
+  category_code: String,
   overwrite: Bool,
   loc: #(String, String, String, String, String, String, String),
 ) -> Result(Nil, String) {
@@ -1324,7 +1324,8 @@ fn run_translations_phase(
     True -> Error("listing_content_tr_missing_for_translate")
     False -> {
       let pending =
-        list.filter(target_locales(), fn(locale_code) {
+        list.filter(listing_locale_policy.locales(category_code), fn(locale_code) {
+          locale_code != tr_locale &&
           case overwrite {
             True ->
               !batch_locale_done(ctx.db, batch_id, "translations", locale_code)
@@ -1484,7 +1485,7 @@ fn run_seo_phase(
   overwrite: Bool,
 ) -> Result(Nil, String) {
   let pending =
-    list.filter(all_locales(), fn(locale_code) {
+    list.filter(listing_locale_policy.locales(category_code), fn(locale_code) {
       let needs_seo = case overwrite {
         True -> !batch_locale_done(ctx.db, batch_id, "seo", locale_code)
         False -> !locale_has_seo(ctx.db, listing_id, locale_code)
@@ -1733,7 +1734,7 @@ fn run_batch_core(
           }
         "translations" ->
           case
-            run_translations_phase(ctx, batch_id, listing_id, overwrite, loc)
+            run_translations_phase(ctx, batch_id, listing_id, category_code, overwrite, loc)
           {
             Error(e) -> {
               fail_batch(ctx.db, batch_id, e)
@@ -1802,7 +1803,7 @@ pub fn worker_try_listing_content(ctx: Context) -> Result(Bool, String) {
             <> "    and position('<p' in lower(coalesce(lt.description,''))) > 0 "
             <> "    and position('&nbsp' in lower(coalesce(lt.description,''))) = 0"
             <> ") then 'tr_description' "
-            <> "when ("
+            <> "when pc.code <> 'tour' and ("
             <> "  select count(*)::int from listing_translations lt join locales lo on lo.id = lt.locale_id "
             <> "  where lt.listing_id = l.id and coalesce(lo.is_active,true) = true and lower(lo.code) <> 'tr' "
             <> "    and length(coalesce(lt.title,'')) > 0 and length(coalesce(lt.description,'')) > 80 "
