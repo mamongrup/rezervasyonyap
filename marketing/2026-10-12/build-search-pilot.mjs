@@ -43,6 +43,8 @@ for (const campaign of campaigns) {
 }
 const quote = value => `"${String(value ?? '').replaceAll('"','""')}"`;
 writeFileSync(new URL('google-ads-search-pilot-editor.csv',root),'\uFEFF'+[headers,...rows.map(row=>headers.map(key=>row[key]??''))].map(row=>row.map(quote).join(',')).join('\r\n'));
+const negativeRows = campaigns.flatMap(campaign => locales.flatMap(locale => negatives[locale].map(term => [`RY | Arama | ${campaign.id} | Kontrollü Pilot`,term,'Negative phrase'])));
+writeFileSync(new URL('google-ads-search-pilot-negatives.csv',root),'\uFEFF'+[['Campaign','Keyword','Match type'],...negativeRows].map(row=>row.map(quote).join(',')).join('\r\n'));
 writeFileSync(new URL('search-pilot-plan.json',root),JSON.stringify({prepared_at:'2026-10-12',account:'517-550-3933',deployment_status:'not_uploaded_browser_disconnected',pmax_status:'all_seven_paused_verified_in_google_ads',campaigns:plan,negative_keywords:negatives,notes:['CSV is an Editor-format preparation artifact; Google Ads upload preview must validate the schema before applying.','Location presence and negative keywords require explicit live configuration; they are not applied by this CSV.','1000 TRY is an average daily budget, not a strict daily spending cap.','Do not activate all seven categories together. Club Med remains blocked until inventory is verified.']},null,2));
 console.log(JSON.stringify({campaigns:plan.length,languages:locales.length,ads:42,keywords:168,initial_max_cpc_try:initialMaxCpcTry,status:'prepared_not_uploaded'}));
 
