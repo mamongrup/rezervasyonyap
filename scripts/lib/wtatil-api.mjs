@@ -4,6 +4,7 @@
  * Kimlik: panel site_settings.listing_api_providers.wtatil veya WTATIL_* env.
  */
 
+import { requestJsonBody } from './http-json-body.mjs'
 import { loadWtatilConfigFromDb } from './listing-api-providers-db.mjs'
 
 const DEFAULT_BASE = 'https://tour-api.reserwation.com'
@@ -131,7 +132,9 @@ export async function wtatilRequest(method, path, body = null, query = null) {
   if (body != null) init.body = JSON.stringify(body)
   let res
   try {
-    res = await fetch(url, init)
+    res = method === 'GET' && body != null
+      ? await requestJsonBody(url, method, body)
+      : await fetch(url, init)
   } catch (e) {
     const cause = e?.cause?.message || e?.cause?.code || ''
     const hint = cause ? ` (${cause})` : ''
@@ -173,8 +176,16 @@ function authBody(userName, token, extra = {}) {
   }
 }
 
+const WtatilGetPaths = new Set([
+  '/api/TourCatalog/getall-tour-category-async',
+  '/api/TourCatalog/getall-tour-period-by-tour-id-async',
+  '/api/TourCatalog/getall-tour-period-price-async',
+  '/api/TourCatalog/get-tour-transport-detail-by-tour-id-async',
+])
+
 async function wtatilPostAuthWithRetry(path, body) {
-  const first = await wtatilRequest('POST', path, body)
+  const method = WtatilGetPaths.has(path) ? 'GET' : 'POST'
+  const first = await wtatilRequest(method, path, body)
   if (!isTokenExpiredResponse(first)) return first
 
   const currentUser = String(body?.authorization?.userName || '').trim()
@@ -189,10 +200,10 @@ async function wtatilPostAuthWithRetry(path, body) {
       token: fresh.token,
     },
   }
-  return wtatilRequest('POST', path, retryBody)
+  return wtatilRequest(method, path, retryBody)
 }
 
-/** Auth gövdesi gerektiren katalog uçları — Wtatil v2 POST (GET+body Node fetch’te reddedilir). */
+/** Auth gövdesi gerektiren katalog uçları — yöntem sağlayıcının OpenAPI sözleşmesine göre seçilir. */
 async function wtatilPostAuth(path, body) {
   return wtatilPostAuthWithRetry(path, body)
 }
