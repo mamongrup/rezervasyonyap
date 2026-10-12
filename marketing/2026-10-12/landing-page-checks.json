@@ -2,12 +2,12 @@
   "checked_on": "2026-10-12",
   "method": "HTTP GET with redirect and page-title verification",
   "checks": [
-    {"url":"https://www.rezervasyonyap.tr/tr/oteller","status":200,"title":"Otel Rezervasyonu ve En Uygun Otel Fiyatları - Rezervasyon Yap"},
-    {"url":"https://www.rezervasyonyap.tr/tr/tatil-evleri","status":200,"title":"Kiralık Villa ve Tatil Evi Rezervasyonu - Rezervasyon Yap"},
-    {"url":"https://www.rezervasyonyap.tr/tr/yat-kiralama","status":200,"title":"Yat Kiralama, Gulet ve Mavi Tur Seçenekleri - Rezervasyon Yap"},
-    {"url":"https://www.rezervasyonyap.tr/tr/turlar","status":200,"title":"Yurt İçi ve Yurt Dışı Tur Rezervasyonu - Rezervasyon Yap"},
-    {"url":"https://www.rezervasyonyap.tr/tr/kruvaziyer","status":200,"title":"Kruvaziyer ve Gemi Turu Rezervasyonu - Rezervasyon Yap"},
-    {"url":"https://www.rezervasyonyap.tr/tr/aktiviteler","status":200,"title":"Aktivite ve Deneyim Rezervasyonu - Rezervasyon Yap"}
+    {"url":"https://www.rezervasyonyap.com.tr/tr/oteller","status":200,"title":"Otel Rezervasyonu ve En Uygun Otel Fiyatları - Rezervasyon Yap"},
+    {"url":"https://www.rezervasyonyap.com.tr/tr/tatil-evleri","status":200,"title":"Kiralık Villa ve Tatil Evi Rezervasyonu - Rezervasyon Yap"},
+    {"url":"https://www.rezervasyonyap.com.tr/tr/yat-kiralama","status":200,"title":"Yat Kiralama, Gulet ve Mavi Tur Seçenekleri - Rezervasyon Yap"},
+    {"url":"https://www.rezervasyonyap.com.tr/tr/turlar","status":200,"title":"Yurt İçi ve Yurt Dışı Tur Rezervasyonu - Rezervasyon Yap"},
+    {"url":"https://www.rezervasyonyap.com.tr/tr/kruvaziyer","status":200,"title":"Kruvaziyer ve Gemi Turu Rezervasyonu - Rezervasyon Yap"},
+    {"url":"https://www.rezervasyonyap.com.tr/tr/aktiviteler","status":200,"title":"Aktivite ve Deneyim Rezervasyonu - Rezervasyon Yap"}
   ],
   "note":"Successful page response does not verify inventory, checkout, prices or conversion measurement."
 }

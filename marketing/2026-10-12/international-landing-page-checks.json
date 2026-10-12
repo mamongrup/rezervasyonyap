@@ -1,0 +1,155 @@
+{
+  "checked_on": "2026-10-12",
+  "checks": [
+    {
+      "url": "https://www.reservationinturkey.com/zh/hotels",
+      "status": 200,
+      "final": "https://www.reservationinturkey.com/zh/hotels",
+      "html_lang": "tr"
+    },
+    {
+      "url": "https://www.reservationinturkey.com/en/hotels",
+      "status": 200,
+      "final": "https://www.reservationinturkey.com/en/hotels",
+      "html_lang": "tr"
+    },
+    {
+      "url": "https://www.reservationinturkey.com/ru/hotels",
+      "status": 200,
+      "final": "https://www.reservationinturkey.com/ru/hotels",
+      "html_lang": "tr"
+    },
+    {
+      "url": "https://www.reservationinturkey.com/de/hotels",
+      "status": 200,
+      "final": "https://www.reservationinturkey.com/de/hotels",
+      "html_lang": "tr"
+    },
+    {
+      "url": "https://www.reservationinturkey.com/fr/hotels",
+      "status": 200,
+      "final": "https://www.reservationinturkey.com/fr/hotels",
+      "html_lang": "tr"
+    },
+    {
+      "url": "https://www.reservationinturkey.com/de/ferienhauser",
+      "status": 200,
+      "final": "https://www.reservationinturkey.com/de/ferienhauser",
+      "html_lang": "tr"
+    },
+    {
+      "url": "https://www.reservationinturkey.com/en/holiday-homes",
+      "status": 200,
+      "final": "https://www.reservationinturkey.com/en/holiday-homes",
+      "html_lang": "tr"
+    },
+    {
+      "url": "https://www.reservationinturkey.com/ru/holiday-homes",
+      "status": 200,
+      "final": "https://www.reservationinturkey.com/ru/holiday-homes",
+      "html_lang": "tr"
+    },
+    {
+      "url": "https://www.reservationinturkey.com/zh/holiday-homes",
+      "status": 200,
+      "final": "https://www.reservationinturkey.com/zh/holiday-homes",
+      "html_lang": "tr"
+    },
+    {
+      "url": "https://www.reservationinturkey.com/fr/maisons-de-vacances",
+      "status": 200,
+      "final": "https://www.reservationinturkey.com/fr/maisons-de-vacances",
+      "html_lang": "tr"
+    },
+    {
+      "url": "https://www.reservationinturkey.com/en/tours",
+      "status": 200,
+      "final": "https://www.reservationinturkey.com/en/tours",
+      "html_lang": "tr"
+    },
+    {
+      "url": "https://www.reservationinturkey.com/de/touren",
+      "status": 200,
+      "final": "https://www.reservationinturkey.com/de/touren",
+      "html_lang": "tr"
+    },
+    {
+      "url": "https://www.reservationinturkey.com/zh/tours",
+      "status": 200,
+      "final": "https://www.reservationinturkey.com/zh/tours",
+      "html_lang": "tr"
+    },
+    {
+      "url": "https://www.reservationinturkey.com/ru/tours",
+      "status": 200,
+      "final": "https://www.reservationinturkey.com/ru/tours",
+      "html_lang": "tr"
+    },
+    {
+      "url": "https://www.reservationinturkey.com/fr/circuits",
+      "status": 200,
+      "final": "https://www.reservationinturkey.com/fr/circuits",
+      "html_lang": "tr"
+    },
+    {
+      "url": "https://www.reservationinturkey.com/ru/cruises",
+      "status": 200,
+      "final": "https://www.reservationinturkey.com/ru/cruises",
+      "html_lang": "tr"
+    },
+    {
+      "url": "https://www.reservationinturkey.com/en/cruises",
+      "status": 200,
+      "final": "https://www.reservationinturkey.com/en/cruises",
+      "html_lang": "tr"
+    },
+    {
+      "url": "https://www.reservationinturkey.com/de/kreuzfahrten",
+      "status": 200,
+      "final": "https://www.reservationinturkey.com/de/kreuzfahrten",
+      "html_lang": "tr"
+    },
+    {
+      "url": "https://www.reservationinturkey.com/de/aktivitaten",
+      "status": 200,
+      "final": "https://www.reservationinturkey.com/de/aktivitaten",
+      "html_lang": "tr"
+    },
+    {
+      "url": "https://www.reservationinturkey.com/en/activities",
+      "status": 200,
+      "final": "https://www.reservationinturkey.com/en/activities",
+      "html_lang": "tr"
+    },
+    {
+      "url": "https://www.reservationinturkey.com/zh/cruises",
+      "status": 200,
+      "final": "https://www.reservationinturkey.com/zh/cruises",
+      "html_lang": "tr"
+    },
+    {
+      "url": "https://www.reservationinturkey.com/fr/croisieres",
+      "status": 200,
+      "final": "https://www.reservationinturkey.com/fr/croisieres",
+      "html_lang": "tr"
+    },
+    {
+      "url": "https://www.reservationinturkey.com/zh/activities",
+      "status": 200,
+      "final": "https://www.reservationinturkey.com/zh/activities",
+      "html_lang": "tr"
+    },
+    {
+      "url": "https://www.reservationinturkey.com/fr/activites",
+      "status": 200,
+      "final": "https://www.reservationinturkey.com/fr/activites",
+      "html_lang": "tr"
+    },
+    {
+      "url": "https://www.reservationinturkey.com/ru/activities",
+      "status": 200,
+      "final": "https://www.reservationinturkey.com/ru/activities",
+      "html_lang": "tr"
+    }
+  ]
+}

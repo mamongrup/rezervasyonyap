@@ -1,6 +1,8 @@
 import { readFileSync, writeFileSync } from 'node:fs'
 const verifiedUrls=new Set(JSON.parse(readFileSync(new URL('./landing-page-checks.json',import.meta.url))).checks.filter(c=>c.status===200).map(c=>c.url))
 
+const localizedPaths = {en:['hotels','holiday-homes','yacht-charter','tours','cruises','activities'],de:['hotels','ferienhauser','yacht-charter','touren','kreuzfahrten','aktivitaten'],ru:['hotels','holiday-homes','yacht-charter','tours','cruises','activities'],zh:['hotels','holiday-homes','yacht-charter','tours','cruises','activities'],fr:['hotels','maisons-de-vacances','location-bateaux','circuits','croisieres','activites']}
+const categoryPathIndex = {hotel:0,'holiday-home':1,yacht:2,tour:3,cruise:4,activity:5,'club-med':0}
 const locales = ['tr','en','de','ru','zh','fr']
 const categories = [
   ['hotel','oteller',['Otel Rezervasyonu','Hotel Booking','Hotels buchen','Бронирование отелей','酒店预订','Réserver un hôtel']],
@@ -38,13 +40,14 @@ const copy = {
   },
 }
 const campaigns = categories.map(([id,path,titles]) => ({
-  id, name:`RY | ${titles[0]} | TR | 1000 TL`, daily_budget_try:1000,
+  id, name:`RY | ${titles[0]} | Günlük 1000 TL`, daily_budget_try:1000,
   status:'prepared', target_country:'TR', target_presence:'presence', dates:null,
-  final_url:path ? `https://www.rezervasyonyap.tr/tr/${path}` : null,
-  final_url_verified:path ? verifiedUrls.has(`https://www.rezervasyonyap.tr/tr/${path}`) : false, asset:`assets/${id}.png`, asset_kind:'editorial_illustration',
+  final_url:path ? `https://www.rezervasyonyap.com.tr/tr/${path}` : null,
+  final_url_verified:path ? verifiedUrls.has(`https://www.rezervasyonyap.com.tr/tr/${path}`) : false, asset:`assets/${id}.png`, square_asset:`assets/${id}-square.png`, asset_kind:'editorial_illustration',
   channels:['responsive_search','responsive_display','performance_max','social_feed','social_story'],
   publication_requirements:['verified_live_inventory','verified_landing_page','verified_conversion_tracking'],
   languages:Object.fromEntries(locales.map((locale,i)=>[locale,{
+    final_url:locale==='tr' ? `https://www.rezervasyonyap.com.tr/tr/${path || 'oteller?q=Club%20Med'}` : `https://www.reservationinturkey.com/${locale}/${localizedPaths[locale][categoryPathIndex[id]]}${id==='club-med'?'?q=Club%20Med':''}`,
     title:titles[i], headlines:[titles[i],...copy[locale].headlines],
     descriptions:copy[locale].descriptions, cta:copy[locale].cta,
     display_headlines:[titles[i],...copy[locale].headlines.slice(1,5)],
@@ -57,6 +60,8 @@ const campaigns = categories.map(([id,path,titles]) => ({
 const length = (s) => [...s].reduce((n,ch)=> n+(/[\u2E80-\u9FFF]/u.test(ch)?2:1),0)
 for (const campaign of campaigns) for (const locale of locales) {
   const row=campaign.languages[locale]
+  const host=new URL(row.final_url).hostname
+  if(host!==(locale==='tr'?'www.rezervasyonyap.com.tr':'www.reservationinturkey.com')) throw Error('wrong_language_domain')
   if (!row || row.headlines.length!==15 || row.descriptions.length!==4) throw Error('locale_assets_incomplete')
   for (const h of row.headlines) if (length(h)>30) throw Error(`headline_too_long:${locale}:${h}`)
   for (const d of row.descriptions) if (length(d)>90) throw Error(`description_too_long:${locale}:${d}`)

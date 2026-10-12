@@ -1,0 +1,388 @@
+{
+  "checked_on": "2026-10-12",
+  "account_id": "5175503933",
+  "status": "created_paused",
+  "total_daily_budget_try": 7000,
+  "domains": {
+    "tr": "https://www.rezervasyonyap.com.tr/",
+    "other_locales": "https://www.reservationinturkey.com/"
+  },
+  "url_evidence": "Domain-specific creative creation payloads accepted; read API omits final URLs.",
+  "pending": [
+    "Yacht EN/DE/FR landing route deployment",
+    "Club Med inventory verification",
+    "Live supplier inventory and conversion measurement verification"
+  ],
+  "campaigns": [
+    {
+      "category": "hotel",
+      "id": "24349406053",
+      "name": "RY | Otel | Günlük 1000 TL",
+      "status": "PAUSED",
+      "budget_amount": 1000,
+      "budget_type": "DAILY",
+      "currency": "TRY",
+      "shared_budget": false,
+      "groups": [
+        {
+          "id": "6758697986",
+          "name": "Hotel | DE | reservationinturkey.com",
+          "status": "PAUSED"
+        },
+        {
+          "id": "6758698493",
+          "name": "Hotel | EN | reservationinturkey.com",
+          "status": "PAUSED"
+        },
+        {
+          "id": "6758698517",
+          "name": "Hotel | RU | reservationinturkey.com",
+          "status": "PAUSED"
+        },
+        {
+          "id": "6758698798",
+          "name": "Hotel | ZH | reservationinturkey.com",
+          "status": "PAUSED"
+        },
+        {
+          "id": "6758698801",
+          "name": "Hotel | FR | reservationinturkey.com",
+          "status": "PAUSED"
+        },
+        {
+          "id": "6758792871",
+          "name": "Otel | Türkçe | rezervasyonyap.com.tr",
+          "status": "PAUSED"
+        }
+      ],
+      "targeting": {
+        "locations": [
+          "TR"
+        ],
+        "languages": [
+          "en",
+          "de",
+          "fr",
+          "zh_CN",
+          "ru",
+          "tr"
+        ]
+      }
+    },
+    {
+      "category": "holiday-home",
+      "id": "24349431283",
+      "name": "RY | Tatil Evi | Günlük 1000 TL",
+      "status": "PAUSED",
+      "budget_amount": 1000,
+      "budget_type": "DAILY",
+      "currency": "TRY",
+      "shared_budget": false,
+      "groups": [
+        {
+          "id": "6758698946",
+          "name": "Tatil Evi | EN | reservationinturkey.com",
+          "status": "PAUSED"
+        },
+        {
+          "id": "6758698991",
+          "name": "Tatil Evi | DE | reservationinturkey.com",
+          "status": "PAUSED"
+        },
+        {
+          "id": "6758699027",
+          "name": "Tatil Evi | RU | reservationinturkey.com",
+          "status": "PAUSED"
+        },
+        {
+          "id": "6758699075",
+          "name": "Tatil Evi | ZH | reservationinturkey.com",
+          "status": "PAUSED"
+        },
+        {
+          "id": "6758699078",
+          "name": "Tatil Evi | FR | reservationinturkey.com",
+          "status": "PAUSED"
+        },
+        {
+          "id": "6758794134",
+          "name": "Tatil Evi | Türkçe | rezervasyonyap.com.tr",
+          "status": "PAUSED"
+        }
+      ],
+      "targeting": {
+        "locations": [
+          "TR"
+        ],
+        "languages": [
+          "en",
+          "de",
+          "fr",
+          "zh_CN",
+          "ru",
+          "tr"
+        ]
+      }
+    },
+    {
+      "category": "yacht",
+      "id": "24349430767",
+      "name": "RY | Yat | Günlük 1000 TL",
+      "status": "PAUSED",
+      "budget_amount": 1000,
+      "budget_type": "DAILY",
+      "currency": "TRY",
+      "shared_budget": false,
+      "groups": [
+        {
+          "id": "6758699138",
+          "name": "Yat | RU | reservationinturkey.com",
+          "status": "PAUSED"
+        },
+        {
+          "id": "6758699401",
+          "name": "Yat | ZH | reservationinturkey.com",
+          "status": "PAUSED"
+        },
+        {
+          "id": "6758794188",
+          "name": "Yat | Türkçe | rezervasyonyap.com.tr",
+          "status": "PAUSED"
+        }
+      ],
+      "targeting": {
+        "locations": [
+          "TR"
+        ],
+        "languages": [
+          "en",
+          "de",
+          "fr",
+          "zh_CN",
+          "ru",
+          "tr"
+        ]
+      }
+    },
+    {
+      "category": "tour",
+      "id": "24338251647",
+      "name": "RY | Tur | Günlük 1000 TL",
+      "status": "PAUSED",
+      "budget_amount": 1000,
+      "budget_type": "DAILY",
+      "currency": "TRY",
+      "shared_budget": false,
+      "groups": [
+        {
+          "id": "6758699252",
+          "name": "Tur | EN | reservationinturkey.com",
+          "status": "PAUSED"
+        },
+        {
+          "id": "6758699366",
+          "name": "Tur | ZH | reservationinturkey.com",
+          "status": "PAUSED"
+        },
+        {
+          "id": "6758699399",
+          "name": "Tur | RU | reservationinturkey.com",
+          "status": "PAUSED"
+        },
+        {
+          "id": "6758794218",
+          "name": "Tur | Türkçe | rezervasyonyap.com.tr",
+          "status": "PAUSED"
+        },
+        {
+          "id": "6758798415",
+          "name": "Tur | DE | reservationinturkey.com",
+          "status": "PAUSED"
+        },
+        {
+          "id": "6758798460",
+          "name": "Tur | FR | reservationinturkey.com",
+          "status": "PAUSED"
+        }
+      ],
+      "targeting": {
+        "locations": [
+          "TR"
+        ],
+        "languages": [
+          "en",
+          "de",
+          "fr",
+          "zh_CN",
+          "ru",
+          "tr"
+        ]
+      }
+    },
+    {
+      "category": "cruise",
+      "id": "24349432006",
+      "name": "RY | Gemi Turu | Günlük 1000 TL",
+      "status": "PAUSED",
+      "budget_amount": 1000,
+      "budget_type": "DAILY",
+      "currency": "TRY",
+      "shared_budget": false,
+      "groups": [
+        {
+          "id": "6758695495",
+          "name": "Gemi Turu | Türkçe | rezervasyonyap.com.tr",
+          "status": "PAUSED"
+        },
+        {
+          "id": "6758699102",
+          "name": "Gemi Turu | RU | reservationinturkey.com",
+          "status": "PAUSED"
+        },
+        {
+          "id": "6758699480",
+          "name": "Gemi Turu | ZH | reservationinturkey.com",
+          "status": "PAUSED"
+        },
+        {
+          "id": "6758699528",
+          "name": "Gemi Turu | DE | reservationinturkey.com",
+          "status": "PAUSED"
+        },
+        {
+          "id": "6758798517",
+          "name": "Gemi Turu | EN | reservationinturkey.com",
+          "status": "PAUSED"
+        },
+        {
+          "id": "6758798622",
+          "name": "Gemi Turu | FR | reservationinturkey.com",
+          "status": "PAUSED"
+        }
+      ],
+      "targeting": {
+        "locations": [
+          "TR"
+        ],
+        "languages": [
+          "en",
+          "de",
+          "fr",
+          "zh_CN",
+          "ru",
+          "tr"
+        ]
+      }
+    },
+    {
+      "category": "club-med",
+      "id": "24349432012",
+      "name": "RY | Club Med | Günlük 1000 TL",
+      "status": "PAUSED",
+      "budget_amount": 1000,
+      "budget_type": "DAILY",
+      "currency": "TRY",
+      "shared_budget": false,
+      "groups": [
+        {
+          "id": "6758695435",
+          "name": "Club Med | Türkçe | rezervasyonyap.com.tr",
+          "status": "PAUSED"
+        },
+        {
+          "id": "6758699551",
+          "name": "Club Med | DE | reservationinturkey.com",
+          "status": "PAUSED"
+        },
+        {
+          "id": "6758699558",
+          "name": "Club Med | RU | reservationinturkey.com",
+          "status": "PAUSED"
+        },
+        {
+          "id": "6758699627",
+          "name": "Club Med | FR | reservationinturkey.com",
+          "status": "PAUSED"
+        },
+        {
+          "id": "6758699675",
+          "name": "Club Med | ZH | reservationinturkey.com",
+          "status": "PAUSED"
+        },
+        {
+          "id": "6758798775",
+          "name": "Club Med | EN | reservationinturkey.com",
+          "status": "PAUSED"
+        }
+      ],
+      "targeting": {
+        "locations": [
+          "TR"
+        ],
+        "languages": [
+          "en",
+          "de",
+          "fr",
+          "zh_CN",
+          "ru",
+          "tr"
+        ]
+      }
+    },
+    {
+      "category": "activity",
+      "id": "24338255433",
+      "name": "RY | Aktivite | Günlük 1000 TL",
+      "status": "PAUSED",
+      "budget_amount": 1000,
+      "budget_type": "DAILY",
+      "currency": "TRY",
+      "shared_budget": false,
+      "groups": [
+        {
+          "id": "6758695579",
+          "name": "Aktivite | Türkçe | rezervasyonyap.com.tr",
+          "status": "PAUSED"
+        },
+        {
+          "id": "6758699768",
+          "name": "Aktivite | DE | reservationinturkey.com",
+          "status": "PAUSED"
+        },
+        {
+          "id": "6758798874",
+          "name": "Aktivite | RU | reservationinturkey.com",
+          "status": "PAUSED"
+        },
+        {
+          "id": "6758798889",
+          "name": "Aktivite | FR | reservationinturkey.com",
+          "status": "PAUSED"
+        },
+        {
+          "id": "6758798925",
+          "name": "Aktivite | EN | reservationinturkey.com",
+          "status": "PAUSED"
+        },
+        {
+          "id": "6758799072",
+          "name": "Aktivite | ZH | reservationinturkey.com",
+          "status": "PAUSED"
+        }
+      ],
+      "targeting": {
+        "locations": [
+          "TR"
+        ],
+        "languages": [
+          "en",
+          "de",
+          "fr",
+          "zh_CN",
+          "ru",
+          "tr"
+        ]
+      }
+    }
+  ]
+}

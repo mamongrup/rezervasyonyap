@@ -2,8 +2,10 @@
 
 Yedi kategori: otel, tatil evi, yat, tur, gemi turu, Club Med ve aktivite.
 Her kategori için planlanan ortalama günlük bütçe 1.000 TRY; toplam 7.000 TRY.
-Başlangıç hedefi Türkiye'de bulunan kullanıcılar ve Türkçe reklamlar. Diğer aktif
-vitrin dilleri için metinler ayrıca hazırlanmıştır: en, de, ru, zh ve fr.
+Başlangıç hedefi Türkiye'de bulunan kullanıcılar; altı dilde metinler hazırlanmıştır:
+tr, en, de, ru, zh ve fr. Türkçe hedef adresler `www.rezervasyonyap.com.tr`,
+diğer dillerin hedef adresleri `www.reservationinturkey.com` alanındadır.
+Dil grupları kendi kategori kampanyasının 1.000 TRY günlük bütçesini paylaşır.
 
 ## Dosyalar
 
@@ -12,16 +14,20 @@ vitrin dilleri için metinler ayrıca hazırlanmıştır: en, de, ru, zh ve fr.
 - `assets/*.png`: yedi ayrı editoryal illüstrasyon. Belirli bir tesisin,
   yatın veya Club Med işletmesinin gerçek fotoğrafı olarak kullanılamaz.
 - `preview-*.html`: arama, yatay, kare ve dikey reklam tasarım önizlemeleri.
-  Kare/dikey tasarımlar HTML önizlemeleridir; bağımsız PNG dışa aktarımları değildir.
+  Yedi kare PNG ayrıca `assets/*-square.png` olarak hazırlanmıştır.
+  Dikey tasarımlar HTML önizlemeleridir; bağımsız PNG dışa aktarımları değildir.
 - `google-ads-search-tr.csv`: altı kategori için duraklatılmış arama reklamı
   aktarım dosyası. Club Med'in doğrulanmış hedef sayfası henüz bulunmadığından
   bu aktarımda yer almaz. Dosya henüz Google Ads'e yüklenmemiştir.
 
 ## Yayın durumu
 
-Bu dosyalar hazırlık paketidir. Tamamı Google Ads'te kurulmuş ya da yayına
-alınmış değildir. Otel için Google Ads taslağı oluşturma işlemi başlatılmıştır;
-diğer kampanyaların hesap içinde oluşturulması beklemektedir.
+Google Ads hesabında yedi Maksimum Performans kampanyası oluşturulmuştur.
+Her biri duraklatılmıştır ve ayrı, paylaşılmayan günlük 1.000 TRY bütçeye sahiptir.
+Hesap okumasıyla doğrulanan 39 dil grubu ve kampanya kimlikleri
+`account-campaign-state.json` dosyasındadır. Yat kampanyasının İngilizce,
+Almanca ve Fransızca grupları canlı hedef sayfa düzeltmesini beklemektedir.
+Diğer altı kampanyada altı dil grubu oluşturulmuştur.
 Hedef URL'ler, canlı envanter ve dönüşüm ölçümü doğrulanmadan reklamlar çalıştırılmaz.
 Club Med için mevcut gerçek ilanlar ve hedef sayfa ayrıca doğrulanmalıdır.
 İndirim oranı, garanti veya dahil hizmet iddiası eklenmemiştir.

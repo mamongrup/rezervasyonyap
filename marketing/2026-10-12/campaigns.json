@@ -4,15 +4,16 @@
   "campaigns": [
     {
       "id": "hotel",
-      "name": "RY | Otel Rezervasyonu | TR | 1000 TL",
+      "name": "RY | Otel Rezervasyonu | Günlük 1000 TL",
       "daily_budget_try": 1000,
       "status": "prepared",
       "target_country": "TR",
       "target_presence": "presence",
       "dates": null,
-      "final_url": "https://www.rezervasyonyap.tr/tr/oteller",
+      "final_url": "https://www.rezervasyonyap.com.tr/tr/oteller",
       "final_url_verified": true,
       "asset": "assets/hotel.png",
+      "square_asset": "assets/hotel-square.png",
       "asset_kind": "editorial_illustration",
       "channels": [
         "responsive_search",
@@ -28,6 +29,7 @@
       ],
       "languages": {
         "tr": {
+          "final_url": "https://www.rezervasyonyap.com.tr/tr/oteller",
           "title": "Otel Rezervasyonu",
           "headlines": [
             "Otel Rezervasyonu",
@@ -64,6 +66,7 @@
           "social_text": "Otel Rezervasyonu. Tarihlerini seç, müsait seçenekleri ve rezervasyon koşullarını incele. Seçenekleri keşfet."
         },
         "en": {
+          "final_url": "https://www.reservationinturkey.com/en/hotels",
           "title": "Hotel Booking",
           "headlines": [
             "Hotel Booking",
@@ -100,6 +103,7 @@
           "social_text": "Hotel Booking. Choose your dates and review available options and booking conditions. Explore your options."
         },
         "de": {
+          "final_url": "https://www.reservationinturkey.com/de/hotels",
           "title": "Hotels buchen",
           "headlines": [
             "Hotels buchen",
@@ -136,6 +140,7 @@
           "social_text": "Hotels buchen. Wählen Sie Ihre Reisedaten und prüfen Sie Verfügbarkeit und Buchungsbedingungen. Angebote entdecken."
         },
         "ru": {
+          "final_url": "https://www.reservationinturkey.com/ru/hotels",
           "title": "Бронирование отелей",
           "headlines": [
             "Бронирование отелей",
@@ -172,6 +177,7 @@
           "social_text": "Бронирование отелей. Выберите даты и ознакомьтесь с доступными вариантами и условиями бронирования. Посмотреть варианты."
         },
         "zh": {
+          "final_url": "https://www.reservationinturkey.com/zh/hotels",
           "title": "酒店预订",
           "headlines": [
             "酒店预订",
@@ -208,6 +214,7 @@
           "social_text": "酒店预订. 选择出行日期，查看可订选项和预订条件。 探索旅行选择."
         },
         "fr": {
+          "final_url": "https://www.reservationinturkey.com/fr/hotels",
           "title": "Réserver un hôtel",
           "headlines": [
             "Réserver un hôtel",
@@ -259,15 +266,16 @@
     },
     {
       "id": "holiday-home",
-      "name": "RY | Tatil Evi Kiralama | TR | 1000 TL",
+      "name": "RY | Tatil Evi Kiralama | Günlük 1000 TL",
       "daily_budget_try": 1000,
       "status": "prepared",
       "target_country": "TR",
       "target_presence": "presence",
       "dates": null,
-      "final_url": "https://www.rezervasyonyap.tr/tr/tatil-evleri",
+      "final_url": "https://www.rezervasyonyap.com.tr/tr/tatil-evleri",
       "final_url_verified": true,
       "asset": "assets/holiday-home.png",
+      "square_asset": "assets/holiday-home-square.png",
       "asset_kind": "editorial_illustration",
       "channels": [
         "responsive_search",
@@ -283,6 +291,7 @@
       ],
       "languages": {
         "tr": {
+          "final_url": "https://www.rezervasyonyap.com.tr/tr/tatil-evleri",
           "title": "Tatil Evi Kiralama",
           "headlines": [
             "Tatil Evi Kiralama",
@@ -319,6 +328,7 @@
           "social_text": "Tatil Evi Kiralama. Tarihlerini seç, müsait seçenekleri ve rezervasyon koşullarını incele. Seçenekleri keşfet."
         },
         "en": {
+          "final_url": "https://www.reservationinturkey.com/en/holiday-homes",
           "title": "Holiday Home Rentals",
           "headlines": [
             "Holiday Home Rentals",
@@ -355,6 +365,7 @@
           "social_text": "Holiday Home Rentals. Choose your dates and review available options and booking conditions. Explore your options."
         },
         "de": {
+          "final_url": "https://www.reservationinturkey.com/de/ferienhauser",
           "title": "Ferienhäuser mieten",
           "headlines": [
             "Ferienhäuser mieten",
@@ -391,6 +402,7 @@
           "social_text": "Ferienhäuser mieten. Wählen Sie Ihre Reisedaten und prüfen Sie Verfügbarkeit und Buchungsbedingungen. Angebote entdecken."
         },
         "ru": {
+          "final_url": "https://www.reservationinturkey.com/ru/holiday-homes",
           "title": "Аренда домов для отдыха",
           "headlines": [
             "Аренда домов для отдыха",
@@ -427,6 +439,7 @@
           "social_text": "Аренда домов для отдыха. Выберите даты и ознакомьтесь с доступными вариантами и условиями бронирования. Посмотреть варианты."
         },
         "zh": {
+          "final_url": "https://www.reservationinturkey.com/zh/holiday-homes",
           "title": "度假屋租赁",
           "headlines": [
             "度假屋租赁",
@@ -463,6 +476,7 @@
           "social_text": "度假屋租赁. 选择出行日期，查看可订选项和预订条件。 探索旅行选择."
         },
         "fr": {
+          "final_url": "https://www.reservationinturkey.com/fr/maisons-de-vacances",
           "title": "Location de vacances",
           "headlines": [
             "Location de vacances",
@@ -514,15 +528,16 @@
     },
     {
       "id": "yacht",
-      "name": "RY | Yat Kiralama | TR | 1000 TL",
+      "name": "RY | Yat Kiralama | Günlük 1000 TL",
       "daily_budget_try": 1000,
       "status": "prepared",
       "target_country": "TR",
       "target_presence": "presence",
       "dates": null,
-      "final_url": "https://www.rezervasyonyap.tr/tr/yat-kiralama",
+      "final_url": "https://www.rezervasyonyap.com.tr/tr/yat-kiralama",
       "final_url_verified": true,
       "asset": "assets/yacht.png",
+      "square_asset": "assets/yacht-square.png",
       "asset_kind": "editorial_illustration",
       "channels": [
         "responsive_search",
@@ -538,6 +553,7 @@
       ],
       "languages": {
         "tr": {
+          "final_url": "https://www.rezervasyonyap.com.tr/tr/yat-kiralama",
           "title": "Yat Kiralama",
           "headlines": [
             "Yat Kiralama",
@@ -574,6 +590,7 @@
           "social_text": "Yat Kiralama. Tarihlerini seç, müsait seçenekleri ve rezervasyon koşullarını incele. Seçenekleri keşfet."
         },
         "en": {
+          "final_url": "https://www.reservationinturkey.com/en/yacht-charter",
           "title": "Yacht Charters",
           "headlines": [
             "Yacht Charters",
@@ -610,6 +627,7 @@
           "social_text": "Yacht Charters. Choose your dates and review available options and booking conditions. Explore your options."
         },
         "de": {
+          "final_url": "https://www.reservationinturkey.com/de/yacht-charter",
           "title": "Yachtcharter",
           "headlines": [
             "Yachtcharter",
@@ -646,6 +664,7 @@
           "social_text": "Yachtcharter. Wählen Sie Ihre Reisedaten und prüfen Sie Verfügbarkeit und Buchungsbedingungen. Angebote entdecken."
         },
         "ru": {
+          "final_url": "https://www.reservationinturkey.com/ru/yacht-charter",
           "title": "Аренда яхт",
           "headlines": [
             "Аренда яхт",
@@ -682,6 +701,7 @@
           "social_text": "Аренда яхт. Выберите даты и ознакомьтесь с доступными вариантами и условиями бронирования. Посмотреть варианты."
         },
         "zh": {
+          "final_url": "https://www.reservationinturkey.com/zh/yacht-charter",
           "title": "游艇租赁",
           "headlines": [
             "游艇租赁",
@@ -718,6 +738,7 @@
           "social_text": "游艇租赁. 选择出行日期，查看可订选项和预订条件。 探索旅行选择."
         },
         "fr": {
+          "final_url": "https://www.reservationinturkey.com/fr/location-bateaux",
           "title": "Location de yachts",
           "headlines": [
             "Location de yachts",
@@ -769,15 +790,16 @@
     },
     {
       "id": "tour",
-      "name": "RY | Tur Seçeneklerini Keşfet | TR | 1000 TL",
+      "name": "RY | Tur Seçeneklerini Keşfet | Günlük 1000 TL",
       "daily_budget_try": 1000,
       "status": "prepared",
       "target_country": "TR",
       "target_presence": "presence",
       "dates": null,
-      "final_url": "https://www.rezervasyonyap.tr/tr/turlar",
+      "final_url": "https://www.rezervasyonyap.com.tr/tr/turlar",
       "final_url_verified": true,
       "asset": "assets/tour.png",
+      "square_asset": "assets/tour-square.png",
       "asset_kind": "editorial_illustration",
       "channels": [
         "responsive_search",
@@ -793,6 +815,7 @@
       ],
       "languages": {
         "tr": {
+          "final_url": "https://www.rezervasyonyap.com.tr/tr/turlar",
           "title": "Tur Seçeneklerini Keşfet",
           "headlines": [
             "Tur Seçeneklerini Keşfet",
@@ -829,6 +852,7 @@
           "social_text": "Tur Seçeneklerini Keşfet. Tarihlerini seç, müsait seçenekleri ve rezervasyon koşullarını incele. Seçenekleri keşfet."
         },
         "en": {
+          "final_url": "https://www.reservationinturkey.com/en/tours",
           "title": "Discover Tours",
           "headlines": [
             "Discover Tours",
@@ -865,6 +889,7 @@
           "social_text": "Discover Tours. Choose your dates and review available options and booking conditions. Explore your options."
         },
         "de": {
+          "final_url": "https://www.reservationinturkey.com/de/touren",
           "title": "Reisen entdecken",
           "headlines": [
             "Reisen entdecken",
@@ -901,6 +926,7 @@
           "social_text": "Reisen entdecken. Wählen Sie Ihre Reisedaten und prüfen Sie Verfügbarkeit und Buchungsbedingungen. Angebote entdecken."
         },
         "ru": {
+          "final_url": "https://www.reservationinturkey.com/ru/tours",
           "title": "Выберите свой тур",
           "headlines": [
             "Выберите свой тур",
@@ -937,6 +963,7 @@
           "social_text": "Выберите свой тур. Выберите даты и ознакомьтесь с доступными вариантами и условиями бронирования. Посмотреть варианты."
         },
         "zh": {
+          "final_url": "https://www.reservationinturkey.com/zh/tours",
           "title": "探索旅行线路",
           "headlines": [
             "探索旅行线路",
@@ -973,6 +1000,7 @@
           "social_text": "探索旅行线路. 选择出行日期，查看可订选项和预订条件。 探索旅行选择."
         },
         "fr": {
+          "final_url": "https://www.reservationinturkey.com/fr/circuits",
           "title": "Découvrez nos circuits",
           "headlines": [
             "Découvrez nos circuits",
@@ -1024,15 +1052,16 @@
     },
     {
       "id": "cruise",
-      "name": "RY | Gemi Turlarını Keşfet | TR | 1000 TL",
+      "name": "RY | Gemi Turlarını Keşfet | Günlük 1000 TL",
       "daily_budget_try": 1000,
       "status": "prepared",
       "target_country": "TR",
       "target_presence": "presence",
       "dates": null,
-      "final_url": "https://www.rezervasyonyap.tr/tr/kruvaziyer",
+      "final_url": "https://www.rezervasyonyap.com.tr/tr/kruvaziyer",
       "final_url_verified": true,
       "asset": "assets/cruise.png",
+      "square_asset": "assets/cruise-square.png",
       "asset_kind": "editorial_illustration",
       "channels": [
         "responsive_search",
@@ -1048,6 +1077,7 @@
       ],
       "languages": {
         "tr": {
+          "final_url": "https://www.rezervasyonyap.com.tr/tr/kruvaziyer",
           "title": "Gemi Turlarını Keşfet",
           "headlines": [
             "Gemi Turlarını Keşfet",
@@ -1084,6 +1114,7 @@
           "social_text": "Gemi Turlarını Keşfet. Tarihlerini seç, müsait seçenekleri ve rezervasyon koşullarını incele. Seçenekleri keşfet."
         },
         "en": {
+          "final_url": "https://www.reservationinturkey.com/en/cruises",
           "title": "Discover Cruises",
           "headlines": [
             "Discover Cruises",
@@ -1120,6 +1151,7 @@
           "social_text": "Discover Cruises. Choose your dates and review available options and booking conditions. Explore your options."
         },
         "de": {
+          "final_url": "https://www.reservationinturkey.com/de/kreuzfahrten",
           "title": "Kreuzfahrten entdecken",
           "headlines": [
             "Kreuzfahrten entdecken",
@@ -1156,6 +1188,7 @@
           "social_text": "Kreuzfahrten entdecken. Wählen Sie Ihre Reisedaten und prüfen Sie Verfügbarkeit und Buchungsbedingungen. Angebote entdecken."
         },
         "ru": {
+          "final_url": "https://www.reservationinturkey.com/ru/cruises",
           "title": "Откройте мир круизов",
           "headlines": [
             "Откройте мир круизов",
@@ -1192,6 +1225,7 @@
           "social_text": "Откройте мир круизов. Выберите даты и ознакомьтесь с доступными вариантами и условиями бронирования. Посмотреть варианты."
         },
         "zh": {
+          "final_url": "https://www.reservationinturkey.com/zh/cruises",
           "title": "探索邮轮之旅",
           "headlines": [
             "探索邮轮之旅",
@@ -1228,6 +1262,7 @@
           "social_text": "探索邮轮之旅. 选择出行日期，查看可订选项和预订条件。 探索旅行选择."
         },
         "fr": {
+          "final_url": "https://www.reservationinturkey.com/fr/croisieres",
           "title": "Découvrez les croisières",
           "headlines": [
             "Découvrez les croisières",
@@ -1279,7 +1314,7 @@
     },
     {
       "id": "club-med",
-      "name": "RY | Club Med Tatil Seçenekleri | TR | 1000 TL",
+      "name": "RY | Club Med Tatil Seçenekleri | Günlük 1000 TL",
       "daily_budget_try": 1000,
       "status": "prepared",
       "target_country": "TR",
@@ -1288,6 +1323,7 @@
       "final_url": null,
       "final_url_verified": false,
       "asset": "assets/club-med.png",
+      "square_asset": "assets/club-med-square.png",
       "asset_kind": "editorial_illustration",
       "channels": [
         "responsive_search",
@@ -1303,6 +1339,7 @@
       ],
       "languages": {
         "tr": {
+          "final_url": "https://www.rezervasyonyap.com.tr/tr/oteller?q=Club%20Med",
           "title": "Club Med Tatil Seçenekleri",
           "headlines": [
             "Club Med Tatil Seçenekleri",
@@ -1339,6 +1376,7 @@
           "social_text": "Club Med Tatil Seçenekleri. Tarihlerini seç, müsait seçenekleri ve rezervasyon koşullarını incele. Seçenekleri keşfet."
         },
         "en": {
+          "final_url": "https://www.reservationinturkey.com/en/hotels?q=Club%20Med",
           "title": "Club Med Holidays",
           "headlines": [
             "Club Med Holidays",
@@ -1375,6 +1413,7 @@
           "social_text": "Club Med Holidays. Choose your dates and review available options and booking conditions. Explore your options."
         },
         "de": {
+          "final_url": "https://www.reservationinturkey.com/de/hotels?q=Club%20Med",
           "title": "Club Med Urlaub",
           "headlines": [
             "Club Med Urlaub",
@@ -1411,6 +1450,7 @@
           "social_text": "Club Med Urlaub. Wählen Sie Ihre Reisedaten und prüfen Sie Verfügbarkeit und Buchungsbedingungen. Angebote entdecken."
         },
         "ru": {
+          "final_url": "https://www.reservationinturkey.com/ru/hotels?q=Club%20Med",
           "title": "Отдых в Club Med",
           "headlines": [
             "Отдых в Club Med",
@@ -1447,6 +1487,7 @@
           "social_text": "Отдых в Club Med. Выберите даты и ознакомьтесь с доступными вариантами и условиями бронирования. Посмотреть варианты."
         },
         "zh": {
+          "final_url": "https://www.reservationinturkey.com/zh/hotels?q=Club%20Med",
           "title": "Club Med 度假",
           "headlines": [
             "Club Med 度假",
@@ -1483,6 +1524,7 @@
           "social_text": "Club Med 度假. 选择出行日期，查看可订选项和预订条件。 探索旅行选择."
         },
         "fr": {
+          "final_url": "https://www.reservationinturkey.com/fr/hotels?q=Club%20Med",
           "title": "Vacances Club Med",
           "headlines": [
             "Vacances Club Med",
@@ -1534,15 +1576,16 @@
     },
     {
       "id": "activity",
-      "name": "RY | Aktiviteleri Keşfet | TR | 1000 TL",
+      "name": "RY | Aktiviteleri Keşfet | Günlük 1000 TL",
       "daily_budget_try": 1000,
       "status": "prepared",
       "target_country": "TR",
       "target_presence": "presence",
       "dates": null,
-      "final_url": "https://www.rezervasyonyap.tr/tr/aktiviteler",
+      "final_url": "https://www.rezervasyonyap.com.tr/tr/aktiviteler",
       "final_url_verified": true,
       "asset": "assets/activity.png",
+      "square_asset": "assets/activity-square.png",
       "asset_kind": "editorial_illustration",
       "channels": [
         "responsive_search",
@@ -1558,6 +1601,7 @@
       ],
       "languages": {
         "tr": {
+          "final_url": "https://www.rezervasyonyap.com.tr/tr/aktiviteler",
           "title": "Aktiviteleri Keşfet",
           "headlines": [
             "Aktiviteleri Keşfet",
@@ -1594,6 +1638,7 @@
           "social_text": "Aktiviteleri Keşfet. Tarihlerini seç, müsait seçenekleri ve rezervasyon koşullarını incele. Seçenekleri keşfet."
         },
         "en": {
+          "final_url": "https://www.reservationinturkey.com/en/activities",
           "title": "Discover Activities",
           "headlines": [
             "Discover Activities",
@@ -1630,6 +1675,7 @@
           "social_text": "Discover Activities. Choose your dates and review available options and booking conditions. Explore your options."
         },
         "de": {
+          "final_url": "https://www.reservationinturkey.com/de/aktivitaten",
           "title": "Aktivitäten entdecken",
           "headlines": [
             "Aktivitäten entdecken",
@@ -1666,6 +1712,7 @@
           "social_text": "Aktivitäten entdecken. Wählen Sie Ihre Reisedaten und prüfen Sie Verfügbarkeit und Buchungsbedingungen. Angebote entdecken."
         },
         "ru": {
+          "final_url": "https://www.reservationinturkey.com/ru/activities",
           "title": "Откройте новые впечатления",
           "headlines": [
             "Откройте новые впечатления",
@@ -1702,6 +1749,7 @@
           "social_text": "Откройте новые впечатления. Выберите даты и ознакомьтесь с доступными вариантами и условиями бронирования. Посмотреть варианты."
         },
         "zh": {
+          "final_url": "https://www.reservationinturkey.com/zh/activities",
           "title": "探索精彩体验",
           "headlines": [
             "探索精彩体验",
@@ -1738,6 +1786,7 @@
           "social_text": "探索精彩体验. 选择出行日期，查看可订选项和预订条件。 探索旅行选择."
         },
         "fr": {
+          "final_url": "https://www.reservationinturkey.com/fr/activites",
           "title": "Découvrez les activités",
           "headlines": [
             "Découvrez les activités",
