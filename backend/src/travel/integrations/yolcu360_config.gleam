@@ -98,6 +98,14 @@ pub fn credentials_ready(cfg: Yolcu360Config) -> Bool {
   cfg.api_key != "" && cfg.api_secret != ""
 }
 
+/// Staging results must never be offered as production inventory.
+pub fn public_sales_ready(cfg: Yolcu360Config) -> Bool {
+  let base = trim_trailing_slash(string.trim(cfg.base_url))
+  cfg.enabled
+  && credentials_ready(cfg)
+  && base == "https://api.pro.yolcu360.com/api/v1"
+}
+
 fn trim_trailing_slash(url: String) -> String {
   case string.ends_with(url, "/") {
     True -> string.drop_end(url, 1)

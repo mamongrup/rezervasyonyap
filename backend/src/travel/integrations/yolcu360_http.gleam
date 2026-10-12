@@ -121,7 +121,7 @@ pub fn post_ping(req: Request, ctx: Context) -> Response {
 pub fn get_cars_public(req: Request, ctx: Context) -> Response {
   use <- wisp.require_method(req, http.Get)
   let cfg = yolcu360_config.load(ctx.db)
-  case yolcu360_config.credentials_ready(cfg) {
+  case yolcu360_config.public_sales_ready(cfg) {
     False -> json_err(503, "yolcu360_not_enabled")
     True -> {
       let qs = case request.get_query(req) {
@@ -206,7 +206,7 @@ pub fn get_checkout_listing_public(_req: Request, ctx: Context) -> Response {
 pub fn get_locations_public(req: Request, ctx: Context) -> Response {
   use <- wisp.require_method(req, http.Get)
   let cfg = yolcu360_config.load(ctx.db)
-  case yolcu360_config.credentials_ready(cfg) {
+  case yolcu360_config.public_sales_ready(cfg) {
     False -> json_err(503, "yolcu360_not_enabled")
     True -> {
       let qs = case request.get_query(req) {
