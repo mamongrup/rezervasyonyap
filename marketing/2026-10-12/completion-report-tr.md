@@ -18,6 +18,8 @@ teklif hedefinden çıkarılmıştır. Kod ecb3cf96 sürümünde main'e gönderi
 Gerçek ödeme yapılarak uçtan uca reklam atfı henüz doğrulanmamıştır.
 
 BookingAgora/travelrobot, Wtatil ve Yolcu360 ayarlarında satış fiyat artışı %15'tir.
+BookingAgora ve Wtatil canlı kimlik doğrulama testleri başarılıdır. Net fiyat,
+tekrar çalıştırma ve kontenjan koruma için dört fiyatlama testi geçmiştir.
 Yolcu360 test/staging adresi kullanmaktadır; üretim erişimi hazır değildir.
 Turna kayıtlarında fiyat yoktur; karşı sağlayıcı onayı/erişimi ayrıca gereklidir.
 Komisyon alanı ile sağlayıcı net fiyatına eklenen satış artışı farklı alanlardır;
@@ -38,3 +40,7 @@ Bu sayım editoryal, SEO, oda görselleri, doğru fiyat ve gerçek müsaitlik on
 yerine geçmez. Eksik içerikler satışa/reklama hazır kabul edilmez.
 Kullanıcı Gemini anahtarlarını henüz yenilemediğini belirtti; AI işçisi kapalı
 kalacaktır. Bu nedenle bütün ilanların kalite onarımı tamamlanmış değildir.
+
+API paketi canlı servise aktarılmış, SELinux standart etiketleri korunarak
+başlatılmış ve yerel/dış API uç noktaları HTTP 200 ile doğrulanmıştır.
+Web paketi Node 25.9.0 ile derlenmektedir; tamamlanma sonucu ayrıca kaydedilir.
