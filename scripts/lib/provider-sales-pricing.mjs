@@ -27,7 +27,7 @@ export async function providerMarkupPercent(pg, provider) {
 
 // Explicit monetary fields only: never modify quota, ids, dates, passenger counts or currency.
 const MONEY_FIELDS = new Set([
-  'double', 'triple', 'single', 'child_1', 'child_2', 'child_3', 'infant',
+  'double', 'triple', 'single', 'quad', 'child_1', 'child_2', 'child_3', 'infant',
   'adultPrice', 'doublePrice', 'singlePrice', 'triplePrice', 'childPrice', 'infantPrice',
   'price', 'amount', 'tourPrice', 'totalPrice', 'cheapestPrice',
 ])

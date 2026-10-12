@@ -1,4 +1,5 @@
 import { queueProviderEditorial } from './provider-publication.mjs'
+import { saleableWtatilEnrichment } from './wtatil-sale-periods.mjs'
 import { mergePeriodsById } from './wtatil-enrich.mjs'
 import { priceWtatilEnrichment, providerMarkupPercent } from './provider-sales-pricing.mjs'
 import {
@@ -153,7 +154,7 @@ export async function upsertWtatilTourListing(
     return { action: 'dry-run', tourId, slug, title: title.slice(0, 60) }
   }
 
-  enrich = priceWtatilEnrichment(enrich, await providerMarkupPercent(pgClient, PROVIDER))
+  enrich = priceWtatilEnrichment(saleableWtatilEnrichment(enrich), await providerMarkupPercent(pgClient, PROVIDER))
 
   let listingId = await findListingByWtatilRef(pgClient, ctx.orgId, tourId)
   const isNew = !listingId
@@ -347,7 +348,7 @@ export async function updateWtatilTourPricesOnly(
   enrich,
   { currencyCode = null, replacePeriods = false } = {},
 ) {
-  enrich = priceWtatilEnrichment(enrich, await providerMarkupPercent(pgClient, PROVIDER))
+  enrich = priceWtatilEnrichment(saleableWtatilEnrichment(enrich), await providerMarkupPercent(pgClient, PROVIDER))
   const cheapestFromEnrich =
     normalizeCheapestPrice(enrich?.cheapestPrice) ??
     minPeriodPrice(enrich?.periodPrices)
