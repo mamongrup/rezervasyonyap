@@ -369,7 +369,8 @@ async function main() {
         if (storedPrice) {
           await upsertTravelrobotPriceRules(pg, hotel.listingId, enriched, hotel.currencyCode, true)
           await markAppliedCommission(pg, hotel.listingId, cfg.hotelCommissionPercent)
-          await pg.query('SELECT refresh_listing_vitrin_prices_for($1::uuid)', [hotel.listingId])
+          await pg.query('UPDATE listings SET vitrin_price = $2::numeric WHERE id = $1::uuid',
+            [hotel.listingId, minPrice != null && Number(minPrice) > 0 ? minPrice : plans[0]?.price_per_night])
         }
         await pg.query('COMMIT')
 
