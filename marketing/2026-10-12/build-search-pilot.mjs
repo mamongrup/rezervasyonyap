@@ -22,13 +22,13 @@ const negatives = {
   zh: ['招聘','求职','免费','二手','出售'],
   fr: ['emploi','recrutement','gratuit','occasion','à vendre'],
 };
-const headers = ['Campaign','Campaign type','Campaign status','Budget','Bid strategy type','Networks','Languages','Ad group','Ad group status','Max CPC','Ad type','Ad status','Final URL',...Array.from({length:15},(_,i)=>`Headline ${i+1}`),...Array.from({length:4},(_,i)=>`Description ${i+1}`),'Keyword','Match type'];
+const headers = ['Campaign','Campaign type','EU political ads','Campaign status','Budget','Bid strategy type','Networks','Languages','Ad group','Ad group status','Max CPC','Ad type','Ad status','Final URL',...Array.from({length:15},(_,i)=>`Headline ${i+1}`),...Array.from({length:4},(_,i)=>`Description ${i+1}`),'Keyword','Match type'];
 const rows = [];
 const plan = [];
 for (const campaign of campaigns) {
   if (!keywords[campaign.id]) throw Error(`Missing category ${campaign.id}`);
   const name = `RY | Arama | ${campaign.id} | Kontrollü Pilot`;
-  rows.push({'Campaign':name,'Campaign type':'Search','Campaign status':'Paused','Budget':1000,'Bid strategy type':'Manual CPC','Networks':'Google Search','Languages':locales.join(';')});
+  rows.push({'Campaign':name,'Campaign type':'Search','EU political ads':'No','Campaign status':'Paused','Budget':1000,'Bid strategy type':'Manual CPC','Networks':'Google Search','Languages':locales.join(';')});
   for (const [i, locale] of locales.entries()) {
     const copy = campaign.languages[locale];
     if (!copy || !keywords[campaign.id][i]?.length || !negatives[locale]?.length) throw Error(`Incomplete ${campaign.id}/${locale}`);
@@ -45,3 +45,4 @@ const quote = value => `"${String(value ?? '').replaceAll('"','""')}"`;
 writeFileSync(new URL('google-ads-search-pilot-editor.csv',root),'\uFEFF'+[headers,...rows.map(row=>headers.map(key=>row[key]??''))].map(row=>row.map(quote).join(',')).join('\r\n'));
 writeFileSync(new URL('search-pilot-plan.json',root),JSON.stringify({prepared_at:'2026-10-12',account:'517-550-3933',deployment_status:'not_uploaded_browser_disconnected',pmax_status:'all_seven_paused_verified_in_google_ads',campaigns:plan,negative_keywords:negatives,notes:['CSV is an Editor-format preparation artifact; Google Ads upload preview must validate the schema before applying.','Location presence and negative keywords require explicit live configuration; they are not applied by this CSV.','1000 TRY is an average daily budget, not a strict daily spending cap.','Do not activate all seven categories together. Club Med remains blocked until inventory is verified.']},null,2));
 console.log(JSON.stringify({campaigns:plan.length,languages:locales.length,ads:42,keywords:168,initial_max_cpc_try:initialMaxCpcTry,status:'prepared_not_uploaded'}));
+
