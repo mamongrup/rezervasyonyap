@@ -335,9 +335,7 @@ export async function applyWtatilTourVitrinFields(
     await pgClient.query(
       `INSERT INTO listing_translations (listing_id, locale_id, title, description)
        VALUES ($1::uuid, $2, $3, $4)
-       ON CONFLICT (listing_id, locale_id) DO UPDATE SET
-         title = COALESCE(EXCLUDED.title, listing_translations.title),
-         description = COALESCE(EXCLUDED.description, listing_translations.description)`,
+       ON CONFLICT (listing_id, locale_id) DO NOTHING`,
       [listingId, localeTrId, title, description || null],
     )
   }
