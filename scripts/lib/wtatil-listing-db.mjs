@@ -1,3 +1,4 @@
+import { queueProviderEditorial } from './provider-publication.mjs'
 import { mergePeriodsById } from './wtatil-enrich.mjs'
 import { priceWtatilEnrichment, providerMarkupPercent } from './provider-sales-pricing.mjs'
 import {
@@ -159,17 +160,14 @@ export async function upsertWtatilTourListing(
 
   if (listingId) {
     // Mevcut yayında ilanı import sırasında draft'a düşürme (WTATIL_STATUS unutulunca vitrin boşalır).
-    const statusClause =
-      status === 'published'
-        ? 'status = $3,'
-        : 'status = CASE WHEN status = \'published\' THEN status ELSE $3 END,'
+    const statusClause = 'status = CASE WHEN status = \'published\' THEN status ELSE $3::text END,'
     await pgClient.query(
       `UPDATE listings SET
          slug = $2, ${statusClause} currency_code = $4, location_name = $5,
          listing_source = 'api', external_provider_code = $6, external_listing_ref = $7,
          last_synced_at = now(), updated_at = now()
        WHERE id = $1::uuid`,
-      [listingId, slug, status, currency, locName, PROVIDER, tourId],
+      [listingId, slug, 'draft', currency, locName, PROVIDER, tourId],
     )
   } else {
     const ins = await pgClient.query(
@@ -178,9 +176,10 @@ export async function upsertWtatilTourListing(
          listing_source, external_provider_code, external_listing_ref, last_synced_at
        ) VALUES ($1::uuid, $2, $3, $4, $5, $6, 'api', $7, $8, now())
        RETURNING id::text`,
-      [ctx.orgId, ctx.categoryId, slug, status, currency, locName, PROVIDER, tourId],
+      [ctx.orgId, ctx.categoryId, slug, 'draft', currency, locName, PROVIDER, tourId],
     )
     listingId = ins.rows[0].id
+    await queueProviderEditorial(pgClient, listingId)
   }
 
   const cheapestFromEnrich =

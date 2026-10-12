@@ -1,4 +1,6 @@
+import { queueProviderEditorial } from './provider-publication.mjs'
 import { carTitle } from './yolcu360-cars.mjs'
+import { providerMarkupPercent, salePrice } from './provider-sales-pricing.mjs'
 
 const PROVIDER = 'yolcu360'
 
@@ -101,11 +103,11 @@ async function upsertListingCore(pgClient, ctx, { extRef, slug, title, descripti
   if (listingId) {
     await pgClient.query(
       `UPDATE listings SET
-         slug = $2, status = $3, currency_code = 'TRY', location_name = $4,
+         slug = $2, status = CASE WHEN status = 'published' THEN status ELSE $3::text END, currency_code = 'TRY', location_name = $4,
          listing_source = 'api', external_provider_code = $5, external_listing_ref = $6,
          last_synced_at = now(), updated_at = now()
        WHERE id = $1::uuid`,
-      [listingId, slug, status, locName, PROVIDER, String(extRef)],
+      [listingId, slug, 'draft', locName, PROVIDER, String(extRef)],
     )
   } else {
     const ins = await pgClient.query(
@@ -114,9 +116,10 @@ async function upsertListingCore(pgClient, ctx, { extRef, slug, title, descripti
          listing_source, external_provider_code, external_listing_ref, last_synced_at
        ) VALUES ($1::uuid, $2, $3, $4, 'TRY', $5, 'api', $6, $7, now())
        RETURNING id::text`,
-      [ctx.orgId, ctx.categoryId, slug, status, locName, PROVIDER, String(extRef)],
+      [ctx.orgId, ctx.categoryId, slug, 'draft', locName, PROVIDER, String(extRef)],
     )
     listingId = ins.rows[0].id
+    await queueProviderEditorial(pgClient, listingId)
   }
 
   await pgClient.query(
@@ -199,7 +202,7 @@ export async function upsertYolcu360CarListing(
   const imageUrl = car.imageUrl || car.thumbnailUrl
   if (imageUrl) await upsertListingCover(pgClient, core.listingId, imageUrl)
 
-  const dailyPrice = car.dailyPrice
+  const dailyPrice = salePrice(car.dailyPrice, await providerMarkupPercent(pgClient, PROVIDER))
   const currency = car.currency || 'TRY'
   if (dailyPrice != null && Number.isFinite(dailyPrice) && dailyPrice > 0) {
     await upsertDailyPriceRule(pgClient, core.listingId, dailyPrice, currency)

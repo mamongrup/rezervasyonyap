@@ -1,3 +1,4 @@
+import { queueProviderEditorial } from './provider-publication.mjs'
 /**
  * Travelrobot (KPlus) listing DB upsert — tur, otel, uçak.
  * GTC ve Wtatil DB modülleri ile aynı convention.
@@ -568,11 +569,11 @@ async function upsertListingCore(
   if (listingId) {
     await pgClient.query(
       `UPDATE listings SET
-         slug = $2, status = $3, currency_code = $4, location_name = $5,
+         slug = $2, status = CASE WHEN status = 'published' THEN status ELSE $3::text END, currency_code = $4, location_name = $5,
          listing_source = 'api', external_provider_code = $6, external_listing_ref = $7,
          last_synced_at = now(), updated_at = now()
        WHERE id = $1::uuid`,
-      [listingId, slug, status, currency, locName, PROVIDER, String(extRef)],
+      [listingId, slug, 'draft', currency, locName, PROVIDER, String(extRef)],
     )
   } else {
     const ins = await pgClient.query(
@@ -581,9 +582,10 @@ async function upsertListingCore(
          listing_source, external_provider_code, external_listing_ref, last_synced_at
        ) VALUES ($1::uuid, $2, $3, $4, $5, $6, 'api', $7, $8, now())
        RETURNING id::text`,
-      [ctx.orgId, ctx.categoryId, slug, status, currency, locName, PROVIDER, String(extRef)],
+      [ctx.orgId, ctx.categoryId, slug, 'draft', currency, locName, PROVIDER, String(extRef)],
     )
     listingId = ins.rows[0].id
+    await queueProviderEditorial(pgClient, listingId)
   }
 
   await pgClient.query(
