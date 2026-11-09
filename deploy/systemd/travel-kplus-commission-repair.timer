@@ -1,0 +1,10 @@
+[Unit]
+Description=Retry unfinished Kplus commission verification after each pass
+[Timer]
+OnBootSec=10min
+OnUnitInactiveSec=6h
+RandomizedDelaySec=15min
+AccuracySec=1min
+Unit=travel-kplus-commission-repair.service
+[Install]
+WantedBy=timers.target

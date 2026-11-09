@@ -1,0 +1,12 @@
+[Unit]
+Description=Kplus hotel 15 percent commission repair
+After=network-online.target travel-api.service
+[Service]
+Type=simple
+WorkingDirectory=/var/www/vhosts/rezervasyonyap.tr/httpdocs
+Environment=PATH=/opt/node-v25.9.0-linux-x64/bin:/usr/local/bin:/usr/bin
+ExecStart=/opt/node-v25.9.0-linux-x64/bin/node scripts/repair-kplus-hotel-commissions.mjs
+Nice=15
+Restart=on-failure
+RestartSec=300
+TimeoutStopSec=30
