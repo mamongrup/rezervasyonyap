@@ -1,3 +1,4 @@
+import { pickTourPeriodPersonPrice } from '../../frontend/src/lib/supplier-tour-price.mjs'
 import { queueProviderEditorial } from './provider-publication.mjs'
 import { saleableWtatilEnrichment } from './wtatil-sale-periods.mjs'
 import { mergePeriodsById } from './wtatil-enrich.mjs'
@@ -85,31 +86,7 @@ function normalizeCheapestPrice(raw) {
   return Number.isFinite(num) && num > 0 ? num : null
 }
 
-function minPeriodPrice(periodPrices) {
-  if (!Array.isArray(periodPrices) || periodPrices.length === 0) return null
-  let min = null
-  for (const row of periodPrices) {
-    const candidates = [
-      row?.double,
-      row?.triple,
-      row?.price,
-      row?.amount,
-      row?.adultPrice,
-      row?.doublePrice,
-      row?.singlePrice,
-      row?.tourPrice,
-      row?.totalPrice,
-    ]
-    for (const c of candidates) {
-      const num = normalizeCheapestPrice(c)
-      if (num != null) {
-        if (min == null || num < min) min = num
-        break
-      }
-    }
-  }
-  return min
-}
+function minPeriodPrice(rows){if(!Array.isArray(rows))return null;const values=rows.map(pickTourPeriodPersonPrice).filter(n=>n!=null);return values.length?Math.min(...values):null}
 
 export async function resolveImportContext(pgClient, orgId) {
   const cat = await pgClient.query(`SELECT id FROM product_categories WHERE code = 'tour' LIMIT 1`)
@@ -184,10 +161,10 @@ export async function upsertWtatilTourListing(
   }
 
   const cheapestFromEnrich =
-    normalizeCheapestPrice(enrich?.cheapestPrice) ??
-    minPeriodPrice(enrich?.periodPrices)
+    minPeriodPrice(enrich?.periodPrices) ??
+    minPeriodPrice(enrich?.periods)
 
-  const programJson = {
+  const programJson = { price_synced_at: new Date().toISOString(), supplier_inventory_status: (enrich?.periods?.length ? 'available' : 'unavailable'),
     source: PROVIDER,
     wtatil_tour_id: Number(tour.id),
     raw_html: tour.tourProgram || null,
@@ -350,8 +327,8 @@ export async function updateWtatilTourPricesOnly(
 ) {
   enrich = priceWtatilEnrichment(saleableWtatilEnrichment(enrich), await providerMarkupPercent(pgClient, PROVIDER))
   const cheapestFromEnrich =
-    normalizeCheapestPrice(enrich?.cheapestPrice) ??
-    minPeriodPrice(enrich?.periodPrices)
+    minPeriodPrice(enrich?.periodPrices) ??
+    minPeriodPrice(enrich?.periods)
 
   const prevRes = await pgClient.query(
     `SELECT program_days_json FROM listing_tour_details WHERE listing_id = $1::uuid`,
@@ -362,7 +339,7 @@ export async function updateWtatilTourPricesOnly(
       ? prevRes.rows[0].program_days_json
       : {}
 
-  const patch = {
+  const patch = { supplier_inventory_status: (enrich?.periods?.length ? 'available' : 'unavailable'),
     source: PROVIDER,
     wtatil_tour_id: Number(tourId),
     price_synced_at: new Date().toISOString(),

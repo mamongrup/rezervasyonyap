@@ -18,6 +18,7 @@ export function unwrapKplusCdnUrl(src: string): string {
   if (!s || !/cdn\.kplus\.com\.tr/i.test(s)) return s
   try {
     const u = new URL(s)
+    if (u.hostname.toLowerCase() !== 'cdn.kplus.com.tr') return s
     const rawUrlParam = u.searchParams.get('url')
     if (!rawUrlParam) return s
     let decoded = ''

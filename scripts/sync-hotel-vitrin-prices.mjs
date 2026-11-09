@@ -1,3 +1,4 @@
+import {holdKplusHotelQuote,releaseKplusHotelQuote} from './lib/provider-hotel-quote-state.mjs'
 /**
  * Travelrobot oteller — vitrin fiyatı + oda listesi senkronizasyonu.
  * SearchHotel + GetHotelRoomPrices + çoklu tarih penceresi.
@@ -301,12 +302,13 @@ async function main() {
 
       try {
         const result = await fetchHotelEnriched(cfg, tokenCode, hotel.code, hotel.currencyCode, {
-          requirePrice: !ROOMS_ONLY,
+          requirePrice: !ROOMS_ONLY, strictErrors: true,
           timeoutMs: REQUEST_TIMEOUT_MS,
           hotelTimeoutMs: HOTEL_TIMEOUT_MS,
         })
 
         if (!result) {
+          if (!DRY_RUN && !ROOMS_ONLY) await holdKplusHotelQuote(pg, hotel.listingId)
           skipNoData++
           console.log(
             `${prefix} — tüm tarihlerde ${ROOMS_ONLY ? 'oda' : 'fiyat'} yok (stok dışı / kapalı)`,
@@ -369,6 +371,7 @@ async function main() {
         if (storedPrice) {
           await upsertTravelrobotPriceRules(pg, hotel.listingId, enriched, hotel.currencyCode, true)
           await markAppliedCommission(pg, hotel.listingId, cfg.hotelCommissionPercent)
+          await releaseKplusHotelQuote(pg, hotel.listingId)
           await pg.query('UPDATE listings SET vitrin_price = $2::numeric, last_synced_at = now() WHERE id = $1::uuid',
             [hotel.listingId, minPrice != null && Number(minPrice) > 0 ? minPrice : plans[0]?.price_per_night])
         }

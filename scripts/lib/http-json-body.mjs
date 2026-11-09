@@ -18,6 +18,7 @@ export function requestJsonBody(url, method, body) {
         ok: res.statusCode >= 200 && res.statusCode < 300,
         status: res.statusCode,
         statusText: res.statusMessage,
+        headers: { get: name => res.headers[String(name).toLowerCase()] ?? null },
         text: async () => Buffer.concat(chunks).toString('utf8'),
       }))
     })

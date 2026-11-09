@@ -181,6 +181,7 @@ export async function enrichHotelRowWithRoomPrices(cfg, tokenCode, row, opts = {
     })
     found = pickHotelRows(searchPayload).find((h) => hotelCodeMatches(h, code)) ?? null
   } catch (e) {
+    if (opts.strictErrors) throw e
     await log(`  [uyarı] SearchHotel ${code} hotelCode hata: ${String(e.message).slice(0, 180)}`)
   }
 
@@ -191,6 +192,7 @@ export async function enrichHotelRowWithRoomPrices(cfg, tokenCode, row, opts = {
       searchPayload = await searchHotelsByDestination(cfg, tokenCode, destinationId, opts)
       found = pickHotelRows(searchPayload).find((h) => hotelCodeMatches(h, code)) ?? null
     } catch (e) {
+      if (opts.strictErrors) throw e
       await log(`  [uyarı] SearchHotel ${code} destinationId=${destinationId} hata: ${String(e.message).slice(0, 180)}`)
     }
   }
@@ -229,6 +231,7 @@ export async function enrichHotelRowWithRoomPrices(cfg, tokenCode, row, opts = {
     }
   }
   if (!pricesPayload) {
+    if (opts.strictErrors) throw new Error('kplus_hotel_room_quote_unverified', {cause:lastError})
     await log(summarizeRoomPricesError(code, lastError))
     return merged
   }

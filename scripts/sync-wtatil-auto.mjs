@@ -1,3 +1,4 @@
+import { quarantineProviderListing } from './lib/provider-inventory.mjs'
 /**
  * Wtatil ↔ site otomatik senkron (günlük zamanlayıcı hedefi).
  *
@@ -117,16 +118,17 @@ async function main() {
     const ctx = await resolveImportContext(client, orgId)
 
     const refsRes = await client.query(
-      `SELECT l.external_listing_ref::text AS ref
+      `SELECT l.external_listing_ref::text AS ref, EXISTS(SELECT 1 FROM listing_tour_details fresh WHERE fresh.listing_id=l.id AND CASE WHEN pg_input_is_valid(fresh.program_days_json->>'price_synced_at','timestamp with time zone') THEN (fresh.program_days_json->>'price_synced_at')::timestamptz>now()-interval '6 hours' ELSE false END) AS price_fresh
        FROM listings l
        JOIN product_categories pc ON pc.id = l.category_id
        WHERE l.organization_id = $1::uuid
          AND pc.code = 'tour'
-         AND l.external_provider_code = 'wtatil'
+         AND l.external_provider_code = 'wtatil' AND l.listing_source='api'
          AND l.external_listing_ref IS NOT NULL
        ORDER BY l.external_listing_ref`,
       [ctx.orgId],
     )
+    const freshRefs=new Set(refsRes.rows.filter(r=>r.price_fresh===true).map(r=>r.ref))
     const dbRefs = new Set(refsRes.rows.map((r) => r.ref).filter(Boolean))
     let targets = [...dbRefs]
     if (LIMIT > 0) targets = targets.slice(0, LIMIT)
@@ -136,15 +138,25 @@ async function main() {
     let syncOk = 0
     let syncNoPrice = 0
     let syncSkipped = 0
+    let syncErrors = 0
     const totalTargets = targets.length
     await reporter.step('Senkron başlıyor…', 0, totalTargets)
 
     for (let i = 0; i < targets.length; i++) {
       const ref = targets[i]
+      try {
       const tour = tourById.get(ref)
+      if(tour && freshRefs.has(ref) && !process.argv.includes('--force')) {syncSkipped+=1;await reporter.step('Recent supplier price already verified: '+ref,i+1,totalTargets);continue}
       if (!tour) {
+        if (!DRY_RUN) {
+          await ensureFreshToken()
+          const confirmation=await fetchAllTours(auth.userName,auth.token,50,[Number(ref)])
+          if (confirmation.length>0) throw new Error('wtatil_catalog_incomplete: '+ref)
+          const missingId=await findListingByWtatilRef(client,ctx.orgId,ref)
+          if(missingId) await quarantineProviderListing(client,{organizationId:ctx.orgId,listingId:missingId,provider:'wtatil',externalRef:ref})
+        }
         syncSkipped += 1
-        await reporter.step(`[sync ${i + 1}/${targets.length}] ${ref} … API katalogda yok`, i + 1, totalTargets)
+        await reporter.step(`[sync ${i + 1}/${targets.length}] ${ref}: confirmed supplier withdrawal`, i + 1, totalTargets)
         continue
       }
 
@@ -164,12 +176,14 @@ async function main() {
       }
 
       await ensureFreshToken()
-      const enrich = await enrichWtatilTour(auth.userName, auth.token, tour, agencyId, { withPrices: true })
+      const enrich = await enrichWtatilTour(auth.userName, auth.token, tour, agencyId, { withPrices: true, withTransport: !PRICES_ONLY })
       const result = await updateWtatilTourPricesOnly(client, listingId, ref, enrich, {
         currencyCode: pickCurrency(tour),
         replacePeriods: true,
       })
 
+      await client.query("INSERT INTO listing_attributes(listing_id,group_code,key,value_json) VALUES($1::uuid,'provider_inventory','status',$2::jsonb) ON CONFLICT(listing_id,group_code,key) DO UPDATE SET value_json=EXCLUDED.value_json",[listingId,JSON.stringify({status:(enrich.periods||[]).length>0?'available':'unavailable',provider:'wtatil',external_ref:ref,checked_at:new Date().toISOString()})])
+      await client.query('UPDATE listings SET last_synced_at=now(),vitrin_price=wtatil_current_sale_price($1::uuid),updated_at=now() WHERE id=$1::uuid AND organization_id=$2::uuid',[listingId,ctx.orgId])
       if (!PRICES_ONLY) await refreshWtatilTourVitrin(client, ctx, listingId, tour, enrich)
 
       const periodCount = Array.isArray(enrich.periods) ? enrich.periods.length : 0
@@ -182,8 +196,17 @@ async function main() {
       }
 
       if (delayMs > 0 && i + 1 < targets.length) await sleep(delayMs)
+      } catch (error) {
+        syncErrors += 1
+        const failedId=await findListingByWtatilRef(client,ctx.orgId,ref)
+        if(failedId) await client.query("INSERT INTO listing_attributes(listing_id,group_code,key,value_json) VALUES($1::uuid,'provider_inventory','last_error',$2::jsonb) ON CONFLICT(listing_id,group_code,key) DO UPDATE SET value_json=EXCLUDED.value_json",[failedId,JSON.stringify({provider:'wtatil',external_ref:ref,code:'price_refresh_failed',checked_at:new Date().toISOString()})])
+        await reporter.step('Price refresh failed; previous data not revalidated: '+ref,i+1,totalTargets)
+        await sleep(Math.max(delayMs,1500))
+      }
+
     }
 
+    if(syncErrors>0)throw new Error('wtatil_sync_partial_failure: '+syncErrors+' records; verified records retained')
     let imported = 0
     if (!SKIP_NEW && IMPORT_NEW_LIMIT > 0) {
       await reporter.log(`\n=== Yeni turlar (API → DB, max ${IMPORT_NEW_LIMIT}) ===`)

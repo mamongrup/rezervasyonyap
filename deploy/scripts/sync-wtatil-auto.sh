@@ -13,6 +13,8 @@ set -euo pipefail
 APP_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 # shellcheck source=deploy/scripts/lib/load-env-file.sh
 source "$APP_ROOT/deploy/scripts/lib/load-env-file.sh"
+exec 200>/var/lock/travel-wtatil-sync.lock
+flock -n 200 || { echo 'WTatil sync already running; this run is skipped'; exit 0; }
 BACKEND_ENV="${TRAVEL_DB_ENV:-/etc/rezervasyonyap/backend.env}"
 WTATIL_ENV="${WTATIL_ENV_FILE:-/etc/rezervasyonyap/wtatil.env}"
 

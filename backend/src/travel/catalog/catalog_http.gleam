@@ -3593,6 +3593,7 @@ fn listing_basics_manage_row() -> decode.Decoder(
     Bool,
     String,
     Bool,
+    String,
   ),
 ) {
   use status <- decode.field(0, decode.string)
@@ -3614,6 +3615,7 @@ fn listing_basics_manage_row() -> decode.Decoder(
   use asg <- decode.field(16, decode.bool)
   use elr <- decode.field(17, decode.string)
   use locked <- decode.field(18, decode.bool)
+  use source_meta <- decode.field(19, decode.string)
   decode.success(#(
     status,
     msn,
@@ -3634,6 +3636,7 @@ fn listing_basics_manage_row() -> decode.Decoder(
     asg,
     elr,
     locked,
+    source_meta,
   ))
 }
 
@@ -3813,7 +3816,7 @@ pub fn get_listing_basics(
         Ok(True) ->
           case
             pog.query(
-              "select status::text, coalesce(min_stay_nights::text, ''), coalesce(cleaning_fee_amount::text, ''), coalesce(first_charge_amount::text, ''), coalesce(prepayment_percent::text, ''), coalesce(commission_percent::text, ''), coalesce(cancellation_policy_text::text, ''), coalesce(ministry_license_ref::text, ''), coalesce(pool_size_label::text, ''), coalesce(high_season_dates_json::text, '[]'), coalesce(confirm_deadline_normal_h::text, ''), coalesce(confirm_deadline_high_h::text, ''), coalesce(supplier_payment_note::text, ''), coalesce(avg_ad_cost_percent::text, ''), coalesce(share_to_social, false), coalesce(allow_ai_caption, false), coalesce(allow_sub_min_stay_gap_booking, false), coalesce(external_listing_ref::text, ''), coalesce(is_locked, false) from listings where id = $1::uuid and organization_id = $2::uuid",
+              "select status::text, coalesce(min_stay_nights::text, ''), coalesce(cleaning_fee_amount::text, ''), coalesce(first_charge_amount::text, ''), coalesce(prepayment_percent::text, ''), coalesce(commission_percent::text, ''), coalesce(cancellation_policy_text::text, ''), coalesce(ministry_license_ref::text, ''), coalesce(pool_size_label::text, ''), coalesce(high_season_dates_json::text, '[]'), coalesce(confirm_deadline_normal_h::text, ''), coalesce(confirm_deadline_high_h::text, ''), coalesce(supplier_payment_note::text, ''), coalesce(avg_ad_cost_percent::text, ''), coalesce(share_to_social, false), coalesce(allow_ai_caption, false), coalesce(allow_sub_min_stay_gap_booking, false), coalesce(external_listing_ref::text, ''), coalesce(is_locked, false), json_build_object('listing_source',listing_source::text,'provider',external_provider_code,'external_ref',external_listing_ref,'last_synced_at',last_synced_at,'vitrin_price',vitrin_price,'currency_code',currency_code,'price_checked_at',(select d.program_days_json->>'price_synced_at' from listing_tour_details d where d.listing_id=listings.id),'configured_markup_percent',(select s.value_json->listings.external_provider_code->>'sales_markup_percent' from site_settings s where s.key='listing_api_providers' and s.organization_id is null order by s.id desc limit 1),'applied_markup_percent',coalesce((select a.value_json->>'percent' from listing_attributes a where a.listing_id=listings.id and a.group_code='travelrobot' and a.key='hotel_commission'),(select d.program_days_json->'pricing'->>'markup_percent' from listing_tour_details d where d.listing_id=listings.id)),'periods',(select d.program_days_json->'periods' from listing_tour_details d where d.listing_id=listings.id),'period_prices',(select d.program_days_json->'period_prices' from listing_tour_details d where d.listing_id=listings.id),'manual_period_sale_prices',(select a.value_json->'manual_period_sale_prices' from listing_attributes a where a.listing_id=listings.id and a.group_code='vertical_tour' and a.key='v1'),'manual_price_override',((exists(select 1 from listing_price_rules r where r.listing_id=listings.id and r.rule_json->>'manual_starting_price'='true')) or exists(select 1 from listing_attributes a where a.listing_id=listings.id and a.group_code='vertical_tour' and a.key='v1' and coalesce(a.value_json->'manual_period_sale_prices','{}'::jsonb)<>'{}'::jsonb)),'inventory',(select a.value_json from listing_attributes a where a.listing_id=listings.id and a.group_code='provider_inventory' and a.key='status'))::text from listings where id = $1::uuid and organization_id = $2::uuid",
             )
             |> pog.parameter(pog.text(listing_id))
             |> pog.parameter(pog.text(org_id))
@@ -3852,11 +3855,13 @@ pub fn get_listing_basics(
                     asg,
                     elr,
                     locked,
+                    source_meta,
                   ),
                 ] -> {
                   let body =
                     json.object([
                       #("status", json.string(status)),
+                      #("source_metadata", json.string(source_meta)),
                       #("min_stay_nights", json.string(msn)),
                       #("cleaning_fee_amount", json.string(cfa)),
                       #("first_charge_amount", json.string(fca)),
@@ -6073,7 +6078,7 @@ pub fn list_public_tour_periods(
       <> "coalesce(nullif(trim(l.currency_code), ''), 'TRY') "
       <> "from listing_tour_details ltd "
       <> "inner join listings l on l.id = ltd.listing_id and l.status = 'published' "
-      <> "where ltd.listing_id = $1::uuid",
+      <> "where ltd.listing_id = $1::uuid and (l.external_provider_code is distinct from 'wtatil' or wtatil_current_sale_price(l.id) is not null)",
     )
     |> pog.parameter(pog.text(listing_id))
     |> pog.returning(public_tour_periods_row())

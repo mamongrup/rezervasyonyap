@@ -1,3 +1,5 @@
+import {saleableWtatilEnrichment} from './wtatil-sale-periods.mjs'
+import {pickTourPeriodPersonPrice} from '../../frontend/src/lib/supplier-tour-price.mjs'
 /**
  * Wtatil tur zenginleştirme — dönemler, fiyatlar, ulaşım.
  * getall-tour-period ile search-tour pencerelerini birleştirir.
@@ -75,7 +77,7 @@ export async function searchTourPeriodsWide(userName, token, tourId, agencyId, o
   return [...byId.values()]
 }
 
-export async function enrichWtatilTour(userName, token, tour, agencyId, { withPrices = true } = {}) {
+export async function enrichWtatilTour(userName, token, tour, agencyId, { withPrices = true, withTransport = true } = {}) {
   const tourId = Number(tour.id)
   const enrich = {}
 
@@ -85,7 +87,8 @@ export async function enrichWtatilTour(userName, token, tour, agencyId, { withPr
     throw new Error(`Wtatil periods unavailable for ${tourId}: ${e.message}`)
   }
 
-  if (withPrices && agencyId) {
+  const currentQuotedPeriods=saleableWtatilEnrichment({periods:enrich.periods,periodPrices:[]}).periods
+  if (withPrices && agencyId && !currentQuotedPeriods.some(p=>pickTourPeriodPersonPrice(p)!=null)) {
     try {
       const searchPeriods = await searchTourPeriodsWide(userName, token, tourId, agencyId)
       enrich.periods = mergePeriodsById(enrich.periods, searchPeriods)
@@ -110,6 +113,7 @@ export async function enrichWtatilTour(userName, token, tour, agencyId, { withPr
     }
   }
 
+  enrich.periods=saleableWtatilEnrichment(enrich).periods
   const periodIds = (enrich.periods || [])
     .map((p) => p?.id ?? p?.periodId ?? p?.tourPeriodId)
     .filter((id) => id != null && String(id).trim())
@@ -121,7 +125,7 @@ export async function enrichWtatilTour(userName, token, tour, agencyId, { withPr
     }
   }
 
-  try {
+  if (withTransport) try {
     enrich.transport = await fetchTourTransportDetail(userName, token, tourId)
   } catch (e) {
     console.warn(`  [uyarı] ulaşım tur ${tourId}: ${e.message}`)

@@ -1,3 +1,5 @@
+import { createSupplierRequestGate } from './provider-request-gate.mjs'
+const wtatilGate=createSupplierRequestGate()
 /**
  * Wtatil / Reserwation Tour API v2
  * Docs: https://tour-api.reserwation.com/docs/index.html
@@ -132,9 +134,9 @@ export async function wtatilRequest(method, path, body = null, query = null) {
   if (body != null) init.body = JSON.stringify(body)
   let res
   try {
-    res = method === 'GET' && body != null
-      ? await requestJsonBody(url, method, body)
-      : await fetch(url, init)
+    res = await wtatilGate(() => method === 'GET' && body != null
+      ? requestJsonBody(url, method, body)
+      : fetch(url, {...init, signal: AbortSignal.timeout(40000)}), {retryable: method === 'GET' || path.startsWith('/api/TourCatalog/getall-') || path.startsWith('/api/TourCatalog/search-')})
   } catch (e) {
     const cause = e?.cause?.message || e?.cause?.code || ''
     const hint = cause ? ` (${cause})` : ''
@@ -218,7 +220,9 @@ export async function fetchTourCatalogPage(userName, token, pageNumber, pageSize
       ids: ids?.length ? ids : null,
     }),
   )
-  return unwrapData(json)
+  const data=unwrapData(json)
+  if(!Array.isArray(data)&&(!data||typeof data!=='object'||!['items','tours','Tours'].some(k=>Array.isArray(data[k]))))throw Error('wtatil_catalog_response_unverified')
+  return data
 }
 
 /** Tüm sayfaları dolaş */
@@ -231,7 +235,7 @@ export async function fetchAllTours(userName, token, pageSize = 50, ids = null) 
     const items = pickArray(data, ['items', 'tours', 'Tours'])
     all.push(...items)
     pageCount = pageCountFrom(data)
-    if (!items.length && pageNumber > 1) break
+    if (!items.length && pageCount > 1) throw Error('wtatil_catalog_pagination_incomplete')
     pageNumber += 1
   }
   return all

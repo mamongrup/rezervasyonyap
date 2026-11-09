@@ -171,9 +171,10 @@ export async function upsertTravelrobotMealPlans(pgClient, listingId, hotel, cur
          label = CASE WHEN listing_meal_plans.notes = $8 OR $9 THEN EXCLUDED.label ELSE listing_meal_plans.label END,
          label_en = CASE WHEN listing_meal_plans.notes = $8 OR $9 THEN EXCLUDED.label_en ELSE listing_meal_plans.label_en END,
          price_per_night = CASE WHEN listing_meal_plans.notes = $8 OR $9 THEN EXCLUDED.price_per_night ELSE listing_meal_plans.price_per_night END,
+         is_active = CASE WHEN listing_meal_plans.notes = $8 OR $9 THEN true ELSE listing_meal_plans.is_active END,
          currency_code = EXCLUDED.currency_code,
          sort_order = EXCLUDED.sort_order,
-         notes = CASE WHEN $9 THEN EXCLUDED.notes ELSE listing_meal_plans.notes END`,
+         notes = CASE WHEN $9 THEN EXCLUDED.notes ELSE listing_meal_plans.notes END WHERE listing_meal_plans.notes = $8`,
       [
         listingId,
         p.plan_code,
@@ -196,7 +197,7 @@ export async function upsertTravelrobotPriceRules(pgClient, listingId, hotel, cu
   const flatMin = extractHotelMinNightlyPrice(hotel)
 
   if (overwrite || seasonal.length) {
-    await pgClient.query(`DELETE FROM listing_price_rules WHERE listing_id = $1::uuid`, [listingId])
+    await pgClient.query(`DELETE FROM listing_price_rules WHERE listing_id = $1::uuid AND rule_json->>'source'='travelrobot' AND coalesce(rule_json->>'manual_starting_price','false')<>'true'`, [listingId])
   } else if (flatMin != null) {
     const ex = await pgClient.query(
       `SELECT count(*)::int AS n FROM listing_price_rules WHERE listing_id = $1::uuid`,
@@ -211,7 +212,7 @@ export async function upsertTravelrobotPriceRules(pgClient, listingId, hotel, cu
       await pgClient.query(
         `INSERT INTO listing_price_rules (listing_id, rule_json, valid_from, valid_to)
          VALUES ($1::uuid, $2::jsonb, $3::date, $4::date)`,
-        [listingId, JSON.stringify(band.rule_json), band.valid_from, band.valid_to],
+        [listingId, JSON.stringify({...band.rule_json, source:'travelrobot'}), band.valid_from, band.valid_to],
       )
       n++
     }

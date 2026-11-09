@@ -1,5 +1,9 @@
 'use client'
 
+import TourPeriodPriceEditor from '@/components/manage/TourPeriodPriceEditor'
+import { periodOverridesFromSource, serializePeriodOverrides } from '@/lib/tour-admin-period-prices'
+import { parseProviderSource, providerSourceCopy, sourceDate, type ProviderSourceInfo } from '@/lib/provider-listing-source'
+import { defaultBasePriceRule, manualBasePriceRuleJson, tourAdminPricingCopy } from '@/lib/admin-listing-base-price'
 import { formatManageApiCatch, formatManageApiError } from '@/lib/manage-api-error-tr'
 import {
   normalizeCatalogVertical,
@@ -1165,6 +1169,11 @@ export default function CatalogNewListingClient({
 
   // ── Fiyatlandırma ──
   const [basePrice, setBasePrice] = useState('')
+  const basePriceAtLoadRef = useRef('')
+  const tourPriceCopy=tourAdminPricingCopy(locale)
+  const [listingSourceInfo,setListingSourceInfo]=useState<ProviderSourceInfo|null>(null)
+  const sourceCopy=providerSourceCopy(locale)
+  const [tourPeriodOverrides,setTourPeriodOverrides]=useState<Record<string,string>>({})
   const [minStayNights, setMinStayNights] = useState('')
   const [cleaningFee, setCleaningFee] = useState('')
   const [shortStayFee, setShortStayFee] = useState('')
@@ -1946,6 +1955,9 @@ export default function CatalogNewListingClient({
           setMinStayNights(basics.min_stay_nights ?? '')
           setCleaningFee(basics.cleaning_fee_amount ?? '')
           setDepositAmount(basics.first_charge_amount ?? '')
+          const sourceInfo=parseProviderSource((basics as typeof basics & {source_metadata?:string}).source_metadata)
+          setListingSourceInfo(sourceInfo)
+          setTourPeriodOverrides(periodOverridesFromSource(sourceInfo?.manual_period_sale_prices))
           setPrepaymentPercent(basics.prepayment_percent ?? String(DEFAULT_LISTING_PREPAYMENT_PERCENT))
           setCommissionPercent(basics.commission_percent ?? '')
           setCancellationPolicyText(basics.cancellation_policy_text ?? '')
@@ -2364,8 +2376,9 @@ export default function CatalogNewListingClient({
         const activeMp = mpList.filter((p) => p.is_active && p.price_per_night > 0)
         const roomOnlyMp = activeMp.filter((p) => p.plan_code === 'room_only')
         const planPickPool = roomOnlyMp.length > 0 ? roomOnlyMp : activeMp
-        let hydratedNightly = ''
-        if (planPickPool.length > 0) {
+        const storedBaseRule=defaultBasePriceRule(rulesRes.rules)
+        let hydratedNightly=storedBaseRule ? String(parseBaseNightlyFromRuleJson(storedBaseRule.rule_json) ?? '') : ''
+        if (!hydratedNightly && planPickPool.length > 0) {
           const minPlan = planPickPool.reduce((a, b) =>
             a.price_per_night <= b.price_per_night ? a : b,
           )
@@ -2382,7 +2395,7 @@ export default function CatalogNewListingClient({
         }
         // Activity storefront pricing comes from session fares. A generic price rule
         // must not overwrite the session-derived amount hydrated above.
-        if (hydratedNightly && categoryCode !== 'activity') setBasePrice(hydratedNightly)
+        if (hydratedNightly && categoryCode !== 'activity') {setBasePrice(hydratedNightly);basePriceAtLoadRef.current=hydratedNightly}
 
         const feedUrl = feedsRes.feeds[0]?.url
         if (feedUrl?.trim()) setIcalImportUrl(feedUrl.trim())
@@ -3786,19 +3799,16 @@ export default function CatalogNewListingClient({
         putManageListingTranslations(token, lid, { entries: translationEntries }, orgParam),
       )
 
-      // 3. Temel gecelik — vitrin API önce `listing_price_rules.base_nightly`, sonra yemek planlarını okur
-      if (!editListingId) {
-        const price = parseFloat(basePrice.replace(',', '.'))
-        if (Number.isFinite(price) && price > 0) {
-          const ruleObj: Record<string, unknown> = {
-            base_nightly: price,
-            label: 'Varsayılan fiyat',
-          }
-          await saveRequiredStep(
-            'Fiyat kaydı',
-            createListingPriceRule(token, lid, { rule_json: JSON.stringify(ruleObj) }, orgParam),
-          )
-        }
+      // Persist an explicit base-price edit; saving other fields preserves supplier rates.
+      if (listingSourceInfo?.provider !== 'wtatil' && basePrice.trim() && (!editListingId || basePrice.trim() !== basePriceAtLoadRef.current.trim())) {
+        const existingBaseRule = defaultBasePriceRule(rules)
+        const ruleJson = manualBasePriceRuleJson(existingBaseRule, basePrice, isTour ? 'per_person_per_tour' : isHotel ? 'per_room_per_night' : 'per_unit')
+        await saveRequiredStep('Fiyat kaydı', existingBaseRule
+          ? updateListingPriceRule(token, lid, existingBaseRule.id, {rule_json:ruleJson}, orgParam).then(() => undefined)
+          : createListingPriceRule(token, lid, {rule_json:ruleJson}, orgParam).then(() => undefined))
+        const refreshedRules=await listListingPriceRules(token,lid,orgParam)
+        setRules(refreshedRules.rules)
+        basePriceAtLoadRef.current=basePrice.trim()
       }
 
       // 4. Temel ilan alanları
@@ -4131,7 +4141,7 @@ export default function CatalogNewListingClient({
             token,
             lid,
             'tour',
-            tourAgencyState as unknown as Record<string, unknown>,
+            {...tourAgencyState,...(listingSourceInfo?.provider==='wtatil'?{manual_period_sale_prices:serializePeriodOverrides(tourPeriodOverrides,locale),manual_period_sale_currency:currency}:{})} as unknown as Record<string, unknown>,
             orgParam,
           ),
         )
@@ -6717,9 +6727,10 @@ export default function CatalogNewListingClient({
 
                   <Grid3 className="mt-4">
                     <Field className="block">
-                      <Label>Gecelik Ücret ({currency})</Label>
+                      <Label>{isTour ? tourPriceCopy.label : 'Gecelik Ücret'} ({currency})</Label>
                       <Input
                         type="number" min="0" step="0.01" className="mt-1"
+                        disabled={listingSourceInfo?.provider==='wtatil'}
                         value={basePrice} onChange={(e) => setBasePrice(e.target.value)}
                         placeholder="0.00"
                       />
@@ -7118,6 +7129,35 @@ export default function CatalogNewListingClient({
                 </Section>
               </>
             )}
+            {listingSourceInfo && (currentStep === 0 || (isTour && currentStep === 4)) && (
+              <Section title={sourceCopy.title}>
+                <dl className="grid gap-3 text-sm sm:grid-cols-2">
+                  <div><dt className="text-neutral-500">{sourceCopy.provider}</dt><dd>{listingSourceInfo.provider === 'travelrobot' ? 'Kplus / Travelrobot' : listingSourceInfo.provider === 'wtatil' ? 'WTatil' : listingSourceInfo.provider || (listingSourceInfo.listing_source === 'api' ? sourceCopy.unknown : sourceCopy.local)}</dd></div>
+                  <div><dt className="text-neutral-500">{sourceCopy.reference}</dt><dd>{listingSourceInfo.external_ref || '—'}</dd></div>
+                  <div><dt className="text-neutral-500">{sourceCopy.synced}</dt><dd>{sourceDate(listingSourceInfo.last_synced_at,locale)}</dd></div>
+                  <div><dt className="text-neutral-500">{sourceCopy.checked}</dt><dd>{sourceDate(listingSourceInfo.price_checked_at,locale)}</dd></div>
+                  <div><dt className="text-neutral-500">{sourceCopy.configured}</dt><dd>{listingSourceInfo.configured_markup_percent != null ? listingSourceInfo.configured_markup_percent+'%' : sourceCopy.unknown}</dd></div>
+                  <div><dt className="text-neutral-500">{sourceCopy.applied}</dt><dd>{listingSourceInfo.manual_price_override ? sourceCopy.manual : listingSourceInfo.applied_markup_percent != null ? listingSourceInfo.applied_markup_percent+'%' : sourceCopy.unknown}</dd></div>
+                </dl>
+                {listingSourceInfo.inventory?.status==='withdrawn'&&<p role="status" className="mt-3 text-sm text-red-600">{sourceCopy.withdrawn}</p>}
+              </Section>
+            )}
+            {isTour && currentStep === 4 && listingSourceInfo?.provider==='wtatil' && <TourPeriodPriceEditor source={listingSourceInfo} values={tourPeriodOverrides} onChange={setTourPeriodOverrides} locale={locale} currency={currency}/>}
+            {isTour && listingSourceInfo?.provider!=='wtatil' && currentStep === 4 && (
+              <Section title={tourPriceCopy.title}>
+                <Grid2>
+                  <Field className="block"><Label>{tourPriceCopy.currency}</Label>
+                    <select value={currency} disabled={listingSourceInfo?.listing_source==='api'} onChange={(e)=>setCurrency(e.target.value)} className={`mt-1 ${selectCls}`}>
+                      {currencies.map(c=><option key={c.code} value={c.code}>{c.code} — {c.name}</option>)}
+                      {currencies.length===0&&<option value={currency}>{currency}</option>}
+                    </select>
+                  </Field>
+                  <Field className="block"><Label>{tourPriceCopy.label} ({currency})</Label>
+                    <Input type="number" min="0.01" step="0.01" className="mt-1" value={basePrice} onChange={e=>setBasePrice(e.target.value)} placeholder="0.00"/>
+                  </Field>
+                </Grid2><HintText>{tourPriceCopy.hint}</HintText>
+              </Section>
+            )}
             {/* ── ADIM 0 devam: Fiyatlandırma (non-villa) ── */}
             {!isVilla && categoryCode !== 'activity' && currentStep === 0 && (
               <>
@@ -7130,6 +7170,7 @@ export default function CatalogNewListingClient({
                       </Label>
                       <select
                         value={currency}
+                        disabled={listingSourceInfo?.listing_source==='api'}
                         onChange={(e) => setCurrency(e.target.value)}
                         required
                         className={`mt-1 ${selectCls}`}
@@ -7149,10 +7190,11 @@ export default function CatalogNewListingClient({
                       <Label>Gecelik Ücret ({currency})</Label>
                       <Input
                         type="number" min="0" step="0.01" className="mt-1"
+                        disabled={listingSourceInfo?.provider==='wtatil'}
                         value={basePrice} onChange={(e) => setBasePrice(e.target.value)}
                         placeholder="0.00"
                       />
-                      <HintText>Temel gecelik fiyat. İndirim ve kampanyalar ayrı kampanya modüllerinden yönetilir.</HintText>
+                      <HintText>{isTour ? (listingSourceInfo?.provider==='wtatil' ? tourPriceCopy.periodEditHint : tourPriceCopy.hint) : 'Temel gecelik fiyat. İndirim ve kampanyalar ayrı kampanya modüllerinden yönetilir.'}</HintText>
                     </Field>
                     <Field className="block">
                       <Label>Hasar Depozitosu ({currency})</Label>

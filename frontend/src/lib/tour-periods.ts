@@ -1,3 +1,5 @@
+import { pickTourPeriodPersonPrice, isWtatilPeriodSellable, supplierDate, supplierBusinessDate } from './supplier-tour-price.mjs'
+export { pickTourPeriodPersonPrice, isWtatilPeriodSellable }
 export type PublicTourPeriodsResponse = {
   currency_code: string
   periods: unknown[]
@@ -22,18 +24,7 @@ function asRecord(value: unknown): Record<string, unknown> | null {
   return value && typeof value === 'object' ? (value as Record<string, unknown>) : null
 }
 
-function normalizeIsoDate(raw: string): string {
-  const trimmed = raw.trim()
-  if (/^\d{4}-\d{2}-\d{2}/.test(trimmed)) return trimmed.slice(0, 10)
-  const dotted = trimmed.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})/)
-  if (dotted) {
-    const [, d, m, y] = dotted
-    return `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`
-  }
-  const parsed = new Date(trimmed)
-  if (!Number.isNaN(parsed.getTime())) return parsed.toISOString().slice(0, 10)
-  return ''
-}
+function normalizeIsoDate(raw:string):string {return supplierDate(raw)??''}
 
 function pickDate(row: Record<string, unknown>, keys: string[]): string {
   for (const key of keys) {
@@ -46,29 +37,6 @@ function pickDate(row: Record<string, unknown>, keys: string[]): string {
   return ''
 }
 
-function pickTourPeriodPersonPrice(row: Record<string, unknown>): number | null {
-  // Wtatil: `double` = kişi başı (çift kişilik odada); `totalPrice`/`tourPrice` çoğu zaman 2 kişi toplamı.
-  const keys = [
-    'double',
-    'triple',
-    'child_1',
-    'adultPrice',
-    'doublePrice',
-    'price',
-    'amount',
-    'singlePrice',
-    'tourPrice',
-    'totalPrice',
-  ]
-  for (const key of keys) {
-    const raw = row[key]
-    if (raw == null || raw === '') continue
-    const num = Number(String(raw).replace(/\s/g, '').replace(',', '.'))
-    if (Number.isFinite(num) && num > 0) return num
-  }
-  return null
-}
-
 function pickPrice(row: Record<string, unknown>): number | null {
   return pickTourPeriodPersonPrice(row)
 }
@@ -79,20 +47,6 @@ function periodRowId(row: Record<string, unknown>): string {
 }
 
 /** Wtatil dönem satışa kapalı mı (Stop&Sale, kota dolu vb.) */
-export function isWtatilPeriodSellable(row: Record<string, unknown>): boolean {
-  if (
-    row.isStopSale === true ||
-    row.IsStopSale === true ||
-    row.stopSale === true ||
-    row.StopSale === true ||
-    row.is_stop_sale === true
-  ) return false
-  if (row.askSell === true || row.AskSell === true) return false
-  const quota = row.quota ?? row.Quota
-  if (quota != null && quota !== '' && Number(quota) === 0) return false
-  return true
-}
-
 function priceRowPeriodId(row: Record<string, unknown>): string {
   const raw = row.periodId ?? row.PeriodId ?? row.tourPeriodId ?? row.TourPeriodId ?? row.id ?? row.ID
   return raw != null ? String(raw).trim() : ''
@@ -104,17 +58,20 @@ export function mergeTourPeriodOptions(data: PublicTourPeriodsResponse): TourPer
   const currency = data.currency_code?.trim() || 'TRY'
 
   const priceByPeriod = new Map<string, number>()
+  const periodsWithPriceRows = new Set<string>()
   for (const item of prices) {
     const row = asRecord(item)
     if (!row) continue
     const pid = priceRowPeriodId(row)
+    if (pid) periodsWithPriceRows.add(pid)
+    if (!isWtatilPeriodSellable(row)) continue
     const amount = pickPrice(row)
     if (!pid || amount == null) continue
     const prev = priceByPeriod.get(pid)
     if (prev == null || amount < prev) priceByPeriod.set(pid, amount)
   }
 
-  const today = new Date().toISOString().slice(0, 10)
+  const today = supplierBusinessDate()
   const options: TourPeriodOption[] = []
 
   for (const item of periods) {
@@ -148,8 +105,9 @@ export function mergeTourPeriodOptions(data: PublicTourPeriodsResponse): TourPer
       'ReturnDate',
       'end',
     ])
-    if (!startDate && !endDate) continue
-    if (endDate && endDate < today) continue
+    if (!startDate || startDate < today) continue
+    if (endDate && (endDate < today || endDate < startDate)) continue
+    if (id && periodsWithPriceRows.has(id) && !priceByPeriod.has(id)) continue
 
     const price = (id ? priceByPeriod.get(id) : undefined) ?? pickPrice(row) ?? null
     options.push({
@@ -158,7 +116,7 @@ export function mergeTourPeriodOptions(data: PublicTourPeriodsResponse): TourPer
       endDate: endDate || startDate,
       price,
       currencyCode: currency,
-      bookable: true,
+      bookable: price != null,
     })
   }
 
