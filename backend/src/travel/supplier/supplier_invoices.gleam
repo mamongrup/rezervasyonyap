@@ -45,7 +45,21 @@ fn sum_row() -> decode.Decoder(#(String, String, String)) {
   decode.success(#(n, g, c))
 }
 
-fn invoice_list_row() -> decode.Decoder(#(String, String, String, String, String, String, String, String, String, String, String)) {
+fn invoice_list_row() -> decode.Decoder(
+  #(
+    String,
+    String,
+    String,
+    String,
+    String,
+    String,
+    String,
+    String,
+    String,
+    String,
+    String,
+  ),
+) {
   use id <- decode.field(0, decode.string)
   use pf <- decode.field(1, decode.string)
   use pt <- decode.field(2, decode.string)
@@ -60,7 +74,21 @@ fn invoice_list_row() -> decode.Decoder(#(String, String, String, String, String
   decode.success(#(id, pf, pt, cur, g, c, n, st, num, notes, created))
 }
 
-fn invoice_header_row() -> decode.Decoder(#(String, String, String, String, String, String, String, String, String, String, String)) {
+fn invoice_header_row() -> decode.Decoder(
+  #(
+    String,
+    String,
+    String,
+    String,
+    String,
+    String,
+    String,
+    String,
+    String,
+    String,
+    String,
+  ),
+) {
   use id <- decode.field(0, decode.string)
   use pf <- decode.field(1, decode.string)
   use pt <- decode.field(2, decode.string)
@@ -75,7 +103,9 @@ fn invoice_header_row() -> decode.Decoder(#(String, String, String, String, Stri
   decode.success(#(id, pf, pt, cur, g, c, n, st, num, notes, created))
 }
 
-fn invoice_line_row() -> decode.Decoder(#(String, String, String, String, String, String, String)) {
+fn invoice_line_row() -> decode.Decoder(
+  #(String, String, String, String, String, String, String),
+) {
   use lid <- decode.field(0, decode.string)
   use cal_id <- decode.field(1, decode.string)
   use res_id <- decode.field(2, decode.string)
@@ -105,7 +135,10 @@ fn currency_ok_row() -> decode.Decoder(String) {
   decode.success(x)
 }
 
-fn currency_exists(conn: pog.Connection, code: String) -> Result(Bool, Response) {
+fn currency_exists(
+  conn: pog.Connection,
+  code: String,
+) -> Result(Bool, Response) {
   case
     pog.query(
       "select '1'::text from currencies where code = trim($1)::bpchar limit 1",
@@ -123,7 +156,10 @@ fn currency_exists(conn: pog.Connection, code: String) -> Result(Bool, Response)
   }
 }
 
-pub fn list_response(conn: pog.Connection, supplier_org_id: String) -> Response {
+pub fn list_response(
+  conn: pog.Connection,
+  supplier_org_id: String,
+) -> Response {
   case
     pog.query(
       "select si.id::text, si.period_from::text, si.period_to::text, si.currency_code::text, si.gross_total::text, si.commission_total::text, si.line_count::text, si.status::text, si.invoice_number, coalesce(si.notes, '')::text, to_char(si.created_at, 'YYYY-MM-DD\"T\"HH24:MI:SS.MS\"Z\"') from supplier_invoices si where si.supplier_organization_id = $1::uuid order by si.created_at desc limit 50",
@@ -404,7 +440,8 @@ pub fn create_response(
                                     |> pog.returning(num_row())
                                     |> pog.execute(conn)
                                   {
-                                    Error(_) -> json_err(500, "create_number_failed")
+                                    Error(_) ->
+                                      json_err(500, "create_number_failed")
                                     Ok(nr) ->
                                       case nr.rows {
                                         [inv_no] -> {
@@ -422,14 +459,27 @@ pub fn create_response(
                                           )
                                           json_ok([
                                             #("id", json.string(inv_id)),
-                                            #("invoice_number", json.string(inv_no)),
+                                            #(
+                                              "invoice_number",
+                                              json.string(inv_no),
+                                            ),
                                             #("currency_code", json.string(cur)),
-                                            #("line_count", json.int(line_count_int)),
+                                            #(
+                                              "line_count",
+                                              json.int(line_count_int),
+                                            ),
                                             #("gross_total", json.string(g)),
-                                            #("commission_total", json.string(c)),
+                                            #(
+                                              "commission_total",
+                                              json.string(c),
+                                            ),
                                           ])
                                         }
-                                        _ -> json_err(500, "create_number_unexpected")
+                                        _ ->
+                                          json_err(
+                                            500,
+                                            "create_number_unexpected",
+                                          )
                                       }
                                   }
                                 }

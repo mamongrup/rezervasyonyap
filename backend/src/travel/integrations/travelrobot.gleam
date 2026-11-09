@@ -24,7 +24,9 @@ fn token_body(cfg: TravelrobotConfig) -> String {
 }
 
 fn error_message_from_raw(raw: String) -> String {
-  case json.parse(raw, decode.field("ErrorMessage", decode.string, decode.success)) {
+  case
+    json.parse(raw, decode.field("ErrorMessage", decode.string, decode.success))
+  {
     Ok(m) ->
       case string.trim(m) {
         "" -> "travelrobot_api_error"
@@ -48,7 +50,12 @@ fn token_code_from_raw(raw: String) -> Result(String, Nil) {
         s -> Ok(s)
       }
     Error(_) ->
-      case json.parse(raw, decode.field("TokenCode", decode.string, fn(c) { decode.success(c) })) {
+      case
+        json.parse(
+          raw,
+          decode.field("TokenCode", decode.string, fn(c) { decode.success(c) }),
+        )
+      {
         Ok(t) ->
           case string.trim(t) {
             "" -> Error(Nil)

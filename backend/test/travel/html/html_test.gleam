@@ -11,10 +11,11 @@ import travel/views/vitrin/home_view.{ListingPreview}
 import travel/views/vitrin/info_view
 
 pub fn render_basic_element_test() {
-  let node = div([class_("container mx-auto"), id_("main")], [
-    h1([class_("text-2xl font-bold")], [text("Merhaba Dünya")]),
-    span([], [text("Gleam SSR")]),
-  ])
+  let node =
+    div([class_("container mx-auto"), id_("main")], [
+      h1([class_("text-2xl font-bold")], [text("Merhaba Dünya")]),
+      span([], [text("Gleam SSR")]),
+    ])
 
   let html = render.render(node)
   html
@@ -24,11 +25,15 @@ pub fn render_basic_element_test() {
 }
 
 pub fn render_htmx_attributes_test() {
-  let btn = button([
-    class_("btn-primary"),
-    hx_get("/htmx/api/search"),
-    hx_target("#results"),
-  ], [text("Filtrele")])
+  let btn =
+    button(
+      [
+        class_("btn-primary"),
+        hx_get("/htmx/api/search"),
+        hx_target("#results"),
+      ],
+      [text("Filtrele")],
+    )
 
   let html = render.render(btn)
   html
@@ -41,7 +46,9 @@ pub fn html_escaping_test() {
   let unsafe_node = span([], [text("<script>alert('xss')</script>")])
   let html = render.render(unsafe_node)
   html
-  |> should.equal("<span>&lt;script&gt;alert(&#39;xss&#39;)&lt;/script&gt;</span>")
+  |> should.equal(
+    "<span>&lt;script&gt;alert(&#39;xss&#39;)&lt;/script&gt;</span>",
+  )
 }
 
 pub fn render_home_and_category_views_test() {
@@ -72,17 +79,18 @@ pub fn render_home_and_category_views_test() {
 }
 
 pub fn render_detail_and_booking_views_test() {
-  let sample = ListingPreview(
-    id: "1",
-    title: "Villa Manzara Kaş",
-    category_label: "Lüks Villa",
-    location: "Kaş, Antalya",
-    price_formatted: "₺7.500",
-    rating: "4.9",
-    review_count: 28,
-    image_url: "/assets/images/category/hotel/01.jpg",
-    badge: "Süper Ev Sahibi",
-  )
+  let sample =
+    ListingPreview(
+      id: "1",
+      title: "Villa Manzara Kaş",
+      category_label: "Lüks Villa",
+      location: "Kaş, Antalya",
+      price_formatted: "₺7.500",
+      rating: "4.9",
+      review_count: 28,
+      image_url: "/assets/images/category/hotel/01.jpg",
+      badge: "Süper Ev Sahibi",
+    )
 
   let detail_html = render.render(detail_view.render_detail(sample))
   string.contains(detail_html, "Müsait Oda Seçenekleri")

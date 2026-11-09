@@ -198,7 +198,10 @@ pub fn payment_page_url(cfg: ParatikaConfig, session_token: String) -> String {
 }
 
 /// Direct POST 3D — form `action`; kart alanları tarayıcıdan doğrudan Paratika'ya gider.
-pub fn direct_post_sale3d_url(cfg: ParatikaConfig, session_token: String) -> String {
+pub fn direct_post_sale3d_url(
+  cfg: ParatikaConfig,
+  session_token: String,
+) -> String {
   let base = case string.ends_with(cfg.api_base, "/") {
     True -> string.drop_end(cfg.api_base, 1)
     False -> cfg.api_base

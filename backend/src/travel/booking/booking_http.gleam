@@ -1,30 +1,30 @@
 //// Sepet, checkout (held rezervasyon), misafir kodu ile sorgu.
 
 import backend/context.{type Context}
-import travel/booking/cart_fx
-import travel/ai/commerce_ops_enqueue
-import travel/booking/supplier_notification
-import travel/messaging/notification_runtime
-import travel/identity/admin_gate
 import gleam/bit_array
 import gleam/dynamic/decode
 import gleam/float
 import gleam/http
 import gleam/http/request as http_request
 import gleam/int
+import gleam/io
 import gleam/json
 import gleam/list
-import gleam/order
 import gleam/option.{type Option, None, Some}
+import gleam/order
 import gleam/result
-import gleam/io
 import gleam/string
 import gleam/time/calendar
 import pog
-import travel/db/resilient_pog as db_exec
+import travel/ai/commerce_ops_enqueue
+import travel/booking/cart_fx
+import travel/booking/supplier_notification
 import travel/db/decode_helpers as row_dec
 import travel/db/pog_errors
+import travel/db/resilient_pog as db_exec
 import travel/db/sql_dates
+import travel/identity/admin_gate
+import travel/messaging/notification_runtime
 import wisp.{type Request, type Response}
 
 fn json_err(status: Int, msg: String) -> Response {
@@ -110,12 +110,15 @@ fn stay_range_invalid(start: String, end: String) -> Bool {
   }
 }
 
-fn listing_category_code(db: pog.Connection, listing_id: String) -> Result(String, Nil) {
+fn listing_category_code(
+  db: pog.Connection,
+  listing_id: String,
+) -> Result(String, Nil) {
   case
     pog.query(
       "select pc.code::text from listings l "
-        <> "inner join product_categories pc on pc.id = l.category_id "
-        <> "where l.id = $1::uuid limit 1",
+      <> "inner join product_categories pc on pc.id = l.category_id "
+      <> "where l.id = $1::uuid limit 1",
     )
     |> pog.parameter(pog.text(listing_id))
     |> pog.returning({
@@ -184,22 +187,20 @@ fn meta_activity_int_field(meta_json: String, key: String) -> Option(Int) {
 }
 
 fn meta_activity_participants(meta_json: String) -> #(Int, Int) {
-  let adults =
-    case
-      meta_activity_int_field(meta_json, "activity_adults"),
-      meta_activity_int_field(meta_json, "activityAdults")
-    {
-      Some(n), _ | _, Some(n) -> n
-      _, _ -> 1
-    }
-  let children =
-    case
-      meta_activity_int_field(meta_json, "activity_children"),
-      meta_activity_int_field(meta_json, "activityChildren")
-    {
-      Some(n), _ | _, Some(n) -> n
-      _, _ -> 0
-    }
+  let adults = case
+    meta_activity_int_field(meta_json, "activity_adults"),
+    meta_activity_int_field(meta_json, "activityAdults")
+  {
+    Some(n), _ | _, Some(n) -> n
+    _, _ -> 1
+  }
+  let children = case
+    meta_activity_int_field(meta_json, "activity_children"),
+    meta_activity_int_field(meta_json, "activityChildren")
+  {
+    Some(n), _ | _, Some(n) -> n
+    _, _ -> 0
+  }
   #(adults, children)
 }
 
@@ -215,11 +216,11 @@ fn activity_expected_line_total(
   case
     pog.query(
       "select ((coalesce(ad.price_amount, 0) * $4::int) + (coalesce(ch.price_amount, 0) * $5::int))::text "
-        <> "from listing_activity_sessions s "
-        <> "left join listing_activity_session_fares ad on ad.session_id = s.id and ad.fare_type = 'adult' "
-        <> "left join listing_activity_session_fares ch on ch.session_id = s.id and ch.fare_type = 'child' "
-        <> "where s.id = $1::uuid and s.listing_id = $2::uuid and s.is_active = true "
-        <> "and $3::date >= s.valid_from and $3::date <= s.valid_to limit 1",
+      <> "from listing_activity_sessions s "
+      <> "left join listing_activity_session_fares ad on ad.session_id = s.id and ad.fare_type = 'adult' "
+      <> "left join listing_activity_session_fares ch on ch.session_id = s.id and ch.fare_type = 'child' "
+      <> "where s.id = $1::uuid and s.listing_id = $2::uuid and s.is_active = true "
+      <> "and $3::date >= s.valid_from and $3::date <= s.valid_to limit 1",
     )
     |> pog.parameter(pog.text(session_id))
     |> pog.parameter(pog.text(listing_id))
@@ -312,49 +313,49 @@ fn hotel_expected_line_total(
   case
     pog.query(
       "with bounds as (select $3::date as s, $4::date as e), "
-        <> "night_series as ( "
-        <> "  select generate_series(b.s, b.e - interval '1 day', interval '1 day')::date as day "
-        <> "  from bounds b where b.e > b.s "
-        <> "), "
-        <> "nights as (select count(*)::int as n from night_series), "
-        <> "fallback as ( "
-        <> "  select coalesce( "
-        <> "    (select m.price_per_night from listing_meal_plans m "
-        <> "      where m.listing_id = $1::uuid and m.is_active = true and m.plan_code = 'room_only' "
-        <> "      order by m.sort_order asc limit 1), "
-        <> "    (select min(m.price_per_night) from listing_meal_plans m "
-        <> "      where m.listing_id = $1::uuid and m.is_active = true), "
-        <> "    0::numeric "
-        <> "  ) as nightly "
-        <> "), "
-        <> "lodging as ( "
-        <> "  select coalesce(sum(coalesce(c.price_override, f.nightly)), 0) as total "
-        <> "  from night_series ns "
-        <> "  cross join fallback f "
-        <> "  left join hotel_room_availability_calendar c "
-        <> "    on c.hotel_room_id = $2::uuid and c.day = ns.day "
-        <> "), "
-        <> "base_plan as ( "
-        <> "  select coalesce( "
-        <> "    (select m.price_per_night from listing_meal_plans m "
-        <> "      where m.listing_id = $1::uuid and m.is_active = true and m.plan_code = 'room_only' "
-        <> "      order by m.sort_order asc limit 1), "
-        <> "    (select min(m.price_per_night) from listing_meal_plans m "
-        <> "      where m.listing_id = $1::uuid and m.is_active = true), "
-        <> "    f.nightly "
-        <> "  ) as nightly from fallback f "
-        <> "), "
-        <> "sel_plan as ( "
-        <> "  select m.price_per_night as nightly from listing_meal_plans m "
-        <> "  where m.listing_id = $1::uuid and m.is_active = true "
-        <> "    and ($5::text = '' or m.id::text = $5::text) "
-        <> "  order by m.sort_order asc limit 1 "
-        <> ") "
-        <> "select ( "
-        <> "  l.total + greatest(0, coalesce(sp.nightly, bp.nightly) - bp.nightly) * n.n "
-        <> ")::text "
-        <> "from lodging l, nights n, base_plan bp "
-        <> "left join sel_plan sp on true",
+      <> "night_series as ( "
+      <> "  select generate_series(b.s, b.e - interval '1 day', interval '1 day')::date as day "
+      <> "  from bounds b where b.e > b.s "
+      <> "), "
+      <> "nights as (select count(*)::int as n from night_series), "
+      <> "fallback as ( "
+      <> "  select coalesce( "
+      <> "    (select m.price_per_night from listing_meal_plans m "
+      <> "      where m.listing_id = $1::uuid and m.is_active = true and m.plan_code = 'room_only' "
+      <> "      order by m.sort_order asc limit 1), "
+      <> "    (select min(m.price_per_night) from listing_meal_plans m "
+      <> "      where m.listing_id = $1::uuid and m.is_active = true), "
+      <> "    0::numeric "
+      <> "  ) as nightly "
+      <> "), "
+      <> "lodging as ( "
+      <> "  select coalesce(sum(coalesce(c.price_override, f.nightly)), 0) as total "
+      <> "  from night_series ns "
+      <> "  cross join fallback f "
+      <> "  left join hotel_room_availability_calendar c "
+      <> "    on c.hotel_room_id = $2::uuid and c.day = ns.day "
+      <> "), "
+      <> "base_plan as ( "
+      <> "  select coalesce( "
+      <> "    (select m.price_per_night from listing_meal_plans m "
+      <> "      where m.listing_id = $1::uuid and m.is_active = true and m.plan_code = 'room_only' "
+      <> "      order by m.sort_order asc limit 1), "
+      <> "    (select min(m.price_per_night) from listing_meal_plans m "
+      <> "      where m.listing_id = $1::uuid and m.is_active = true), "
+      <> "    f.nightly "
+      <> "  ) as nightly from fallback f "
+      <> "), "
+      <> "sel_plan as ( "
+      <> "  select m.price_per_night as nightly from listing_meal_plans m "
+      <> "  where m.listing_id = $1::uuid and m.is_active = true "
+      <> "    and ($5::text = '' or m.id::text = $5::text) "
+      <> "  order by m.sort_order asc limit 1 "
+      <> ") "
+      <> "select ( "
+      <> "  l.total + greatest(0, coalesce(sp.nightly, bp.nightly) - bp.nightly) * n.n "
+      <> ")::text "
+      <> "from lodging l, nights n, base_plan bp "
+      <> "left join sel_plan sp on true",
     )
     |> pog.parameter(pog.text(listing_id))
     |> pog.parameter(pog.text(room_id))
@@ -438,39 +439,39 @@ fn hotel_room_stay_unavailable(
   case
     pog.query(
       "select ( "
-        <> "not exists ( "
-        <> "  select 1 from hotel_rooms hr "
-        <> "  where hr.id = $2::uuid and hr.listing_id = $1::uuid "
-        <> ") "
-        <> "or exists ( "
-        <> "  with bounds as (select $3::date as s, $4::date as e), "
-        <> "  room_info as ( "
-        <> "    select hr.unit_count::int as unit_count, "
-        <> "      nullif(btrim(l.external_provider_code), '') is not null as requires_verified_calendar "
-        <> "    from hotel_rooms hr join listings l on l.id = hr.listing_id "
-        <> "    where hr.id = $2::uuid and hr.listing_id = $1::uuid "
-        <> "  ), "
-        <> "  night_series as ( "
-        <> "    select generate_series(b.s, b.e - interval '1 day', interval '1 day')::date as day "
-        <> "    from bounds b where b.e > b.s "
-        <> "  ) "
-        <> "  select 1 from night_series ns "
-        <> "  cross join room_info ri "
-        <> "  left join hotel_room_availability_calendar c "
-        <> "    on c.hotel_room_id = $2::uuid and c.day = ns.day "
-        <> "  where (ri.requires_verified_calendar and c.hotel_room_id is null) "
-        <> "  or coalesce(c.available_units, ri.unit_count) - coalesce(( "
-        <> "    select sum(rli.quantity) "
-        <> "    from reservation_line_items rli "
-        <> "    join reservations r on r.id = rli.reservation_id "
-        <> "    where rli.listing_id = $1::uuid "
-        <> "      and r.status in ('held', 'confirmed') "
-        <> "      and rli.meta_json->>'hotel_room_id' = $2::text "
-        <> "      and rli.starts_on <= ns.day and rli.ends_on > ns.day "
-        <> "  ), 0) < $5::int "
-        <> "  limit 1 "
-        <> ") "
-        <> ")::text",
+      <> "not exists ( "
+      <> "  select 1 from hotel_rooms hr "
+      <> "  where hr.id = $2::uuid and hr.listing_id = $1::uuid "
+      <> ") "
+      <> "or exists ( "
+      <> "  with bounds as (select $3::date as s, $4::date as e), "
+      <> "  room_info as ( "
+      <> "    select hr.unit_count::int as unit_count, "
+      <> "      nullif(btrim(l.external_provider_code), '') is not null as requires_verified_calendar "
+      <> "    from hotel_rooms hr join listings l on l.id = hr.listing_id "
+      <> "    where hr.id = $2::uuid and hr.listing_id = $1::uuid "
+      <> "  ), "
+      <> "  night_series as ( "
+      <> "    select generate_series(b.s, b.e - interval '1 day', interval '1 day')::date as day "
+      <> "    from bounds b where b.e > b.s "
+      <> "  ) "
+      <> "  select 1 from night_series ns "
+      <> "  cross join room_info ri "
+      <> "  left join hotel_room_availability_calendar c "
+      <> "    on c.hotel_room_id = $2::uuid and c.day = ns.day "
+      <> "  where (ri.requires_verified_calendar and c.hotel_room_id is null) "
+      <> "  or coalesce(c.available_units, ri.unit_count) - coalesce(( "
+      <> "    select sum(rli.quantity) "
+      <> "    from reservation_line_items rli "
+      <> "    join reservations r on r.id = rli.reservation_id "
+      <> "    where rli.listing_id = $1::uuid "
+      <> "      and r.status in ('held', 'confirmed') "
+      <> "      and rli.meta_json->>'hotel_room_id' = $2::text "
+      <> "      and rli.starts_on <= ns.day and rli.ends_on > ns.day "
+      <> "  ), 0) < $5::int "
+      <> "  limit 1 "
+      <> ") "
+      <> ")::text",
     )
     |> pog.parameter(pog.text(listing_id))
     |> pog.parameter(pog.text(room_id))
@@ -499,31 +500,31 @@ fn listing_stay_unavailable(
   case
     pog.query(
       "select ( "
-        <> "exists ( "
-        <> "  select 1 from listings l "
-        <> "  join product_categories pc on pc.id = l.category_id "
-        <> "  where l.id = $1::uuid "
-        <> "    and pc.code in ('holiday_home', 'yacht_charter', 'car_rental') "
-        <> ") "
-        <> "and exists ( "
-        <> "  with bounds as (select $2::date as s, $3::date as e), "
-        <> "  night_series as ( "
-        <> "    select generate_series(b.s, b.e - interval '1 day', interval '1 day')::date as day "
-        <> "    from bounds b where b.e > b.s "
-        <> "  ) "
-        <> "  select 1 from night_series ns "
-        <> "  cross join bounds b "
-        <> "  left join listing_availability_calendar c "
-        <> "    on c.listing_id = $1::uuid and c.day = ns.day "
-        <> "  where "
-        <> "    (ns.day = b.s and coalesce(c.pm_available, c.is_available, true) = false) "
-        <> "    or (ns.day > b.s and ( "
-        <> "      coalesce(c.am_available, c.is_available, true) = false "
-        <> "      or coalesce(c.pm_available, c.is_available, true) = false "
-        <> "    )) "
-        <> "  limit 1 "
-        <> ") "
-        <> ")::text",
+      <> "exists ( "
+      <> "  select 1 from listings l "
+      <> "  join product_categories pc on pc.id = l.category_id "
+      <> "  where l.id = $1::uuid "
+      <> "    and pc.code in ('holiday_home', 'yacht_charter', 'car_rental') "
+      <> ") "
+      <> "and exists ( "
+      <> "  with bounds as (select $2::date as s, $3::date as e), "
+      <> "  night_series as ( "
+      <> "    select generate_series(b.s, b.e - interval '1 day', interval '1 day')::date as day "
+      <> "    from bounds b where b.e > b.s "
+      <> "  ) "
+      <> "  select 1 from night_series ns "
+      <> "  cross join bounds b "
+      <> "  left join listing_availability_calendar c "
+      <> "    on c.listing_id = $1::uuid and c.day = ns.day "
+      <> "  where "
+      <> "    (ns.day = b.s and coalesce(c.pm_available, c.is_available, true) = false) "
+      <> "    or (ns.day > b.s and ( "
+      <> "      coalesce(c.am_available, c.is_available, true) = false "
+      <> "      or coalesce(c.pm_available, c.is_available, true) = false "
+      <> "    )) "
+      <> "  limit 1 "
+      <> ") "
+      <> ")::text",
     )
     |> pog.parameter(pog.text(listing_id))
     |> pog.parameter(pog.calendar_date(start_date))
@@ -565,9 +566,7 @@ fn insert_cart_line_row(
     |> pog.execute(conn)
   {
     Error(e) -> {
-      io.println(
-        "[cart_line] " <> pog_errors.query_error_to_string(e),
-      )
+      io.println("[cart_line] " <> pog_errors.query_error_to_string(e))
       Error(pog_errors.cart_line_insert_error_code(e))
     }
     Ok(r) ->
@@ -578,25 +577,37 @@ fn insert_cart_line_row(
   }
 }
 
-fn add_line_decoder() -> decode.Decoder(#(String, Int, String, String, String, String, String)) {
+fn add_line_decoder() -> decode.Decoder(
+  #(String, Int, String, String, String, String, String),
+) {
   decode.field("listing_id", decode.string, fn(listing_id) {
     decode.field("quantity", decode.int, fn(quantity) {
       decode.field("starts_on", decode.string, fn(starts_on) {
         decode.field("ends_on", decode.string, fn(ends_on) {
           decode.field("unit_price", decode.string, fn(unit_price) {
-            decode.optional_field("agency_organization_id", "", decode.string, fn(aid_raw) {
-              decode.optional_field("meta_json", "{}", decode.string, fn(meta_json) {
-                decode.success(#(
-                  listing_id,
-                  quantity,
-                  starts_on,
-                  ends_on,
-                  unit_price,
-                  aid_raw,
-                  meta_json,
-                ))
-              })
-            })
+            decode.optional_field(
+              "agency_organization_id",
+              "",
+              decode.string,
+              fn(aid_raw) {
+                decode.optional_field(
+                  "meta_json",
+                  "{}",
+                  decode.string,
+                  fn(meta_json) {
+                    decode.success(#(
+                      listing_id,
+                      quantity,
+                      starts_on,
+                      ends_on,
+                      unit_price,
+                      aid_raw,
+                      meta_json,
+                    ))
+                  },
+                )
+              },
+            )
           })
         })
       })
@@ -612,7 +623,15 @@ pub fn add_cart_line(req: Request, ctx: Context, cart_id: String) -> Response {
     Ok(body) ->
       case json.parse(body, add_line_decoder()) {
         Error(_) -> json_err(400, "invalid_json")
-        Ok(#(listing_id, quantity, starts_on, ends_on, unit_price, aid_raw, meta_json_raw)) -> {
+        Ok(#(
+          listing_id,
+          quantity,
+          starts_on,
+          ends_on,
+          unit_price,
+          aid_raw,
+          meta_json_raw,
+        )) -> {
           case quantity < 1 {
             True -> json_err(400, "invalid_quantity")
             False -> {
@@ -645,162 +664,150 @@ pub fn add_cart_line(req: Request, ctx: Context, cart_id: String) -> Response {
                             sql_dates.parse_iso_date_ymd(starts_trim),
                             sql_dates.parse_iso_date_ymd(ends_trim)
                           {
-                            Error(_), _ | _, Error(_) -> json_err(400, "invalid_dates")
+                            Error(_), _ | _, Error(_) ->
+                              json_err(400, "invalid_dates")
                             Ok(start_date), Ok(end_date) -> {
-                          let agency_opt = case agency_for_line == "" {
-                            True -> None
-                            False -> Some(agency_for_line)
-                          }
-                          case
-                            maybe_assert_agency_session(
-                              ctx.db,
-                              session_token,
-                              agency_opt,
-                            )
-                          {
-                            Error(e) ->
-                              case e {
-                                "agency_session_required" -> json_err(401, e)
-                                "agency_membership_required" -> json_err(403, e)
-                                _ -> json_err(500, e)
+                              let agency_opt = case agency_for_line == "" {
+                                True -> None
+                                False -> Some(agency_for_line)
                               }
-                            Ok(Nil) ->
                               case
-                                db_exec.transaction(ctx.db, fn(conn) {
+                                maybe_assert_agency_session(
+                                  ctx.db,
+                                  session_token,
+                                  agency_opt,
+                                )
+                              {
+                                Error(e) ->
+                                  case e {
+                                    "agency_session_required" ->
+                                      json_err(401, e)
+                                    "agency_membership_required" ->
+                                      json_err(403, e)
+                                    _ -> json_err(500, e)
+                                  }
+                                Ok(Nil) ->
                                   case
-                                    pog.query(
-                                      "select upper(trim(c.currency_code::text)), upper(trim(l.currency_code::text)), l.status::text, coalesce(c.fx_snapshot_json::text, '{}') from carts c inner join listings l on l.id = $2::uuid where c.id = $1::uuid",
-                                    )
-                                    |> pog.parameter(pog.text(cart_id))
-                                    |> pog.parameter(pog.text(listing_id))
-                                    |> pog.returning({
-                                      use a <- decode.field(0, decode.string)
-                                      use b <- decode.field(1, decode.string)
-                                      use st <- decode.field(2, decode.string)
-                                      use fx <- decode.field(3, decode.string)
-                                      decode.success(#(a, b, st, fx))
-                                    })
-                                    |> pog.execute(conn)
-                                  {
-                                    Error(_) -> Error("cart_or_listing")
-                                    Ok(rows) ->
-                                      case rows.rows {
-                                        [#(cc, lc, st, fx_snap)] ->
-                                          case
-                                            st == "published"
-                                            && cart_listing_currency_allowed(cc, lc, fx_snap)
-                                          {
-                                            False ->
-                                              Error(
-                                                "listing_unavailable_or_currency_mismatch",
-                                              )
-                                            True -> {
-                                              let gate =
-                                                case agency_for_line == "" {
-                                                  True -> Ok(Nil)
-                                                  False ->
-                                                    case
-                                                      validate_agency_org(
-                                                        conn,
-                                                        agency_for_line,
-                                                      )
-                                                    {
-                                                      False ->
-                                                        Error(
-                                                          "invalid_agency_organization",
+                                    db_exec.transaction(ctx.db, fn(conn) {
+                                      case
+                                        pog.query(
+                                          "select upper(trim(c.currency_code::text)), upper(trim(l.currency_code::text)), l.status::text, coalesce(c.fx_snapshot_json::text, '{}') from carts c inner join listings l on l.id = $2::uuid where c.id = $1::uuid",
+                                        )
+                                        |> pog.parameter(pog.text(cart_id))
+                                        |> pog.parameter(pog.text(listing_id))
+                                        |> pog.returning({
+                                          use a <- decode.field(
+                                            0,
+                                            decode.string,
+                                          )
+                                          use b <- decode.field(
+                                            1,
+                                            decode.string,
+                                          )
+                                          use st <- decode.field(
+                                            2,
+                                            decode.string,
+                                          )
+                                          use fx <- decode.field(
+                                            3,
+                                            decode.string,
+                                          )
+                                          decode.success(#(a, b, st, fx))
+                                        })
+                                        |> pog.execute(conn)
+                                      {
+                                        Error(_) -> Error("cart_or_listing")
+                                        Ok(rows) ->
+                                          case rows.rows {
+                                            [#(cc, lc, st, fx_snap)] ->
+                                              case
+                                                st == "published"
+                                                && cart_listing_currency_allowed(
+                                                  cc,
+                                                  lc,
+                                                  fx_snap,
+                                                )
+                                              {
+                                                False ->
+                                                  Error(
+                                                    "listing_unavailable_or_currency_mismatch",
+                                                  )
+                                                True -> {
+                                                  let gate = case
+                                                    agency_for_line == ""
+                                                  {
+                                                    True -> Ok(Nil)
+                                                    False ->
+                                                      case
+                                                        validate_agency_org(
+                                                          conn,
+                                                          agency_for_line,
                                                         )
-                                                      True ->
-                                                        case
-                                                          assert_agency_document_approved_for_org(
-                                                            conn,
-                                                            agency_for_line,
+                                                      {
+                                                        False ->
+                                                          Error(
+                                                            "invalid_agency_organization",
                                                           )
-                                                        {
-                                                          Error(e) -> Error(e)
-                                                          Ok(Nil) ->
-                                                            assert_agency_listing_category_allowed(
+                                                        True ->
+                                                          case
+                                                            assert_agency_document_approved_for_org(
                                                               conn,
-                                                              listing_id,
                                                               agency_for_line,
                                                             )
-                                                        }
-                                                    }
-                                                }
-                                              case gate {
-                                                Error(e) -> Error(e)
-                                                Ok(Nil) ->
-                                                  case meta_activity_session_id(meta_sql) {
-                                                    Some(session_id) -> {
-                                                      let #(
-                                                        adults,
-                                                        children,
-                                                      ) = meta_activity_participants(meta_sql)
-                                                      case adults + children <= 0 {
-                                                        True ->
-                                                          Error("invalid_participant_count")
-                                                        False ->
-                                                          case
-                                                            activity_line_price_mismatch(
-                                                              conn,
-                                                              listing_id,
-                                                              session_id,
-                                                              start_date,
-                                                              price_trim,
-                                                              adults,
-                                                              children,
-                                                              lc,
-                                                              cc,
-                                                              fx_snap,
-                                                            )
                                                           {
-                                                            True ->
-                                                              Error("activity_price_mismatch")
-                                                            False ->
-                                                              insert_cart_line_row(
+                                                            Error(e) -> Error(e)
+                                                            Ok(Nil) ->
+                                                              assert_agency_listing_category_allowed(
                                                                 conn,
-                                                                cart_id,
                                                                 listing_id,
-                                                                quantity,
-                                                                start_date,
-                                                                end_date,
-                                                                price_trim,
-                                                                meta_sql,
+                                                                agency_for_line,
                                                               )
                                                           }
                                                       }
-                                                    }
-                                                    None ->
-                                                      case meta_hotel_room_id(meta_sql) {
-                                                        Some(room_id) ->
-                                                          case
-                                                            hotel_room_stay_unavailable(
-                                                              conn,
-                                                              listing_id,
-                                                              room_id,
-                                                              start_date,
-                                                              end_date,
-                                                              quantity,
+                                                  }
+                                                  case gate {
+                                                    Error(e) -> Error(e)
+                                                    Ok(Nil) ->
+                                                      case
+                                                        meta_activity_session_id(
+                                                          meta_sql,
+                                                        )
+                                                      {
+                                                        Some(session_id) -> {
+                                                          let #(
+                                                            adults,
+                                                            children,
+                                                          ) =
+                                                            meta_activity_participants(
+                                                              meta_sql,
                                                             )
+                                                          case
+                                                            adults + children
+                                                            <= 0
                                                           {
                                                             True ->
-                                                              Error("hotel_room_unavailable")
+                                                              Error(
+                                                                "invalid_participant_count",
+                                                              )
                                                             False ->
                                                               case
-                                                                hotel_line_price_mismatch(
+                                                                activity_line_price_mismatch(
                                                                   conn,
                                                                   listing_id,
-                                                                  room_id,
+                                                                  session_id,
                                                                   start_date,
-                                                                  end_date,
                                                                   price_trim,
-                                                                  meta_sql,
+                                                                  adults,
+                                                                  children,
                                                                   lc,
                                                                   cc,
                                                                   fx_snap,
                                                                 )
                                                               {
                                                                 True ->
-                                                                  Error("hotel_price_mismatch")
+                                                                  Error(
+                                                                    "activity_price_mismatch",
+                                                                  )
                                                                 False ->
                                                                   insert_cart_line_row(
                                                                     conn,
@@ -814,63 +821,121 @@ pub fn add_cart_line(req: Request, ctx: Context, cart_id: String) -> Response {
                                                                   )
                                                               }
                                                           }
+                                                        }
                                                         None ->
                                                           case
-                                                            listing_stay_unavailable(
-                                                              conn,
-                                                              listing_id,
-                                                              start_date,
-                                                              end_date,
+                                                            meta_hotel_room_id(
+                                                              meta_sql,
                                                             )
                                                           {
-                                                            True ->
-                                                              Error("dates_unavailable")
-                                                            False ->
-                                                              insert_cart_line_row(
-                                                                conn,
-                                                                cart_id,
-                                                                listing_id,
-                                                                quantity,
-                                                                start_date,
-                                                                end_date,
-                                                                price_trim,
-                                                                meta_sql,
-                                                              )
+                                                            Some(room_id) ->
+                                                              case
+                                                                hotel_room_stay_unavailable(
+                                                                  conn,
+                                                                  listing_id,
+                                                                  room_id,
+                                                                  start_date,
+                                                                  end_date,
+                                                                  quantity,
+                                                                )
+                                                              {
+                                                                True ->
+                                                                  Error(
+                                                                    "hotel_room_unavailable",
+                                                                  )
+                                                                False ->
+                                                                  case
+                                                                    hotel_line_price_mismatch(
+                                                                      conn,
+                                                                      listing_id,
+                                                                      room_id,
+                                                                      start_date,
+                                                                      end_date,
+                                                                      price_trim,
+                                                                      meta_sql,
+                                                                      lc,
+                                                                      cc,
+                                                                      fx_snap,
+                                                                    )
+                                                                  {
+                                                                    True ->
+                                                                      Error(
+                                                                        "hotel_price_mismatch",
+                                                                      )
+                                                                    False ->
+                                                                      insert_cart_line_row(
+                                                                        conn,
+                                                                        cart_id,
+                                                                        listing_id,
+                                                                        quantity,
+                                                                        start_date,
+                                                                        end_date,
+                                                                        price_trim,
+                                                                        meta_sql,
+                                                                      )
+                                                                  }
+                                                              }
+                                                            None ->
+                                                              case
+                                                                listing_stay_unavailable(
+                                                                  conn,
+                                                                  listing_id,
+                                                                  start_date,
+                                                                  end_date,
+                                                                )
+                                                              {
+                                                                True ->
+                                                                  Error(
+                                                                    "dates_unavailable",
+                                                                  )
+                                                                False ->
+                                                                  insert_cart_line_row(
+                                                                    conn,
+                                                                    cart_id,
+                                                                    listing_id,
+                                                                    quantity,
+                                                                    start_date,
+                                                                    end_date,
+                                                                    price_trim,
+                                                                    meta_sql,
+                                                                  )
+                                                              }
                                                           }
                                                       }
                                                   }
+                                                }
                                               }
-                                            }
+                                            _ ->
+                                              Error("cart_or_listing_not_found")
                                           }
-                                        _ -> Error("cart_or_listing_not_found")
                                       }
-                                  }
-                                })
-                              {
-                                Ok(lid) -> {
-                                  let out =
-                                    json.object([
-                                      #("id", json.string(lid)),
-                                      #("cart_id", json.string(cart_id)),
-                                    ])
-                                    |> json.to_string
-                                  wisp.json_response(out, 201)
-                                }
-                                Error(pog.TransactionQueryError(_)) ->
-                                  json_err(500, "cart_or_listing_not_found")
-                                Error(pog.TransactionRolledBack(msg)) ->
-                                  case msg {
-                                    "listing_unavailable_or_currency_mismatch" ->
-                                      json_err(400, msg)
-                                    "cart_or_listing_not_found" -> json_err(404, msg)
-                                    _ -> json_err(400, msg)
+                                    })
+                                  {
+                                    Ok(lid) -> {
+                                      let out =
+                                        json.object([
+                                          #("id", json.string(lid)),
+                                          #("cart_id", json.string(cart_id)),
+                                        ])
+                                        |> json.to_string
+                                      wisp.json_response(out, 201)
+                                    }
+                                    Error(pog.TransactionQueryError(_)) ->
+                                      json_err(500, "cart_or_listing_not_found")
+                                    Error(pog.TransactionRolledBack(msg)) ->
+                                      case msg {
+                                        "listing_unavailable_or_currency_mismatch" ->
+                                          json_err(400, msg)
+                                        "cart_or_listing_not_found" ->
+                                          json_err(404, msg)
+                                        _ -> json_err(400, msg)
+                                      }
                                   }
                               }
                             }
                           }
-                        }
+                      }
                   }
-                }
               }
             }
           }
@@ -900,78 +965,123 @@ fn checkout_decoder() -> decode.Decoder(
     decode.field("guest_name", decode.string, fn(guest_name) {
       decode.optional_field("guest_phone", "", decode.string, fn(phone_raw) {
         decode.optional_field("hold_minutes", 15, decode.int, fn(hold_minutes) {
-          decode.optional_field("agency_organization_id", "", decode.string, fn(aid_raw) {
-            decode.optional_field("contract_accepted", False, decode.bool, fn(
-              contract_accepted,
-            ) {
-              decode.optional_field("contract_locale", "tr", decode.string, fn(
-                contract_locale,
-              ) {
-                decode.optional_field("general_contract_accepted", False, decode.bool, fn(
-                  general_contract_accepted,
-                ) {
-                  decode.optional_field("sales_contract_accepted", False, decode.bool, fn(
-                    sales_contract_accepted,
-                  ) {
-                    decode.optional_field("payment_type", "full", decode.string, fn(pt_raw) {
-                      decode.optional_field("installments", 1, decode.int, fn(inst_raw) {
-                        decode.optional_field("payment_channel", "card", decode.string, fn(
-                          ch_raw,
-                        ) {
-                          decode.optional_field("checkout_meta_json", "", decode.string, fn(
-                            meta_raw,
-                          ) {
-                            let phone = case string.trim(phone_raw) {
-                              "" -> None
-                              p -> Some(p)
-                            }
-                            let agency = case string.trim(aid_raw) {
-                              "" -> None
-                              a -> Some(a)
-                            }
-                            let payment_type = case string.trim(pt_raw) {
-                              "partial" -> "partial"
-                              _ -> "full"
-                            }
-                            let installments = case inst_raw < 1 || inst_raw > 12 {
-                              True -> 1
-                              False -> inst_raw
-                            }
-                            let payment_channel = case string.trim(ch_raw) {
-                              "" -> "card"
-                              c -> c
-                            }
-                            decode.success(#(
-                              guest_email,
-                              guest_name,
-                              phone,
-                              hold_minutes,
-                              agency,
-                              contract_accepted,
-                              contract_locale,
-                              general_contract_accepted,
-                              sales_contract_accepted,
-                              payment_type,
-                              installments,
-                              payment_channel,
-                              string.trim(meta_raw),
-                            ))
-                          })
-                        })
-                      })
-                    })
-                  })
-                })
-              })
-            })
-          })
+          decode.optional_field(
+            "agency_organization_id",
+            "",
+            decode.string,
+            fn(aid_raw) {
+              decode.optional_field(
+                "contract_accepted",
+                False,
+                decode.bool,
+                fn(contract_accepted) {
+                  decode.optional_field(
+                    "contract_locale",
+                    "tr",
+                    decode.string,
+                    fn(contract_locale) {
+                      decode.optional_field(
+                        "general_contract_accepted",
+                        False,
+                        decode.bool,
+                        fn(general_contract_accepted) {
+                          decode.optional_field(
+                            "sales_contract_accepted",
+                            False,
+                            decode.bool,
+                            fn(sales_contract_accepted) {
+                              decode.optional_field(
+                                "payment_type",
+                                "full",
+                                decode.string,
+                                fn(pt_raw) {
+                                  decode.optional_field(
+                                    "installments",
+                                    1,
+                                    decode.int,
+                                    fn(inst_raw) {
+                                      decode.optional_field(
+                                        "payment_channel",
+                                        "card",
+                                        decode.string,
+                                        fn(ch_raw) {
+                                          decode.optional_field(
+                                            "checkout_meta_json",
+                                            "",
+                                            decode.string,
+                                            fn(meta_raw) {
+                                              let phone = case
+                                                string.trim(phone_raw)
+                                              {
+                                                "" -> None
+                                                p -> Some(p)
+                                              }
+                                              let agency = case
+                                                string.trim(aid_raw)
+                                              {
+                                                "" -> None
+                                                a -> Some(a)
+                                              }
+                                              let payment_type = case
+                                                string.trim(pt_raw)
+                                              {
+                                                "partial" -> "partial"
+                                                _ -> "full"
+                                              }
+                                              let installments = case
+                                                inst_raw < 1 || inst_raw > 12
+                                              {
+                                                True -> 1
+                                                False -> inst_raw
+                                              }
+                                              let payment_channel = case
+                                                string.trim(ch_raw)
+                                              {
+                                                "" -> "card"
+                                                c -> c
+                                              }
+                                              decode.success(#(
+                                                guest_email,
+                                                guest_name,
+                                                phone,
+                                                hold_minutes,
+                                                agency,
+                                                contract_accepted,
+                                                contract_locale,
+                                                general_contract_accepted,
+                                                sales_contract_accepted,
+                                                payment_type,
+                                                installments,
+                                                payment_channel,
+                                                string.trim(meta_raw),
+                                              ))
+                                            },
+                                          )
+                                        },
+                                      )
+                                    },
+                                  )
+                                },
+                              )
+                            },
+                          )
+                        },
+                      )
+                    },
+                  )
+                },
+              )
+            },
+          )
         })
       })
     })
   })
 }
 
-fn contract_snap_row() -> decode.Decoder(#(String, String, String, String, String)) {
+fn contract_snap_row() -> decode.Decoder(
+  #(String, String, String, String, String),
+) {
   use a <- decode.field(0, decode.string)
   use b <- decode.field(1, decode.string)
   use c <- decode.field(2, decode.string)
@@ -980,7 +1090,9 @@ fn contract_snap_row() -> decode.Decoder(#(String, String, String, String, Strin
   decode.success(#(a, b, c, d, e))
 }
 
-fn scoped_contract_body_row() -> decode.Decoder(#(String, String, String, String)) {
+fn scoped_contract_body_row() -> decode.Decoder(
+  #(String, String, String, String),
+) {
   use a <- decode.field(0, decode.string)
   use b <- decode.field(1, decode.string)
   use c <- decode.field(2, decode.string)
@@ -1542,7 +1654,9 @@ fn complete_checkout_with_snapshot(
       }
     Error(_) -> "{}"
   }
-  let fx_lock_field = case string.trim(fx_snap_text) == "" || fx_snap_text == "{}" {
+  let fx_lock_field = case
+    string.trim(fx_snap_text) == "" || fx_snap_text == "{}"
+  {
     True -> #("fx_lock", json.null())
     False -> #("fx_lock", json.string(string.trim(fx_snap_text)))
   }
@@ -1567,19 +1681,20 @@ fn complete_checkout_with_snapshot(
     list.first(lines) |> result.replace_error("cart_empty"),
   )
   let #(lid0, _, _, s0, e0, _, _) = first
-  let range = list.fold(lines, #(s0, e0), fn(acc, line) {
-    let #(_, _, _, s, e, _, _) = line
-    let #(a1, a2) = acc
-    let min_s = case string.compare(s, a1) {
-      order.Lt -> s
-      _ -> a1
-    }
-    let max_e = case string.compare(e, a2) {
-      order.Gt -> e
-      _ -> a2
-    }
-    #(min_s, max_e)
-  })
+  let range =
+    list.fold(lines, #(s0, e0), fn(acc, line) {
+      let #(_, _, _, s, e, _, _) = line
+      let #(a1, a2) = acc
+      let min_s = case string.compare(s, a1) {
+        order.Lt -> s
+        _ -> a1
+      }
+      let max_e = case string.compare(e, a2) {
+        order.Gt -> e
+        _ -> a2
+      }
+      #(min_s, max_e)
+    })
   let #(starts_min, ends_max) = range
   let phone_param = case guest_phone {
     Some(p) -> pog.text(p)
@@ -1663,14 +1778,13 @@ fn complete_checkout_with_snapshot(
       case r.rows {
         [#(rid, pcode)] -> {
           let indexed =
-            list.index_map(lines, fn(line, idx) {
-              #(idx + 1, line)
-            })
+            list.index_map(lines, fn(line, idx) { #(idx + 1, line) })
           let line_result =
             list.try_map(indexed, fn(pair) {
               let #(i, line) = pair
               let #(lid, qty, up, s1, s2, lt, meta_raw) = line
-              let lt_adj = line_total_with_agency_discount(lt, agency_disc_factor)
+              let lt_adj =
+                line_total_with_agency_discount(lt, agency_disc_factor)
               let meta = case string.trim(meta_raw) {
                 "" -> "{}"
                 other -> other
@@ -1731,36 +1845,37 @@ fn complete_checkout_with_snapshot(
                 Error(_) -> Error("holds_failed")
                 Ok(_) -> {
                   // Sepete iliştirilmiş kupon varsa rezervasyona snapshot olarak yansıt + used_count++.
-                  let _ = apply_pending_coupon_to_reservation(conn, cart_id, rid, total_q)
                   let _ =
-                    pog.query(
-                      "delete from cart_lines where cart_id = $1::uuid",
+                    apply_pending_coupon_to_reservation(
+                      conn,
+                      cart_id,
+                      rid,
+                      total_q,
                     )
+                  let _ =
+                    pog.query("delete from cart_lines where cart_id = $1::uuid")
                     |> pog.parameter(pog.text(cart_id))
                     |> pog.execute(conn)
                   let _ =
-                    pog.query(
-                      "delete from carts where id = $1::uuid",
-                    )
+                    pog.query("delete from carts where id = $1::uuid")
                     |> pog.parameter(pog.text(cart_id))
                     |> pog.execute(conn)
                   // Provizyon tutarlarını hesapla; kısmi ödemede müşteri tutarı değişir
-                  let payment_amount_kurus =
-                    case
-                      pog.query(
-                        "select round(fn_compute_provizyon($1::uuid) * 100)::bigint::text",
-                      )
-                      |> pog.parameter(pog.text(rid))
-                      |> pog.returning(row_dec.col0_string())
-                      |> pog.execute(conn)
-                    {
-                      Ok(r2) ->
-                        case r2.rows {
-                          [s] -> s
-                          _ -> payment_amount_kurus
-                        }
-                      Error(_) -> payment_amount_kurus
-                    }
+                  let payment_amount_kurus = case
+                    pog.query(
+                      "select round(fn_compute_provizyon($1::uuid) * 100)::bigint::text",
+                    )
+                    |> pog.parameter(pog.text(rid))
+                    |> pog.returning(row_dec.col0_string())
+                    |> pog.execute(conn)
+                  {
+                    Ok(r2) ->
+                      case r2.rows {
+                        [s] -> s
+                        _ -> payment_amount_kurus
+                      }
+                    Error(_) -> payment_amount_kurus
+                  }
                   Ok(#(rid, pcode, payment_amount_kurus, currency_code))
                 }
               }
@@ -1797,92 +1912,110 @@ pub fn do_checkout(
       case resolve_agency_id(conn, agency_org) {
         Error(e) -> Error(e)
         Ok(agency_id_opt) -> {
-          case maybe_assert_agency_checkout_allowed(conn, cart_id, agency_id_opt) {
+          case
+            maybe_assert_agency_checkout_allowed(conn, cart_id, agency_id_opt)
+          {
             Error(e) -> Error(e)
             Ok(Nil) -> {
-      case
-        pog.query(
-          "select cl.listing_id::text, cl.quantity, cl.unit_price::text, coalesce(cl.starts_on::text, ''), coalesce(cl.ends_on::text, ''), (cl.quantity * cl.unit_price)::text, coalesce(cl.meta_json::text, '{}') from cart_lines cl where cl.cart_id = $1::uuid order by cl.id",
-        )
-        |> pog.parameter(pog.text(cart_id))
-        |> pog.returning(cart_line_row())
-        |> pog.execute(conn)
-      {
-        Error(_) -> Error("load_lines_failed")
-        Ok(ret) ->
-          case ret.rows {
-            [] -> Error("cart_empty")
-            lines -> {
-              let loc = case string.trim(contract_locale) == "" {
-                True -> "tr"
-                False -> string.lowercase(string.trim(contract_locale))
-              }
-              case contract_accepted {
-                False -> Error("contract_not_accepted")
-                True ->
-                  case assert_cart_contracts_valid(conn, cart_id) {
-                    Error(e) -> Error(e)
-                    Ok(Nil) ->
-                      case cart_primary_listing_org(conn, cart_id) {
-                        Error(e) -> Error(e)
-                        Ok(org_text) ->
-                          case fetch_scoped_contract_for_org(conn, org_text, loc, "general") {
+              case
+                pog.query(
+                  "select cl.listing_id::text, cl.quantity, cl.unit_price::text, coalesce(cl.starts_on::text, ''), coalesce(cl.ends_on::text, ''), (cl.quantity * cl.unit_price)::text, coalesce(cl.meta_json::text, '{}') from cart_lines cl where cl.cart_id = $1::uuid order by cl.id",
+                )
+                |> pog.parameter(pog.text(cart_id))
+                |> pog.returning(cart_line_row())
+                |> pog.execute(conn)
+              {
+                Error(_) -> Error("load_lines_failed")
+                Ok(ret) ->
+                  case ret.rows {
+                    [] -> Error("cart_empty")
+                    lines -> {
+                      let loc = case string.trim(contract_locale) == "" {
+                        True -> "tr"
+                        False -> string.lowercase(string.trim(contract_locale))
+                      }
+                      case contract_accepted {
+                        False -> Error("contract_not_accepted")
+                        True ->
+                          case assert_cart_contracts_valid(conn, cart_id) {
                             Error(e) -> Error(e)
-                            Ok(gen_opt) ->
-                              case fetch_scoped_contract_for_org(conn, org_text, loc, "sales") {
+                            Ok(Nil) ->
+                              case cart_primary_listing_org(conn, cart_id) {
                                 Error(e) -> Error(e)
-                                Ok(sal_opt) ->
+                                Ok(org_text) ->
                                   case
-                                    require_acceptance_when_contract_present(
-                                      gen_opt,
-                                      general_contract_accepted,
-                                      "general_contract_not_accepted",
+                                    fetch_scoped_contract_for_org(
+                                      conn,
+                                      org_text,
+                                      loc,
+                                      "general",
                                     )
                                   {
                                     Error(e) -> Error(e)
-                                    Ok(Nil) ->
+                                    Ok(gen_opt) ->
                                       case
-                                        require_acceptance_when_contract_present(
-                                          sal_opt,
-                                          sales_contract_accepted,
-                                          "sales_contract_not_accepted",
+                                        fetch_scoped_contract_for_org(
+                                          conn,
+                                          org_text,
+                                          loc,
+                                          "sales",
                                         )
                                       {
                                         Error(e) -> Error(e)
-                                        Ok(Nil) ->
-                                          case build_contract_snapshots(
-                                            conn,
-                                            cart_id,
-                                            loc,
-                                            org_text,
-                                          ) {
+                                        Ok(sal_opt) ->
+                                          case
+                                            require_acceptance_when_contract_present(
+                                              gen_opt,
+                                              general_contract_accepted,
+                                              "general_contract_not_accepted",
+                                            )
+                                          {
                                             Error(e) -> Error(e)
-                                            Ok(snap_json) ->
-                                              complete_checkout_with_snapshot(
-                                                conn,
-                                                cart_id,
-                                                lines,
-                                                snap_json,
-                                                email,
-                                                name,
-                                                guest_phone,
-                                                hold_minutes,
-                                                agency_id_opt,
-                                                payment_type,
-                                                installments,
-                                                checkout_meta_json,
-                                              )
+                                            Ok(Nil) ->
+                                              case
+                                                require_acceptance_when_contract_present(
+                                                  sal_opt,
+                                                  sales_contract_accepted,
+                                                  "sales_contract_not_accepted",
+                                                )
+                                              {
+                                                Error(e) -> Error(e)
+                                                Ok(Nil) ->
+                                                  case
+                                                    build_contract_snapshots(
+                                                      conn,
+                                                      cart_id,
+                                                      loc,
+                                                      org_text,
+                                                    )
+                                                  {
+                                                    Error(e) -> Error(e)
+                                                    Ok(snap_json) ->
+                                                      complete_checkout_with_snapshot(
+                                                        conn,
+                                                        cart_id,
+                                                        lines,
+                                                        snap_json,
+                                                        email,
+                                                        name,
+                                                        guest_phone,
+                                                        hold_minutes,
+                                                        agency_id_opt,
+                                                        payment_type,
+                                                        installments,
+                                                        checkout_meta_json,
+                                                      )
+                                                  }
+                                              }
                                           }
                                       }
                                   }
                               }
                           }
                       }
+                    }
                   }
               }
-            }
-          }
-      }
             }
           }
         }
@@ -2010,75 +2143,83 @@ pub fn checkout(req: Request, ctx: Context, cart_id: String) -> Response {
               }
             None -> None
           }
-          case maybe_assert_agency_session(ctx.db, session_token, agency_pre_opt) {
-            Error("agency_session_required") -> json_err(401, "agency_session_required")
-            Error("agency_membership_required") -> json_err(403, "agency_membership_required")
+          case
+            maybe_assert_agency_session(ctx.db, session_token, agency_pre_opt)
+          {
+            Error("agency_session_required") ->
+              json_err(401, "agency_session_required")
+            Error("agency_membership_required") ->
+              json_err(403, "agency_membership_required")
             Error(e) -> json_err(500, e)
             Ok(Nil) ->
-          case
-            db_exec.transaction(ctx.db, fn(conn) {
-              do_checkout(
-                conn,
-                cart_id,
-                guest_email,
-                guest_name,
-                guest_phone,
-                hm,
-                agency_org,
-                contract_accepted,
-                contract_locale,
-                general_contract_accepted,
-                sales_contract_accepted,
-                payment_type,
-                installments,
-                checkout_meta_json,
-              )
-            })
-          {
-            Ok(#(rid, pcode, pay_kurus, cur)) -> {
-              let _ = notification_runtime.dispatch_agency_reservation_created(ctx.db, rid)
-              case string.lowercase(string.trim(payment_channel)) {
-                "card" -> Nil
-                _ -> {
-                  supplier_notification.notify_new_reservation(ctx.db, rid)
-                  supplier_notification.notify_platform_ops(ctx.db, rid)
-                  commerce_ops_enqueue.enqueue_commerce_ops_for_reservation(
-                    ctx,
-                    rid,
-                    "payment_confirmed",
+              case
+                db_exec.transaction(ctx.db, fn(conn) {
+                  do_checkout(
+                    conn,
+                    cart_id,
+                    guest_email,
+                    guest_name,
+                    guest_phone,
+                    hm,
+                    agency_org,
+                    contract_accepted,
+                    contract_locale,
+                    general_contract_accepted,
+                    sales_contract_accepted,
+                    payment_type,
+                    installments,
+                    checkout_meta_json,
                   )
+                })
+              {
+                Ok(#(rid, pcode, pay_kurus, cur)) -> {
+                  let _ =
+                    notification_runtime.dispatch_agency_reservation_created(
+                      ctx.db,
+                      rid,
+                    )
+                  case string.lowercase(string.trim(payment_channel)) {
+                    "card" -> Nil
+                    _ -> {
+                      supplier_notification.notify_new_reservation(ctx.db, rid)
+                      supplier_notification.notify_platform_ops(ctx.db, rid)
+                      commerce_ops_enqueue.enqueue_commerce_ops_for_reservation(
+                        ctx,
+                        rid,
+                        "payment_confirmed",
+                      )
+                    }
+                  }
+                  let out =
+                    json.object([
+                      #("reservation_id", json.string(rid)),
+                      #("public_code", json.string(pcode)),
+                      #("status", json.string("held")),
+                      #("payment_amount", json.string(pay_kurus)),
+                      #("currency_code", json.string(cur)),
+                      #("payment_type", json.string(payment_type)),
+                    ])
+                    |> json.to_string
+                  wisp.json_response(out, 201)
                 }
+                Error(pog.TransactionQueryError(_)) ->
+                  json_err(500, "database_error")
+                Error(pog.TransactionRolledBack(msg)) ->
+                  case msg {
+                    "cart_empty" -> json_err(400, msg)
+                    "guest_fields_required" -> json_err(400, msg)
+                    "invalid_agency_organization" -> json_err(400, msg)
+                    "contract_not_accepted" -> json_err(400, msg)
+                    "general_contract_not_accepted" -> json_err(400, msg)
+                    "sales_contract_not_accepted" -> json_err(400, msg)
+                    "listing_contract_required" -> json_err(400, msg)
+                    "contract_validation_failed" -> json_err(500, msg)
+                    "contract_snapshot_failed" -> json_err(500, msg)
+                    "cart_org_resolve_failed" -> json_err(500, msg)
+                    "checkout_contract_extras_failed" -> json_err(500, msg)
+                    _ -> json_err(400, msg)
+                  }
               }
-              let out =
-                json.object([
-                  #("reservation_id", json.string(rid)),
-                  #("public_code", json.string(pcode)),
-                  #("status", json.string("held")),
-                  #("payment_amount", json.string(pay_kurus)),
-                  #("currency_code", json.string(cur)),
-                  #("payment_type", json.string(payment_type)),
-                ])
-                |> json.to_string
-              wisp.json_response(out, 201)
-            }
-            Error(pog.TransactionQueryError(_)) ->
-              json_err(500, "database_error")
-            Error(pog.TransactionRolledBack(msg)) ->
-              case msg {
-                "cart_empty" -> json_err(400, msg)
-                "guest_fields_required" -> json_err(400, msg)
-                "invalid_agency_organization" -> json_err(400, msg)
-                "contract_not_accepted" -> json_err(400, msg)
-                "general_contract_not_accepted" -> json_err(400, msg)
-                "sales_contract_not_accepted" -> json_err(400, msg)
-                "listing_contract_required" -> json_err(400, msg)
-                "contract_validation_failed" -> json_err(500, msg)
-                "contract_snapshot_failed" -> json_err(500, msg)
-                "cart_org_resolve_failed" -> json_err(500, msg)
-                "checkout_contract_extras_failed" -> json_err(500, msg)
-                _ -> json_err(400, msg)
-              }
-          }
           }
         }
       }
@@ -2099,7 +2240,11 @@ fn line_detail_decoder() -> decode.Decoder(
   decode.success(#(a, b, c, d, e, f, g, h))
 }
 
-pub fn get_by_public_code(req: Request, ctx: Context, code: String) -> Response {
+pub fn get_by_public_code(
+  req: Request,
+  ctx: Context,
+  code: String,
+) -> Response {
   use <- wisp.require_method(req, http.Get)
   let email_result = case http_request.get_query(req) {
     Ok(q) -> list.key_find(q, "guest_email")
@@ -2176,14 +2321,16 @@ pub fn get_by_public_code(req: Request, ctx: Context, code: String) -> Response 
                     })
                     |> db_exec.execute(ctx.db)
                   {
-                    Ok(payment_result) -> case payment_result.rows {
-                      [#(payment_id, amount, currency)] -> json.object([
-                        #("transaction_id", json.string(payment_id)),
-                        #("value", json.string(amount)),
-                        #("currency", json.string(currency)),
-                      ])
-                      _ -> json.null()
-                    }
+                    Ok(payment_result) ->
+                      case payment_result.rows {
+                        [#(payment_id, amount, currency)] ->
+                          json.object([
+                            #("transaction_id", json.string(payment_id)),
+                            #("value", json.string(amount)),
+                            #("currency", json.string(currency)),
+                          ])
+                        _ -> json.null()
+                      }
                     Error(_) -> json.null()
                   }
                   let body =
@@ -2328,7 +2475,9 @@ pub fn list_agency_reservations_response(
   }
 }
 
-fn admin_resv_row() -> decode.Decoder(#(String, String, String, String, String, String)) {
+fn admin_resv_row() -> decode.Decoder(
+  #(String, String, String, String, String, String),
+) {
   use a <- decode.field(0, decode.string)
   use b <- decode.field(1, decode.string)
   use c <- decode.field(2, decode.string)
@@ -2348,12 +2497,9 @@ pub fn list_admin_reservations(req: Request, ctx: Context) -> Response {
         Ok(q) -> q
         Error(_) -> []
       }
-      let status_filter =
-        list.key_find(qs, "status") |> result.unwrap("")
-      let search_raw =
-        list.key_find(qs, "search") |> result.unwrap("")
-      let limit_str =
-        list.key_find(qs, "limit") |> result.unwrap("200")
+      let status_filter = list.key_find(qs, "status") |> result.unwrap("")
+      let search_raw = list.key_find(qs, "search") |> result.unwrap("")
+      let limit_str = list.key_find(qs, "limit") |> result.unwrap("200")
       let limit =
         int.parse(limit_str) |> result.unwrap(200) |> int.min(500) |> int.max(1)
       case
@@ -2410,8 +2556,20 @@ pub fn list_my_reservations(req: Request, ctx: Context) -> Response {
         Ok(ret) -> {
           let arr =
             list.map(ret.rows, fn(row) {
-              let #(rid, pcode, st, gn, s1, s2, ts, lslug, pay_st, amt, cur, cat) =
-                row
+              let #(
+                rid,
+                pcode,
+                st,
+                gn,
+                s1,
+                s2,
+                ts,
+                lslug,
+                pay_st,
+                amt,
+                cur,
+                cat,
+              ) = row
               json.object([
                 #("id", json.string(rid)),
                 #("public_code", json.string(pcode)),
@@ -2463,106 +2621,128 @@ pub fn agent_booking_from_api(
     Ok(start_date), Ok(end_date) ->
       case
         db_exec.transaction(db, fn(conn) {
-      case
-        pog.query(
-          "insert into carts (currency_code, session_key) values ($1, null) returning id::text",
-        )
-        |> pog.parameter(pog.text(currency_code))
-        |> pog.returning(row_dec.col0_string())
-        |> pog.execute(conn)
-      {
-        Error(_) -> Error("cart_create_failed")
-        Ok(ret) ->
-          case ret.rows {
-            [cart_id] -> {
-              let _ = cart_fx.lock_cart_fx(conn, cart_id)
-              case
-                pog.query(
-                  "select c.currency_code::text, l.currency_code::text, l.status::text from carts c inner join listings l on l.id = $2::uuid where c.id = $1::uuid",
-                )
-                |> pog.parameter(pog.text(cart_id))
-                |> pog.parameter(pog.text(listing_id))
-                |> pog.returning({
-                  use a <- decode.field(0, decode.string)
-                  use b <- decode.field(1, decode.string)
-                  use st <- decode.field(2, decode.string)
-                  decode.success(#(a, b, st))
-                })
-                |> pog.execute(conn)
-              {
-                Error(_) -> Error("cart_or_listing")
-                Ok(rows) ->
-                  case rows.rows {
-                    [#(cc, lc, st)] ->
-                      case st == "published" && cc == lc {
-                        False -> Error("listing_unavailable_or_currency_mismatch")
-                        True ->
-                          case validate_agency_org(conn, agency_org_id) {
-                            False -> Error("invalid_agency_organization")
+          case
+            pog.query(
+              "insert into carts (currency_code, session_key) values ($1, null) returning id::text",
+            )
+            |> pog.parameter(pog.text(currency_code))
+            |> pog.returning(row_dec.col0_string())
+            |> pog.execute(conn)
+          {
+            Error(_) -> Error("cart_create_failed")
+            Ok(ret) ->
+              case ret.rows {
+                [cart_id] -> {
+                  let _ = cart_fx.lock_cart_fx(conn, cart_id)
+                  case
+                    pog.query(
+                      "select c.currency_code::text, l.currency_code::text, l.status::text from carts c inner join listings l on l.id = $2::uuid where c.id = $1::uuid",
+                    )
+                    |> pog.parameter(pog.text(cart_id))
+                    |> pog.parameter(pog.text(listing_id))
+                    |> pog.returning({
+                      use a <- decode.field(0, decode.string)
+                      use b <- decode.field(1, decode.string)
+                      use st <- decode.field(2, decode.string)
+                      decode.success(#(a, b, st))
+                    })
+                    |> pog.execute(conn)
+                  {
+                    Error(_) -> Error("cart_or_listing")
+                    Ok(rows) ->
+                      case rows.rows {
+                        [#(cc, lc, st)] ->
+                          case st == "published" && cc == lc {
+                            False ->
+                              Error("listing_unavailable_or_currency_mismatch")
                             True ->
-                              case assert_agency_document_approved_for_org(conn, agency_org_id) {
-                                Error(e) -> Error(e)
-                                Ok(Nil) ->
-                                  case assert_agency_listing_category_allowed(
-                                    conn,
-                                    listing_id,
-                                    agency_org_id,
-                                  ) {
+                              case validate_agency_org(conn, agency_org_id) {
+                                False -> Error("invalid_agency_organization")
+                                True ->
+                                  case
+                                    assert_agency_document_approved_for_org(
+                                      conn,
+                                      agency_org_id,
+                                    )
+                                  {
                                     Error(e) -> Error(e)
-                                    Ok(Nil) -> {
+                                    Ok(Nil) ->
                                       case
-                                        pog.query(
-                                          "insert into cart_lines (cart_id, listing_id, quantity, starts_on, ends_on, unit_price, tax_amount, fee_amount, meta_json) values ($1::uuid, $2::uuid, $3, $4::date, $5::date, $6::numeric, 0, 0, '{}'::jsonb) returning id::text",
+                                        assert_agency_listing_category_allowed(
+                                          conn,
+                                          listing_id,
+                                          agency_org_id,
                                         )
-                                        |> pog.parameter(pog.text(cart_id))
-                                        |> pog.parameter(pog.text(listing_id))
-                                        |> pog.parameter(pog.int(quantity))
-                                        |> pog.parameter(pog.calendar_date(start_date))
-                                        |> pog.parameter(pog.calendar_date(end_date))
-                                        |> pog.parameter(pog.text(unit_price))
-                                        |> pog.returning(row_dec.col0_string())
-                                        |> pog.execute(conn)
                                       {
-                                        Error(e) -> {
-                                          io.println(
-                                            "[cart_line] "
-                                              <> pog_errors.query_error_to_string(e),
-                                          )
-                                          Error(
-                                            pog_errors.cart_line_insert_error_code(e),
-                                          )
+                                        Error(e) -> Error(e)
+                                        Ok(Nil) -> {
+                                          case
+                                            pog.query(
+                                              "insert into cart_lines (cart_id, listing_id, quantity, starts_on, ends_on, unit_price, tax_amount, fee_amount, meta_json) values ($1::uuid, $2::uuid, $3, $4::date, $5::date, $6::numeric, 0, 0, '{}'::jsonb) returning id::text",
+                                            )
+                                            |> pog.parameter(pog.text(cart_id))
+                                            |> pog.parameter(pog.text(
+                                              listing_id,
+                                            ))
+                                            |> pog.parameter(pog.int(quantity))
+                                            |> pog.parameter(pog.calendar_date(
+                                              start_date,
+                                            ))
+                                            |> pog.parameter(pog.calendar_date(
+                                              end_date,
+                                            ))
+                                            |> pog.parameter(pog.text(
+                                              unit_price,
+                                            ))
+                                            |> pog.returning(
+                                              row_dec.col0_string(),
+                                            )
+                                            |> pog.execute(conn)
+                                          {
+                                            Error(e) -> {
+                                              io.println(
+                                                "[cart_line] "
+                                                <> pog_errors.query_error_to_string(
+                                                  e,
+                                                ),
+                                              )
+                                              Error(
+                                                pog_errors.cart_line_insert_error_code(
+                                                  e,
+                                                ),
+                                              )
+                                            }
+                                            Ok(_) ->
+                                              do_checkout(
+                                                conn,
+                                                cart_id,
+                                                guest_email,
+                                                guest_name,
+                                                guest_phone,
+                                                hold_minutes,
+                                                Some(agency_org_id),
+                                                True,
+                                                "tr",
+                                                True,
+                                                True,
+                                                payment_type,
+                                                installments,
+                                                "",
+                                              )
+                                          }
                                         }
-                                        Ok(_) ->
-                                          do_checkout(
-                                            conn,
-                                            cart_id,
-                                            guest_email,
-                                            guest_name,
-                                            guest_phone,
-                                            hold_minutes,
-                                            Some(agency_org_id),
-                                            True,
-                                            "tr",
-                                            True,
-                                            True,
-                                            payment_type,
-                                            installments,
-                                            "",
-                                          )
                                       }
-                                    }
                                   }
                               }
                           }
+                        _ -> Error("cart_or_listing_not_found")
                       }
-                    _ -> Error("cart_or_listing_not_found")
                   }
+                }
+                _ -> Error("cart_create_failed")
               }
-            }
-            _ -> Error("cart_create_failed")
           }
-      }
-    })
+        })
       {
         Ok(v) -> Ok(v)
         Error(pog.TransactionQueryError(_)) -> Error("database_error")

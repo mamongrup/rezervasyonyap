@@ -27,7 +27,9 @@ fn json_err(status: Int, msg: String) -> Response {
 }
 
 fn route_ref(origin: String, destination: String) -> String {
-  string.lowercase(string.trim(origin)) <> "-" <> string.lowercase(string.trim(destination))
+  string.lowercase(string.trim(origin))
+  <> "-"
+  <> string.lowercase(string.trim(destination))
 }
 
 fn turna_origin_is_city(code: String) -> Bool {
@@ -45,7 +47,9 @@ fn turna_destination_is_city(code: String) -> Bool {
 }
 
 /// Postman sertifikasyon koleksiyonlarına göre şehir bayrakları (sunucu tek kaynak).
-fn normalize_city_flags(p: turna.FlightSearchParams) -> turna.FlightSearchParams {
+fn normalize_city_flags(
+  p: turna.FlightSearchParams,
+) -> turna.FlightSearchParams {
   turna.FlightSearchParams(
     origin: p.origin,
     destination: p.destination,
@@ -60,15 +64,19 @@ fn normalize_city_flags(p: turna.FlightSearchParams) -> turna.FlightSearchParams
   )
 }
 
-fn find_turna_listing_id(db: pog.Connection, origin: String, destination: String) -> Option(String) {
+fn find_turna_listing_id(
+  db: pog.Connection,
+  origin: String,
+  destination: String,
+) -> Option(String) {
   let ref = route_ref(origin, destination)
   case
     pog.query(
       "select l.id::text from listings l "
-        <> "where l.external_provider_code = 'turna' "
-        <> "and l.external_listing_ref = $1 "
-        <> "and l.status = 'published' "
-        <> "limit 1",
+      <> "where l.external_provider_code = 'turna' "
+      <> "and l.external_listing_ref = $1 "
+      <> "and l.status = 'published' "
+      <> "limit 1",
     )
     |> pog.parameter(pog.text(ref))
     |> pog.returning({
@@ -90,38 +98,56 @@ fn search_decoder() -> decode.Decoder(turna.FlightSearchParams) {
   decode.field("origin", decode.string, fn(origin) {
     decode.field("destination", decode.string, fn(destination) {
       decode.field("departure_date", decode.string, fn(departure_date) {
-        decode.optional_field("origin_is_city", False, decode.bool, fn(origin_is_city) {
-          decode.optional_field("destination_is_city", False, decode.bool, fn(
-            destination_is_city,
-          ) {
-            decode.optional_field("adults", 1, decode.int, fn(adults) {
-              decode.optional_field("children", 0, decode.int, fn(children) {
-                decode.optional_field("infants", 0, decode.int, fn(infants) {
-                  decode.optional_field("cabin_class", "Any", decode.string, fn(cabin_class) {
-                    decode.optional_field("only_directs", False, decode.bool, fn(only_directs) {
-                      let adt = case adults < 1 {
-                        True -> 1
-                        False -> adults
-                      }
-                      decode.success(turna.FlightSearchParams(
-                        origin: origin,
-                        destination: destination,
-                        departure_day: departure_date,
-                        origin_is_city: origin_is_city,
-                        destination_is_city: destination_is_city,
-                        adult_count: adt,
-                        child_count: children,
-                        infant_count: infants,
-                        cabin_class: cabin_class,
-                        only_directs: only_directs,
-                      ))
+        decode.optional_field(
+          "origin_is_city",
+          False,
+          decode.bool,
+          fn(origin_is_city) {
+            decode.optional_field(
+              "destination_is_city",
+              False,
+              decode.bool,
+              fn(destination_is_city) {
+                decode.optional_field("adults", 1, decode.int, fn(adults) {
+                  decode.optional_field("children", 0, decode.int, fn(children) {
+                    decode.optional_field("infants", 0, decode.int, fn(infants) {
+                      decode.optional_field(
+                        "cabin_class",
+                        "Any",
+                        decode.string,
+                        fn(cabin_class) {
+                          decode.optional_field(
+                            "only_directs",
+                            False,
+                            decode.bool,
+                            fn(only_directs) {
+                              let adt = case adults < 1 {
+                                True -> 1
+                                False -> adults
+                              }
+                              decode.success(turna.FlightSearchParams(
+                                origin: origin,
+                                destination: destination,
+                                departure_day: departure_date,
+                                origin_is_city: origin_is_city,
+                                destination_is_city: destination_is_city,
+                                adult_count: adt,
+                                child_count: children,
+                                infant_count: infants,
+                                cabin_class: cabin_class,
+                                only_directs: only_directs,
+                              ))
+                            },
+                          )
+                        },
+                      )
                     })
                   })
                 })
-              })
-            })
-          })
-        })
+              },
+            )
+          },
+        )
       })
     })
   })
@@ -146,11 +172,9 @@ fn session_action_decoder(
 }
 
 /// Allocate: oturum + allocate_form + arama parametreleri (SearchForm için).
-fn allocate_decoder() -> decode.Decoder(#(
-  turna.TurnaSession,
-  String,
-  turna.FlightSearchParams,
-)) {
+fn allocate_decoder() -> decode.Decoder(
+  #(turna.TurnaSession, String, turna.FlightSearchParams),
+) {
   decode.field("session_id", decode.string, fn(session_id) {
     decode.field("session_token", decode.string, fn(session_token) {
       decode.field("allocate_form", decode.string, fn(allocate_form) {
@@ -192,7 +216,10 @@ pub fn post_search(req: Request, ctx: Context) -> Response {
           case json.parse(body, search_decoder()) {
             Error(_) -> json_err(400, "invalid_search_body")
             Ok(params) ->
-              case string.trim(params.origin) == "" || string.trim(params.destination) == "" {
+              case
+                string.trim(params.origin) == ""
+                || string.trim(params.destination) == ""
+              {
                 True -> json_err(400, "origin_destination_required")
                 False ->
                   case string.trim(params.departure_day) == "" {
@@ -218,7 +245,8 @@ pub fn post_search(req: Request, ctx: Context) -> Response {
                             "" -> json.null()
                             u -> json.string(u)
                           }
-                          let turna_msg = turna.turna_message_from_raw(result.body)
+                          let turna_msg =
+                            turna.turna_message_from_raw(result.body)
                           let turna_msg_j = case turna_msg {
                             "" -> json.null()
                             m -> json.string(m)
@@ -227,16 +255,24 @@ pub fn post_search(req: Request, ctx: Context) -> Response {
                             json.object([
                               #("ok", json.bool(True)),
                               #("turna_raw", json.string(result.body)),
-                              #("session", turna.session_to_json(result.session)),
+                              #(
+                                "session",
+                                turna.session_to_json(result.session),
+                              ),
                               #("listing_id", lid_j),
                               #(
                                 "route_ref",
-                                json.string(route_ref(params.origin, params.destination)),
+                                json.string(route_ref(
+                                  params.origin,
+                                  params.destination,
+                                )),
                               ),
                               #("search_response_url", search_url_j),
                               #(
                                 "has_inventory",
-                                json.bool(turna.has_flight_inventory(result.body)),
+                                json.bool(turna.has_flight_inventory(
+                                  result.body,
+                                )),
                               ),
                               #(
                                 "search_meta",
@@ -256,7 +292,9 @@ pub fn post_search(req: Request, ctx: Context) -> Response {
                                   ),
                                   #(
                                     "turna_has_error",
-                                    json.bool(turna.turna_has_error_flag(result.body)),
+                                    json.bool(turna.turna_has_error_flag(
+                                      result.body,
+                                    )),
                                   ),
                                   #("turna_message", turna_msg_j),
                                   #("enabled", json.bool(cfg.enabled)),
@@ -331,23 +369,35 @@ pub fn post_checkout(req: Request, ctx: Context) -> Response {
   }
 }
 
-fn book_decoder() -> decode.Decoder(#(turna.TurnaSession, String, String, String)) {
+fn book_decoder() -> decode.Decoder(
+  #(turna.TurnaSession, String, String, String),
+) {
   decode.field("session_id", decode.string, fn(session_id) {
     decode.field("session_token", decode.string, fn(session_token) {
       decode.field("reserve_form", decode.string, fn(reserve_form) {
-        decode.optional_field("payment_form", "{}", decode.string, fn(payment_form) {
-          decode.optional_field("checkout_form", "{}", decode.string, fn(checkout_form) {
-            decode.success(#(
-              turna.TurnaSession(
-                session_id: session_id,
-                session_token: session_token,
-              ),
-              reserve_form,
-              payment_form,
-              checkout_form,
-            ))
-          })
-        })
+        decode.optional_field(
+          "payment_form",
+          "{}",
+          decode.string,
+          fn(payment_form) {
+            decode.optional_field(
+              "checkout_form",
+              "{}",
+              decode.string,
+              fn(checkout_form) {
+                decode.success(#(
+                  turna.TurnaSession(
+                    session_id: session_id,
+                    session_token: session_token,
+                  ),
+                  reserve_form,
+                  payment_form,
+                  checkout_form,
+                ))
+              },
+            )
+          },
+        )
       })
     })
   })
@@ -371,7 +421,13 @@ pub fn post_book(req: Request, ctx: Context) -> Response {
               let chk_trim = string.trim(checkout_form)
               case pay_trim == "" || pay_trim == "{}" {
                 False ->
-                  case turna.flight_make_balance_payment(cfg, session1, payment_form) {
+                  case
+                    turna.flight_make_balance_payment(
+                      cfg,
+                      session1,
+                      payment_form,
+                    )
+                  {
                     Error(e) -> json_err(502, e)
                     Ok(pay_result) -> {
                       let session2 = pay_result.session
@@ -388,16 +444,27 @@ pub fn post_book(req: Request, ctx: Context) -> Response {
                           wisp.json_response(out, 200)
                         }
                         False ->
-                          case turna.flight_checkout(cfg, session2, checkout_form) {
+                          case
+                            turna.flight_checkout(cfg, session2, checkout_form)
+                          {
                             Error(e) -> json_err(502, e)
                             Ok(chk_result) -> {
                               let out =
                                 json.object([
                                   #("ok", json.bool(True)),
-                                  #("reserve_raw", json.string(reserve_result.body)),
+                                  #(
+                                    "reserve_raw",
+                                    json.string(reserve_result.body),
+                                  ),
                                   #("payment_raw", json.string(pay_result.body)),
-                                  #("checkout_raw", json.string(chk_result.body)),
-                                  #("session", turna.session_to_json(chk_result.session)),
+                                  #(
+                                    "checkout_raw",
+                                    json.string(chk_result.body),
+                                  ),
+                                  #(
+                                    "session",
+                                    turna.session_to_json(chk_result.session),
+                                  ),
                                 ])
                                 |> json.to_string
                               wisp.json_response(out, 200)
@@ -427,7 +494,10 @@ pub fn post_book(req: Request, ctx: Context) -> Response {
                               #("ok", json.bool(True)),
                               #("reserve_raw", json.string(reserve_result.body)),
                               #("checkout_raw", json.string(chk_result.body)),
-                              #("session", turna.session_to_json(chk_result.session)),
+                              #(
+                                "session",
+                                turna.session_to_json(chk_result.session),
+                              ),
                             ])
                             |> json.to_string
                           wisp.json_response(out, 200)

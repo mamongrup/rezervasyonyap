@@ -143,7 +143,9 @@ fn location_item_decoder() -> decode.Decoder(LocationIdResult) {
   decode.success(LocationIdResult(id: id, name: name))
 }
 
-fn first_valid_location(items: List(LocationIdResult)) -> Result(LocationIdResult, Nil) {
+fn first_valid_location(
+  items: List(LocationIdResult),
+) -> Result(LocationIdResult, Nil) {
   case list.filter(items, fn(i) { i.id != "" }) {
     [first, ..] -> Ok(first)
     _ -> Error(Nil)
@@ -312,7 +314,12 @@ pub fn search_cars(
                   }
               }
               let body =
-                search_point_body(checkin, checkout, pickup_detail, return_detail)
+                search_point_body(
+                  checkin,
+                  checkout,
+                  pickup_detail,
+                  return_detail,
+                )
               let url = yolcu360_config.search_point_url(cfg)
               case http_client.post_json(url, body, bearer) {
                 Error(e) -> Error("yolcu360_http_failed:" <> e)
@@ -411,7 +418,10 @@ pub fn pay_order_with_limit(
 }
 
 /// GET /order/{id}
-pub fn get_order(cfg: Yolcu360Config, order_id: String) -> Result(String, String) {
+pub fn get_order(
+  cfg: Yolcu360Config,
+  order_id: String,
+) -> Result(String, String) {
   case login(cfg) {
     Error(e) -> Error(e)
     Ok(auth) -> {
@@ -426,7 +436,9 @@ pub fn get_order(cfg: Yolcu360Config, order_id: String) -> Result(String, String
 }
 
 /// Ping: login + örnek konum araması (istanbul).
-pub fn ping(cfg: Yolcu360Config) -> Result(#(AuthResult, LocationsResult), String) {
+pub fn ping(
+  cfg: Yolcu360Config,
+) -> Result(#(AuthResult, LocationsResult), String) {
   case login(cfg) {
     Error(e) -> Error(e)
     Ok(auth) -> {

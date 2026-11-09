@@ -63,12 +63,12 @@ fn passenger_json(first: String, last: String, tc: String) -> String {
     id -> ",\"IdentityNumber\":\"" <> json_escape(id) <> "\""
   }
   "{\"Type\":\"ADT\",\"FirstName\":\""
-    <> json_escape(string.trim(first))
-    <> "\",\"LastName\":\""
-    <> json_escape(string.trim(last))
-    <> "\""
-    <> id_part
-    <> "}"
+  <> json_escape(string.trim(first))
+  <> "\",\"LastName\":\""
+  <> json_escape(string.trim(last))
+  <> "\""
+  <> id_part
+  <> "}"
 }
 
 fn passengers_json_from_checkout_meta(checkout_meta: String) -> String {
@@ -93,7 +93,10 @@ fn passengers_json_from_checkout_meta(checkout_meta: String) -> String {
 }
 
 /// Allocate yanıtı + checkout misafirleri → ReserveForm JSON.
-pub fn build_reserve_form(allocate_raw: String, checkout_meta: String) -> String {
+pub fn build_reserve_form(
+  allocate_raw: String,
+  checkout_meta: String,
+) -> String {
   let base = case string.trim(allocate_raw) {
     "" -> "{}"
     other -> other
@@ -104,20 +107,19 @@ pub fn build_reserve_form(allocate_raw: String, checkout_meta: String) -> String
     False ->
       case string.ends_with(base, "}") && string.starts_with(base, "{") {
         True ->
-          string.drop_end(base, 1)
-            <> ",\"Passengers\":"
-            <> passengers
-            <> "}"
+          string.drop_end(base, 1) <> ",\"Passengers\":" <> passengers <> "}"
         False -> "{\"Passengers\":" <> passengers <> "}"
       }
   }
 }
 
 fn session_from_meta(meta: String) -> Option(turna.TurnaSession) {
-  case #(
-    json.parse(meta, decode.at(["session", "session_id"], decode.string)),
-    json.parse(meta, decode.at(["session", "session_token"], decode.string)),
-  ) {
+  case
+    #(
+      json.parse(meta, decode.at(["session", "session_id"], decode.string)),
+      json.parse(meta, decode.at(["session", "session_token"], decode.string)),
+    )
+  {
     #(Ok(sid), Ok(tok)) ->
       case string.trim(sid) == "" || string.trim(tok) == "" {
         True -> option.None
@@ -139,11 +141,10 @@ fn turna_line_meta(meta: String) -> Option(TurnaLineMeta) {
       case session_from_meta(meta) {
         option.None -> option.None
         option.Some(session) -> {
-          let alloc =
-            case json.parse(meta, alloc_dec) {
-              Ok(v) -> v
-              Error(_) -> ""
-            }
+          let alloc = case json.parse(meta, alloc_dec) {
+            Ok(v) -> v
+            Error(_) -> ""
+          }
           option.Some(TurnaLineMeta(
             session_id: session.session_id,
             session_token: session.session_token,
@@ -243,10 +244,10 @@ pub fn fulfill_after_payment(
       case
         pog.query(
           "select rli.id::text, rli.meta_json::text, r.price_breakdown_json::text "
-            <> "from reservation_line_items rli "
-            <> "inner join reservations r on r.id = rli.reservation_id "
-            <> "where rli.reservation_id = $1::uuid "
-            <> "order by rli.line_no limit 1",
+          <> "from reservation_line_items rli "
+          <> "inner join reservations r on r.id = rli.reservation_id "
+          <> "where rli.reservation_id = $1::uuid "
+          <> "order by rli.line_no limit 1",
         )
         |> pog.parameter(pog.text(reservation_id))
         |> pog.returning({
@@ -268,7 +269,8 @@ pub fn fulfill_after_payment(
                   case turna_line_meta(meta) {
                     option.None -> Nil
                     option.Some(tm) -> {
-                      let checkout_meta = checkout_meta_from_breakdown(breakdown)
+                      let checkout_meta =
+                        checkout_meta_from_breakdown(breakdown)
                       let reserve_form =
                         build_reserve_form(tm.allocate_raw, checkout_meta)
                       let session =
@@ -277,21 +279,17 @@ pub fn fulfill_after_payment(
                           session_token: tm.session_token,
                         )
                       case
-                        turna.flight_fulfill_paid_booking(cfg, session, reserve_form)
+                        turna.flight_fulfill_paid_booking(
+                          cfg,
+                          session,
+                          reserve_form,
+                        )
                       {
                         Error(e) -> {
                           persist_turna_booking_patch(
                             conn,
                             line_id,
-                            turna_booking_patch(
-                              "failed",
-                              "",
-                              "",
-                              "",
-                              "",
-                              "",
-                              e,
-                            ),
+                            turna_booking_patch("failed", "", "", "", "", "", e),
                           )
                           let payload =
                             json.object([#("error", json.string(e))])

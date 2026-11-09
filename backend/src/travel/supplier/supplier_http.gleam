@@ -1,21 +1,21 @@
 //// Tedarikçi — kurum, ilanlar, acente komisyonları, öne çıkarma oranları (G3.3).
 
 import backend/context.{type Context}
-import travel/identity/permissions
-import travel/agency/sales_summary as agency_sales
-import travel/supplier/commission_accruals as supplier_commission_accruals
-import travel/supplier/supplier_invoices
 import gleam/bit_array
 import gleam/dynamic/decode
 import gleam/float
-import gleam/result
 import gleam/http
 import gleam/http/request
 import gleam/json
 import gleam/list
+import gleam/result
 import gleam/string
 import pog
+import travel/agency/sales_summary as agency_sales
 import travel/db/resilient_pog as db_exec
+import travel/identity/permissions
+import travel/supplier/commission_accruals as supplier_commission_accruals
+import travel/supplier/supplier_invoices
 import wisp.{type Request, type Response}
 
 fn json_err(status: Int, msg: String) -> Response {
@@ -225,7 +225,10 @@ pub fn list_listings(req: Request, ctx: Context) -> Response {
 }
 
 /// Ön ödeme yüzdesi, komisyon oranından küçük olamaz (aynı anda gönderildiğinde).
-fn validate_prepayment_vs_commission(comm: String, prep_p: String) -> Result(Nil, String) {
+fn validate_prepayment_vs_commission(
+  comm: String,
+  prep_p: String,
+) -> Result(Nil, String) {
   let c = string.trim(comm)
   let p = string.trim(prep_p)
   case c != "" && p != "" {
@@ -261,7 +264,11 @@ fn patch_listing_ret_row() -> decode.Decoder(#(String, String, String, String)) 
 }
 
 /// PATCH /api/v1/supplier/listings/:id — komisyon % ve ön ödeme (gönderilmeyen alan değişmez).
-pub fn patch_listing(req: Request, ctx: Context, listing_id: String) -> Response {
+pub fn patch_listing(
+  req: Request,
+  ctx: Context,
+  listing_id: String,
+) -> Response {
   use <- wisp.require_method(req, http.Patch)
   case auth_supplier_portal(req, ctx.db) {
     Error(r) -> r
@@ -281,36 +288,36 @@ pub fn patch_listing(req: Request, ctx: Context, listing_id: String) -> Response
                   case validate_prepayment_vs_commission(comm, prep_p) {
                     Error(e) -> json_err(400, e)
                     Ok(Nil) ->
-                  case
-                    pog.query(
-                      "update listings set commission_percent = case when trim($3::text) = '' then commission_percent else trim($3)::numeric end, prepayment_amount = case when trim($4::text) = '' then prepayment_amount else nullif(trim($4), '')::numeric end, prepayment_percent = case when trim($5::text) = '' then prepayment_percent else nullif(trim($5), '')::numeric end, updated_at = now() where id = $1::uuid and organization_id = $2::uuid returning id::text, coalesce(commission_percent::text, ''), coalesce(prepayment_amount::text, ''), coalesce(prepayment_percent::text, '')",
-                    )
-                    |> pog.parameter(pog.text(listing_id))
-                    |> pog.parameter(pog.text(oid))
-                    |> pog.parameter(pog.text(comm))
-                    |> pog.parameter(pog.text(prep_a))
-                    |> pog.parameter(pog.text(prep_p))
-                    |> pog.returning(patch_listing_ret_row())
-                    |> db_exec.execute(ctx.db)
-                  {
-                    Error(_) -> json_err(500, "patch_failed")
-                    Ok(ret) ->
-                      case ret.rows {
-                        [] -> json_err(404, "listing_not_found")
-                        [#(lid, c, a, p)] -> {
-                          let out =
-                            json.object([
-                              #("id", json.string(lid)),
-                              #("commission_percent", json.string(c)),
-                              #("prepayment_amount", json.string(a)),
-                              #("prepayment_percent", json.string(p)),
-                            ])
-                            |> json.to_string
-                          wisp.json_response(out, 200)
-                        }
-                        _ -> json_err(500, "patch_unexpected")
+                      case
+                        pog.query(
+                          "update listings set commission_percent = case when trim($3::text) = '' then commission_percent else trim($3)::numeric end, prepayment_amount = case when trim($4::text) = '' then prepayment_amount else nullif(trim($4), '')::numeric end, prepayment_percent = case when trim($5::text) = '' then prepayment_percent else nullif(trim($5), '')::numeric end, updated_at = now() where id = $1::uuid and organization_id = $2::uuid returning id::text, coalesce(commission_percent::text, ''), coalesce(prepayment_amount::text, ''), coalesce(prepayment_percent::text, '')",
+                        )
+                        |> pog.parameter(pog.text(listing_id))
+                        |> pog.parameter(pog.text(oid))
+                        |> pog.parameter(pog.text(comm))
+                        |> pog.parameter(pog.text(prep_a))
+                        |> pog.parameter(pog.text(prep_p))
+                        |> pog.returning(patch_listing_ret_row())
+                        |> db_exec.execute(ctx.db)
+                      {
+                        Error(_) -> json_err(500, "patch_failed")
+                        Ok(ret) ->
+                          case ret.rows {
+                            [] -> json_err(404, "listing_not_found")
+                            [#(lid, c, a, p)] -> {
+                              let out =
+                                json.object([
+                                  #("id", json.string(lid)),
+                                  #("commission_percent", json.string(c)),
+                                  #("prepayment_amount", json.string(a)),
+                                  #("prepayment_percent", json.string(p)),
+                                ])
+                                |> json.to_string
+                              wisp.json_response(out, 200)
+                            }
+                            _ -> json_err(500, "patch_unexpected")
+                          }
                       }
-                  }
                   }
               }
             }
@@ -377,7 +384,10 @@ fn agency_commission_upsert_decoder() -> decode.Decoder(#(String, String)) {
   })
 }
 
-fn sac_upsert_json_response(row: #(String, String, String), status: Int) -> Response {
+fn sac_upsert_json_response(
+  row: #(String, String, String),
+  status: Int,
+) -> Response {
   let out =
     json.object([#("agency_commission", sac_row_to_json(row))])
     |> json.to_string
@@ -588,9 +598,7 @@ pub fn promotion_fee_rules(req: Request, ctx: Context) -> Response {
 }
 
 fn valid_promotion_rule_type(rt: String) -> Bool {
-  rt == "ads_support"
-  || rt == "category_featured"
-  || rt == "homepage_feature"
+  rt == "ads_support" || rt == "category_featured" || rt == "homepage_feature"
 }
 
 fn promotion_fee_rule_upsert_decoder() -> decode.Decoder(#(String, String)) {
@@ -646,7 +654,12 @@ pub fn upsert_promotion_fee_rule(req: Request, ctx: Context) -> Response {
                           case upd.rows {
                             [row] -> {
                               let out =
-                                json.object([#("promotion_fee_rule", promo_row_to_json(row))])
+                                json.object([
+                                  #(
+                                    "promotion_fee_rule",
+                                    promo_row_to_json(row),
+                                  ),
+                                ])
                                 |> json.to_string
                               wisp.json_response(out, 200)
                             }
@@ -716,7 +729,8 @@ pub fn delete_promotion_fee_rule(
           case ret.rows {
             [] -> json_err(404, "not_found")
             [_] -> {
-              let body = json.object([#("ok", json.bool(True))]) |> json.to_string
+              let body =
+                json.object([#("ok", json.bool(True))]) |> json.to_string
               wisp.json_response(body, 200)
             }
             _ -> json_err(500, "delete_unexpected")
@@ -821,17 +835,30 @@ pub fn create_invoice(req: Request, ctx: Context) -> Response {
 }
 
 /// POST /api/v1/supplier/invoices/:id/cancel
-pub fn cancel_invoice(req: Request, ctx: Context, invoice_id: String) -> Response {
+pub fn cancel_invoice(
+  req: Request,
+  ctx: Context,
+  invoice_id: String,
+) -> Response {
   use <- wisp.require_method(req, http.Post)
   case auth_supplier_portal(req, ctx.db) {
     Error(r) -> r
     Ok(#(_, oid, _, _, _)) ->
-      supplier_invoices.cancel_response(ctx.db, oid, invoice_id, ctx.invoice_notify)
+      supplier_invoices.cancel_response(
+        ctx.db,
+        oid,
+        invoice_id,
+        ctx.invoice_notify,
+      )
   }
 }
 
 /// PATCH /api/v1/supplier/invoices/:id — { "notes": "..." }
-pub fn patch_invoice_notes(req: Request, ctx: Context, invoice_id: String) -> Response {
+pub fn patch_invoice_notes(
+  req: Request,
+  ctx: Context,
+  invoice_id: String,
+) -> Response {
   use <- wisp.require_method(req, http.Patch)
   case auth_supplier_portal(req, ctx.db) {
     Error(r) -> r
@@ -842,7 +869,12 @@ pub fn patch_invoice_notes(req: Request, ctx: Context, invoice_id: String) -> Re
           case json.parse(body, invoice_notes_decoder()) {
             Error(_) -> json_err(400, "invalid_json")
             Ok(notes) ->
-              supplier_invoices.patch_notes_response(ctx.db, oid, invoice_id, notes)
+              supplier_invoices.patch_notes_response(
+                ctx.db,
+                oid,
+                invoice_id,
+                notes,
+              )
           }
       }
   }

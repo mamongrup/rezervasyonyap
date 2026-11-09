@@ -13,8 +13,8 @@ import gleam/option.{type Option, None, Some}
 import gleam/result
 import gleam/string
 import pog
-import travel/db/resilient_pog as db_exec
 import travel/db/decode_helpers as row_dec
+import travel/db/resilient_pog as db_exec
 import travel/ical/ical_sync
 import travel/identity/admin_gate
 import wisp.{type Request, type Response}
@@ -31,7 +31,11 @@ fn optional_location_page_not_found() -> Response {
   wisp.response(204)
 }
 
-fn require_admin(req: Request, ctx: Context, next: fn() -> Response) -> Response {
+fn require_admin(
+  req: Request,
+  ctx: Context,
+  next: fn() -> Response,
+) -> Response {
   case admin_gate.require_admin_users_read(req, ctx) {
     Error(r) -> r
     Ok(_) -> next()
@@ -41,7 +45,10 @@ fn require_admin(req: Request, ctx: Context, next: fn() -> Response) -> Response
 /// CDN / ara proxy `GET` önbelleğinde eski harita koordinatı kalmayı engeller.
 const location_pages_http_cache_control = "private, no-store, max-age=0, must-revalidate"
 
-fn json_response_location_pages_no_store(body: String, status: Int) -> Response {
+fn json_response_location_pages_no_store(
+  body: String,
+  status: Int,
+) -> Response {
   wisp.json_response(body, status)
   |> wisp.set_header("cache-control", location_pages_http_cache_control)
 }
@@ -64,7 +71,11 @@ fn optional_geo_coord_string() -> decode.Decoder(Option(String)) {
 fn opt_text(o: Option(String)) -> pog.Value {
   case o {
     None -> pog.null()
-    Some(s) -> case string.trim(s) == "" { True -> pog.null() False -> pog.text(string.trim(s)) }
+    Some(s) ->
+      case string.trim(s) == "" {
+        True -> pog.null()
+        False -> pog.text(string.trim(s))
+      }
   }
 }
 
@@ -97,7 +108,9 @@ fn country_json(row: #(String, String, String)) -> json.Json {
 pub fn list_countries(req: Request, ctx: Context) -> Response {
   use <- wisp.require_method(req, http.Get)
   case
-    pog.query("select id::text, iso2::text, name from countries order by name limit 500")
+    pog.query(
+      "select id::text, iso2::text, name from countries order by name limit 500",
+    )
     |> pog.returning(country_row())
     |> db_exec.execute(ctx.db)
   {
@@ -147,7 +160,9 @@ pub fn create_country(req: Request, ctx: Context) -> Response {
                 Ok(r) ->
                   case r.rows {
                     [id] -> {
-                      let out = json.object([#("id", json.string(id))]) |> json.to_string
+                      let out =
+                        json.object([#("id", json.string(id))])
+                        |> json.to_string
                       wisp.json_response(out, 201)
                     }
                     _ -> json_err(500, "unexpected")
@@ -161,7 +176,9 @@ pub fn create_country(req: Request, ctx: Context) -> Response {
 
 // --- regions ---
 
-fn region_row() -> decode.Decoder(#(String, String, String, String, String, String, String)) {
+fn region_row() -> decode.Decoder(
+  #(String, String, String, String, String, String, String),
+) {
   use id <- decode.field(0, decode.string)
   use cid <- decode.field(1, decode.string)
   use name <- decode.field(2, decode.string)
@@ -172,7 +189,9 @@ fn region_row() -> decode.Decoder(#(String, String, String, String, String, Stri
   decode.success(#(id, cid, name, slug, lat, lng, district_count))
 }
 
-fn region_json(row: #(String, String, String, String, String, String, String)) -> json.Json {
+fn region_json(
+  row: #(String, String, String, String, String, String, String),
+) -> json.Json {
   let #(id, cid, name, slug, lat, lng, district_count) = row
   let dc = case int.parse(district_count) {
     Ok(n) -> n
@@ -212,12 +231,10 @@ pub fn list_regions(req: Request, ctx: Context) -> Response {
     True -> json_err(400, "country_id_required")
     False ->
       case int.parse(cf) {
-        Error(_) ->
-          json_err(400, "country_id_must_be_positive_integer")
+        Error(_) -> json_err(400, "country_id_must_be_positive_integer")
         Ok(cid_raw) ->
-          case cid_raw < 1 || cid_raw > 32767 {
-            True ->
-              json_err(400, "country_id_out_of_range")
+          case cid_raw < 1 || cid_raw > 32_767 {
+            True -> json_err(400, "country_id_out_of_range")
             False ->
               case
                 pog.query(
@@ -231,7 +248,9 @@ pub fn list_regions(req: Request, ctx: Context) -> Response {
                 Ok(ret) -> {
                   let arr = list.map(ret.rows, region_json)
                   let body =
-                    json.object([#("regions", json.array(from: arr, of: fn(x) { x }))])
+                    json.object([
+                      #("regions", json.array(from: arr, of: fn(x) { x })),
+                    ])
                     |> json.to_string
                   wisp.json_response(body, 200)
                 }
@@ -275,7 +294,10 @@ pub fn create_region(req: Request, ctx: Context) -> Response {
       case json.parse(body, region_create_decoder()) {
         Error(_) -> json_err(400, "invalid_json")
         Ok(#(cid, name, slug, lat_opt, lng_opt)) ->
-          case string.trim(cid) == "" || string.trim(name) == "" || string.trim(slug) == ""
+          case
+            string.trim(cid) == ""
+            || string.trim(name) == ""
+            || string.trim(slug) == ""
           {
             True -> json_err(400, "country_id_name_slug_required")
             False -> {
@@ -303,7 +325,9 @@ pub fn create_region(req: Request, ctx: Context) -> Response {
                 Ok(r) ->
                   case r.rows {
                     [id] -> {
-                      let out = json.object([#("id", json.string(id))]) |> json.to_string
+                      let out =
+                        json.object([#("id", json.string(id))])
+                        |> json.to_string
                       wisp.json_response(out, 201)
                     }
                     _ -> json_err(500, "unexpected")
@@ -317,7 +341,9 @@ pub fn create_region(req: Request, ctx: Context) -> Response {
 
 // --- districts ---
 
-fn district_row() -> decode.Decoder(#(String, String, String, String, String, String)) {
+fn district_row() -> decode.Decoder(
+  #(String, String, String, String, String, String),
+) {
   use id <- decode.field(0, decode.string)
   use rid <- decode.field(1, decode.string)
   use name <- decode.field(2, decode.string)
@@ -327,7 +353,9 @@ fn district_row() -> decode.Decoder(#(String, String, String, String, String, St
   decode.success(#(id, rid, name, slug, lat, lng))
 }
 
-fn district_json(row: #(String, String, String, String, String, String)) -> json.Json {
+fn district_json(
+  row: #(String, String, String, String, String, String),
+) -> json.Json {
   let #(id, rid, name, slug, lat, lng) = row
   let latj = case lat == "" {
     True -> json.null()
@@ -347,15 +375,9 @@ fn district_json(row: #(String, String, String, String, String, String)) -> json
   ])
 }
 
-fn district_lookup_row() -> decode.Decoder(#(
-  String,
-  String,
-  String,
-  String,
-  String,
-  String,
-  String,
-)) {
+fn district_lookup_row() -> decode.Decoder(
+  #(String, String, String, String, String, String, String),
+) {
   use id <- decode.field(0, decode.string)
   use rid <- decode.field(1, decode.string)
   use cid <- decode.field(2, decode.string)
@@ -404,8 +426,7 @@ pub fn get_district_lookup(req: Request, ctx: Context) -> Response {
     True -> json_err(400, "id_required")
     False ->
       case int.parse(raw_id) {
-        Error(_) ->
-          json_err(400, "district_id_must_be_positive_integer")
+        Error(_) -> json_err(400, "district_id_must_be_positive_integer")
         Ok(did) ->
           case did < 1 {
             True -> json_err(400, "district_id_invalid")
@@ -450,8 +471,7 @@ pub fn list_districts(req: Request, ctx: Context) -> Response {
     True -> json_err(400, "region_id_required")
     False ->
       case int.parse(rf) {
-        Error(_) ->
-          json_err(400, "region_id_must_be_positive_integer")
+        Error(_) -> json_err(400, "region_id_must_be_positive_integer")
         Ok(rid) ->
           case rid < 1 {
             True -> json_err(400, "region_id_invalid")
@@ -469,10 +489,7 @@ pub fn list_districts(req: Request, ctx: Context) -> Response {
                   let arr = list.map(ret.rows, district_json)
                   let body =
                     json.object([
-                      #(
-                        "districts",
-                        json.array(from: arr, of: fn(x) { x }),
-                      ),
+                      #("districts", json.array(from: arr, of: fn(x) { x })),
                     ])
                     |> json.to_string
                   wisp.json_response(body, 200)
@@ -517,7 +534,10 @@ pub fn create_district(req: Request, ctx: Context) -> Response {
       case json.parse(body, district_create_decoder()) {
         Error(_) -> json_err(400, "invalid_json")
         Ok(#(rid, name, slug, lat_opt, lng_opt)) ->
-          case string.trim(rid) == "" || string.trim(name) == "" || string.trim(slug) == ""
+          case
+            string.trim(rid) == ""
+            || string.trim(name) == ""
+            || string.trim(slug) == ""
           {
             True -> json_err(400, "region_id_name_slug_required")
             False -> {
@@ -545,7 +565,9 @@ pub fn create_district(req: Request, ctx: Context) -> Response {
                 Ok(r) ->
                   case r.rows {
                     [id] -> {
-                      let out = json.object([#("id", json.string(id))]) |> json.to_string
+                      let out =
+                        json.object([#("id", json.string(id))])
+                        |> json.to_string
                       wisp.json_response(out, 201)
                     }
                     _ -> json_err(500, "unexpected")
@@ -600,8 +622,7 @@ const page_json_sql = "json_build_object(
   'service_pois_json', coalesce(lp.service_pois_json, '[]'::jsonb)
 )::text"
 
-const page_json_from =
-  " from location_pages lp
+const page_json_from = " from location_pages lp
     left join districts d on d.id = lp.district_id
     left join regions reg on reg.id = coalesce(lp.region_id, d.region_id) "
 
@@ -947,7 +968,11 @@ pub fn get_location_page_by_name(req: Request, ctx: Context) -> Response {
 }
 
 /// GET /api/v1/locations/pages/:page_id
-pub fn get_location_page(req: Request, ctx: Context, page_id: String) -> Response {
+pub fn get_location_page(
+  req: Request,
+  ctx: Context,
+  page_id: String,
+) -> Response {
   use <- wisp.require_method(req, http.Get)
   case
     pog.query(
@@ -986,31 +1011,51 @@ fn page_create_decoder() -> decode.Decoder(PageCreateBody) {
   decode.field("slug_path", decode.string, fn(sp) {
     decode.optional_field("district_id", "", decode.string, fn(did) {
       decode.optional_field("hero_image_key", "", decode.string, fn(hk) {
-        decode.optional_field("title", None, decode.optional(decode.string), fn(title) {
-          decode.optional_field("map_lat", None, optional_geo_coord_string(), fn(lat) {
-            decode.optional_field("map_lng", None, optional_geo_coord_string(), fn(lng) {
-              decode.optional_field("map_zoom", None, decode.optional(decode.int), fn(mz) {
-                let d = case string.trim(did) == "" {
-                  True -> None
-                  False -> Some(string.trim(did))
-                }
-                let h = case string.trim(hk) == "" {
-                  True -> None
-                  False -> Some(string.trim(hk))
-                }
-                decode.success(PageCreateBody(
-                  slug_path: string.trim(sp),
-                  district_id: d,
-                  hero_image_key: h,
-                  title: title,
-                  map_lat: lat,
-                  map_lng: lng,
-                  map_zoom: mz,
-                ))
-              })
-            })
-          })
-        })
+        decode.optional_field(
+          "title",
+          None,
+          decode.optional(decode.string),
+          fn(title) {
+            decode.optional_field(
+              "map_lat",
+              None,
+              optional_geo_coord_string(),
+              fn(lat) {
+                decode.optional_field(
+                  "map_lng",
+                  None,
+                  optional_geo_coord_string(),
+                  fn(lng) {
+                    decode.optional_field(
+                      "map_zoom",
+                      None,
+                      decode.optional(decode.int),
+                      fn(mz) {
+                        let d = case string.trim(did) == "" {
+                          True -> None
+                          False -> Some(string.trim(did))
+                        }
+                        let h = case string.trim(hk) == "" {
+                          True -> None
+                          False -> Some(string.trim(hk))
+                        }
+                        decode.success(PageCreateBody(
+                          slug_path: string.trim(sp),
+                          district_id: d,
+                          hero_image_key: h,
+                          title: title,
+                          map_lat: lat,
+                          map_lng: lng,
+                          map_zoom: mz,
+                        ))
+                      },
+                    )
+                  },
+                )
+              },
+            )
+          },
+        )
       })
     })
   })
@@ -1025,7 +1070,15 @@ pub fn create_location_page(req: Request, ctx: Context) -> Response {
     Ok(body) ->
       case json.parse(body, page_create_decoder()) {
         Error(_) -> json_err(400, "invalid_json")
-        Ok(PageCreateBody(sp, did_opt, hk_opt, title_opt, lat_opt, lng_opt, zoom_opt)) ->
+        Ok(PageCreateBody(
+          sp,
+          did_opt,
+          hk_opt,
+          title_opt,
+          lat_opt,
+          lng_opt,
+          zoom_opt,
+        )) ->
           case sp == "" {
             True -> json_err(400, "slug_path_required")
             False -> {
@@ -1055,7 +1108,9 @@ pub fn create_location_page(req: Request, ctx: Context) -> Response {
                 Ok(r) ->
                   case r.rows {
                     [id] -> {
-                      let out = json.object([#("id", json.string(id))]) |> json.to_string
+                      let out =
+                        json.object([#("id", json.string(id))])
+                        |> json.to_string
                       wisp.json_response(out, 201)
                     }
                     _ -> json_err(500, "unexpected")
@@ -1095,69 +1150,222 @@ type PagePatch {
 }
 
 fn page_patch_decoder() -> decode.Decoder(PagePatch) {
-  decode.optional_field("district_id", None, decode.optional(decode.string), fn(did) {
-    decode.optional_field("slug_path", None, decode.optional(decode.string), fn(sp) {
-      decode.optional_field("hero_image_key", None, decode.optional(decode.string), fn(hk) {
-        decode.optional_field("title", None, decode.optional(decode.string), fn(title) {
-          decode.optional_field("description", None, decode.optional(decode.string), fn(desc) {
-            decode.optional_field("meta_title", None, decode.optional(decode.string), fn(mt) {
-              decode.optional_field("meta_description", None, decode.optional(decode.string), fn(md) {
-                decode.optional_field("gallery_json", None, decode.optional(decode.string), fn(gallery) {
-                  decode.optional_field("map_lat", None, optional_geo_coord_string(), fn(lat) {
-                    decode.optional_field("map_lng", None, optional_geo_coord_string(), fn(lng) {
-                      decode.optional_field("map_zoom", None, decode.optional(decode.int), fn(mz) {
-                        decode.optional_field("is_published", None, decode.optional(decode.bool), fn(is_pub) {
-                        decode.optional_field("region_type", None, decode.optional(decode.string), fn(rt) {
-                          decode.optional_field("featured_image_url", None, decode.optional(decode.string), fn(fi) {
-                            decode.optional_field("hero_image_url", None, decode.optional(decode.string), fn(hi) {
-                              decode.optional_field("travel_ideas_image_url", None, decode.optional(decode.string), fn(tii) {
-                                decode.optional_field("travel_ideas_json", None, decode.optional(decode.string), fn(tij) {
-                                  decode.optional_field("translations_json", None, decode.optional(decode.string), fn(trj) {
-                                    decode.optional_field("poi_manual_json", None, decode.optional(decode.string), fn(pmj) {
-                                      decode.optional_field("country_info_json", None, decode.optional(decode.string), fn(cij) {
-                                        decode.optional_field(
-                                          "nearby_vitrin_columns_json",
-                                          None,
-                                          decode.optional(decode.string),
-                                          fn(nvc) {
-                                            decode.optional_field(
-                                              "service_pois_json",
-                                              None,
-                                              decode.optional(decode.string),
-                                              fn(spj) {
-                                                decode.success(PagePatch(
-                                                  did, sp, hk, title, desc, mt, md, gallery, lat, lng, mz, is_pub,
-                                                  rt,
-                                                  fi, hi, tii, tij, trj, pmj, cij, nvc, spj,
-                                                ))
-                                              },
-                                            )
-                                          },
-                                        )
-                                      })
-                                    })
-                                  })
-                                })
-                              })
-                            })
-                          })
-                        })
-                      })
-                      })
-                    })
-                  })
-                })
-              })
-            })
-          })
-        })
-      })
-    })
-  })
+  decode.optional_field(
+    "district_id",
+    None,
+    decode.optional(decode.string),
+    fn(did) {
+      decode.optional_field(
+        "slug_path",
+        None,
+        decode.optional(decode.string),
+        fn(sp) {
+          decode.optional_field(
+            "hero_image_key",
+            None,
+            decode.optional(decode.string),
+            fn(hk) {
+              decode.optional_field(
+                "title",
+                None,
+                decode.optional(decode.string),
+                fn(title) {
+                  decode.optional_field(
+                    "description",
+                    None,
+                    decode.optional(decode.string),
+                    fn(desc) {
+                      decode.optional_field(
+                        "meta_title",
+                        None,
+                        decode.optional(decode.string),
+                        fn(mt) {
+                          decode.optional_field(
+                            "meta_description",
+                            None,
+                            decode.optional(decode.string),
+                            fn(md) {
+                              decode.optional_field(
+                                "gallery_json",
+                                None,
+                                decode.optional(decode.string),
+                                fn(gallery) {
+                                  decode.optional_field(
+                                    "map_lat",
+                                    None,
+                                    optional_geo_coord_string(),
+                                    fn(lat) {
+                                      decode.optional_field(
+                                        "map_lng",
+                                        None,
+                                        optional_geo_coord_string(),
+                                        fn(lng) {
+                                          decode.optional_field(
+                                            "map_zoom",
+                                            None,
+                                            decode.optional(decode.int),
+                                            fn(mz) {
+                                              decode.optional_field(
+                                                "is_published",
+                                                None,
+                                                decode.optional(decode.bool),
+                                                fn(is_pub) {
+                                                  decode.optional_field(
+                                                    "region_type",
+                                                    None,
+                                                    decode.optional(
+                                                      decode.string,
+                                                    ),
+                                                    fn(rt) {
+                                                      decode.optional_field(
+                                                        "featured_image_url",
+                                                        None,
+                                                        decode.optional(
+                                                          decode.string,
+                                                        ),
+                                                        fn(fi) {
+                                                          decode.optional_field(
+                                                            "hero_image_url",
+                                                            None,
+                                                            decode.optional(
+                                                              decode.string,
+                                                            ),
+                                                            fn(hi) {
+                                                              decode.optional_field(
+                                                                "travel_ideas_image_url",
+                                                                None,
+                                                                decode.optional(
+                                                                  decode.string,
+                                                                ),
+                                                                fn(tii) {
+                                                                  decode.optional_field(
+                                                                    "travel_ideas_json",
+                                                                    None,
+                                                                    decode.optional(
+                                                                      decode.string,
+                                                                    ),
+                                                                    fn(tij) {
+                                                                      decode.optional_field(
+                                                                        "translations_json",
+                                                                        None,
+                                                                        decode.optional(
+                                                                          decode.string,
+                                                                        ),
+                                                                        fn(trj) {
+                                                                          decode.optional_field(
+                                                                            "poi_manual_json",
+                                                                            None,
+                                                                            decode.optional(
+                                                                              decode.string,
+                                                                            ),
+                                                                            fn(
+                                                                              pmj,
+                                                                            ) {
+                                                                              decode.optional_field(
+                                                                                "country_info_json",
+                                                                                None,
+                                                                                decode.optional(
+                                                                                  decode.string,
+                                                                                ),
+                                                                                fn(
+                                                                                  cij,
+                                                                                ) {
+                                                                                  decode.optional_field(
+                                                                                    "nearby_vitrin_columns_json",
+                                                                                    None,
+                                                                                    decode.optional(
+                                                                                      decode.string,
+                                                                                    ),
+                                                                                    fn(
+                                                                                      nvc,
+                                                                                    ) {
+                                                                                      decode.optional_field(
+                                                                                        "service_pois_json",
+                                                                                        None,
+                                                                                        decode.optional(
+                                                                                          decode.string,
+                                                                                        ),
+                                                                                        fn(
+                                                                                          spj,
+                                                                                        ) {
+                                                                                          decode.success(
+                                                                                            PagePatch(
+                                                                                              did,
+                                                                                              sp,
+                                                                                              hk,
+                                                                                              title,
+                                                                                              desc,
+                                                                                              mt,
+                                                                                              md,
+                                                                                              gallery,
+                                                                                              lat,
+                                                                                              lng,
+                                                                                              mz,
+                                                                                              is_pub,
+                                                                                              rt,
+                                                                                              fi,
+                                                                                              hi,
+                                                                                              tii,
+                                                                                              tij,
+                                                                                              trj,
+                                                                                              pmj,
+                                                                                              cij,
+                                                                                              nvc,
+                                                                                              spj,
+                                                                                            ),
+                                                                                          )
+                                                                                        },
+                                                                                      )
+                                                                                    },
+                                                                                  )
+                                                                                },
+                                                                              )
+                                                                            },
+                                                                          )
+                                                                        },
+                                                                      )
+                                                                    },
+                                                                  )
+                                                                },
+                                                              )
+                                                            },
+                                                          )
+                                                        },
+                                                      )
+                                                    },
+                                                  )
+                                                },
+                                              )
+                                            },
+                                          )
+                                        },
+                                      )
+                                    },
+                                  )
+                                },
+                              )
+                            },
+                          )
+                        },
+                      )
+                    },
+                  )
+                },
+              )
+            },
+          )
+        },
+      )
+    },
+  )
 }
 
 /// PATCH /api/v1/locations/pages/:page_id
-pub fn patch_location_page(req: Request, ctx: Context, page_id: String) -> Response {
+pub fn patch_location_page(
+  req: Request,
+  ctx: Context,
+  page_id: String,
+) -> Response {
   use <- wisp.require_method(req, http.Patch)
   use <- require_admin(req, ctx)
   case read_body_string(req) {
@@ -1230,7 +1438,10 @@ pub fn patch_location_page(req: Request, ctx: Context, page_id: String) -> Respo
                 [] -> json_err(404, "not_found")
                 [id] -> {
                   let out =
-                    json.object([#("id", json.string(id)), #("ok", json.bool(True))])
+                    json.object([
+                      #("id", json.string(id)),
+                      #("ok", json.bool(True)),
+                    ])
                     |> json.to_string
                   wisp.json_response(out, 200)
                 }
@@ -1243,7 +1454,11 @@ pub fn patch_location_page(req: Request, ctx: Context, page_id: String) -> Respo
 }
 
 /// DELETE /api/v1/locations/pages/:page_id
-pub fn delete_location_page(req: Request, ctx: Context, page_id: String) -> Response {
+pub fn delete_location_page(
+  req: Request,
+  ctx: Context,
+  page_id: String,
+) -> Response {
   use <- wisp.require_method(req, http.Delete)
   use <- require_admin(req, ctx)
   case
@@ -1271,7 +1486,11 @@ fn poi_settings_row() -> decode.Decoder(#(String, String, Int, Int)) {
 }
 
 /// GET /api/v1/locations/pages/:page_id/poi-settings
-pub fn get_poi_settings(req: Request, ctx: Context, page_id: String) -> Response {
+pub fn get_poi_settings(
+  req: Request,
+  ctx: Context,
+  page_id: String,
+) -> Response {
   use <- wisp.require_method(req, http.Get)
   case
     pog.query(
@@ -1312,7 +1531,11 @@ fn poi_put_decoder() -> decode.Decoder(#(List(String), Int, Int)) {
 }
 
 /// PUT /api/v1/locations/pages/:page_id/poi-settings — sayfa başına tek kayıt
-pub fn put_poi_settings(req: Request, ctx: Context, page_id: String) -> Response {
+pub fn put_poi_settings(
+  req: Request,
+  ctx: Context,
+  page_id: String,
+) -> Response {
   use <- wisp.require_method(req, http.Put)
   use <- require_admin(req, ctx)
   case read_body_string(req) {
@@ -1343,7 +1566,11 @@ pub fn put_poi_settings(req: Request, ctx: Context, page_id: String) -> Response
             Ok(r) ->
               case r.rows {
                 [id] -> {
-                  let out = json.object([#("id", json.string(id)), #("ok", json.bool(True))])
+                  let out =
+                    json.object([
+                      #("id", json.string(id)),
+                      #("ok", json.bool(True)),
+                    ])
                   let body = json.to_string(out)
                   wisp.json_response(body, 200)
                 }
@@ -1357,7 +1584,9 @@ pub fn put_poi_settings(req: Request, ctx: Context, page_id: String) -> Response
 
 // --- poi_cache ---
 
-fn poi_cache_row() -> decode.Decoder(#(String, String, String, String, String, String, String, String)) {
+fn poi_cache_row() -> decode.Decoder(
+  #(String, String, String, String, String, String, String, String),
+) {
   use id <- decode.field(0, decode.string)
   use pid <- decode.field(1, decode.string)
   use pl <- decode.field(2, decode.string)
@@ -1457,7 +1686,11 @@ fn poi_cache_insert_decoder() -> decode.Decoder(
 }
 
 /// POST /api/v1/locations/pages/:page_id/poi-cache
-pub fn add_poi_cache_row(req: Request, ctx: Context, page_id: String) -> Response {
+pub fn add_poi_cache_row(
+  req: Request,
+  ctx: Context,
+  page_id: String,
+) -> Response {
   use <- wisp.require_method(req, http.Post)
   use <- require_admin(req, ctx)
   case read_body_string(req) {
@@ -1503,7 +1736,9 @@ pub fn add_poi_cache_row(req: Request, ctx: Context, page_id: String) -> Respons
                 Ok(r) ->
                   case r.rows {
                     [id] -> {
-                      let out = json.object([#("id", json.string(id))]) |> json.to_string
+                      let out =
+                        json.object([#("id", json.string(id))])
+                        |> json.to_string
                       wisp.json_response(out, 201)
                     }
                     _ -> json_err(500, "unexpected")
@@ -1516,7 +1751,11 @@ pub fn add_poi_cache_row(req: Request, ctx: Context, page_id: String) -> Respons
 }
 
 /// DELETE /api/v1/locations/pages/:page_id/poi-cache — sayfadaki tüm önbellek
-pub fn clear_poi_cache(req: Request, ctx: Context, page_id: String) -> Response {
+pub fn clear_poi_cache(
+  req: Request,
+  ctx: Context,
+  page_id: String,
+) -> Response {
   use <- wisp.require_method(req, http.Delete)
   use <- require_admin(req, ctx)
   case
@@ -1556,8 +1795,7 @@ fn ical_row() -> decode.Decoder(IcalRow) {
   decode.success(#(id, lid, url, dp, dm, lsa, lh, le, lec, ia))
 }
 
-const ical_select_cols: String =
-  "select id::text, listing_id::text, url, day_offset_plus, day_offset_minus, "
+const ical_select_cols: String = "select id::text, listing_id::text, url, day_offset_plus, day_offset_minus, "
   <> "coalesce(last_sync_at::text,''), coalesce(last_hash,''), "
   <> "coalesce(last_error,''), last_event_count, is_active "
   <> "from ical_feeds"
@@ -1607,8 +1845,7 @@ pub fn list_ical_feeds(req: Request, ctx: Context) -> Response {
     False ->
       case
         pog.query(
-          ical_select_cols
-          <> " where listing_id = $1::uuid order by id",
+          ical_select_cols <> " where listing_id = $1::uuid order by id",
         )
         |> pog.parameter(pog.text(lf))
         |> pog.returning(ical_row())
@@ -1666,7 +1903,9 @@ pub fn create_ical_feed(req: Request, ctx: Context) -> Response {
                 Ok(r) ->
                   case r.rows {
                     [id] -> {
-                      let out = json.object([#("id", json.string(id))]) |> json.to_string
+                      let out =
+                        json.object([#("id", json.string(id))])
+                        |> json.to_string
                       wisp.json_response(out, 201)
                     }
                     _ -> json_err(500, "unexpected")
@@ -1679,25 +1918,59 @@ pub fn create_ical_feed(req: Request, ctx: Context) -> Response {
 }
 
 fn ical_patch_decoder() -> decode.Decoder(
-  #(Option(String), Option(Int), Option(Int), Option(String), Option(String), Option(Bool)),
+  #(
+    Option(String),
+    Option(Int),
+    Option(Int),
+    Option(String),
+    Option(String),
+    Option(Bool),
+  ),
 ) {
   decode.optional_field("url", None, decode.optional(decode.string), fn(url) {
-    decode.optional_field("day_offset_plus", None, decode.optional(decode.int), fn(dp) {
-      decode.optional_field("day_offset_minus", None, decode.optional(decode.int), fn(dm) {
-        decode.optional_field("last_sync_at", None, decode.optional(decode.string), fn(lsa) {
-          decode.optional_field("last_hash", None, decode.optional(decode.string), fn(lh) {
-            decode.optional_field("is_active", None, decode.optional(decode.bool), fn(ia) {
-              decode.success(#(url, dp, dm, lsa, lh, ia))
-            })
-          })
-        })
-      })
-    })
+    decode.optional_field(
+      "day_offset_plus",
+      None,
+      decode.optional(decode.int),
+      fn(dp) {
+        decode.optional_field(
+          "day_offset_minus",
+          None,
+          decode.optional(decode.int),
+          fn(dm) {
+            decode.optional_field(
+              "last_sync_at",
+              None,
+              decode.optional(decode.string),
+              fn(lsa) {
+                decode.optional_field(
+                  "last_hash",
+                  None,
+                  decode.optional(decode.string),
+                  fn(lh) {
+                    decode.optional_field(
+                      "is_active",
+                      None,
+                      decode.optional(decode.bool),
+                      fn(ia) { decode.success(#(url, dp, dm, lsa, lh, ia)) },
+                    )
+                  },
+                )
+              },
+            )
+          },
+        )
+      },
+    )
   })
 }
 
 /// PATCH /api/v1/locations/ical-feeds/:feed_id
-pub fn patch_ical_feed(req: Request, ctx: Context, feed_id: String) -> Response {
+pub fn patch_ical_feed(
+  req: Request,
+  ctx: Context,
+  feed_id: String,
+) -> Response {
   use <- wisp.require_method(req, http.Patch)
   use <- require_admin(req, ctx)
   case read_body_string(req) {
@@ -1761,7 +2034,10 @@ pub fn patch_ical_feed(req: Request, ctx: Context, feed_id: String) -> Response 
                     [] -> json_err(404, "not_found")
                     [id] -> {
                       let out =
-                        json.object([#("id", json.string(id)), #("ok", json.bool(True))])
+                        json.object([
+                          #("id", json.string(id)),
+                          #("ok", json.bool(True)),
+                        ])
                         |> json.to_string
                       wisp.json_response(out, 200)
                     }
@@ -1775,7 +2051,11 @@ pub fn patch_ical_feed(req: Request, ctx: Context, feed_id: String) -> Response 
 }
 
 /// DELETE /api/v1/locations/ical-feeds/:feed_id
-pub fn delete_ical_feed(req: Request, ctx: Context, feed_id: String) -> Response {
+pub fn delete_ical_feed(
+  req: Request,
+  ctx: Context,
+  feed_id: String,
+) -> Response {
   use <- wisp.require_method(req, http.Delete)
   use <- require_admin(req, ctx)
   case
@@ -1797,11 +2077,7 @@ pub fn delete_ical_feed(req: Request, ctx: Context, feed_id: String) -> Response
 /// Yanıt:
 ///   200 → `{ "ok": true, "event_count": N, "day_count": M }`
 ///   400/404/502 → `{ "error": "kısa_kod" }`
-pub fn sync_ical_feed(
-  req: Request,
-  ctx: Context,
-  feed_id: String,
-) -> Response {
+pub fn sync_ical_feed(req: Request, ctx: Context, feed_id: String) -> Response {
   use <- wisp.require_method(req, http.Post)
   use <- require_admin(req, ctx)
   case ical_sync.sync_feed(ctx, string.trim(feed_id)) {
@@ -1900,11 +2176,13 @@ pub fn list_imported_blocks(req: Request, ctx: Context) -> Response {
         <> "join ical_feeds f on f.id = b.feed_id"
       let #(sql, param) = case feed_id == "" {
         False -> #(
-          base <> " where b.feed_id = $1::uuid order by b.imported_at desc, b.id desc limit $2::int",
+          base
+            <> " where b.feed_id = $1::uuid order by b.imported_at desc, b.id desc limit $2::int",
           feed_id,
         )
         True -> #(
-          base <> " where f.listing_id = $1::uuid order by b.imported_at desc, b.id desc limit $2::int",
+          base
+            <> " where f.listing_id = $1::uuid order by b.imported_at desc, b.id desc limit $2::int",
           listing_id,
         )
       }

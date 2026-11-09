@@ -1324,14 +1324,22 @@ fn run_translations_phase(
     True -> Error("listing_content_tr_missing_for_translate")
     False -> {
       let pending =
-        list.filter(listing_locale_policy.locales(category_code), fn(locale_code) {
-          locale_code != tr_locale &&
-          case overwrite {
-            True ->
-              !batch_locale_done(ctx.db, batch_id, "translations", locale_code)
-            False -> !locale_has_translation(ctx.db, listing_id, locale_code)
-          }
-        })
+        list.filter(
+          listing_locale_policy.locales(category_code),
+          fn(locale_code) {
+            locale_code != tr_locale
+            && case overwrite {
+              True ->
+                !batch_locale_done(
+                  ctx.db,
+                  batch_id,
+                  "translations",
+                  locale_code,
+                )
+              False -> !locale_has_translation(ctx.db, listing_id, locale_code)
+            }
+          },
+        )
       case pending {
         [] ->
           case advance_batch(ctx.db, batch_id, "seo", "pending") {
@@ -1734,7 +1742,14 @@ fn run_batch_core(
           }
         "translations" ->
           case
-            run_translations_phase(ctx, batch_id, listing_id, category_code, overwrite, loc)
+            run_translations_phase(
+              ctx,
+              batch_id,
+              listing_id,
+              category_code,
+              overwrite,
+              loc,
+            )
           {
             Error(e) -> {
               fail_batch(ctx.db, batch_id, e)

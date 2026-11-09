@@ -2,7 +2,7 @@
 
 import backend/context.{type Context}
 import gleam/bit_array
-import gleam/dynamic/decode as decode
+import gleam/dynamic/decode
 import gleam/http
 import gleam/http/response
 import gleam/json
@@ -18,6 +18,7 @@ import travel/integrations/paytr.{
   request_iframe_token,
 }
 import travel/integrations/paytr_notify
+
 fn read_body_string(req: Request) -> Result(String, Nil) {
   use bits <- result.try(wisp.read_body_bits(req))
   bit_array.to_string(bits)
@@ -36,46 +37,103 @@ fn iframe_input_decoder() -> decode.Decoder(IframeTokenInput) {
       decode.field("email", decode.string, fn(email) {
         decode.field("payment_amount", decode.string, fn(payment_amount) {
           decode.field("user_basket", decode.string, fn(user_basket_b64) {
-            decode.optional_field("no_installment", "0", decode.string, fn(no_installment) {
-              decode.optional_field("max_installment", "12", decode.string, fn(max_installment) {
-                decode.optional_field("currency", "TRY", decode.string, fn(currency) {
-                  decode.optional_field("user_name", "", decode.string, fn(user_name) {
-                    decode.optional_field("user_address", "", decode.string, fn(user_address) {
-                      decode.optional_field("user_phone", "", decode.string, fn(user_phone) {
-                        decode.optional_field("merchant_ok_url", "", decode.string, fn(merchant_ok_url) {
-                          decode.optional_field("merchant_fail_url", "", decode.string, fn(merchant_fail_url) {
-                            decode.optional_field("timeout_limit", "30", decode.string, fn(timeout_limit) {
-                              decode.optional_field("debug_on", "0", decode.string, fn(debug_on) {
-                                decode.optional_field("lang", "tr", decode.string, fn(lang) {
-                                  decode.success(IframeTokenInput(
-                                    user_ip:,
-                                    merchant_oid:,
-                                    email:,
-                                    payment_amount:,
-                                    user_basket_b64:,
-                                    no_installment:,
-                                    max_installment:,
-                                    currency:,
-                                    user_name:,
-                                    user_address:,
-                                    user_phone:,
-                                    merchant_ok_url:,
-                                    merchant_fail_url:,
-                                    timeout_limit:,
-                                    debug_on:,
-                                    lang:,
-                                  ))
-                                })
-                              })
-                            })
-                          })
-                        })
-                      })
-                    })
-                  })
-                })
-              })
-            })
+            decode.optional_field(
+              "no_installment",
+              "0",
+              decode.string,
+              fn(no_installment) {
+                decode.optional_field(
+                  "max_installment",
+                  "12",
+                  decode.string,
+                  fn(max_installment) {
+                    decode.optional_field(
+                      "currency",
+                      "TRY",
+                      decode.string,
+                      fn(currency) {
+                        decode.optional_field(
+                          "user_name",
+                          "",
+                          decode.string,
+                          fn(user_name) {
+                            decode.optional_field(
+                              "user_address",
+                              "",
+                              decode.string,
+                              fn(user_address) {
+                                decode.optional_field(
+                                  "user_phone",
+                                  "",
+                                  decode.string,
+                                  fn(user_phone) {
+                                    decode.optional_field(
+                                      "merchant_ok_url",
+                                      "",
+                                      decode.string,
+                                      fn(merchant_ok_url) {
+                                        decode.optional_field(
+                                          "merchant_fail_url",
+                                          "",
+                                          decode.string,
+                                          fn(merchant_fail_url) {
+                                            decode.optional_field(
+                                              "timeout_limit",
+                                              "30",
+                                              decode.string,
+                                              fn(timeout_limit) {
+                                                decode.optional_field(
+                                                  "debug_on",
+                                                  "0",
+                                                  decode.string,
+                                                  fn(debug_on) {
+                                                    decode.optional_field(
+                                                      "lang",
+                                                      "tr",
+                                                      decode.string,
+                                                      fn(lang) {
+                                                        decode.success(
+                                                          IframeTokenInput(
+                                                            user_ip:,
+                                                            merchant_oid:,
+                                                            email:,
+                                                            payment_amount:,
+                                                            user_basket_b64:,
+                                                            no_installment:,
+                                                            max_installment:,
+                                                            currency:,
+                                                            user_name:,
+                                                            user_address:,
+                                                            user_phone:,
+                                                            merchant_ok_url:,
+                                                            merchant_fail_url:,
+                                                            timeout_limit:,
+                                                            debug_on:,
+                                                            lang:,
+                                                          ),
+                                                        )
+                                                      },
+                                                    )
+                                                  },
+                                                )
+                                              },
+                                            )
+                                          },
+                                        )
+                                      },
+                                    )
+                                  },
+                                )
+                              },
+                            )
+                          },
+                        )
+                      },
+                    )
+                  },
+                )
+              },
+            )
           })
         })
       })
@@ -93,7 +151,10 @@ pub fn iframe_token(req: Request, _ctx: Context) -> Response {
         Ok(input) ->
           case load_config() {
             Error(_) ->
-              json_err(503, "paytr_not_configured_set_PAYTR_MERCHANT_ID_KEY_SALT")
+              json_err(
+                503,
+                "paytr_not_configured_set_PAYTR_MERCHANT_ID_KEY_SALT",
+              )
             Ok(cfg) ->
               case request_iframe_token(cfg, input) {
                 Ok(token) -> {

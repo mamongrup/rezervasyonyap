@@ -136,7 +136,12 @@ pub fn recompute_all(req: Request, ctx: Context) -> Response {
               let body =
                 json.object([
                   #("ok", json.bool(True)),
-                  #("message", json.string("Metrikler yenilendi ve süper ev sahibi rozetleri güncellendi.")),
+                  #(
+                    "message",
+                    json.string(
+                      "Metrikler yenilendi ve süper ev sahibi rozetleri güncellendi.",
+                    ),
+                  ),
                 ])
                 |> json.to_string
               wisp.json_response(body, 200)

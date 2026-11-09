@@ -3,8 +3,8 @@
 import backend/context.{type Context}
 import gleam/http
 import pog
-import travel/db/resilient_pog as db_exec
 import travel/db/decode_helpers as row_dec
+import travel/db/resilient_pog as db_exec
 import travel/identity/admin_gate
 import wisp.{type Request, type Response}
 

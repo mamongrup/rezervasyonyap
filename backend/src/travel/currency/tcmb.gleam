@@ -9,5 +9,4 @@
 @external(erlang, "backend_ffi_http", "parse_tcmb_xml")
 pub fn parse_today_xml(body: String) -> List(#(String, Float))
 
-pub const tcmb_today_xml_url: String =
-  "https://www.tcmb.gov.tr/kurlar/today.xml"
+pub const tcmb_today_xml_url: String = "https://www.tcmb.gov.tr/kurlar/today.xml"

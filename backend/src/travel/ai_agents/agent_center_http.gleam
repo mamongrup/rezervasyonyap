@@ -12,15 +12,18 @@ import gleam/list
 import gleam/result
 import gleam/string
 import pog
-import travel/db/resilient_pog as db_exec
 import travel/ai/ai_job_run
 import travel/db/decode_helpers as row_dec
+import travel/db/resilient_pog as db_exec
 import travel/identity/admin_gate
 import wisp.{type Request, type Response}
 
 const popup_profile = "special_day_popup_agent"
+
 const supervisor_profile = "supervisor_agent"
+
 const special_day_agent = "special_day_popup"
+
 const ai_worker_secret_header = "x-travel-ai-worker-secret"
 
 fn auth_ai_worker_secret(req: Request) -> Result(Nil, Response) {
@@ -43,7 +46,10 @@ fn auth_ai_worker_secret(req: Request) -> Result(Nil, Response) {
 }
 
 /// Panel admin oturumu veya sunucu AI worker secret'ı.
-fn auth_admin_or_ai_worker(req: Request, ctx: Context) -> Result(Nil, Response) {
+fn auth_admin_or_ai_worker(
+  req: Request,
+  ctx: Context,
+) -> Result(Nil, Response) {
   case admin_gate.require_admin_users_read(req, ctx) {
     Ok(_) -> Ok(Nil)
     Error(_) -> auth_ai_worker_secret(req)
@@ -57,7 +63,14 @@ fn content_health_row() -> decode.Decoder(#(Int, Int, Int, Int, Int, Int)) {
   use place_failed <- decode.field(3, decode.int)
   use districts_missing_ideas <- decode.field(4, decode.int)
   use locations_missing_cover <- decode.field(5, decode.int)
-  decode.success(#(region_pending, region_failed, place_pending, place_failed, districts_missing_ideas, locations_missing_cover))
+  decode.success(#(
+    region_pending,
+    region_failed,
+    place_pending,
+    place_failed,
+    districts_missing_ideas,
+    locations_missing_cover,
+  ))
 }
 
 type RecommendationRow {
@@ -92,7 +105,9 @@ fn read_body_string(req: Request) -> Result(String, Nil) {
   bit_array.to_string(bits)
 }
 
-fn agent_row() -> decode.Decoder(#(String, String, String, String, String, String, String, String, String)) {
+fn agent_row() -> decode.Decoder(
+  #(String, String, String, String, String, String, String, String, String),
+) {
   use code <- decode.field(0, decode.string)
   use profile <- decode.field(1, decode.string)
   use name <- decode.field(2, decode.string)
@@ -102,10 +117,22 @@ fn agent_row() -> decode.Decoder(#(String, String, String, String, String, Strin
   use risk <- decode.field(6, decode.string)
   use schedule <- decode.field(7, decode.string)
   use last_run <- decode.field(8, decode.string)
-  decode.success(#(code, profile, name, desc, mode, status, risk, schedule, last_run))
+  decode.success(#(
+    code,
+    profile,
+    name,
+    desc,
+    mode,
+    status,
+    risk,
+    schedule,
+    last_run,
+  ))
 }
 
-fn run_row() -> decode.Decoder(#(String, String, String, String, String, String, String, String)) {
+fn run_row() -> decode.Decoder(
+  #(String, String, String, String, String, String, String, String),
+) {
   use id <- decode.field(0, decode.string)
   use code <- decode.field(1, decode.string)
   use trigger <- decode.field(2, decode.string)
@@ -123,7 +150,9 @@ fn count_row() -> decode.Decoder(#(String, Int)) {
   decode.success(#(status, cnt))
 }
 
-fn agent_json(row: #(String, String, String, String, String, String, String, String, String)) -> json.Json {
+fn agent_json(
+  row: #(String, String, String, String, String, String, String, String, String),
+) -> json.Json {
   let #(code, profile, name, desc, mode, status, risk, schedule, last_run) = row
   json.object([
     #("code", json.string(code)),
@@ -138,7 +167,9 @@ fn agent_json(row: #(String, String, String, String, String, String, String, Str
   ])
 }
 
-fn run_json(row: #(String, String, String, String, String, String, String, String)) -> json.Json {
+fn run_json(
+  row: #(String, String, String, String, String, String, String, String),
+) -> json.Json {
   let #(id, code, trigger, status, started, finished, input, summary) = row
   json.object([
     #("id", json.string(id)),
@@ -200,8 +231,19 @@ pub fn overview(req: Request, ctx: Context) -> Response {
                     })
                   let body =
                     json.object([
-                      #("agents", json.array(from: list.map(ar.rows, agent_json), of: fn(x) { x })),
-                      #("recent_runs", json.array(from: list.map(rr.rows, run_json), of: fn(x) { x })),
+                      #(
+                        "agents",
+                        json.array(
+                          from: list.map(ar.rows, agent_json),
+                          of: fn(x) { x },
+                        ),
+                      ),
+                      #(
+                        "recent_runs",
+                        json.array(from: list.map(rr.rows, run_json), of: fn(x) {
+                          x
+                        }),
+                      ),
                       #("recommendation_counts", json.object(count_pairs)),
                     ])
                     |> json.to_string
@@ -214,7 +256,9 @@ pub fn overview(req: Request, ctx: Context) -> Response {
   }
 }
 
-fn upcoming_row() -> decode.Decoder(#(String, String, String, String, String, Int, String, String, String, String)) {
+fn upcoming_row() -> decode.Decoder(
+  #(String, String, String, String, String, Int, String, String, String, String),
+) {
   use key <- decode.field(0, decode.string)
   use name <- decode.field(1, decode.string)
   use category <- decode.field(2, decode.string)
@@ -225,19 +269,37 @@ fn upcoming_row() -> decode.Decoder(#(String, String, String, String, String, In
   use start_at <- decode.field(7, decode.string)
   use end_at <- decode.field(8, decode.string)
   use target_key <- decode.field(9, decode.string)
-  decode.success(#(key, name, category, href, icon, year, event_date, start_at, end_at, target_key))
+  decode.success(#(
+    key,
+    name,
+    category,
+    href,
+    icon,
+    year,
+    event_date,
+    start_at,
+    end_at,
+    target_key,
+  ))
 }
 
-fn popup_ai_decoder() -> decode.Decoder(#(String, String, String, String, String, String, String)) {
+fn popup_ai_decoder() -> decode.Decoder(
+  #(String, String, String, String, String, String, String),
+) {
   decode.field("title", decode.string, fn(title) {
     decode.field("body", decode.string, fn(body) {
       decode.field("cta_text", decode.string, fn(cta) {
         decode.field("cta_href", decode.string, fn(href) {
           decode.optional_field("tone", "warm", decode.string, fn(tone) {
             decode.optional_field("icon", "", decode.string, fn(icon) {
-              decode.optional_field("accent_color", "#0EA5E9", decode.string, fn(color) {
-                decode.success(#(title, body, cta, href, tone, icon, color))
-              })
+              decode.optional_field(
+                "accent_color",
+                "#0EA5E9",
+                decode.string,
+                fn(color) {
+                  decode.success(#(title, body, cta, href, tone, icon, color))
+                },
+              )
             })
           })
         })
@@ -274,7 +336,9 @@ fn create_and_run_job(
   input_json: String,
 ) -> Result(#(String, String), String) {
   case
-    pog.query("insert into ai_jobs (profile_code, input_json, status) values ($1, $2::jsonb, 'queued') returning id::text")
+    pog.query(
+      "insert into ai_jobs (profile_code, input_json, status) values ($1, $2::jsonb, 'queued') returning id::text",
+    )
     |> pog.parameter(pog.text(profile_code))
     |> pog.parameter(pog.text(input_json))
     |> pog.returning(row_dec.col0_string())
@@ -286,7 +350,9 @@ fn create_and_run_job(
         [job_id] -> {
           let _ = ai_job_run.run_ai_job(ctx, job_id)
           case
-            pog.query("select coalesce(output_json->>'text','') from ai_jobs where id = $1::uuid and status = 'succeeded' limit 1")
+            pog.query(
+              "select coalesce(output_json->>'text','') from ai_jobs where id = $1::uuid and status = 'succeeded' limit 1",
+            )
             |> pog.parameter(pog.text(job_id))
             |> pog.returning(row_dec.col0_string())
             |> db_exec.execute(ctx.db)
@@ -305,92 +371,165 @@ fn create_and_run_job(
 }
 
 fn popup_payload_json(
-  day: #(String, String, String, String, String, Int, String, String, String, String),
+  day: #(
+    String,
+    String,
+    String,
+    String,
+    String,
+    Int,
+    String,
+    String,
+    String,
+    String,
+  ),
   ai_text: String,
 ) -> json.Json {
-  let #(key, name, category, href, default_icon, year, event_date, start_at, end_at, _target_key) = day
-  let parsed =
-    case json.parse(clean_json_text(ai_text), popup_ai_decoder()) {
-      Ok(v) -> v
-      Error(_) ->
-        #(
-          name <> " Tatil Fırsatları",
-          name <> " için seyahat planınızı erken yapın; öne çıkan konaklama ve rota seçeneklerini keşfedin.",
-          "Fırsatları Gör",
-          href,
-          "warm",
-          default_icon,
-          "#0EA5E9",
-        )
-    }
+  let #(
+    key,
+    name,
+    category,
+    href,
+    default_icon,
+    year,
+    event_date,
+    start_at,
+    end_at,
+    _target_key,
+  ) = day
+  let parsed = case json.parse(clean_json_text(ai_text), popup_ai_decoder()) {
+    Ok(v) -> v
+    Error(_) -> #(
+      name <> " Tatil Fırsatları",
+      name
+        <> " için seyahat planınızı erken yapın; öne çıkan konaklama ve rota seçeneklerini keşfedin.",
+      "Fırsatları Gör",
+      href,
+      "warm",
+      default_icon,
+      "#0EA5E9",
+    )
+  }
   let #(title, body, cta, ai_href, tone, ai_icon, color) = parsed
-  let icon = case string.trim(ai_icon) == "" { True -> default_icon False -> ai_icon }
-  let cta_href = case string.starts_with(string.trim(ai_href), "/") { True -> ai_href False -> href }
+  let icon = case string.trim(ai_icon) == "" {
+    True -> default_icon
+    False -> ai_icon
+  }
+  let cta_href = case string.starts_with(string.trim(ai_href), "/") {
+    True -> ai_href
+    False -> href
+  }
   json.object([
-    #("popup", json.object([
-      #("id", json.string("special-day-" <> key <> "-" <> int.to_string(year))),
-      #("enabled", json.bool(True)),
-      #("name", json.string(name <> " " <> int.to_string(year) <> " - Agent önerisi")),
-      #("preset", json.string("special_day")),
-      #("layout", json.string("modal_center")),
-      #("priority", json.int(90)),
-      #("eyebrow", json.object([#("tr", json.string(name))])),
-      #("title", json.object([#("tr", json.string(title))])),
-      #("body", json.object([#("tr", json.string(body))])),
-      #("ctaText", json.object([#("tr", json.string(cta))])),
-      #("ctaHref", json.string(cta_href)),
-      #("ctaText2", json.object([#("tr", json.string("Daha Sonra"))])),
-      #("ctaHref2", json.string("")),
-      #("imageUrl", json.string("")),
-      #("mobileImageUrl", json.string("")),
-      #("accentColor", json.string(color)),
-      #("theme", json.string("light")),
-      #("align", json.string("center")),
-      #("overlay", json.int(55)),
-      #("icon", json.string(icon)),
-      #("cards", json.array(from: [], of: json.string)),
-      #("targeting", json.object([
-        #("pages", json.array(from: ["homepage"], of: json.string)),
-        #("locales", json.array(from: ["*"], of: json.string)),
-        #("device", json.string("all")),
-        #("audience", json.string("all")),
-      ])),
-      #("schedule", json.object([
-        #("startAt", json.string(start_at)),
-        #("endAt", json.string(end_at)),
-        #("daysOfWeek", json.array(from: [], of: json.int)),
-        #("hourStart", json.string("")),
-        #("hourEnd", json.string("")),
-      ])),
-      #("trigger", json.object([
-        #("type", json.string("delay")),
-        #("delayMs", json.int(2200)),
-        #("scrollPercent", json.int(40)),
-      ])),
-      #("frequency", json.object([
-        #("mode", json.string("once_per_visitor")),
-        #("everyNDays", json.int(14)),
-      ])),
-      #("allowDismissForever", json.bool(True)),
-    ])),
-    #("source", json.object([
-      #("special_day_key", json.string(key)),
-      #("special_day_name", json.string(name)),
-      #("category", json.string(category)),
-      #("event_year", json.int(year)),
-      #("event_date", json.string(event_date)),
-      #("tone", json.string(tone)),
-      #("ai_raw", json.string(ai_text)),
-    ])),
+    #(
+      "popup",
+      json.object([
+        #(
+          "id",
+          json.string("special-day-" <> key <> "-" <> int.to_string(year)),
+        ),
+        #("enabled", json.bool(True)),
+        #(
+          "name",
+          json.string(name <> " " <> int.to_string(year) <> " - Agent önerisi"),
+        ),
+        #("preset", json.string("special_day")),
+        #("layout", json.string("modal_center")),
+        #("priority", json.int(90)),
+        #("eyebrow", json.object([#("tr", json.string(name))])),
+        #("title", json.object([#("tr", json.string(title))])),
+        #("body", json.object([#("tr", json.string(body))])),
+        #("ctaText", json.object([#("tr", json.string(cta))])),
+        #("ctaHref", json.string(cta_href)),
+        #("ctaText2", json.object([#("tr", json.string("Daha Sonra"))])),
+        #("ctaHref2", json.string("")),
+        #("imageUrl", json.string("")),
+        #("mobileImageUrl", json.string("")),
+        #("accentColor", json.string(color)),
+        #("theme", json.string("light")),
+        #("align", json.string("center")),
+        #("overlay", json.int(55)),
+        #("icon", json.string(icon)),
+        #("cards", json.array(from: [], of: json.string)),
+        #(
+          "targeting",
+          json.object([
+            #("pages", json.array(from: ["homepage"], of: json.string)),
+            #("locales", json.array(from: ["*"], of: json.string)),
+            #("device", json.string("all")),
+            #("audience", json.string("all")),
+          ]),
+        ),
+        #(
+          "schedule",
+          json.object([
+            #("startAt", json.string(start_at)),
+            #("endAt", json.string(end_at)),
+            #("daysOfWeek", json.array(from: [], of: json.int)),
+            #("hourStart", json.string("")),
+            #("hourEnd", json.string("")),
+          ]),
+        ),
+        #(
+          "trigger",
+          json.object([
+            #("type", json.string("delay")),
+            #("delayMs", json.int(2200)),
+            #("scrollPercent", json.int(40)),
+          ]),
+        ),
+        #(
+          "frequency",
+          json.object([
+            #("mode", json.string("once_per_visitor")),
+            #("everyNDays", json.int(14)),
+          ]),
+        ),
+        #("allowDismissForever", json.bool(True)),
+      ]),
+    ),
+    #(
+      "source",
+      json.object([
+        #("special_day_key", json.string(key)),
+        #("special_day_name", json.string(name)),
+        #("category", json.string(category)),
+        #("event_year", json.int(year)),
+        #("event_date", json.string(event_date)),
+        #("tone", json.string(tone)),
+        #("ai_raw", json.string(ai_text)),
+      ]),
+    ),
   ])
 }
 
 fn insert_recommendation(
   ctx: Context,
   run_id: String,
-  day: #(String, String, String, String, String, Int, String, String, String, String),
+  day: #(
+    String,
+    String,
+    String,
+    String,
+    String,
+    Int,
+    String,
+    String,
+    String,
+    String,
+  ),
 ) -> Result(String, String) {
-  let #(key, name, category, href, _icon, year, event_date, _start_at, _end_at, target_key) = day
+  let #(
+    key,
+    name,
+    category,
+    href,
+    _icon,
+    year,
+    event_date,
+    _start_at,
+    _end_at,
+    target_key,
+  ) = day
   let input =
     json.object([
       #("task", json.string("special_day_popup")),
@@ -398,10 +537,15 @@ fn insert_recommendation(
       #("special_day_key", json.string(key)),
       #("special_day_name", json.string(name)),
       #("category", json.string(category)),
-        #("event_year", json.int(year)),
+      #("event_year", json.int(year)),
       #("event_date", json.string(event_date)),
       #("default_cta_href", json.string(href)),
-      #("instruction", json.string("Yaklaşan özel gün için rezervasyonyap.tr ana sayfasında kullanılacak kısa, güven veren popup metni üret.")),
+      #(
+        "instruction",
+        json.string(
+          "Yaklaşan özel gün için rezervasyonyap.tr ana sayfasında kullanılacak kısa, güven veren popup metni üret.",
+        ),
+      ),
     ])
     |> json.to_string
   case create_and_run_job(ctx, popup_profile, input) {
@@ -415,8 +559,16 @@ fn insert_recommendation(
         |> pog.parameter(pog.text(run_id))
         |> pog.parameter(pog.text(job_id))
         |> pog.parameter(pog.text(target_key))
-        |> pog.parameter(pog.text(name <> " " <> int.to_string(year) <> " popup önerisi"))
-        |> pog.parameter(pog.text("Supervisor yaklaşan özel günü tespit etti: " <> name <> " (" <> event_date <> ")."))
+        |> pog.parameter(pog.text(
+          name <> " " <> int.to_string(year) <> " popup önerisi",
+        ))
+        |> pog.parameter(pog.text(
+          "Supervisor yaklaşan özel günü tespit etti: "
+          <> name
+          <> " ("
+          <> event_date
+          <> ").",
+        ))
         |> pog.parameter(pog.text(payload))
         |> pog.parameter(pog.text(special_day_agent))
         |> pog.returning(row_dec.col0_string())
@@ -445,7 +597,13 @@ fn insert_recommendation(
   }
 }
 
-fn finish_run(ctx: Context, run_id: String, status: String, summary: String, err: String) -> Nil {
+fn finish_run(
+  ctx: Context,
+  run_id: String,
+  status: String,
+  summary: String,
+  err: String,
+) -> Nil {
   let _ =
     pog.query(
       "update ai_agent_runs set status = $2, finished_at = now(), summary_json = $3::jsonb, error = nullif($4, '') where id = $1::uuid",
@@ -456,7 +614,9 @@ fn finish_run(ctx: Context, run_id: String, status: String, summary: String, err
     |> pog.parameter(pog.text(err))
     |> db_exec.execute(ctx.db)
   let _ =
-    pog.query("update ai_agents set last_run_at = now(), updated_at = now() where code in ('supervisor', $1)")
+    pog.query(
+      "update ai_agents set last_run_at = now(), updated_at = now() where code in ('supervisor', $1)",
+    )
     |> pog.parameter(pog.text(special_day_agent))
     |> db_exec.execute(ctx.db)
   Nil
@@ -464,7 +624,9 @@ fn finish_run(ctx: Context, run_id: String, status: String, summary: String, err
 
 fn supervisor_enabled(ctx: Context) -> Result(Bool, String) {
   case
-    pog.query("select case when status = 'active' and mode <> 'disabled' then 'yes' else 'no' end from ai_agents where code = 'supervisor' limit 1")
+    pog.query(
+      "select case when status = 'active' and mode <> 'disabled' then 'yes' else 'no' end from ai_agents where code = 'supervisor' limit 1",
+    )
     |> pog.returning(row_dec.col0_string())
     |> db_exec.execute(ctx.db)
   {
@@ -481,7 +643,9 @@ fn supervisor_enabled(ctx: Context) -> Result(Bool, String) {
 
 fn supervisor_due(ctx: Context) -> Result(Bool, String) {
   case
-    pog.query("select case when status = 'active' and mode <> 'disabled' and (last_run_at is null or last_run_at < now() - interval '20 hours') then 'yes' else 'no' end from ai_agents where code = 'supervisor' limit 1")
+    pog.query(
+      "select case when status = 'active' and mode <> 'disabled' and (last_run_at is null or last_run_at < now() - interval '20 hours') then 'yes' else 'no' end from ai_agents where code = 'supervisor' limit 1",
+    )
     |> pog.returning(row_dec.col0_string())
     |> db_exec.execute(ctx.db)
   {
@@ -496,9 +660,15 @@ fn supervisor_due(ctx: Context) -> Result(Bool, String) {
   }
 }
 
-fn create_supervisor_run(ctx: Context, trigger_type: String, input_json: String) -> Result(String, String) {
+fn create_supervisor_run(
+  ctx: Context,
+  trigger_type: String,
+  input_json: String,
+) -> Result(String, String) {
   case
-    pog.query("insert into ai_agent_runs (agent_code, trigger_type, status, input_json) values ('supervisor', $1, 'running', $2::jsonb) returning id::text")
+    pog.query(
+      "insert into ai_agent_runs (agent_code, trigger_type, status, input_json) values ('supervisor', $1, 'running', $2::jsonb) returning id::text",
+    )
     |> pog.parameter(pog.text(trigger_type))
     |> pog.parameter(pog.text(input_json))
     |> pog.returning(row_dec.col0_string())
@@ -523,7 +693,13 @@ pub fn run_supervisor(req: Request, ctx: Context) -> Response {
         Error(e) -> json_err(500, e)
         Ok(False) -> json_err(409, "supervisor_disabled")
         Ok(True) ->
-          case create_supervisor_run(ctx, "manual", "{\"source\":\"admin_manual\"}") {
+          case
+            create_supervisor_run(
+              ctx,
+              "manual",
+              "{\"source\":\"admin_manual\"}",
+            )
+          {
             Error(e) -> json_err(500, e)
             Ok(run_id) -> run_supervisor_for_run(ctx, run_id)
           }
@@ -547,7 +723,13 @@ pub fn run_supervisor_due(req: Request, ctx: Context) -> Response {
           wisp.json_response(body, 200)
         }
         Ok(True) ->
-          case create_supervisor_run(ctx, "scheduled", "{\"source\":\"scheduled_due\"}") {
+          case
+            create_supervisor_run(
+              ctx,
+              "scheduled",
+              "{\"source\":\"scheduled_due\"}",
+            )
+          {
             Error(e) -> json_err(500, e)
             Ok(run_id) -> run_supervisor_for_run(ctx, run_id)
           }
@@ -562,7 +744,13 @@ pub fn worker_try_supervisor_due(ctx: Context) -> Result(Bool, String) {
     Error(e) -> Error(e)
     Ok(False) -> Ok(False)
     Ok(True) ->
-      case create_supervisor_run(ctx, "scheduled", "{\"source\":\"ai_worker_timer\"}") {
+      case
+        create_supervisor_run(
+          ctx,
+          "scheduled",
+          "{\"source\":\"ai_worker_timer\"}",
+        )
+      {
         Error(e) -> Error(e)
         Ok(run_id) -> {
           let _ = run_supervisor_for_run(ctx, run_id)
@@ -651,28 +839,51 @@ fn run_supervisor_for_run(ctx: Context, run_id: String) -> Response {
     |> db_exec.execute(ctx.db)
   {
     Error(_) -> {
-      finish_run(ctx, run_id, "failed", "{\"error\":\"special_days_query_failed\"}", "special_days_query_failed")
+      finish_run(
+        ctx,
+        run_id,
+        "failed",
+        "{\"error\":\"special_days_query_failed\"}",
+        "special_days_query_failed",
+      )
       json_err(500, "special_days_query_failed")
     }
     Ok(ret) -> {
-      let content_health =
-        case pog.query(content_health_sql) |> pog.returning(content_health_row()) |> db_exec.execute(ctx.db) {
-          Ok(health_ret) ->
-            case health_ret.rows {
-              [#(region_pending, region_failed, place_pending, place_failed, districts_missing_ideas, locations_missing_cover)] ->
-                json.object([
-                  #("region_pending", json.int(region_pending)),
-                  #("region_failed", json.int(region_failed)),
-                  #("place_pending", json.int(place_pending)),
-                  #("place_failed", json.int(place_failed)),
-                  #("districts_missing_ideas", json.int(districts_missing_ideas)),
-                  #("locations_missing_cover", json.int(locations_missing_cover)),
-                ])
-              _ -> json.object([#("error", json.string("content_health_unexpected_rows"))])
-            }
-          Error(_) -> json.object([#("error", json.string("content_health_query_failed"))])
-        }
-      let results = list.map(ret.rows, fn(day) { insert_recommendation(ctx, run_id, day) })
+      let content_health = case
+        pog.query(content_health_sql)
+        |> pog.returning(content_health_row())
+        |> db_exec.execute(ctx.db)
+      {
+        Ok(health_ret) ->
+          case health_ret.rows {
+            [
+              #(
+                region_pending,
+                region_failed,
+                place_pending,
+                place_failed,
+                districts_missing_ideas,
+                locations_missing_cover,
+              ),
+            ] ->
+              json.object([
+                #("region_pending", json.int(region_pending)),
+                #("region_failed", json.int(region_failed)),
+                #("place_pending", json.int(place_pending)),
+                #("place_failed", json.int(place_failed)),
+                #("districts_missing_ideas", json.int(districts_missing_ideas)),
+                #("locations_missing_cover", json.int(locations_missing_cover)),
+              ])
+            _ ->
+              json.object([
+                #("error", json.string("content_health_unexpected_rows")),
+              ])
+          }
+        Error(_) ->
+          json.object([#("error", json.string("content_health_query_failed"))])
+      }
+      let results =
+        list.map(ret.rows, fn(day) { insert_recommendation(ctx, run_id, day) })
       let created = list.count(results, fn(r) { result.is_ok(r) })
       let failed = list.count(results, fn(r) { result.is_error(r) })
       let supervisor_input =
@@ -685,19 +896,24 @@ fn run_supervisor_for_run(ctx: Context, run_id: String) -> Response {
           #("created", json.int(created)),
           #("failed", json.int(failed)),
           #("content_health", content_health),
-          #("instruction", json.string("Bu agent koşusunu değerlendir. Tekrar üretim, yayın riski ve bir sonraki operasyon adımı için kısa JSON karar özeti üret.")),
+          #(
+            "instruction",
+            json.string(
+              "Bu agent koşusunu değerlendir. Tekrar üretim, yayın riski ve bir sonraki operasyon adımı için kısa JSON karar özeti üret.",
+            ),
+          ),
         ])
         |> json.to_string
-      let supervisor_ai =
-        case create_and_run_job(ctx, supervisor_profile, supervisor_input) {
-          Ok(#(job_id, text)) ->
-            json.object([
-              #("job_id", json.string(job_id)),
-              #("text", json.string(text)),
-            ])
-          Error(e) ->
-            json.object([#("error", json.string(e))])
-        }
+      let supervisor_ai = case
+        create_and_run_job(ctx, supervisor_profile, supervisor_input)
+      {
+        Ok(#(job_id, text)) ->
+          json.object([
+            #("job_id", json.string(job_id)),
+            #("text", json.string(text)),
+          ])
+        Error(e) -> json.object([#("error", json.string(e))])
+      }
       let summary =
         json.object([
           #("scanned", json.int(list.length(ret.rows))),
@@ -793,7 +1009,15 @@ pub fn list_recommendations(req: Request, ctx: Context) -> Response {
         Error(_) -> json_err(500, "agent_recommendations_query_failed")
         Ok(ret) -> {
           let body =
-            json.object([#("recommendations", json.array(from: list.map(ret.rows, recommendation_json), of: fn(x) { x }))])
+            json.object([
+              #(
+                "recommendations",
+                json.array(
+                  from: list.map(ret.rows, recommendation_json),
+                  of: fn(x) { x },
+                ),
+              ),
+            ])
             |> json.to_string
           wisp.json_response(body, 200)
         }
@@ -892,7 +1116,11 @@ fn patch_recommendation_status(
 }
 
 /// PATCH /api/v1/agents/recommendations/:id — öneriyi onayla/reddet/uygulandı işaretle.
-pub fn patch_recommendation(req: Request, ctx: Context, recommendation_id: String) -> Response {
+pub fn patch_recommendation(
+  req: Request,
+  ctx: Context,
+  recommendation_id: String,
+) -> Response {
   use <- wisp.require_method(req, http.Patch)
   case admin_gate.require_admin_users_read(req, ctx) {
     Error(r) -> r
@@ -903,13 +1131,26 @@ pub fn patch_recommendation(req: Request, ctx: Context, recommendation_id: Strin
           case json.parse(body, patch_recommendation_decoder()) {
             Error(_) -> json_err(400, "invalid_json")
             Ok(#(status, note)) ->
-              case list.contains(["pending", "approved", "applied", "rejected", "expired"], status) {
+              case
+                list.contains(
+                  ["pending", "approved", "applied", "rejected", "expired"],
+                  status,
+                )
+              {
                 False -> json_err(400, "invalid_status")
                 True ->
                   case status == "applied" {
                     True ->
-                      case apply_popup_recommendation(ctx, recommendation_id, reviewer_user_id, note) {
-                        Error("agent_popup_not_applicable") -> json_err(400, "recommendation_not_applicable")
+                      case
+                        apply_popup_recommendation(
+                          ctx,
+                          recommendation_id,
+                          reviewer_user_id,
+                          note,
+                        )
+                      {
+                        Error("agent_popup_not_applicable") ->
+                          json_err(400, "recommendation_not_applicable")
                         Error(_) -> json_err(500, "agent_popup_apply_failed")
                         Ok(popup_id) -> {
                           let out =
@@ -922,11 +1163,21 @@ pub fn patch_recommendation(req: Request, ctx: Context, recommendation_id: Strin
                         }
                       }
                     False ->
-                      case patch_recommendation_status(ctx, recommendation_id, reviewer_user_id, status, note) {
+                      case
+                        patch_recommendation_status(
+                          ctx,
+                          recommendation_id,
+                          reviewer_user_id,
+                          status,
+                          note,
+                        )
+                      {
                         Error("not_found") -> json_err(404, "not_found")
                         Error(e) -> json_err(500, e)
                         Ok(_) -> {
-                          let out = json.object([#("ok", json.bool(True))]) |> json.to_string
+                          let out =
+                            json.object([#("ok", json.bool(True))])
+                            |> json.to_string
                           wisp.json_response(out, 200)
                         }
                       }

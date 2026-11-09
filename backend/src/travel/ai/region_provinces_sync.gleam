@@ -14,7 +14,11 @@ pub fn generate_and_insert_provinces(
   country_id_opt: Option(String),
 ) -> Result(GenOutcome, String) {
   case
-    region_hierarchy_sync.generate_and_insert_provinces(ctx, country_name, country_id_opt)
+    region_hierarchy_sync.generate_and_insert_provinces(
+      ctx,
+      country_name,
+      country_id_opt,
+    )
   {
     Ok(out) ->
       Ok(GenOutcome(

@@ -34,7 +34,6 @@ pub fn alt(val: String) -> Attribute {
   Attribute("alt", val)
 }
 
-
 pub fn type_(val: String) -> Attribute {
   Attribute("type", val)
 }
@@ -225,4 +224,3 @@ pub fn content(val: String) -> Attribute {
 pub fn attr(name: String, val: String) -> Attribute {
   Attribute(name, val)
 }
-

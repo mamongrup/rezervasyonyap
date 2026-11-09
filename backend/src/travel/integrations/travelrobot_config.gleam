@@ -55,7 +55,11 @@ fn fetch_travelrobot_json_text(db: pog.Connection, field: String) -> String {
   }
 }
 
-fn fetch_travelrobot_bool(db: pog.Connection, field: String, default: Bool) -> Bool {
+fn fetch_travelrobot_bool(
+  db: pog.Connection,
+  field: String,
+  default: Bool,
+) -> Bool {
   let raw = fetch_travelrobot_json_text(db, field)
   case raw {
     "" -> default
@@ -70,7 +74,7 @@ fn fetch_travelrobot_bool(db: pog.Connection, field: String, default: Bool) -> B
 
 fn fetch_travelrobot_enabled(db: pog.Connection) -> Bool {
   fetch_travelrobot_bool(db, "enabled", False)
-    || env_or("TRAVELROBOT_ENABLED", "0") == "1"
+  || env_or("TRAVELROBOT_ENABLED", "0") == "1"
 }
 
 pub fn load(db: pog.Connection) -> TravelrobotConfig {
@@ -89,8 +93,16 @@ pub fn load(db: pog.Connection) -> TravelrobotConfig {
       "https://api.bookingagora.com/v0",
     ),
     channel_code: get("channel_code", "TRAVELROBOT_CHANNEL_CODE", ""),
-    channel_password: get("channel_password", "TRAVELROBOT_CHANNEL_PASSWORD", ""),
-    listing_status: get("listing_status", "TRAVELROBOT_LISTING_STATUS", "published"),
+    channel_password: get(
+      "channel_password",
+      "TRAVELROBOT_CHANNEL_PASSWORD",
+      "",
+    ),
+    listing_status: get(
+      "listing_status",
+      "TRAVELROBOT_LISTING_STATUS",
+      "published",
+    ),
     import_tours: fetch_travelrobot_bool(db, "import_tours", True),
     import_hotels: fetch_travelrobot_bool(db, "import_hotels", False),
     import_flights: fetch_travelrobot_bool(db, "import_flights", False),

@@ -1,10 +1,10 @@
 //// Sosyal paylaşım AI yanıtından JSON plan çıkarımı.
 
+import gleam/dynamic/decode
 import gleam/json
 import gleam/list
 import gleam/option.{type Option, None, Some}
 import gleam/string
-import gleam/dynamic/decode
 
 const max_social_images = 10
 
@@ -76,8 +76,7 @@ fn find_matching_close_brace(
       case in_str {
         True ->
           case escaped {
-            True ->
-              find_matching_close_brace(gs, idx + 1, depth, True, False)
+            True -> find_matching_close_brace(gs, idx + 1, depth, True, False)
             False ->
               case g == "\\" {
                 True ->
@@ -85,7 +84,13 @@ fn find_matching_close_brace(
                 False ->
                   case g == "\"" {
                     True ->
-                      find_matching_close_brace(gs, idx + 1, depth, False, False)
+                      find_matching_close_brace(
+                        gs,
+                        idx + 1,
+                        depth,
+                        False,
+                        False,
+                      )
                     False ->
                       find_matching_close_brace(gs, idx + 1, depth, True, False)
                   }
@@ -93,12 +98,17 @@ fn find_matching_close_brace(
           }
         False ->
           case g == "\"" {
-            True ->
-              find_matching_close_brace(gs, idx + 1, depth, True, False)
+            True -> find_matching_close_brace(gs, idx + 1, depth, True, False)
             False ->
               case g == "{" {
                 True ->
-                  find_matching_close_brace(gs, idx + 1, depth + 1, False, False)
+                  find_matching_close_brace(
+                    gs,
+                    idx + 1,
+                    depth + 1,
+                    False,
+                    False,
+                  )
                 False ->
                   case g == "}" {
                     True ->
@@ -114,7 +124,13 @@ fn find_matching_close_brace(
                           )
                       }
                     False ->
-                      find_matching_close_brace(gs, idx + 1, depth, False, False)
+                      find_matching_close_brace(
+                        gs,
+                        idx + 1,
+                        depth,
+                        False,
+                        False,
+                      )
                   }
               }
           }
@@ -145,9 +161,11 @@ fn plan_decoder() -> decode.Decoder(#(String, String, String, List(Int))) {
   decode.field("title", decode.string, fn(title) {
     decode.field("description", decode.string, fn(desc) {
       decode.field("caption", decode.string, fn(cap) {
-        decode.field("selected_image_indexes", decode.list(decode.int), fn(idxs) {
-          decode.success(#(title, desc, cap, idxs))
-        })
+        decode.field(
+          "selected_image_indexes",
+          decode.list(decode.int),
+          fn(idxs) { decode.success(#(title, desc, cap, idxs)) },
+        )
       })
     })
   })
@@ -158,7 +176,10 @@ fn take_first_keys(candidates: List(String), n: Int) -> List(String) {
   list.take(filtered, n)
 }
 
-fn keys_from_indexes(candidates: List(String), idxs: List(Int)) -> List(String) {
+fn keys_from_indexes(
+  candidates: List(String),
+  idxs: List(Int),
+) -> List(String) {
   let max_idx = list.length(candidates) - 1
   let picked =
     list.fold(idxs, [], fn(acc: List(String), i: Int) {
@@ -214,21 +235,18 @@ pub fn plan_from_ai_or_fallback(
           keys_fb,
         )
         Ok(#(title, desc, cap, idxs)) -> {
-          let t =
-            case string.trim(title) == "" {
-              True -> title_fb
-              False -> string.slice(string.trim(title), 0, 100)
-            }
-          let d =
-            case string.trim(desc) == "" {
-              True -> desc_fb
-              False -> string.slice(string.trim(desc), 0, 500)
-            }
-          let c =
-            case string.trim(cap) == "" {
-              True -> default_caption(t, fallback_url)
-              False -> string.trim(cap)
-            }
+          let t = case string.trim(title) == "" {
+            True -> title_fb
+            False -> string.slice(string.trim(title), 0, 100)
+          }
+          let d = case string.trim(desc) == "" {
+            True -> desc_fb
+            False -> string.slice(string.trim(desc), 0, 500)
+          }
+          let c = case string.trim(cap) == "" {
+            True -> default_caption(t, fallback_url)
+            False -> string.trim(cap)
+          }
           let ks = keys_from_indexes(candidates, idxs)
           #(t, d, c, ks)
         }

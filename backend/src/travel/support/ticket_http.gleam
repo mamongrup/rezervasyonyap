@@ -11,8 +11,8 @@ import gleam/option.{type Option, None, Some}
 import gleam/result
 import gleam/string
 import pog
-import travel/db/resilient_pog as db_exec
 import travel/db/decode_helpers as row_dec
+import travel/db/resilient_pog as db_exec
 import wisp.{type Request, type Response}
 
 pub type CreateTicketPayload {
@@ -33,28 +33,33 @@ fn create_ticket_decoder() -> decode.Decoder(CreateTicketPayload) {
       decode.field("body", decode.string, fn(body) {
         decode.field("guest_email", decode.string, fn(guest_email) {
           decode.optional_field("guest_name", "", decode.string, fn(gn_raw) {
-            decode.optional_field("priority", "normal", decode.string, fn(priority) {
-              decode.optional_field(
-                "related_reservation_public_code",
-                "",
-                decode.string,
-                fn(rel_code) {
-                  let guest_name = case gn_raw == "" {
-                    True -> None
-                    False -> Some(gn_raw)
-                  }
-                  decode.success(CreateTicketPayload(
-                    department_code:,
-                    subject:,
-                    body:,
-                    guest_email:,
-                    guest_name:,
-                    priority:,
-                    related_reservation_public_code: rel_code,
-                  ))
-                },
-              )
-            })
+            decode.optional_field(
+              "priority",
+              "normal",
+              decode.string,
+              fn(priority) {
+                decode.optional_field(
+                  "related_reservation_public_code",
+                  "",
+                  decode.string,
+                  fn(rel_code) {
+                    let guest_name = case gn_raw == "" {
+                      True -> None
+                      False -> Some(gn_raw)
+                    }
+                    decode.success(CreateTicketPayload(
+                      department_code:,
+                      subject:,
+                      body:,
+                      guest_email:,
+                      guest_name:,
+                      priority:,
+                      related_reservation_public_code: rel_code,
+                    ))
+                  },
+                )
+              },
+            )
           })
         })
       })
@@ -106,9 +111,7 @@ fn reservation_id_for_guest(
 fn department_id(db: pog.Connection, code: String) -> Result(Int, Nil) {
   let row = decode_col0_int()
   case
-    pog.query(
-      "select id from support_departments where code = $1 limit 1",
-    )
+    pog.query("select id from support_departments where code = $1 limit 1")
     |> pog.parameter(pog.text(code))
     |> pog.returning(row)
     |> db_exec.execute(db)
@@ -137,10 +140,14 @@ pub fn create_ticket(req: Request, ctx: Context) -> Response {
                 Some(n) -> pog.text(n)
                 None -> pog.null()
               }
-              let related_result = case string.trim(payload.related_reservation_public_code) {
+              let related_result = case
+                string.trim(payload.related_reservation_public_code)
+              {
                 "" -> Ok(pog.null())
                 code ->
-                  case reservation_id_for_guest(ctx.db, code, payload.guest_email) {
+                  case
+                    reservation_id_for_guest(ctx.db, code, payload.guest_email)
+                  {
                     Ok(id) -> Ok(pog.text(id))
                     Error(_) -> Error(Nil)
                   }
@@ -210,7 +217,9 @@ pub fn create_ticket(req: Request, ctx: Context) -> Response {
   }
 }
 
-fn ticket_row_decoder() -> decode.Decoder(#(String, String, String, String, String, String)) {
+fn ticket_row_decoder() -> decode.Decoder(
+  #(String, String, String, String, String, String),
+) {
   use a <- decode.field(0, decode.string)
   use b <- decode.field(1, decode.string)
   use c <- decode.field(2, decode.string)
@@ -255,7 +264,9 @@ pub fn list_tickets(req: Request, ctx: Context) -> Response {
                   ])
                 })
               let body =
-                json.object([#("tickets", json.array(from: items, of: fn(x) { x }))])
+                json.object([
+                  #("tickets", json.array(from: items, of: fn(x) { x })),
+                ])
                 |> json.to_string
               wisp.json_response(body, 200)
             }
@@ -328,10 +339,7 @@ pub fn get_ticket(_req: Request, ctx: Context, ticket_id: String) -> Response {
               #("priority", json.string(pr)),
               #("guest_email", json.string(em)),
               #("created_at", json.string(ts)),
-              #(
-                "messages",
-                json.array(from: messages, of: fn(x) { x }),
-              ),
+              #("messages", json.array(from: messages, of: fn(x) { x })),
             ])
             |> json.to_string
           wisp.json_response(body, 200)

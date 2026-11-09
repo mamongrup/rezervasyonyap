@@ -1,23 +1,23 @@
 //// Personel — kurum kapsamında salt okuma (G3.4).
 
 import backend/context.{type Context}
-import travel/booking/booking_http
-import travel/booking/cart_fx
-import travel/identity/permissions
 import gleam/bit_array
 import gleam/dynamic/decode
 import gleam/http
 import gleam/http/request
-import gleam/json
 import gleam/io
+import gleam/json
 import gleam/list
 import gleam/option.{type Option, None, Some}
 import gleam/result
 import gleam/string
 import pog
-import travel/db/resilient_pog as db_exec
+import travel/booking/booking_http
+import travel/booking/cart_fx
 import travel/db/pog_errors
+import travel/db/resilient_pog as db_exec
 import travel/db/sql_dates
+import travel/identity/permissions
 import wisp.{type Request, type Response}
 
 fn json_err(status: Int, msg: String) -> Response {
@@ -142,7 +142,13 @@ fn pos_line_decoder() -> decode.Decoder(#(String, Int, String, String, String)) 
       decode.field("starts_on", decode.string, fn(starts_on) {
         decode.field("ends_on", decode.string, fn(ends_on) {
           decode.field("unit_price", decode.string, fn(unit_price) {
-            decode.success(#(listing_id, quantity, starts_on, ends_on, unit_price))
+            decode.success(#(
+              listing_id,
+              quantity,
+              starts_on,
+              ends_on,
+              unit_price,
+            ))
           })
         })
       })
@@ -157,36 +163,48 @@ fn pos_checkout_decoder() -> decode.Decoder(
     decode.field("guest_name", decode.string, fn(guest_name) {
       decode.optional_field("guest_phone", "", decode.string, fn(phone_raw) {
         decode.optional_field("hold_minutes", 15, decode.int, fn(hold_minutes) {
-          decode.optional_field("contract_accepted", False, decode.bool, fn(
-            contract_accepted,
-          ) {
-            decode.optional_field("contract_locale", "tr", decode.string, fn(
-              contract_locale,
-            ) {
-              decode.optional_field("general_contract_accepted", False, decode.bool, fn(
-                general_contract_accepted,
-              ) {
-                decode.optional_field("sales_contract_accepted", False, decode.bool, fn(
-                  sales_contract_accepted,
-                ) {
-                  let phone = case string.trim(phone_raw) {
-                    "" -> None
-                    p -> Some(p)
-                  }
-                  decode.success(#(
-                    guest_email,
-                    guest_name,
-                    phone,
-                    hold_minutes,
-                    contract_accepted,
-                    contract_locale,
-                    general_contract_accepted,
-                    sales_contract_accepted,
-                  ))
-                })
-              })
-            })
-          })
+          decode.optional_field(
+            "contract_accepted",
+            False,
+            decode.bool,
+            fn(contract_accepted) {
+              decode.optional_field(
+                "contract_locale",
+                "tr",
+                decode.string,
+                fn(contract_locale) {
+                  decode.optional_field(
+                    "general_contract_accepted",
+                    False,
+                    decode.bool,
+                    fn(general_contract_accepted) {
+                      decode.optional_field(
+                        "sales_contract_accepted",
+                        False,
+                        decode.bool,
+                        fn(sales_contract_accepted) {
+                          let phone = case string.trim(phone_raw) {
+                            "" -> None
+                            p -> Some(p)
+                          }
+                          decode.success(#(
+                            guest_email,
+                            guest_name,
+                            phone,
+                            hold_minutes,
+                            contract_accepted,
+                            contract_locale,
+                            general_contract_accepted,
+                            sales_contract_accepted,
+                          ))
+                        },
+                      )
+                    },
+                  )
+                },
+              )
+            },
+          )
         })
       })
     })
@@ -235,7 +253,9 @@ pub fn me(req: Request, ctx: Context) -> Response {
   }
 }
 
-fn resv_row() -> decode.Decoder(#(String, String, String, String, String, String)) {
+fn resv_row() -> decode.Decoder(
+  #(String, String, String, String, String, String),
+) {
   use id <- decode.field(0, decode.string)
   use code <- decode.field(1, decode.string)
   use st <- decode.field(2, decode.string)
@@ -246,7 +266,20 @@ fn resv_row() -> decode.Decoder(#(String, String, String, String, String, String
 }
 
 fn inv_row() -> decode.Decoder(
-  #(String, String, String, String, String, String, String, String, String, String, String, String),
+  #(
+    String,
+    String,
+    String,
+    String,
+    String,
+    String,
+    String,
+    String,
+    String,
+    String,
+    String,
+    String,
+  ),
 ) {
   use kind <- decode.field(0, decode.string)
   use id <- decode.field(1, decode.string)
@@ -264,9 +297,24 @@ fn inv_row() -> decode.Decoder(
 }
 
 /// Birleşik fatura satırlarını JSON yanıtına çevirir.
-fn invoices_rows_to_http_response(rows: List(
-  #(String, String, String, String, String, String, String, String, String, String, String, String),
-)) -> Response {
+fn invoices_rows_to_http_response(
+  rows: List(
+    #(
+      String,
+      String,
+      String,
+      String,
+      String,
+      String,
+      String,
+      String,
+      String,
+      String,
+      String,
+      String,
+    ),
+  ),
+) -> Response {
   let arr =
     list.map(rows, fn(row) {
       let #(kind, id, pf, pt, cur, g, c, n, st, num, notes, created) = row
@@ -292,11 +340,9 @@ fn invoices_rows_to_http_response(rows: List(
 }
 
 /// Personel: tek kurum (`$1`). Yönetici: tüm kurumlar (filtre yok).
-const invoices_sql_staff_org: String =
-  "select kind, id, period_from, period_to, currency_code, gross_total, commission_total, line_count, status, invoice_number, notes, created_at from ( select 'agency'::text as kind, ai.id::text as id, ai.period_from::text as period_from, ai.period_to::text as period_to, ai.currency_code::text as currency_code, ai.gross_total::text as gross_total, ai.commission_total::text as commission_total, ai.line_count::text as line_count, ai.status::text as status, ai.invoice_number::text as invoice_number, coalesce(ai.notes, '')::text as notes, to_char(ai.created_at, 'YYYY-MM-DD\"T\"HH24:MI:SS.MS\"Z\"') as created_at, ai.created_at as ts from agency_invoices ai where ai.agency_organization_id = $1::uuid union all select 'supplier'::text as kind, si.id::text, si.period_from::text, si.period_to::text, si.currency_code::text, si.gross_total::text, si.commission_total::text, si.line_count::text, si.status::text, si.invoice_number::text, coalesce(si.notes, '')::text, to_char(si.created_at, 'YYYY-MM-DD\"T\"HH24:MI:SS.MS\"Z\"'), si.created_at from supplier_invoices si where si.supplier_organization_id = $1::uuid ) sub order by ts desc limit 80"
+const invoices_sql_staff_org: String = "select kind, id, period_from, period_to, currency_code, gross_total, commission_total, line_count, status, invoice_number, notes, created_at from ( select 'agency'::text as kind, ai.id::text as id, ai.period_from::text as period_from, ai.period_to::text as period_to, ai.currency_code::text as currency_code, ai.gross_total::text as gross_total, ai.commission_total::text as commission_total, ai.line_count::text as line_count, ai.status::text as status, ai.invoice_number::text as invoice_number, coalesce(ai.notes, '')::text as notes, to_char(ai.created_at, 'YYYY-MM-DD\"T\"HH24:MI:SS.MS\"Z\"') as created_at, ai.created_at as ts from agency_invoices ai where ai.agency_organization_id = $1::uuid union all select 'supplier'::text as kind, si.id::text, si.period_from::text, si.period_to::text, si.currency_code::text, si.gross_total::text, si.commission_total::text, si.line_count::text, si.status::text, si.invoice_number::text, coalesce(si.notes, '')::text, to_char(si.created_at, 'YYYY-MM-DD\"T\"HH24:MI:SS.MS\"Z\"'), si.created_at from supplier_invoices si where si.supplier_organization_id = $1::uuid ) sub order by ts desc limit 80"
 
-const invoices_sql_admin_all: String =
-  "select kind, id, period_from, period_to, currency_code, gross_total, commission_total, line_count, status, invoice_number, notes, created_at from ( select 'agency'::text as kind, ai.id::text as id, ai.period_from::text as period_from, ai.period_to::text as period_to, ai.currency_code::text as currency_code, ai.gross_total::text as gross_total, ai.commission_total::text as commission_total, ai.line_count::text as line_count, ai.status::text as status, ai.invoice_number::text as invoice_number, coalesce(ai.notes, '')::text as notes, to_char(ai.created_at, 'YYYY-MM-DD\"T\"HH24:MI:SS.MS\"Z\"') as created_at, ai.created_at as ts from agency_invoices ai union all select 'supplier'::text as kind, si.id::text, si.period_from::text, si.period_to::text, si.currency_code::text, si.gross_total::text, si.commission_total::text, si.line_count::text, si.status::text, si.invoice_number::text, coalesce(si.notes, '')::text, to_char(si.created_at, 'YYYY-MM-DD\"T\"HH24:MI:SS.MS\"Z\"'), si.created_at from supplier_invoices si ) sub order by ts desc limit 80"
+const invoices_sql_admin_all: String = "select kind, id, period_from, period_to, currency_code, gross_total, commission_total, line_count, status, invoice_number, notes, created_at from ( select 'agency'::text as kind, ai.id::text as id, ai.period_from::text as period_from, ai.period_to::text as period_to, ai.currency_code::text as currency_code, ai.gross_total::text as gross_total, ai.commission_total::text as commission_total, ai.line_count::text as line_count, ai.status::text as status, ai.invoice_number::text as invoice_number, coalesce(ai.notes, '')::text as notes, to_char(ai.created_at, 'YYYY-MM-DD\"T\"HH24:MI:SS.MS\"Z\"') as created_at, ai.created_at as ts from agency_invoices ai union all select 'supplier'::text as kind, si.id::text, si.period_from::text, si.period_to::text, si.currency_code::text, si.gross_total::text, si.commission_total::text, si.line_count::text, si.status::text, si.invoice_number::text, coalesce(si.notes, '')::text, to_char(si.created_at, 'YYYY-MM-DD\"T\"HH24:MI:SS.MS\"Z\"'), si.created_at from supplier_invoices si ) sub order by ts desc limit 80"
 
 /// GET /api/v1/staff/invoices — acente + tedarikçi komisyon faturaları (birleşik, son 80).
 /// `admin.users.read`: tüm kurumlar. Personel: `staff.invoices.read` + staff kurumu.
@@ -323,7 +369,13 @@ pub fn list_invoices(req: Request, ctx: Context) -> Response {
                 Ok(ret) -> invoices_rows_to_http_response(ret.rows)
               }
             False ->
-              case permissions.user_has_permission(ctx.db, uid, "staff.invoices.read") {
+              case
+                permissions.user_has_permission(
+                  ctx.db,
+                  uid,
+                  "staff.invoices.read",
+                )
+              {
                 False -> json_err(403, "forbidden")
                 True ->
                   case require_staff_org(ctx.db, uid) {
@@ -502,7 +554,11 @@ pub fn pos_create_cart(req: Request, ctx: Context) -> Response {
 }
 
 /// POST /api/v1/staff/pos/carts/:id/lines
-pub fn pos_add_cart_line(req: Request, ctx: Context, cart_id: String) -> Response {
+pub fn pos_add_cart_line(
+  req: Request,
+  ctx: Context,
+  cart_id: String,
+) -> Response {
   use <- wisp.require_method(req, http.Post)
   case auth_staff(req, ctx.db, "staff.pos.write") {
     Error(r) -> r
@@ -529,98 +585,126 @@ pub fn pos_add_cart_line(req: Request, ctx: Context, cart_id: String) -> Respons
                             sql_dates.parse_iso_date_ymd(starts_trim),
                             sql_dates.parse_iso_date_ymd(ends_trim)
                           {
-                            Error(_), _ | _, Error(_) -> json_err(400, "invalid_dates")
+                            Error(_), _ | _, Error(_) ->
+                              json_err(400, "invalid_dates")
                             Ok(start_date), Ok(end_date) -> {
-                      case
-                        db_exec.transaction(ctx.db, fn(conn) {
-                          case
-                            pog.query(
-                              "select c.currency_code::text, l.currency_code::text, l.status::text, l.organization_id::text from carts c inner join listings l on l.id = $2::uuid where c.id = $1::uuid",
-                            )
-                            |> pog.parameter(pog.text(cart_id))
-                            |> pog.parameter(pog.text(listing_id))
-                            |> pog.returning({
-                              use cc <- decode.field(0, decode.string)
-                              use lc <- decode.field(1, decode.string)
-                              use st <- decode.field(2, decode.string)
-                              use org <- decode.field(3, decode.string)
-                              decode.success(#(cc, lc, st, org))
-                            })
-                            |> pog.execute(conn)
-                          {
-                            Error(_) -> Error("cart_or_listing")
-                            Ok(rows) ->
-                              case rows.rows {
-                                [#(cc, lc, st, org)] -> {
-                                  case org != oid {
-                                    True -> Error("listing_not_in_staff_org")
-                                    False ->
-                                      case st == "published" && cc == lc {
-                                        False ->
-                                          Error(
-                                            "listing_unavailable_or_currency_mismatch",
-                                          )
-                                        True -> {
-                                          case
-                                            pog.query(
-                                              "insert into cart_lines (cart_id, listing_id, quantity, starts_on, ends_on, unit_price, tax_amount, fee_amount, meta_json) values ($1::uuid, $2::uuid, $3, $4::date, $5::date, $6::numeric, 0, 0, '{}'::jsonb) returning id::text",
-                                            )
-                                            |> pog.parameter(pog.text(cart_id))
-                                            |> pog.parameter(pog.text(listing_id))
-                                            |> pog.parameter(pog.int(quantity))
-                                            |> pog.parameter(pog.calendar_date(start_date))
-                                            |> pog.parameter(pog.calendar_date(end_date))
-                                            |> pog.parameter(pog.text(price_trim))
-                                            |> pog.returning(decode_one_string())
-                                            |> pog.execute(conn)
-                                          {
-                                            Error(e) -> {
-                                              io.println(
-                                                "[cart_line] "
-                                                  <> pog_errors.query_error_to_string(e),
-                                              )
-                                              Error(
-                                                pog_errors.cart_line_insert_error_code(e),
-                                              )
-                                            }
-                                            Ok(r) ->
-                                              case r.rows {
-                                                [lid] -> Ok(lid)
-                                                _ -> Error("unexpected")
+                              case
+                                db_exec.transaction(ctx.db, fn(conn) {
+                                  case
+                                    pog.query(
+                                      "select c.currency_code::text, l.currency_code::text, l.status::text, l.organization_id::text from carts c inner join listings l on l.id = $2::uuid where c.id = $1::uuid",
+                                    )
+                                    |> pog.parameter(pog.text(cart_id))
+                                    |> pog.parameter(pog.text(listing_id))
+                                    |> pog.returning({
+                                      use cc <- decode.field(0, decode.string)
+                                      use lc <- decode.field(1, decode.string)
+                                      use st <- decode.field(2, decode.string)
+                                      use org <- decode.field(3, decode.string)
+                                      decode.success(#(cc, lc, st, org))
+                                    })
+                                    |> pog.execute(conn)
+                                  {
+                                    Error(_) -> Error("cart_or_listing")
+                                    Ok(rows) ->
+                                      case rows.rows {
+                                        [#(cc, lc, st, org)] -> {
+                                          case org != oid {
+                                            True ->
+                                              Error("listing_not_in_staff_org")
+                                            False ->
+                                              case
+                                                st == "published" && cc == lc
+                                              {
+                                                False ->
+                                                  Error(
+                                                    "listing_unavailable_or_currency_mismatch",
+                                                  )
+                                                True -> {
+                                                  case
+                                                    pog.query(
+                                                      "insert into cart_lines (cart_id, listing_id, quantity, starts_on, ends_on, unit_price, tax_amount, fee_amount, meta_json) values ($1::uuid, $2::uuid, $3, $4::date, $5::date, $6::numeric, 0, 0, '{}'::jsonb) returning id::text",
+                                                    )
+                                                    |> pog.parameter(pog.text(
+                                                      cart_id,
+                                                    ))
+                                                    |> pog.parameter(pog.text(
+                                                      listing_id,
+                                                    ))
+                                                    |> pog.parameter(pog.int(
+                                                      quantity,
+                                                    ))
+                                                    |> pog.parameter(
+                                                      pog.calendar_date(
+                                                        start_date,
+                                                      ),
+                                                    )
+                                                    |> pog.parameter(
+                                                      pog.calendar_date(
+                                                        end_date,
+                                                      ),
+                                                    )
+                                                    |> pog.parameter(pog.text(
+                                                      price_trim,
+                                                    ))
+                                                    |> pog.returning(
+                                                      decode_one_string(),
+                                                    )
+                                                    |> pog.execute(conn)
+                                                  {
+                                                    Error(e) -> {
+                                                      io.println(
+                                                        "[cart_line] "
+                                                        <> pog_errors.query_error_to_string(
+                                                          e,
+                                                        ),
+                                                      )
+                                                      Error(
+                                                        pog_errors.cart_line_insert_error_code(
+                                                          e,
+                                                        ),
+                                                      )
+                                                    }
+                                                    Ok(r) ->
+                                                      case r.rows {
+                                                        [lid] -> Ok(lid)
+                                                        _ -> Error("unexpected")
+                                                      }
+                                                  }
+                                                }
                                               }
                                           }
                                         }
+                                        _ -> Error("cart_or_listing_not_found")
                                       }
                                   }
+                                })
+                              {
+                                Ok(lid) -> {
+                                  let out =
+                                    json.object([
+                                      #("id", json.string(lid)),
+                                      #("cart_id", json.string(cart_id)),
+                                    ])
+                                    |> json.to_string
+                                  wisp.json_response(out, 201)
                                 }
-                                _ -> Error("cart_or_listing_not_found")
+                                Error(pog.TransactionQueryError(_)) ->
+                                  json_err(500, "cart_or_listing_not_found")
+                                Error(pog.TransactionRolledBack(msg)) ->
+                                  case msg {
+                                    "listing_unavailable_or_currency_mismatch" ->
+                                      json_err(400, msg)
+                                    "cart_or_listing_not_found" ->
+                                      json_err(404, msg)
+                                    "listing_not_in_staff_org" ->
+                                      json_err(403, msg)
+                                    _ -> json_err(400, msg)
+                                  }
                               }
-                          }
-                        })
-                      {
-                        Ok(lid) -> {
-                          let out =
-                            json.object([
-                              #("id", json.string(lid)),
-                              #("cart_id", json.string(cart_id)),
-                            ])
-                            |> json.to_string
-                          wisp.json_response(out, 201)
-                        }
-                        Error(pog.TransactionQueryError(_)) ->
-                          json_err(500, "cart_or_listing_not_found")
-                        Error(pog.TransactionRolledBack(msg)) ->
-                          case msg {
-                            "listing_unavailable_or_currency_mismatch" ->
-                              json_err(400, msg)
-                            "cart_or_listing_not_found" -> json_err(404, msg)
-                            "listing_not_in_staff_org" -> json_err(403, msg)
-                            _ -> json_err(400, msg)
-                          }
-                      }
                             }
                           }
-                        }
+                      }
                   }
                 }
               }

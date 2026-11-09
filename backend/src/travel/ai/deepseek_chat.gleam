@@ -1,7 +1,7 @@
 //// DeepSeek Chat Completions (OpenAI uyumlu) — canlı destek AI yanıtları.
 
 import envoy
-import gleam/dynamic/decode as decode
+import gleam/dynamic/decode
 import gleam/json
 import gleam/list
 import gleam/result
@@ -10,7 +10,9 @@ import travel/ai/ai_config.{type AiConfig}
 import travel/net/http_client
 
 /// Tek seferlik tekrar: seyrek ağ / üst kurulum zaman aşımlarında yardımcı olur.
-fn retry_once_on_timeout(run: fn() -> Result(String, String)) -> Result(String, String) {
+fn retry_once_on_timeout(
+  run: fn() -> Result(String, String),
+) -> Result(String, String) {
   case run() {
     Ok(s) -> Ok(s)
     Error(e) -> {
@@ -28,9 +30,11 @@ fn retry_once_on_timeout(run: fn() -> Result(String, String)) -> Result(String, 
 }
 
 fn choice_content_decoder() -> decode.Decoder(String) {
-  decode.field("message", decode.field("content", decode.string, fn(c) { decode.success(c) }), fn(
-    content,
-  ) { decode.success(content) })
+  decode.field(
+    "message",
+    decode.field("content", decode.string, fn(c) { decode.success(c) }),
+    fn(content) { decode.success(content) },
+  )
 }
 
 fn choices_first_content_decoder() -> decode.Decoder(String) {
@@ -84,8 +88,7 @@ pub fn chat_completion(
       let #(r, b) = pair
       message_json(r, b)
     })
-  let msgs =
-    list.append([message_json("system", system_prompt)], hist)
+  let msgs = list.append([message_json("system", system_prompt)], hist)
   let payload =
     json.object([
       #("model", json.string(model)),
@@ -119,10 +122,11 @@ pub fn chat_completion_with_config(
   case string.trim(cfg.deepseek_api_key) == "" {
     True -> Error("deepseek_api_key_missing")
     False -> {
-      let hist = list.map(transcript, fn(pair) {
-        let #(r, b) = pair
-        message_json(r, b)
-      })
+      let hist =
+        list.map(transcript, fn(pair) {
+          let #(r, b) = pair
+          message_json(r, b)
+        })
       let msgs = list.append([message_json("system", system_prompt)], hist)
       let payload =
         json.object([
@@ -133,12 +137,14 @@ pub fn chat_completion_with_config(
         |> json.to_string
       let auth = "Bearer " <> cfg.deepseek_api_key
       retry_once_on_timeout(fn() {
-        case http_client.post_json_with_timeout(
-          cfg.deepseek_api_url,
-          payload,
-          auth,
-          timeout_ms,
-        ) {
+        case
+          http_client.post_json_with_timeout(
+            cfg.deepseek_api_url,
+            payload,
+            auth,
+            timeout_ms,
+          )
+        {
           Ok(raw) ->
             case json.parse(raw, choices_first_content_decoder()) {
               Ok(text) ->
@@ -167,10 +173,9 @@ pub fn chat_completion_single_with_config(
     True -> Error("deepseek_api_key_missing")
     False -> {
       let msgs =
-        list.append(
-          [message_json("system", system_prompt)],
-          [message_json("user", user_content)],
-        )
+        list.append([message_json("system", system_prompt)], [
+          message_json("user", user_content),
+        ])
       let payload =
         json.object([
           #("model", json.string(cfg.deepseek_model)),
@@ -180,12 +185,14 @@ pub fn chat_completion_single_with_config(
         |> json.to_string
       let auth = "Bearer " <> cfg.deepseek_api_key
       retry_once_on_timeout(fn() {
-        case http_client.post_json_with_timeout(
-          cfg.deepseek_api_url,
-          payload,
-          auth,
-          timeout_ms,
-        ) {
+        case
+          http_client.post_json_with_timeout(
+            cfg.deepseek_api_url,
+            payload,
+            auth,
+            timeout_ms,
+          )
+        {
           Ok(raw) ->
             case json.parse(raw, choices_first_content_decoder()) {
               Ok(text) ->
@@ -234,7 +241,9 @@ pub fn chat_completion_single(
     Error(_) -> "https://api.deepseek.com/v1/chat/completions"
   }
   let msgs =
-    list.append([message_json("system", system_prompt)], [message_json("user", user_content)])
+    list.append([message_json("system", system_prompt)], [
+      message_json("user", user_content),
+    ])
   let payload =
     json.object([
       #("model", json.string(model)),

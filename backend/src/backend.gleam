@@ -22,9 +22,7 @@ pub fn main() {
   // TCMB döviz kurlarını başlangıçta ve 24 saatte bir otomatik yenile
   currency_rates_runtime.start(ctx.db)
 
-  let handle = fn(request: wisp.Request) {
-    router.handle_request(request, ctx)
-  }
+  let handle = fn(request: wisp.Request) { router.handle_request(request, ctx) }
 
   case
     handle
@@ -34,7 +32,9 @@ pub fn main() {
     |> mist.start
   {
     Ok(_) -> {
-      io.println("Travel API listening on http://127.0.0.1:" <> int.to_string(cfg.port))
+      io.println(
+        "Travel API listening on http://127.0.0.1:" <> int.to_string(cfg.port),
+      )
       process.sleep_forever()
     }
     Error(_) -> panic as "Could not start HTTP server (port in use?)"

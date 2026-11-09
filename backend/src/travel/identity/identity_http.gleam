@@ -1,27 +1,27 @@
 //// Üyelik — kayıt, giriş, oturum (020 + 182).
 
 import backend/context.{type Context}
-import travel/identity/password
-import travel/identity/permissions
-import travel/identity/rate_limit
-import travel/identity/tc_kimlik_format as tc_fmt
-import travel/messaging/notification_runtime
 import gleam/bit_array
 import gleam/crypto
 import gleam/dynamic/decode
-import gleam/int
-import gleam/io
 import gleam/http
 import gleam/http/request
+import gleam/int
+import gleam/io
 import gleam/json
 import gleam/list
 import gleam/option.{None, Some}
 import gleam/result
 import gleam/string
 import pog
-import travel/db/resilient_pog as db_exec
 import travel/db/decode_helpers as row_dec
 import travel/db/pog_errors
+import travel/db/resilient_pog as db_exec
+import travel/identity/password
+import travel/identity/permissions
+import travel/identity/rate_limit
+import travel/identity/tc_kimlik_format as tc_fmt
+import travel/messaging/notification_runtime
 import wisp.{type Request, type Response}
 
 const platform_org_id: String = "a0000000-0000-4000-8000-000000000001"
@@ -87,7 +87,12 @@ fn verify_password(stored: String, plain: String) -> Bool {
 
 /// Login başarılı + saklanan hash zayıf ise kullanıcıyı yeni hash'e
 /// taşı. Hata durumunda sessizce yutar (kullanıcının login'ini kırma).
-fn maybe_rehash(ctx: Context, user_id: String, stored: String, plain: String) -> Nil {
+fn maybe_rehash(
+  ctx: Context,
+  user_id: String,
+  stored: String,
+  plain: String,
+) -> Nil {
   case password.needs_rehash(stored) {
     False -> Nil
     True -> {
@@ -337,7 +342,9 @@ pub fn change_password(req: Request, ctx: Context) -> Response {
                             True -> {
                               let new_hash = hash_password(new_pw)
                               case
-                                pog.query("update users set password_hash = $1, updated_at = now() where id = $2::uuid")
+                                pog.query(
+                                  "update users set password_hash = $1, updated_at = now() where id = $2::uuid",
+                                )
                                 |> pog.parameter(pog.text(new_hash))
                                 |> pog.parameter(pog.text(uid))
                                 |> db_exec.execute(ctx.db)
@@ -345,7 +352,8 @@ pub fn change_password(req: Request, ctx: Context) -> Response {
                                 Error(_) -> json_err(500, "update_failed")
                                 Ok(_) ->
                                   wisp.json_response(
-                                    json.object([#("ok", json.bool(True))]) |> json.to_string,
+                                    json.object([#("ok", json.bool(True))])
+                                      |> json.to_string,
                                     200,
                                   )
                               }
@@ -367,7 +375,8 @@ pub fn change_password(req: Request, ctx: Context) -> Response {
 /// POST /api/v1/auth/forgot-password — şifre sıfırlama bağlantısı oluştur
 pub fn forgot_password(req: Request, ctx: Context) -> Response {
   use <- wisp.require_method(req, http.Post)
-  let decoder = decode.field("email", decode.string, fn(e) { decode.success(e) })
+  let decoder =
+    decode.field("email", decode.string, fn(e) { decode.success(e) })
   case read_body_string(req) {
     Error(_) -> json_err(400, "empty_body")
     Ok(body) ->
@@ -378,8 +387,7 @@ pub fn forgot_password(req: Request, ctx: Context) -> Response {
           let rkey = rate_key(client_ip(req), email)
           case rate_limit.check(ctx, "forgot", rkey) {
             rate_limit.Blocked(secs) -> json_too_many(secs)
-            rate_limit.Allowed ->
-              forgot_password_do(ctx, email, rkey)
+            rate_limit.Allowed -> forgot_password_do(ctx, email, rkey)
           }
         }
       }
@@ -429,7 +437,7 @@ fn forgot_password_do(ctx: Context, email: String, rkey: String) -> Response {
               rate_limit.record_success(ctx, "forgot", rkey)
               wisp.json_response(
                 json.object([#("ok", json.bool(True))])
-                |> json.to_string,
+                  |> json.to_string,
                 200,
               )
             }
@@ -445,7 +453,7 @@ pub fn reset_password(req: Request, ctx: Context) -> Response {
   use <- wisp.require_method(req, http.Post)
   let decoder = {
     use tok <- decode.field("token", decode.string)
-    use pw  <- decode.field("new_password", decode.string)
+    use pw <- decode.field("new_password", decode.string)
     decode.success(#(tok, pw))
   }
   case read_body_string(req) {
@@ -477,11 +485,15 @@ pub fn reset_password(req: Request, ctx: Context) -> Response {
                       let new_hash = hash_password(pw)
                       let tok_lower = string.lowercase(string.trim(tok))
                       let _ =
-                        pog.query("update password_reset_tokens set used_at = now() where token = $1")
+                        pog.query(
+                          "update password_reset_tokens set used_at = now() where token = $1",
+                        )
                         |> pog.parameter(pog.text(tok_lower))
                         |> db_exec.execute(ctx.db)
                       case
-                        pog.query("update users set password_hash = $1, updated_at = now() where id = $2::uuid")
+                        pog.query(
+                          "update users set password_hash = $1, updated_at = now() where id = $2::uuid",
+                        )
                         |> pog.parameter(pog.text(new_hash))
                         |> pog.parameter(pog.text(uid))
                         |> db_exec.execute(ctx.db)
@@ -489,7 +501,8 @@ pub fn reset_password(req: Request, ctx: Context) -> Response {
                         Error(_) -> json_err(500, "update_failed")
                         Ok(_) ->
                           wisp.json_response(
-                            json.object([#("ok", json.bool(True))]) |> json.to_string,
+                            json.object([#("ok", json.bool(True))])
+                              |> json.to_string,
                             200,
                           )
                       }
@@ -523,9 +536,9 @@ fn do_login(ctx: Context, email: String, password: String) -> Response {
   {
     Error(e) -> {
       let _ =
-                io.println(
-                  "login users select: " <> pog_errors.query_error_to_string(e),
-                )
+        io.println(
+          "login users select: " <> pog_errors.query_error_to_string(e),
+        )
       json_err(500, "login_query_failed")
     }
     Ok(qr) ->
@@ -603,7 +616,16 @@ fn me_row_full() -> decode.Decoder(
   use pending_id <- decode.field(5, decode.string)
   use pending_since <- decode.field(6, decode.string)
   use reject_note <- decode.field(7, decode.string)
-  decode.success(#(id, email, dn, loc, verified_at, pending_id, pending_since, reject_note))
+  decode.success(#(
+    id,
+    email,
+    dn,
+    loc,
+    verified_at,
+    pending_id,
+    pending_since,
+    reject_note,
+  ))
 }
 
 fn role_assignment_row() -> decode.Decoder(#(String, String)) {
@@ -649,7 +671,9 @@ pub fn list_roles(req: Request, ctx: Context) -> Response {
     decode.success(#(c, d))
   }
   case
-    pog.query("select code::text, coalesce(description, '') from roles order by id")
+    pog.query(
+      "select code::text, coalesce(description, '') from roles order by id",
+    )
     |> pog.returning(row)
     |> db_exec.execute(ctx.db)
   {
@@ -763,7 +787,18 @@ pub fn me(req: Request, ctx: Context) -> Response {
         Ok(ret) ->
           case ret.rows {
             [] -> json_err(401, "invalid_session")
-            [#(id, email, dn, loc, verified_at, pending_id, pending_since, reject_note)] -> {
+            [
+              #(
+                id,
+                email,
+                dn,
+                loc,
+                verified_at,
+                pending_id,
+                pending_since,
+                reject_note,
+              ),
+            ] -> {
               let roles_j = user_roles_json(ctx.db, id)
               let perms_j =
                 permissions.permissions_json(permissions.user_permission_codes(
@@ -865,10 +900,15 @@ pub fn submit_tc_verification(req: Request, ctx: Context) -> Response {
                                         |> db_exec.execute(ctx.db)
                                       {
                                         Error(_) ->
-                                          json_err(500, "tc_request_upsert_failed")
+                                          json_err(
+                                            500,
+                                            "tc_request_upsert_failed",
+                                          )
                                         Ok(_) -> {
                                           let ok_body =
-                                            json.object([#("ok", json.bool(True))])
+                                            json.object([
+                                              #("ok", json.bool(True)),
+                                            ])
                                             |> json.to_string
                                           wisp.json_response(ok_body, 200)
                                         }
@@ -1138,7 +1178,9 @@ pub fn admin_review_tc_verification(
   case rid == "" {
     True -> json_err(400, "invalid_request_id")
     False ->
-      case require_session_permission(req, ctx, "admin.tc_verification.review") {
+      case
+        require_session_permission(req, ctx, "admin.tc_verification.review")
+      {
         Error(r) -> r
         Ok(admin_id) ->
           case read_body_string(req) {
@@ -1287,7 +1329,9 @@ pub fn admin_user_roles(req: Request, ctx: Context) -> Response {
   }
 }
 
-fn admin_user_role_decoder() -> decode.Decoder(#(String, String, String, String)) {
+fn admin_user_role_decoder() -> decode.Decoder(
+  #(String, String, String, String),
+) {
   decode.field("user_id", decode.string, fn(uid) {
     decode.field("role_code", decode.string, fn(code) {
       decode.optional_field("organization_id", "", decode.string, fn(oid) {
@@ -1412,7 +1456,9 @@ pub fn admin_update_user_role(req: Request, ctx: Context) -> Response {
   }
 }
 
-fn audit_log_row() -> decode.Decoder(#(String, String, String, String, String, String)) {
+fn audit_log_row() -> decode.Decoder(
+  #(String, String, String, String, String, String),
+) {
   use id <- decode.field(0, decode.string)
   use uid <- decode.field(1, decode.string)
   use oid <- decode.field(2, decode.string)
@@ -1641,9 +1687,7 @@ pub fn admin_list_role_permissions(req: Request, ctx: Context) -> Response {
 fn admin_role_perm_decoder() -> decode.Decoder(#(String, String, String)) {
   decode.field("role_code", decode.string, fn(rc) {
     decode.field("permission_code", decode.string, fn(pc) {
-      decode.field("op", decode.string, fn(op) {
-        decode.success(#(rc, pc, op))
-      })
+      decode.field("op", decode.string, fn(op) { decode.success(#(rc, pc, op)) })
     })
   })
 }
@@ -1658,101 +1702,103 @@ pub fn admin_update_role_permission(req: Request, ctx: Context) -> Response {
         False -> json_err(503, "permissions_matrix_migration_required")
         True ->
           case read_body_string(req) {
-        Error(_) -> json_err(400, "empty_body")
-        Ok(body) ->
-          case json.parse(body, admin_role_perm_decoder()) {
-            Error(_) -> json_err(400, "invalid_json")
-            Ok(#(rc_raw, pc_raw, op_raw)) -> {
-              let rc = string.lowercase(string.trim(rc_raw))
-              let pc = string.trim(pc_raw)
-              let op = string.lowercase(string.trim(op_raw))
-              case rc == "" || pc == "" || op == "" {
-                True -> json_err(400, "missing_fields")
-                False ->
-                  case op {
-                    "grant" ->
-                      case
-                        pog.query(
-                          "insert into role_permissions (role_id, permission_id) select r.id, p.id from roles r, permissions p where r.code = $1 and p.code = $2 on conflict do nothing",
-                        )
-                        |> pog.parameter(pog.text(rc))
-                        |> pog.parameter(pog.text(pc))
-                        |> db_exec.execute(ctx.db)
-                      {
-                        Error(_) -> json_err(500, "grant_failed")
-                        Ok(_) -> {
-                          let details =
-                            json.object([
-                              #("op", json.string("grant")),
-                              #("role_code", json.string(rc)),
-                              #("permission_code", json.string(pc)),
-                            ])
-                          audit_log_insert(
-                            ctx,
-                            actor_id,
-                            "",
-                            "role_permission_granted",
-                            "role_permission",
-                            "",
-                            details,
-                          )
-                          let body =
-                            json.object([
-                              #("ok", json.bool(True)),
-                              #("role_code", json.string(rc)),
-                              #("permission_code", json.string(pc)),
-                            ])
-                            |> json.to_string
-                          wisp.json_response(body, 200)
-                        }
+            Error(_) -> json_err(400, "empty_body")
+            Ok(body) ->
+              case json.parse(body, admin_role_perm_decoder()) {
+                Error(_) -> json_err(400, "invalid_json")
+                Ok(#(rc_raw, pc_raw, op_raw)) -> {
+                  let rc = string.lowercase(string.trim(rc_raw))
+                  let pc = string.trim(pc_raw)
+                  let op = string.lowercase(string.trim(op_raw))
+                  case rc == "" || pc == "" || op == "" {
+                    True -> json_err(400, "missing_fields")
+                    False ->
+                      case op {
+                        "grant" ->
+                          case
+                            pog.query(
+                              "insert into role_permissions (role_id, permission_id) select r.id, p.id from roles r, permissions p where r.code = $1 and p.code = $2 on conflict do nothing",
+                            )
+                            |> pog.parameter(pog.text(rc))
+                            |> pog.parameter(pog.text(pc))
+                            |> db_exec.execute(ctx.db)
+                          {
+                            Error(_) -> json_err(500, "grant_failed")
+                            Ok(_) -> {
+                              let details =
+                                json.object([
+                                  #("op", json.string("grant")),
+                                  #("role_code", json.string(rc)),
+                                  #("permission_code", json.string(pc)),
+                                ])
+                              audit_log_insert(
+                                ctx,
+                                actor_id,
+                                "",
+                                "role_permission_granted",
+                                "role_permission",
+                                "",
+                                details,
+                              )
+                              let body =
+                                json.object([
+                                  #("ok", json.bool(True)),
+                                  #("role_code", json.string(rc)),
+                                  #("permission_code", json.string(pc)),
+                                ])
+                                |> json.to_string
+                              wisp.json_response(body, 200)
+                            }
+                          }
+                        "revoke" ->
+                          case
+                            pog.query(
+                              "delete from role_permissions rp using roles r, permissions p where rp.role_id = r.id and rp.permission_id = p.id and r.code = $1 and p.code = $2",
+                            )
+                            |> pog.parameter(pog.text(rc))
+                            |> pog.parameter(pog.text(pc))
+                            |> db_exec.execute(ctx.db)
+                          {
+                            Error(_) -> json_err(500, "revoke_failed")
+                            Ok(_) -> {
+                              let details =
+                                json.object([
+                                  #("op", json.string("revoke")),
+                                  #("role_code", json.string(rc)),
+                                  #("permission_code", json.string(pc)),
+                                ])
+                              audit_log_insert(
+                                ctx,
+                                actor_id,
+                                "",
+                                "role_permission_revoked",
+                                "role_permission",
+                                "",
+                                details,
+                              )
+                              let body =
+                                json.object([
+                                  #("ok", json.bool(True)),
+                                  #("role_code", json.string(rc)),
+                                  #("permission_code", json.string(pc)),
+                                ])
+                                |> json.to_string
+                              wisp.json_response(body, 200)
+                            }
+                          }
+                        _ -> json_err(400, "invalid_op")
                       }
-                    "revoke" ->
-                      case
-                        pog.query(
-                          "delete from role_permissions rp using roles r, permissions p where rp.role_id = r.id and rp.permission_id = p.id and r.code = $1 and p.code = $2",
-                        )
-                        |> pog.parameter(pog.text(rc))
-                        |> pog.parameter(pog.text(pc))
-                        |> db_exec.execute(ctx.db)
-                      {
-                        Error(_) -> json_err(500, "revoke_failed")
-                        Ok(_) -> {
-                          let details =
-                            json.object([
-                              #("op", json.string("revoke")),
-                              #("role_code", json.string(rc)),
-                              #("permission_code", json.string(pc)),
-                            ])
-                          audit_log_insert(
-                            ctx,
-                            actor_id,
-                            "",
-                            "role_permission_revoked",
-                            "role_permission",
-                            "",
-                            details,
-                          )
-                          let body =
-                            json.object([
-                              #("ok", json.bool(True)),
-                              #("role_code", json.string(rc)),
-                              #("permission_code", json.string(pc)),
-                            ])
-                            |> json.to_string
-                          wisp.json_response(body, 200)
-                        }
-                      }
-                    _ -> json_err(400, "invalid_op")
                   }
+                }
               }
-            }
-          }
           }
       }
   }
 }
 
-fn agency_grant_row() -> decode.Decoder(#(String, String, String, String, String)) {
+fn agency_grant_row() -> decode.Decoder(
+  #(String, String, String, String, String),
+) {
   use id <- decode.field(0, decode.string)
   use oid <- decode.field(1, decode.string)
   use oname <- decode.field(2, decode.string)
@@ -1762,9 +1808,14 @@ fn agency_grant_row() -> decode.Decoder(#(String, String, String, String, String
 }
 
 /// GET /api/v1/admin/agency-category-grants?agency_organization_id=
-pub fn admin_list_agency_category_grants(req: Request, ctx: Context) -> Response {
+pub fn admin_list_agency_category_grants(
+  req: Request,
+  ctx: Context,
+) -> Response {
   use <- wisp.require_method(req, http.Get)
-  case require_session_permission(req, ctx, "admin.agency_category_grants.read") {
+  case
+    require_session_permission(req, ctx, "admin.agency_category_grants.read")
+  {
     Error(r) -> r
     Ok(_) -> {
       let qs = case request.get_query(req) {
@@ -1810,7 +1861,9 @@ pub fn admin_list_agency_category_grants(req: Request, ctx: Context) -> Response
   }
 }
 
-fn admin_agency_grant_upsert_decoder() -> decode.Decoder(#(String, String, Bool)) {
+fn admin_agency_grant_upsert_decoder() -> decode.Decoder(
+  #(String, String, Bool),
+) {
   decode.field("agency_organization_id", decode.string, fn(aid) {
     decode.field("category_code", decode.string, fn(cat) {
       decode.field("approved", decode.bool, fn(apr) {
@@ -1821,9 +1874,14 @@ fn admin_agency_grant_upsert_decoder() -> decode.Decoder(#(String, String, Bool)
 }
 
 /// POST /api/v1/admin/agency-category-grants — { agency_organization_id, category_code, approved }
-pub fn admin_upsert_agency_category_grant(req: Request, ctx: Context) -> Response {
+pub fn admin_upsert_agency_category_grant(
+  req: Request,
+  ctx: Context,
+) -> Response {
   use <- wisp.require_method(req, http.Post)
-  case require_session_permission(req, ctx, "admin.agency_category_grants.write") {
+  case
+    require_session_permission(req, ctx, "admin.agency_category_grants.write")
+  {
     Error(r) -> r
     Ok(actor_id) ->
       case read_body_string(req) {
@@ -1895,7 +1953,18 @@ pub fn admin_upsert_agency_category_grant(req: Request, ctx: Context) -> Respons
 }
 
 fn admin_agency_profile_row() -> decode.Decoder(
-  #(String, String, String, String, String, String, String, String, String, String),
+  #(
+    String,
+    String,
+    String,
+    String,
+    String,
+    String,
+    String,
+    String,
+    String,
+    String,
+  ),
 ) {
   use uid <- decode.field(0, decode.string)
   use em <- decode.field(1, decode.string)
@@ -1907,7 +1976,18 @@ fn admin_agency_profile_row() -> decode.Decoder(
   use tursab_no <- decode.field(7, decode.string)
   use tursab_url <- decode.field(8, decode.string)
   use created_at <- decode.field(9, decode.string)
-  decode.success(#(uid, em, ds, dp, oid, slug, name, tursab_no, tursab_url, created_at))
+  decode.success(#(
+    uid,
+    em,
+    ds,
+    dp,
+    oid,
+    slug,
+    name,
+    tursab_no,
+    tursab_url,
+    created_at,
+  ))
 }
 
 fn valid_agency_document_status(s: String) -> Bool {
@@ -2021,8 +2101,18 @@ pub fn admin_list_agency_profiles(req: Request, ctx: Context) -> Response {
           Ok(ret) -> {
             let arr =
               list.map(ret.rows, fn(row) {
-                let #(uid, em, ds, dp, org_id, slug, name, tursab_no, tursab_url, created) =
-                  row
+                let #(
+                  uid,
+                  em,
+                  ds,
+                  dp,
+                  org_id,
+                  slug,
+                  name,
+                  tursab_no,
+                  tursab_url,
+                  created,
+                ) = row
                 json.object([
                   #("user_id", json.string(uid)),
                   #("email", json.string(em)),
@@ -2066,7 +2156,9 @@ pub fn admin_list_agency_profiles(req: Request, ctx: Context) -> Response {
   }
 }
 
-fn admin_agency_profile_patch_decoder() -> decode.Decoder(#(String, String, String)) {
+fn admin_agency_profile_patch_decoder() -> decode.Decoder(
+  #(String, String, String),
+) {
   decode.field("agency_organization_id", decode.string, fn(oid) {
     decode.optional_field("document_status", "", decode.string, fn(ds) {
       decode.optional_field("discount_percent", "", decode.string, fn(dp) {
@@ -2129,9 +2221,18 @@ pub fn admin_patch_agency_profiles(req: Request, ctx: Context) -> Response {
                                         [cnt] -> {
                                           let details =
                                             json.object([
-                                              #("document_status", json.string(ds)),
-                                              #("discount_percent", json.string(dp)),
-                                              #("updated_count", json.string(cnt)),
+                                              #(
+                                                "document_status",
+                                                json.string(ds),
+                                              ),
+                                              #(
+                                                "discount_percent",
+                                                json.string(dp),
+                                              ),
+                                              #(
+                                                "updated_count",
+                                                json.string(cnt),
+                                              ),
                                             ])
                                           audit_log_insert(
                                             ctx,
@@ -2159,7 +2260,10 @@ pub fn admin_patch_agency_profiles(req: Request, ctx: Context) -> Response {
                                           }
                                           let out =
                                             json.object([
-                                              #("updated_count", json.string(cnt)),
+                                              #(
+                                                "updated_count",
+                                                json.string(cnt),
+                                              ),
                                             ])
                                             |> json.to_string
                                           wisp.json_response(out, 200)
@@ -2177,4 +2281,3 @@ pub fn admin_patch_agency_profiles(req: Request, ctx: Context) -> Response {
       }
   }
 }
-

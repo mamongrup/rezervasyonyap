@@ -94,10 +94,7 @@ pub fn response(
                 json.object([
                   #("reservation_count", json.string(cnt)),
                   #("gross_total", json.string(gross)),
-                  #(
-                    "average_commission_percent",
-                    json.string(avg_pct),
-                  ),
+                  #("average_commission_percent", json.string(avg_pct)),
                   #("estimated_commission", json.string(est_comm)),
                   #("by_status", by_status),
                 ])

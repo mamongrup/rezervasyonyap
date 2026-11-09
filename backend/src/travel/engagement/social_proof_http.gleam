@@ -17,8 +17,8 @@ import gleam/json
 import gleam/result
 import gleam/string
 import pog
-import travel/db/resilient_pog as db_exec
 import travel/db/decode_helpers as row_dec
+import travel/db/resilient_pog as db_exec
 import wisp.{type Request, type Response}
 
 fn json_err(status: Int, msg: String) -> Response {
@@ -66,7 +66,11 @@ pub fn view_ping(req: Request, ctx: Context, listing_id: String) -> Response {
   }
 }
 
-pub fn social_proof(req: Request, ctx: Context, listing_id: String) -> Response {
+pub fn social_proof(
+  req: Request,
+  ctx: Context,
+  listing_id: String,
+) -> Response {
   use <- wisp.require_method(req, http.Get)
   // Viewers (son 5 dk distinct session_key)
   let viewers = case

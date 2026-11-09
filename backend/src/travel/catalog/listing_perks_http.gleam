@@ -16,8 +16,8 @@ import gleam/json
 import gleam/option.{type Option, None, Some}
 import gleam/result
 import pog
-import travel/db/resilient_pog as db_exec
 import travel/catalog/catalog_http
+import travel/db/resilient_pog as db_exec
 import wisp.{type Request, type Response}
 
 fn json_err(status: Int, msg: String) -> Response {
@@ -79,14 +79,19 @@ fn mobile_discount_percent_json_decoder() -> decode.Decoder(Float) {
 }
 
 fn patch_decoder() -> decode.Decoder(#(Option(Bool), Option(Float))) {
-  decode.optional_field("instant_book", None, decode.optional(decode.bool), fn(ib) {
-    decode.optional_field(
-      "mobile_discount_percent",
-      None,
-      decode.optional(mobile_discount_percent_json_decoder()),
-      fn(md) { decode.success(#(ib, md)) },
-    )
-  })
+  decode.optional_field(
+    "instant_book",
+    None,
+    decode.optional(decode.bool),
+    fn(ib) {
+      decode.optional_field(
+        "mobile_discount_percent",
+        None,
+        decode.optional(mobile_discount_percent_json_decoder()),
+        fn(md) { decode.success(#(ib, md)) },
+      )
+    },
+  )
 }
 
 pub fn patch_perks(req: Request, ctx: Context, listing_id: String) -> Response {
@@ -120,7 +125,9 @@ fn apply_patch(
   let ib_done = case ib_opt {
     Some(v) -> {
       let _ =
-        pog.query("update listings set instant_book = $1, updated_at = now() where id = $2::uuid")
+        pog.query(
+          "update listings set instant_book = $1, updated_at = now() where id = $2::uuid",
+        )
         |> pog.parameter(pog.bool(v))
         |> pog.parameter(pog.text(listing_id))
         |> db_exec.execute(ctx.db)

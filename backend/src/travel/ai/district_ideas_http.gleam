@@ -14,16 +14,16 @@ import gleam/bit_array
 import gleam/dict.{type Dict}
 import gleam/dynamic as dyn
 import gleam/dynamic/decode
-import gleam/json
 import gleam/http
+import gleam/json
 import gleam/list
 import gleam/option.{type Option, None, Some}
 import gleam/result
 import gleam/string
 import pog
-import travel/db/resilient_pog as db_exec
 import travel/ai/ai_job_run
 import travel/db/decode_helpers as row_dec
+import travel/db/resilient_pog as db_exec
 import travel/identity/admin_gate
 import wisp.{type Request, type Response}
 
@@ -113,7 +113,11 @@ pub fn get_stats(req: Request, ctx: Context) -> Response {
                     [n] -> n
                     _ -> 0
                   }
-                  case pog.query(empty_sql) |> pog.returning(int_col0) |> db_exec.execute(ctx.db) {
+                  case
+                    pog.query(empty_sql)
+                    |> pog.returning(int_col0)
+                    |> db_exec.execute(ctx.db)
+                  {
                     Error(_) -> json_err(500, "stats_empty_failed")
                     Ok(er) ->
                       case er.rows {
@@ -124,7 +128,8 @@ pub fn get_stats(req: Request, ctx: Context) -> Response {
                             |> pog.returning(int_col0)
                             |> db_exec.execute(ctx.db)
                           {
-                            Error(_) -> json_err(500, "stats_placeholder_failed")
+                            Error(_) ->
+                              json_err(500, "stats_placeholder_failed")
                             Ok(pr) -> {
                               let placeholder_guess = case pr.rows {
                                 [n] -> n
@@ -133,7 +138,10 @@ pub fn get_stats(req: Request, ctx: Context) -> Response {
                               let body =
                                 json.object([
                                   #("total_districts", json.int(total)),
-                                  #("districts_with_content", json.int(has_content)),
+                                  #(
+                                    "districts_with_content",
+                                    json.int(has_content),
+                                  ),
                                   #(
                                     "districts_travel_ideas_empty",
                                     json.int(empty_n),
@@ -180,14 +188,15 @@ pub fn queue_all(req: Request, ctx: Context) -> Response {
   case admin_gate.require_admin_users_read(req, ctx) {
     Error(r) -> r
     Ok(_) -> {
-      let include_weak =
-        case list.key_find(wisp.get_query(req), "include_weak") {
-          Error(_) -> False
-          Ok(v) -> {
-            let lv = string.lowercase(string.trim(v))
-            lv == "1" || lv == "true" || lv == "yes"
-          }
+      let include_weak = case
+        list.key_find(wisp.get_query(req), "include_weak")
+      {
+        Error(_) -> False
+        Ok(v) -> {
+          let lv = string.lowercase(string.trim(v))
+          lv == "1" || lv == "true" || lv == "yes"
         }
+      }
 
       let travel_condition = case include_weak {
         False -> "coalesce(jsonb_array_length(lp.travel_ideas_json), 0) = 0"
@@ -202,17 +211,14 @@ pub fn queue_all(req: Request, ctx: Context) -> Response {
     )"
       }
 
-      let find_sql =
-        "
+      let find_sql = "
         select lp.id::text, d.name as district_name, r.name as region_name, co.name as country_name
         from   location_pages lp
         join   districts d  on d.id  = lp.district_id
         join   regions   r  on r.id  = d.region_id
         join   countries co on co.id = r.country_id
         where  lp.region_type = 'district'
-          and  ("
-        <> travel_condition
-        <> ")
+          and  (" <> travel_condition <> ")
           and  lp.id::text not in (
                  select input_json->>'location_page_id'
                  from   ai_jobs
@@ -417,13 +423,18 @@ fn slice_json_array_loose(s: String) -> Result(String, Nil) {
       case closing_opt {
         None -> Error(Nil)
         Some(end_idx) ->
-          Ok("[" <> string.slice(from: after_first, at_index: 0, length: end_idx + 1))
+          Ok(
+            "["
+            <> string.slice(from: after_first, at_index: 0, length: end_idx + 1),
+          )
       }
     }
   }
 }
 
-fn dict_to_object_entries(d: Dict(String, dyn.Dynamic)) -> Result(List(#(String, json.Json)), Nil) {
+fn dict_to_object_entries(
+  d: Dict(String, dyn.Dynamic),
+) -> Result(List(#(String, json.Json)), Nil) {
   dict.fold(d, Ok([]), fn(acc, k, v) {
     case acc {
       Ok(entries) ->
@@ -500,7 +511,9 @@ fn attempt_normalize_ideas(text: String) -> Result(String, Nil) {
               case dict_to_object_entries(d) {
                 Ok(entries) ->
                   Ok(
-                    json.to_string(json.preprocessed_array([json.object(entries)])),
+                    json.to_string(
+                      json.preprocessed_array([json.object(entries)]),
+                    ),
                   )
                 Error(_) -> Error(Nil)
               }
@@ -548,7 +561,11 @@ fn apply_ideas(
   }
 }
 
-fn apply_ideas_to_db(ctx: Context, lp_id: String, ideas_json: String) -> Result(Bool, String) {
+fn apply_ideas_to_db(
+  ctx: Context,
+  lp_id: String,
+  ideas_json: String,
+) -> Result(Bool, String) {
   let trimmed_lp = string.trim(lp_id)
   let #(json_to_store, ideas_stored) = normalize_travel_ideas_json(ideas_json)
   case
@@ -626,9 +643,15 @@ fn next_empty_row() -> decode.Decoder(
   use country_name <- decode.field(4, decode.string)
   use center_lat <- decode.field(5, decode.string)
   use center_lng <- decode.field(6, decode.string)
-  decode.success(
-    #(lp_id, slug, district_name, region_name, country_name, center_lat, center_lng),
-  )
+  decode.success(#(
+    lp_id,
+    slug,
+    district_name,
+    region_name,
+    country_name,
+    center_lat,
+    center_lng,
+  ))
 }
 
 /// GET /api/v1/ai/district-ideas/next-empty — `admin.users.read`
@@ -698,8 +721,7 @@ pub fn next_empty(req: Request, ctx: Context) -> Response {
         Error(_) -> json_err(500, "next_empty_query_failed")
         Ok(ret) ->
           case ret.rows {
-            [] ->
-              wisp.json_response("{\"done\":true}", 200)
+            [] -> wisp.json_response("{\"done\":true}", 200)
             [#(lp_id, slug, district_name, region_name, country_name, lat, lng)] -> {
               let body =
                 json.object([
@@ -735,7 +757,12 @@ fn save_body_decoder() -> decode.Decoder(#(String, String, String, String)) {
   decode.success(#(lp_id, ideas, center_lat, center_lng))
 }
 
-fn update_district_center(ctx: Context, lp_id: String, lat_str: String, lng_str: String) -> Nil {
+fn update_district_center(
+  ctx: Context,
+  lp_id: String,
+  lat_str: String,
+  lng_str: String,
+) -> Nil {
   let lat = string.trim(lat_str)
   let lng = string.trim(lng_str)
   case lat == "" || lng == "" {
@@ -841,8 +868,18 @@ pub fn save_places(req: Request, ctx: Context) -> Response {
             Ok(#(lp_id, ideas_json, center_lat, center_lng)) -> {
               let cleaned = clean_json_text(ideas_json)
               update_district_center(ctx, lp_id, center_lat, center_lng)
-              sync_region_center_for_province_page(ctx, lp_id, center_lat, center_lng)
-              sync_location_page_map_if_empty(ctx, lp_id, center_lat, center_lng)
+              sync_region_center_for_province_page(
+                ctx,
+                lp_id,
+                center_lat,
+                center_lng,
+              )
+              sync_location_page_map_if_empty(
+                ctx,
+                lp_id,
+                center_lat,
+                center_lng,
+              )
               apply_ideas(ctx, "google_maps", string.trim(lp_id), cleaned)
             }
           }
@@ -851,20 +888,30 @@ pub fn save_places(req: Request, ctx: Context) -> Response {
   }
 }
 
-fn cover_body_decoder() -> decode.Decoder(#(String, String, Option(String), Option(String))) {
+fn cover_body_decoder() -> decode.Decoder(
+  #(String, String, Option(String), Option(String)),
+) {
   use lp_id <- decode.field("location_page_id", decode.string)
   use cover <- decode.field("cover_image", decode.string)
-  use featured <- decode.optional_field("featured_image_url", None, decode.optional(decode.string))
-  use gallery <- decode.optional_field("gallery_json", None, decode.optional(decode.string))
+  use featured <- decode.optional_field(
+    "featured_image_url",
+    None,
+    decode.optional(decode.string),
+  )
+  use gallery <- decode.optional_field(
+    "gallery_json",
+    None,
+    decode.optional(decode.string),
+  )
   decode.success(#(lp_id, cover, featured, gallery))
 }
 
 fn no_cover_row() -> decode.Decoder(#(String, String, String, String, String)) {
-  use lp_id        <- decode.field(0, decode.string)
-  use slug         <- decode.field(1, decode.string)
-  use region_type  <- decode.field(2, decode.string)
+  use lp_id <- decode.field(0, decode.string)
+  use slug <- decode.field(1, decode.string)
+  use region_type <- decode.field(2, decode.string)
   use location_name <- decode.field(3, decode.string)
-  use parent_name  <- decode.field(4, decode.string)
+  use parent_name <- decode.field(4, decode.string)
   decode.success(#(lp_id, slug, region_type, location_name, parent_name))
 }
 
@@ -906,8 +953,7 @@ pub fn next_no_cover(req: Request, ctx: Context) -> Response {
         Error(_) -> json_err(500, "next_no_cover_query_failed")
         Ok(ret) ->
           case ret.rows {
-            [] ->
-              wisp.json_response("{\"done\":true}", 200)
+            [] -> wisp.json_response("{\"done\":true}", 200)
             [#(lp_id, slug, region_type, location_name, parent_name)] -> {
               let body =
                 json.object([
@@ -1013,10 +1059,7 @@ pub fn save_cover(req: Request, ctx: Context) -> Response {
                       Nil
                     }
                   }
-                  wisp.json_response(
-                    "{\"ok\":true}",
-                    200,
-                  )
+                  wisp.json_response("{\"ok\":true}", 200)
                 }
               }
             }
@@ -1027,10 +1070,10 @@ pub fn save_cover(req: Request, ctx: Context) -> Response {
 }
 
 fn cover_stats_row() -> decode.Decoder(#(Int, Int, Int, Int)) {
-  use total     <- decode.field(0, decode.int)
+  use total <- decode.field(0, decode.int)
   use has_cover <- decode.field(1, decode.int)
   use not_found <- decode.field(2, decode.int)
-  use empty     <- decode.field(3, decode.int)
+  use empty <- decode.field(3, decode.int)
   decode.success(#(total, has_cover, not_found, empty))
 }
 
@@ -1115,11 +1158,11 @@ pub fn not_found_covers(req: Request, ctx: Context) -> Response {
            limit  200",
         )
         |> pog.returning({
-          use id   <- decode.field(0, decode.string)
+          use id <- decode.field(0, decode.string)
           use slug <- decode.field(1, decode.string)
-          use rt   <- decode.field(2, decode.string)
-          use loc  <- decode.field(3, decode.string)
-          use par  <- decode.field(4, decode.string)
+          use rt <- decode.field(2, decode.string)
+          use loc <- decode.field(3, decode.string)
+          use par <- decode.field(4, decode.string)
           decode.success(#(id, slug, rt, loc, par))
         })
         |> db_exec.execute(ctx.db)
@@ -1137,7 +1180,10 @@ pub fn not_found_covers(req: Request, ctx: Context) -> Response {
                 #("parent_name", json.string(par)),
               ])
             })
-          wisp.json_response(json.to_string(json.array(items, fn(x) { x })), 200)
+          wisp.json_response(
+            json.to_string(json.array(items, fn(x) { x })),
+            200,
+          )
         }
       }
     }
@@ -1168,9 +1214,11 @@ pub fn reset_not_found(req: Request, ctx: Context) -> Response {
         Error(_) -> json_err(500, "reset_not_found_failed")
         Ok(ret) ->
           wisp.json_response(
-            json.to_string(json.object([
-              #("reset_count", json.int(list.length(ret.rows))),
-            ])),
+            json.to_string(
+              json.object([
+                #("reset_count", json.int(list.length(ret.rows))),
+              ]),
+            ),
             200,
           )
       }
@@ -1202,9 +1250,11 @@ pub fn reset_stuck_jobs(req: Request, ctx: Context) -> Response {
         Error(_) -> json_err(500, "reset_stuck_failed")
         Ok(ret) ->
           wisp.json_response(
-            json.to_string(json.object([
-              #("reset_count", json.int(list.length(ret.rows))),
-            ])),
+            json.to_string(
+              json.object([
+                #("reset_count", json.int(list.length(ret.rows))),
+              ]),
+            ),
             200,
           )
       }

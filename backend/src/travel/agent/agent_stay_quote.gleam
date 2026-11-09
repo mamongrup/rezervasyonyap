@@ -1,8 +1,6 @@
 //// Partner API — konaklama (otel / tatil evi / yat) fiyat teklifi.
 
 import backend/context.{type Context}
-import travel/agent/agent_auth
-import travel/agent/agent_catalog_http
 import gleam/bit_array
 import gleam/dynamic/decode
 import gleam/float
@@ -14,6 +12,8 @@ import gleam/result
 import gleam/string
 import gleam/time/calendar
 import pog
+import travel/agent/agent_auth
+import travel/agent/agent_catalog_http
 import travel/db/resilient_pog as db_exec
 import wisp.{type Request, type Response}
 
@@ -28,9 +28,12 @@ fn stay_quote_decoder() -> decode.Decoder(#(String, String, Int, String)) {
   decode.field("starts_on", decode.string, fn(starts_on) {
     decode.field("ends_on", decode.string, fn(ends_on) {
       decode.optional_field("quantity", 1, decode.int, fn(quantity) {
-        decode.optional_field("meal_plan_code", "room_only", decode.string, fn(plan) {
-          decode.success(#(starts_on, ends_on, quantity, plan))
-        })
+        decode.optional_field(
+          "meal_plan_code",
+          "room_only",
+          decode.string,
+          fn(plan) { decode.success(#(starts_on, ends_on, quantity, plan)) },
+        )
       })
     })
   })
@@ -70,7 +73,13 @@ pub fn stay_quote(req: Request, ctx: Context, listing_id: String) -> Response {
       case agent_auth.require_scope(scopes, "listings.read") {
         Error(r) -> r
         Ok(Nil) ->
-          case agent_catalog_http.assert_agent_listing_access(ctx.db, listing_id, oid) {
+          case
+            agent_catalog_http.assert_agent_listing_access(
+              ctx.db,
+              listing_id,
+              oid,
+            )
+          {
             Error(r) -> r
             Ok(cat) ->
               case list.contains(stay_categories, cat) {
@@ -85,7 +94,10 @@ pub fn stay_quote(req: Request, ctx: Context, listing_id: String) -> Response {
                           case quantity < 1 {
                             True -> agent_auth.json_err(400, "invalid_quantity")
                             False ->
-                              case parse_iso_date_ymd(starts_on), parse_iso_date_ymd(ends_on) {
+                              case
+                                parse_iso_date_ymd(starts_on),
+                                parse_iso_date_ymd(ends_on)
+                              {
                                 Ok(start_date), Ok(end_date) ->
                                   case
                                     pog.query(
@@ -131,46 +143,80 @@ pub fn stay_quote(req: Request, ctx: Context, listing_id: String) -> Response {
                                       <> "  and (select count(*) from night_series) = nc.n",
                                     )
                                     |> pog.parameter(pog.text(listing_id))
-                                    |> pog.parameter(pog.calendar_date(start_date))
+                                    |> pog.parameter(pog.calendar_date(
+                                      start_date,
+                                    ))
                                     |> pog.parameter(pog.calendar_date(end_date))
-                                    |> pog.parameter(pog.text(string.trim(meal_plan)))
+                                    |> pog.parameter(
+                                      pog.text(string.trim(meal_plan)),
+                                    )
                                     |> pog.returning(quote_row())
                                     |> db_exec.execute(ctx.db)
                                   {
                                     Error(_) ->
-                                      agent_auth.json_err(500, "stay_quote_failed")
+                                      agent_auth.json_err(
+                                        500,
+                                        "stay_quote_failed",
+                                      )
                                     Ok(ret) ->
                                       case ret.rows {
-                                        [#(nights_raw, lodging_raw, cleaning_raw, currency)] -> {
-                                          let nights = case int.parse(nights_raw) {
+                                        [
+                                          #(
+                                            nights_raw,
+                                            lodging_raw,
+                                            cleaning_raw,
+                                            currency,
+                                          ),
+                                        ] -> {
+                                          let nights = case
+                                            int.parse(nights_raw)
+                                          {
                                             Ok(n) -> n
                                             Error(_) -> 0
                                           }
-                                          let lodging = case float.parse(lodging_raw) {
+                                          let lodging = case
+                                            float.parse(lodging_raw)
+                                          {
                                             Ok(f) -> f
                                             Error(_) -> 0.0
                                           }
-                                          let cleaning = case float.parse(cleaning_raw) {
+                                          let cleaning = case
+                                            float.parse(cleaning_raw)
+                                          {
                                             Ok(f) -> f
                                             Error(_) -> 0.0
                                           }
                                           let qty = int.to_float(quantity)
-                                          let subtotal = lodging *. qty +. cleaning
+                                          let subtotal =
+                                            lodging *. qty +. cleaning
                                           let body =
                                             json.object([
-                                              #("currency_code", json.string(currency)),
+                                              #(
+                                                "currency_code",
+                                                json.string(currency),
+                                              ),
                                               #("nights", json.int(nights)),
                                               #("quantity", json.int(quantity)),
-                                              #("lodging_subtotal", json.string(lodging_raw)),
-                                              #("cleaning_fee", json.string(cleaning_raw)),
+                                              #(
+                                                "lodging_subtotal",
+                                                json.string(lodging_raw),
+                                              ),
+                                              #(
+                                                "cleaning_fee",
+                                                json.string(cleaning_raw),
+                                              ),
                                               #(
                                                 "line_total",
-                                                json.string(float.to_string(subtotal)),
+                                                json.string(float.to_string(
+                                                  subtotal,
+                                                )),
                                               ),
                                               #("available", json.bool(True)),
                                               #(
                                                 "meal_plan_code",
-                                                json.string(string.trim(meal_plan)),
+                                                json.string(string.trim(
+                                                  meal_plan,
+                                                )),
                                               ),
                                             ])
                                             |> json.to_string
@@ -181,10 +227,12 @@ pub fn stay_quote(req: Request, ctx: Context, listing_id: String) -> Response {
                                             409,
                                             "dates_unavailable_or_min_stay",
                                           )
-                                        _ -> agent_auth.json_err(500, "unexpected")
+                                        _ ->
+                                          agent_auth.json_err(500, "unexpected")
                                       }
                                   }
-                                _, _ -> agent_auth.json_err(400, "invalid_dates")
+                                _, _ ->
+                                  agent_auth.json_err(400, "invalid_dates")
                               }
                           }
                         }

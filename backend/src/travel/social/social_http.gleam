@@ -1,7 +1,6 @@
 //// Sosyal paylaşım — şablonlar, kuyruk, ilan bayrakları (085_social + listings.share_to_social).
 
 import backend/context.{type Context}
-import travel/identity/permissions
 import gleam/bit_array
 import gleam/dynamic/decode
 import gleam/http
@@ -13,8 +12,9 @@ import gleam/option.{type Option, None, Some}
 import gleam/result
 import gleam/string
 import pog
-import travel/db/resilient_pog as db_exec
 import travel/db/decode_helpers as row_dec
+import travel/db/resilient_pog as db_exec
+import travel/identity/permissions
 import wisp.{type Request, type Response}
 
 fn json_err(status: Int, msg: String) -> Response {
@@ -29,9 +29,7 @@ fn read_body_string(req: Request) -> Result(String, Nil) {
   bit_array.to_string(bits)
 }
 
-const networks: List(String) = [
-  "instagram", "facebook", "twitter", "pinterest",
-]
+const networks: List(String) = ["instagram", "facebook", "twitter", "pinterest"]
 
 fn valid_network(n: String) -> Bool {
   let x = string.lowercase(string.trim(n))
@@ -53,7 +51,9 @@ fn post_type_allowed_for_network(post_type: String, network: String) -> Bool {
   }
 }
 
-fn template_row_full() -> decode.Decoder(#(String, String, String, String, String)) {
+fn template_row_full() -> decode.Decoder(
+  #(String, String, String, String, String),
+) {
   use id <- decode.field(0, decode.string)
   use net <- decode.field(1, decode.string)
   use name <- decode.field(2, decode.string)
@@ -62,7 +62,9 @@ fn template_row_full() -> decode.Decoder(#(String, String, String, String, Strin
   decode.success(#(id, net, name, body, created))
 }
 
-fn template_to_json(row: #(String, String, String, String, String)) -> json.Json {
+fn template_to_json(
+  row: #(String, String, String, String, String),
+) -> json.Json {
   let #(id, net, name, body, created) = row
   json.object([
     #("id", json.string(id)),
@@ -73,8 +75,9 @@ fn template_to_json(row: #(String, String, String, String, String)) -> json.Json
   ])
 }
 
-fn social_listing_row() ->
-  decode.Decoder(#(String, String, String, String, String, String, String, Bool, Bool, String)) {
+fn social_listing_row() -> decode.Decoder(
+  #(String, String, String, String, String, String, String, Bool, Bool, String),
+) {
   use id <- decode.field(0, decode.string)
   use slug <- decode.field(1, decode.string)
   use st <- decode.field(2, decode.string)
@@ -89,7 +92,18 @@ fn social_listing_row() ->
 }
 
 fn social_listing_to_json(
-  row: #(String, String, String, String, String, String, String, Bool, Bool, String),
+  row: #(
+    String,
+    String,
+    String,
+    String,
+    String,
+    String,
+    String,
+    Bool,
+    Bool,
+    String,
+  ),
 ) -> json.Json {
   let #(id, slug, st, cur, cat, title, created, sh, ai, themes) = row
   json.object([
@@ -167,7 +181,9 @@ pub fn list_templates(req: Request, ctx: Context) -> Response {
             Ok(ret) -> {
               let arr = list.map(ret.rows, template_to_json)
               let body =
-                json.object([#("templates", json.array(from: arr, of: fn(x) { x }))])
+                json.object([
+                  #("templates", json.array(from: arr, of: fn(x) { x })),
+                ])
                 |> json.to_string
               wisp.json_response(body, 200)
             }
@@ -204,18 +220,18 @@ pub fn list_listings(req: Request, ctx: Context) -> Response {
     list.key_find(qs, "limit")
     |> result.unwrap("20")
     |> parse_limit
-  let offset_n =
-    case list.key_find(qs, "offset") {
-      Error(_) -> 0
-      Ok(v) ->
-        case int.parse(string.trim(v)) {
-          Ok(n) -> case n < 0 {
+  let offset_n = case list.key_find(qs, "offset") {
+    Error(_) -> 0
+    Ok(v) ->
+      case int.parse(string.trim(v)) {
+        Ok(n) ->
+          case n < 0 {
             True -> 0
             False -> n
           }
-          Error(_) -> 0
-        }
-    }
+        Error(_) -> 0
+      }
+  }
   let cat_param = case cat_raw == "" {
     True -> pog.null()
     False -> pog.text(cat_raw)
@@ -299,7 +315,10 @@ pub fn create_template(req: Request, ctx: Context) -> Response {
                   case valid_network(net) {
                     False -> json_err(400, "invalid_network")
                     True ->
-                      case string.trim(name) == "" || string.trim(template_body) == "" {
+                      case
+                        string.trim(name) == ""
+                        || string.trim(template_body) == ""
+                      {
                         True -> json_err(400, "name_and_body_required")
                         False ->
                           case
@@ -316,7 +335,8 @@ pub fn create_template(req: Request, ctx: Context) -> Response {
                             Ok(r) ->
                               case r.rows {
                                 [row] -> {
-                                  let out = template_to_json(row) |> json.to_string
+                                  let out =
+                                    template_to_json(row) |> json.to_string
                                   wisp.json_response(out, 201)
                                 }
                                 _ -> json_err(500, "unexpected_return")
@@ -331,10 +351,21 @@ pub fn create_template(req: Request, ctx: Context) -> Response {
   }
 }
 
-fn job_row() ->
-  decode.Decoder(
-    #(String, String, String, String, String, String, String, String, String, String, String),
-  ) {
+fn job_row() -> decode.Decoder(
+  #(
+    String,
+    String,
+    String,
+    String,
+    String,
+    String,
+    String,
+    String,
+    String,
+    String,
+    String,
+  ),
+) {
   use id <- decode.field(0, decode.string)
   use et <- decode.field(1, decode.string)
   use eid <- decode.field(2, decode.string)
@@ -346,11 +377,35 @@ fn job_row() ->
   use err <- decode.field(8, decode.string)
   use created <- decode.field(9, decode.string)
   use post_type <- decode.field(10, decode.string)
-  decode.success(#(id, et, eid, net, tid, status, cap, imgs, err, created, post_type))
+  decode.success(#(
+    id,
+    et,
+    eid,
+    net,
+    tid,
+    status,
+    cap,
+    imgs,
+    err,
+    created,
+    post_type,
+  ))
 }
 
 fn job_to_json(
-  row: #(String, String, String, String, String, String, String, String, String, String, String),
+  row: #(
+    String,
+    String,
+    String,
+    String,
+    String,
+    String,
+    String,
+    String,
+    String,
+    String,
+    String,
+  ),
 ) -> json.Json {
   let #(id, et, eid, net, tid, status, cap, imgs, err, created, post_type) = row
   let template_field = case tid == "" {
@@ -384,27 +439,26 @@ fn job_to_json(
   ])
 }
 
-fn job_counts_row() ->
-  decode.Decoder(
-    #(
-      Int,
-      Int,
-      Int,
-      Int,
-      Int,
-      Int,
-      Int,
-      Int,
-      Int,
-      Int,
-      Int,
-      Int,
-      Int,
-      Int,
-      Int,
-      Int,
-    ),
-  ) {
+fn job_counts_row() -> decode.Decoder(
+  #(
+    Int,
+    Int,
+    Int,
+    Int,
+    Int,
+    Int,
+    Int,
+    Int,
+    Int,
+    Int,
+    Int,
+    Int,
+    Int,
+    Int,
+    Int,
+    Int,
+  ),
+) {
   use all_count <- decode.field(0, decode.int)
   use all_pending <- decode.field(1, decode.int)
   use all_posted <- decode.field(2, decode.int)
@@ -441,7 +495,12 @@ fn job_counts_row() ->
   ))
 }
 
-fn job_counts_bucket(all_count: Int, pending: Int, posted: Int, failed: Int) -> json.Json {
+fn job_counts_bucket(
+  all_count: Int,
+  pending: Int,
+  posted: Int,
+  failed: Int,
+) -> json.Json {
   json.object([
     #("all", json.int(all_count)),
     #("pending", json.int(pending)),
@@ -538,13 +597,15 @@ fn list_jobs_inner(req: Request, ctx: Context) -> Response {
     |> result.unwrap("50")
     |> string.trim
   let limit = case int.parse(limit_str) {
-    Ok(n) -> case n > 1000 {
-      True -> 1000
-      False -> case n < 1 {
-        True -> 50
-        False -> n
+    Ok(n) ->
+      case n > 1000 {
+        True -> 1000
+        False ->
+          case n < 1 {
+            True -> 50
+            False -> n
+          }
       }
-    }
     Error(_) -> 50
   }
   case get_job_counts(ctx) {
@@ -659,7 +720,9 @@ pub fn clear_jobs(req: Request, ctx: Context) -> Response {
                       case post_type_filter == "" {
                         True ->
                           case
-                            pog.query("delete from social_share_jobs returning id::text")
+                            pog.query(
+                              "delete from social_share_jobs returning id::text",
+                            )
                             |> pog.returning(row_dec.col0_string())
                             |> db_exec.execute(ctx.db)
                           {
@@ -678,7 +741,9 @@ pub fn clear_jobs(req: Request, ctx: Context) -> Response {
                           }
                         False ->
                           case
-                            pog.query("delete from social_share_jobs where post_type = $1 returning id::text")
+                            pog.query(
+                              "delete from social_share_jobs where post_type = $1 returning id::text",
+                            )
                             |> pog.parameter(pog.text(post_type_filter))
                             |> pog.returning(row_dec.col0_string())
                             |> db_exec.execute(ctx.db)
@@ -701,7 +766,9 @@ pub fn clear_jobs(req: Request, ctx: Context) -> Response {
                       case post_type_filter == "" {
                         True ->
                           case
-                            pog.query("delete from social_share_jobs where status = $1 returning id::text")
+                            pog.query(
+                              "delete from social_share_jobs where status = $1 returning id::text",
+                            )
                             |> pog.parameter(pog.text(status_filter))
                             |> pog.returning(row_dec.col0_string())
                             |> db_exec.execute(ctx.db)
@@ -753,7 +820,19 @@ pub fn clear_jobs(req: Request, ctx: Context) -> Response {
 
 fn jobs_response(
   rows: List(
-    #(String, String, String, String, String, String, String, String, String, String, String),
+    #(
+      String,
+      String,
+      String,
+      String,
+      String,
+      String,
+      String,
+      String,
+      String,
+      String,
+      String,
+    ),
   ),
   summary: #(
     Int,
@@ -799,10 +878,27 @@ fn jobs_response(
       #(
         "summary",
         json.object([
-          #("all", job_counts_bucket(all_count, all_pending, all_posted, all_failed)),
-          #("feed", job_counts_bucket(feed_all, feed_pending, feed_posted, feed_failed)),
-          #("story", job_counts_bucket(story_all, story_pending, story_posted, story_failed)),
-          #("reel", job_counts_bucket(reel_all, reel_pending, reel_posted, reel_failed)),
+          #(
+            "all",
+            job_counts_bucket(all_count, all_pending, all_posted, all_failed),
+          ),
+          #(
+            "feed",
+            job_counts_bucket(feed_all, feed_pending, feed_posted, feed_failed),
+          ),
+          #(
+            "story",
+            job_counts_bucket(
+              story_all,
+              story_pending,
+              story_posted,
+              story_failed,
+            ),
+          ),
+          #(
+            "reel",
+            job_counts_bucket(reel_all, reel_pending, reel_posted, reel_failed),
+          ),
         ]),
       ),
     ])
@@ -810,10 +906,17 @@ fn jobs_response(
   wisp.json_response(body, 200)
 }
 
-fn create_job_decoder() ->
-  decode.Decoder(
-    #(String, String, String, Option(String), List(String), Option(String), String),
-  ) {
+fn create_job_decoder() -> decode.Decoder(
+  #(
+    String,
+    String,
+    String,
+    Option(String),
+    List(String),
+    Option(String),
+    String,
+  ),
+) {
   decode.field("entity_type", decode.string, fn(entity_type) {
     decode.field("entity_id", decode.string, fn(entity_id) {
       decode.optional_field("network", "facebook", decode.string, fn(network) {
@@ -882,7 +985,10 @@ pub fn create_job(req: Request, ctx: Context) -> Response {
                 )) -> {
                   let network = string.lowercase(string.trim(network_raw))
                   let post_type = string.lowercase(string.trim(post_type_raw))
-                  case string.trim(entity_type) == "" || string.trim(entity_id) == "" {
+                  case
+                    string.trim(entity_type) == ""
+                    || string.trim(entity_id) == ""
+                  {
                     True -> json_err(400, "entity_required")
                     False ->
                       case valid_network(network) {
@@ -891,63 +997,84 @@ pub fn create_job(req: Request, ctx: Context) -> Response {
                           case valid_post_type(post_type) {
                             False -> json_err(400, "invalid_post_type")
                             True ->
-                              case post_type_allowed_for_network(post_type, network) {
-                                False -> json_err(400, "post_type_unsupported_for_network")
-                                True ->
-                          case list.is_empty(image_keys) {
-                            True -> json_err(400, "image_keys_required")
-                            False -> {
-                              let tpl_param = case template_id {
-                                Some(t) -> pog.text(t)
-                                None -> pog.null()
-                              }
-                              let cap_param = case caption_opt {
-                                Some(c) -> pog.text(c)
-                                None -> pog.null()
-                              }
                               case
-                                pog.query(
-                                  "with existing as ( "
-                                  <> "update social_share_jobs set "
-                                  <> "template_id = $4::uuid, image_keys = $5::text[], "
-                                  <> "caption_ai_generated = $6, error_message = null "
-                                  <> "where entity_type = trim($1::text) and entity_id = $2::uuid "
-                                  <> "and network = $3 and post_type = $7 and status = 'pending' "
-                                  <> "returning id::text "
-                                  <> "), inserted as ( "
-                                  <> "insert into social_share_jobs (entity_type, entity_id, network, template_id, image_keys, caption_ai_generated, post_type) "
-                                  <> "select trim($1::text), $2::uuid, $3, $4::uuid, $5::text[], $6, $7 "
-                                  <> "where not exists (select 1 from existing) returning id::text "
-                                  <> ") select id from existing union all select id from inserted limit 1",
+                                post_type_allowed_for_network(
+                                  post_type,
+                                  network,
                                 )
-                                |> pog.parameter(pog.text(string.trim(entity_type)))
-                                |> pog.parameter(pog.text(string.trim(entity_id)))
-                                |> pog.parameter(pog.text(network))
-                                |> pog.parameter(tpl_param)
-                                |> pog.parameter(pog.array(pog.text, image_keys))
-                                |> pog.parameter(cap_param)
-                                |> pog.parameter(pog.text(post_type))
-                                |> pog.returning(row_dec.col0_string())
-                                |> db_exec.execute(ctx.db)
                               {
-                                Error(_) -> json_err(500, "job_insert_failed")
-                                Ok(r) ->
-                                  case r.rows {
-                                    [jid] -> {
-                                      let body =
-                                        json.object([
-                                          #("id", json.string(jid)),
-                                          #("status", json.string("pending")),
-                                        ])
-                                        |> json.to_string
-                                      wisp.json_response(body, 201)
+                                False ->
+                                  json_err(
+                                    400,
+                                    "post_type_unsupported_for_network",
+                                  )
+                                True ->
+                                  case list.is_empty(image_keys) {
+                                    True -> json_err(400, "image_keys_required")
+                                    False -> {
+                                      let tpl_param = case template_id {
+                                        Some(t) -> pog.text(t)
+                                        None -> pog.null()
+                                      }
+                                      let cap_param = case caption_opt {
+                                        Some(c) -> pog.text(c)
+                                        None -> pog.null()
+                                      }
+                                      case
+                                        pog.query(
+                                          "with existing as ( "
+                                          <> "update social_share_jobs set "
+                                          <> "template_id = $4::uuid, image_keys = $5::text[], "
+                                          <> "caption_ai_generated = $6, error_message = null "
+                                          <> "where entity_type = trim($1::text) and entity_id = $2::uuid "
+                                          <> "and network = $3 and post_type = $7 and status = 'pending' "
+                                          <> "returning id::text "
+                                          <> "), inserted as ( "
+                                          <> "insert into social_share_jobs (entity_type, entity_id, network, template_id, image_keys, caption_ai_generated, post_type) "
+                                          <> "select trim($1::text), $2::uuid, $3, $4::uuid, $5::text[], $6, $7 "
+                                          <> "where not exists (select 1 from existing) returning id::text "
+                                          <> ") select id from existing union all select id from inserted limit 1",
+                                        )
+                                        |> pog.parameter(
+                                          pog.text(string.trim(entity_type)),
+                                        )
+                                        |> pog.parameter(
+                                          pog.text(string.trim(entity_id)),
+                                        )
+                                        |> pog.parameter(pog.text(network))
+                                        |> pog.parameter(tpl_param)
+                                        |> pog.parameter(pog.array(
+                                          pog.text,
+                                          image_keys,
+                                        ))
+                                        |> pog.parameter(cap_param)
+                                        |> pog.parameter(pog.text(post_type))
+                                        |> pog.returning(row_dec.col0_string())
+                                        |> db_exec.execute(ctx.db)
+                                      {
+                                        Error(_) ->
+                                          json_err(500, "job_insert_failed")
+                                        Ok(r) ->
+                                          case r.rows {
+                                            [jid] -> {
+                                              let body =
+                                                json.object([
+                                                  #("id", json.string(jid)),
+                                                  #(
+                                                    "status",
+                                                    json.string("pending"),
+                                                  ),
+                                                ])
+                                                |> json.to_string
+                                              wisp.json_response(body, 201)
+                                            }
+                                            _ ->
+                                              json_err(500, "unexpected_return")
+                                          }
+                                      }
                                     }
-                                    _ -> json_err(500, "unexpected_return")
                                   }
                               }
-                            }
-                          }
-                            }
                           }
                       }
                   }
@@ -1036,7 +1163,11 @@ fn apply_listing_social_patch(
 }
 
 /// PATCH /api/v1/listings/:id/social — ilan paylaşım bayrakları (`admin.social.write` veya tedarikçi portal + kendi ilanı).
-pub fn patch_listing_social(req: Request, ctx: Context, listing_id: String) -> Response {
+pub fn patch_listing_social(
+  req: Request,
+  ctx: Context,
+  listing_id: String,
+) -> Response {
   use <- wisp.require_method(req, http.Patch)
   case read_body_string(req) {
     Error(_) -> json_err(400, "empty_body")
@@ -1048,12 +1179,27 @@ pub fn patch_listing_social(req: Request, ctx: Context, listing_id: String) -> R
             Error(r) -> r
             Ok(uid) -> {
               let as_admin =
-                permissions.user_has_permission(ctx.db, uid, "admin.social.write")
+                permissions.user_has_permission(
+                  ctx.db,
+                  uid,
+                  "admin.social.write",
+                )
               case as_admin {
-                True -> apply_listing_social_patch(ctx.db, listing_id, share, allow_ai, None)
+                True ->
+                  apply_listing_social_patch(
+                    ctx.db,
+                    listing_id,
+                    share,
+                    allow_ai,
+                    None,
+                  )
                 False ->
                   case
-                    permissions.user_has_permission(ctx.db, uid, "supplier.portal")
+                    permissions.user_has_permission(
+                      ctx.db,
+                      uid,
+                      "supplier.portal",
+                    )
                   {
                     False -> json_err(403, "forbidden")
                     True ->
@@ -1104,7 +1250,8 @@ fn session_user_id_opt(ctx: Context, token: String) -> Option(String) {
 fn viewer_has_social_read(req: Request, ctx: Context) -> Bool {
   case session_user_id_opt(ctx, permissions.bearer_token(req)) {
     None -> False
-    Some(uid) -> permissions.user_has_permission(ctx.db, uid, "admin.social.read")
+    Some(uid) ->
+      permissions.user_has_permission(ctx.db, uid, "admin.social.read")
   }
 }
 
@@ -1206,11 +1353,14 @@ pub fn create_instagram_shop_link(req: Request, ctx: Context) -> Response {
                         |> pog.returning(row_dec.col0_string())
                         |> db_exec.execute(ctx.db)
                       {
-                        Error(_) -> json_err(409, "instagram_shop_insert_failed")
+                        Error(_) ->
+                          json_err(409, "instagram_shop_insert_failed")
                         Ok(r) ->
                           case r.rows {
                             [id] -> {
-                              let out = json.object([#("id", json.string(id))]) |> json.to_string
+                              let out =
+                                json.object([#("id", json.string(id))])
+                                |> json.to_string
                               wisp.json_response(out, 201)
                             }
                             _ -> json_err(500, "unexpected")
@@ -1225,13 +1375,19 @@ pub fn create_instagram_shop_link(req: Request, ctx: Context) -> Response {
 }
 
 fn patch_shop_link_decoder() -> decode.Decoder(#(Option(String), Option(Bool))) {
-  decode.optional_field("instagram_media_id", None, decode.optional(decode.string), fn(
-    mid,
-  ) {
-    decode.optional_field("sync_enabled", None, decode.optional(decode.bool), fn(se) {
-      decode.success(#(mid, se))
-    })
-  })
+  decode.optional_field(
+    "instagram_media_id",
+    None,
+    decode.optional(decode.string),
+    fn(mid) {
+      decode.optional_field(
+        "sync_enabled",
+        None,
+        decode.optional(decode.bool),
+        fn(se) { decode.success(#(mid, se)) },
+      )
+    },
+  )
 }
 
 /// PATCH /api/v1/social/instagram-shop-links/:link_id — `admin.social.write`.
@@ -1247,7 +1403,9 @@ pub fn patch_instagram_shop_link(
       case permissions.session_user_from_request(req, ctx.db) {
         Error(r) -> r
         Ok(uid) ->
-          case permissions.user_has_permission(ctx.db, uid, "admin.social.write") {
+          case
+            permissions.user_has_permission(ctx.db, uid, "admin.social.write")
+          {
             False -> json_err(403, "forbidden")
             True ->
               case read_body_string(req) {
@@ -1281,7 +1439,8 @@ pub fn patch_instagram_shop_link(
                             |> pog.returning(row_dec.col0_string())
                             |> db_exec.execute(ctx.db)
                           {
-                            Error(_) -> json_err(500, "instagram_shop_update_failed")
+                            Error(_) ->
+                              json_err(500, "instagram_shop_update_failed")
                             Ok(r) ->
                               case r.rows {
                                 [] -> json_err(404, "not_found")
@@ -1319,7 +1478,9 @@ pub fn delete_instagram_shop_link(
       case permissions.session_user_from_request(req, ctx.db) {
         Error(r) -> r
         Ok(uid) ->
-          case permissions.user_has_permission(ctx.db, uid, "admin.social.write") {
+          case
+            permissions.user_has_permission(ctx.db, uid, "admin.social.write")
+          {
             False -> json_err(403, "forbidden")
             True ->
               case

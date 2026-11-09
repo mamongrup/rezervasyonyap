@@ -34,7 +34,9 @@ pub fn render(page_title: String, content: List(Node)) -> Node {
       ]),
       link([
         rel_("stylesheet"),
-        href_("https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=Poppins:wght@400;500;700&display=swap"),
+        href_(
+          "https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=Poppins:wght@400;500;700&display=swap",
+        ),
       ]),
 
       // Plugins CSS
@@ -79,7 +81,8 @@ pub fn render(page_title: String, content: List(Node)) -> Node {
 
       // Dark Mode & Theme Toggle script
       node("script", [], [
-        text("
+        text(
+          "
           const storedTheme = localStorage.getItem('theme');
           const getPreferredTheme = () => {
             if (storedTheme) return storedTheme;
@@ -100,7 +103,8 @@ pub fn render(page_title: String, content: List(Node)) -> Node {
             document.documentElement.setAttribute('data-bs-theme', next);
             localStorage.setItem('theme', next);
           }
-        "),
+        ",
+        ),
       ]),
     ]),
     body([], [
@@ -110,11 +114,22 @@ pub fn render(page_title: String, content: List(Node)) -> Node {
 
       // Back to top button
       node("div", [class_("back-top")], [
-        node("i", [class_("bi bi-arrow-up-short position-absolute top-50 start-50 translate-middle")], []),
+        node(
+          "i",
+          [
+            class_(
+              "bi bi-arrow-up-short position-absolute top-50 start-50 translate-middle",
+            ),
+          ],
+          [],
+        ),
       ]),
 
       // Bootstrap & Vendor JS
-      script([src_("/assets/vendor/bootstrap/dist/js/bootstrap.bundle.min.js")], []),
+      script(
+        [src_("/assets/vendor/bootstrap/dist/js/bootstrap.bundle.min.js")],
+        [],
+      ),
       script([src_("/assets/vendor/tiny-slider/tiny-slider.js")], []),
       script([src_("/assets/vendor/glightbox/js/glightbox.js")], []),
       script([src_("/assets/vendor/flatpickr/js/flatpickr.min.js")], []),
@@ -123,13 +138,15 @@ pub fn render(page_title: String, content: List(Node)) -> Node {
 
       // HTMX Re-initialization & Live Interaction helper
       node("script", [], [
-        text("
+        text(
+          "
           document.body.addEventListener('htmx:afterSwap', function(evt) {
             if (window.GLightbox) {
               GLightbox({ selector: '.glightbox' });
             }
           });
-        "),
+        ",
+        ),
       ]),
     ]),
   ])

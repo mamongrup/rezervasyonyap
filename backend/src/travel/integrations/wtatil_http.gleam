@@ -24,9 +24,7 @@ fn json_err(status: Int, msg: String) -> Response {
   wisp.json_response(body, status)
 }
 
-fn ping_body_decoder() -> decode.Decoder(
-  #(String, String, String, String),
-) {
+fn ping_body_decoder() -> decode.Decoder(#(String, String, String, String)) {
   decode.field("base_url", decode.string, fn(base_url) {
     decode.field("application_secret_key", decode.string, fn(secret) {
       decode.field("username", decode.string, fn(username) {
@@ -71,7 +69,9 @@ pub fn post_ping(req: Request, ctx: Context) -> Response {
   case permissions.session_user_from_request(req, ctx.db) {
     Error(r) -> r
     Ok(uid) ->
-      case permissions.user_has_permission(ctx.db, uid, "admin.integrations.write") {
+      case
+        permissions.user_has_permission(ctx.db, uid, "admin.integrations.write")
+      {
         False -> json_err(403, "forbidden")
         True -> {
           let cfg0 = wtatil_config.load(ctx.db)
@@ -90,11 +90,10 @@ pub fn post_ping(req: Request, ctx: Context) -> Response {
           case wtatil.fetch_token(cfg) {
             Error(e) -> json_err(502, e)
             Ok(token) -> {
-              let preview =
-                case string.length(token.token) > 8 {
-                  True -> string.slice(token.token, 0, 8) <> "…"
-                  False -> token.token
-                }
+              let preview = case string.length(token.token) > 8 {
+                True -> string.slice(token.token, 0, 8) <> "…"
+                False -> token.token
+              }
               let out =
                 json.object([
                   #("ok", json.bool(True)),

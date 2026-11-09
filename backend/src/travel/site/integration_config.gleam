@@ -149,4 +149,3 @@ pub fn from_env() -> IntegrationConfig {
     site_url: env_or("SITE_URL", "https://rezervasyonyap.com.tr"),
   )
 }
-

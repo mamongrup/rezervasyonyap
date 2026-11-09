@@ -14,9 +14,9 @@ import gleam/option.{None, Some}
 import gleam/result
 import gleam/string
 import pog
-import travel/db/resilient_pog as db_exec
 import travel/ai/ai_job_run
 import travel/db/decode_helpers as row_dec
+import travel/db/resilient_pog as db_exec
 import travel/identity/admin_gate
 import wisp.{type Request, type Response}
 
@@ -212,7 +212,9 @@ fn get_stats_for(ctx: Context, kind: RouteProfileKind) -> Response {
     use n <- decode.field(0, decode.int)
     decode.success(n)
   }
-  case pog.query(total_sql) |> pog.returning(int_col0) |> db_exec.execute(ctx.db) {
+  case
+    pog.query(total_sql) |> pog.returning(int_col0) |> db_exec.execute(ctx.db)
+  {
     Error(_) -> json_err(500, "trip_routes_stats_total_failed")
     Ok(tr) -> {
       let total = case tr.rows {

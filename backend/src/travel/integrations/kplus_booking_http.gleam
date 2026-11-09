@@ -37,17 +37,26 @@ fn json_ok(data: json.Json) -> Response {
 }
 
 /// POST body decoder: create booking için yolcu + uçuş bilgileri
-fn create_booking_decoder() -> decode.Decoder(#(
-  String,  // origin
-  String,  // destination
-  String,  // departure_date
-  String,  // arrival_date
-  String,  // flight_number
-  String,  // contact_email
-  String,  // contact_phone
-  List(#(String, String, String, String, String, String, String, String)),
-  // passengers: list of (first_name, last_name, type, birth_date, nationality, doc_no, doc_type, gender)
-)) {
+fn create_booking_decoder() -> decode.Decoder(
+  #(
+    String,
+    // origin
+    String,
+    // destination
+    String,
+    // departure_date
+    String,
+    // arrival_date
+    String,
+    // flight_number
+    String,
+    // contact_email
+    String,
+    // contact_phone
+    List(#(String, String, String, String, String, String, String, String)),
+    // passengers: list of (first_name, last_name, type, birth_date, nationality, doc_no, doc_type, gender)
+  ),
+) {
   decode.field("origin", decode.string, fn(origin) {
     decode.field("destination", decode.string, fn(destination) {
       decode.field("departure_date", decode.string, fn(departure_date) {
@@ -55,27 +64,73 @@ fn create_booking_decoder() -> decode.Decoder(#(
           decode.field("flight_number", decode.string, fn(flight_number) {
             decode.field("contact_email", decode.string, fn(contact_email) {
               decode.field("contact_phone", decode.string, fn(contact_phone) {
-                decode.field("passengers", decode.list(
-                  decode.field("first_name", decode.string, fn(first_name) {
-                    decode.field("last_name", decode.string, fn(last_name) {
-                      decode.field("passenger_type", decode.string, fn(passenger_type) {
-                        decode.field("birth_date", decode.string, fn(birth_date) {
-                          decode.field("nationality", decode.string, fn(nationality) {
-                            decode.field("document_number", decode.string, fn(doc_number) {
-                              decode.field("document_type", decode.string, fn(doc_type) {
-                                decode.field("gender", decode.string, fn(gender) {
-                                  decode.success(#(first_name, last_name, passenger_type, birth_date, nationality, doc_number, doc_type, gender))
-                                })
-                              })
-                            })
-                          })
-                        })
+                decode.field(
+                  "passengers",
+                  decode.list(
+                    decode.field("first_name", decode.string, fn(first_name) {
+                      decode.field("last_name", decode.string, fn(last_name) {
+                        decode.field(
+                          "passenger_type",
+                          decode.string,
+                          fn(passenger_type) {
+                            decode.field(
+                              "birth_date",
+                              decode.string,
+                              fn(birth_date) {
+                                decode.field(
+                                  "nationality",
+                                  decode.string,
+                                  fn(nationality) {
+                                    decode.field(
+                                      "document_number",
+                                      decode.string,
+                                      fn(doc_number) {
+                                        decode.field(
+                                          "document_type",
+                                          decode.string,
+                                          fn(doc_type) {
+                                            decode.field(
+                                              "gender",
+                                              decode.string,
+                                              fn(gender) {
+                                                decode.success(#(
+                                                  first_name,
+                                                  last_name,
+                                                  passenger_type,
+                                                  birth_date,
+                                                  nationality,
+                                                  doc_number,
+                                                  doc_type,
+                                                  gender,
+                                                ))
+                                              },
+                                            )
+                                          },
+                                        )
+                                      },
+                                    )
+                                  },
+                                )
+                              },
+                            )
+                          },
+                        )
                       })
-                    })
-                  })
-                ), fn(psg_list) {
-                  decode.success(#(origin, destination, departure_date, arrival_date, flight_number, contact_email, contact_phone, psg_list))
-                })
+                    }),
+                  ),
+                  fn(psg_list) {
+                    decode.success(#(
+                      origin,
+                      destination,
+                      departure_date,
+                      arrival_date,
+                      flight_number,
+                      contact_email,
+                      contact_phone,
+                      psg_list,
+                    ))
+                  },
+                )
               })
             })
           })
@@ -104,7 +159,10 @@ fn cancel_booking_decoder() -> decode.Decoder(#(String, String)) {
 }
 
 /// Yardımcı: token al veya verileni kullan
-fn resolve_token(cfg: travelrobot_config.TravelrobotConfig, token_code: String) -> Result(String, Response) {
+fn resolve_token(
+  cfg: travelrobot_config.TravelrobotConfig,
+  token_code: String,
+) -> Result(String, Response) {
   case string.trim(token_code) {
     "" -> {
       case travelrobot.create_token(cfg) {
@@ -122,7 +180,9 @@ pub fn post_create_booking(req: Request, ctx: Context) -> Response {
   case permissions.session_user_from_request(req, ctx.db) {
     Error(r) -> r
     Ok(uid) ->
-      case permissions.user_has_permission(ctx.db, uid, "admin.integrations.write") {
+      case
+        permissions.user_has_permission(ctx.db, uid, "admin.integrations.write")
+      {
         False -> json_err(403, "forbidden")
         True -> {
           let cfg = travelrobot_config.load(ctx.db)
@@ -134,40 +194,75 @@ pub fn post_create_booking(req: Request, ctx: Context) -> Response {
                 Ok(body) ->
                   case json.parse(body, create_booking_decoder()) {
                     Error(_) -> json_err(400, "invalid_booking_body")
-                    Ok(#(origin, destination, departure_date, arrival_date, flight_number, email, phone, psg_tuples)) ->
+                    Ok(#(
+                      origin,
+                      destination,
+                      departure_date,
+                      arrival_date,
+                      flight_number,
+                      email,
+                      phone,
+                      psg_tuples,
+                    )) ->
                       case resolve_token(cfg, "") {
                         Error(r) -> r
                         Ok(token) -> {
                           // PassengerInfo tuple'larını kplus_booking.PassengerInfo'ya dönüştür
-                          let passengers = list.map(psg_tuples, fn(t) {
-                            let #(first_name, ln, ptype, bd, nat, doc_no, doc_type, gender) = t
-                            kplus_booking.PassengerInfo(
-                              first_name: first_name,
-                              last_name: ln,
-                              passenger_type: ptype,
-                              birth_date: bd,
-                              nationality: nat,
-                              document_number: doc_no,
-                              document_type: doc_type,
-                              gender: gender,
+                          let passengers =
+                            list.map(psg_tuples, fn(t) {
+                              let #(
+                                first_name,
+                                ln,
+                                ptype,
+                                bd,
+                                nat,
+                                doc_no,
+                                doc_type,
+                                gender,
+                              ) = t
+                              kplus_booking.PassengerInfo(
+                                first_name: first_name,
+                                last_name: ln,
+                                passenger_type: ptype,
+                                birth_date: bd,
+                                nationality: nat,
+                                document_number: doc_no,
+                                document_type: doc_type,
+                                gender: gender,
+                              )
+                            })
+                          let contact =
+                            kplus_booking.ContactInfo(
+                              email: email,
+                              phone: phone,
                             )
-                          })
-                          let contact = kplus_booking.ContactInfo(
-                            email: email,
-                            phone: phone,
-                          )
-                          case kplus_booking.create_booking(
-                            cfg, token, origin, destination,
-                            departure_date, arrival_date, flight_number,
-                            passengers, contact,
-                          ) {
+                          case
+                            kplus_booking.create_booking(
+                              cfg,
+                              token,
+                              origin,
+                              destination,
+                              departure_date,
+                              arrival_date,
+                              flight_number,
+                              passengers,
+                              contact,
+                            )
+                          {
                             Error(e) -> json_err(502, e)
                             Ok(result) -> {
-                              let out = json.object([
-                                #("pnr_code", json.string(result.pnr_code)),
-                                #("booking_status", json.string(result.booking_status)),
-                                #("raw_response", json.string(result.raw_response)),
-                              ])
+                              let out =
+                                json.object([
+                                  #("pnr_code", json.string(result.pnr_code)),
+                                  #(
+                                    "booking_status",
+                                    json.string(result.booking_status),
+                                  ),
+                                  #(
+                                    "raw_response",
+                                    json.string(result.raw_response),
+                                  ),
+                                ])
                               json_ok(out)
                             }
                           }
@@ -188,7 +283,9 @@ pub fn post_pnr_info(req: Request, ctx: Context) -> Response {
   case permissions.session_user_from_request(req, ctx.db) {
     Error(r) -> r
     Ok(uid) ->
-      case permissions.user_has_permission(ctx.db, uid, "admin.integrations.read") {
+      case
+        permissions.user_has_permission(ctx.db, uid, "admin.integrations.read")
+      {
         False -> json_err(403, "forbidden")
         True -> {
           let cfg = travelrobot_config.load(ctx.db)
@@ -204,11 +301,12 @@ pub fn post_pnr_info(req: Request, ctx: Context) -> Response {
                       case kplus_booking.get_pnr_info(cfg, token, pnr_code) {
                         Error(e) -> json_err(502, e)
                         Ok(pnr) -> {
-                          let out = json.object([
-                            #("pnr_code", json.string(pnr.pnr_code)),
-                            #("status", json.string(pnr.status)),
-                            #("raw_response", json.string(pnr.raw_response)),
-                          ])
+                          let out =
+                            json.object([
+                              #("pnr_code", json.string(pnr.pnr_code)),
+                              #("status", json.string(pnr.status)),
+                              #("raw_response", json.string(pnr.raw_response)),
+                            ])
                           json_ok(out)
                         }
                       }
@@ -226,7 +324,9 @@ pub fn post_cancel_booking(req: Request, ctx: Context) -> Response {
   case permissions.session_user_from_request(req, ctx.db) {
     Error(r) -> r
     Ok(uid) ->
-      case permissions.user_has_permission(ctx.db, uid, "admin.integrations.write") {
+      case
+        permissions.user_has_permission(ctx.db, uid, "admin.integrations.write")
+      {
         False -> json_err(403, "forbidden")
         True -> {
           let cfg = travelrobot_config.load(ctx.db)
@@ -242,11 +342,12 @@ pub fn post_cancel_booking(req: Request, ctx: Context) -> Response {
                       case kplus_booking.cancel_booking(cfg, token, pnr_code) {
                         Error(e) -> json_err(502, e)
                         Ok(raw) -> {
-                          let out = json.object([
-                            #("pnr_code", json.string(pnr_code)),
-                            #("cancelled", json.bool(True)),
-                            #("raw_response", json.string(raw)),
-                          ])
+                          let out =
+                            json.object([
+                              #("pnr_code", json.string(pnr_code)),
+                              #("cancelled", json.bool(True)),
+                              #("raw_response", json.string(raw)),
+                            ])
                           json_ok(out)
                         }
                       }

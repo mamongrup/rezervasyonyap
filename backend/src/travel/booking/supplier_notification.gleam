@@ -184,7 +184,10 @@ fn supplier_email_subject(d: ReservationNotifData) -> String {
   "Yeni Rezervasyon: " <> d.listing_title <> " — " <> d.public_code
 }
 
-fn supplier_email_body(cfg: IntegrationConfig, d: ReservationNotifData) -> String {
+fn supplier_email_body(
+  cfg: IntegrationConfig,
+  d: ReservationNotifData,
+) -> String {
   let confirm_link = cfg.site_url <> "/provizyon/" <> d.confirm_token
   let payment_section = case d.payment_type {
     "partial" ->
@@ -300,7 +303,8 @@ fn guest_email_body(d: ReservationNotifData) -> String {
       let pnr_block = case string.trim(d.flight_pnr) {
         "" ->
           case string.trim(d.flight_system_ref) {
-            "" -> "Bilet referansı işleniyor; kısa süre içinde ayrıca iletilecektir.\n"
+            "" ->
+              "Bilet referansı işleniyor; kısa süre içinde ayrıca iletilecektir.\n"
             ref -> "Rezervasyon referansı: " <> ref <> "\n"
           }
         pnr -> "PNR / bilet kodu: " <> pnr <> "\n"
@@ -404,10 +408,7 @@ fn platform_email_body(d: ReservationNotifData) -> String {
 }
 
 /// Site operasyon ekibine SMS + e-posta (integrations / env).
-pub fn notify_platform_ops(
-  db: pog.Connection,
-  reservation_id: String,
-) -> Nil {
+pub fn notify_platform_ops(db: pog.Connection, reservation_id: String) -> Nil {
   let cfg = integration_config.load(db)
   case fetch_notif_data(db, reservation_id) {
     Error(e) -> notification_channels.log_notif("Platform bildirim veri: " <> e)
@@ -446,7 +447,11 @@ pub fn notify_new_reservation(
     Error(e) -> notification_channels.log_notif("Veri alınamadı: " <> e)
     Ok(d) -> {
       // Tedarikçiye
-      notification_channels.send_sms(cfg, d.supplier_phone, supplier_sms(cfg, d))
+      notification_channels.send_sms(
+        cfg,
+        d.supplier_phone,
+        supplier_sms(cfg, d),
+      )
       notification_channels.send_email(
         cfg,
         d.supplier_email,

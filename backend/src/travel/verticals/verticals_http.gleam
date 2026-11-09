@@ -11,8 +11,8 @@ import gleam/option.{type Option, None, Some}
 import gleam/result
 import gleam/string
 import pog
-import travel/db/resilient_pog as db_exec
 import travel/db/decode_helpers as row_dec
+import travel/db/resilient_pog as db_exec
 import wisp.{type Request, type Response}
 
 fn json_err(status: Int, msg: String) -> Response {
@@ -34,7 +34,11 @@ fn lid_param(lid: String) -> String {
 // --- holiday home ---
 
 /// GET /api/v1/verticals/listings/:listing_id/holiday-home
-pub fn get_holiday_home(req: Request, ctx: Context, listing_id: String) -> Response {
+pub fn get_holiday_home(
+  req: Request,
+  ctx: Context,
+  listing_id: String,
+) -> Response {
   use <- wisp.require_method(req, http.Get)
   let row = {
     use tc <- decode.field(0, decode.string)
@@ -69,18 +73,37 @@ pub fn get_holiday_home(req: Request, ctx: Context, listing_id: String) -> Respo
   }
 }
 
-fn hh_patch_decoder() -> decode.Decoder(#(Option(List(String)), Option(List(String)), Option(Bool))) {
-  decode.optional_field("theme_codes", None, decode.optional(decode.list(decode.string)), fn(tc) {
-    decode.optional_field("rule_codes", None, decode.optional(decode.list(decode.string)), fn(rc) {
-      decode.optional_field("ical_managed", None, decode.optional(decode.bool), fn(im) {
-        decode.success(#(tc, rc, im))
-      })
-    })
-  })
+fn hh_patch_decoder() -> decode.Decoder(
+  #(Option(List(String)), Option(List(String)), Option(Bool)),
+) {
+  decode.optional_field(
+    "theme_codes",
+    None,
+    decode.optional(decode.list(decode.string)),
+    fn(tc) {
+      decode.optional_field(
+        "rule_codes",
+        None,
+        decode.optional(decode.list(decode.string)),
+        fn(rc) {
+          decode.optional_field(
+            "ical_managed",
+            None,
+            decode.optional(decode.bool),
+            fn(im) { decode.success(#(tc, rc, im)) },
+          )
+        },
+      )
+    },
+  )
 }
 
 /// PATCH /api/v1/verticals/listings/:listing_id/holiday-home
-pub fn patch_holiday_home(req: Request, ctx: Context, listing_id: String) -> Response {
+pub fn patch_holiday_home(
+  req: Request,
+  ctx: Context,
+  listing_id: String,
+) -> Response {
   use <- wisp.require_method(req, http.Patch)
   case read_body_string(req) {
     Error(_) -> json_err(400, "empty_body")
@@ -119,7 +142,10 @@ pub fn patch_holiday_home(req: Request, ctx: Context, listing_id: String) -> Res
                   case r.rows {
                     [id] -> {
                       let out =
-                        json.object([#("listing_id", json.string(id)), #("ok", json.bool(True))])
+                        json.object([
+                          #("listing_id", json.string(id)),
+                          #("ok", json.bool(True)),
+                        ])
                         |> json.to_string
                       wisp.json_response(out, 200)
                     }
@@ -134,7 +160,9 @@ pub fn patch_holiday_home(req: Request, ctx: Context, listing_id: String) -> Res
 
 // --- holiday home bedrooms ---
 
-fn hh_bedroom_row() -> decode.Decoder(#(String, String, String, String, String, Bool)) {
+fn hh_bedroom_row() -> decode.Decoder(
+  #(String, String, String, String, String, Bool),
+) {
   use id <- decode.field(0, decode.string)
   use nm <- decode.field(1, decode.string)
   use fl <- decode.field(2, decode.string)
@@ -144,7 +172,9 @@ fn hh_bedroom_row() -> decode.Decoder(#(String, String, String, String, String, 
   decode.success(#(id, nm, fl, bd, so, en))
 }
 
-fn hh_bedroom_json(r: #(String, String, String, String, String, Bool)) -> json.Json {
+fn hh_bedroom_json(
+  r: #(String, String, String, String, String, Bool),
+) -> json.Json {
   let #(id, nm, fl, bd, so, en) = r
   let flj = case fl == "" {
     True -> json.null()
@@ -161,7 +191,11 @@ fn hh_bedroom_json(r: #(String, String, String, String, String, Bool)) -> json.J
 }
 
 /// GET /api/v1/verticals/listings/:listing_id/holiday-home/bedrooms
-pub fn list_holiday_home_bedrooms(req: Request, ctx: Context, listing_id: String) -> Response {
+pub fn list_holiday_home_bedrooms(
+  req: Request,
+  ctx: Context,
+  listing_id: String,
+) -> Response {
   use <- wisp.require_method(req, http.Get)
   case
     pog.query(
@@ -182,7 +216,9 @@ pub fn list_holiday_home_bedrooms(req: Request, ctx: Context, listing_id: String
   }
 }
 
-fn hh_bedroom_input_decoder() -> decode.Decoder(#(String, Option(String), String, Int, Bool)) {
+fn hh_bedroom_input_decoder() -> decode.Decoder(
+  #(String, Option(String), String, Int, Bool),
+) {
   decode.field("name", decode.string, fn(nm) {
     decode.optional_field("floor_label", "", decode.string, fn(fl_raw) {
       decode.field("beds_description", decode.string, fn(bd) {
@@ -200,14 +236,20 @@ fn hh_bedroom_input_decoder() -> decode.Decoder(#(String, Option(String), String
   })
 }
 
-fn hh_bedrooms_put_decoder() -> decode.Decoder(List(#(String, Option(String), String, Int, Bool))) {
+fn hh_bedrooms_put_decoder() -> decode.Decoder(
+  List(#(String, Option(String), String, Int, Bool)),
+) {
   decode.field("bedrooms", decode.list(hh_bedroom_input_decoder()), fn(rows) {
     decode.success(rows)
   })
 }
 
 /// PUT /api/v1/verticals/listings/:listing_id/holiday-home/bedrooms — tüm listeyi değiştirir
-pub fn put_holiday_home_bedrooms(req: Request, ctx: Context, listing_id: String) -> Response {
+pub fn put_holiday_home_bedrooms(
+  req: Request,
+  ctx: Context,
+  listing_id: String,
+) -> Response {
   use <- wisp.require_method(req, http.Put)
   case read_body_string(req) {
     Error(_) -> json_err(400, "empty_body")
@@ -215,18 +257,23 @@ pub fn put_holiday_home_bedrooms(req: Request, ctx: Context, listing_id: String)
       case json.parse(body, hh_bedrooms_put_decoder()) {
         Error(_) -> json_err(400, "invalid_json")
         Ok(rows) ->
-          case db_exec.transaction(ctx.db, fn(conn) {
-            case
-              pog.query("delete from listing_bedrooms where listing_id = $1::uuid")
-              |> pog.parameter(pog.text(lid_param(listing_id)))
-              |> pog.execute(conn)
-            {
-              Error(_) -> Error("bedrooms_delete_failed")
-              Ok(_) -> hh_insert_bedrooms(conn, listing_id, rows, 0)
-            }
-          }) {
+          case
+            db_exec.transaction(ctx.db, fn(conn) {
+              case
+                pog.query(
+                  "delete from listing_bedrooms where listing_id = $1::uuid",
+                )
+                |> pog.parameter(pog.text(lid_param(listing_id)))
+                |> pog.execute(conn)
+              {
+                Error(_) -> Error("bedrooms_delete_failed")
+                Ok(_) -> hh_insert_bedrooms(conn, listing_id, rows, 0)
+              }
+            })
+          {
             Ok(Nil) -> wisp.json_response("{\"ok\":true}", 200)
-            Error(pog.TransactionQueryError(_)) -> json_err(500, "bedrooms_transaction_failed")
+            Error(pog.TransactionQueryError(_)) ->
+              json_err(500, "bedrooms_transaction_failed")
             Error(pog.TransactionRolledBack(msg)) -> json_err(400, msg)
           }
       }
@@ -329,21 +376,54 @@ fn yacht_patch_decoder() -> decode.Decoder(
     Option(Bool),
   ),
 ) {
-  decode.optional_field("length_meters", None, decode.optional(decode.string), fn(a) {
-    decode.optional_field("cabin_count", None, decode.optional(decode.string), fn(b) {
-      decode.optional_field("port_lat", None, decode.optional(decode.string), fn(c) {
-        decode.optional_field("port_lng", None, decode.optional(decode.string), fn(d) {
-          decode.optional_field("theme_codes", None, decode.optional(decode.list(decode.string)), fn(tc) {
-            decode.optional_field("rule_codes", None, decode.optional(decode.list(decode.string)), fn(rc) {
-              decode.optional_field("ical_managed", None, decode.optional(decode.bool), fn(im) {
-                decode.success(#(a, b, c, d, tc, rc, im))
-              })
-            })
-          })
-        })
-      })
-    })
-  })
+  decode.optional_field(
+    "length_meters",
+    None,
+    decode.optional(decode.string),
+    fn(a) {
+      decode.optional_field(
+        "cabin_count",
+        None,
+        decode.optional(decode.string),
+        fn(b) {
+          decode.optional_field(
+            "port_lat",
+            None,
+            decode.optional(decode.string),
+            fn(c) {
+              decode.optional_field(
+                "port_lng",
+                None,
+                decode.optional(decode.string),
+                fn(d) {
+                  decode.optional_field(
+                    "theme_codes",
+                    None,
+                    decode.optional(decode.list(decode.string)),
+                    fn(tc) {
+                      decode.optional_field(
+                        "rule_codes",
+                        None,
+                        decode.optional(decode.list(decode.string)),
+                        fn(rc) {
+                          decode.optional_field(
+                            "ical_managed",
+                            None,
+                            decode.optional(decode.bool),
+                            fn(im) { decode.success(#(a, b, c, d, tc, rc, im)) },
+                          )
+                        },
+                      )
+                    },
+                  )
+                },
+              )
+            },
+          )
+        },
+      )
+    },
+  )
 }
 
 /// PATCH /api/v1/verticals/listings/:listing_id/yacht
@@ -356,7 +436,8 @@ pub fn patch_yacht(req: Request, ctx: Context, listing_id: String) -> Response {
         Error(_) -> json_err(400, "invalid_json")
         Ok(#(a, b, c, d, tc_opt, rc_opt, im_opt)) ->
           case a, b, c, d, tc_opt, rc_opt, im_opt {
-            None, None, None, None, None, None, None -> json_err(400, "no_fields")
+            None, None, None, None, None, None, None ->
+              json_err(400, "no_fields")
             _, _, _, _, _, _, _ -> {
               let pa = case a {
                 None -> pog.null()
@@ -422,7 +503,10 @@ pub fn patch_yacht(req: Request, ctx: Context, listing_id: String) -> Response {
                   case r.rows {
                     [id] -> {
                       let out =
-                        json.object([#("listing_id", json.string(id)), #("ok", json.bool(True))])
+                        json.object([
+                          #("listing_id", json.string(id)),
+                          #("ok", json.bool(True)),
+                        ])
                         |> json.to_string
                       wisp.json_response(out, 200)
                     }
@@ -448,7 +532,11 @@ fn hr_row() -> decode.Decoder(#(String, String, String, String, String, String))
 }
 
 /// GET /api/v1/verticals/listings/:listing_id/hotel-rooms
-pub fn list_hotel_rooms(req: Request, ctx: Context, listing_id: String) -> Response {
+pub fn list_hotel_rooms(
+  req: Request,
+  ctx: Context,
+  listing_id: String,
+) -> Response {
   use <- wisp.require_method(req, http.Get)
   case
     pog.query(
@@ -492,7 +580,9 @@ pub fn list_hotel_rooms(req: Request, ctx: Context, listing_id: String) -> Respo
   }
 }
 
-fn hr_create_decoder() -> decode.Decoder(#(String, Option(String), Option(String), String)) {
+fn hr_create_decoder() -> decode.Decoder(
+  #(String, Option(String), Option(String), String),
+) {
   decode.field("name", decode.string, fn(nm) {
     decode.optional_field("capacity", "", decode.string, fn(cap) {
       decode.optional_field("board_type", "", decode.string, fn(bt) {
@@ -513,7 +603,11 @@ fn hr_create_decoder() -> decode.Decoder(#(String, Option(String), Option(String
 }
 
 /// POST /api/v1/verticals/listings/:listing_id/hotel-rooms
-pub fn add_hotel_room(req: Request, ctx: Context, listing_id: String) -> Response {
+pub fn add_hotel_room(
+  req: Request,
+  ctx: Context,
+  listing_id: String,
+) -> Response {
   use <- wisp.require_method(req, http.Post)
   case read_body_string(req) {
     Error(_) -> json_err(400, "empty_body")
@@ -552,7 +646,9 @@ pub fn add_hotel_room(req: Request, ctx: Context, listing_id: String) -> Respons
                 Ok(r) ->
                   case r.rows {
                     [id] -> {
-                      let out = json.object([#("id", json.string(id))]) |> json.to_string
+                      let out =
+                        json.object([#("id", json.string(id))])
+                        |> json.to_string
                       wisp.json_response(out, 201)
                     }
                     _ -> json_err(500, "unexpected")
@@ -565,7 +661,12 @@ pub fn add_hotel_room(req: Request, ctx: Context, listing_id: String) -> Respons
 }
 
 /// DELETE /api/v1/verticals/listings/:listing_id/hotel-rooms/:room_id
-pub fn delete_hotel_room(req: Request, ctx: Context, listing_id: String, room_id: String) -> Response {
+pub fn delete_hotel_room(
+  req: Request,
+  ctx: Context,
+  listing_id: String,
+  room_id: String,
+) -> Response {
   use <- wisp.require_method(req, http.Delete)
   case
     pog.query(
@@ -595,7 +696,11 @@ fn rr_row() -> decode.Decoder(#(String, String, String, String)) {
 }
 
 /// GET /api/v1/verticals/listings/:listing_id/related-rules
-pub fn list_related_rules(req: Request, ctx: Context, listing_id: String) -> Response {
+pub fn list_related_rules(
+  req: Request,
+  ctx: Context,
+  listing_id: String,
+) -> Response {
   use <- wisp.require_method(req, http.Get)
   case
     pog.query(
@@ -652,7 +757,11 @@ fn rr_create_decoder() -> decode.Decoder(#(String, Option(String), Option(Int)))
 }
 
 /// POST /api/v1/verticals/listings/:listing_id/related-rules
-pub fn add_related_rule(req: Request, ctx: Context, listing_id: String) -> Response {
+pub fn add_related_rule(
+  req: Request,
+  ctx: Context,
+  listing_id: String,
+) -> Response {
   use <- wisp.require_method(req, http.Post)
   case read_body_string(req) {
     Error(_) -> json_err(400, "empty_body")
@@ -689,7 +798,9 @@ pub fn add_related_rule(req: Request, ctx: Context, listing_id: String) -> Respo
                     Ok(r) ->
                       case r.rows {
                         [id] -> {
-                          let out = json.object([#("id", json.string(id))]) |> json.to_string
+                          let out =
+                            json.object([#("id", json.string(id))])
+                            |> json.to_string
                           wisp.json_response(out, 201)
                         }
                         _ -> json_err(500, "unexpected")
@@ -740,7 +851,11 @@ fn tz_row() -> decode.Decoder(#(String, String, String, String, String, String))
 }
 
 /// GET /api/v1/verticals/listings/:listing_id/transfer-zones
-pub fn list_transfer_zones(req: Request, ctx: Context, listing_id: String) -> Response {
+pub fn list_transfer_zones(
+  req: Request,
+  ctx: Context,
+  listing_id: String,
+) -> Response {
   use <- wisp.require_method(req, http.Get)
   case
     pog.query(
@@ -780,22 +895,29 @@ pub fn list_transfer_zones(req: Request, ctx: Context, listing_id: String) -> Re
   }
 }
 
-fn tz_create_decoder() -> decode.Decoder(#(String, String, Option(String), Option(String), String)) {
+fn tz_create_decoder() -> decode.Decoder(
+  #(String, String, Option(String), Option(String), String),
+) {
   decode.field("zone_role", decode.string, fn(zr) {
     decode.field("location_label", decode.string, fn(ll) {
       decode.optional_field("center_lat", "", decode.string, fn(lat) {
         decode.optional_field("center_lng", "", decode.string, fn(lng) {
-          decode.optional_field("price_per_vehicle_class", "{}", decode.string, fn(pj) {
-            let la = case string.trim(lat) == "" {
-              True -> None
-              False -> Some(string.trim(lat))
-            }
-            let lo = case string.trim(lng) == "" {
-              True -> None
-              False -> Some(string.trim(lng))
-            }
-            decode.success(#(zr, ll, la, lo, string.trim(pj)))
-          })
+          decode.optional_field(
+            "price_per_vehicle_class",
+            "{}",
+            decode.string,
+            fn(pj) {
+              let la = case string.trim(lat) == "" {
+                True -> None
+                False -> Some(string.trim(lat))
+              }
+              let lo = case string.trim(lng) == "" {
+                True -> None
+                False -> Some(string.trim(lng))
+              }
+              decode.success(#(zr, ll, la, lo, string.trim(pj)))
+            },
+          )
         })
       })
     })
@@ -803,7 +925,11 @@ fn tz_create_decoder() -> decode.Decoder(#(String, String, Option(String), Optio
 }
 
 /// POST /api/v1/verticals/listings/:listing_id/transfer-zones
-pub fn add_transfer_zone(req: Request, ctx: Context, listing_id: String) -> Response {
+pub fn add_transfer_zone(
+  req: Request,
+  ctx: Context,
+  listing_id: String,
+) -> Response {
   use <- wisp.require_method(req, http.Post)
   case read_body_string(req) {
     Error(_) -> json_err(400, "empty_body")
@@ -848,7 +974,9 @@ pub fn add_transfer_zone(req: Request, ctx: Context, listing_id: String) -> Resp
                     Ok(r) ->
                       case r.rows {
                         [id] -> {
-                          let out = json.object([#("id", json.string(id))]) |> json.to_string
+                          let out =
+                            json.object([#("id", json.string(id))])
+                            |> json.to_string
                           wisp.json_response(out, 201)
                         }
                         _ -> json_err(500, "unexpected")

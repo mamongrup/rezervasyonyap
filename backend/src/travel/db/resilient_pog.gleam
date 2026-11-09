@@ -49,10 +49,10 @@ pub fn is_transient_error(e: pog.QueryError) -> Bool {
   }
 }
 
-fn execute_on(pool: pog.Connection, query: pog.Query(t)) -> Result(
-  pog.Returned(t),
-  pog.QueryError,
-) {
+fn execute_on(
+  pool: pog.Connection,
+  query: pog.Query(t),
+) -> Result(pog.Returned(t), pog.QueryError) {
   pog.execute(query, pool)
 }
 

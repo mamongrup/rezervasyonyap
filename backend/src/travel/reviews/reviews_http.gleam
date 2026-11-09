@@ -5,15 +5,15 @@ import gleam/bit_array
 import gleam/dynamic/decode
 import gleam/http
 import gleam/http/request
+import gleam/int
 import gleam/json
 import gleam/list
 import gleam/option.{type Option, None, Some}
 import gleam/result
-import gleam/int
 import gleam/string
 import pog
-import travel/db/resilient_pog as db_exec
 import travel/db/decode_helpers as row_dec
+import travel/db/resilient_pog as db_exec
 import travel/identity/admin_gate
 import wisp.{type Request, type Response}
 
@@ -68,7 +68,19 @@ fn user_id_for_token(ctx: Context, token: String) -> Option(String) {
 }
 
 fn review_row() -> decode.Decoder(
-  #(String, String, String, String, Int, String, String, String, Bool, String, String),
+  #(
+    String,
+    String,
+    String,
+    String,
+    Int,
+    String,
+    String,
+    String,
+    Bool,
+    String,
+    String,
+  ),
 ) {
   use id <- decode.field(0, decode.string)
   use et <- decode.field(1, decode.string)
@@ -85,7 +97,19 @@ fn review_row() -> decode.Decoder(
 }
 
 fn review_json(
-  row: #(String, String, String, String, Int, String, String, String, Bool, String, String),
+  row: #(
+    String,
+    String,
+    String,
+    String,
+    Int,
+    String,
+    String,
+    String,
+    Bool,
+    String,
+    String,
+  ),
 ) -> json.Json {
   let #(id, et, eid, uid, r, title, body, st, hvp, pks, ca) = row
   let uidj = case uid == "" {
@@ -175,8 +199,9 @@ pub fn public_by_category(req: Request, ctx: Context) -> Response {
   }
 }
 
-
-fn public_review_row() -> decode.Decoder(#(String, String, Int, String, String, String)) {
+fn public_review_row() -> decode.Decoder(
+  #(String, String, Int, String, String, String),
+) {
   use id <- decode.field(0, decode.string)
   use name <- decode.field(1, decode.string)
   use rating <- decode.field(2, decode.int)
@@ -186,7 +211,9 @@ fn public_review_row() -> decode.Decoder(#(String, String, Int, String, String, 
   decode.success(#(id, name, rating, title, body, ca))
 }
 
-fn public_review_json(row: #(String, String, Int, String, String, String)) -> json.Json {
+fn public_review_json(
+  row: #(String, String, Int, String, String, String),
+) -> json.Json {
   let #(id, name, rating, title, body, ca) = row
   let titlej = case title == "" {
     True -> json.null()
@@ -292,7 +319,9 @@ pub fn list_reviews_admin(req: Request, ctx: Context) -> Response {
             Ok(ret) -> {
               let arr = list.map(ret.rows, review_json)
               let body =
-                json.object([#("reviews", json.array(from: arr, of: fn(x) { x }))])
+                json.object([
+                  #("reviews", json.array(from: arr, of: fn(x) { x })),
+                ])
                 |> json.to_string
               wisp.json_response(body, 200)
             }
@@ -311,7 +340,9 @@ pub fn list_reviews_admin(req: Request, ctx: Context) -> Response {
             Ok(ret) -> {
               let arr = list.map(ret.rows, review_json)
               let body =
-                json.object([#("reviews", json.array(from: arr, of: fn(x) { x }))])
+                json.object([
+                  #("reviews", json.array(from: arr, of: fn(x) { x })),
+                ])
                 |> json.to_string
               wisp.json_response(body, 200)
             }
@@ -327,7 +358,11 @@ fn moderation_status_decoder() -> decode.Decoder(String) {
 }
 
 /// PATCH /api/v1/reviews/:id/moderation — { "status": "approved" | "rejected" | "hidden" }
-pub fn patch_review_moderation(req: Request, ctx: Context, review_id: String) -> Response {
+pub fn patch_review_moderation(
+  req: Request,
+  ctx: Context,
+  review_id: String,
+) -> Response {
   use <- wisp.require_method(req, http.Patch)
   case admin_gate.require_admin_users_read(req, ctx) {
     Error(r) -> r
@@ -339,7 +374,9 @@ pub fn patch_review_moderation(req: Request, ctx: Context, review_id: String) ->
             Error(_) -> json_err(400, "invalid_json")
             Ok(st_raw) -> {
               let st_l = string.lowercase(st_raw)
-              case st_l == "approved" || st_l == "rejected" || st_l == "hidden" {
+              case
+                st_l == "approved" || st_l == "rejected" || st_l == "hidden"
+              {
                 False -> json_err(400, "invalid_status")
                 True ->
                   case
@@ -426,11 +463,19 @@ fn create_review_decoder() -> decode.Decoder(
       decode.field("rating", decode.int, fn(r) {
         decode.optional_field("title", "", decode.string, fn(t) {
           decode.optional_field("body", "", decode.string, fn(b) {
-            decode.optional_field("has_verified_purchase", False, decode.bool, fn(hvp) {
-              decode.optional_field("photo_keys", [], decode.list(decode.string), fn(
-                pks,
-              ) { decode.success(#(et, eid, r, t, b, hvp, pks)) })
-            })
+            decode.optional_field(
+              "has_verified_purchase",
+              False,
+              decode.bool,
+              fn(hvp) {
+                decode.optional_field(
+                  "photo_keys",
+                  [],
+                  decode.list(decode.string),
+                  fn(pks) { decode.success(#(et, eid, r, t, b, hvp, pks)) },
+                )
+              },
+            )
           })
         })
       })
@@ -483,7 +528,9 @@ pub fn create_review(req: Request, ctx: Context) -> Response {
                 Ok(res) ->
                   case res.rows {
                     [id] -> {
-                      let out = json.object([#("id", json.string(id))]) |> json.to_string
+                      let out =
+                        json.object([#("id", json.string(id))])
+                        |> json.to_string
                       wisp.json_response(out, 201)
                     }
                     _ -> json_err(500, "unexpected")
@@ -528,9 +575,12 @@ fn patch_review_decoder() -> decode.Decoder(
   decode.optional_field("title", None, decode.optional(decode.string), fn(t) {
     decode.optional_field("body", None, decode.optional(decode.string), fn(b) {
       decode.optional_field("rating", None, decode.optional(decode.int), fn(r) {
-        decode.optional_field("photo_keys", None, decode.optional(decode.list(decode.string)), fn(
-          pks,
-        ) { decode.success(#(t, b, r, pks)) })
+        decode.optional_field(
+          "photo_keys",
+          None,
+          decode.optional(decode.list(decode.string)),
+          fn(pks) { decode.success(#(t, b, r, pks)) },
+        )
       })
     })
   })
@@ -624,7 +674,9 @@ pub fn patch_review(req: Request, ctx: Context, review_id: String) -> Response {
   }
 }
 
-fn ext_snap_row() -> decode.Decoder(#(String, String, String, String, String, String, String)) {
+fn ext_snap_row() -> decode.Decoder(
+  #(String, String, String, String, String, String, String),
+) {
   use id <- decode.field(0, decode.string)
   use src <- decode.field(1, decode.string)
   use et <- decode.field(2, decode.string)
@@ -635,7 +687,9 @@ fn ext_snap_row() -> decode.Decoder(#(String, String, String, String, String, St
   decode.success(#(id, src, et, eid, sj, ai, fa))
 }
 
-fn ext_snap_json(row: #(String, String, String, String, String, String, String)) -> json.Json {
+fn ext_snap_json(
+  row: #(String, String, String, String, String, String, String),
+) -> json.Json {
   let #(id, src, et, eid, sj, ai, fa) = row
   let aij = case ai == "" {
     True -> json.null()
@@ -691,7 +745,9 @@ pub fn list_external_snapshots(req: Request, ctx: Context) -> Response {
   }
 }
 
-fn create_ext_snap_decoder() -> decode.Decoder(#(String, String, String, String, String)) {
+fn create_ext_snap_decoder() -> decode.Decoder(
+  #(String, String, String, String, String),
+) {
   decode.field("source", decode.string, fn(src) {
     decode.field("entity_type", decode.string, fn(et) {
       decode.field("entity_id", decode.string, fn(eid) {
@@ -714,7 +770,10 @@ pub fn create_external_snapshot(req: Request, ctx: Context) -> Response {
       case json.parse(body, create_ext_snap_decoder()) {
         Error(_) -> json_err(400, "invalid_json")
         Ok(#(src, et, eid, sj_raw, ai_raw)) ->
-          case string.trim(src) == "" || string.trim(et) == "" || string.trim(eid) == ""
+          case
+            string.trim(src) == ""
+            || string.trim(et) == ""
+            || string.trim(eid) == ""
           {
             True -> json_err(400, "source_entity_required")
             False -> {
@@ -742,7 +801,9 @@ pub fn create_external_snapshot(req: Request, ctx: Context) -> Response {
                 Ok(res) ->
                   case res.rows {
                     [id] -> {
-                      let out = json.object([#("id", json.string(id))]) |> json.to_string
+                      let out =
+                        json.object([#("id", json.string(id))])
+                        |> json.to_string
                       wisp.json_response(out, 201)
                     }
                     _ -> json_err(500, "unexpected")

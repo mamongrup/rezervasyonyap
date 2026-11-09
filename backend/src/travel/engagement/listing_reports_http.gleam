@@ -39,7 +39,11 @@ fn report_decoder() -> decode.Decoder(#(String, String, String)) {
   use reason <- decode.field("reason_code", decode.string)
   use message <- decode.optional_field("message", "", decode.string)
   use email <- decode.optional_field("reporter_email", "", decode.string)
-  decode.success(#(string.trim(reason), string.trim(message), string.trim(email)))
+  decode.success(#(
+    string.trim(reason),
+    string.trim(message),
+    string.trim(email),
+  ))
 }
 
 const allowed_reasons: List(String) = [
@@ -92,9 +96,9 @@ fn insert_report(
 
 // ─── Admin list ───────────────────────────────────────────────────────────────
 
-fn report_row()
-  -> decode.Decoder(#(String, String, String, String, String, String, String))
-{
+fn report_row() -> decode.Decoder(
+  #(String, String, String, String, String, String, String),
+) {
   use id <- decode.field(0, decode.string)
   use lid <- decode.field(1, decode.string)
   use reason <- decode.field(2, decode.string)
@@ -105,7 +109,9 @@ fn report_row()
   decode.success(#(id, lid, reason, message, email, status, created))
 }
 
-fn row_to_json(r: #(String, String, String, String, String, String, String)) -> json.Json {
+fn row_to_json(
+  r: #(String, String, String, String, String, String, String),
+) -> json.Json {
   let #(id, lid, reason, message, email, status, created) = r
   json.object([
     #("id", json.string(id)),
@@ -135,8 +141,7 @@ pub fn list_reports(req: Request, ctx: Context) -> Response {
       let sql =
         "select id::text, listing_id::text, reason_code, coalesce(message,''),
                 coalesce(reporter_email,''), status, created_at::text
-         from listing_reports" <> status_clause <>
-        " order by created_at desc limit 200"
+         from listing_reports" <> status_clause <> " order by created_at desc limit 200"
       case
         pog.query(sql)
         |> pog.returning(report_row())
@@ -182,7 +187,9 @@ pub fn patch_status(req: Request, ctx: Context, report_id: String) -> Response {
           case json.parse(body, patch_decoder()) {
             Error(_) -> json_err(400, "invalid_json")
             Ok(status) -> {
-              case list.contains(["reviewing", "resolved", "rejected"], status) {
+              case
+                list.contains(["reviewing", "resolved", "rejected"], status)
+              {
                 False -> json_err(400, "status_invalid")
                 True -> {
                   let resolved_clause = case status {
@@ -190,8 +197,9 @@ pub fn patch_status(req: Request, ctx: Context, report_id: String) -> Response {
                     _ -> ""
                   }
                   let sql =
-                    "update listing_reports set status = $1" <> resolved_clause <>
-                    " where id = $2::uuid"
+                    "update listing_reports set status = $1"
+                    <> resolved_clause
+                    <> " where id = $2::uuid"
                   case
                     pog.query(sql)
                     |> pog.parameter(pog.text(status))

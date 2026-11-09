@@ -105,7 +105,10 @@ fn verify_pbkdf2(stored: String, password: String) -> Bool {
 fn verify_legacy_sha256(stored: String, password: String) -> Bool {
   case string.split(stored, ":") {
     [salt_hex, hash_hex] -> {
-      case bit_array.base16_decode(salt_hex), bit_array.base16_decode(hash_hex) {
+      case
+        bit_array.base16_decode(salt_hex),
+        bit_array.base16_decode(hash_hex)
+      {
         Ok(salt), Ok(expected) -> {
           let combined = bit_array.append(salt, bit_array.from_string(password))
           let digest = crypto.hash(crypto.Sha256, combined)

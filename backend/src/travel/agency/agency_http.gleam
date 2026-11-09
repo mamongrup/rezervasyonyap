@@ -1,12 +1,6 @@
 //// Acente — API anahtarları, kurum özeti, komisyon oranları (G3.2).
 
 import backend/context.{type Context}
-import travel/identity/permissions
-import travel/agency/api_key
-import travel/agency/agency_invoices
-import travel/agency/commission_accruals as agency_commission_accruals
-import travel/agency/sales_summary as agency_sales
-import travel/booking/booking_http
 import gleam/bit_array
 import gleam/crypto
 import gleam/dynamic/decode
@@ -17,7 +11,13 @@ import gleam/list
 import gleam/result
 import gleam/string
 import pog
+import travel/agency/agency_invoices
+import travel/agency/api_key
+import travel/agency/commission_accruals as agency_commission_accruals
+import travel/agency/sales_summary as agency_sales
+import travel/booking/booking_http
 import travel/db/resilient_pog as db_exec
+import travel/identity/permissions
 import wisp.{type Request, type Response}
 
 fn json_err(status: Int, msg: String) -> Response {
@@ -73,7 +73,9 @@ fn session_user_id(conn: pog.Connection, token: String) -> Result(String, Nil) {
   }
 }
 
-fn agency_context_row() -> decode.Decoder(#(String, String, String, String, String)) {
+fn agency_context_row() -> decode.Decoder(
+  #(String, String, String, String, String),
+) {
   use oid <- decode.field(0, decode.string)
   use slug <- decode.field(1, decode.string)
   use name <- decode.field(2, decode.string)
@@ -125,7 +127,8 @@ fn auth_agency(
         Ok(uid) ->
           case require_agency_org(conn, uid) {
             Error(_) -> Error(json_err(403, "not_agency"))
-            Ok(#(oid, slug, name, doc, disc)) -> Ok(#(uid, oid, slug, name, doc, disc))
+            Ok(#(oid, slug, name, doc, disc)) ->
+              Ok(#(uid, oid, slug, name, doc, disc))
           }
       }
   }
@@ -237,7 +240,9 @@ pub fn list_api_keys(req: Request, ctx: Context) -> Response {
 }
 
 fn create_key_decoder() -> decode.Decoder(String) {
-  decode.optional_field("label", "", decode.string, fn(lab) { decode.success(lab) })
+  decode.optional_field("label", "", decode.string, fn(lab) {
+    decode.success(lab)
+  })
 }
 
 /// POST /api/v1/agency/api-keys — yanıtta `secret` yalnızca bir kez döner.
@@ -257,10 +262,17 @@ pub fn create_api_key(req: Request, ctx: Context) -> Response {
                 s -> pog.text(s)
               }
               let secret =
-                string.append("trk_live_", bit_array.base16_encode(crypto.strong_random_bytes(24)))
+                string.append(
+                  "trk_live_",
+                  bit_array.base16_encode(crypto.strong_random_bytes(24)),
+                )
               let prefix = slice_prefix(secret, 14)
               let hash = api_key.hash_api_secret(secret)
-              let scopes = ["listings.read", "bookings.write", "reservations.read"]
+              let scopes = [
+                "listings.read",
+                "bookings.write",
+                "reservations.read",
+              ]
               case
                 pog.query(
                   "insert into api_keys (organization_id, key_prefix, key_hash, label, scopes) values ($1::uuid, $2, $3, $4, $5::text[]) returning id::text",
@@ -421,7 +433,9 @@ pub fn persisted_commission_accruals(req: Request, ctx: Context) -> Response {
   }
 }
 
-fn browse_listing_row() -> decode.Decoder(#(String, String, String, String, String, String, String)) {
+fn browse_listing_row() -> decode.Decoder(
+  #(String, String, String, String, String, String, String),
+) {
   use id <- decode.field(0, decode.string)
   use slug <- decode.field(1, decode.string)
   use cur <- decode.field(2, decode.string)
@@ -626,17 +640,30 @@ pub fn create_invoice(req: Request, ctx: Context) -> Response {
 }
 
 /// POST /api/v1/agency/invoices/:id/cancel — iptal (tahakkuk bağları açılır).
-pub fn cancel_invoice(req: Request, ctx: Context, invoice_id: String) -> Response {
+pub fn cancel_invoice(
+  req: Request,
+  ctx: Context,
+  invoice_id: String,
+) -> Response {
   use <- wisp.require_method(req, http.Post)
   case auth_agency_portal(req, ctx.db) {
     Error(r) -> r
     Ok(#(_, oid, _, _, _, _)) ->
-      agency_invoices.cancel_response(ctx.db, oid, invoice_id, ctx.invoice_notify)
+      agency_invoices.cancel_response(
+        ctx.db,
+        oid,
+        invoice_id,
+        ctx.invoice_notify,
+      )
   }
 }
 
 /// PATCH /api/v1/agency/invoices/:id — { "notes": "..." } (yalnızca issued)
-pub fn patch_invoice_notes(req: Request, ctx: Context, invoice_id: String) -> Response {
+pub fn patch_invoice_notes(
+  req: Request,
+  ctx: Context,
+  invoice_id: String,
+) -> Response {
   use <- wisp.require_method(req, http.Patch)
   case auth_agency_portal(req, ctx.db) {
     Error(r) -> r
@@ -647,7 +674,12 @@ pub fn patch_invoice_notes(req: Request, ctx: Context, invoice_id: String) -> Re
           case json.parse(body, invoice_notes_decoder()) {
             Error(_) -> json_err(400, "invalid_json")
             Ok(notes) ->
-              agency_invoices.patch_notes_response(ctx.db, oid, invoice_id, notes)
+              agency_invoices.patch_notes_response(
+                ctx.db,
+                oid,
+                invoice_id,
+                notes,
+              )
           }
       }
   }
@@ -698,10 +730,7 @@ pub fn get_api_settings(req: Request, ctx: Context) -> Response {
               #("webhook_secret_set", json.bool(string.trim(secret) != "")),
               #("webhook_secret", secret_out),
               #("updated_at", json.string(updated)),
-              #(
-                "rate_limit_per_minute",
-                json.int(300),
-              ),
+              #("rate_limit_per_minute", json.int(300)),
             ])
             |> json.to_string
           wisp.json_response(body, 200)

@@ -6,12 +6,24 @@ import gleam/json
 import gleam/list
 import gleam/string
 import pog
-import travel/db/resilient_pog as db_exec
 import travel/ai/ai_job_run
 import travel/db/decode_helpers as row_dec
+import travel/db/resilient_pog as db_exec
 
 fn ops_res_ctx_row() -> decode.Decoder(
-  #(String, String, String, String, String, String, String, String, String, String, String),
+  #(
+    String,
+    String,
+    String,
+    String,
+    String,
+    String,
+    String,
+    String,
+    String,
+    String,
+    String,
+  ),
 ) {
   use a <- decode.field(0, decode.string)
   use b <- decode.field(1, decode.string)
@@ -95,10 +107,7 @@ pub fn enqueue_ops_agent_job(
                           #("ends_on", json.string(s2)),
                           #("listing_title", json.string(ltitle)),
                           #("listing_id", json.string(lid)),
-                          #(
-                            "supplier_confirm_deadline",
-                            json.string(ddl),
-                          ),
+                          #("supplier_confirm_deadline", json.string(ddl)),
                         ]),
                       ),
                       #(

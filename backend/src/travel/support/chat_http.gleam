@@ -11,8 +11,8 @@ import gleam/option.{type Option, None, Some}
 import gleam/result
 import gleam/string
 import pog
-import travel/db/resilient_pog as db_exec
 import travel/db/decode_helpers as row_dec
+import travel/db/resilient_pog as db_exec
 import wisp.{type Request, type Response}
 
 import travel/support/chat_ai_reply
@@ -124,7 +124,9 @@ pub fn list_channels(req: Request, ctx: Context) -> Response {
   }
 }
 
-fn session_row() -> decode.Decoder(#(String, String, String, String, String, String, String)) {
+fn session_row() -> decode.Decoder(
+  #(String, String, String, String, String, String, String),
+) {
   use id <- decode.field(0, decode.string)
   use uid <- decode.field(1, decode.string)
   use cid <- decode.field(2, decode.string)
@@ -135,7 +137,9 @@ fn session_row() -> decode.Decoder(#(String, String, String, String, String, Str
   decode.success(#(id, uid, cid, sa, ca, am, loc))
 }
 
-fn session_json(row: #(String, String, String, String, String, String, String)) -> json.Json {
+fn session_json(
+  row: #(String, String, String, String, String, String, String),
+) -> json.Json {
   let #(id, uid, cid, sa, ca, am, loc) = row
   let uidj = case uid == "" {
     True -> json.null()
@@ -222,7 +226,9 @@ pub fn create_session(req: Request, ctx: Context) -> Response {
                         Ok(r) ->
                           case r.rows {
                             [id] -> {
-                              let out = json.object([#("id", json.string(id))]) |> json.to_string
+                              let out =
+                                json.object([#("id", json.string(id))])
+                                |> json.to_string
                               wisp.json_response(out, 201)
                             }
                             _ -> json_err(500, "unexpected")
@@ -287,12 +293,21 @@ pub fn get_session(req: Request, ctx: Context, session_id: String) -> Response {
 }
 
 /// PATCH /api/v1/support/chat/sessions/:session_id — { "close": true }
-pub fn close_session(req: Request, ctx: Context, session_id: String) -> Response {
+pub fn close_session(
+  req: Request,
+  ctx: Context,
+  session_id: String,
+) -> Response {
   use <- wisp.require_method(req, http.Patch)
   case read_body_string(req) {
     Error(_) -> json_err(400, "empty_body")
     Ok(body) ->
-      case json.parse(body, decode.field("close", decode.bool, fn(c) { decode.success(c) })) {
+      case
+        json.parse(
+          body,
+          decode.field("close", decode.bool, fn(c) { decode.success(c) }),
+        )
+      {
         Error(_) -> json_err(400, "invalid_json")
         Ok(False) -> json_err(400, "close_required")
         Ok(True) ->
@@ -310,7 +325,10 @@ pub fn close_session(req: Request, ctx: Context, session_id: String) -> Response
                 [] -> json_err(404, "not_found_or_already_closed")
                 [id] -> {
                   let out =
-                    json.object([#("id", json.string(id)), #("ok", json.bool(True))])
+                    json.object([
+                      #("id", json.string(id)),
+                      #("ok", json.bool(True)),
+                    ])
                     |> json.to_string
                   wisp.json_response(out, 200)
                 }
@@ -342,7 +360,11 @@ fn msg_json(row: #(String, String, String, String, String)) -> json.Json {
 }
 
 /// GET /api/v1/support/chat/sessions/:session_id/messages
-pub fn list_messages(req: Request, ctx: Context, session_id: String) -> Response {
+pub fn list_messages(
+  req: Request,
+  ctx: Context,
+  session_id: String,
+) -> Response {
   use <- wisp.require_method(req, http.Get)
   case
     pog.query(
@@ -372,7 +394,11 @@ fn post_msg_decoder() -> decode.Decoder(#(String, String)) {
 }
 
 /// POST /api/v1/support/chat/sessions/:session_id/messages — istemci yalnızca user rolü
-pub fn post_message(req: Request, ctx: Context, session_id: String) -> Response {
+pub fn post_message(
+  req: Request,
+  ctx: Context,
+  session_id: String,
+) -> Response {
   use <- wisp.require_method(req, http.Post)
   case read_body_string(req) {
     Error(_) -> json_err(400, "empty_body")
@@ -401,10 +427,11 @@ pub fn post_message(req: Request, ctx: Context, session_id: String) -> Response 
                 Ok(r) ->
                   case r.rows {
                     [id] -> {
-                      let assistant_id = chat_ai_reply.try_append_assistant_reply(
-                        ctx,
-                        string.trim(session_id),
-                      )
+                      let assistant_id =
+                        chat_ai_reply.try_append_assistant_reply(
+                          ctx,
+                          string.trim(session_id),
+                        )
                       let aid_j = case assistant_id {
                         Some(a) -> json.string(a)
                         None -> json.null()
@@ -451,7 +478,11 @@ fn fu_json(row: #(String, String, String, String, String)) -> json.Json {
 }
 
 /// GET /api/v1/support/chat/sessions/:session_id/followups
-pub fn list_followups(req: Request, ctx: Context, session_id: String) -> Response {
+pub fn list_followups(
+  req: Request,
+  ctx: Context,
+  session_id: String,
+) -> Response {
   use <- wisp.require_method(req, http.Get)
   case
     pog.query(
@@ -483,7 +514,11 @@ fn fu_create_decoder() -> decode.Decoder(#(Int, String, String)) {
 }
 
 /// POST /api/v1/support/chat/sessions/:session_id/followups
-pub fn create_followup(req: Request, ctx: Context, session_id: String) -> Response {
+pub fn create_followup(
+  req: Request,
+  ctx: Context,
+  session_id: String,
+) -> Response {
   use <- wisp.require_method(req, http.Post)
   case read_body_string(req) {
     Error(_) -> json_err(400, "empty_body")
@@ -513,7 +548,9 @@ pub fn create_followup(req: Request, ctx: Context, session_id: String) -> Respon
                 Ok(r) ->
                   case r.rows {
                     [id] -> {
-                      let out = json.object([#("id", json.string(id))]) |> json.to_string
+                      let out =
+                        json.object([#("id", json.string(id))])
+                        |> json.to_string
                       wisp.json_response(out, 201)
                     }
                     _ -> json_err(500, "unexpected")
@@ -525,7 +562,9 @@ pub fn create_followup(req: Request, ctx: Context, session_id: String) -> Respon
   }
 }
 
-fn contact_preferences_decoder() -> decode.Decoder(#(String, String, Bool, Bool)) {
+fn contact_preferences_decoder() -> decode.Decoder(
+  #(String, String, Bool, Bool),
+) {
   decode.optional_field("email", "", decode.string, fn(email) {
     decode.optional_field("phone", "", decode.string, fn(phone) {
       decode.optional_field("email_consent", False, decode.bool, fn(ec) {
@@ -539,29 +578,54 @@ fn contact_preferences_decoder() -> decode.Decoder(#(String, String, Bool, Bool)
 
 /// POST /api/v1/support/chat/sessions/:session_id/contact-preferences
 /// Takip mesajı yalnızca müşterinin bu açık tercihi sonrasında kuyruğa alınır.
-pub fn set_contact_preferences(req: Request, ctx: Context, session_id: String) -> Response {
+pub fn set_contact_preferences(
+  req: Request,
+  ctx: Context,
+  session_id: String,
+) -> Response {
   use <- wisp.require_method(req, http.Post)
   case read_body_string(req) {
     Error(_) -> json_err(400, "empty_body")
-    Ok(body) -> case json.parse(body, contact_preferences_decoder()) {
-      Error(_) -> json_err(400, "invalid_json")
-      Ok(#(email, phone, email_consent, whatsapp_consent)) -> {
-        case pog.query("insert into chat_sales_leads(session_id,email,phone,email_consent,whatsapp_consent,consent_at) select $1::uuid,nullif($2,''),nullif($3,''),$4,$5,case when $4 or $5 then now() else null end where exists(select 1 from chat_sessions where id=$1::uuid) on conflict(session_id) do update set email=coalesce(nullif(excluded.email,''),chat_sales_leads.email),phone=coalesce(nullif(excluded.phone,''),chat_sales_leads.phone),email_consent=excluded.email_consent,whatsapp_consent=excluded.whatsapp_consent,consent_at=case when excluded.email_consent or excluded.whatsapp_consent then now() else chat_sales_leads.consent_at end,updated_at=now() returning session_id::text")
-          |> pog.parameter(pog.text(string.trim(session_id))) |> pog.parameter(pog.text(email)) |> pog.parameter(pog.text(phone))
-          |> pog.parameter(pog.bool(email_consent)) |> pog.parameter(pog.bool(whatsapp_consent))
-          |> pog.returning(row_dec.col0_string()) |> db_exec.execute(ctx.db) {
-          Error(_) -> json_err(500,"contact_preferences_save_failed")
-          Ok(ret) -> case ret.rows {
-            [id] -> {
-              let _ = pog.query("insert into chat_sales_consent_log(session_id,channel,granted,recipient) values($1::uuid,'email',$2,nullif($3,'')),($1::uuid,'whatsapp',$4,nullif($5,''))")
-                |> pog.parameter(pog.text(id)) |> pog.parameter(pog.bool(email_consent)) |> pog.parameter(pog.text(email)) |> pog.parameter(pog.bool(whatsapp_consent)) |> pog.parameter(pog.text(phone)) |> db_exec.execute(ctx.db)
-              let _ = pog.query("select ai_queue_chat_sales_followup($1::uuid)") |> pog.parameter(pog.text(id)) |> db_exec.execute(ctx.db)
-              wisp.json_response("{\"ok\":true}",200)
-            }
-            _ -> json_err(404,"session_not_found")
+    Ok(body) ->
+      case json.parse(body, contact_preferences_decoder()) {
+        Error(_) -> json_err(400, "invalid_json")
+        Ok(#(email, phone, email_consent, whatsapp_consent)) -> {
+          case
+            pog.query(
+              "insert into chat_sales_leads(session_id,email,phone,email_consent,whatsapp_consent,consent_at) select $1::uuid,nullif($2,''),nullif($3,''),$4,$5,case when $4 or $5 then now() else null end where exists(select 1 from chat_sessions where id=$1::uuid) on conflict(session_id) do update set email=coalesce(nullif(excluded.email,''),chat_sales_leads.email),phone=coalesce(nullif(excluded.phone,''),chat_sales_leads.phone),email_consent=excluded.email_consent,whatsapp_consent=excluded.whatsapp_consent,consent_at=case when excluded.email_consent or excluded.whatsapp_consent then now() else chat_sales_leads.consent_at end,updated_at=now() returning session_id::text",
+            )
+            |> pog.parameter(pog.text(string.trim(session_id)))
+            |> pog.parameter(pog.text(email))
+            |> pog.parameter(pog.text(phone))
+            |> pog.parameter(pog.bool(email_consent))
+            |> pog.parameter(pog.bool(whatsapp_consent))
+            |> pog.returning(row_dec.col0_string())
+            |> db_exec.execute(ctx.db)
+          {
+            Error(_) -> json_err(500, "contact_preferences_save_failed")
+            Ok(ret) ->
+              case ret.rows {
+                [id] -> {
+                  let _ =
+                    pog.query(
+                      "insert into chat_sales_consent_log(session_id,channel,granted,recipient) values($1::uuid,'email',$2,nullif($3,'')),($1::uuid,'whatsapp',$4,nullif($5,''))",
+                    )
+                    |> pog.parameter(pog.text(id))
+                    |> pog.parameter(pog.bool(email_consent))
+                    |> pog.parameter(pog.text(email))
+                    |> pog.parameter(pog.bool(whatsapp_consent))
+                    |> pog.parameter(pog.text(phone))
+                    |> db_exec.execute(ctx.db)
+                  let _ =
+                    pog.query("select ai_queue_chat_sales_followup($1::uuid)")
+                    |> pog.parameter(pog.text(id))
+                    |> db_exec.execute(ctx.db)
+                  wisp.json_response("{\"ok\":true}", 200)
+                }
+                _ -> json_err(404, "session_not_found")
+              }
           }
         }
       }
-    }
   }
 }

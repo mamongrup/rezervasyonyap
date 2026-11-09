@@ -60,7 +60,9 @@ pub fn send_email(
           #("text", json.string(body)),
         ])
         |> json.to_string
-      case http_client.post_json("https://api.resend.com/emails", payload, auth) {
+      case
+        http_client.post_json("https://api.resend.com/emails", payload, auth)
+      {
         Ok(_) -> log_notif("Email gönderildi → " <> email)
         Error(e) -> log_notif("Email hatası → " <> email <> " | " <> e)
       }
@@ -78,7 +80,10 @@ pub fn send_whatsapp(
   case string.trim(phone) {
     "" -> Nil
     p -> {
-      case string.trim(cfg.whatsapp_api_key), string.trim(cfg.whatsapp_phone_id) {
+      case
+        string.trim(cfg.whatsapp_api_key),
+        string.trim(cfg.whatsapp_phone_id)
+      {
         key, phone_id if key != "" && phone_id != "" -> {
           let url =
             "https://graph.facebook.com/v18.0/" <> phone_id <> "/messages"

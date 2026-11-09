@@ -1,17 +1,21 @@
 //// Partner API — `Authorization: Bearer trk_live_...` doğrulama ve kapsam kontrolü.
 
 import backend/context.{type Context}
-import travel/agency/api_key
-import travel/agent/agent_rate_limit
 import gleam/http/request
 import gleam/json
 import gleam/list
 import gleam/string
+import travel/agency/api_key
+import travel/agent/agent_rate_limit
 import wisp.{type Request, type Response}
 
 /// Agent API ile dağıtılan dikeyler (vitrin + dış satış).
-pub const agent_vertical_codes =
-  ["hotel", "holiday_home", "yacht_charter", "activity"]
+pub const agent_vertical_codes = [
+  "hotel",
+  "holiday_home",
+  "yacht_charter",
+  "activity",
+]
 
 pub fn json_err(status: Int, msg: String) -> Response {
   let body =
@@ -59,7 +63,10 @@ pub fn auth_trk_key(
   }
 }
 
-pub fn require_scope(scopes: List(String), code: String) -> Result(Nil, Response) {
+pub fn require_scope(
+  scopes: List(String),
+  code: String,
+) -> Result(Nil, Response) {
   case list.any(scopes, fn(s) { s == code }) {
     True -> Ok(Nil)
     False -> Error(json_err(403, "insufficient_scope"))

@@ -1,20 +1,20 @@
 //// Entegrasyon hesapları, senkron günlüğü, Merchant, WhatsApp niyet (160_integrations).
 
 import backend/context.{type Context}
-import travel/identity/permissions
 import gleam/bit_array
 import gleam/dynamic/decode
 import gleam/http
 import gleam/http/request
+import gleam/int
 import gleam/json
 import gleam/list
 import gleam/option.{type Option, None, Some}
-import gleam/int
 import gleam/result
 import gleam/string
 import pog
-import travel/db/resilient_pog as db_exec
 import travel/db/decode_helpers as row_dec
+import travel/db/resilient_pog as db_exec
+import travel/identity/permissions
 import wisp.{type Request, type Response}
 
 fn json_err(status: Int, msg: String) -> Response {
@@ -29,7 +29,9 @@ fn read_body_string(req: Request) -> Result(String, Nil) {
   bit_array.to_string(bits)
 }
 
-fn account_row_public() -> decode.Decoder(#(String, String, String, Bool, String, String)) {
+fn account_row_public() -> decode.Decoder(
+  #(String, String, String, Bool, String, String),
+) {
   use id <- decode.field(0, decode.string)
   use pc <- decode.field(1, decode.string)
   use oid <- decode.field(2, decode.string)
@@ -39,7 +41,9 @@ fn account_row_public() -> decode.Decoder(#(String, String, String, Bool, String
   decode.success(#(id, pc, oid, has_sec, ia, ej))
 }
 
-fn account_json_public(row: #(String, String, String, Bool, String, String)) -> json.Json {
+fn account_json_public(
+  row: #(String, String, String, Bool, String, String),
+) -> json.Json {
   let #(id, pc, oid, has_sec, ia, ej) = row
   let oidj = case oid == "" {
     True -> json.null()
@@ -76,46 +80,48 @@ pub fn list_integration_accounts(req: Request, ctx: Context) -> Response {
   case require_integration_permission(req, ctx, "admin.integrations.read") {
     Error(r) -> r
     Ok(_) -> {
-  let qs = case request.get_query(req) {
-    Ok(q) -> q
-    Error(_) -> []
-  }
-  let org =
-    list.key_find(qs, "organization_id")
-    |> result.unwrap("")
-    |> string.trim
-  let sql = case org == "" {
-    True ->
-      "select id::text, provider_code, coalesce(organization_id::text,''), (config_secret_ref is not null and config_secret_ref <> ''), is_active::text, coalesce(extra_json::text,'{}') from integration_accounts order by provider_code limit 200"
-    False ->
-      "select id::text, provider_code, coalesce(organization_id::text,''), (config_secret_ref is not null and config_secret_ref <> ''), is_active::text, coalesce(extra_json::text,'{}') from integration_accounts where organization_id = $1::uuid order by provider_code limit 200"
-  }
-  let exec = case org == "" {
-    True ->
-      pog.query(sql)
-      |> pog.returning(account_row_public())
-      |> db_exec.execute(ctx.db)
-    False ->
-      pog.query(sql)
-      |> pog.parameter(pog.text(org))
-      |> pog.returning(account_row_public())
-      |> db_exec.execute(ctx.db)
-  }
-  case exec {
-    Error(_) -> json_err(500, "integration_accounts_query_failed")
-    Ok(ret) -> {
-      let arr = list.map(ret.rows, account_json_public)
-      let body =
-        json.object([#("accounts", json.array(from: arr, of: fn(x) { x }))])
-        |> json.to_string
-      wisp.json_response(body, 200)
-    }
-  }
+      let qs = case request.get_query(req) {
+        Ok(q) -> q
+        Error(_) -> []
+      }
+      let org =
+        list.key_find(qs, "organization_id")
+        |> result.unwrap("")
+        |> string.trim
+      let sql = case org == "" {
+        True ->
+          "select id::text, provider_code, coalesce(organization_id::text,''), (config_secret_ref is not null and config_secret_ref <> ''), is_active::text, coalesce(extra_json::text,'{}') from integration_accounts order by provider_code limit 200"
+        False ->
+          "select id::text, provider_code, coalesce(organization_id::text,''), (config_secret_ref is not null and config_secret_ref <> ''), is_active::text, coalesce(extra_json::text,'{}') from integration_accounts where organization_id = $1::uuid order by provider_code limit 200"
+      }
+      let exec = case org == "" {
+        True ->
+          pog.query(sql)
+          |> pog.returning(account_row_public())
+          |> db_exec.execute(ctx.db)
+        False ->
+          pog.query(sql)
+          |> pog.parameter(pog.text(org))
+          |> pog.returning(account_row_public())
+          |> db_exec.execute(ctx.db)
+      }
+      case exec {
+        Error(_) -> json_err(500, "integration_accounts_query_failed")
+        Ok(ret) -> {
+          let arr = list.map(ret.rows, account_json_public)
+          let body =
+            json.object([#("accounts", json.array(from: arr, of: fn(x) { x }))])
+            |> json.to_string
+          wisp.json_response(body, 200)
+        }
+      }
     }
   }
 }
 
-fn account_create_decoder() -> decode.Decoder(#(String, Option(String), String, Bool, String)) {
+fn account_create_decoder() -> decode.Decoder(
+  #(String, Option(String), String, Bool, String),
+) {
   decode.field("provider_code", decode.string, fn(pc) {
     decode.optional_field("organization_id", "", decode.string, fn(oid) {
       decode.field("config_secret_ref", decode.string, fn(sr) {
@@ -139,125 +145,146 @@ pub fn create_integration_account(req: Request, ctx: Context) -> Response {
   case require_integration_permission(req, ctx, "admin.integrations.write") {
     Error(r) -> r
     Ok(_) ->
-  case read_body_string(req) {
-    Error(_) -> json_err(400, "empty_body")
-    Ok(body) ->
-      case json.parse(body, account_create_decoder()) {
-        Error(_) -> json_err(400, "invalid_json")
-        Ok(#(pc, org_opt, sr, ia, ej_raw)) ->
-          case string.trim(pc) == "" || string.trim(sr) == "" {
-            True -> json_err(400, "provider_and_secret_required")
-            False -> {
-              let ej = case string.trim(ej_raw) == "" {
-                True -> "{}"
-                False -> string.trim(ej_raw)
-              }
-              let org_p = case org_opt {
-                None -> pog.null()
-                Some(o) -> pog.text(o)
-              }
-              case
-                pog.query(
-                  "insert into integration_accounts (provider_code, organization_id, config_secret_ref, is_active, extra_json) values ($1, $2::uuid, $3, $4, $5::jsonb) returning id::text",
-                )
-                |> pog.parameter(pog.text(string.trim(pc)))
-                |> pog.parameter(org_p)
-                |> pog.parameter(pog.text(string.trim(sr)))
-                |> pog.parameter(pog.bool(ia))
-                |> pog.parameter(pog.text(ej))
-                |> pog.returning(row_dec.col0_string())
-                |> db_exec.execute(ctx.db)
-              {
-                Error(_) -> json_err(409, "integration_account_create_failed")
-                Ok(r) ->
-                  case r.rows {
-                    [id] -> {
-                      let out = json.object([#("id", json.string(id))]) |> json.to_string
-                      wisp.json_response(out, 201)
-                    }
-                    _ -> json_err(500, "unexpected")
+      case read_body_string(req) {
+        Error(_) -> json_err(400, "empty_body")
+        Ok(body) ->
+          case json.parse(body, account_create_decoder()) {
+            Error(_) -> json_err(400, "invalid_json")
+            Ok(#(pc, org_opt, sr, ia, ej_raw)) ->
+              case string.trim(pc) == "" || string.trim(sr) == "" {
+                True -> json_err(400, "provider_and_secret_required")
+                False -> {
+                  let ej = case string.trim(ej_raw) == "" {
+                    True -> "{}"
+                    False -> string.trim(ej_raw)
                   }
+                  let org_p = case org_opt {
+                    None -> pog.null()
+                    Some(o) -> pog.text(o)
+                  }
+                  case
+                    pog.query(
+                      "insert into integration_accounts (provider_code, organization_id, config_secret_ref, is_active, extra_json) values ($1, $2::uuid, $3, $4, $5::jsonb) returning id::text",
+                    )
+                    |> pog.parameter(pog.text(string.trim(pc)))
+                    |> pog.parameter(org_p)
+                    |> pog.parameter(pog.text(string.trim(sr)))
+                    |> pog.parameter(pog.bool(ia))
+                    |> pog.parameter(pog.text(ej))
+                    |> pog.returning(row_dec.col0_string())
+                    |> db_exec.execute(ctx.db)
+                  {
+                    Error(_) ->
+                      json_err(409, "integration_account_create_failed")
+                    Ok(r) ->
+                      case r.rows {
+                        [id] -> {
+                          let out =
+                            json.object([#("id", json.string(id))])
+                            |> json.to_string
+                          wisp.json_response(out, 201)
+                        }
+                        _ -> json_err(500, "unexpected")
+                      }
+                  }
+                }
               }
-            }
           }
       }
   }
-  }
 }
 
-fn account_patch_decoder() -> decode.Decoder(#(Option(Bool), Option(String), Option(String))) {
+fn account_patch_decoder() -> decode.Decoder(
+  #(Option(Bool), Option(String), Option(String)),
+) {
   decode.optional_field("is_active", None, decode.optional(decode.bool), fn(ia) {
-    decode.optional_field("extra_json", None, decode.optional(decode.string), fn(ej) {
-      decode.optional_field("config_secret_ref", None, decode.optional(decode.string), fn(sr) {
-        decode.success(#(ia, ej, sr))
-      })
-    })
+    decode.optional_field(
+      "extra_json",
+      None,
+      decode.optional(decode.string),
+      fn(ej) {
+        decode.optional_field(
+          "config_secret_ref",
+          None,
+          decode.optional(decode.string),
+          fn(sr) { decode.success(#(ia, ej, sr)) },
+        )
+      },
+    )
   })
 }
 
 /// PATCH /api/v1/integrations/accounts/:account_id — `admin.integrations.write`
-pub fn patch_integration_account(req: Request, ctx: Context, account_id: String) -> Response {
+pub fn patch_integration_account(
+  req: Request,
+  ctx: Context,
+  account_id: String,
+) -> Response {
   use <- wisp.require_method(req, http.Patch)
   case require_integration_permission(req, ctx, "admin.integrations.write") {
     Error(r) -> r
     Ok(_) ->
-  case read_body_string(req) {
-    Error(_) -> json_err(400, "empty_body")
-    Ok(body) ->
-      case json.parse(body, account_patch_decoder()) {
-        Error(_) -> json_err(400, "invalid_json")
-        Ok(#(ia_opt, ej_opt, sr_opt)) ->
-          case ia_opt, ej_opt, sr_opt {
-            None, None, None -> json_err(400, "no_fields")
-            _, _, _ -> {
-              let p_ia = case ia_opt {
-                None -> pog.null()
-                Some(b) -> pog.bool(b)
-              }
-              let p_ej = case ej_opt {
-                None -> pog.null()
-                Some(s) ->
-                  pog.text(case string.trim(s) == "" {
-                    True -> "{}"
-                    False -> string.trim(s)
-                  })
-              }
-              let p_sr = case sr_opt {
-                None -> pog.null()
-                Some(s) ->
-                  case string.trim(s) == "" {
-                    True -> pog.null()
-                    False -> pog.text(string.trim(s))
+      case read_body_string(req) {
+        Error(_) -> json_err(400, "empty_body")
+        Ok(body) ->
+          case json.parse(body, account_patch_decoder()) {
+            Error(_) -> json_err(400, "invalid_json")
+            Ok(#(ia_opt, ej_opt, sr_opt)) ->
+              case ia_opt, ej_opt, sr_opt {
+                None, None, None -> json_err(400, "no_fields")
+                _, _, _ -> {
+                  let p_ia = case ia_opt {
+                    None -> pog.null()
+                    Some(b) -> pog.bool(b)
                   }
-              }
-              case
-                pog.query(
-                  "update integration_accounts set is_active = coalesce($2::boolean, is_active), extra_json = coalesce($3::jsonb, extra_json), config_secret_ref = coalesce($4::text, config_secret_ref) where id = $1::uuid returning id::text",
-                )
-                |> pog.parameter(pog.text(string.trim(account_id)))
-                |> pog.parameter(p_ia)
-                |> pog.parameter(p_ej)
-                |> pog.parameter(p_sr)
-                |> pog.returning(row_dec.col0_string())
-                |> db_exec.execute(ctx.db)
-              {
-                Error(_) -> json_err(500, "integration_account_update_failed")
-                Ok(r) ->
-                  case r.rows {
-                    [] -> json_err(404, "not_found")
-                    [id] -> {
-                      let out =
-                        json.object([#("id", json.string(id)), #("ok", json.bool(True))])
-                        |> json.to_string
-                      wisp.json_response(out, 200)
-                    }
-                    _ -> json_err(500, "unexpected")
+                  let p_ej = case ej_opt {
+                    None -> pog.null()
+                    Some(s) ->
+                      pog.text(case string.trim(s) == "" {
+                        True -> "{}"
+                        False -> string.trim(s)
+                      })
                   }
+                  let p_sr = case sr_opt {
+                    None -> pog.null()
+                    Some(s) ->
+                      case string.trim(s) == "" {
+                        True -> pog.null()
+                        False -> pog.text(string.trim(s))
+                      }
+                  }
+                  case
+                    pog.query(
+                      "update integration_accounts set is_active = coalesce($2::boolean, is_active), extra_json = coalesce($3::jsonb, extra_json), config_secret_ref = coalesce($4::text, config_secret_ref) where id = $1::uuid returning id::text",
+                    )
+                    |> pog.parameter(pog.text(string.trim(account_id)))
+                    |> pog.parameter(p_ia)
+                    |> pog.parameter(p_ej)
+                    |> pog.parameter(p_sr)
+                    |> pog.returning(row_dec.col0_string())
+                    |> db_exec.execute(ctx.db)
+                  {
+                    Error(_) ->
+                      json_err(500, "integration_account_update_failed")
+                    Ok(r) ->
+                      case r.rows {
+                        [] -> json_err(404, "not_found")
+                        [id] -> {
+                          let out =
+                            json.object([
+                              #("id", json.string(id)),
+                              #("ok", json.bool(True)),
+                            ])
+                            |> json.to_string
+                          wisp.json_response(out, 200)
+                        }
+                        _ -> json_err(500, "unexpected")
+                      }
+                  }
+                }
               }
-            }
           }
       }
-  }
   }
 }
 
@@ -320,7 +347,9 @@ pub fn list_sync_logs(req: Request, ctx: Context) -> Response {
   }
 }
 
-fn sync_log_create_decoder() -> decode.Decoder(#(String, String, String, String)) {
+fn sync_log_create_decoder() -> decode.Decoder(
+  #(String, String, String, String),
+) {
   decode.field("integration_account_id", decode.string, fn(aid) {
     decode.field("operation", decode.string, fn(op) {
       decode.field("status", decode.string, fn(st) {
@@ -344,7 +373,11 @@ pub fn create_sync_log(req: Request, ctx: Context) -> Response {
           case json.parse(body, sync_log_create_decoder()) {
             Error(_) -> json_err(400, "invalid_json")
             Ok(#(aid, op, st, dj_raw)) ->
-              case string.trim(aid) == "" || string.trim(op) == "" || string.trim(st) == "" {
+              case
+                string.trim(aid) == ""
+                || string.trim(op) == ""
+                || string.trim(st) == ""
+              {
                 True -> json_err(400, "account_operation_status_required")
                 False -> {
                   let dj = case dj_raw == "" {
@@ -438,7 +471,9 @@ pub fn list_google_merchant_products(req: Request, ctx: Context) -> Response {
             Ok(ret) -> {
               let arr = list.map(ret.rows, gmp_json)
               let body =
-                json.object([#("products", json.array(from: arr, of: fn(x) { x }))])
+                json.object([
+                  #("products", json.array(from: arr, of: fn(x) { x })),
+                ])
                 |> json.to_string
               wisp.json_response(body, 200)
             }
@@ -497,7 +532,9 @@ pub fn upsert_google_merchant_product(req: Request, ctx: Context) -> Response {
                     Ok(r) ->
                       case r.rows {
                         [id] -> {
-                          let out = json.object([#("id", json.string(id))]) |> json.to_string
+                          let out =
+                            json.object([#("id", json.string(id))])
+                            |> json.to_string
                           wisp.json_response(out, 201)
                         }
                         _ -> json_err(500, "unexpected")
@@ -513,17 +550,34 @@ pub fn upsert_google_merchant_product(req: Request, ctx: Context) -> Response {
 fn gmp_patch_decoder() -> decode.Decoder(
   #(Option(String), Option(String), Option(String)),
 ) {
-  decode.optional_field("merchant_product_id", None, decode.optional(decode.string), fn(mp) {
-    decode.optional_field("status", None, decode.optional(decode.string), fn(st) {
-      decode.optional_field("last_push_at", None, decode.optional(decode.string), fn(lp) {
-        decode.success(#(mp, st, lp))
-      })
-    })
-  })
+  decode.optional_field(
+    "merchant_product_id",
+    None,
+    decode.optional(decode.string),
+    fn(mp) {
+      decode.optional_field(
+        "status",
+        None,
+        decode.optional(decode.string),
+        fn(st) {
+          decode.optional_field(
+            "last_push_at",
+            None,
+            decode.optional(decode.string),
+            fn(lp) { decode.success(#(mp, st, lp)) },
+          )
+        },
+      )
+    },
+  )
 }
 
 /// PATCH /api/v1/integrations/google-merchant-products/:product_id — `admin.integrations.write`
-pub fn patch_google_merchant_product(req: Request, ctx: Context, product_id: String) -> Response {
+pub fn patch_google_merchant_product(
+  req: Request,
+  ctx: Context,
+  product_id: String,
+) -> Response {
   use <- wisp.require_method(req, http.Patch)
   case require_integration_permission(req, ctx, "admin.integrations.write") {
     Error(r) -> r
@@ -607,9 +661,7 @@ fn wa_intent_decoder() -> decode.Decoder(#(String, Option(String), String)) {
 
 fn cart_exists(conn: pog.Connection, cart_id: String) -> Bool {
   case
-    pog.query(
-      "select 1::text from carts where id = $1::uuid limit 1",
-    )
+    pog.query("select 1::text from carts where id = $1::uuid limit 1")
     |> pog.parameter(pog.text(string.trim(cart_id)))
     |> pog.returning(row_dec.col0_string())
     |> pog.execute(conn)
@@ -744,7 +796,9 @@ pub fn list_whatsapp_order_intents(req: Request, ctx: Context) -> Response {
                   ])
                 })
               let body =
-                json.object([#("intents", json.array(from: arr, of: fn(x) { x }))])
+                json.object([
+                  #("intents", json.array(from: arr, of: fn(x) { x })),
+                ])
                 |> json.to_string
               wisp.json_response(body, 200)
             }

@@ -1,15 +1,15 @@
 //// Oturum `ai_mode` ≠ off iken kullanıcı mesajına DeepSeek ile asistan yanıtı ekler.
 
 import backend/context.{type Context}
-import gleam/dynamic/decode as decode
+import gleam/dynamic/decode
 import gleam/list
 import gleam/option.{type Option, None, Some}
 import gleam/string
 import pog
-import travel/db/resilient_pog as db_exec
 import travel/ai/ai_config
 import travel/ai/llm_chat
 import travel/db/decode_helpers as row_dec
+import travel/db/resilient_pog as db_exec
 
 fn session_ai_state_row() -> decode.Decoder(#(String, String, String)) {
   use am <- decode.field(0, decode.string)
@@ -26,14 +26,10 @@ fn locale_reply_rule(locale: String) -> String {
       "Yanıtlarını her zaman doğal ve akıcı Türkçe ile ver; kısa ve nazik ol."
     "en" ->
       "Always respond in clear, natural English; keep answers concise and polite."
-    "de" ->
-      "Antworte immer auf klares, natürliches Deutsch; kurz und höflich."
-    "ru" ->
-      "Всегда отвечай на грамотном русском языке; кратко и вежливо."
-    "zh" ->
-      "请始终使用自然流畅的中文回答；简洁、礼貌。"
-    "fr" ->
-      "Réponds toujours en français clair et naturel ; sois bref et poli."
+    "de" -> "Antworte immer auf klares, natürliches Deutsch; kurz und höflich."
+    "ru" -> "Всегда отвечай на грамотном русском языке; кратко и вежливо."
+    "zh" -> "请始终使用自然流畅的中文回答；简洁、礼貌。"
+    "fr" -> "Réponds toujours en français clair et naturel ; sois bref et poli."
     _ ->
       "Yanıtlarını her zaman doğal ve akıcı Türkçe ile ver; kısa ve nazik ol."
   }
@@ -63,8 +59,7 @@ fn ai_unavailable_fallback(locale: String) -> String {
       "Automatische Antworten sind vorübergehend nicht verfügbar. Bitte versuchen Sie es später erneut oder kontaktieren Sie den Live-Support."
     "ru" ->
       "Автоответы временно недоступны. Повторите попытку позже или обратитесь в службу поддержки."
-    "zh" ->
-      "暂时无法生成自动回复。请稍后再试或联系在线客服。"
+    "zh" -> "暂时无法生成自动回复。请稍后再试或联系在线客服。"
     "fr" ->
       "Les réponses automatiques sont temporairement indisponibles. Réessayez plus tard ou contactez le support en direct."
     _ ->
@@ -79,15 +74,27 @@ fn msg_pair_row() -> decode.Decoder(#(String, String)) {
 }
 
 fn live_catalog_context(ctx: Context) -> String {
-  case pog.query("select coalesce(jsonb_agg(to_jsonb(x))::text,'[]') from (select l.id::text,coalesce(lt.title,l.slug) title,coalesce(l.location_name,'') location,l.slug,coalesce(l.vitrin_price::text,'') price,l.currency_code::text currency from listings l left join listing_translations lt on lt.listing_id=l.id left join locales loc on loc.id=lt.locale_id and lower(loc.code)='tr' where l.status='published' order by l.review_avg desc nulls last,l.updated_at desc limit 30) x")
-    |> pog.returning(row_dec.col0_string()) |> db_exec.execute(ctx.db) {
-    Ok(ret) -> case ret.rows { [catalog] -> catalog _ -> "[]" }
+  case
+    pog.query(
+      "select coalesce(jsonb_agg(to_jsonb(x))::text,'[]') from (select l.id::text,coalesce(lt.title,l.slug) title,coalesce(l.location_name,'') location,l.slug,coalesce(l.vitrin_price::text,'') price,l.currency_code::text currency from listings l left join listing_translations lt on lt.listing_id=l.id left join locales loc on loc.id=lt.locale_id and lower(loc.code)='tr' where l.status='published' order by l.review_avg desc nulls last,l.updated_at desc limit 30) x",
+    )
+    |> pog.returning(row_dec.col0_string())
+    |> db_exec.execute(ctx.db)
+  {
+    Ok(ret) ->
+      case ret.rows {
+        [catalog] -> catalog
+        _ -> "[]"
+      }
     Error(_) -> "[]"
   }
 }
 
 /// Oturum açık ve AI açıksa son kullanıcı mesajından sonra asistan mesajı ekler; `Some(assistant_msg_id)` döner.
-pub fn try_append_assistant_reply(ctx: Context, session_id: String) -> Option(String) {
+pub fn try_append_assistant_reply(
+  ctx: Context,
+  session_id: String,
+) -> Option(String) {
   let sid = string.trim(session_id)
   case sid == "" {
     True -> None
@@ -111,7 +118,8 @@ pub fn try_append_assistant_reply(ctx: Context, session_id: String) -> Option(St
                   case string.lowercase(string.trim(am)) {
                     "off" -> None
                     mode -> {
-                      let sys = system_prompt_for_mode(mode, loc)
+                      let sys =
+                        system_prompt_for_mode(mode, loc)
                         <> " Use only this live published catalog when naming or recommending a product. If no suitable item is present, say so and ask a clarifying question; never invent a listing. Catalog JSON: "
                         <> live_catalog_context(ctx)
                       case
@@ -156,7 +164,8 @@ pub fn try_append_assistant_reply(ctx: Context, session_id: String) -> Option(St
                               timeout_ms,
                             )
                           {
-                            Ok(reply_text) -> insert_assistant(ctx, sid, reply_text)
+                            Ok(reply_text) ->
+                              insert_assistant(ctx, sid, reply_text)
                             Error(_) -> {
                               let fallback = ai_unavailable_fallback(loc)
                               insert_assistant(ctx, sid, fallback)
@@ -174,7 +183,11 @@ pub fn try_append_assistant_reply(ctx: Context, session_id: String) -> Option(St
   }
 }
 
-fn insert_assistant(ctx: Context, session_id: String, body: String) -> Option(String) {
+fn insert_assistant(
+  ctx: Context,
+  session_id: String,
+  body: String,
+) -> Option(String) {
   let meta = "{\"source\":\"ai\"}"
   case
     pog.query(

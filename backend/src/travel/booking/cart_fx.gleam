@@ -23,7 +23,10 @@ fn norm_code(raw: String) -> String {
 }
 
 /// `rates_to_try`: 1 birim `code` = `rate` TRY.
-fn rate_to_try(code: String, rates: dict.Dict(String, Float)) -> option.Option(Float) {
+fn rate_to_try(
+  code: String,
+  rates: dict.Dict(String, Float),
+) -> option.Option(Float) {
   let c = norm_code(code)
   case c == "TRY" {
     True -> Some(1.0)
@@ -39,8 +42,15 @@ fn rate_to_try(code: String, rates: dict.Dict(String, Float)) -> option.Option(F
   }
 }
 
-pub fn parse_rates_to_try_from_snapshot(snap_text: String) -> dict.Dict(String, Float) {
-  case json.parse(snap_text, decode.at(["rates_to_try"], decode.dict(decode.string, decode.float))) {
+pub fn parse_rates_to_try_from_snapshot(
+  snap_text: String,
+) -> dict.Dict(String, Float) {
+  case
+    json.parse(
+      snap_text,
+      decode.at(["rates_to_try"], decode.dict(decode.string, decode.float)),
+    )
+  {
     Ok(raw) ->
       dict.fold(raw, dict.new(), fn(acc, k, v) {
         dict.insert(acc, norm_code(k), v)
@@ -121,12 +131,14 @@ pub fn price_matches_cart_currency(
       case norm_code(listing_cc) == norm_code(cart_cc) {
         True -> price_close_enough(client_total, expected_listing_amount)
         False ->
-          case convert_amount_with_snapshot(
-            expected_listing_amount,
-            listing_cc,
-            cart_cc,
-            snap_text,
-          ) {
+          case
+            convert_amount_with_snapshot(
+              expected_listing_amount,
+              listing_cc,
+              cart_cc,
+              snap_text,
+            )
+          {
             Ok(expected_cart) -> price_close_enough(client_total, expected_cart)
             Error(_) -> False
           }
@@ -135,7 +147,10 @@ pub fn price_matches_cart_currency(
 }
 
 /// Veritabanı zamanı ile kur kilidini uygular (sepet oluşturma).
-pub fn build_fx_snapshot_value(pairs: List(#(String, Float)), locked_at_iso: String) -> json.Json {
+pub fn build_fx_snapshot_value(
+  pairs: List(#(String, Float)),
+  locked_at_iso: String,
+) -> json.Json {
   let rates_dict =
     list.fold(pairs, dict.new(), fn(d, pair) {
       let #(code, rate) = pair
@@ -152,7 +167,10 @@ pub fn build_fx_snapshot_value(pairs: List(#(String, Float)), locked_at_iso: Str
 }
 
 /// Veritabanı zamanı ile kur kilidini uygular (sepet oluşturma).
-pub fn lock_cart_fx(conn: pog.Connection, cart_id: String) -> Result(json.Json, String) {
+pub fn lock_cart_fx(
+  conn: pog.Connection,
+  cart_id: String,
+) -> Result(json.Json, String) {
   case
     pog.query(
       "select to_char(statement_timestamp() AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS.MS\"Z\"')",
@@ -177,7 +195,8 @@ pub fn lock_cart_fx(conn: pog.Connection, cart_id: String) -> Result(json.Json, 
           {
             Error(_) -> Error("fx_rates_query_failed")
             Ok(rows_ret) -> {
-              let snap_value = build_fx_snapshot_value(rows_ret.rows, locked_at_iso)
+              let snap_value =
+                build_fx_snapshot_value(rows_ret.rows, locked_at_iso)
               let snap = json.to_string(snap_value)
               case
                 pog.query(

@@ -29,7 +29,10 @@ pub type AiConfig {
 
 /// Panel / site_settings.ai ile uyumlu: 5–10000 sn → ms (DeepSeek upstream).
 /// Kaynak tek: `site_settings.key = ai`; ortam değişkeni ile geçersiz kılınmaz.
-pub fn profile_upstream_timeout_ms(db: pog.Connection, profile_code: String) -> Int {
+pub fn profile_upstream_timeout_ms(
+  db: pog.Connection,
+  profile_code: String,
+) -> Int {
   case fetch_raw(db) {
     "" -> default_timeout_sec * 1000
     raw ->
@@ -114,7 +117,10 @@ fn clamp_sec_to_ms(sec: Int) -> Int {
   clamp_sec_for_upstream(sec) * 1000
 }
 
-fn parse_ai_json_timeouts_ms(raw: String, profile_code: String) -> Result(Int, Nil) {
+fn parse_ai_json_timeouts_ms(
+  raw: String,
+  profile_code: String,
+) -> Result(Int, Nil) {
   let decoder =
     decode.optional_field(
       "request_timeout_sec",

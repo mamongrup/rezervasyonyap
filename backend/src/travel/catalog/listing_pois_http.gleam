@@ -35,8 +35,8 @@ import gleam/list
 import gleam/result
 import gleam/string
 import pog
-import travel/db/resilient_pog as db_exec
 import travel/db/decode_helpers as row_dec
+import travel/db/resilient_pog as db_exec
 import travel/identity/admin_gate
 import wisp.{type Request, type Response}
 
@@ -54,7 +54,11 @@ fn json_err(status: Int, msg: String) -> Response {
 /// GET /api/v1/listings/:id/nearby-pois
 ///
 /// İlanın `nearby_pois_json` alanını döndürür.
-pub fn get_nearby_pois(req: Request, ctx: Context, listing_id: String) -> Response {
+pub fn get_nearby_pois(
+  req: Request,
+  ctx: Context,
+  listing_id: String,
+) -> Response {
   use <- wisp.require_method(req, http.Get)
   let lid = string.trim(listing_id)
   case
@@ -72,7 +76,7 @@ pub fn get_nearby_pois(req: Request, ctx: Context, listing_id: String) -> Respon
         [pois_json] ->
           wisp.json_response(
             json.object([#("nearby_pois", json.string(pois_json))])
-            |> json.to_string,
+              |> json.to_string,
             200,
           )
         _ -> json_err(500, "unexpected_rows")
@@ -98,7 +102,11 @@ fn pois_result_row() -> decode.Decoder(#(String, String)) {
 /// 3. İlana olan Haversine mesafesi (km) hesaplanır (≤ 80 km).
 /// 4. En yakından başlayarak en fazla 18 kalemi `listings.nearby_pois_json`'a yazar.
 /// 5. Güncellenmiş JSON'u döndürür.
-pub fn compute_nearby_pois(req: Request, ctx: Context, listing_id: String) -> Response {
+pub fn compute_nearby_pois(
+  req: Request,
+  ctx: Context,
+  listing_id: String,
+) -> Response {
   use <- wisp.require_method(req, http.Post)
   let lid = string.trim(listing_id)
   let sql =
@@ -260,18 +268,14 @@ pub fn compute_nearby_pois(req: Request, ctx: Context, listing_id: String) -> Re
     Error(_) -> json_err(500, "compute_pois_failed")
     Ok(ret) ->
       case ret.rows {
-        [] ->
-          json_err(
-            404,
-            "listing_not_found_or_no_coordinates",
-          )
+        [] -> json_err(404, "listing_not_found_or_no_coordinates")
         [#(updated_id, pois_text)] ->
           wisp.json_response(
             json.object([
               #("listing_id", json.string(updated_id)),
               #("nearby_pois", json.string(pois_text)),
             ])
-            |> json.to_string,
+              |> json.to_string,
             200,
           )
         _ -> json_err(500, "unexpected_rows")
@@ -298,7 +302,11 @@ fn read_body_string(req: Request) -> Result(String, Nil) {
 /// PATCH /api/v1/listings/:id/nearby-pois
 ///
 /// Admin panelinden veya listing form'undan gelen JSON'u doğrudan yazar.
-pub fn patch_nearby_pois(req: Request, ctx: Context, listing_id: String) -> Response {
+pub fn patch_nearby_pois(
+  req: Request,
+  ctx: Context,
+  listing_id: String,
+) -> Response {
   use <- wisp.require_method(req, http.Patch)
   let lid = string.trim(listing_id)
   case read_body_string(req) {
@@ -307,9 +315,7 @@ pub fn patch_nearby_pois(req: Request, ctx: Context, listing_id: String) -> Resp
       case json.parse(body, patch_body_decoder()) {
         Error(_) -> json_err(400, "invalid_json")
         Ok(pois_json) -> {
-          let safe_json = case
-            string.starts_with(string.trim(pois_json), "[")
-          {
+          let safe_json = case string.starts_with(string.trim(pois_json), "[") {
             True -> pois_json
             False -> "[]"
           }
@@ -326,11 +332,7 @@ pub fn patch_nearby_pois(req: Request, ctx: Context, listing_id: String) -> Resp
             Ok(ret) ->
               case ret.rows {
                 [] -> json_err(404, "listing_not_found")
-                [_] ->
-                  wisp.json_response(
-                    "{\"ok\":true}",
-                    200,
-                  )
+                [_] -> wisp.json_response("{\"ok\":true}", 200)
                 _ -> json_err(500, "unexpected_rows")
               }
           }
@@ -354,7 +356,11 @@ fn service_pois_row() -> decode.Decoder(#(String, String)) {
 /// GET /api/v1/listings/:id/service-pois
 ///
 /// Temel ihtiyaç ve ulaşım mekanlarını döndürür (herkese açık).
-pub fn get_service_pois(req: Request, ctx: Context, listing_id: String) -> Response {
+pub fn get_service_pois(
+  req: Request,
+  ctx: Context,
+  listing_id: String,
+) -> Response {
   use <- wisp.require_method(req, http.Get)
   let lid = string.trim(listing_id)
   case
@@ -378,7 +384,7 @@ pub fn get_service_pois(req: Request, ctx: Context, listing_id: String) -> Respo
               #("amenities_pois_json", json.string(a)),
               #("transport_pois_json", json.string(t)),
             ])
-            |> json.to_string,
+              |> json.to_string,
             200,
           )
         _ -> json_err(500, "unexpected_rows")
@@ -395,7 +401,11 @@ fn patch_service_decoder() -> decode.Decoder(#(String, String)) {
 /// PATCH /api/v1/listings/:id/service-pois
 ///
 /// Admin panelinden temel ihtiyaç ve ulaşım mekanlarını günceller.
-pub fn patch_service_pois(req: Request, ctx: Context, listing_id: String) -> Response {
+pub fn patch_service_pois(
+  req: Request,
+  ctx: Context,
+  listing_id: String,
+) -> Response {
   use <- wisp.require_method(req, http.Patch)
   let lid = string.trim(listing_id)
   case read_body_string(req) {
@@ -404,11 +414,15 @@ pub fn patch_service_pois(req: Request, ctx: Context, listing_id: String) -> Res
       case json.parse(body, patch_service_decoder()) {
         Error(_) -> json_err(400, "invalid_json")
         Ok(#(amenities_raw, transport_raw)) -> {
-          let safe_a = case string.starts_with(string.trim(amenities_raw), "[") {
+          let safe_a = case
+            string.starts_with(string.trim(amenities_raw), "[")
+          {
             True -> amenities_raw
             False -> "[]"
           }
-          let safe_t = case string.starts_with(string.trim(transport_raw), "[") {
+          let safe_t = case
+            string.starts_with(string.trim(transport_raw), "[")
+          {
             True -> transport_raw
             False -> "[]"
           }
@@ -444,7 +458,11 @@ pub fn patch_service_pois(req: Request, ctx: Context, listing_id: String) -> Res
 // ===========================================================================
 
 /// GET /api/v1/location-pages/:id/service-pois
-pub fn get_lp_service_pois(req: Request, ctx: Context, lp_id: String) -> Response {
+pub fn get_lp_service_pois(
+  req: Request,
+  ctx: Context,
+  lp_id: String,
+) -> Response {
   use <- wisp.require_method(req, http.Get)
   let id = string.trim(lp_id)
   case
@@ -464,7 +482,7 @@ pub fn get_lp_service_pois(req: Request, ctx: Context, lp_id: String) -> Respons
         [pois] ->
           wisp.json_response(
             json.object([#("service_pois_json", json.string(pois))])
-            |> json.to_string,
+              |> json.to_string,
             200,
           )
         _ -> json_err(500, "unexpected_rows")
@@ -473,7 +491,11 @@ pub fn get_lp_service_pois(req: Request, ctx: Context, lp_id: String) -> Respons
 }
 
 /// PATCH /api/v1/location-pages/:id/service-pois (admin)
-pub fn patch_lp_service_pois(req: Request, ctx: Context, lp_id: String) -> Response {
+pub fn patch_lp_service_pois(
+  req: Request,
+  ctx: Context,
+  lp_id: String,
+) -> Response {
   use <- wisp.require_method(req, http.Patch)
   case admin_gate.require_admin_users_read(req, ctx) {
     Error(r) -> r
@@ -568,7 +590,7 @@ pub fn next_without_service_pois(req: Request, ctx: Context) -> Response {
                   #("center_lng", json.string(clng)),
                   #("parent_name", json.string(parent)),
                 ])
-                |> json.to_string,
+                  |> json.to_string,
                 200,
               )
             _ -> json_err(500, "unexpected_rows")
@@ -596,15 +618,14 @@ fn haversine_km(lat1: Float, lng1: Float, lat2: Float, lng2: Float) -> Float {
   let to_rad = fn(d: Float) { d *. pi /. 180.0 }
   let dlat = to_rad(lat2 -. lat1)
   let dlng = to_rad(lng2 -. lng1)
-  let a =
-    float.power(math_sin(dlat /. 2.0), 2.0) |> result.unwrap(0.0)
-  let b =
-    float.power(math_sin(dlng /. 2.0), 2.0) |> result.unwrap(0.0)
+  let a = float.power(math_sin(dlat /. 2.0), 2.0) |> result.unwrap(0.0)
+  let b = float.power(math_sin(dlng /. 2.0), 2.0) |> result.unwrap(0.0)
   let c = a +. math_cos(to_rad(lat1)) *. math_cos(to_rad(lat2)) *. b
-  let d = math_atan2(
-    float.square_root(c) |> result.unwrap(0.0),
-    float.square_root(1.0 -. c) |> result.unwrap(0.0),
-  )
+  let d =
+    math_atan2(
+      float.square_root(c) |> result.unwrap(0.0),
+      float.square_root(1.0 -. c) |> result.unwrap(0.0),
+    )
   6371.0 *. 2.0 *. d
 }
 
@@ -618,7 +639,11 @@ fn round1(f: Float) -> Float {
 fn int_to_float(i: Int) -> Float
 
 /// GET /api/v1/listings/:id/computed-service-pois
-pub fn computed_service_pois(req: Request, ctx: Context, listing_id: String) -> Response {
+pub fn computed_service_pois(
+  req: Request,
+  ctx: Context,
+  listing_id: String,
+) -> Response {
   use <- wisp.require_method(req, http.Get)
   let lid = string.trim(listing_id)
   let empty_response =
@@ -627,7 +652,7 @@ pub fn computed_service_pois(req: Request, ctx: Context, listing_id: String) -> 
         #("amenities", json.array([], fn(x) { x })),
         #("transport", json.array([], fn(x) { x })),
       ])
-      |> json.to_string,
+        |> json.to_string,
       200,
     )
 
@@ -692,7 +717,13 @@ pub fn computed_service_pois(req: Request, ctx: Context, listing_id: String) -> 
                       "amenity",
                       decode.string,
                     )
-                    decode.success(#(poi_type, label, poi_lat, poi_lng, category))
+                    decode.success(#(
+                      poi_type,
+                      label,
+                      poi_lat,
+                      poi_lng,
+                      category,
+                    ))
                   }
                   case json.parse(pois_text, decode.list(poi_dec)) {
                     Error(_) -> empty_response
@@ -721,7 +752,7 @@ pub fn computed_service_pois(req: Request, ctx: Context, listing_id: String) -> 
                           #("amenities", json.array(amenities, to_json)),
                           #("transport", json.array(transport, to_json)),
                         ])
-                        |> json.to_string,
+                          |> json.to_string,
                         200,
                       )
                     }

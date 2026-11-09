@@ -5,13 +5,18 @@ import pog
 import travel/db/resilient_pog as db_exec
 
 /// Silip yeniden yazar; rezervasyonda satır yoksa yalnızca siler.
-pub fn sync_reservation(conn: pog.Connection, reservation_id: String) -> Result(Nil, String) {
+pub fn sync_reservation(
+  conn: pog.Connection,
+  reservation_id: String,
+) -> Result(Nil, String) {
   let rid = string.trim(reservation_id)
   case rid == "" {
     True -> Error("empty_reservation_id")
     False ->
       case
-        pog.query("delete from commission_accrual_lines where reservation_id = $1::uuid")
+        pog.query(
+          "delete from commission_accrual_lines where reservation_id = $1::uuid",
+        )
         |> pog.parameter(pog.text(rid))
         |> pog.execute(conn)
       {

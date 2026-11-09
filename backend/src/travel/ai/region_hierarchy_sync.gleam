@@ -9,9 +9,9 @@ import gleam/option.{type Option, None, Some}
 import gleam/result
 import gleam/string
 import pog
-import travel/db/resilient_pog as db_exec
 import travel/ai/ai_job_run
 import travel/db/decode_helpers as row_dec
+import travel/db/resilient_pog as db_exec
 
 pub type GenOutcome {
   GenOutcome(job_id: String, created: Int, skipped: Int)
@@ -138,7 +138,10 @@ fn lookup_country_id(
   }
 }
 
-fn lookup_country_by_name(ctx: Context, name: String) -> Result(String, String) {
+fn lookup_country_by_name(
+  ctx: Context,
+  name: String,
+) -> Result(String, String) {
   let n = string.trim(name)
   case n == "" {
     True -> Error("country_name_required")
@@ -166,54 +169,58 @@ fn run_hierarchy_job(
   input_obj: json.Json,
 ) -> Result(#(String, String), String) {
   let input_s = json.to_string(input_obj)
-  use job_id <- result.try(case
-    pog.query(
-      "insert into ai_jobs (profile_code, input_json, status) values ('region_hierarchy', $1::jsonb, 'queued') returning id::text",
-    )
-    |> pog.parameter(pog.text(input_s))
-    |> pog.returning(row_dec.col0_string())
-    |> db_exec.execute(ctx.db)
-  {
-    Error(_) -> Error("ai_job_insert_failed")
-    Ok(r) ->
-      case r.rows {
-        [jid] -> Ok(jid)
-        _ -> Error("unexpected_job_insert")
-      }
-  })
+  use job_id <- result.try(
+    case
+      pog.query(
+        "insert into ai_jobs (profile_code, input_json, status) values ('region_hierarchy', $1::jsonb, 'queued') returning id::text",
+      )
+      |> pog.parameter(pog.text(input_s))
+      |> pog.returning(row_dec.col0_string())
+      |> db_exec.execute(ctx.db)
+    {
+      Error(_) -> Error("ai_job_insert_failed")
+      Ok(r) ->
+        case r.rows {
+          [jid] -> Ok(jid)
+          _ -> Error("unexpected_job_insert")
+        }
+    },
+  )
 
   use _ <- result.try(case ai_job_run.run_ai_job(ctx, job_id) {
     Ok(_) -> Ok(Nil)
     Error(e) -> Error(e)
   })
 
-  use out_text <- result.try(case
-    pog.query(
-      "select coalesce(output_json::text,''), coalesce(status,''), coalesce(error,'') from ai_jobs where id = $1::uuid limit 1",
-    )
-    |> pog.parameter(pog.text(job_id))
-    |> pog.returning(job_out_row())
-    |> db_exec.execute(ctx.db)
-  {
-    Error(_) -> Error("ai_job_output_query_failed")
-    Ok(r) ->
-      case r.rows {
-        [#(oj, st, er)] ->
-          case st == "succeeded" {
-            False ->
-              Error(case er == "" {
-                True -> "ai_job_failed"
-                False -> er
-              })
-            True ->
-              case json.parse(oj, llm_output_text_decoder()) {
-                Error(_) -> Error("ai_job_output_parse_failed")
-                Ok(llm_raw) -> Ok(llm_raw)
-              }
-          }
-        _ -> Error("unexpected_output_row")
-      }
-  })
+  use out_text <- result.try(
+    case
+      pog.query(
+        "select coalesce(output_json::text,''), coalesce(status,''), coalesce(error,'') from ai_jobs where id = $1::uuid limit 1",
+      )
+      |> pog.parameter(pog.text(job_id))
+      |> pog.returning(job_out_row())
+      |> db_exec.execute(ctx.db)
+    {
+      Error(_) -> Error("ai_job_output_query_failed")
+      Ok(r) ->
+        case r.rows {
+          [#(oj, st, er)] ->
+            case st == "succeeded" {
+              False ->
+                Error(case er == "" {
+                  True -> "ai_job_failed"
+                  False -> er
+                })
+              True ->
+                case json.parse(oj, llm_output_text_decoder()) {
+                  Error(_) -> Error("ai_job_output_parse_failed")
+                  Ok(llm_raw) -> Ok(llm_raw)
+                }
+            }
+          _ -> Error("unexpected_output_row")
+        }
+    },
+  )
 
   Ok(#(job_id, out_text))
 }
@@ -262,7 +269,11 @@ pub fn generate_and_insert_provinces(
   country_name: String,
   country_id_opt: Option(String),
 ) -> Result(GenOutcome, String) {
-  use country_id <- result.try(lookup_country_id(ctx, country_name, country_id_opt))
+  use country_id <- result.try(lookup_country_id(
+    ctx,
+    country_name,
+    country_id_opt,
+  ))
 
   let instruction =
     "You output ONLY valid JSON (no markdown, no prose). A single JSON array. Each element MUST be an object with: "
@@ -283,10 +294,12 @@ pub fn generate_and_insert_provinces(
 
   use #(job_id, out_text) <- result.try(run_hierarchy_job(ctx, input_obj))
   let arr_json = extract_json_array_text(out_text)
-  use rows <- result.try(case json.parse(arr_json, decode.list(geo_item_decoder())) {
-    Error(_) -> Error("llm_json_array_parse_failed")
-    Ok(r) -> Ok(r)
-  })
+  use rows <- result.try(
+    case json.parse(arr_json, decode.list(geo_item_decoder())) {
+      Error(_) -> Error("llm_json_array_parse_failed")
+      Ok(r) -> Ok(r)
+    },
+  )
 
   let #(created, skipped) =
     list.fold(rows, #(0, 0), fn(acc, row) {
@@ -306,13 +319,7 @@ pub fn generate_and_insert_provinces(
   Ok(GenOutcome(job_id:, created:, skipped:))
 }
 
-fn region_ctx_row() -> decode.Decoder(#(
-  String,
-  String,
-  String,
-  String,
-  String,
-)) {
+fn region_ctx_row() -> decode.Decoder(#(String, String, String, String, String)) {
   use rid <- decode.field(0, decode.string)
   use rname <- decode.field(1, decode.string)
   use rslug <- decode.field(2, decode.string)
@@ -321,10 +328,10 @@ fn region_ctx_row() -> decode.Decoder(#(
   decode.success(#(rid, rname, rslug, cid, iso))
 }
 
-fn lookup_region_ctx(ctx: Context, region_id: String) -> Result(
-  #(String, String, String, String, String),
-  String,
-) {
+fn lookup_region_ctx(
+  ctx: Context,
+  region_id: String,
+) -> Result(#(String, String, String, String, String), String) {
   case string.trim(region_id) == "" {
     True -> Error("region_id_required")
     False ->
@@ -332,12 +339,14 @@ fn lookup_region_ctx(ctx: Context, region_id: String) -> Result(
         pog.query(
           "select r.id::text, r.name, r.slug, r.country_id::text, co.iso2 from regions r join countries co on co.id = r.country_id where r.id = $1::int limit 1",
         )
-        |> pog.parameter(pog.int({
-          case int.parse(region_id) {
-            Ok(n) -> n
-            Error(_) -> 0
-          }
-        }))
+        |> pog.parameter(
+          pog.int({
+            case int.parse(region_id) {
+              Ok(n) -> n
+              Error(_) -> 0
+            }
+          }),
+        )
         |> pog.returning(region_ctx_row())
         |> db_exec.execute(ctx.db)
       {
@@ -351,15 +360,9 @@ fn lookup_region_ctx(ctx: Context, region_id: String) -> Result(
   }
 }
 
-fn district_ctx_row() -> decode.Decoder(#(
-  String,
-  String,
-  String,
-  String,
-  String,
-  String,
-  String,
-)) {
+fn district_ctx_row() -> decode.Decoder(
+  #(String, String, String, String, String, String, String),
+) {
   use did <- decode.field(0, decode.string)
   use dname <- decode.field(1, decode.string)
   use dslug <- decode.field(2, decode.string)
@@ -370,10 +373,10 @@ fn district_ctx_row() -> decode.Decoder(#(
   decode.success(#(did, dname, dslug, rid, rslug, rname, iso))
 }
 
-fn lookup_district_ctx(ctx: Context, district_id: String) -> Result(
-  #(String, String, String, String, String, String, String),
-  String,
-) {
+fn lookup_district_ctx(
+  ctx: Context,
+  district_id: String,
+) -> Result(#(String, String, String, String, String, String, String), String) {
   case string.trim(district_id) == "" {
     True -> Error("district_id_required")
     False ->
@@ -381,12 +384,14 @@ fn lookup_district_ctx(ctx: Context, district_id: String) -> Result(
         pog.query(
           "select d.id::text, d.name, d.slug, d.region_id::text, r.slug, r.name, co.iso2 from districts d join regions r on r.id = d.region_id join countries co on co.id = r.country_id where d.id = $1::int limit 1",
         )
-        |> pog.parameter(pog.int({
-          case int.parse(district_id) {
-            Ok(n) -> n
-            Error(_) -> 0
-          }
-        }))
+        |> pog.parameter(
+          pog.int({
+            case int.parse(district_id) {
+              Ok(n) -> n
+              Error(_) -> 0
+            }
+          }),
+        )
         |> pog.returning(district_ctx_row())
         |> db_exec.execute(ctx.db)
       {
@@ -400,7 +405,12 @@ fn lookup_district_ctx(ctx: Context, district_id: String) -> Result(
   }
 }
 
-fn slug_path4(iso: String, rslug: String, dslug: String, tail: String) -> String {
+fn slug_path4(
+  iso: String,
+  rslug: String,
+  dslug: String,
+  tail: String,
+) -> String {
   string.lowercase(iso)
   <> "/"
   <> string.lowercase(rslug)
@@ -429,18 +439,25 @@ fn upsert_district(
     None -> pog.null()
     Some(s) -> pog.text(s)
   }
-  let sp = string.lowercase(iso2) <> "/" <> string.lowercase(region_slug) <> "/" <> string.lowercase(slug)
+  let sp =
+    string.lowercase(iso2)
+    <> "/"
+    <> string.lowercase(region_slug)
+    <> "/"
+    <> string.lowercase(slug)
 
   case
     pog.query(
       "insert into districts (region_id, name, slug, center_lat, center_lng) values ($1::int, $2, $3, $4::numeric, $5::numeric) on conflict (region_id, slug) do update set name = excluded.name, center_lat = coalesce(excluded.center_lat, districts.center_lat), center_lng = coalesce(excluded.center_lng, districts.center_lng) returning id::text",
     )
-    |> pog.parameter(pog.int({
-      case int.parse(region_id) {
-        Ok(n) -> n
-        Error(_) -> 0
-      }
-    }))
+    |> pog.parameter(
+      pog.int({
+        case int.parse(region_id) {
+          Ok(n) -> n
+          Error(_) -> 0
+        }
+      }),
+    )
     |> pog.parameter(pog.text(name))
     |> pog.parameter(pog.text(slug))
     |> pog.parameter(lat_p)
@@ -459,18 +476,22 @@ fn upsert_district(
             )
             |> pog.parameter(pog.text(sp))
             |> pog.parameter(pog.text(did))
-            |> pog.parameter(pog.int({
-              case int.parse(region_id) {
-                Ok(n) -> n
-                Error(_) -> 0
-              }
-            }))
-            |> pog.parameter(pog.int({
-              case int.parse(country_id) {
-                Ok(n) -> n
-                Error(_) -> 0
-              }
-            }))
+            |> pog.parameter(
+              pog.int({
+                case int.parse(region_id) {
+                  Ok(n) -> n
+                  Error(_) -> 0
+                }
+              }),
+            )
+            |> pog.parameter(
+              pog.int({
+                case int.parse(country_id) {
+                  Ok(n) -> n
+                  Error(_) -> 0
+                }
+              }),
+            )
             |> pog.parameter(pog.text(name))
             |> pog.parameter(lat_p)
             |> pog.parameter(lng_p)
@@ -487,7 +508,10 @@ pub fn generate_and_insert_districts(
   ctx: Context,
   region_id: String,
 ) -> Result(GenOutcome, String) {
-  use #(rid, rname, rslug, cid, iso2) <- result.try(lookup_region_ctx(ctx, region_id))
+  use #(rid, rname, rslug, cid, iso2) <- result.try(lookup_region_ctx(
+    ctx,
+    region_id,
+  ))
 
   let instruction =
     "You output ONLY valid JSON (no markdown, no prose). A single JSON array. Each element: "
@@ -507,10 +531,12 @@ pub fn generate_and_insert_districts(
 
   use #(job_id, out_text) <- result.try(run_hierarchy_job(ctx, input_obj))
   let arr_json = extract_json_array_text(out_text)
-  use rows <- result.try(case json.parse(arr_json, decode.list(geo_item_decoder())) {
-    Error(_) -> Error("llm_json_array_parse_failed")
-    Ok(r) -> Ok(r)
-  })
+  use rows <- result.try(
+    case json.parse(arr_json, decode.list(geo_item_decoder())) {
+      Error(_) -> Error("llm_json_array_parse_failed")
+      Ok(r) -> Ok(r)
+    },
+  )
 
   let #(created, skipped) =
     list.fold(rows, #(0, 0), fn(acc, row) {
@@ -558,24 +584,30 @@ fn insert_destination_page(
       "insert into location_pages (slug_path, district_id, region_id, country_id, region_type, title, map_lat, map_lng) values ($1, $2::int, $3::int, $4::smallint, 'destination', $5, $6::numeric, $7::numeric) on conflict (slug_path) do update set title = excluded.title, map_lat = coalesce(excluded.map_lat, location_pages.map_lat), map_lng = coalesce(excluded.map_lng, location_pages.map_lng) returning id::text",
     )
     |> pog.parameter(pog.text(sp))
-    |> pog.parameter(pog.int({
-      case int.parse(did) {
-        Ok(n) -> n
-        Error(_) -> 0
-      }
-    }))
-    |> pog.parameter(pog.int({
-      case int.parse(rid) {
-        Ok(n) -> n
-        Error(_) -> 0
-      }
-    }))
-    |> pog.parameter(pog.int({
-      case int.parse(cid) {
-        Ok(n) -> n
-        Error(_) -> 0
-      }
-    }))
+    |> pog.parameter(
+      pog.int({
+        case int.parse(did) {
+          Ok(n) -> n
+          Error(_) -> 0
+        }
+      }),
+    )
+    |> pog.parameter(
+      pog.int({
+        case int.parse(rid) {
+          Ok(n) -> n
+          Error(_) -> 0
+        }
+      }),
+    )
+    |> pog.parameter(
+      pog.int({
+        case int.parse(cid) {
+          Ok(n) -> n
+          Error(_) -> 0
+        }
+      }),
+    )
     |> pog.parameter(pog.text(name))
     |> pog.parameter(lat_p)
     |> pog.parameter(lng_p)
@@ -601,10 +633,13 @@ pub fn generate_and_insert_destinations(
     lookup_district_ctx(ctx, district_id),
   )
 
-  use cid <- result.try(lookup_region_ctx(ctx, rid) |> result.map(fn(row) {
-    let #(_, _, _, cid, _) = row
-    cid
-  }))
+  use cid <- result.try(
+    lookup_region_ctx(ctx, rid)
+    |> result.map(fn(row) {
+      let #(_, _, _, cid, _) = row
+      cid
+    }),
+  )
 
   let instruction =
     "You output ONLY valid JSON (no markdown, no prose). A single JSON array (8 to 15 items). Each element: "
@@ -629,10 +664,12 @@ pub fn generate_and_insert_destinations(
 
   use #(job_id, out_text) <- result.try(run_hierarchy_job(ctx, input_obj))
   let arr_json = extract_json_array_text(out_text)
-  use rows <- result.try(case json.parse(arr_json, decode.list(geo_item_decoder())) {
-    Error(_) -> Error("llm_json_array_parse_failed")
-    Ok(r) -> Ok(r)
-  })
+  use rows <- result.try(
+    case json.parse(arr_json, decode.list(geo_item_decoder())) {
+      Error(_) -> Error("llm_json_array_parse_failed")
+      Ok(r) -> Ok(r)
+    },
+  )
 
   let #(created, skipped) =
     list.fold(rows, #(0, 0), fn(acc, row) {
@@ -642,7 +679,19 @@ pub fn generate_and_insert_destinations(
         True -> #(c, sk + 1)
         False ->
           case
-            insert_destination_page(ctx, did, rid, cid, iso2, rslug, dslug, nm, sl, la, lo)
+            insert_destination_page(
+              ctx,
+              did,
+              rid,
+              cid,
+              iso2,
+              rslug,
+              dslug,
+              nm,
+              sl,
+              la,
+              lo,
+            )
           {
             Ok(True) -> #(c + 1, sk)
             Ok(False) -> #(c, sk + 1)

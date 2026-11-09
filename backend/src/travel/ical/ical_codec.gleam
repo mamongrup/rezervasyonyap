@@ -28,12 +28,7 @@ import gleam/string
 /// `ends_on` iCal mantığında **dışlayıcı** (exclusive). Yani `DTSTART=20260101`,
 /// `DTEND=20260103` → blok 1 ve 2 Ocak günleri (3 Ocak değil).
 pub type IcalEvent {
-  IcalEvent(
-    uid: String,
-    starts_on: String,
-    ends_on: String,
-    summary: String,
-  )
+  IcalEvent(uid: String, starts_on: String, ends_on: String, summary: String)
 }
 
 // ──────────────────────────────────────────────────────────────────────────
@@ -207,11 +202,17 @@ const crlf: String = "\r\n"
 /// `prodid`: yayıncı kimliği, ör. `-//Travel//Listing 123//EN`.
 pub fn build_calendar(prodid: String, events: List(IcalEvent)) -> String {
   let header =
-    "BEGIN:VCALENDAR" <> crlf
-    <> "VERSION:2.0" <> crlf
-    <> "PRODID:" <> prodid <> crlf
-    <> "CALSCALE:GREGORIAN" <> crlf
-    <> "METHOD:PUBLISH" <> crlf
+    "BEGIN:VCALENDAR"
+    <> crlf
+    <> "VERSION:2.0"
+    <> crlf
+    <> "PRODID:"
+    <> prodid
+    <> crlf
+    <> "CALSCALE:GREGORIAN"
+    <> crlf
+    <> "METHOD:PUBLISH"
+    <> crlf
 
   let body =
     events
@@ -224,15 +225,30 @@ pub fn build_calendar(prodid: String, events: List(IcalEvent)) -> String {
 fn build_vevent(ev: IcalEvent) -> String {
   let dtstart = ical_date(ev.starts_on)
   let dtend = ical_date(ev.ends_on)
-  "BEGIN:VEVENT" <> crlf
-  <> "UID:" <> escape_text(ev.uid) <> crlf
-  <> "DTSTAMP:" <> dtstart <> "T000000Z" <> crlf
-  <> "DTSTART;VALUE=DATE:" <> dtstart <> crlf
-  <> "DTEND;VALUE=DATE:" <> dtend <> crlf
-  <> "SUMMARY:" <> escape_text(ev.summary) <> crlf
-  <> "STATUS:CONFIRMED" <> crlf
-  <> "TRANSP:OPAQUE" <> crlf
-  <> "END:VEVENT" <> crlf
+  "BEGIN:VEVENT"
+  <> crlf
+  <> "UID:"
+  <> escape_text(ev.uid)
+  <> crlf
+  <> "DTSTAMP:"
+  <> dtstart
+  <> "T000000Z"
+  <> crlf
+  <> "DTSTART;VALUE=DATE:"
+  <> dtstart
+  <> crlf
+  <> "DTEND;VALUE=DATE:"
+  <> dtend
+  <> crlf
+  <> "SUMMARY:"
+  <> escape_text(ev.summary)
+  <> crlf
+  <> "STATUS:CONFIRMED"
+  <> crlf
+  <> "TRANSP:OPAQUE"
+  <> crlf
+  <> "END:VEVENT"
+  <> crlf
 }
 
 /// `YYYY-MM-DD` → `YYYYMMDD` (RFC 5545 DATE formu).

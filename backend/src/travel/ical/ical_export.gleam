@@ -110,7 +110,10 @@ fn load_manual_blocks(ctx: Context, listing_id: String) -> List(IcalEvent) {
 }
 
 /// Ardışık günleri tek bir VEVENT'e birleştirir (DTEND = son gün + 1, exclusive).
-fn merge_consecutive(days: List(String), listing_id: String) -> List(IcalEvent) {
+fn merge_consecutive(
+  days: List(String),
+  listing_id: String,
+) -> List(IcalEvent) {
   case days {
     [] -> []
     [first, ..rest] -> do_merge(rest, first, first, [], listing_id)

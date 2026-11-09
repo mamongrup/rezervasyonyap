@@ -7,8 +7,8 @@ import gleam/list
 import gleam/option.{type Option, None, Some}
 import gleam/string
 import pog
-import travel/db/resilient_pog as db_exec
 import travel/db/decode_helpers as row_dec
+import travel/db/resilient_pog as db_exec
 import travel/messaging/notification_channels
 import travel/site/integration_config
 
@@ -295,7 +295,15 @@ pub fn dispatch_agency_reservation_created(
                     Ok(rr) ->
                       case rr.rows {
                         [] -> Nil
-                        [#(public_code, guest_name, starts_on, ends_on, listing_title)] -> {
+                        [
+                          #(
+                            public_code,
+                            guest_name,
+                            starts_on,
+                            ends_on,
+                            listing_title,
+                          ),
+                        ] -> {
                           let payload =
                             json.object([
                               #("contact_name", json.string(contact_name)),

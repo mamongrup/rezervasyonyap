@@ -81,7 +81,8 @@ pub fn load(db: pog.Connection) -> Yolcu360Config {
       v -> v
     }
   }
-  let enabled = fetch_yolcu360_enabled(db) || env_or("YOLCU360_ENABLED", "0") == "1"
+  let enabled =
+    fetch_yolcu360_enabled(db) || env_or("YOLCU360_ENABLED", "0") == "1"
   Yolcu360Config(
     enabled: enabled,
     base_url: get(
@@ -183,7 +184,10 @@ pub fn payment_pay_url(cfg: Yolcu360Config) -> String {
 }
 
 /// RFC3339 datetime; timezone yoksa ülkeye göre offset ekler.
-pub fn format_search_datetime(date_str: String, country_code: String) -> String {
+pub fn format_search_datetime(
+  date_str: String,
+  country_code: String,
+) -> String {
   let t = string.trim(date_str)
   let has_tz =
     string.contains(t, "+")

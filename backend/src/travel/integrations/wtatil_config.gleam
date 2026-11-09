@@ -66,7 +66,8 @@ fn fetch_wtatil_bool(db: pog.Connection, field: String, default: Bool) -> Bool {
 }
 
 fn fetch_wtatil_enabled(db: pog.Connection) -> Bool {
-  fetch_wtatil_bool(db, "enabled", False) || env_or("WTATIL_ENABLED", "0") == "1"
+  fetch_wtatil_bool(db, "enabled", False)
+  || env_or("WTATIL_ENABLED", "0") == "1"
 }
 
 pub fn load(db: pog.Connection) -> WtatilConfig {
@@ -79,7 +80,11 @@ pub fn load(db: pog.Connection) -> WtatilConfig {
   }
   WtatilConfig(
     enabled: fetch_wtatil_enabled(db),
-    base_url: get("base_url", "WTATIL_BASE_URL", "https://tour-api.reserwation.com"),
+    base_url: get(
+      "base_url",
+      "WTATIL_BASE_URL",
+      "https://tour-api.reserwation.com",
+    ),
     application_secret_key: get(
       "application_secret_key",
       "WTATIL_APPLICATION_SECRET_KEY",

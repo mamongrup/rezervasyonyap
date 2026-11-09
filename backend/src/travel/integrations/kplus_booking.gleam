@@ -17,7 +17,8 @@ import travel/net/http_client
 pub type PnrStatus {
   PnrStatus(
     pnr_code: String,
-    status: String,           // "Booked", "Cancelled", "Ticketed"
+    status: String,
+    // "Booked", "Cancelled", "Ticketed"
     reservation_date: String,
     passenger_count: Int,
     raw_response: String,
@@ -26,11 +27,7 @@ pub type PnrStatus {
 
 /// Booking oluşturma sonucu
 pub type BookingResult {
-  BookingResult(
-    pnr_code: String,
-    booking_status: String,
-    raw_response: String,
-  )
+  BookingResult(pnr_code: String, booking_status: String, raw_response: String)
 }
 
 /// Yolcu bilgisi
@@ -38,21 +35,21 @@ pub type PassengerInfo {
   PassengerInfo(
     first_name: String,
     last_name: String,
-    passenger_type: String, // ADT, CHD, INF
+    passenger_type: String,
+    // ADT, CHD, INF
     birth_date: String,
     nationality: String,
     document_number: String,
-    document_type: String,  // "Passport", "IDCard"
-    gender: String,         // "F", "M", "None"
+    document_type: String,
+    // "Passport", "IDCard"
+    gender: String,
+    // "F", "M", "None"
   )
 }
 
 /// İletişim bilgisi
 pub type ContactInfo {
-  ContactInfo(
-    email: String,
-    phone: String,
-  )
+  ContactInfo(email: String, phone: String)
 }
 
 /// BookingCreateV2 istek gövdesi oluştur
@@ -67,73 +64,113 @@ fn create_booking_body(
   passengers: List(PassengerInfo),
   contact: ContactInfo,
 ) -> String {
-  let pax_arr = list.map(passengers, fn(p) {
-    json.object([
-      #("FirstName", json.string(p.first_name)),
-      #("LastName", json.string(p.last_name)),
-      #("PassengerType", json.string(p.passenger_type)),
-      #("BirthDate", json.string(p.birth_date)),
-      #("Nationality", json.string(p.nationality)),
-      #("DocumentNumber", json.string(p.document_number)),
-      #("DocumentType", json.string(p.document_type)),
-      #("Gender", json.string(p.gender)),
-    ])
-  })
+  let pax_arr =
+    list.map(passengers, fn(p) {
+      json.object([
+        #("FirstName", json.string(p.first_name)),
+        #("LastName", json.string(p.last_name)),
+        #("PassengerType", json.string(p.passenger_type)),
+        #("BirthDate", json.string(p.birth_date)),
+        #("Nationality", json.string(p.nationality)),
+        #("DocumentNumber", json.string(p.document_number)),
+        #("DocumentType", json.string(p.document_type)),
+        #("Gender", json.string(p.gender)),
+      ])
+    })
 
   json.object([
-    #("ChannelCredential", json.object([
-      #("ChannelCode", json.string(channel_code)),
-      #("TokenCode", json.string(token)),
-    ])),
-    #("BookingItems", json.array([
+    #(
+      "ChannelCredential",
       json.object([
-        #("OriginPort", json.object([
-          #("Code", json.string(origin)),
-          #("Type", json.string("A")), // Airport
-          #("Name", json.string("")),
-        ])),
-        #("DestinationPort", json.object([
-          #("Code", json.string(destination)),
-          #("Type", json.string("A")),
-          #("Name", json.string("")),
-        ])),
-        #("DepartureDate", json.object([
-          #("Date", json.string(departure_date)),
-        ])),
-        #("ArrivalDate", json.object([
-          #("Date", json.string(arrival_date)),
-        ])),
-        #("FlightNumber", json.string(flight_number)),
-        #("Passengers", json.array(pax_arr, fn(x) { x })),
+        #("ChannelCode", json.string(channel_code)),
+        #("TokenCode", json.string(token)),
       ]),
-    ], fn(x) { x })),
-    #("ContactInfo", json.object([
-      #("Email", json.string(contact.email)),
-      #("Phone", json.string(contact.phone)),
-    ])),
+    ),
+    #(
+      "BookingItems",
+      json.array(
+        [
+          json.object([
+            #(
+              "OriginPort",
+              json.object([
+                #("Code", json.string(origin)),
+                #("Type", json.string("A")),
+                // Airport
+                #("Name", json.string("")),
+              ]),
+            ),
+            #(
+              "DestinationPort",
+              json.object([
+                #("Code", json.string(destination)),
+                #("Type", json.string("A")),
+                #("Name", json.string("")),
+              ]),
+            ),
+            #(
+              "DepartureDate",
+              json.object([
+                #("Date", json.string(departure_date)),
+              ]),
+            ),
+            #(
+              "ArrivalDate",
+              json.object([
+                #("Date", json.string(arrival_date)),
+              ]),
+            ),
+            #("FlightNumber", json.string(flight_number)),
+            #("Passengers", json.array(pax_arr, fn(x) { x })),
+          ]),
+        ],
+        fn(x) { x },
+      ),
+    ),
+    #(
+      "ContactInfo",
+      json.object([
+        #("Email", json.string(contact.email)),
+        #("Phone", json.string(contact.phone)),
+      ]),
+    ),
   ])
   |> json.to_string
 }
 
 /// PNR sorgulama gövdesi
-fn pnr_info_body(token: String, channel_code: String, pnr_code: String) -> String {
+fn pnr_info_body(
+  token: String,
+  channel_code: String,
+  pnr_code: String,
+) -> String {
   json.object([
-    #("ChannelCredential", json.object([
-      #("ChannelCode", json.string(channel_code)),
-      #("TokenCode", json.string(token)),
-    ])),
+    #(
+      "ChannelCredential",
+      json.object([
+        #("ChannelCode", json.string(channel_code)),
+        #("TokenCode", json.string(token)),
+      ]),
+    ),
     #("PNRCode", json.string(pnr_code)),
   ])
   |> json.to_string
 }
 
 /// İptal gövdesi (CancelBookingV2)
-fn cancel_booking_body(token: String, channel_code: String, pnr_code: String) -> String {
+fn cancel_booking_body(
+  token: String,
+  channel_code: String,
+  pnr_code: String,
+) -> String {
   json.object([
-    #("ChannelCredential", json.object([
-      #("ChannelCode", json.string(channel_code)),
-      #("TokenCode", json.string(token)),
-    ])),
+    #(
+      "ChannelCredential",
+      json.object([
+        #("ChannelCode", json.string(channel_code)),
+        #("TokenCode", json.string(token)),
+      ]),
+    ),
     #("PNRCode", json.string(pnr_code)),
   ])
   |> json.to_string
@@ -171,7 +208,9 @@ pub fn cancel_booking_url(base_url: String) -> String {
 
 /// Travelrobot/Kplus'tan hata mesajını parse et
 fn error_message_from_raw(raw: String) -> String {
-  case json.parse(raw, decode.field("ErrorMessage", decode.string, decode.success)) {
+  case
+    json.parse(raw, decode.field("ErrorMessage", decode.string, decode.success))
+  {
     Ok(m) ->
       case string.trim(m) {
         "" -> "kplus_api_error"
@@ -187,7 +226,9 @@ fn has_error(raw: String) -> Bool {
     Ok(True) -> True
     Ok(False) -> False
     Error(_) -> {
-      case json.parse(raw, decode.field("HasError", decode.string, decode.success)) {
+      case
+        json.parse(raw, decode.field("HasError", decode.string, decode.success))
+      {
         Ok(s) -> s == "true" || s == "True" || s == "1"
         Error(_) -> False
       }
@@ -208,7 +249,12 @@ fn pnr_code_from_raw(raw: String) -> Result(String, String) {
       case string.trim(t) {
         "" -> {
           // Direct PNRCode
-          case json.parse(raw, decode.field("PNRCode", decode.string, fn(c) { decode.success(c) })) {
+          case
+            json.parse(
+              raw,
+              decode.field("PNRCode", decode.string, fn(c) { decode.success(c) }),
+            )
+          {
             Ok(t2) ->
               case string.trim(t2) {
                 "" -> Error("kplus_pnr_empty")
@@ -220,7 +266,12 @@ fn pnr_code_from_raw(raw: String) -> Result(String, String) {
         s -> Ok(s)
       }
     Error(_) -> {
-      case json.parse(raw, decode.field("PNRCode", decode.string, fn(c) { decode.success(c) })) {
+      case
+        json.parse(
+          raw,
+          decode.field("PNRCode", decode.string, fn(c) { decode.success(c) }),
+        )
+      {
         Ok(t) ->
           case string.trim(t) {
             "" -> Error("kplus_pnr_not_found")
@@ -247,7 +298,12 @@ fn booking_status_from_raw(raw: String) -> String {
         s -> s
       }
     Error(_) -> {
-      case json.parse(raw, decode.field("Status", decode.string, fn(c) { decode.success(c) })) {
+      case
+        json.parse(
+          raw,
+          decode.field("Status", decode.string, fn(c) { decode.success(c) }),
+        )
+      {
         Ok(t2) ->
           case string.trim(t2) {
             "" -> "unknown"
@@ -293,17 +349,18 @@ pub fn create_booking(
     False -> Error("travelrobot_credentials_missing")
     True -> {
       let url = create_booking_url(cfg.base_url)
-      let body = create_booking_body(
-        token,
-        cfg.channel_code,
-        origin,
-        destination,
-        departure_date,
-        arrival_date,
-        flight_number,
-        passengers,
-        contact,
-      )
+      let body =
+        create_booking_body(
+          token,
+          cfg.channel_code,
+          origin,
+          destination,
+          departure_date,
+          arrival_date,
+          flight_number,
+          passengers,
+          contact,
+        )
       case http_client.post_json(url, body, "") {
         Error(e) -> Error("kplus_http_failed:" <> e)
         Ok(raw) -> {

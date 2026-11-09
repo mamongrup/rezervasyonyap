@@ -13,16 +13,19 @@ import gleam/option.{type Option, None, Some}
 import gleam/result
 import gleam/string
 import pog
-import travel/db/resilient_pog as db_exec
 import travel/ai/ai_job_run
 import travel/db/decode_helpers as row_dec
+import travel/db/resilient_pog as db_exec
 import travel/social/listing_social_enqueue
 import travel/social/social_ai_parse
 import wisp.{type Request, type Response}
 
 const worker_secret_header = "x-travel-social-worker-secret"
+
 const social_api_key = "social_api"
+
 const caption_profile = "social_caption"
+
 const post_types: List(String) = ["feed", "story", "reel"]
 
 fn valid_post_type(n: String) -> Bool {
@@ -55,8 +58,7 @@ fn trim_env_secret() -> Result(String, Nil) {
 
 fn auth_worker(req: Request) -> Result(Nil, Response) {
   case trim_env_secret() {
-    Error(_) ->
-      Error(json_err(503, "worker_secret_not_configured"))
+    Error(_) -> Error(json_err(503, "worker_secret_not_configured"))
     Ok(expected) ->
       case request.get_header(req, worker_secret_header) {
         Error(_) -> Error(json_err(401, "unauthorized"))
@@ -87,10 +89,21 @@ fn fetch_social_api_json(db: pog.Connection) -> String {
   }
 }
 
-fn pending_job_row() ->
-  decode.Decoder(
-    #(String, String, String, String, String, Bool, String, String, String, String, String),
-  ) {
+fn pending_job_row() -> decode.Decoder(
+  #(
+    String,
+    String,
+    String,
+    String,
+    String,
+    Bool,
+    String,
+    String,
+    String,
+    String,
+    String,
+  ),
+) {
   use id <- decode.field(0, decode.string)
   use net <- decode.field(1, decode.string)
   use eid <- decode.field(2, decode.string)
@@ -102,13 +115,38 @@ fn pending_job_row() ->
   use cat <- decode.field(8, decode.string)
   use tpl <- decode.field(9, decode.string)
   use post_type <- decode.field(10, decode.string)
-  decode.success(#(id, net, eid, imgs, cap, allow_ai, title, slug, cat, tpl, post_type))
+  decode.success(#(
+    id,
+    net,
+    eid,
+    imgs,
+    cap,
+    allow_ai,
+    title,
+    slug,
+    cat,
+    tpl,
+    post_type,
+  ))
 }
 
 fn pending_job_json(
-  row: #(String, String, String, String, String, Bool, String, String, String, String, String),
+  row: #(
+    String,
+    String,
+    String,
+    String,
+    String,
+    Bool,
+    String,
+    String,
+    String,
+    String,
+    String,
+  ),
 ) -> json.Json {
-  let #(id, net, eid, imgs, cap, allow_ai, title, slug, cat, tpl, post_type) = row
+  let #(id, net, eid, imgs, cap, allow_ai, title, slug, cat, tpl, post_type) =
+    row
   let img_list =
     string.split(imgs, "\u{001F}")
     |> list.map(string.trim)
@@ -140,7 +178,10 @@ fn ai_job_outcome_row() -> decode.Decoder(#(String, String, String)) {
   decode.success(#(status, err, text))
 }
 
-fn run_caption_profile(ctx: Context, input_json: String) -> Result(String, String) {
+fn run_caption_profile(
+  ctx: Context,
+  input_json: String,
+) -> Result(String, String) {
   case
     pog.query(
       "insert into ai_jobs (profile_code, input_json, status) values ($1, $2::jsonb, 'queued') returning id::text",
@@ -234,10 +275,11 @@ pub fn get_worker_pending(req: Request, ctx: Context) -> Response {
             Ok(n) ->
               case n > 50 {
                 True -> 50
-                False -> case n < 1 {
-                  True -> 10
-                  False -> n
-                }
+                False ->
+                  case n < 1 {
+                    True -> 10
+                    False -> n
+                  }
               }
             Error(_) -> 10
           }
@@ -330,27 +372,39 @@ pub fn get_worker_pending(req: Request, ctx: Context) -> Response {
   }
 }
 
-fn patch_job_decoder() -> decode.Decoder(#(String, Option(String), Option(String), Option(String))) {
+fn patch_job_decoder() -> decode.Decoder(
+  #(String, Option(String), Option(String), Option(String)),
+) {
   decode.field("status", decode.string, fn(status) {
-    decode.optional_field("external_post_id", None, decode.optional(decode.string), fn(
-      post_id,
-    ) {
-      decode.optional_field("error_message", None, decode.optional(decode.string), fn(err) {
+    decode.optional_field(
+      "external_post_id",
+      None,
+      decode.optional(decode.string),
+      fn(post_id) {
         decode.optional_field(
-          "caption_ai_generated",
+          "error_message",
           None,
           decode.optional(decode.string),
-          fn(cap) {
-            decode.success(#(status, post_id, err, cap))
+          fn(err) {
+            decode.optional_field(
+              "caption_ai_generated",
+              None,
+              decode.optional(decode.string),
+              fn(cap) { decode.success(#(status, post_id, err, cap)) },
+            )
           },
         )
-      })
-    })
+      },
+    )
   })
 }
 
 /// PATCH /api/v1/social/worker/jobs/:job_id — posted / failed güncelle.
-pub fn patch_worker_job(req: Request, ctx: Context, job_id: String) -> Response {
+pub fn patch_worker_job(
+  req: Request,
+  ctx: Context,
+  job_id: String,
+) -> Response {
   use <- wisp.require_method(req, http.Patch)
   case string.trim(job_id) == "" {
     True -> json_err(400, "invalid_id")
@@ -365,7 +419,11 @@ pub fn patch_worker_job(req: Request, ctx: Context, job_id: String) -> Response 
                 Error(_) -> json_err(400, "invalid_json")
                 Ok(#(status_raw, post_id_opt, err_opt, cap_opt)) -> {
                   let status = string.lowercase(string.trim(status_raw))
-                  case status == "posted" || status == "failed" || status == "pending" {
+                  case
+                    status == "posted"
+                    || status == "failed"
+                    || status == "pending"
+                  {
                     False -> json_err(400, "invalid_status")
                     True -> {
                       let p_post = case post_id_opt {
@@ -381,7 +439,8 @@ pub fn patch_worker_job(req: Request, ctx: Context, job_id: String) -> Response 
                         Some(s) ->
                           case string.trim(s) == "" {
                             True -> pog.null()
-                            False -> pog.text(string.slice(string.trim(s), 0, 2000))
+                            False ->
+                              pog.text(string.slice(string.trim(s), 0, 2000))
                           }
                       }
                       let p_cap = case cap_opt {
@@ -441,31 +500,47 @@ pub fn patch_worker_job(req: Request, ctx: Context, job_id: String) -> Response 
   }
 }
 
-fn caption_body_decoder() ->
-  decode.Decoder(#(String, String, String, String, String, String, Bool, List(String), String)) {
+fn caption_body_decoder() -> decode.Decoder(
+  #(String, String, String, String, String, String, Bool, List(String), String),
+) {
   decode.field("entity_id", decode.string, fn(entity_id) {
     decode.field("listing_title", decode.string, fn(title) {
       decode.optional_field("listing_description", "", decode.string, fn(desc) {
         decode.field("listing_url", decode.string, fn(url) {
           decode.field("network", decode.string, fn(network) {
             decode.optional_field("category_code", "", decode.string, fn(cat) {
-              decode.optional_field("allow_ai_caption", False, decode.bool, fn(allow_ai) {
-                decode.optional_field("image_keys", [], decode.list(decode.string), fn(keys) {
-                  decode.optional_field("template_body", "", decode.string, fn(tpl) {
-                    decode.success(#(
-                      entity_id,
-                      title,
-                      desc,
-                      url,
-                      network,
-                      cat,
-                      allow_ai,
-                      keys,
-                      tpl,
-                    ))
-                  })
-                })
-              })
+              decode.optional_field(
+                "allow_ai_caption",
+                False,
+                decode.bool,
+                fn(allow_ai) {
+                  decode.optional_field(
+                    "image_keys",
+                    [],
+                    decode.list(decode.string),
+                    fn(keys) {
+                      decode.optional_field(
+                        "template_body",
+                        "",
+                        decode.string,
+                        fn(tpl) {
+                          decode.success(#(
+                            entity_id,
+                            title,
+                            desc,
+                            url,
+                            network,
+                            cat,
+                            allow_ai,
+                            keys,
+                            tpl,
+                          ))
+                        },
+                      )
+                    },
+                  )
+                },
+              )
             })
           })
         })
@@ -474,7 +549,9 @@ fn caption_body_decoder() ->
   })
 }
 
-fn listing_context_row() -> decode.Decoder(#(String, String, String, String, String)) {
+fn listing_context_row() -> decode.Decoder(
+  #(String, String, String, String, String),
+) {
   use title <- decode.field(0, decode.string)
   use desc <- decode.field(1, decode.string)
   use region <- decode.field(2, decode.string)
@@ -523,7 +600,8 @@ fn fetch_listing_social_context(
         Ok(ret) ->
           case ret.rows {
             [#(title, desc, region, cat, feat)] -> {
-              let imgs = listing_social_enqueue.listing_image_candidates(db, eid, feat)
+              let imgs =
+                listing_social_enqueue.listing_image_candidates(db, eid, feat)
               Ok(#(title, desc, region, cat, imgs))
             }
             _ -> Error(Nil)
@@ -574,7 +652,17 @@ pub fn post_worker_caption(req: Request, ctx: Context) -> Response {
         Ok(body) ->
           case json.parse(body, caption_body_decoder()) {
             Error(_) -> json_err(400, "invalid_json")
-            Ok(#(entity_id, title_in, desc_in, url_in, network, cat_in, allow_ai, keys_in, template_body)) -> {
+            Ok(#(
+              entity_id,
+              title_in,
+              desc_in,
+              url_in,
+              network,
+              cat_in,
+              allow_ai,
+              keys_in,
+              template_body,
+            )) -> {
               let page_url = string.trim(url_in)
               case page_url == "" {
                 True -> json_err(400, "listing_url_required")
@@ -639,12 +727,19 @@ pub fn post_worker_caption(req: Request, ctx: Context) -> Response {
                           #("listing_description", json.string(desc)),
                           #("listing_region", json.string(region)),
                           #("listing_url", json.string(page_url)),
-                          #("image_candidates", image_candidates_json(candidates)),
+                          #(
+                            "image_candidates",
+                            image_candidates_json(candidates),
+                          ),
                           #(
                             "instruction",
                             json.string(
                               "JSON çıktı: title, description, caption, selected_image_indexes (10 görsel). Caption içinde ilan bölgesini doğal biçimde kullan; aynı bölge adını tekrar etme (Fethiye, Fethiye yazma), varsa Kayaköy, Fethiye gibi semt + ilçe formatını koru. Description ve caption içinde Kredi kartına 12 Taksit ifadesini geçir. Açıklamanın altına 5-8 ilgili Türkçe hashtag ekle (#RezervasyonYap, kategori, bölge/tema gibi). Seçili paylaşım şablonunu uygula; {{title}}, {{description}}, {{region}}, {{price}}, {{rooms}}, {{bathrooms}}, {{bedrooms}}, {{guests}}, {{area}}, {{pool}}, {{url}} gibi yer tutucuları ilan başlığı/açıklaması/bölge/url bilgisinden doğal metne çevir. Oda, banyo, yatak odası, kişi, m2, havuz veya fiyat bilgisi açıkça yoksa uydurma; cümleyi bozmadan o alanı atla. Şablon: "
-                              <> string.slice(string.trim(template_body), 0, 1800),
+                              <> string.slice(
+                                string.trim(template_body),
+                                0,
+                                1800,
+                              ),
                             ),
                           ),
                         ])

@@ -113,7 +113,9 @@ fn render_single_card_html(item: ListingItem) -> String {
             <div class=\"d-flex align-items-center text-warning small\">
               <i class=\"fa-solid fa-star me-1\"></i>
               <span class=\"fw-bold text-dark\">" <> item.rating <> "</span>
-              <span class=\"text-body-secondary small ms-1\">(" <> int.to_string(item.review_count) <> ")</span>
+              <span class=\"text-body-secondary small ms-1\">(" <> int.to_string(
+    item.review_count,
+  ) <> ")</span>
             </div>
           </div>
           <h5 class=\"card-title fw-bold mb-2\">
@@ -144,9 +146,15 @@ pub fn render_hotel_list_items_html(items: List(ListingItem)) -> String {
       <div class=\"row g-0 align-items-center\">
         <!-- Image -->
         <div class=\"col-md-4 position-relative\">
-          <img src=\"" <> item.image_url <> "\" class=\"img-fluid h-100 object-fit-cover\" alt=\"" <> item.title <> "\" style=\"min-height: 240px; width: 100%;\">
+          <img src=\""
+    <> item.image_url
+    <> "\" class=\"img-fluid h-100 object-fit-cover\" alt=\""
+    <> item.title
+    <> "\" style=\"min-height: 240px; width: 100%;\">
           <div class=\"position-absolute top-0 start-0 m-3\">
-            <span class=\"badge text-bg-dark\"><i class=\"bi bi-patch-check-fill text-warning me-1\"></i>" <> item.badge <> "</span>
+            <span class=\"badge text-bg-dark\"><i class=\"bi bi-patch-check-fill text-warning me-1\"></i>"
+    <> item.badge
+    <> "</span>
           </div>
         </div>
         <!-- Card Body -->
@@ -154,28 +162,48 @@ pub fn render_hotel_list_items_html(items: List(ListingItem)) -> String {
           <div class=\"card-body p-4 d-flex flex-column justify-content-between h-100\">
             <div>
               <div class=\"d-flex justify-content-between align-items-center mb-2\">
-                <span class=\"badge bg-primary bg-opacity-10 text-primary fw-bold\">" <> item.category_label <> "</span>
+                <span class=\"badge bg-primary bg-opacity-10 text-primary fw-bold\">"
+    <> item.category_label
+    <> "</span>
                 <div class=\"text-warning small d-flex align-items-center\">
                   <i class=\"fa-solid fa-star me-1\"></i>
-                  <span class=\"fw-bold text-dark\">" <> item.rating <> "</span>
-                  <span class=\"text-body-secondary ms-1\">(" <> int.to_string(item.review_count) <> " değerlendirme)</span>
+                  <span class=\"fw-bold text-dark\">"
+    <> item.rating
+    <> "</span>
+                  <span class=\"text-body-secondary ms-1\">("
+    <> int.to_string(item.review_count)
+    <> " değerlendirme)</span>
                 </div>
               </div>
               <h4 class=\"card-title fw-bold mb-2\">
-                <a href=\"/htmx/hotel-detail.html?id=" <> item.id <> "\" class=\"text-reset\">" <> item.title <> "</a>
+                <a href=\"/htmx/hotel-detail.html?id="
+    <> item.id
+    <> "\" class=\"text-reset\">"
+    <> item.title
+    <> "</a>
               </h4>
-              <p class=\"text-body-secondary small mb-3\"><i class=\"bi bi-geo-alt me-1 text-danger\"></i>" <> item.location <> "</p>
-              <p class=\"text-body-secondary small mb-3\">" <> item.description <> "</p>
+              <p class=\"text-body-secondary small mb-3\"><i class=\"bi bi-geo-alt me-1 text-danger\"></i>"
+    <> item.location
+    <> "</p>
+              <p class=\"text-body-secondary small mb-3\">"
+    <> item.description
+    <> "</p>
             </div>
             <div class=\"d-flex justify-content-between align-items-center border-top pt-3 mt-2\">
               <div>
                 <span class=\"text-body-secondary small d-block\">Gecelik En Uygun Fiyat</span>
-                <span class=\"fs-4 fw-bold text-primary\">" <> item.price_formatted <> "</span>
+                <span class=\"fs-4 fw-bold text-primary\">"
+    <> item.price_formatted
+    <> "</span>
                 <small class=\"text-body-secondary\"> /gece</small>
               </div>
               <div class=\"d-flex gap-2\">
-                <a href=\"/htmx/hotel-detail.html?id=" <> item.id <> "\" class=\"btn btn-outline-primary mb-0\">Detaylar</a>
-                <a href=\"/htmx/hotel-booking.html?id=" <> item.id <> "\" class=\"btn btn-primary mb-0\">Rezervasyon Yap</a>
+                <a href=\"/htmx/hotel-detail.html?id="
+    <> item.id
+    <> "\" class=\"btn btn-outline-primary mb-0\">Detaylar</a>
+                <a href=\"/htmx/hotel-booking.html?id="
+    <> item.id
+    <> "\" class=\"btn btn-primary mb-0\">Rezervasyon Yap</a>
               </div>
             </div>
           </div>

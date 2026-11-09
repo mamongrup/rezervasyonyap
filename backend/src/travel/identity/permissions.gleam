@@ -33,7 +33,10 @@ pub fn bearer_token(req: Request) -> String {
   }
 }
 
-fn session_user_id_raw(conn: pog.Connection, token: String) -> Result(String, Nil) {
+fn session_user_id_raw(
+  conn: pog.Connection,
+  token: String,
+) -> Result(String, Nil) {
   case string.trim(token) == "" {
     True -> Error(Nil)
     False ->
@@ -59,10 +62,10 @@ fn session_user_id_raw(conn: pog.Connection, token: String) -> Result(String, Ni
 }
 
 /// Geçerli oturumdan kullanıcı kimliği (JSON hata yanıtı ile).
-pub fn session_user_from_request(req: Request, conn: pog.Connection) -> Result(
-  String,
-  Response,
-) {
+pub fn session_user_from_request(
+  req: Request,
+  conn: pog.Connection,
+) -> Result(String, Response) {
   let token = bearer_token(req)
   case token == "" {
     True -> Error(json_err(401, "missing_token"))
@@ -146,9 +149,9 @@ fn legacy_codes_for_role(code: String) -> List(String) {
 }
 
 /// Matris tablosu yokken admin UI için rol × izin çiftleri (roller tablosundan türetilir).
-pub fn fallback_role_permission_entries(conn: pog.Connection) -> List(
-  #(String, String),
-) {
+pub fn fallback_role_permission_entries(
+  conn: pog.Connection,
+) -> List(#(String, String)) {
   case
     pog.query("select code::text from roles order by id")
     |> pog.returning(role_code_row())
@@ -162,9 +165,10 @@ pub fn fallback_role_permission_entries(conn: pog.Connection) -> List(
   }
 }
 
-fn legacy_user_permission_codes(conn: pog.Connection, user_id: String) -> List(
-  String,
-) {
+fn legacy_user_permission_codes(
+  conn: pog.Connection,
+  user_id: String,
+) -> List(String) {
   case
     pog.query(
       "select distinct r.code::text from user_roles ur join roles r on r.id = ur.role_id where ur.user_id = $1::uuid",
@@ -281,8 +285,9 @@ fn legacy_user_has_permission(
     True -> legacy_has_admin_role(conn, user_id)
     False ->
       case permission_code {
-        "staff.profile.read" | "staff.reservations.read" | "staff.invoices.read" ->
-          legacy_has_staff_role(conn, user_id)
+        "staff.profile.read"
+        | "staff.reservations.read"
+        | "staff.invoices.read" -> legacy_has_staff_role(conn, user_id)
         "agency.portal" -> legacy_has_agency_role(conn, user_id)
         "supplier.portal" -> legacy_has_supplier_profile(conn, user_id)
         _ -> False
@@ -290,7 +295,10 @@ fn legacy_user_has_permission(
   }
 }
 
-pub fn user_permission_codes(conn: pog.Connection, user_id: String) -> List(String) {
+pub fn user_permission_codes(
+  conn: pog.Connection,
+  user_id: String,
+) -> List(String) {
   case string.trim(user_id) == "" {
     True -> []
     False ->
@@ -335,7 +343,8 @@ pub fn user_has_permission(
             })
             |> pog.execute(conn)
           {
-            Error(_) -> legacy_user_has_permission(conn, user_id, permission_code)
+            Error(_) ->
+              legacy_user_has_permission(conn, user_id, permission_code)
             Ok(ret) ->
               case ret.rows {
                 [_] -> True

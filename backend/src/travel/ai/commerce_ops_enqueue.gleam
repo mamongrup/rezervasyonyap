@@ -6,13 +6,15 @@ import gleam/json
 import gleam/list
 import gleam/string
 import pog
-import travel/db/resilient_pog as db_exec
-import travel/ai/commerce_ops_finalize
 import travel/ai/ai_job_run
+import travel/ai/commerce_ops_finalize
 import travel/db/decode_helpers as row_dec
+import travel/db/resilient_pog as db_exec
 
 const profile_post_booking = "post_booking_concierge"
+
 const profile_owner = "commerce_owner_agent"
+
 const profile_accounting = "commerce_accounting_agent"
 
 const commerce_profiles = [
@@ -254,10 +256,11 @@ pub fn enqueue_commerce_ops_for_reservation(
 pub fn run_due_commerce_jobs(ctx: Context, limit: Int) -> Result(Int, String) {
   let lim = case limit < 1 {
     True -> 10
-    False -> case limit > 50 {
-      True -> 50
-      False -> limit
-    }
+    False ->
+      case limit > 50 {
+        True -> 50
+        False -> limit
+      }
   }
   case
     pog.query(
@@ -277,22 +280,21 @@ pub fn run_due_commerce_jobs(ctx: Context, limit: Int) -> Result(Int, String) {
       let n =
         list.fold(ret.rows, 0, fn(acc, pair) {
           let #(job_id, profile) = pair
-          let rid =
-            case
-              pog.query(
-                "select coalesce(input_json->>'reservation_id','') from ai_jobs where id = $1::uuid",
-              )
-              |> pog.parameter(pog.text(job_id))
-              |> pog.returning(row_dec.col0_string())
-              |> db_exec.execute(ctx.db)
-            {
-              Error(_) -> ""
-              Ok(r) ->
-                case r.rows {
-                  [s] -> s
-                  _ -> ""
-                }
-            }
+          let rid = case
+            pog.query(
+              "select coalesce(input_json->>'reservation_id','') from ai_jobs where id = $1::uuid",
+            )
+            |> pog.parameter(pog.text(job_id))
+            |> pog.returning(row_dec.col0_string())
+            |> db_exec.execute(ctx.db)
+          {
+            Error(_) -> ""
+            Ok(r) ->
+              case r.rows {
+                [s] -> s
+                _ -> ""
+              }
+          }
           case ai_job_run.run_ai_job(ctx, job_id) {
             Ok(Nil) -> {
               let _ =

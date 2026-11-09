@@ -117,4 +117,3 @@ pub fn retry_after(decision: Decision) -> Int {
     Blocked(s) -> s
   }
 }
-

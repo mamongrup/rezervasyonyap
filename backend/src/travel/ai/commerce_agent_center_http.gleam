@@ -9,8 +9,8 @@ import gleam/list
 import gleam/result
 import gleam/string
 import pog
-import travel/db/resilient_pog as db_exec
 import travel/ai/commerce_ops_enqueue
+import travel/db/resilient_pog as db_exec
 import travel/identity/admin_gate
 import wisp.{type Request, type Response}
 
@@ -26,7 +26,9 @@ fn read_body_string(req: Request) -> Result(String, Nil) {
   bit_array.to_string(bits)
 }
 
-fn agent_row() -> decode.Decoder(#(String, String, String, String, String, String, String)) {
+fn agent_row() -> decode.Decoder(
+  #(String, String, String, String, String, String, String),
+) {
   use code <- decode.field(0, decode.string)
   use name <- decode.field(1, decode.string)
   use desc <- decode.field(2, decode.string)
@@ -83,11 +85,13 @@ pub fn overview(req: Request, ctx: Context) -> Response {
                 |> pog.returning(count_pair())
                 |> db_exec.execute(ctx.db)
               {
-                Error(_) -> json_err(500, "commerce_recommendations_query_failed")
+                Error(_) ->
+                  json_err(500, "commerce_recommendations_query_failed")
                 Ok(cr) -> {
                   let agents =
                     list.map(ar.rows, fn(row) {
-                      let #(code, name, desc, mode, status, risk, last_run) = row
+                      let #(code, name, desc, mode, status, risk, last_run) =
+                        row
                       json.object([
                         #("code", json.string(code)),
                         #("display_name", json.string(name)),
@@ -112,7 +116,10 @@ pub fn overview(req: Request, ctx: Context) -> Response {
                   let rec_counts =
                     list.map(cr.rows, fn(pair) {
                       let #(k, v) = pair
-                      json.object([#("status", json.string(k)), #("count", json.int(v))])
+                      json.object([
+                        #("status", json.string(k)),
+                        #("count", json.int(v)),
+                      ])
                     })
                   let body =
                     json.object([

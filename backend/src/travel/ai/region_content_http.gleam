@@ -9,10 +9,10 @@ import gleam/list
 import gleam/result
 import gleam/string
 import pog
-import travel/db/resilient_pog as db_exec
 import travel/ai/ai_job_run
 import travel/ai/region_hierarchy_sync
 import travel/db/decode_helpers as row_dec
+import travel/db/resilient_pog as db_exec
 import travel/identity/admin_gate
 import wisp.{type Request, type Response}
 
@@ -106,7 +106,9 @@ pub fn stats(req: Request, ctx: Context) -> Response {
         <> " > 0"
 
       case
-        pog.query(total_sql) |> pog.returning(int_col0) |> db_exec.execute(ctx.db)
+        pog.query(total_sql)
+        |> pog.returning(int_col0)
+        |> db_exec.execute(ctx.db)
       {
         Error(_) -> json_err(500, "region_content_total_failed")
         Ok(total_ret) -> {
@@ -345,7 +347,9 @@ pub fn process_next(req: Request, ctx: Context) -> Response {
         returning id::text, location_page_id::text, category_slug, posts_to_create
         "
       case
-        pog.query(pick_sql) |> pog.returning(batch_row()) |> db_exec.execute(ctx.db)
+        pog.query(pick_sql)
+        |> pog.returning(batch_row())
+        |> db_exec.execute(ctx.db)
       {
         Error(_) -> json_err(500, "region_content_pick_failed")
         Ok(ret) ->
@@ -820,7 +824,11 @@ fn blog_tags_json(
     False -> append_unique_tag(with_loc, region)
   }
   let with_country = case
-    country == "" || country == "turkiye" || country == "turkey" || country == loc || country == region
+    country == ""
+    || country == "turkiye"
+    || country == "turkey"
+    || country == loc
+    || country == region
   {
     True -> with_region
     False -> append_unique_tag(with_region, country)

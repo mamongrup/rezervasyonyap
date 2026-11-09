@@ -2,6 +2,9 @@
 
 import backend/context.{type Context}
 import gleam/bit_array
+import gleam/dict.{type Dict}
+import gleam/dynamic.{type Dynamic}
+import gleam/dynamic/decode
 import gleam/float
 import gleam/http
 import gleam/http/request
@@ -9,19 +12,16 @@ import gleam/int
 import gleam/io
 import gleam/json
 import gleam/list
-import gleam/dict.{type Dict}
-import gleam/dynamic.{type Dynamic}
-import gleam/order
 import gleam/option.{type Option, None, Some}
+import gleam/order
 import gleam/result
 import gleam/string
 import gleam/time/calendar
-import gleam/dynamic/decode
 import pog
-import travel/db/resilient_pog as db_exec
 import travel/catalog/listing_translation_sql
 import travel/db/decode_helpers as row_dec
 import travel/db/pog_errors
+import travel/db/resilient_pog as db_exec
 import travel/identity/admin_gate
 import travel/identity/permissions
 import travel/social/listing_social_enqueue
@@ -46,7 +46,9 @@ fn json_opt_str(s: String) -> json.Json {
   }
 }
 
-fn category_row() -> decode.Decoder(#(Int, String, String, String, Int, Bool, Bool, Bool)) {
+fn category_row() -> decode.Decoder(
+  #(Int, String, String, String, Int, Bool, Bool, Bool),
+) {
   use id <- decode.field(0, decode.int)
   use code <- decode.field(1, decode.string)
   use name_key <- decode.field(2, decode.string)
@@ -320,7 +322,22 @@ fn manage_listing_row() -> decode.Decoder(
   use sh <- decode.field(11, decode.bool)
   use ai <- decode.field(12, decode.bool)
   use cc <- decode.field(13, decode.string)
-  decode.success(#(id, slug, st, cur, cat, title, comm, prep_a, prep_p, ts, src, sh, ai, cc))
+  decode.success(#(
+    id,
+    slug,
+    st,
+    cur,
+    cat,
+    title,
+    comm,
+    prep_a,
+    prep_p,
+    ts,
+    src,
+    sh,
+    ai,
+    cc,
+  ))
 }
 
 fn manage_listings_count_row() -> decode.Decoder(String) {
@@ -354,8 +371,7 @@ fn parse_manage_listings_per_page(raw: String) -> Int {
   }
 }
 
-const manage_listings_scope_sql: String =
-  "from listings l "
+const manage_listings_scope_sql: String = "from listings l "
   <> "join product_categories pc on pc.id = l.category_id "
   <> "where l.organization_id = $1::uuid "
   <> "and ($2::text is null or l.slug ilike $2 or l.id::text ilike $2 or exists (select 1 from listing_translations lt_search where lt_search.listing_id = l.id and lt_search.title ilike $2)) "
@@ -393,7 +409,8 @@ pub fn list_product_categories(req: Request, ctx: Context) -> Response {
     Ok(ret) -> {
       let arr =
         list.map(ret.rows, fn(row) {
-          let #(id, code, name_key, parent_raw, sort, active, manual, api_ok) = row
+          let #(id, code, name_key, parent_raw, sort, active, manual, api_ok) =
+            row
           json.object([
             #("id", json.int(id)),
             #("code", json.string(code)),
@@ -563,13 +580,18 @@ fn create_listing_body_decoder() -> decode.Decoder(
         decode.field("currency_code", decode.string, fn(cur) {
           decode.field("title", decode.string, fn(title) {
             decode.optional_field("title_locale", "tr", decode.string, fn(tloc) {
-              decode.optional_field("category_contract_id", "", decode.string, fn(cc_raw) {
-                let cc_opt = case string.trim(cc_raw) {
-                  "" -> None
-                  x -> Some(x)
-                }
-                decode.success(#(org, cat, slug, cur, title, tloc, cc_opt))
-              })
+              decode.optional_field(
+                "category_contract_id",
+                "",
+                decode.string,
+                fn(cc_raw) {
+                  let cc_opt = case string.trim(cc_raw) {
+                    "" -> None
+                    x -> Some(x)
+                  }
+                  decode.success(#(org, cat, slug, cur, title, tloc, cc_opt))
+                },
+              )
             })
           })
         })
@@ -643,7 +665,9 @@ fn slug_ok(s: String) -> Bool {
   let allowed = string.to_graphemes("abcdefghijklmnopqrstuvwxyz0123456789-")
   t != ""
   && string.length(t) <= 200
-  && list.all(string.to_graphemes(string.lowercase(t)), fn(ch) { list.contains(allowed, ch) })
+  && list.all(string.to_graphemes(string.lowercase(t)), fn(ch) {
+    list.contains(allowed, ch)
+  })
 }
 
 fn one_string_row() -> decode.Decoder(String) {
@@ -717,7 +741,10 @@ pub fn create_manage_listing(req: Request, ctx: Context) -> Response {
                         Ok(ret) ->
                           case ret.rows {
                             [] ->
-                              json_err(400, "unknown_category_code_or_invalid_contract")
+                              json_err(
+                                400,
+                                "unknown_category_code_or_invalid_contract",
+                              )
                             [lid] -> {
                               case
                                 pog.query(
@@ -730,24 +757,34 @@ pub fn create_manage_listing(req: Request, ctx: Context) -> Response {
                                 |> pog.parameter(pog.text(lid))
                                 |> pog.parameter(pog.text(title))
                                 |> pog.parameter(pog.text(title_locale))
-                                |> pog.returning(translation_upsert_return_row())
+                                |> pog.returning(
+                                  translation_upsert_return_row(),
+                                )
                                 |> db_exec.execute(ctx.db)
                               {
-                                Error(_) -> json_err(500, "listing_translation_insert_failed")
+                                Error(_) ->
+                                  json_err(
+                                    500,
+                                    "listing_translation_insert_failed",
+                                  )
                                 Ok(tret) ->
                                   case tret.rows {
                                     [] -> json_err(400, "unknown_title_locale")
                                     [_] -> {
-                              let out =
-                                json.object([
-                                  #("id", json.string(lid)),
-                                  #("slug", json.string(slug)),
-                                  #("status", json.string("draft")),
-                                ])
-                                |> json.to_string
-                              wisp.json_response(out, 201)
+                                      let out =
+                                        json.object([
+                                          #("id", json.string(lid)),
+                                          #("slug", json.string(slug)),
+                                          #("status", json.string("draft")),
+                                        ])
+                                        |> json.to_string
+                                      wisp.json_response(out, 201)
                                     }
-                                    _ -> json_err(500, "listing_translation_insert_unexpected")
+                                    _ ->
+                                      json_err(
+                                        500,
+                                        "listing_translation_insert_unexpected",
+                                      )
                                   }
                               }
                             }
@@ -870,7 +907,7 @@ pub fn delete_manage_listing(
         Ok(Nil) ->
           wisp.json_response(
             json.object([#("ok", json.bool(True)), #("deleted", json.int(1))])
-            |> json.to_string,
+              |> json.to_string,
             200,
           )
       }
@@ -890,10 +927,7 @@ pub fn delete_manage_listings_bulk(req: Request, ctx: Context) -> Response {
             Error(_) -> json_err(400, "listing_ids_required")
             Ok(ids_raw) -> {
               let ids =
-                list.filter(
-                  list.map(ids_raw, string.trim),
-                  fn(id) { id != "" },
-                )
+                list.filter(list.map(ids_raw, string.trim), fn(id) { id != "" })
               case ids {
                 [] -> json_err(400, "listing_ids_required")
                 _ ->
@@ -917,8 +951,7 @@ pub fn delete_manage_listings_bulk(req: Request, ctx: Context) -> Response {
                       let failed =
                         list.filter_map(results, fn(r) {
                           case r {
-                            Error(#(lid, err)) ->
-                              Ok(#(lid, err))
+                            Error(#(lid, err)) -> Ok(#(lid, err))
                             Ok(_) -> Error(Nil)
                           }
                         })
@@ -926,10 +959,7 @@ pub fn delete_manage_listings_bulk(req: Request, ctx: Context) -> Response {
                         json.object([
                           #("ok", json.bool(list.length(failed) == 0)),
                           #("deleted", json.int(list.length(deleted))),
-                          #(
-                            "deleted_ids",
-                            json.array(deleted, json.string),
-                          ),
+                          #("deleted_ids", json.array(deleted, json.string)),
                           #(
                             "failed",
                             json.array(failed, fn(pair) {
@@ -1010,15 +1040,25 @@ pub fn get_listing_translations(
   }
 }
 
-fn put_translation_entry_decoder() -> decode.Decoder(#(String, String, String, String, String)) {
+fn put_translation_entry_decoder() -> decode.Decoder(
+  #(String, String, String, String, String),
+) {
   decode.field("locale_code", decode.string, fn(lc) {
     decode.field("title", decode.string, fn(t) {
       decode.optional_field("description", "", decode.string, fn(d) {
-        decode.optional_field("cancellation_policy_text", "", decode.string, fn(cpt) {
-          decode.optional_field("supplier_payment_note", "", decode.string, fn(spn) {
-            decode.success(#(lc, t, d, cpt, spn))
-          })
-        })
+        decode.optional_field(
+          "cancellation_policy_text",
+          "",
+          decode.string,
+          fn(cpt) {
+            decode.optional_field(
+              "supplier_payment_note",
+              "",
+              decode.string,
+              fn(spn) { decode.success(#(lc, t, d, cpt, spn)) },
+            )
+          },
+        )
       })
     })
   })
@@ -1027,35 +1067,45 @@ fn put_translation_entry_decoder() -> decode.Decoder(#(String, String, String, S
 fn put_listing_translations_body_decoder() -> decode.Decoder(
   List(#(String, String, String, String, String)),
 ) {
-  decode.field("entries", decode.list(put_translation_entry_decoder()), fn(entries) {
-    decode.success(entries)
-  })
+  decode.field(
+    "entries",
+    decode.list(put_translation_entry_decoder()),
+    fn(entries) { decode.success(entries) },
+  )
 }
 
 fn localized_policy_fields_complete(
   entries: List(#(String, String, String, String, String)),
 ) -> Bool {
   let required_locales = ["tr", "en", "de", "ru", "zh", "fr"]
-  let has_cancellation = list.any(entries, fn(entry) {
-    let #(_, _, _, value, _) = entry
-    string.trim(value) != ""
-  })
-  let has_supplier_note = list.any(entries, fn(entry) {
-    let #(_, _, _, _, value) = entry
-    string.trim(value) != ""
-  })
-  let cancellation_complete = !has_cancellation || list.all(required_locales, fn(required) {
+  let has_cancellation =
     list.any(entries, fn(entry) {
-      let #(locale, _, _, value, _) = entry
-      string.lowercase(string.trim(locale)) == required && string.trim(value) != ""
+      let #(_, _, _, value, _) = entry
+      string.trim(value) != ""
     })
-  })
-  let supplier_note_complete = !has_supplier_note || list.all(required_locales, fn(required) {
+  let has_supplier_note =
     list.any(entries, fn(entry) {
-      let #(locale, _, _, _, value) = entry
-      string.lowercase(string.trim(locale)) == required && string.trim(value) != ""
+      let #(_, _, _, _, value) = entry
+      string.trim(value) != ""
     })
-  })
+  let cancellation_complete =
+    !has_cancellation
+    || list.all(required_locales, fn(required) {
+      list.any(entries, fn(entry) {
+        let #(locale, _, _, value, _) = entry
+        string.lowercase(string.trim(locale)) == required
+        && string.trim(value) != ""
+      })
+    })
+  let supplier_note_complete =
+    !has_supplier_note
+    || list.all(required_locales, fn(required) {
+      list.any(entries, fn(entry) {
+        let #(locale, _, _, _, value) = entry
+        string.lowercase(string.trim(locale)) == required
+        && string.trim(value) != ""
+      })
+    })
   cancellation_complete && supplier_note_complete
 }
 
@@ -1130,32 +1180,34 @@ pub fn put_listing_translations(
                 Ok(entries) -> {
                   let applied = case localized_policy_fields_complete(entries) {
                     False -> Error(Nil)
-                    True -> list.try_map(entries, fn(ent) {
-                      let #(lc_raw, title_raw, desc_raw, cpt_raw, spn_raw) = ent
-                      let lc = string.lowercase(string.trim(lc_raw))
-                      let title = string.trim(title_raw)
-                      let desc = string.trim(desc_raw)
-                      let cpt = string.trim(cpt_raw)
-                      let spn = string.trim(spn_raw)
-                      case lc == "" || title == "" {
-                        True -> Error(Nil)
-                        False ->
-                          case
-                            upsert_listing_translation_row(
-                              ctx.db,
-                              listing_id,
-                              lc,
-                              title,
-                              desc,
-                              cpt,
-                              spn,
-                            )
-                          {
-                            Ok(Nil) -> Ok(Nil)
-                            Error(_) -> Error(Nil)
-                          }
-                      }
-                    })
+                    True ->
+                      list.try_map(entries, fn(ent) {
+                        let #(lc_raw, title_raw, desc_raw, cpt_raw, spn_raw) =
+                          ent
+                        let lc = string.lowercase(string.trim(lc_raw))
+                        let title = string.trim(title_raw)
+                        let desc = string.trim(desc_raw)
+                        let cpt = string.trim(cpt_raw)
+                        let spn = string.trim(spn_raw)
+                        case lc == "" || title == "" {
+                          True -> Error(Nil)
+                          False ->
+                            case
+                              upsert_listing_translation_row(
+                                ctx.db,
+                                listing_id,
+                                lc,
+                                title,
+                                desc,
+                                cpt,
+                                spn,
+                              )
+                            {
+                              Ok(Nil) -> Ok(Nil)
+                              Error(_) -> Error(Nil)
+                            }
+                        }
+                      })
                   }
                   case applied {
                     Error(_) ->
@@ -1245,9 +1297,13 @@ fn manage_contract_row() -> decode.Decoder(
 }
 
 /// GET /api/v1/catalog/public/hotel-valid-campaigns — otel detay kampanya kartları (`site_settings`).
-pub fn get_public_hotel_valid_campaigns(req: Request, ctx: Context) -> Response {
+pub fn get_public_hotel_valid_campaigns(
+  req: Request,
+  ctx: Context,
+) -> Response {
   use <- wisp.require_method(req, http.Get)
-  let empty = "{\"sectionTitle\":{\"tr\":\"Otel'de Geçerli Kampanyalar\"},\"items\":[]}"
+  let empty =
+    "{\"sectionTitle\":{\"tr\":\"Otel'de Geçerli Kampanyalar\"},\"items\":[]}"
   case
     pog.query(
       "select coalesce(value_json::text, $1) from site_settings where organization_id is null and key = 'catalog.hotel_valid_campaigns' order by id desc limit 1",
@@ -1267,7 +1323,10 @@ pub fn get_public_hotel_valid_campaigns(req: Request, ctx: Context) -> Response 
 }
 
 /// GET /api/v1/catalog/public/holiday-home-faq-template — vitrin tatil evi SSS şablonu (`site_settings`).
-pub fn get_public_holiday_home_faq_template(req: Request, ctx: Context) -> Response {
+pub fn get_public_holiday_home_faq_template(
+  req: Request,
+  ctx: Context,
+) -> Response {
   use <- wisp.require_method(req, http.Get)
   let empty_items = "{\"items\":[]}"
   case
@@ -1288,7 +1347,10 @@ pub fn get_public_holiday_home_faq_template(req: Request, ctx: Context) -> Respo
 }
 
 /// GET /api/v1/catalog/public/yacht-charter-faq-template — vitrin yat kiralama SSS şablonu.
-pub fn get_public_yacht_charter_faq_template(req: Request, ctx: Context) -> Response {
+pub fn get_public_yacht_charter_faq_template(
+  req: Request,
+  ctx: Context,
+) -> Response {
   use <- wisp.require_method(req, http.Get)
   let empty_items = "{\"items\":[]}"
   case
@@ -1309,7 +1371,10 @@ pub fn get_public_yacht_charter_faq_template(req: Request, ctx: Context) -> Resp
 }
 
 /// GET /api/v1/catalog/public/yacht-charter-property-types — `catalog.yacht_charter_property_types`.
-pub fn get_public_yacht_charter_property_types(req: Request, ctx: Context) -> Response {
+pub fn get_public_yacht_charter_property_types(
+  req: Request,
+  ctx: Context,
+) -> Response {
   use <- wisp.require_method(req, http.Get)
   case
     pog.query(
@@ -1335,7 +1400,10 @@ pub fn get_public_yacht_charter_property_types(req: Request, ctx: Context) -> Re
 }
 
 /// GET /api/v1/catalog/public/holiday-home-property-types — `catalog.holiday_home_property_types` (JSON dizi metni).
-pub fn get_public_holiday_home_property_types(req: Request, ctx: Context) -> Response {
+pub fn get_public_holiday_home_property_types(
+  req: Request,
+  ctx: Context,
+) -> Response {
   use <- wisp.require_method(req, http.Get)
   case
     pog.query(
@@ -1416,7 +1484,9 @@ pub fn get_public_listing_contract(
   }
 }
 
-fn json_optional_contract_block(row: Option(#(String, String, String, String))) -> json.Json {
+fn json_optional_contract_block(
+  row: Option(#(String, String, String, String)),
+) -> json.Json {
   case row {
     None -> json.null()
     Some(#(cid, ver, title, body)) ->
@@ -1467,14 +1537,19 @@ fn fetch_scoped_contract_for_org(
 }
 
 /// GET /api/v1/catalog/public/checkout-contracts?listing_id=&locale= — vitrin + checkout: genel, satış, kategori blokları.
-pub fn get_public_checkout_contract_bundle(req: Request, ctx: Context) -> Response {
+pub fn get_public_checkout_contract_bundle(
+  req: Request,
+  ctx: Context,
+) -> Response {
   use <- wisp.require_method(req, http.Get)
   let qs = case request.get_query(req) {
     Ok(q) -> q
     Error(_) -> []
   }
-  let lid_raw = list.key_find(qs, "listing_id") |> result.unwrap("") |> string.trim
-  let loc_raw = list.key_find(qs, "locale") |> result.unwrap("tr") |> string.trim
+  let lid_raw =
+    list.key_find(qs, "listing_id") |> result.unwrap("") |> string.trim
+  let loc_raw =
+    list.key_find(qs, "locale") |> result.unwrap("tr") |> string.trim
   let loc_use = case string.lowercase(loc_raw) == "" {
     True -> "tr"
     False -> string.lowercase(loc_raw)
@@ -1503,9 +1578,19 @@ pub fn get_public_checkout_contract_bundle(req: Request, ctx: Context) -> Respon
                 Error(_) -> json_err(500, "checkout_contracts_category_failed")
                 Ok(cat_opt) -> {
                   let gen_res =
-                    fetch_scoped_contract_for_org(ctx.db, org_text, loc_use, "general")
+                    fetch_scoped_contract_for_org(
+                      ctx.db,
+                      org_text,
+                      loc_use,
+                      "general",
+                    )
                   let sal_res =
-                    fetch_scoped_contract_for_org(ctx.db, org_text, loc_use, "sales")
+                    fetch_scoped_contract_for_org(
+                      ctx.db,
+                      org_text,
+                      loc_use,
+                      "sales",
+                    )
                   case gen_res, sal_res {
                     Ok(gen_opt), Ok(sal_opt) -> {
                       let body =
@@ -1558,7 +1643,9 @@ pub fn list_manage_category_contracts(req: Request, ctx: Context) -> Response {
       let sel =
         "select cc.id::text, cc.code, cc.version::text, cc.sort_order::text, cc.is_active::text, coalesce(cc.organization_id::text, ''), cc.contract_scope::text "
         <> "from category_contracts cc where "
-      let respond_rows = fn(rows: List(#(String, String, String, String, String, String, String))) {
+      let respond_rows = fn(
+        rows: List(#(String, String, String, String, String, String, String)),
+      ) {
         let arr =
           list.map(rows, fn(row) {
             let #(id, code, ver, sort, active, oid, sc) = row
@@ -1581,9 +1668,10 @@ pub fn list_manage_category_contracts(req: Request, ctx: Context) -> Response {
         "general" ->
           case
             pog.query(
-              sel <> "cc.contract_scope = 'general' "
-                <> "and (cc.organization_id is null or cc.organization_id = $1::uuid) "
-                <> "order by cc.sort_order, cc.code",
+              sel
+              <> "cc.contract_scope = 'general' "
+              <> "and (cc.organization_id is null or cc.organization_id = $1::uuid) "
+              <> "order by cc.sort_order, cc.code",
             )
             |> pog.parameter(pog.text(org_id))
             |> pog.returning(manage_contract_row())
@@ -1595,9 +1683,10 @@ pub fn list_manage_category_contracts(req: Request, ctx: Context) -> Response {
         "sales" ->
           case
             pog.query(
-              sel <> "cc.contract_scope = 'sales' "
-                <> "and (cc.organization_id is null or cc.organization_id = $1::uuid) "
-                <> "order by cc.sort_order, cc.code",
+              sel
+              <> "cc.contract_scope = 'sales' "
+              <> "and (cc.organization_id is null or cc.organization_id = $1::uuid) "
+              <> "order by cc.sort_order, cc.code",
             )
             |> pog.parameter(pog.text(org_id))
             |> pog.returning(manage_contract_row())
@@ -1612,10 +1701,11 @@ pub fn list_manage_category_contracts(req: Request, ctx: Context) -> Response {
             False ->
               case
                 pog.query(
-                  sel <> "cc.contract_scope = 'category' "
-                    <> "and cc.category_id = (select id from product_categories where lower(code) = lower($1)) "
-                    <> "and (cc.organization_id is null or cc.organization_id = $2::uuid) "
-                    <> "order by cc.sort_order, cc.code",
+                  sel
+                  <> "cc.contract_scope = 'category' "
+                  <> "and cc.category_id = (select id from product_categories where lower(code) = lower($1)) "
+                  <> "and (cc.organization_id is null or cc.organization_id = $2::uuid) "
+                  <> "order by cc.sort_order, cc.code",
                 )
                 |> pog.parameter(pog.text(cat_raw))
                 |> pog.parameter(pog.text(org_id))
@@ -1635,21 +1725,39 @@ pub fn list_manage_category_contracts(req: Request, ctx: Context) -> Response {
 fn create_category_contract_body_decoder() -> decode.Decoder(
   #(String, String, String, String, String, String, String),
 ) {
-  decode.optional_field("contract_scope", "category", decode.string, fn(scope_raw) {
-    decode.optional_field("category_code", "", decode.string, fn(cat_raw) {
-      decode.field("code", decode.string, fn(code) {
-        decode.optional_field("organization_id", "", decode.string, fn(org) {
-          decode.field("title", decode.string, fn(title) {
-            decode.field("body_text", decode.string, fn(body) {
-              decode.optional_field("locale_code", "tr", decode.string, fn(lc) {
-                decode.success(#(scope_raw, cat_raw, code, org, title, body, lc))
+  decode.optional_field(
+    "contract_scope",
+    "category",
+    decode.string,
+    fn(scope_raw) {
+      decode.optional_field("category_code", "", decode.string, fn(cat_raw) {
+        decode.field("code", decode.string, fn(code) {
+          decode.optional_field("organization_id", "", decode.string, fn(org) {
+            decode.field("title", decode.string, fn(title) {
+              decode.field("body_text", decode.string, fn(body) {
+                decode.optional_field(
+                  "locale_code",
+                  "tr",
+                  decode.string,
+                  fn(lc) {
+                    decode.success(#(
+                      scope_raw,
+                      cat_raw,
+                      code,
+                      org,
+                      title,
+                      body,
+                      lc,
+                    ))
+                  },
+                )
               })
             })
           })
         })
       })
-    })
-  })
+    },
+  )
 }
 
 /// POST /api/v1/catalog/manage/category-contracts — yönetici: havuza şablon ekler.
@@ -1666,7 +1774,15 @@ pub fn create_manage_category_contract(req: Request, ctx: Context) -> Response {
             Ok(body) ->
               case json.parse(body, create_category_contract_body_decoder()) {
                 Error(_) -> json_err(400, "invalid_json")
-                Ok(#(scope_raw, cat_raw, code_raw, org_raw, title_raw, body_raw, lc_raw)) -> {
+                Ok(#(
+                  scope_raw,
+                  cat_raw,
+                  code_raw,
+                  org_raw,
+                  title_raw,
+                  body_raw,
+                  lc_raw,
+                )) -> {
                   let scope_t =
                     string.lowercase(string.trim(scope_raw))
                     |> fn(s) {
@@ -1681,10 +1797,12 @@ pub fn create_manage_category_contract(req: Request, ctx: Context) -> Response {
                   let title = string.trim(title_raw)
                   let body_t = string.trim(body_raw)
                   let lc =
-                    string.lowercase(string.trim(case lc_raw == "" {
-                      True -> "tr"
-                      False -> lc_raw
-                    }))
+                    string.lowercase(
+                      string.trim(case lc_raw == "" {
+                        True -> "tr"
+                        False -> lc_raw
+                      }),
+                    )
                   let org_param = case org_t == "" {
                     True -> pog.null()
                     False -> pog.text(org_t)
@@ -1695,7 +1813,11 @@ pub fn create_manage_category_contract(req: Request, ctx: Context) -> Response {
                         True -> json_err(400, "contract_fields_required")
                         False ->
                           case cat != "" {
-                            True -> json_err(400, "category_code_not_for_general_sales")
+                            True ->
+                              json_err(
+                                400,
+                                "category_code_not_for_general_sales",
+                              )
                             False ->
                               case
                                 db_exec.transaction(ctx.db, fn(conn) {
@@ -1726,13 +1848,19 @@ pub fn create_manage_category_contract(req: Request, ctx: Context) -> Response {
                                             |> pog.parameter(pog.text(title))
                                             |> pog.parameter(pog.text(body_t))
                                             |> pog.parameter(pog.text(lc))
-                                            |> pog.returning(translation_upsert_return_row())
+                                            |> pog.returning(
+                                              translation_upsert_return_row(),
+                                            )
                                             |> pog.execute(conn)
                                           {
-                                            Error(_) -> Error("contract_translation_failed")
+                                            Error(_) ->
+                                              Error(
+                                                "contract_translation_failed",
+                                              )
                                             Ok(tr) ->
                                               case tr.rows {
-                                                [] -> Error("unknown_locale_code")
+                                                [] ->
+                                                  Error("unknown_locale_code")
                                                 _ -> Ok(cid)
                                               }
                                           }
@@ -1762,8 +1890,17 @@ pub fn create_manage_category_contract(req: Request, ctx: Context) -> Response {
                       case scope_t != "category" {
                         True -> json_err(400, "invalid_contract_scope")
                         False ->
-                          case cat == "" || code == "" || title == "" || body_t == "" {
-                            True -> json_err(400, "category_code_contract_fields_required")
+                          case
+                            cat == ""
+                            || code == ""
+                            || title == ""
+                            || body_t == ""
+                          {
+                            True ->
+                              json_err(
+                                400,
+                                "category_code_contract_fields_required",
+                              )
                             False ->
                               case
                                 db_exec.transaction(ctx.db, fn(conn) {
@@ -1795,13 +1932,19 @@ pub fn create_manage_category_contract(req: Request, ctx: Context) -> Response {
                                             |> pog.parameter(pog.text(title))
                                             |> pog.parameter(pog.text(body_t))
                                             |> pog.parameter(pog.text(lc))
-                                            |> pog.returning(translation_upsert_return_row())
+                                            |> pog.returning(
+                                              translation_upsert_return_row(),
+                                            )
                                             |> pog.execute(conn)
                                           {
-                                            Error(_) -> Error("contract_translation_failed")
+                                            Error(_) ->
+                                              Error(
+                                                "contract_translation_failed",
+                                              )
                                             Ok(tr) ->
                                               case tr.rows {
-                                                [] -> Error("unknown_locale_code")
+                                                [] ->
+                                                  Error("unknown_locale_code")
                                                 _ -> Ok(cid)
                                               }
                                           }
@@ -1889,7 +2032,8 @@ pub fn patch_manage_listing_contract(
                     Error(_) -> json_err(500, "listing_contract_patch_failed")
                     Ok(ret) ->
                       case ret.rows {
-                        [] -> json_err(400, "invalid_category_contract_for_listing")
+                        [] ->
+                          json_err(400, "invalid_category_contract_for_listing")
                         [_] -> {
                           let out =
                             json.object([#("ok", json.bool(True))])
@@ -1908,7 +2052,9 @@ pub fn patch_manage_listing_contract(
 
 // --- Otel: odalar, takvim, dönemsel fiyat (listing_* tabloları + hotel_rooms) — yönetim kapsamı ---
 
-fn hotel_room_row() -> decode.Decoder(#(String, String, String, String, String, String)) {
+fn hotel_room_row() -> decode.Decoder(
+  #(String, String, String, String, String, String),
+) {
   use id <- decode.field(0, decode.string)
   use nm <- decode.field(1, decode.string)
   use cap <- decode.field(2, decode.string)
@@ -1919,7 +2065,11 @@ fn hotel_room_row() -> decode.Decoder(#(String, String, String, String, String, 
 }
 
 /// GET /api/v1/catalog/listings/:id/hotel-rooms
-pub fn list_manage_hotel_rooms(req: Request, ctx: Context, listing_id: String) -> Response {
+pub fn list_manage_hotel_rooms(
+  req: Request,
+  ctx: Context,
+  listing_id: String,
+) -> Response {
   use <- wisp.require_method(req, http.Get)
   case resolve_manage_listings_scope(req, ctx) {
     Error(r) -> r
@@ -1972,7 +2122,9 @@ pub fn list_manage_hotel_rooms(req: Request, ctx: Context, listing_id: String) -
   }
 }
 
-fn hr_manage_create_decoder() -> decode.Decoder(#(String, Option(String), Option(String), Int, String)) {
+fn hr_manage_create_decoder() -> decode.Decoder(
+  #(String, Option(String), Option(String), Int, String),
+) {
   decode.field("name", decode.string, fn(nm) {
     decode.optional_field("capacity", "", decode.string, fn(cap) {
       decode.optional_field("board_type", "", decode.string, fn(bt) {
@@ -1999,7 +2151,11 @@ fn hr_manage_create_decoder() -> decode.Decoder(#(String, Option(String), Option
 }
 
 /// POST /api/v1/catalog/listings/:id/hotel-rooms
-pub fn add_manage_hotel_room(req: Request, ctx: Context, listing_id: String) -> Response {
+pub fn add_manage_hotel_room(
+  req: Request,
+  ctx: Context,
+  listing_id: String,
+) -> Response {
   use <- wisp.require_method(req, http.Post)
   case resolve_manage_listings_scope(req, ctx) {
     Error(r) -> r
@@ -2046,7 +2202,9 @@ pub fn add_manage_hotel_room(req: Request, ctx: Context, listing_id: String) -> 
                         Ok(r) ->
                           case r.rows {
                             [id] -> {
-                              let out = json.object([#("id", json.string(id))]) |> json.to_string
+                              let out =
+                                json.object([#("id", json.string(id))])
+                                |> json.to_string
                               wisp.json_response(out, 201)
                             }
                             _ -> json_err(500, "unexpected")
@@ -2094,7 +2252,9 @@ pub fn delete_manage_hotel_room(
   }
 }
 
-fn hr_manage_input_decoder() -> decode.Decoder(#(Option(String), String, Option(String), Option(String), Int, String)) {
+fn hr_manage_input_decoder() -> decode.Decoder(
+  #(Option(String), String, Option(String), Option(String), Int, String),
+) {
   decode.optional_field("id", "", decode.string, fn(id_raw) {
     decode.field("name", decode.string, fn(nm) {
       decode.optional_field("capacity", "", decode.string, fn(cap) {
@@ -2126,7 +2286,9 @@ fn hr_manage_input_decoder() -> decode.Decoder(#(Option(String), String, Option(
   })
 }
 
-fn hr_manage_put_decoder() -> decode.Decoder(List(#(Option(String), String, Option(String), Option(String), Int, String))) {
+fn hr_manage_put_decoder() -> decode.Decoder(
+  List(#(Option(String), String, Option(String), Option(String), Int, String)),
+) {
   decode.field("rooms", decode.list(hr_manage_input_decoder()), fn(rows) {
     decode.success(rows)
   })
@@ -2135,7 +2297,9 @@ fn hr_manage_put_decoder() -> decode.Decoder(List(#(Option(String), String, Opti
 fn hr_sync_insert(
   conn: pog.Connection,
   listing_id: String,
-  rows: List(#(Option(String), String, Option(String), Option(String), Int, String)),
+  rows: List(
+    #(Option(String), String, Option(String), Option(String), Int, String),
+  ),
   idx: Int,
   keep_ids: List(String),
 ) -> Result(List(String), String) {
@@ -2178,7 +2342,11 @@ fn hr_sync_insert(
                 Error(_) -> Error("hotel_room_update_failed")
                 Ok(ret) ->
                   case ret.rows {
-                    [id] -> hr_sync_insert(conn, listing_id, rest, idx + 1, [id, ..keep_ids])
+                    [id] ->
+                      hr_sync_insert(conn, listing_id, rest, idx + 1, [
+                        id,
+                        ..keep_ids
+                      ])
                     _ ->
                       case
                         pog.query(
@@ -2197,7 +2365,10 @@ fn hr_sync_insert(
                         Ok(ins) ->
                           case ins.rows {
                             [new_id] ->
-                              hr_sync_insert(conn, listing_id, rest, idx + 1, [new_id, ..keep_ids])
+                              hr_sync_insert(conn, listing_id, rest, idx + 1, [
+                                new_id,
+                                ..keep_ids
+                              ])
                             _ -> Error("hotel_room_insert_unexpected")
                           }
                       }
@@ -2221,7 +2392,10 @@ fn hr_sync_insert(
                 Ok(ins) ->
                   case ins.rows {
                     [new_id] ->
-                      hr_sync_insert(conn, listing_id, rest, idx + 1, [new_id, ..keep_ids])
+                      hr_sync_insert(conn, listing_id, rest, idx + 1, [
+                        new_id,
+                        ..keep_ids
+                      ])
                     _ -> Error("hotel_room_insert_unexpected")
                   }
               }
@@ -2261,7 +2435,9 @@ fn hr_delete_stale_loop(
         True -> hr_delete_stale_loop(conn, listing_id, rest, keep_ids)
         False ->
           case
-            pog.query("delete from hotel_rooms where id = $1::uuid and listing_id = $2::uuid")
+            pog.query(
+              "delete from hotel_rooms where id = $1::uuid and listing_id = $2::uuid",
+            )
             |> pog.parameter(pog.text(id))
             |> pog.parameter(pog.text(listing_id))
             |> pog.execute(conn)
@@ -2375,7 +2551,11 @@ fn hr_sync_nightly_price_rules_from_rooms(
 }
 
 /// PUT /api/v1/catalog/listings/:id/hotel-rooms — tüm oda listesini senkronize eder
-pub fn put_manage_hotel_rooms(req: Request, ctx: Context, listing_id: String) -> Response {
+pub fn put_manage_hotel_rooms(
+  req: Request,
+  ctx: Context,
+  listing_id: String,
+) -> Response {
   use <- wisp.require_method(req, http.Put)
   case resolve_manage_listings_scope(req, ctx) {
     Error(r) -> r
@@ -2390,20 +2570,30 @@ pub fn put_manage_hotel_rooms(req: Request, ctx: Context, listing_id: String) ->
               case json.parse(body, hr_manage_put_decoder()) {
                 Error(_) -> json_err(400, "invalid_json")
                 Ok(rows) ->
-                  case db_exec.transaction(ctx.db, fn(conn) {
-                    case hr_sync_insert(conn, listing_id, rows, 0, []) {
-                      Ok(keep_ids) ->
-                        case hr_delete_stale_rooms(conn, listing_id, keep_ids) {
-                          Ok(Nil) ->
-                            case hr_sync_nightly_price_rules_from_rooms(conn, listing_id) {
-                              Ok(Nil) -> Ok(Nil)
-                              Error(Nil) -> Error("hotel_room_price_rules_sync_failed")
-                            }
-                          Error(msg) -> Error(msg)
-                        }
-                      Error(msg) -> Error(msg)
-                    }
-                  }) {
+                  case
+                    db_exec.transaction(ctx.db, fn(conn) {
+                      case hr_sync_insert(conn, listing_id, rows, 0, []) {
+                        Ok(keep_ids) ->
+                          case
+                            hr_delete_stale_rooms(conn, listing_id, keep_ids)
+                          {
+                            Ok(Nil) ->
+                              case
+                                hr_sync_nightly_price_rules_from_rooms(
+                                  conn,
+                                  listing_id,
+                                )
+                              {
+                                Ok(Nil) -> Ok(Nil)
+                                Error(Nil) ->
+                                  Error("hotel_room_price_rules_sync_failed")
+                              }
+                            Error(msg) -> Error(msg)
+                          }
+                        Error(msg) -> Error(msg)
+                      }
+                    })
+                  {
                     Ok(Nil) -> {
                       refresh_one_listing_vitrin_price(ctx, listing_id)
                       wisp.json_response("{\"ok\":true}", 200)
@@ -2494,7 +2684,8 @@ pub fn get_hotel_room_availability_calendar(
                         |> pog.returning(hr_avail_day_row())
                         |> db_exec.execute(ctx.db)
                       {
-                        Error(_) -> json_err(500, "hotel_room_availability_query_failed")
+                        Error(_) ->
+                          json_err(500, "hotel_room_availability_query_failed")
                         Ok(ret) -> {
                           let arr =
                             list.map(ret.rows, fn(row) {
@@ -2514,7 +2705,9 @@ pub fn get_hotel_room_availability_calendar(
                               ])
                             })
                           let body =
-                            json.object([#("days", json.array(from: arr, of: fn(x) { x }))])
+                            json.object([
+                              #("days", json.array(from: arr, of: fn(x) { x })),
+                            ])
                             |> json.to_string
                           wisp.json_response(body, 200)
                         }
@@ -2528,7 +2721,9 @@ pub fn get_hotel_room_availability_calendar(
   }
 }
 
-fn hr_avail_day_input_decoder() -> decode.Decoder(#(String, Int, Option(String))) {
+fn hr_avail_day_input_decoder() -> decode.Decoder(
+  #(String, Int, Option(String)),
+) {
   decode.field("day", decode.string, fn(day) {
     decode.field("available_units", decode.int, fn(units) {
       decode.optional_field("price_override", "", decode.string, fn(po) {
@@ -2546,7 +2741,9 @@ fn hr_avail_day_input_decoder() -> decode.Decoder(#(String, Int, Option(String))
   })
 }
 
-fn hr_avail_put_decoder() -> decode.Decoder(List(#(String, Int, Option(String)))) {
+fn hr_avail_put_decoder() -> decode.Decoder(
+  List(#(String, Int, Option(String))),
+) {
   decode.field("days", decode.list(hr_avail_day_input_decoder()), fn(days) {
     decode.success(days)
   })
@@ -2612,13 +2809,19 @@ pub fn put_hotel_room_availability_calendar(
                   case json.parse(body, hr_avail_put_decoder()) {
                     Error(_) -> json_err(400, "invalid_json")
                     Ok(days) ->
-                      case db_exec.transaction(ctx.db, fn(conn) {
-                        upsert_hotel_room_avail_days(conn, room_id, days)
-                      }) {
+                      case
+                        db_exec.transaction(ctx.db, fn(conn) {
+                          upsert_hotel_room_avail_days(conn, room_id, days)
+                        })
+                      {
                         Ok(Nil) -> wisp.json_response("{\"ok\":true}", 200)
                         Error(pog.TransactionQueryError(_)) ->
-                          json_err(500, "hotel_room_availability_transaction_failed")
-                        Error(pog.TransactionRolledBack(msg)) -> json_err(400, msg)
+                          json_err(
+                            500,
+                            "hotel_room_availability_transaction_failed",
+                          )
+                        Error(pog.TransactionRolledBack(msg)) ->
+                          json_err(400, msg)
                       }
                   }
               }
@@ -2635,7 +2838,11 @@ fn hotel_detail_row() -> decode.Decoder(#(String, String, String)) {
 }
 
 /// GET /api/v1/catalog/listings/:id/hotel-details
-pub fn get_manage_hotel_details(req: Request, ctx: Context, listing_id: String) -> Response {
+pub fn get_manage_hotel_details(
+  req: Request,
+  ctx: Context,
+  listing_id: String,
+) -> Response {
   use <- wisp.require_method(req, http.Get)
   case resolve_manage_listings_scope(req, ctx) {
     Error(r) -> r
@@ -2719,7 +2926,11 @@ fn patch_hotel_details_decoder() -> decode.Decoder(
 }
 
 /// PATCH /api/v1/catalog/listings/:id/hotel-details
-pub fn patch_manage_hotel_details(req: Request, ctx: Context, listing_id: String) -> Response {
+pub fn patch_manage_hotel_details(
+  req: Request,
+  ctx: Context,
+  listing_id: String,
+) -> Response {
   use <- wisp.require_method(req, http.Patch)
   case resolve_manage_listings_scope(req, ctx) {
     Error(r) -> r
@@ -2776,7 +2987,19 @@ pub fn patch_manage_hotel_details(req: Request, ctx: Context, listing_id: String
 }
 
 fn activity_session_row() -> decode.Decoder(
-  #(String, String, String, String, String, String, Bool, String, String, String, String),
+  #(
+    String,
+    String,
+    String,
+    String,
+    String,
+    String,
+    Bool,
+    String,
+    String,
+    String,
+    String,
+  ),
 ) {
   use id <- decode.field(0, decode.string)
   use valid_from <- decode.field(1, decode.string)
@@ -2790,17 +3013,47 @@ fn activity_session_row() -> decode.Decoder(
   use child_price <- decode.field(9, decode.string)
   use currency_code <- decode.field(10, decode.string)
   decode.success(#(
-    id, valid_from, valid_to, start_time, duration_minutes, capacity, is_active,
-    sort_order, adult_price, child_price, currency_code,
+    id,
+    valid_from,
+    valid_to,
+    start_time,
+    duration_minutes,
+    capacity,
+    is_active,
+    sort_order,
+    adult_price,
+    child_price,
+    currency_code,
   ))
 }
 
 fn activity_session_json(
-  row: #(String, String, String, String, String, String, Bool, String, String, String, String),
+  row: #(
+    String,
+    String,
+    String,
+    String,
+    String,
+    String,
+    Bool,
+    String,
+    String,
+    String,
+    String,
+  ),
 ) -> json.Json {
   let #(
-    id, valid_from, valid_to, start_time, duration_minutes, capacity, is_active,
-    sort_order, adult_price, child_price, currency_code,
+    id,
+    valid_from,
+    valid_to,
+    start_time,
+    duration_minutes,
+    capacity,
+    is_active,
+    sort_order,
+    adult_price,
+    child_price,
+    currency_code,
   ) = row
   json.object([
     #("id", json.string(id)),
@@ -2862,7 +3115,11 @@ fn list_activity_sessions_response(
   }
 }
 
-pub fn list_manage_activity_sessions(req: Request, ctx: Context, listing_id: String) -> Response {
+pub fn list_manage_activity_sessions(
+  req: Request,
+  ctx: Context,
+  listing_id: String,
+) -> Response {
   use <- wisp.require_method(req, http.Get)
   case resolve_manage_listings_scope(req, ctx) {
     Error(r) -> r
@@ -2875,7 +3132,11 @@ pub fn list_manage_activity_sessions(req: Request, ctx: Context, listing_id: Str
   }
 }
 
-pub fn list_public_activity_sessions(req: Request, ctx: Context, listing_id: String) -> Response {
+pub fn list_public_activity_sessions(
+  req: Request,
+  ctx: Context,
+  listing_id: String,
+) -> Response {
   use <- wisp.require_method(req, http.Get)
   let qs = case request.get_query(req) {
     Ok(q) -> q
@@ -2889,31 +3150,81 @@ pub fn list_public_activity_sessions(req: Request, ctx: Context, listing_id: Str
 }
 
 fn activity_session_patch_decoder() -> decode.Decoder(
-  #(String, String, String, String, String, String, Bool, String, String, String, String),
+  #(
+    String,
+    String,
+    String,
+    String,
+    String,
+    String,
+    Bool,
+    String,
+    String,
+    String,
+    String,
+  ),
 ) {
   decode.optional_field("id", "", decode.string, fn(id) {
     decode.field("valid_from", decode.string, fn(valid_from) {
       decode.field("valid_to", decode.string, fn(valid_to) {
         decode.field("start_time", decode.string, fn(start_time) {
-          decode.optional_field("duration_minutes", "", decode.string, fn(duration_minutes) {
-            decode.optional_field("capacity", "", decode.string, fn(capacity) {
-              decode.optional_field("is_active", True, decode.bool, fn(is_active) {
-                decode.optional_field("sort_order", "0", decode.string, fn(sort_order) {
-                  decode.optional_field("adult_price", "", decode.string, fn(adult_price) {
-                    decode.optional_field("child_price", "", decode.string, fn(child_price) {
-                      decode.optional_field("currency_code", "TRY", decode.string, fn(currency_code) {
-                        decode.success(#(
-                          id, valid_from, valid_to, start_time, duration_minutes,
-                          capacity, is_active, sort_order, adult_price, child_price,
-                          currency_code,
-                        ))
-                      })
-                    })
-                  })
-                })
+          decode.optional_field(
+            "duration_minutes",
+            "",
+            decode.string,
+            fn(duration_minutes) {
+              decode.optional_field("capacity", "", decode.string, fn(capacity) {
+                decode.optional_field(
+                  "is_active",
+                  True,
+                  decode.bool,
+                  fn(is_active) {
+                    decode.optional_field(
+                      "sort_order",
+                      "0",
+                      decode.string,
+                      fn(sort_order) {
+                        decode.optional_field(
+                          "adult_price",
+                          "",
+                          decode.string,
+                          fn(adult_price) {
+                            decode.optional_field(
+                              "child_price",
+                              "",
+                              decode.string,
+                              fn(child_price) {
+                                decode.optional_field(
+                                  "currency_code",
+                                  "TRY",
+                                  decode.string,
+                                  fn(currency_code) {
+                                    decode.success(#(
+                                      id,
+                                      valid_from,
+                                      valid_to,
+                                      start_time,
+                                      duration_minutes,
+                                      capacity,
+                                      is_active,
+                                      sort_order,
+                                      adult_price,
+                                      child_price,
+                                      currency_code,
+                                    ))
+                                  },
+                                )
+                              },
+                            )
+                          },
+                        )
+                      },
+                    )
+                  },
+                )
               })
-            })
-          })
+            },
+          )
         })
       })
     })
@@ -2921,11 +3232,27 @@ fn activity_session_patch_decoder() -> decode.Decoder(
 }
 
 fn put_activity_sessions_body_decoder() -> decode.Decoder(
-  List(#(String, String, String, String, String, String, Bool, String, String, String, String)),
+  List(
+    #(
+      String,
+      String,
+      String,
+      String,
+      String,
+      String,
+      Bool,
+      String,
+      String,
+      String,
+      String,
+    ),
+  ),
 ) {
-  decode.field("sessions", decode.list(activity_session_patch_decoder()), fn(sessions) {
-    decode.success(sessions)
-  })
+  decode.field(
+    "sessions",
+    decode.list(activity_session_patch_decoder()),
+    fn(sessions) { decode.success(sessions) },
+  )
 }
 
 fn parse_activity_start_time(raw: String) -> Result(calendar.TimeOfDay, Nil) {
@@ -2984,14 +3311,37 @@ fn insert_activity_fare(
 fn insert_activity_sessions(
   conn: pog.Connection,
   listing_id: String,
-  sessions: List(#(String, String, String, String, String, String, Bool, String, String, String, String)),
+  sessions: List(
+    #(
+      String,
+      String,
+      String,
+      String,
+      String,
+      String,
+      Bool,
+      String,
+      String,
+      String,
+      String,
+    ),
+  ),
 ) -> Result(Nil, String) {
   case sessions {
     [] -> Ok(Nil)
     [first, ..rest] -> {
       let #(
-        _, valid_from, valid_to, start_time, duration_minutes, capacity, is_active,
-        sort_order, adult_price, child_price, currency_code,
+        _,
+        valid_from,
+        valid_to,
+        start_time,
+        duration_minutes,
+        capacity,
+        is_active,
+        sort_order,
+        adult_price,
+        child_price,
+        currency_code,
       ) = first
       case
         parse_iso_date_ymd(valid_from),
@@ -3001,8 +3351,13 @@ fn insert_activity_sessions(
         activity_non_negative_int(capacity),
         activity_non_negative_int(sort_order)
       {
-        Ok(from_date), Ok(to_date), Ok(start_time_value), Ok(duration_value),
-          Ok(capacity_value), Ok(sort_value) ->
+        Ok(from_date),
+          Ok(to_date),
+          Ok(start_time_value),
+          Ok(duration_value),
+          Ok(capacity_value),
+          Ok(sort_value)
+        ->
           case
             pog.query(
               "insert into listing_activity_sessions (listing_id, valid_from, valid_to, start_time, duration_minutes, capacity, is_active, sort_order) values ($1::uuid, $2::date, $3::date, $4::time, $5, $6, $7, $8) returning id::text",
@@ -3028,12 +3383,29 @@ fn insert_activity_sessions(
             Ok(ret) ->
               case ret.rows {
                 [session_id] ->
-                  case insert_activity_fare(conn, session_id, "adult", adult_price, currency_code) {
+                  case
+                    insert_activity_fare(
+                      conn,
+                      session_id,
+                      "adult",
+                      adult_price,
+                      currency_code,
+                    )
+                  {
                     Error(e) -> Error(e)
                     Ok(Nil) ->
-                      case insert_activity_fare(conn, session_id, "child", child_price, currency_code) {
+                      case
+                        insert_activity_fare(
+                          conn,
+                          session_id,
+                          "child",
+                          child_price,
+                          currency_code,
+                        )
+                      {
                         Error(e) -> Error(e)
-                        Ok(Nil) -> insert_activity_sessions(conn, listing_id, rest)
+                        Ok(Nil) ->
+                          insert_activity_sessions(conn, listing_id, rest)
                       }
                   }
                 _ -> Error("activity_session_missing_id")
@@ -3050,7 +3422,11 @@ fn insert_activity_sessions(
   }
 }
 
-pub fn put_manage_activity_sessions(req: Request, ctx: Context, listing_id: String) -> Response {
+pub fn put_manage_activity_sessions(
+  req: Request,
+  ctx: Context,
+  listing_id: String,
+) -> Response {
   use <- wisp.require_method(req, http.Put)
   case resolve_manage_listings_scope(req, ctx) {
     Error(r) -> r
@@ -3065,49 +3441,59 @@ pub fn put_manage_activity_sessions(req: Request, ctx: Context, listing_id: Stri
               case json.parse(body, put_activity_sessions_body_decoder()) {
                 Error(_) -> json_err(400, "invalid_json")
                 Ok(sessions) ->
-                  case db_exec.transaction(ctx.db, fn(conn) {
-                    case
-                      pog.query("delete from listing_activity_sessions where listing_id = $1::uuid")
-                      |> pog.parameter(pog.text(listing_id))
-                      |> pog.execute(conn)
-                    {
-                      Error(_) -> Error("activity_sessions_delete_failed")
-                      Ok(_) ->
-                        case insert_activity_sessions(conn, listing_id, sessions) {
-                          Error(e) -> Error(e)
-                          Ok(Nil) -> {
-                            let update_result =
-                              pog.query(
-                                "update listings set "
-                                <> "first_charge_amount = (select min(f.price_amount) from listing_activity_session_fares f join listing_activity_sessions s on s.id = f.session_id where s.listing_id = $1::uuid and s.is_active = true and f.fare_type = 'adult' and f.price_amount > 0), "
-                                <> "vitrin_price = (select min(f.price_amount) from listing_activity_session_fares f join listing_activity_sessions s on s.id = f.session_id where s.listing_id = $1::uuid and s.is_active = true and f.fare_type = 'adult' and f.price_amount > 0), "
-                                <> "currency_code = coalesce((select f.currency_code from listing_activity_session_fares f join listing_activity_sessions s on s.id = f.session_id where s.listing_id = $1::uuid and s.is_active = true and f.fare_type = 'adult' and f.price_amount > 0 order by f.price_amount, s.sort_order, s.start_time limit 1), currency_code), "
-                                <> "updated_at = now() "
-                                <> "where id = $1::uuid",
-                              )
-                              |> pog.parameter(pog.text(listing_id))
-                              |> pog.execute(conn)
-                            case update_result {
-                              Error(_) -> Error("activity_listing_price_sync_failed")
-                              Ok(_) -> {
-                                // Aktivite satış fiyatının tek kaynağı seans ücretidir.
-                                // Eski/import fiyat kuralı canlı seans fiyatını gölgelememelidir.
-                                case
-                                  pog.query(
-                                    "delete from listing_price_rules where listing_id = $1::uuid",
-                                  )
-                                  |> pog.parameter(pog.text(listing_id))
-                                  |> pog.execute(conn)
-                                {
-                                  Error(_) -> Error("activity_legacy_price_cleanup_failed")
-                                  Ok(_) -> Ok(Nil)
+                  case
+                    db_exec.transaction(ctx.db, fn(conn) {
+                      case
+                        pog.query(
+                          "delete from listing_activity_sessions where listing_id = $1::uuid",
+                        )
+                        |> pog.parameter(pog.text(listing_id))
+                        |> pog.execute(conn)
+                      {
+                        Error(_) -> Error("activity_sessions_delete_failed")
+                        Ok(_) ->
+                          case
+                            insert_activity_sessions(conn, listing_id, sessions)
+                          {
+                            Error(e) -> Error(e)
+                            Ok(Nil) -> {
+                              let update_result =
+                                pog.query(
+                                  "update listings set "
+                                  <> "first_charge_amount = (select min(f.price_amount) from listing_activity_session_fares f join listing_activity_sessions s on s.id = f.session_id where s.listing_id = $1::uuid and s.is_active = true and f.fare_type = 'adult' and f.price_amount > 0), "
+                                  <> "vitrin_price = (select min(f.price_amount) from listing_activity_session_fares f join listing_activity_sessions s on s.id = f.session_id where s.listing_id = $1::uuid and s.is_active = true and f.fare_type = 'adult' and f.price_amount > 0), "
+                                  <> "currency_code = coalesce((select f.currency_code from listing_activity_session_fares f join listing_activity_sessions s on s.id = f.session_id where s.listing_id = $1::uuid and s.is_active = true and f.fare_type = 'adult' and f.price_amount > 0 order by f.price_amount, s.sort_order, s.start_time limit 1), currency_code), "
+                                  <> "updated_at = now() "
+                                  <> "where id = $1::uuid",
+                                )
+                                |> pog.parameter(pog.text(listing_id))
+                                |> pog.execute(conn)
+                              case update_result {
+                                Error(_) ->
+                                  Error("activity_listing_price_sync_failed")
+                                Ok(_) -> {
+                                  // Aktivite satış fiyatının tek kaynağı seans ücretidir.
+                                  // Eski/import fiyat kuralı canlı seans fiyatını gölgelememelidir.
+                                  case
+                                    pog.query(
+                                      "delete from listing_price_rules where listing_id = $1::uuid",
+                                    )
+                                    |> pog.parameter(pog.text(listing_id))
+                                    |> pog.execute(conn)
+                                  {
+                                    Error(_) ->
+                                      Error(
+                                        "activity_legacy_price_cleanup_failed",
+                                      )
+                                    Ok(_) -> Ok(Nil)
+                                  }
                                 }
                               }
                             }
                           }
-                        }
-                    }
-                  }) {
+                      }
+                    })
+                  {
                     Ok(Nil) -> wisp.json_response("{\"ok\":true}", 200)
                     Error(pog.TransactionQueryError(_)) ->
                       json_err(500, "activity_sessions_transaction_failed")
@@ -3131,17 +3517,30 @@ fn activity_quote_decoder() -> decode.Decoder(#(String, String, Int, Int)) {
   })
 }
 
-fn activity_quote_row() -> decode.Decoder(#(String, String, String, String, String, String)) {
+fn activity_quote_row() -> decode.Decoder(
+  #(String, String, String, String, String, String),
+) {
   use adult_unit <- decode.field(0, decode.string)
   use child_unit <- decode.field(1, decode.string)
   use currency <- decode.field(2, decode.string)
   use total <- decode.field(3, decode.string)
   use capacity <- decode.field(4, decode.string)
   use start_time <- decode.field(5, decode.string)
-  decode.success(#(adult_unit, child_unit, currency, total, capacity, start_time))
+  decode.success(#(
+    adult_unit,
+    child_unit,
+    currency,
+    total,
+    capacity,
+    start_time,
+  ))
 }
 
-pub fn quote_public_activity(req: Request, ctx: Context, listing_id: String) -> Response {
+pub fn quote_public_activity(
+  req: Request,
+  ctx: Context,
+  listing_id: String,
+) -> Response {
   use <- wisp.require_method(req, http.Post)
   case read_body_string(req) {
     Error(_) -> json_err(400, "empty_body")
@@ -3170,7 +3569,16 @@ pub fn quote_public_activity(req: Request, ctx: Context, listing_id: String) -> 
                     Error(_) -> json_err(500, "activity_quote_failed")
                     Ok(ret) ->
                       case ret.rows {
-                        [#(adult_unit, child_unit, currency, total, capacity, start_time)] -> {
+                        [
+                          #(
+                            adult_unit,
+                            child_unit,
+                            currency,
+                            total,
+                            capacity,
+                            start_time,
+                          ),
+                        ] -> {
                           let body =
                             json.object([
                               #("currency_code", json.string(currency)),
@@ -3213,7 +3621,9 @@ fn parse_iso_date_ymd(raw: String) -> Result(calendar.Date, Nil) {
   }
 }
 
-fn avail_day_row() -> decode.Decoder(#(String, Bool, String, Bool, Bool, String)) {
+fn avail_day_row() -> decode.Decoder(
+  #(String, Bool, String, Bool, Bool, String),
+) {
   use d <- decode.field(0, decode.string)
   use av <- decode.field(1, decode.bool)
   use po <- decode.field(2, decode.string)
@@ -3231,7 +3641,11 @@ fn avail_day_status_json(st: String) -> json.Json {
 }
 
 /// GET /api/v1/catalog/listings/:id/availability-calendar?from=YYYY-MM-DD&to=YYYY-MM-DD
-pub fn get_listing_availability_calendar(req: Request, ctx: Context, listing_id: String) -> Response {
+pub fn get_listing_availability_calendar(
+  req: Request,
+  ctx: Context,
+  listing_id: String,
+) -> Response {
   use <- wisp.require_method(req, http.Get)
   case resolve_manage_listings_scope(req, ctx) {
     Error(r) -> r
@@ -3296,7 +3710,9 @@ pub fn get_listing_availability_calendar(req: Request, ctx: Context, listing_id:
                           ])
                         })
                       let body =
-                        json.object([#("days", json.array(from: arr, of: fn(x) { x }))])
+                        json.object([
+                          #("days", json.array(from: arr, of: fn(x) { x })),
+                        ])
                         |> json.to_string
                       wisp.json_response(body, 200)
                     }
@@ -3309,45 +3725,78 @@ pub fn get_listing_availability_calendar(req: Request, ctx: Context, listing_id:
   }
 }
 
-fn day_patch_decoder() -> decode.Decoder(#(String, Bool, Bool, Bool, String, String)) {
+fn day_patch_decoder() -> decode.Decoder(
+  #(String, Bool, Bool, Bool, String, String),
+) {
   decode.field("day", decode.string, fn(day) {
     decode.field("is_available", decode.bool, fn(ia) {
-      decode.optional_field("am_available", None, decode.optional(decode.bool), fn(am_opt) {
-        decode.optional_field("pm_available", None, decode.optional(decode.bool), fn(pm_opt) {
-          decode.optional_field("price_override", None, decode.optional(decode.string), fn(po_opt) {
-            decode.optional_field("day_status", None, decode.optional(decode.string), fn(st_opt) {
-              let am = case am_opt {
-                Some(a) -> a
-                None -> ia
-              }
-              let pm = case pm_opt {
-                Some(p) -> p
-                None -> ia
-              }
-              let combined = am || pm
-              let po = case po_opt {
-                Some(value) -> string.trim(value)
-                None -> ""
-              }
-              let st = case st_opt {
-                Some(value) -> string.trim(value)
-                None -> ""
-              }
-              let st_norm = case st {
-                "option" | "promo" -> st
-                _ -> ""
-              }
-              decode.success(#(string.trim(day), combined, am, pm, po, st_norm))
-            })
-          })
-        })
-      })
+      decode.optional_field(
+        "am_available",
+        None,
+        decode.optional(decode.bool),
+        fn(am_opt) {
+          decode.optional_field(
+            "pm_available",
+            None,
+            decode.optional(decode.bool),
+            fn(pm_opt) {
+              decode.optional_field(
+                "price_override",
+                None,
+                decode.optional(decode.string),
+                fn(po_opt) {
+                  decode.optional_field(
+                    "day_status",
+                    None,
+                    decode.optional(decode.string),
+                    fn(st_opt) {
+                      let am = case am_opt {
+                        Some(a) -> a
+                        None -> ia
+                      }
+                      let pm = case pm_opt {
+                        Some(p) -> p
+                        None -> ia
+                      }
+                      let combined = am || pm
+                      let po = case po_opt {
+                        Some(value) -> string.trim(value)
+                        None -> ""
+                      }
+                      let st = case st_opt {
+                        Some(value) -> string.trim(value)
+                        None -> ""
+                      }
+                      let st_norm = case st {
+                        "option" | "promo" -> st
+                        _ -> ""
+                      }
+                      decode.success(#(
+                        string.trim(day),
+                        combined,
+                        am,
+                        pm,
+                        po,
+                        st_norm,
+                      ))
+                    },
+                  )
+                },
+              )
+            },
+          )
+        },
+      )
     })
   })
 }
 
-fn put_availability_body_decoder() -> decode.Decoder(List(#(String, Bool, Bool, Bool, String, String))) {
-  decode.field("days", decode.list(day_patch_decoder()), fn(days) { decode.success(days) })
+fn put_availability_body_decoder() -> decode.Decoder(
+  List(#(String, Bool, Bool, Bool, String, String)),
+) {
+  decode.field("days", decode.list(day_patch_decoder()), fn(days) {
+    decode.success(days)
+  })
 }
 
 fn upsert_availability_days(
@@ -3392,7 +3841,11 @@ fn upsert_availability_days(
 }
 
 /// PUT /api/v1/catalog/listings/:id/availability-calendar
-pub fn put_listing_availability_calendar(req: Request, ctx: Context, listing_id: String) -> Response {
+pub fn put_listing_availability_calendar(
+  req: Request,
+  ctx: Context,
+  listing_id: String,
+) -> Response {
   use <- wisp.require_method(req, http.Put)
   case resolve_manage_listings_scope(req, ctx) {
     Error(r) -> r
@@ -3407,9 +3860,11 @@ pub fn put_listing_availability_calendar(req: Request, ctx: Context, listing_id:
               case json.parse(body, put_availability_body_decoder()) {
                 Error(_) -> json_err(400, "invalid_json")
                 Ok(days) ->
-                  case db_exec.transaction(ctx.db, fn(conn) {
-                    upsert_availability_days(conn, listing_id, days)
-                  }) {
+                  case
+                    db_exec.transaction(ctx.db, fn(conn) {
+                      upsert_availability_days(conn, listing_id, days)
+                    })
+                  {
                     Ok(Nil) -> wisp.json_response("{\"ok\":true}", 200)
                     Error(pog.TransactionQueryError(_)) ->
                       json_err(500, "availability_transaction_failed")
@@ -3438,7 +3893,11 @@ fn refresh_one_listing_vitrin_price(ctx: Context, listing_id: String) -> Nil {
 }
 
 /// GET /api/v1/catalog/listings/:id/price-rules
-pub fn list_listing_price_rules(req: Request, ctx: Context, listing_id: String) -> Response {
+pub fn list_listing_price_rules(
+  req: Request,
+  ctx: Context,
+  listing_id: String,
+) -> Response {
   use <- wisp.require_method(req, http.Get)
   case resolve_manage_listings_scope(req, ctx) {
     Error(r) -> r
@@ -3485,7 +3944,9 @@ pub fn list_listing_price_rules(req: Request, ctx: Context, listing_id: String) 
   }
 }
 
-fn create_price_rule_decoder() -> decode.Decoder(#(String, Option(String), Option(String))) {
+fn create_price_rule_decoder() -> decode.Decoder(
+  #(String, Option(String), Option(String)),
+) {
   decode.field("rule_json", decode.string, fn(rj) {
     decode.optional_field("valid_from", "", decode.string, fn(vf) {
       decode.optional_field("valid_to", "", decode.string, fn(vt) {
@@ -3504,7 +3965,11 @@ fn create_price_rule_decoder() -> decode.Decoder(#(String, Option(String), Optio
 }
 
 /// POST /api/v1/catalog/listings/:id/price-rules
-pub fn create_listing_price_rule(req: Request, ctx: Context, listing_id: String) -> Response {
+pub fn create_listing_price_rule(
+  req: Request,
+  ctx: Context,
+  listing_id: String,
+) -> Response {
   use <- wisp.require_method(req, http.Post)
   case resolve_manage_listings_scope(req, ctx) {
     Error(r) -> r
@@ -3539,21 +4004,25 @@ pub fn create_listing_price_rule(req: Request, ctx: Context, listing_id: String)
                       case vf_res, vt_res {
                         Ok(vf_p), Ok(vt_p) ->
                           case
-                        pog.query(
-                          "insert into listing_price_rules (listing_id, rule_json, valid_from, valid_to) values ($1::uuid, ($2::text)::jsonb, $3::date, $4::date) returning id::text",
-                        )
-                        |> pog.parameter(pog.text(listing_id))
-                        |> pog.parameter(pog.text(rj))
-                        |> pog.parameter(vf_p)
-                        |> pog.parameter(vt_p)
-                        |> pog.returning(one_string_row())
-                        |> db_exec.execute(ctx.db)
-                      {
-                            Error(_) -> json_err(500, "price_rule_insert_failed")
+                            pog.query(
+                              "insert into listing_price_rules (listing_id, rule_json, valid_from, valid_to) values ($1::uuid, ($2::text)::jsonb, $3::date, $4::date) returning id::text",
+                            )
+                            |> pog.parameter(pog.text(listing_id))
+                            |> pog.parameter(pog.text(rj))
+                            |> pog.parameter(vf_p)
+                            |> pog.parameter(vt_p)
+                            |> pog.returning(one_string_row())
+                            |> db_exec.execute(ctx.db)
+                          {
+                            Error(_) ->
+                              json_err(500, "price_rule_insert_failed")
                             Ok(r) ->
                               case r.rows {
                                 [id] -> {
-                                  refresh_one_listing_vitrin_price(ctx, listing_id)
+                                  refresh_one_listing_vitrin_price(
+                                    ctx,
+                                    listing_id,
+                                  )
                                   let out =
                                     json.object([#("id", json.string(id))])
                                     |> json.to_string
@@ -3656,20 +4125,22 @@ fn basics_normalize_decimal_param(raw: String) -> String {
       let no_pct = string.replace(t0, "%", "")
       let t = string.trim(no_pct)
       // Türkçe binlik: 1.234,56 → 1234.56
-      let norm =
-        case string.contains(t, ",") && string.contains(t, ".") {
-          True -> {
-            let no_dots = string.replace(t, ".", "")
-            string.replace(no_dots, ",", ".")
-          }
-          False -> string.replace(t, ",", ".")
+      let norm = case string.contains(t, ",") && string.contains(t, ".") {
+        True -> {
+          let no_dots = string.replace(t, ".", "")
+          string.replace(no_dots, ",", ".")
         }
+        False -> string.replace(t, ",", ".")
+      }
       norm
     }
   }
 }
 
-fn basics_validate_decimal_param(raw: String, field: String) -> Result(String, String) {
+fn basics_validate_decimal_param(
+  raw: String,
+  field: String,
+) -> Result(String, String) {
   let t = basics_normalize_decimal_param(raw)
   case t == "" || t == "__null__" {
     True -> Ok(t)
@@ -3748,10 +4219,8 @@ fn validate_prepayment_commission_after_patch(
     Ok(ret) ->
       case ret.rows {
         [#(cur_pp, cur_comm)] -> {
-          let eff_pp =
-            effective_decimal_after_patch(pp_patch, cur_pp)
-          let eff_comm =
-            effective_decimal_after_patch(comm_patch, cur_comm)
+          let eff_pp = effective_decimal_after_patch(pp_patch, cur_pp)
+          let eff_comm = effective_decimal_after_patch(comm_patch, cur_comm)
           case eff_pp, eff_comm {
             option.Some(pp), option.Some(comm) ->
               case pp <. comm {
@@ -3871,22 +4340,13 @@ pub fn get_listing_basics(
                       #("ministry_license_ref", json.string(mlr)),
                       #("pool_size_label", json.string(psl)),
                       #("high_season_dates_json", json.string(hsd)),
-                      #(
-                        "confirm_deadline_normal_h",
-                        json.string(cdn),
-                      ),
-                      #(
-                        "confirm_deadline_high_h",
-                        json.string(cdh),
-                      ),
+                      #("confirm_deadline_normal_h", json.string(cdn)),
+                      #("confirm_deadline_high_h", json.string(cdh)),
                       #("supplier_payment_note", json.string(spn)),
                       #("avg_ad_cost_percent", json.string(aac)),
                       #("share_to_social", json.bool(sts)),
                       #("allow_ai_caption", json.bool(aai)),
-                      #(
-                        "allow_sub_min_stay_gap_booking",
-                        json.bool(asg),
-                      ),
+                      #("allow_sub_min_stay_gap_booking", json.bool(asg)),
                       #("external_listing_ref", json.string(elr)),
                       #("is_locked", json.bool(locked)),
                     ])
@@ -3934,56 +4394,138 @@ fn patch_basics_decoder() -> decode.Decoder(BasicsPatch) {
         decode.optional_field("first_charge_amount", "", decode.string, fn(fca) {
           decode.optional_field("prepayment_percent", "", decode.string, fn(pp) {
             decode.optional_field("pool_size_label", "", decode.string, fn(psl) {
-              decode.optional_field("commission_percent", "", decode.string, fn(comm) {
-                decode.optional_field("high_season_dates_json", "", decode.string, fn(hsd) {
-                  decode.optional_field("confirm_deadline_normal_h", "", decode.string, fn(cdn) {
-                    decode.optional_field("confirm_deadline_high_h", "", decode.string, fn(cdh) {
-                      decode.optional_field("supplier_payment_note", "", decode.string, fn(spn) {
-                        decode.optional_field("avg_ad_cost_percent", "", decode.string, fn(aac) {
-                          decode.optional_field("cancellation_policy_text", "", decode.string, fn(cpt) {
-                            decode.optional_field("ministry_license_ref", "", decode.string, fn(mlr) {
-                              decode.optional_field("external_listing_ref", "", decode.string, fn(elr) {
-                                decode.optional_field("currency_code", "", decode.string, fn(cc) {
-                                  decode.optional_field("share_to_social", None, decode.optional(decode.bool), fn(sts_opt) {
-                                    decode.optional_field("allow_ai_caption", None, decode.optional(decode.bool), fn(aai_opt) {
-                                      decode.optional_field("allow_sub_min_stay_gap_booking", None, decode.optional(decode.bool), fn(asg_opt) {
-                                        decode.optional_field("is_locked", None, decode.optional(decode.bool), fn(locked_opt) {
-                                          decode.success(BasicsPatch(
-                                            status: status,
-                                            min_stay_nights: msn,
-                                            cleaning_fee_amount: cfa,
-                                            first_charge_amount: fca,
-                                            prepayment_percent: pp,
-                                            pool_size_label: psl,
-                                            commission_percent: comm,
-                                            high_season_dates_json: hsd,
-                                            confirm_deadline_normal_h: cdn,
-                                            confirm_deadline_high_h: cdh,
-                                            supplier_payment_note: spn,
-                                            avg_ad_cost_percent: aac,
-                                            cancellation_policy_text: cpt,
-                                            ministry_license_ref: mlr,
-                                            external_listing_ref: elr,
-                                            currency_code: cc,
-                                            share_to_social: sts_opt,
-                                            allow_ai_caption: aai_opt,
-                                            allow_sub_min_stay_gap_booking: asg_opt,
-                                            is_locked: locked_opt,
-                                          ))
-                                        })
-                                      })
-                                    })
-                                  })
-                                })
-                              })
-                            })
-                          })
-                        })
-                      })
-                    })
-                  })
-                })
-              })
+              decode.optional_field(
+                "commission_percent",
+                "",
+                decode.string,
+                fn(comm) {
+                  decode.optional_field(
+                    "high_season_dates_json",
+                    "",
+                    decode.string,
+                    fn(hsd) {
+                      decode.optional_field(
+                        "confirm_deadline_normal_h",
+                        "",
+                        decode.string,
+                        fn(cdn) {
+                          decode.optional_field(
+                            "confirm_deadline_high_h",
+                            "",
+                            decode.string,
+                            fn(cdh) {
+                              decode.optional_field(
+                                "supplier_payment_note",
+                                "",
+                                decode.string,
+                                fn(spn) {
+                                  decode.optional_field(
+                                    "avg_ad_cost_percent",
+                                    "",
+                                    decode.string,
+                                    fn(aac) {
+                                      decode.optional_field(
+                                        "cancellation_policy_text",
+                                        "",
+                                        decode.string,
+                                        fn(cpt) {
+                                          decode.optional_field(
+                                            "ministry_license_ref",
+                                            "",
+                                            decode.string,
+                                            fn(mlr) {
+                                              decode.optional_field(
+                                                "external_listing_ref",
+                                                "",
+                                                decode.string,
+                                                fn(elr) {
+                                                  decode.optional_field(
+                                                    "currency_code",
+                                                    "",
+                                                    decode.string,
+                                                    fn(cc) {
+                                                      decode.optional_field(
+                                                        "share_to_social",
+                                                        None,
+                                                        decode.optional(
+                                                          decode.bool,
+                                                        ),
+                                                        fn(sts_opt) {
+                                                          decode.optional_field(
+                                                            "allow_ai_caption",
+                                                            None,
+                                                            decode.optional(
+                                                              decode.bool,
+                                                            ),
+                                                            fn(aai_opt) {
+                                                              decode.optional_field(
+                                                                "allow_sub_min_stay_gap_booking",
+                                                                None,
+                                                                decode.optional(
+                                                                  decode.bool,
+                                                                ),
+                                                                fn(asg_opt) {
+                                                                  decode.optional_field(
+                                                                    "is_locked",
+                                                                    None,
+                                                                    decode.optional(
+                                                                      decode.bool,
+                                                                    ),
+                                                                    fn(
+                                                                      locked_opt,
+                                                                    ) {
+                                                                      decode.success(
+                                                                        BasicsPatch(
+                                                                          status: status,
+                                                                          min_stay_nights: msn,
+                                                                          cleaning_fee_amount: cfa,
+                                                                          first_charge_amount: fca,
+                                                                          prepayment_percent: pp,
+                                                                          pool_size_label: psl,
+                                                                          commission_percent: comm,
+                                                                          high_season_dates_json: hsd,
+                                                                          confirm_deadline_normal_h: cdn,
+                                                                          confirm_deadline_high_h: cdh,
+                                                                          supplier_payment_note: spn,
+                                                                          avg_ad_cost_percent: aac,
+                                                                          cancellation_policy_text: cpt,
+                                                                          ministry_license_ref: mlr,
+                                                                          external_listing_ref: elr,
+                                                                          currency_code: cc,
+                                                                          share_to_social: sts_opt,
+                                                                          allow_ai_caption: aai_opt,
+                                                                          allow_sub_min_stay_gap_booking: asg_opt,
+                                                                          is_locked: locked_opt,
+                                                                        ),
+                                                                      )
+                                                                    },
+                                                                  )
+                                                                },
+                                                              )
+                                                            },
+                                                          )
+                                                        },
+                                                      )
+                                                    },
+                                                  )
+                                                },
+                                              )
+                                            },
+                                          )
+                                        },
+                                      )
+                                    },
+                                  )
+                                },
+                              )
+                            },
+                          )
+                        },
+                      )
+                    },
+                  )
+                },
+              )
             })
           })
         })
@@ -4007,27 +4549,64 @@ fn do_patch_listing_basics(
     Error(_) -> json_err(400, basics_patch_field_error_code("min_stay_nights"))
     Ok(min_stay) ->
       case basics_normalize_int_param(p.confirm_deadline_normal_h) {
-        Error(_) -> json_err(400, basics_patch_field_error_code("confirm_deadline_normal_h"))
+        Error(_) ->
+          json_err(
+            400,
+            basics_patch_field_error_code("confirm_deadline_normal_h"),
+          )
         Ok(cdn) ->
           case basics_normalize_int_param(p.confirm_deadline_high_h) {
-            Error(_) -> json_err(400, basics_patch_field_error_code("confirm_deadline_high_h"))
+            Error(_) ->
+              json_err(
+                400,
+                basics_patch_field_error_code("confirm_deadline_high_h"),
+              )
             Ok(cdh) ->
               case basics_validate_high_season_json(p.high_season_dates_json) {
-                Error(_) -> json_err(400, basics_patch_field_error_code("high_season_dates_json"))
+                Error(_) ->
+                  json_err(
+                    400,
+                    basics_patch_field_error_code("high_season_dates_json"),
+                  )
                 Ok(hsd) ->
-                  case basics_validate_decimal_param(p.cleaning_fee_amount, "cleaning_fee_amount") {
+                  case
+                    basics_validate_decimal_param(
+                      p.cleaning_fee_amount,
+                      "cleaning_fee_amount",
+                    )
+                  {
                     Error(code) -> json_err(400, code)
                     Ok(cfa_norm) ->
-                      case basics_validate_decimal_param(p.first_charge_amount, "first_charge_amount") {
+                      case
+                        basics_validate_decimal_param(
+                          p.first_charge_amount,
+                          "first_charge_amount",
+                        )
+                      {
                         Error(code) -> json_err(400, code)
                         Ok(fca_norm) ->
-                          case basics_validate_decimal_param(p.prepayment_percent, "prepayment_percent") {
+                          case
+                            basics_validate_decimal_param(
+                              p.prepayment_percent,
+                              "prepayment_percent",
+                            )
+                          {
                             Error(code) -> json_err(400, code)
                             Ok(pp_norm) ->
-                              case basics_validate_decimal_param(p.commission_percent, "commission_percent") {
+                              case
+                                basics_validate_decimal_param(
+                                  p.commission_percent,
+                                  "commission_percent",
+                                )
+                              {
                                 Error(code) -> json_err(400, code)
                                 Ok(comm_norm) ->
-                                  case basics_validate_decimal_param(p.avg_ad_cost_percent, "avg_ad_cost_percent") {
+                                  case
+                                    basics_validate_decimal_param(
+                                      p.avg_ad_cost_percent,
+                                      "avg_ad_cost_percent",
+                                    )
+                                  {
                                     Error(code) -> json_err(400, code)
                                     Ok(aac_norm) ->
                                       case
@@ -4041,109 +4620,182 @@ fn do_patch_listing_basics(
                                         Error(code) -> json_err(400, code)
                                         Ok(Nil) ->
                                           case
-                    pog.query(
-                      "update listings set "
-                      <> "status = case when $3 = '' then status else $3::text end, "
-                      <> "min_stay_nights = case when $4 = '__null__' then null when $4 = '' then min_stay_nights else $4::integer end, "
-                      <> "cleaning_fee_amount = case when $5 = '__null__' then null when $5 = '' then cleaning_fee_amount else $5::numeric end, "
-                      <> "first_charge_amount = case when $6 = '__null__' then null when $6 = '' then first_charge_amount else $6::numeric end, "
-                      <> "prepayment_percent = case when $7 = '__null__' then null when $7 = '' then prepayment_percent else $7::numeric end, "
-                      <> "pool_size_label = case when $8 = '__null__' then null when $8 = '' then pool_size_label else $8::text end, "
-                      <> "commission_percent = case when $9 = '__null__' then null when $9 = '' then commission_percent else $9::numeric end, "
-                      <> "high_season_dates_json = case when $10 = '' then high_season_dates_json else ($10::text)::jsonb end, "
-                      <> "confirm_deadline_normal_h = case when $11 = '' then confirm_deadline_normal_h else $11::integer end, "
-                      <> "confirm_deadline_high_h = case when $12 = '' then confirm_deadline_high_h else $12::integer end, "
-                      <> "supplier_payment_note = case when $13 = '' then supplier_payment_note else $13::text end, "
-                      <> "avg_ad_cost_percent = case when $14 = '' then avg_ad_cost_percent else $14::numeric end, "
-                      <> "cancellation_policy_text = case when $15 = '' then cancellation_policy_text else $15::text end, "
-                      <> "ministry_license_ref = case when $16 = '' then ministry_license_ref else $16::text end, "
-                      <> "external_listing_ref = case when $17 = '' then external_listing_ref else $17::text end, "
-                      <> "share_to_social = case when $18 = '' then share_to_social when $18 = 'true' then true else false end, "
-                      <> "allow_ai_caption = case when $19 = '' then allow_ai_caption when $19 = 'true' then true else false end, "
-                      <> "allow_sub_min_stay_gap_booking = case when $20 = '' then allow_sub_min_stay_gap_booking when $20 = 'true' then true else false end, "
-                      <> "is_locked = case when $21 = '' then is_locked when $21 = 'true' then true else false end, "
-                      <> "currency_code = case when $22 = '' then currency_code else upper($22::char(3)) end, "
-                      <> "updated_at = now() "
-                      <> "where id = $1::uuid and organization_id = $2::uuid returning id::text",
-                    )
-                    |> pog.parameter(pog.text(listing_id))
-                    |> pog.parameter(pog.text(org_id))
-                    |> pog.parameter(pog.text(status_t))
-                    |> pog.parameter(pog.text(min_stay))
-                    |> pog.parameter(pog.text(cfa_norm))
-                    |> pog.parameter(pog.text(fca_norm))
-                    |> pog.parameter(pog.text(pp_norm))
-                    |> pog.parameter(pog.text(string.trim(p.pool_size_label)))
-                    |> pog.parameter(pog.text(comm_norm))
-                    |> pog.parameter(pog.text(hsd))
-                    |> pog.parameter(pog.text(cdn))
-                    |> pog.parameter(pog.text(cdh))
-                    |> pog.parameter(pog.text(string.trim(p.supplier_payment_note)))
-                    |> pog.parameter(pog.text(aac_norm))
-                    |> pog.parameter(pog.text(string.trim(p.cancellation_policy_text)))
-                    |> pog.parameter(pog.text(string.trim(p.ministry_license_ref)))
-                    |> pog.parameter(pog.text(string.trim(p.external_listing_ref)))
-                    |> pog.parameter(pog.text(basics_patch_bool_param(p.share_to_social)))
-                    |> pog.parameter(pog.text(basics_patch_bool_param(p.allow_ai_caption)))
-                    |> pog.parameter(pog.text(basics_patch_bool_param(
-                      p.allow_sub_min_stay_gap_booking,
-                    )))
-                    |> pog.parameter(pog.text(basics_patch_bool_param(p.is_locked)))
-                    |> pog.parameter(pog.text(string.trim(p.currency_code)))
-                    |> pog.returning(one_string_row())
-                    |> db_exec.execute(db)
-                  {
-                    Error(e) -> {
-                      let detail = string.lowercase(pog_errors.query_error_to_string(e))
-                      let _ =
-                        io.println("[catalog.patch_listing_basics] " <> detail)
-                      let code =
-                        case
-                          string.contains(detail, "invalid input syntax")
-                          || string.contains(detail, "invalid_text_representation")
-                          || string.contains(detail, "numeric field overflow")
-                          || string.contains(detail, "chk_listing_prepayment_ge_commission")
-                        {
-                          True -> "basics_prepayment_lt_commission"
-                          False -> "basics_update_failed"
-                        }
-                      json_err(500, code)
-                    }
-                    Ok(ret) ->
-                      case ret.rows {
-                        [] -> json_err(404, "listing_not_found")
-                        _ -> {
-                          let new_status = case status_t == "" {
-                            True -> old_status
-                            False -> status_t
+                                            pog.query(
+                                              "update listings set "
+                                              <> "status = case when $3 = '' then status else $3::text end, "
+                                              <> "min_stay_nights = case when $4 = '__null__' then null when $4 = '' then min_stay_nights else $4::integer end, "
+                                              <> "cleaning_fee_amount = case when $5 = '__null__' then null when $5 = '' then cleaning_fee_amount else $5::numeric end, "
+                                              <> "first_charge_amount = case when $6 = '__null__' then null when $6 = '' then first_charge_amount else $6::numeric end, "
+                                              <> "prepayment_percent = case when $7 = '__null__' then null when $7 = '' then prepayment_percent else $7::numeric end, "
+                                              <> "pool_size_label = case when $8 = '__null__' then null when $8 = '' then pool_size_label else $8::text end, "
+                                              <> "commission_percent = case when $9 = '__null__' then null when $9 = '' then commission_percent else $9::numeric end, "
+                                              <> "high_season_dates_json = case when $10 = '' then high_season_dates_json else ($10::text)::jsonb end, "
+                                              <> "confirm_deadline_normal_h = case when $11 = '' then confirm_deadline_normal_h else $11::integer end, "
+                                              <> "confirm_deadline_high_h = case when $12 = '' then confirm_deadline_high_h else $12::integer end, "
+                                              <> "supplier_payment_note = case when $13 = '' then supplier_payment_note else $13::text end, "
+                                              <> "avg_ad_cost_percent = case when $14 = '' then avg_ad_cost_percent else $14::numeric end, "
+                                              <> "cancellation_policy_text = case when $15 = '' then cancellation_policy_text else $15::text end, "
+                                              <> "ministry_license_ref = case when $16 = '' then ministry_license_ref else $16::text end, "
+                                              <> "external_listing_ref = case when $17 = '' then external_listing_ref else $17::text end, "
+                                              <> "share_to_social = case when $18 = '' then share_to_social when $18 = 'true' then true else false end, "
+                                              <> "allow_ai_caption = case when $19 = '' then allow_ai_caption when $19 = 'true' then true else false end, "
+                                              <> "allow_sub_min_stay_gap_booking = case when $20 = '' then allow_sub_min_stay_gap_booking when $20 = 'true' then true else false end, "
+                                              <> "is_locked = case when $21 = '' then is_locked when $21 = 'true' then true else false end, "
+                                              <> "currency_code = case when $22 = '' then currency_code else upper($22::char(3)) end, "
+                                              <> "updated_at = now() "
+                                              <> "where id = $1::uuid and organization_id = $2::uuid returning id::text",
+                                            )
+                                            |> pog.parameter(pog.text(
+                                              listing_id,
+                                            ))
+                                            |> pog.parameter(pog.text(org_id))
+                                            |> pog.parameter(pog.text(status_t))
+                                            |> pog.parameter(pog.text(min_stay))
+                                            |> pog.parameter(pog.text(cfa_norm))
+                                            |> pog.parameter(pog.text(fca_norm))
+                                            |> pog.parameter(pog.text(pp_norm))
+                                            |> pog.parameter(
+                                              pog.text(string.trim(
+                                                p.pool_size_label,
+                                              )),
+                                            )
+                                            |> pog.parameter(pog.text(comm_norm))
+                                            |> pog.parameter(pog.text(hsd))
+                                            |> pog.parameter(pog.text(cdn))
+                                            |> pog.parameter(pog.text(cdh))
+                                            |> pog.parameter(
+                                              pog.text(string.trim(
+                                                p.supplier_payment_note,
+                                              )),
+                                            )
+                                            |> pog.parameter(pog.text(aac_norm))
+                                            |> pog.parameter(
+                                              pog.text(string.trim(
+                                                p.cancellation_policy_text,
+                                              )),
+                                            )
+                                            |> pog.parameter(
+                                              pog.text(string.trim(
+                                                p.ministry_license_ref,
+                                              )),
+                                            )
+                                            |> pog.parameter(
+                                              pog.text(string.trim(
+                                                p.external_listing_ref,
+                                              )),
+                                            )
+                                            |> pog.parameter(
+                                              pog.text(basics_patch_bool_param(
+                                                p.share_to_social,
+                                              )),
+                                            )
+                                            |> pog.parameter(
+                                              pog.text(basics_patch_bool_param(
+                                                p.allow_ai_caption,
+                                              )),
+                                            )
+                                            |> pog.parameter(
+                                              pog.text(basics_patch_bool_param(
+                                                p.allow_sub_min_stay_gap_booking,
+                                              )),
+                                            )
+                                            |> pog.parameter(
+                                              pog.text(basics_patch_bool_param(
+                                                p.is_locked,
+                                              )),
+                                            )
+                                            |> pog.parameter(
+                                              pog.text(string.trim(
+                                                p.currency_code,
+                                              )),
+                                            )
+                                            |> pog.returning(one_string_row())
+                                            |> db_exec.execute(db)
+                                          {
+                                            Error(e) -> {
+                                              let detail =
+                                                string.lowercase(
+                                                  pog_errors.query_error_to_string(
+                                                    e,
+                                                  ),
+                                                )
+                                              let _ =
+                                                io.println(
+                                                  "[catalog.patch_listing_basics] "
+                                                  <> detail,
+                                                )
+                                              let code = case
+                                                string.contains(
+                                                  detail,
+                                                  "invalid input syntax",
+                                                )
+                                                || string.contains(
+                                                  detail,
+                                                  "invalid_text_representation",
+                                                )
+                                                || string.contains(
+                                                  detail,
+                                                  "numeric field overflow",
+                                                )
+                                                || string.contains(
+                                                  detail,
+                                                  "chk_listing_prepayment_ge_commission",
+                                                )
+                                              {
+                                                True ->
+                                                  "basics_prepayment_lt_commission"
+                                                False -> "basics_update_failed"
+                                              }
+                                              json_err(500, code)
+                                            }
+                                            Ok(ret) ->
+                                              case ret.rows {
+                                                [] ->
+                                                  json_err(
+                                                    404,
+                                                    "listing_not_found",
+                                                  )
+                                                _ -> {
+                                                  let new_status = case
+                                                    status_t == ""
+                                                  {
+                                                    True -> old_status
+                                                    False -> status_t
+                                                  }
+                                                  listing_social_enqueue.enqueue_if_status_published(
+                                                    db,
+                                                    listing_id,
+                                                    old_status,
+                                                    new_status,
+                                                  )
+                                                  // Aktivitede first_charge_amount değiştiyse vitrin_price'ı da tazele.
+                                                  // Bu, seans kaydı atlanırsa bile kart/detay fiyatının güncel kalmasını sağlar.
+                                                  let _ =
+                                                    pog.query(
+                                                      "select refresh_listing_vitrin_prices_for($1::uuid)",
+                                                    )
+                                                    |> pog.parameter(pog.text(
+                                                      listing_id,
+                                                    ))
+                                                    |> db_exec.execute(db)
+                                                  wisp.json_response(
+                                                    "{\"ok\":true}",
+                                                    200,
+                                                  )
+                                                }
+                                              }
+                                          }
+                                      }
+                                  }
+                              }
                           }
-                          listing_social_enqueue.enqueue_if_status_published(
-                            db,
-                            listing_id,
-                            old_status,
-                            new_status,
-                          )
-                          // Aktivitede first_charge_amount değiştiyse vitrin_price'ı da tazele.
-                          // Bu, seans kaydı atlanırsa bile kart/detay fiyatının güncel kalmasını sağlar.
-                          let _ =
-                            pog.query("select refresh_listing_vitrin_prices_for($1::uuid)")
-                            |> pog.parameter(pog.text(listing_id))
-                            |> db_exec.execute(db)
-                          wisp.json_response("{\"ok\":true}", 200)
-                        }
                       }
                   }
-                                      }
-                                    }
-                                  }
-                                }
-                              }
-                            }
-                }
-            }
-        }
-    }
+              }
+          }
+      }
   }
+}
 
 /// PATCH /api/v1/catalog/listings/:id/basics — temel ilan alanlarını güncelle.
 pub fn patch_listing_basics(
@@ -4184,14 +4836,29 @@ pub fn patch_listing_basics(
                             |> pog.returning(pg_bool_row())
                             |> db_exec.execute(ctx.db)
                           {
-                            Error(_) -> json_err(500, "listing_lock_check_failed")
+                            Error(_) ->
+                              json_err(500, "listing_lock_check_failed")
                             Ok(lock_ret) ->
                               case lock_ret.rows {
                                 [True] -> json_err(409, "listing_is_locked")
-                                _ -> do_patch_listing_basics(ctx.db, listing_id, org_id, p, status_t)
+                                _ ->
+                                  do_patch_listing_basics(
+                                    ctx.db,
+                                    listing_id,
+                                    org_id,
+                                    p,
+                                    status_t,
+                                  )
                               }
                           }
-                        False -> do_patch_listing_basics(ctx.db, listing_id, org_id, p, status_t)
+                        False ->
+                          do_patch_listing_basics(
+                            ctx.db,
+                            listing_id,
+                            org_id,
+                            p,
+                            status_t,
+                          )
                       }
                   }
                 }
@@ -4262,24 +4929,31 @@ pub fn patch_listing_slug(
                                     |> db_exec.execute(ctx.db)
                                   {
                                     Error(_) ->
-                                      json_err(500, "slug_conflict_check_failed")
+                                      json_err(
+                                        500,
+                                        "slug_conflict_check_failed",
+                                      )
                                     Ok(ret2) ->
                                       case ret2.rows {
-                                        [True] ->
-                                          json_err(409, "slug_taken")
+                                        [True] -> json_err(409, "slug_taken")
                                         _ ->
                                           case
                                             pog.query(
                                               "update listings set slug = $3, updated_at = now() where id = $1::uuid and organization_id = $2::uuid returning slug",
                                             )
-                                            |> pog.parameter(pog.text(listing_id))
+                                            |> pog.parameter(pog.text(
+                                              listing_id,
+                                            ))
                                             |> pog.parameter(pog.text(org_id))
                                             |> pog.parameter(pog.text(slug))
                                             |> pog.returning(one_string_row())
                                             |> db_exec.execute(ctx.db)
                                           {
                                             Error(_) ->
-                                              json_err(500, "slug_update_failed")
+                                              json_err(
+                                                500,
+                                                "slug_update_failed",
+                                              )
                                             Ok(ret3) ->
                                               case ret3.rows {
                                                 [] ->
@@ -4299,7 +4973,10 @@ pub fn patch_listing_slug(
                                                   wisp.json_response(out, 200)
                                                 }
                                                 _ ->
-                                                  json_err(500, "slug_update_unexpected")
+                                                  json_err(
+                                                    500,
+                                                    "slug_update_unexpected",
+                                                  )
                                               }
                                           }
                                       }
@@ -4326,7 +5003,9 @@ fn owner_contact_row() -> decode.Decoder(#(String, String, String, String)) {
   decode.success(#(n, p, e, b))
 }
 
-fn put_owner_contact_decoder() -> decode.Decoder(#(String, String, String, String)) {
+fn put_owner_contact_decoder() -> decode.Decoder(
+  #(String, String, String, String),
+) {
   decode.optional_field("contact_name", "", decode.string, fn(n) {
     decode.optional_field("contact_phone", "", decode.string, fn(p) {
       decode.optional_field("contact_email", "", decode.string, fn(e) {
@@ -4537,7 +5216,10 @@ fn clamp_coord_range(v: Float, low: Float, hi: Float) -> Float {
   }
 }
 
-fn listing_meta_coord_from(meta: Dict(String, Dynamic), key: String) -> ListingMetaCoordPin {
+fn listing_meta_coord_from(
+  meta: Dict(String, Dynamic),
+  key: String,
+) -> ListingMetaCoordPin {
   case dict.get(meta, key) {
     Error(_) -> CoordSkip
     Ok(dyn_val) ->
@@ -4569,10 +5251,11 @@ fn listing_meta_coord_from(meta: Dict(String, Dynamic), key: String) -> ListingM
   }
 }
 
-fn listing_meta_coord_sql(pin: ListingMetaCoordPin, low: Float, hi: Float) -> #(
-  String,
-  Float,
-) {
+fn listing_meta_coord_sql(
+  pin: ListingMetaCoordPin,
+  low: Float,
+  hi: Float,
+) -> #(String, Float) {
   case pin {
     CoordSkip -> #("s", 0.0)
     CoordClear -> #("n", 0.0)
@@ -4618,7 +5301,9 @@ fn listing_meta_addr_from(meta: Dict(String, Dynamic)) -> ListingMetaAddrPin {
         let deduped =
           list.fold(parts, [], fn(acc, part) {
             let lower = string.lowercase(part)
-            case list.any(acc, fn(existing) { string.lowercase(existing) == lower }) {
+            case
+              list.any(acc, fn(existing) { string.lowercase(existing) == lower })
+            {
               True -> acc
               False -> list.append(acc, [part])
             }
@@ -4671,7 +5356,9 @@ pub fn put_listing_meta(
             Error(_) -> json_err(400, "empty_body")
             Ok(body) -> {
               let cleaned = listing_meta_strip_null_bytes(body)
-              case json.parse(cleaned, decode.dict(decode.string, decode.dynamic)) {
+              case
+                json.parse(cleaned, decode.dict(decode.string, decode.dynamic))
+              {
                 Error(_) -> json_err(400, "invalid_json")
                 Ok(meta_dict) ->
                   case
@@ -4758,11 +5445,17 @@ pub fn update_listing_price_rule(
                 Ok(#(rj, vf_opt, vt_opt)) -> {
                   let vf_res = case vf_opt {
                     None -> Ok(pog.null())
-                    Some(s) -> result.map(parse_iso_date_ymd(s), fn(d) { pog.calendar_date(d) })
+                    Some(s) ->
+                      result.map(parse_iso_date_ymd(s), fn(d) {
+                        pog.calendar_date(d)
+                      })
                   }
                   let vt_res = case vt_opt {
                     None -> Ok(pog.null())
-                    Some(s) -> result.map(parse_iso_date_ymd(s), fn(d) { pog.calendar_date(d) })
+                    Some(s) ->
+                      result.map(parse_iso_date_ymd(s), fn(d) {
+                        pog.calendar_date(d)
+                      })
                   }
                   case rj == "", vf_res, vt_res {
                     True, _, _ -> json_err(400, "rule_json_required")
@@ -4779,13 +5472,14 @@ pub fn update_listing_price_rule(
                         |> db_exec.execute(ctx.db)
                       {
                         Error(_) -> json_err(500, "price_rule_update_failed")
-                        Ok(ret) -> case ret.count {
-                          0 -> json_err(404, "not_found")
-                          _ -> {
-                            refresh_one_listing_vitrin_price(ctx, listing_id)
-                            wisp.json_response("{\"ok\":true}", 200)
+                        Ok(ret) ->
+                          case ret.count {
+                            0 -> json_err(404, "not_found")
+                            _ -> {
+                              refresh_one_listing_vitrin_price(ctx, listing_id)
+                              wisp.json_response("{\"ok\":true}", 200)
+                            }
                           }
-                        }
                       }
                     False, _, _ -> json_err(400, "invalid_date_format")
                   }
@@ -4882,22 +5576,32 @@ fn external_booking_create_decoder() -> decode.Decoder(
       decode.optional_field("source_label", "", decode.string, fn(sl) {
         decode.optional_field("sold_total", "", decode.string, fn(sold) {
           decode.optional_field("amount_received", "", decode.string, fn(recv) {
-            decode.optional_field("amount_remaining", "", decode.string, fn(rem) {
-              decode.optional_field("first_payment_note", "", decode.string, fn(fp) {
-                decode.optional_field("notes", "", decode.string, fn(notes) {
-                  decode.success(#(
-                    string.trim(sf),
-                    string.trim(st),
-                    string.trim(sl),
-                    string.trim(sold),
-                    string.trim(recv),
-                    string.trim(rem),
-                    string.trim(fp),
-                    string.trim(notes),
-                  ))
-                })
-              })
-            })
+            decode.optional_field(
+              "amount_remaining",
+              "",
+              decode.string,
+              fn(rem) {
+                decode.optional_field(
+                  "first_payment_note",
+                  "",
+                  decode.string,
+                  fn(fp) {
+                    decode.optional_field("notes", "", decode.string, fn(notes) {
+                      decode.success(#(
+                        string.trim(sf),
+                        string.trim(st),
+                        string.trim(sl),
+                        string.trim(sold),
+                        string.trim(recv),
+                        string.trim(rem),
+                        string.trim(fp),
+                        string.trim(notes),
+                      ))
+                    })
+                  },
+                )
+              },
+            )
           })
         })
       })
@@ -4954,18 +5658,7 @@ pub fn list_listing_external_bookings(
             Ok(ret) -> {
               let arr =
                 list.map(ret.rows, fn(row) {
-                  let #(
-                    id,
-                    sf,
-                    st,
-                    sl,
-                    sold,
-                    recv,
-                    rem,
-                    fp,
-                    n,
-                    ca,
-                  ) = row
+                  let #(id, sf, st, sl, sold, recv, rem, fp, n, ca) = row
                   json.object([
                     #("id", json.string(id)),
                     #("stay_from", json.string(sf)),
@@ -5040,7 +5733,10 @@ pub fn create_listing_external_booking(
                                 |> db_exec.execute(ctx.db)
                               {
                                 Error(_) ->
-                                  json_err(500, "external_booking_insert_failed")
+                                  json_err(
+                                    500,
+                                    "external_booking_insert_failed",
+                                  )
                                 Ok(r) ->
                                   case r.rows {
                                     [bid] -> {
@@ -5052,7 +5748,8 @@ pub fn create_listing_external_booking(
                                     _ -> json_err(500, "unexpected")
                                   }
                               }
-                            _, _, _ -> json_err(400, "external_booking_invalid_money")
+                            _, _, _ ->
+                              json_err(400, "external_booking_invalid_money")
                           }
                         }
                         _, _ -> json_err(400, "external_booking_invalid_dates")
@@ -5103,7 +5800,9 @@ pub fn patch_listing_external_booking(
                                   <> "first_payment_note = nullif(trim($9::text),''), notes = nullif(trim($10::text),''), updated_at = now() "
                                   <> "where id = $1::uuid and listing_id = $2::uuid",
                                 )
-                                |> pog.parameter(pog.text(string.trim(booking_id)))
+                                |> pog.parameter(
+                                  pog.text(string.trim(booking_id)),
+                                )
                                 |> pog.parameter(pog.text(listing_id))
                                 |> pog.parameter(pog.calendar_date(df))
                                 |> pog.parameter(pog.calendar_date(dt))
@@ -5116,7 +5815,10 @@ pub fn patch_listing_external_booking(
                                 |> db_exec.execute(ctx.db)
                               {
                                 Error(_) ->
-                                  json_err(500, "external_booking_update_failed")
+                                  json_err(
+                                    500,
+                                    "external_booking_update_failed",
+                                  )
                                 Ok(ret) ->
                                   case ret.count {
                                     0 -> json_err(404, "not_found")
@@ -5124,7 +5826,8 @@ pub fn patch_listing_external_booking(
                                       wisp.json_response("{\"ok\":true}", 200)
                                   }
                               }
-                            _, _, _ -> json_err(400, "external_booking_invalid_money")
+                            _, _, _ ->
+                              json_err(400, "external_booking_invalid_money")
                           }
                         }
                         _, _ -> json_err(400, "external_booking_invalid_dates")
@@ -5174,7 +5877,9 @@ pub fn delete_listing_external_booking(
 // ─── Öznitelik Grupları & Tanımları ──────────────────────────────────────────
 // ════════════════════════════════════════════════════════════════════════════
 
-fn attr_group_row() -> decode.Decoder(#(String, String, String, String, Int, Bool)) {
+fn attr_group_row() -> decode.Decoder(
+  #(String, String, String, String, Int, Bool),
+) {
   use id <- decode.field(0, decode.string)
   use code <- decode.field(1, decode.string)
   use name <- decode.field(2, decode.string)
@@ -5236,10 +5941,13 @@ pub fn list_attribute_groups(req: Request, ctx: Context) -> Response {
                 #("id", json.string(id)),
                 #("code", json.string(code)),
                 #("name", json.string(name)),
-                #("category_codes", json.array(
-                  list.filter(string.split(cats, ","), fn(s) { s != "" }),
-                  json.string,
-                )),
+                #(
+                  "category_codes",
+                  json.array(
+                    list.filter(string.split(cats, ","), fn(s) { s != "" }),
+                    json.string,
+                  ),
+                ),
                 #("sort_order", json.int(sort)),
                 #("is_active", json.bool(active)),
               ])
@@ -5254,7 +5962,9 @@ pub fn list_attribute_groups(req: Request, ctx: Context) -> Response {
   }
 }
 
-fn create_attr_group_decoder() -> decode.Decoder(#(String, String, String, String)) {
+fn create_attr_group_decoder() -> decode.Decoder(
+  #(String, String, String, String),
+) {
   decode.optional_field("code", "", decode.string, fn(code) {
     decode.optional_field("name", "", decode.string, fn(name) {
       decode.optional_field("category_codes", "", decode.string, fn(cats) {
@@ -5358,7 +6068,9 @@ pub fn delete_attribute_group(
 
 // ─── Öznitelik Tanımları ──────────────────────────────────────────────────────
 
-fn attr_def_row() -> decode.Decoder(#(String, String, String, String, String, Int, Bool, Bool, String)) {
+fn attr_def_row() -> decode.Decoder(
+  #(String, String, String, String, String, Int, Bool, Bool, String),
+) {
   use id <- decode.field(0, decode.string)
   use code <- decode.field(1, decode.string)
   use label <- decode.field(2, decode.string)
@@ -5371,7 +6083,9 @@ fn attr_def_row() -> decode.Decoder(#(String, String, String, String, String, In
   decode.success(#(id, code, label, ft, opts, sort, req_f, active, icon))
 }
 
-fn public_filter_attr_row() -> decode.Decoder(#(String, String, String, Int, Int, String)) {
+fn public_filter_attr_row() -> decode.Decoder(
+  #(String, String, String, Int, Int, String),
+) {
   use code <- decode.field(0, decode.string)
   use label <- decode.field(1, decode.string)
   use group_code <- decode.field(2, decode.string)
@@ -5423,26 +6137,28 @@ pub fn list_public_filter_attributes(req: Request, ctx: Context) -> Response {
       {
         Error(_) -> json_err(500, "public_filter_attributes_query_failed")
         Ok(ret) -> {
-          let sorted = list.sort(ret.rows, fn(a, b) {
-            let #(_, _, _, ag, ad, _) = a
-            let #(_, _, _, bg, bd, _) = b
-            case int.compare(ag, bg) {
-              order.Eq -> int.compare(ad, bd)
-              other -> other
-            }
-          })
-          let rows = list.map(sorted, fn(r) {
-            let #(code, label, group_code, _, _, icon) = r
-            json.object([
-              #("key", json.string(code)),
-              #("label", json.string(label)),
-              #("group_code", json.string(group_code)),
-              #("icon_url", case string.trim(icon) == "" {
-                True -> json.null()
-                False -> json.string(string.trim(icon))
-              }),
-            ])
-          })
+          let sorted =
+            list.sort(ret.rows, fn(a, b) {
+              let #(_, _, _, ag, ad, _) = a
+              let #(_, _, _, bg, bd, _) = b
+              case int.compare(ag, bg) {
+                order.Eq -> int.compare(ad, bd)
+                other -> other
+              }
+            })
+          let rows =
+            list.map(sorted, fn(r) {
+              let #(code, label, group_code, _, _, icon) = r
+              json.object([
+                #("key", json.string(code)),
+                #("label", json.string(label)),
+                #("group_code", json.string(group_code)),
+                #("icon_url", case string.trim(icon) == "" {
+                  True -> json.null()
+                  False -> json.string(string.trim(icon))
+                }),
+              ])
+            })
           json.object([#("items", json.array(rows, fn(x) { x }))])
           |> json.to_string
           |> wisp.json_response(200)
@@ -5517,7 +6233,8 @@ pub fn list_attribute_defs(
             Ok(ret) -> {
               let rows =
                 list.map(ret.rows, fn(r) {
-                  let #(id, code, label, ft, opts, sort, req_f, active, icon) = r
+                  let #(id, code, label, ft, opts, sort, req_f, active, icon) =
+                    r
                   json.object([
                     #("id", json.string(id)),
                     #("code", json.string(code)),
@@ -5547,7 +6264,9 @@ pub fn list_attribute_defs(
   }
 }
 
-fn create_attr_def_decoder() -> decode.Decoder(#(String, String, String, String, String)) {
+fn create_attr_def_decoder() -> decode.Decoder(
+  #(String, String, String, String, String),
+) {
   decode.optional_field("code", "", decode.string, fn(code) {
     decode.optional_field("label", "", decode.string, fn(label) {
       decode.optional_field("field_type", "text", decode.string, fn(ft) {
@@ -5589,7 +6308,9 @@ pub fn create_attribute_def(
                       let valid_fts = [
                         "text", "number", "boolean", "select", "multiselect",
                       ]
-                      let ft_t = case list.contains(valid_fts, string.trim(ft)) {
+                      let ft_t = case
+                        list.contains(valid_fts, string.trim(ft))
+                      {
                         True -> string.trim(ft)
                         False -> "text"
                       }
@@ -5667,8 +6388,6 @@ pub fn delete_attribute_def(
       }
   }
 }
-
-
 
 fn patch_attr_def_icon_decoder() -> decode.Decoder(String) {
   decode.field("icon_url", decode.string, fn(icon_url) {
@@ -5847,33 +6566,71 @@ pub fn get_public_listing_attributes(
 
 // ─── Yemek Planları ────────────────────────────────────────────────────────────
 
-fn meal_plan_row() -> decode.Decoder(#(String, String, String, String, String, String, String, String, String, String)) {
-  use id       <- decode.field(0, decode.string)
-  use code     <- decode.field(1, decode.string)
-  use label    <- decode.field(2, decode.string)
+fn meal_plan_row() -> decode.Decoder(
+  #(
+    String,
+    String,
+    String,
+    String,
+    String,
+    String,
+    String,
+    String,
+    String,
+    String,
+  ),
+) {
+  use id <- decode.field(0, decode.string)
+  use code <- decode.field(1, decode.string)
+  use label <- decode.field(2, decode.string)
   use label_en <- decode.field(3, decode.string)
-  use meals    <- decode.field(4, decode.string)
-  use extras   <- decode.field(5, decode.string)
-  use price    <- decode.field(6, decode.string)
+  use meals <- decode.field(4, decode.string)
+  use extras <- decode.field(5, decode.string)
+  use price <- decode.field(6, decode.string)
   use currency <- decode.field(7, decode.string)
-  use active   <- decode.field(8, decode.string)
-  use sort     <- decode.field(9, decode.string)
-  decode.success(#(id, code, label, label_en, meals, extras, price, currency, active, sort))
+  use active <- decode.field(8, decode.string)
+  use sort <- decode.field(9, decode.string)
+  decode.success(#(
+    id,
+    code,
+    label,
+    label_en,
+    meals,
+    extras,
+    price,
+    currency,
+    active,
+    sort,
+  ))
 }
 
-fn meal_plan_to_json(row: #(String, String, String, String, String, String, String, String, String, String)) -> json.Json {
-  let #(id, code, label, label_en, meals, extras, price, currency, active, sort) = row
+fn meal_plan_to_json(
+  row: #(
+    String,
+    String,
+    String,
+    String,
+    String,
+    String,
+    String,
+    String,
+    String,
+    String,
+  ),
+) -> json.Json {
+  let #(id, code, label, label_en, meals, extras, price, currency, active, sort) =
+    row
   json.object([
-    #("id",              json.string(id)),
-    #("plan_code",       json.string(code)),
-    #("label",           json.string(label)),
-    #("label_en",        json.string(label_en)),
-    #("included_meals",  json.string(meals)),
+    #("id", json.string(id)),
+    #("plan_code", json.string(code)),
+    #("label", json.string(label)),
+    #("label_en", json.string(label_en)),
+    #("included_meals", json.string(meals)),
     #("included_extras", json.string(extras)),
     #("price_per_night", json.string(price)),
-    #("currency_code",   json.string(currency)),
-    #("is_active",       json.string(active)),
-    #("sort_order",      json.string(sort)),
+    #("currency_code", json.string(currency)),
+    #("is_active", json.string(active)),
+    #("sort_order", json.string(sort)),
   ])
 }
 
@@ -6113,23 +6870,21 @@ pub fn list_public_tour_periods(
   }
 }
 
-fn public_ferry_details_row() ->
-  decode.Decoder(
-    #(
-      String,
-      String,
-      String,
-      String,
-      String,
-      String,
-      String,
-      String,
-      String,
-      String,
-      String,
-    ),
-  )
-{
+fn public_ferry_details_row() -> decode.Decoder(
+  #(
+    String,
+    String,
+    String,
+    String,
+    String,
+    String,
+    String,
+    String,
+    String,
+    String,
+    String,
+  ),
+) {
   use route_code <- decode.field(0, decode.string)
   use from_port <- decode.field(1, decode.string)
   use to_port <- decode.field(2, decode.string)
@@ -6359,7 +7114,8 @@ pub fn list_public_hotel_room_availability_calendar(
             |> pog.returning(hr_avail_day_row())
             |> db_exec.execute(ctx.db)
           {
-            Error(_) -> json_err(500, "public_hotel_room_availability_query_failed")
+            Error(_) ->
+              json_err(500, "public_hotel_room_availability_query_failed")
             Ok(ret) -> {
               let arr =
                 list.map(ret.rows, fn(row) {
@@ -6389,7 +7145,9 @@ pub fn list_public_hotel_room_availability_calendar(
   }
 }
 
-fn bedroom_row() -> decode.Decoder(#(String, String, String, String, String, Bool)) {
+fn bedroom_row() -> decode.Decoder(
+  #(String, String, String, String, String, Bool),
+) {
   use id <- decode.field(0, decode.string)
   use nm <- decode.field(1, decode.string)
   use fl <- decode.field(2, decode.string)
@@ -6399,7 +7157,9 @@ fn bedroom_row() -> decode.Decoder(#(String, String, String, String, String, Boo
   decode.success(#(id, nm, fl, bd, so, en))
 }
 
-fn bedroom_to_json(r: #(String, String, String, String, String, Bool)) -> json.Json {
+fn bedroom_to_json(
+  r: #(String, String, String, String, String, Bool),
+) -> json.Json {
   let #(id, nm, fl, bd, so, en) = r
   let flj = case fl == "" {
     True -> json.null()
@@ -6445,7 +7205,23 @@ pub fn list_public_listing_bedrooms(
   }
 }
 
-fn vitrine_row() -> decode.Decoder(#(String, String, String, String, String, String, String, String, String, String, String, String, String)) {
+fn vitrine_row() -> decode.Decoder(
+  #(
+    String,
+    String,
+    String,
+    String,
+    String,
+    String,
+    String,
+    String,
+    String,
+    String,
+    String,
+    String,
+    String,
+  ),
+) {
   use title <- decode.field(0, decode.string)
   use description <- decode.field(1, decode.string)
   use contact_name <- decode.field(2, decode.string)
@@ -6584,21 +7360,30 @@ pub fn get_public_listing_vitrine(
               #("contact_bio", bio_j),
               #("location_label", loc_j),
               #("external_listing_ref", ref_j),
-              #("external_provider_code", case string.trim(external_provider_code) == "" {
-                True -> json.null()
-                False -> json.string(string.trim(external_provider_code))
-              }),
+              #(
+                "external_provider_code",
+                case string.trim(external_provider_code) == "" {
+                  True -> json.null()
+                  False -> json.string(string.trim(external_provider_code))
+                },
+              ),
               #("location_area", area_j),
               #("location_district", district_j),
               #("location_province", province_j),
-              #("cancellation_policy_text", case string.trim(cancellation_policy_text) == "" {
-                True -> json.null()
-                False -> json.string(string.trim(cancellation_policy_text))
-              }),
-              #("supplier_payment_note", case string.trim(supplier_payment_note) == "" {
-                True -> json.null()
-                False -> json.string(string.trim(supplier_payment_note))
-              }),
+              #(
+                "cancellation_policy_text",
+                case string.trim(cancellation_policy_text) == "" {
+                  True -> json.null()
+                  False -> json.string(string.trim(cancellation_policy_text))
+                },
+              ),
+              #(
+                "supplier_payment_note",
+                case string.trim(supplier_payment_note) == "" {
+                  True -> json.null()
+                  False -> json.string(string.trim(supplier_payment_note))
+                },
+              ),
               #("pool_size_label", case string.trim(pool_size_label) == "" {
                 True -> json.null()
                 False -> json.string(string.trim(pool_size_label))
@@ -6611,18 +7396,33 @@ pub fn get_public_listing_vitrine(
   }
 }
 
-fn meal_plan_create_decoder() -> decode.Decoder(#(String, String, String, String, String, String, String)) {
+fn meal_plan_create_decoder() -> decode.Decoder(
+  #(String, String, String, String, String, String, String),
+) {
   decode.field("plan_code", decode.string, fn(code) {
     decode.field("label", decode.string, fn(label) {
       decode.optional_field("label_en", "", decode.string, fn(label_en) {
         decode.optional_field("included_meals", "[]", decode.string, fn(meals) {
-          decode.optional_field("included_extras", "[]", decode.string, fn(extras) {
-            decode.field("price_per_night", decode.string, fn(price) {
-              decode.field("currency_code", decode.string, fn(currency) {
-                decode.success(#(code, label, label_en, meals, extras, price, currency))
+          decode.optional_field(
+            "included_extras",
+            "[]",
+            decode.string,
+            fn(extras) {
+              decode.field("price_per_night", decode.string, fn(price) {
+                decode.field("currency_code", decode.string, fn(currency) {
+                  decode.success(#(
+                    code,
+                    label,
+                    label_en,
+                    meals,
+                    extras,
+                    price,
+                    currency,
+                  ))
+                })
               })
-            })
-          })
+            },
+          )
         })
       })
     })
@@ -6648,8 +7448,20 @@ pub fn create_manage_meal_plan(
             Ok(body) ->
               case json.parse(body, meal_plan_create_decoder()) {
                 Error(_) -> json_err(400, "invalid_json")
-                Ok(#(code, label, label_en, meals_raw, extras_raw, price_str, currency)) ->
-                  case string.trim(code) == "" || string.trim(label) == "" || string.trim(price_str) == "" {
+                Ok(#(
+                  code,
+                  label,
+                  label_en,
+                  meals_raw,
+                  extras_raw,
+                  price_str,
+                  currency,
+                )) ->
+                  case
+                    string.trim(code) == ""
+                    || string.trim(label) == ""
+                    || string.trim(price_str) == ""
+                  {
                     True -> json_err(400, "plan_code_label_price_required")
                     False ->
                       case
@@ -6670,7 +7482,11 @@ pub fn create_manage_meal_plan(
                         Error(_) -> json_err(500, "meal_plan_insert_failed")
                         Ok(r) ->
                           case r.rows {
-                            [id] -> wisp.json_response("{\"id\":\"" <> id <> "\"}", 201)
+                            [id] ->
+                              wisp.json_response(
+                                "{\"id\":\"" <> id <> "\"}",
+                                201,
+                              )
                             _ -> json_err(500, "unexpected")
                           }
                       }
@@ -6681,23 +7497,55 @@ pub fn create_manage_meal_plan(
   }
 }
 
-fn meal_plan_update_decoder() -> decode.Decoder(#(String, String, String, String, String, String, String, String, String)) {
+fn meal_plan_update_decoder() -> decode.Decoder(
+  #(String, String, String, String, String, String, String, String, String),
+) {
   decode.field("label", decode.string, fn(label) {
     decode.optional_field("label_en", "", decode.string, fn(label_en) {
       decode.optional_field("included_meals", "[]", decode.string, fn(meals) {
-        decode.optional_field("included_extras", "[]", decode.string, fn(extras) {
-          decode.field("price_per_night", decode.string, fn(price) {
-            decode.field("currency_code", decode.string, fn(currency) {
-              decode.optional_field("is_active", "true", decode.string, fn(active) {
-                decode.optional_field("sort_order", "0", decode.string, fn(sort) {
-                  decode.optional_field("notes", "", decode.string, fn(notes) {
-                    decode.success(#(label, label_en, meals, extras, price, currency, active, sort, notes))
-                  })
-                })
+        decode.optional_field(
+          "included_extras",
+          "[]",
+          decode.string,
+          fn(extras) {
+            decode.field("price_per_night", decode.string, fn(price) {
+              decode.field("currency_code", decode.string, fn(currency) {
+                decode.optional_field(
+                  "is_active",
+                  "true",
+                  decode.string,
+                  fn(active) {
+                    decode.optional_field(
+                      "sort_order",
+                      "0",
+                      decode.string,
+                      fn(sort) {
+                        decode.optional_field(
+                          "notes",
+                          "",
+                          decode.string,
+                          fn(notes) {
+                            decode.success(#(
+                              label,
+                              label_en,
+                              meals,
+                              extras,
+                              price,
+                              currency,
+                              active,
+                              sort,
+                              notes,
+                            ))
+                          },
+                        )
+                      },
+                    )
+                  },
+                )
               })
             })
-          })
-        })
+          },
+        )
       })
     })
   })
@@ -6723,7 +7571,17 @@ pub fn update_manage_meal_plan(
             Ok(body) ->
               case json.parse(body, meal_plan_update_decoder()) {
                 Error(_) -> json_err(400, "invalid_json")
-                Ok(#(label, label_en, meals, extras, price, currency, active, sort_str, notes)) ->
+                Ok(#(
+                  label,
+                  label_en,
+                  meals,
+                  extras,
+                  price,
+                  currency,
+                  active,
+                  sort_str,
+                  notes,
+                )) ->
                   case
                     pog.query(
                       "update listing_meal_plans set label=$3, label_en=$4, included_meals=($5::text)::jsonb, included_extras=($6::text)::jsonb, price_per_night=$7::numeric, currency_code=$8, is_active=$9::boolean, sort_order=$10::int, notes=$11 where id=$1::uuid and listing_id=$2::uuid",
@@ -6797,18 +7655,22 @@ pub fn delete_manage_meal_plan(
 
 // ─── Otel vitrin kampanyaları ─────────────────────────────────────────────────
 
-fn hotel_promotion_row() -> decode.Decoder(#(String, String, String, String, String, String, String)) {
-  use id       <- decode.field(0, decode.string)
-  use title    <- decode.field(1, decode.string)
+fn hotel_promotion_row() -> decode.Decoder(
+  #(String, String, String, String, String, String, String),
+) {
+  use id <- decode.field(0, decode.string)
+  use title <- decode.field(1, decode.string)
   use title_en <- decode.field(2, decode.string)
-  use image    <- decode.field(3, decode.string)
-  use link     <- decode.field(4, decode.string)
-  use sort     <- decode.field(5, decode.string)
-  use active   <- decode.field(6, decode.string)
+  use image <- decode.field(3, decode.string)
+  use link <- decode.field(4, decode.string)
+  use sort <- decode.field(5, decode.string)
+  use active <- decode.field(6, decode.string)
   decode.success(#(id, title, title_en, image, link, sort, active))
 }
 
-fn hotel_promotion_to_json(row: #(String, String, String, String, String, String, String)) -> json.Json {
+fn hotel_promotion_to_json(
+  row: #(String, String, String, String, String, String, String),
+) -> json.Json {
   let #(id, title, title_en, image, link, sort, active) = row
   json.object([
     #("id", json.string(id)),
@@ -6886,7 +7748,9 @@ pub fn list_public_hotel_promotions(
   }
 }
 
-fn hotel_promotion_create_decoder() -> decode.Decoder(#(String, String, String, String)) {
+fn hotel_promotion_create_decoder() -> decode.Decoder(
+  #(String, String, String, String),
+) {
   decode.field("title", decode.string, fn(title) {
     decode.optional_field("title_en", "", decode.string, fn(title_en) {
       decode.optional_field("image_url", "", decode.string, fn(image) {
@@ -6934,10 +7798,15 @@ pub fn create_manage_hotel_promotion(
                         |> pog.returning(one_string_row())
                         |> db_exec.execute(ctx.db)
                       {
-                        Error(_) -> json_err(500, "hotel_promotion_insert_failed")
+                        Error(_) ->
+                          json_err(500, "hotel_promotion_insert_failed")
                         Ok(r) ->
                           case r.rows {
-                            [id] -> wisp.json_response("{\"id\":\"" <> id <> "\"}", 201)
+                            [id] ->
+                              wisp.json_response(
+                                "{\"id\":\"" <> id <> "\"}",
+                                201,
+                              )
                             _ -> json_err(500, "unexpected")
                           }
                       }
@@ -6948,7 +7817,9 @@ pub fn create_manage_hotel_promotion(
   }
 }
 
-fn hotel_promotion_update_decoder() -> decode.Decoder(#(String, String, String, String, String, String)) {
+fn hotel_promotion_update_decoder() -> decode.Decoder(
+  #(String, String, String, String, String, String),
+) {
   decode.field("title", decode.string, fn(title) {
     decode.optional_field("title_en", "", decode.string, fn(title_en) {
       decode.optional_field("image_url", "", decode.string, fn(image) {
@@ -7002,7 +7873,8 @@ pub fn update_manage_hotel_promotion(
                         |> pog.parameter(pog.text(sort_str))
                         |> db_exec.execute(ctx.db)
                       {
-                        Error(_) -> json_err(500, "hotel_promotion_update_failed")
+                        Error(_) ->
+                          json_err(500, "hotel_promotion_update_failed")
                         Ok(ret) ->
                           case ret.count {
                             0 -> json_err(404, "not_found")
@@ -7050,22 +7922,62 @@ pub fn delete_manage_hotel_promotion(
   }
 }
 
-fn hotel_activity_row() -> decode.Decoder(#(String, String, String, String, String, String, String, String, String, String, String)) {
-  use id              <- decode.field(0, decode.string)
-  use title           <- decode.field(1, decode.string)
-  use title_en        <- decode.field(2, decode.string)
-  use description     <- decode.field(3, decode.string)
-  use description_en  <- decode.field(4, decode.string)
-  use image           <- decode.field(5, decode.string)
-  use activity_date   <- decode.field(6, decode.string)
-  use price           <- decode.field(7, decode.string)
-  use currency        <- decode.field(8, decode.string)
-  use sort            <- decode.field(9, decode.string)
-  use active          <- decode.field(10, decode.string)
-  decode.success(#(id, title, title_en, description, description_en, image, activity_date, price, currency, sort, active))
+fn hotel_activity_row() -> decode.Decoder(
+  #(
+    String,
+    String,
+    String,
+    String,
+    String,
+    String,
+    String,
+    String,
+    String,
+    String,
+    String,
+  ),
+) {
+  use id <- decode.field(0, decode.string)
+  use title <- decode.field(1, decode.string)
+  use title_en <- decode.field(2, decode.string)
+  use description <- decode.field(3, decode.string)
+  use description_en <- decode.field(4, decode.string)
+  use image <- decode.field(5, decode.string)
+  use activity_date <- decode.field(6, decode.string)
+  use price <- decode.field(7, decode.string)
+  use currency <- decode.field(8, decode.string)
+  use sort <- decode.field(9, decode.string)
+  use active <- decode.field(10, decode.string)
+  decode.success(#(
+    id,
+    title,
+    title_en,
+    description,
+    description_en,
+    image,
+    activity_date,
+    price,
+    currency,
+    sort,
+    active,
+  ))
 }
 
-fn hotel_activity_to_json(row: #(String, String, String, String, String, String, String, String, String, String, String)) -> json.Json {
+fn hotel_activity_to_json(
+  row: #(
+    String,
+    String,
+    String,
+    String,
+    String,
+    String,
+    String,
+    String,
+    String,
+    String,
+    String,
+  ),
+) -> json.Json {
   let #(
     id,
     title,
@@ -7159,21 +8071,47 @@ pub fn list_public_hotel_activities(
   }
 }
 
-fn hotel_activity_create_decoder() -> decode.Decoder(#(String, String, String, String, String, String, String, String)) {
+fn hotel_activity_create_decoder() -> decode.Decoder(
+  #(String, String, String, String, String, String, String, String),
+) {
   decode.field("title", decode.string, fn(title) {
     decode.optional_field("title_en", "", decode.string, fn(title_en) {
       decode.optional_field("description", "", decode.string, fn(description) {
-        decode.optional_field("description_en", "", decode.string, fn(description_en) {
-          decode.optional_field("image_url", "", decode.string, fn(image) {
-            decode.field("activity_date", decode.string, fn(activity_date) {
-              decode.optional_field("stay_surcharge_amount", "0", decode.string, fn(price) {
-                decode.optional_field("currency_code", "TRY", decode.string, fn(currency) {
-                  decode.success(#(title, title_en, description, description_en, image, activity_date, price, currency))
-                })
+        decode.optional_field(
+          "description_en",
+          "",
+          decode.string,
+          fn(description_en) {
+            decode.optional_field("image_url", "", decode.string, fn(image) {
+              decode.field("activity_date", decode.string, fn(activity_date) {
+                decode.optional_field(
+                  "stay_surcharge_amount",
+                  "0",
+                  decode.string,
+                  fn(price) {
+                    decode.optional_field(
+                      "currency_code",
+                      "TRY",
+                      decode.string,
+                      fn(currency) {
+                        decode.success(#(
+                          title,
+                          title_en,
+                          description,
+                          description_en,
+                          image,
+                          activity_date,
+                          price,
+                          currency,
+                        ))
+                      },
+                    )
+                  },
+                )
               })
             })
-          })
-        })
+          },
+        )
       })
     })
   })
@@ -7198,8 +8136,19 @@ pub fn create_manage_hotel_activity(
             Ok(body) ->
               case json.parse(body, hotel_activity_create_decoder()) {
                 Error(_) -> json_err(400, "invalid_json")
-                Ok(#(title, title_en, description, description_en, image, activity_date, price, currency)) ->
-                  case string.trim(title) == "" || string.trim(activity_date) == "" {
+                Ok(#(
+                  title,
+                  title_en,
+                  description,
+                  description_en,
+                  image,
+                  activity_date,
+                  price,
+                  currency,
+                )) ->
+                  case
+                    string.trim(title) == "" || string.trim(activity_date) == ""
+                  {
                     True -> json_err(400, "title_and_date_required")
                     False ->
                       case
@@ -7219,7 +8168,8 @@ pub fn create_manage_hotel_activity(
                         |> pog.returning(decode.at([0], decode.string))
                         |> db_exec.execute(ctx.db)
                       {
-                        Error(_) -> json_err(500, "hotel_activity_insert_failed")
+                        Error(_) ->
+                          json_err(500, "hotel_activity_insert_failed")
                         Ok(ret) ->
                           case ret.rows {
                             [] -> json_err(500, "hotel_activity_insert_failed")
@@ -7238,25 +8188,74 @@ pub fn create_manage_hotel_activity(
   }
 }
 
-fn hotel_activity_update_decoder() -> decode.Decoder(#(String, String, String, String, String, String, String, String, String, String)) {
+fn hotel_activity_update_decoder() -> decode.Decoder(
+  #(
+    String,
+    String,
+    String,
+    String,
+    String,
+    String,
+    String,
+    String,
+    String,
+    String,
+  ),
+) {
   decode.field("title", decode.string, fn(title) {
     decode.optional_field("title_en", "", decode.string, fn(title_en) {
       decode.optional_field("description", "", decode.string, fn(description) {
-        decode.optional_field("description_en", "", decode.string, fn(description_en) {
-          decode.optional_field("image_url", "", decode.string, fn(image) {
-            decode.field("activity_date", decode.string, fn(activity_date) {
-              decode.optional_field("stay_surcharge_amount", "0", decode.string, fn(price) {
-                decode.optional_field("currency_code", "TRY", decode.string, fn(currency) {
-                  decode.optional_field("is_active", "true", decode.string, fn(active) {
-                    decode.optional_field("sort_order", "0", decode.string, fn(sort) {
-                      decode.success(#(title, title_en, description, description_en, image, activity_date, price, currency, active, sort))
-                    })
-                  })
-                })
+        decode.optional_field(
+          "description_en",
+          "",
+          decode.string,
+          fn(description_en) {
+            decode.optional_field("image_url", "", decode.string, fn(image) {
+              decode.field("activity_date", decode.string, fn(activity_date) {
+                decode.optional_field(
+                  "stay_surcharge_amount",
+                  "0",
+                  decode.string,
+                  fn(price) {
+                    decode.optional_field(
+                      "currency_code",
+                      "TRY",
+                      decode.string,
+                      fn(currency) {
+                        decode.optional_field(
+                          "is_active",
+                          "true",
+                          decode.string,
+                          fn(active) {
+                            decode.optional_field(
+                              "sort_order",
+                              "0",
+                              decode.string,
+                              fn(sort) {
+                                decode.success(#(
+                                  title,
+                                  title_en,
+                                  description,
+                                  description_en,
+                                  image,
+                                  activity_date,
+                                  price,
+                                  currency,
+                                  active,
+                                  sort,
+                                ))
+                              },
+                            )
+                          },
+                        )
+                      },
+                    )
+                  },
+                )
               })
             })
-          })
-        })
+          },
+        )
       })
     })
   })
@@ -7282,8 +8281,21 @@ pub fn update_manage_hotel_activity(
             Ok(body) ->
               case json.parse(body, hotel_activity_update_decoder()) {
                 Error(_) -> json_err(400, "invalid_json")
-                Ok(#(title, title_en, description, description_en, image, activity_date, price, currency, active, sort_str)) ->
-                  case string.trim(title) == "" || string.trim(activity_date) == "" {
+                Ok(#(
+                  title,
+                  title_en,
+                  description,
+                  description_en,
+                  image,
+                  activity_date,
+                  price,
+                  currency,
+                  active,
+                  sort_str,
+                )) ->
+                  case
+                    string.trim(title) == "" || string.trim(activity_date) == ""
+                  {
                     True -> json_err(400, "title_and_date_required")
                     False ->
                       case
@@ -7304,7 +8316,8 @@ pub fn update_manage_hotel_activity(
                         |> pog.parameter(pog.text(sort_str))
                         |> db_exec.execute(ctx.db)
                       {
-                        Error(_) -> json_err(500, "hotel_activity_update_failed")
+                        Error(_) ->
+                          json_err(500, "hotel_activity_update_failed")
                         Ok(ret) ->
                           case ret.count {
                             0 -> json_err(404, "not_found")
@@ -7400,14 +8413,13 @@ pub fn put_listing_attribute_values(
 
 fn attr_label_entry_decoder() -> decode.Decoder(#(String, String)) {
   decode.field("locale_code", decode.string, fn(lc) {
-    decode.field("label", decode.string, fn(lb) {
-      decode.success(#(lc, lb))
-    })
+    decode.field("label", decode.string, fn(lb) { decode.success(#(lc, lb)) })
   })
 }
 
-fn put_attr_def_translations_body_decoder(
-) -> decode.Decoder(List(#(String, String))) {
+fn put_attr_def_translations_body_decoder() -> decode.Decoder(
+  List(#(String, String)),
+) {
   decode.field("entries", decode.list(attr_label_entry_decoder()), fn(entries) {
     decode.success(entries)
   })
@@ -7415,14 +8427,13 @@ fn put_attr_def_translations_body_decoder(
 
 fn attr_name_entry_decoder() -> decode.Decoder(#(String, String)) {
   decode.field("locale_code", decode.string, fn(lc) {
-    decode.field("name", decode.string, fn(nm) {
-      decode.success(#(lc, nm))
-    })
+    decode.field("name", decode.string, fn(nm) { decode.success(#(lc, nm)) })
   })
 }
 
-fn put_attr_group_translations_body_decoder(
-) -> decode.Decoder(List(#(String, String))) {
+fn put_attr_group_translations_body_decoder() -> decode.Decoder(
+  List(#(String, String)),
+) {
   decode.field("entries", decode.list(attr_name_entry_decoder()), fn(entries) {
     decode.success(entries)
   })
@@ -7540,7 +8551,12 @@ pub fn put_attribute_def_translations(
                         True -> Error(Nil)
                         False ->
                           case
-                            upsert_attribute_def_translation(ctx.db, did, lc, lb)
+                            upsert_attribute_def_translation(
+                              ctx.db,
+                              did,
+                              lc,
+                              lb,
+                            )
                           {
                             Ok(_) -> Ok(Nil)
                             Error(_) -> Error(Nil)
@@ -7575,7 +8591,9 @@ pub fn put_attribute_group_translations(
           case read_body_string(req) {
             Error(_) -> json_err(400, "empty_body")
             Ok(body) ->
-              case json.parse(body, put_attr_group_translations_body_decoder()) {
+              case
+                json.parse(body, put_attr_group_translations_body_decoder())
+              {
                 Error(_) -> json_err(400, "invalid_json")
                 Ok(entries) -> {
                   let applied =
@@ -7587,7 +8605,12 @@ pub fn put_attribute_group_translations(
                         True -> Error(Nil)
                         False ->
                           case
-                            upsert_attribute_group_translation(ctx.db, gid, lc, nm)
+                            upsert_attribute_group_translation(
+                              ctx.db,
+                              gid,
+                              lc,
+                              nm,
+                            )
                           {
                             Ok(_) -> Ok(Nil)
                             Error(_) -> Error(Nil)
@@ -7635,8 +8658,9 @@ fn create_price_line_decoder() -> decode.Decoder(
   })
 }
 
-fn put_price_line_translations_body_decoder(
-) -> decode.Decoder(List(#(String, String))) {
+fn put_price_line_translations_body_decoder() -> decode.Decoder(
+  List(#(String, String)),
+) {
   decode.field("entries", decode.list(attr_label_entry_decoder()), fn(entries) {
     decode.success(entries)
   })
@@ -7694,10 +8718,10 @@ fn upsert_price_line_translation(
   }
 }
 
-fn listing_category_code(conn: pog.Connection, listing_id: String) -> Result(
-  String,
-  Nil,
-) {
+fn listing_category_code(
+  conn: pog.Connection,
+  listing_id: String,
+) -> Result(String, Nil) {
   case
     pog.query(
       "select c.code::text from listings l "
@@ -7825,9 +8849,15 @@ pub fn create_price_line_item(req: Request, ctx: Context) -> Response {
                       case ret.rows {
                         [id] ->
                           case
-                            upsert_price_line_translation(ctx.db, id, "tr", lb_t)
+                            upsert_price_line_translation(
+                              ctx.db,
+                              id,
+                              "tr",
+                              lb_t,
+                            )
                           {
-                            Error(_) -> json_err(500, "price_line_tr_insert_failed")
+                            Error(_) ->
+                              json_err(500, "price_line_tr_insert_failed")
                             Ok(_) -> {
                               let out =
                                 json.object([
@@ -7895,7 +8925,9 @@ pub fn put_price_line_item_translations(
           case read_body_string(req) {
             Error(_) -> json_err(400, "empty_body")
             Ok(body) ->
-              case json.parse(body, put_price_line_translations_body_decoder()) {
+              case
+                json.parse(body, put_price_line_translations_body_decoder())
+              {
                 Error(_) -> json_err(400, "invalid_json")
                 Ok(entries) -> {
                   let applied =
@@ -7954,10 +8986,7 @@ pub fn get_listing_price_line_selections(
             Ok(ret) -> {
               let ids = list.map(ret.rows, fn(r) { r })
               let body =
-                json.object([#(
-                  "item_ids",
-                  json.array(ids, json.string),
-                )])
+                json.object([#("item_ids", json.array(ids, json.string))])
                 |> json.to_string
               wisp.json_response(body, 200)
             }
@@ -8024,7 +9053,8 @@ pub fn put_listing_price_line_selections(
                               {
                                 Error(_) ->
                                   json_err(500, "price_line_sel_insert_failed")
-                                Ok(_) -> wisp.json_response("{\"ok\":true}", 200)
+                                Ok(_) ->
+                                  wisp.json_response("{\"ok\":true}", 200)
                               }
                             }
                           }
@@ -8060,7 +9090,10 @@ fn acc_rules_public_vitrine_row() -> decode.Decoder(
 }
 
 /// GET /api/v1/catalog/accommodation-rules?category_code=holiday_home — yönetim: kategori konaklama kuralları JSON
-pub fn get_manage_category_accommodation_rules(req: Request, ctx: Context) -> Response {
+pub fn get_manage_category_accommodation_rules(
+  req: Request,
+  ctx: Context,
+) -> Response {
   use <- wisp.require_method(req, http.Get)
   case resolve_manage_listings_scope(req, ctx) {
     Error(r) -> r
@@ -8106,7 +9139,10 @@ pub fn get_manage_category_accommodation_rules(req: Request, ctx: Context) -> Re
 }
 
 /// PUT /api/v1/catalog/accommodation-rules?category_code=holiday_home — gövde: JSON dizi `[{...}]`
-pub fn put_manage_category_accommodation_rules(req: Request, ctx: Context) -> Response {
+pub fn put_manage_category_accommodation_rules(
+  req: Request,
+  ctx: Context,
+) -> Response {
   use <- wisp.require_method(req, http.Put)
   case resolve_manage_listings_scope(req, ctx) {
     Error(r) -> r
@@ -8179,29 +9215,33 @@ pub fn get_public_listing_accommodation_rules(
     Ok(ret) ->
       case ret.rows {
         [] -> json_err(404, "listing_not_found")
-        [#(
-          rules_json,
-          selected_ids_json,
-          check_in_time,
-          check_out_time,
-          rule_codes_csv,
-        )] -> {
-          let rule_codes_json =
-            case string.trim(rule_codes_csv) == "" {
-              True -> "[]"
-              False ->
-                json.array(
-                  from: list.filter_map(string.split(rule_codes_csv, ","), fn(code) {
+        [
+          #(
+            rules_json,
+            selected_ids_json,
+            check_in_time,
+            check_out_time,
+            rule_codes_csv,
+          ),
+        ] -> {
+          let rule_codes_json = case string.trim(rule_codes_csv) == "" {
+            True -> "[]"
+            False ->
+              json.array(
+                from: list.filter_map(
+                  string.split(rule_codes_csv, ","),
+                  fn(code) {
                     let t = string.trim(code)
                     case t == "" {
                       True -> Error(Nil)
                       False -> Ok(t)
                     }
-                  }),
-                  of: json.string,
-                )
-                |> json.to_string
-            }
+                  },
+                ),
+                of: json.string,
+              )
+              |> json.to_string
+          }
           let body =
             json.object([
               #("rules_json", json.string(rules_json)),
@@ -8229,16 +9269,16 @@ pub fn admin_dashboard_catalog_stats(req: Request, ctx: Context) -> Response {
       case
         pog.query(
           "select count(*)::text from listings l "
-            <> "join product_categories pc on pc.id = l.category_id "
-            <> "where l.status = 'published' "
-            <> "and (pc.code = 'flight' "
-            <> "or coalesce(trim(l.featured_image_url), '') <> '' "
-            <> "or coalesce(trim(l.thumbnail_url), '') <> '' "
-            <> "or exists (select 1 from listing_images li "
-            <> "           where li.listing_id = l.id "
-            <> "             and trim(coalesce(li.storage_key, '')) <> '' limit 1)) "
-            <> "and (pc.code != 'hotel' or coalesce(l.vitrin_price, l.first_charge_amount, 0) > 0) "
-            <> "and (pc.code != 'tour' or coalesce(l.vitrin_price, l.first_charge_amount, 0) > 0)",
+          <> "join product_categories pc on pc.id = l.category_id "
+          <> "where l.status = 'published' "
+          <> "and (pc.code = 'flight' "
+          <> "or coalesce(trim(l.featured_image_url), '') <> '' "
+          <> "or coalesce(trim(l.thumbnail_url), '') <> '' "
+          <> "or exists (select 1 from listing_images li "
+          <> "           where li.listing_id = l.id "
+          <> "             and trim(coalesce(li.storage_key, '')) <> '' limit 1)) "
+          <> "and (pc.code != 'hotel' or coalesce(l.vitrin_price, l.first_charge_amount, 0) > 0) "
+          <> "and (pc.code != 'tour' or coalesce(l.vitrin_price, l.first_charge_amount, 0) > 0)",
         )
         |> pog.returning(one_string_row())
         |> db_exec.execute(ctx.db)

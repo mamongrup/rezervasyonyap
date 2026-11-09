@@ -55,8 +55,7 @@ fn listing_price_rule_nightly_lateral_values_sql() -> String {
 /// Wtatil import: `listing_tour_details.program_days_json` → vitrin `price_from` (kişi başı).
 fn tour_listing_vitrin_price_sql() -> String {
   "case when l.external_provider_code = 'wtatil' then public.wtatil_current_sale_price(l.id)::text else "
-  <>
-  "nullif(trim(coalesce("
+  <> "nullif(trim(coalesce("
   <> "case when jsonb_typeof(tour_det.program_days_json->'cheapest_price') = 'number' "
   <> "then tour_det.program_days_json->>'cheapest_price' "
   <> "when jsonb_typeof(tour_det.program_days_json->'cheapest_price') = 'object' "

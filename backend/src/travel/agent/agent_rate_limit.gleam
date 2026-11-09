@@ -8,7 +8,10 @@ import travel/db/resilient_pog as db_exec
 const max_requests_per_minute: Int = 300
 
 /// İsteği sayar; limit aşıldıysa kalan saniyeyi döner.
-pub fn check_and_record(ctx: Context, organization_id: String) -> Result(Nil, Int) {
+pub fn check_and_record(
+  ctx: Context,
+  organization_id: String,
+) -> Result(Nil, Int) {
   case
     pog.query(
       "with bucket as ( "
@@ -34,19 +37,19 @@ pub fn check_and_record(ctx: Context, organization_id: String) -> Result(Nil, In
       case ret.rows {
         [cnt] ->
           case cnt > max_requests_per_minute {
-                True -> {
-                  let _ =
-                    pog.query("select agent_api_usage_purge_old()")
-                    |> db_exec.execute(ctx.db)
-                  Error(60)
-                }
-                False -> {
-                  let _ =
-                    pog.query("select agent_api_usage_purge_old()")
-                    |> db_exec.execute(ctx.db)
-                  Ok(Nil)
-                }
-              }
+            True -> {
+              let _ =
+                pog.query("select agent_api_usage_purge_old()")
+                |> db_exec.execute(ctx.db)
+              Error(60)
+            }
+            False -> {
+              let _ =
+                pog.query("select agent_api_usage_purge_old()")
+                |> db_exec.execute(ctx.db)
+              Ok(Nil)
+            }
+          }
         _ -> Ok(Nil)
       }
   }

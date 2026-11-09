@@ -5,8 +5,8 @@ import gleam/json
 import gleam/option.{type Option}
 import gleam/string
 import pog
-import travel/db/resilient_pog as db_exec
 import travel/db/decode_helpers as row_dec
+import travel/db/resilient_pog as db_exec
 
 fn plan_json_from_llm(raw: String) -> String {
   let trimmed = string.trim(raw)

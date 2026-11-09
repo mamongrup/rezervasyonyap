@@ -12,8 +12,8 @@ import gleam/result
 import gleam/string
 import gleam/uri
 import pog
-import travel/db/resilient_pog as db_exec
 import travel/db/decode_helpers as row_dec
+import travel/db/resilient_pog as db_exec
 import wisp.{type Request, type Response}
 
 import travel/integrations/paratika.{
@@ -64,25 +64,24 @@ fn paratika_bases_for_mode(mode: String) -> #(String, String) {
 fn paratika_settings_from_db(
   db: pog.Connection,
 ) -> #(String, String, String, String, String, String) {
-  let raw =
-    case
-      pog.query(
-        "select value_json::text from site_settings"
-        <> " where key = 'payment_gateways' and organization_id is null limit 1",
-      )
-      |> pog.returning({
-        use a <- decode.field(0, decode.string)
-        decode.success(a)
-      })
-      |> db_exec.execute(db)
-    {
-      Ok(ret) ->
-        case ret.rows {
-          [r] -> r
-          _ -> ""
-        }
-      Error(_) -> ""
-    }
+  let raw = case
+    pog.query(
+      "select value_json::text from site_settings"
+      <> " where key = 'payment_gateways' and organization_id is null limit 1",
+    )
+    |> pog.returning({
+      use a <- decode.field(0, decode.string)
+      decode.success(a)
+    })
+    |> db_exec.execute(db)
+  {
+    Ok(ret) ->
+      case ret.rows {
+        [r] -> r
+        _ -> ""
+      }
+    Error(_) -> ""
+  }
 
   let decoder =
     decode.field(
@@ -188,7 +187,9 @@ fn load_config_db_first(db: pog.Connection) -> Result(ParatikaConfig, String) {
         sd_secret:,
       ))
     False ->
-      Error("paratika_not_configured_set_PARATIKA_MERCHANT_USER_PASSWORD_SD_SECRET")
+      Error(
+        "paratika_not_configured_set_PARATIKA_MERCHANT_USER_PASSWORD_SD_SECRET",
+      )
   }
 }
 
@@ -199,27 +200,32 @@ fn session_input_decoder() -> decode.Decoder(SessionTokenInput) {
         decode.optional_field("user_name", "", decode.string, fn(user_name) {
           decode.optional_field("currency", "TRY", decode.string, fn(currency) {
             decode.field("user_ip", decode.string, fn(user_ip) {
-              decode.optional_field("guest_phone", "0000000000", decode.string, fn(phone) {
-                decode.optional_field(
-                  "order_title",
-                  "Rezervasyon",
-                  decode.string,
-                  fn(order_title) {
-                    decode.success(SessionTokenInput(
-                      merchant_payment_id: merchant_oid,
-                      payment_amount_kurus: payment_amount,
-                      currency: currency,
-                      customer_id: merchant_oid,
-                      customer_name: user_name,
-                      customer_email: email,
-                      customer_phone: phone,
-                      customer_ip: user_ip,
-                      return_url: "",
-                      order_title: order_title,
-                    ))
-                  },
-                )
-              })
+              decode.optional_field(
+                "guest_phone",
+                "0000000000",
+                decode.string,
+                fn(phone) {
+                  decode.optional_field(
+                    "order_title",
+                    "Rezervasyon",
+                    decode.string,
+                    fn(order_title) {
+                      decode.success(SessionTokenInput(
+                        merchant_payment_id: merchant_oid,
+                        payment_amount_kurus: payment_amount,
+                        currency: currency,
+                        customer_id: merchant_oid,
+                        customer_name: user_name,
+                        customer_email: email,
+                        customer_phone: phone,
+                        customer_ip: user_ip,
+                        return_url: "",
+                        order_title: order_title,
+                      ))
+                    },
+                  )
+                },
+              )
             })
           })
         })
@@ -330,9 +336,11 @@ pub fn payment_return(req: Request, ctx: Context) -> Response {
                 })
               {
                 Ok(_) -> {
-                  let mp = case list.find(pairs, fn(p) {
-                    string.lowercase(p.0) == "merchantpaymentid"
-                  }) {
+                  let mp = case
+                    list.find(pairs, fn(p) {
+                      string.lowercase(p.0) == "merchantpaymentid"
+                    })
+                  {
                     Ok(#(_, v)) -> v
                     Error(_) -> ""
                   }
@@ -349,20 +357,23 @@ pub fn payment_return(req: Request, ctx: Context) -> Response {
                         |> db_exec.execute(ctx.db)
                       {
                         Error(_) ->
-                          html_redirect(public_origin() <> "/checkout?pay=error")
+                          html_redirect(
+                            public_origin() <> "/checkout?pay=error",
+                          )
                         Ok(ret) ->
                           case ret.rows {
                             [code] -> {
-                              let ok = case list.find(pairs, fn(p) {
-                                string.lowercase(p.0) == "responsecode"
-                              }) {
+                              let ok = case
+                                list.find(pairs, fn(p) {
+                                  string.lowercase(p.0) == "responsecode"
+                                })
+                              {
                                 Ok(#(_, v)) -> string.trim(v) == "00"
                                 Error(_) -> False
                               }
                               let path = case ok {
                                 True ->
-                                  "/pay-done?code="
-                                  <> uri.percent_encode(code)
+                                  "/pay-done?code=" <> uri.percent_encode(code)
                                 False ->
                                   "/checkout?pay=failed&code="
                                   <> uri.percent_encode(code)
@@ -370,7 +381,9 @@ pub fn payment_return(req: Request, ctx: Context) -> Response {
                               html_redirect(public_origin() <> path)
                             }
                             _ ->
-                              html_redirect(public_origin() <> "/checkout?pay=missing")
+                              html_redirect(
+                                public_origin() <> "/checkout?pay=missing",
+                              )
                           }
                       }
                   }

@@ -10,8 +10,8 @@ import gleam/list
 import gleam/result
 import gleam/string
 import pog
-import travel/db/resilient_pog as db_exec
 import travel/db/decode_helpers as row_dec
+import travel/db/resilient_pog as db_exec
 import travel/identity/permissions
 import wisp.{type Request, type Response}
 
@@ -27,7 +27,10 @@ fn read_body_string(req: Request) -> Result(String, Nil) {
   bit_array.to_string(bits)
 }
 
-fn require_admin_users_read(req: Request, ctx: Context) -> Result(String, Response) {
+fn require_admin_users_read(
+  req: Request,
+  ctx: Context,
+) -> Result(String, Response) {
   case permissions.session_user_from_request(req, ctx.db) {
     Error(r) -> Error(r)
     Ok(uid) ->
@@ -40,7 +43,9 @@ fn require_admin_users_read(req: Request, ctx: Context) -> Result(String, Respon
 
 fn locale_id_by_code(ctx: Context, code: String) -> Result(String, Nil) {
   case
-    pog.query("select id::text from locales where lower(code) = lower($1) limit 1")
+    pog.query(
+      "select id::text from locales where lower(code) = lower($1) limit 1",
+    )
     |> pog.parameter(pog.text(string.trim(code)))
     |> pog.returning(row_dec.col0_string())
     |> db_exec.execute(ctx.db)

@@ -36,7 +36,9 @@ pub fn send_sms(req: Request, ctx: Context) -> Response {
   case permissions.session_user_from_request(req, ctx.db) {
     Error(r) -> r
     Ok(uid) ->
-      case permissions.user_has_permission(ctx.db, uid, "admin.integrations.write") {
+      case
+        permissions.user_has_permission(ctx.db, uid, "admin.integrations.write")
+      {
         False -> json_err(403, "forbidden")
         True ->
           case read_body_string(req) {

@@ -3,18 +3,18 @@
 //// Adminler başvuruları listeler ve onaylar/reddeder.
 
 import backend/context.{type Context}
-import travel/identity/permissions
-import travel/messaging/notification_runtime
 import gleam/bit_array
 import gleam/dynamic/decode
-import gleam/result
 import gleam/http/request
 import gleam/json
 import gleam/list
 import gleam/option.{None, Some}
+import gleam/result
 import gleam/string
 import pog
 import travel/db/resilient_pog as db_exec
+import travel/identity/permissions
+import travel/messaging/notification_runtime
 import wisp.{type Request, type Response}
 
 fn json_err(status: Int, msg: String) -> Response {
@@ -60,10 +60,7 @@ fn session_user(conn: pog.Connection, token: String) -> Result(String, Nil) {
 }
 
 /// or_error: if Error(resp), return resp; if Ok(val), call next(val)
-fn or_error(
-  res: Result(a, Response),
-  next: fn(a) -> Response,
-) -> Response {
+fn or_error(res: Result(a, Response), next: fn(a) -> Response) -> Response {
   case res {
     Error(resp) -> resp
     Ok(val) -> next(val)
@@ -120,7 +117,20 @@ fn check_submit_ready(
 // ── Application row decoder ───────────────────────────────────────────────────
 
 fn app_row_decoder() -> decode.Decoder(
-  #(String, String, String, String, String, String, String, String, String, String, String, String),
+  #(
+    String,
+    String,
+    String,
+    String,
+    String,
+    String,
+    String,
+    String,
+    String,
+    String,
+    String,
+    String,
+  ),
 ) {
   use id <- decode.field(0, decode.string)
   use user_id <- decode.field(1, decode.string)
@@ -135,18 +145,51 @@ fn app_row_decoder() -> decode.Decoder(
   use admin_notes <- decode.field(10, decode.string)
   use created_at <- decode.field(11, decode.string)
   decode.success(#(
-    id, user_id, category_code, status, business_name, business_type,
-    tax_number, phone, address, notes, admin_notes, created_at,
+    id,
+    user_id,
+    category_code,
+    status,
+    business_name,
+    business_type,
+    tax_number,
+    phone,
+    address,
+    notes,
+    admin_notes,
+    created_at,
   ))
 }
 
 fn app_to_json(
-  row: #(String, String, String, String, String, String, String, String, String, String, String, String),
+  row: #(
+    String,
+    String,
+    String,
+    String,
+    String,
+    String,
+    String,
+    String,
+    String,
+    String,
+    String,
+    String,
+  ),
   docs: List(#(String, String, String, String, String)),
 ) -> json.Json {
   let #(
-    id, user_id, category_code, status, business_name, business_type,
-    tax_number, phone, address, notes, admin_notes, created_at,
+    id,
+    user_id,
+    category_code,
+    status,
+    business_name,
+    business_type,
+    tax_number,
+    phone,
+    address,
+    notes,
+    admin_notes,
+    created_at,
   ) = row
   let docs_json =
     list.map(docs, fn(d) {
@@ -232,10 +275,13 @@ pub fn list_my_applications(req: Request, ctx: Context) -> Response {
         #(
           "applications",
           json.array(r.rows, fn(row) {
-            app_to_json(row, fetch_docs(ctx.db, {
-              let #(id, _, _, _, _, _, _, _, _, _, _, _) = row
-              id
-            }))
+            app_to_json(
+              row,
+              fetch_docs(ctx.db, {
+                let #(id, _, _, _, _, _, _, _, _, _, _, _) = row
+                id
+              }),
+            )
           }),
         ),
       ])
@@ -266,10 +312,7 @@ pub fn upsert_application(req: Request, ctx: Context) -> Response {
       "business_type",
       decode.optional(decode.string),
     )
-    use tax_number <- decode.field(
-      "tax_number",
-      decode.optional(decode.string),
-    )
+    use tax_number <- decode.field("tax_number", decode.optional(decode.string))
     use phone <- decode.field("phone", decode.optional(decode.string))
     use address <- decode.field("address", decode.optional(decode.string))
     use notes <- decode.field("notes", decode.optional(decode.string))
@@ -326,7 +369,10 @@ pub fn upsert_application(req: Request, ctx: Context) -> Response {
               case list.first(r.rows) {
                 Error(_) -> json_err(500, "no_row")
                 Ok(id) ->
-                  json.object([#("id", json.string(id)), #("ok", json.bool(True))])
+                  json.object([
+                    #("id", json.string(id)),
+                    #("ok", json.bool(True)),
+                  ])
                   |> json.to_string
                   |> wisp.json_response(200)
               }
@@ -340,8 +386,18 @@ pub fn upsert_application(req: Request, ctx: Context) -> Response {
 /// Listenin frontend `TedarikciOlClient.tsx > CATEGORIES` ile senkron tutulması gerekir.
 fn is_known_supplier_category(code: String) -> Bool {
   case code {
-    "hotel" | "holiday_home" | "yacht_charter" | "tour" | "activity" | "cruise"
-    | "car_rental" | "transfer" | "ferry" | "hajj" | "visa" | "flight" -> True
+    "hotel"
+    | "holiday_home"
+    | "yacht_charter"
+    | "tour"
+    | "activity"
+    | "cruise"
+    | "car_rental"
+    | "transfer"
+    | "ferry"
+    | "hajj"
+    | "visa"
+    | "flight" -> True
     _ -> False
   }
 }
@@ -422,7 +478,11 @@ pub fn upsert_document(req: Request, ctx: Context, app_id: String) -> Response {
 
 // ── Public: submit application for review ────────────────────────────────────
 
-pub fn submit_application(req: Request, ctx: Context, app_id: String) -> Response {
+pub fn submit_application(
+  req: Request,
+  ctx: Context,
+  app_id: String,
+) -> Response {
   let token = bearer_token(req)
   use user_id <- or_error(
     session_user(ctx.db, token)
@@ -463,12 +523,13 @@ pub fn submit_application(req: Request, ctx: Context, app_id: String) -> Respons
 // ── Admin: list all applications ─────────────────────────────────────────────
 
 pub fn admin_list_applications(req: Request, ctx: Context) -> Response {
-  use _ <- or_error(
-    case permissions.session_user_from_request(req, ctx.db) {
+  use _ <- or_error(case permissions.session_user_from_request(req, ctx.db) {
     Error(r) -> Error(r)
-    Ok(uid) -> permissions.require_permission(ctx.db, uid, "admin.users.read") |> result.map_error(fn(_) { json_err(403, "forbidden") }) |> result.map(fn(_) { uid })
-  },
-  )
+    Ok(uid) ->
+      permissions.require_permission(ctx.db, uid, "admin.users.read")
+      |> result.map_error(fn(_) { json_err(403, "forbidden") })
+      |> result.map(fn(_) { uid })
+  })
   let status_filter =
     request.get_query(req)
     |> result.unwrap([])
@@ -486,8 +547,7 @@ pub fn admin_list_applications(req: Request, ctx: Context) -> Response {
        from supplier_applications a
        join users u on u.id = a.user_id
        order by a.created_at desc limit 200"
-    False ->
-      "select a.id::text, a.user_id::text, u.email, u.display_name,
+    False -> "select a.id::text, a.user_id::text, u.email, u.display_name,
               a.category_code, a.status,
               coalesce(a.business_name,''), coalesce(a.business_type,''),
               coalesce(a.tax_number,''), coalesce(a.phone,''),
@@ -515,9 +575,20 @@ pub fn admin_list_applications(req: Request, ctx: Context) -> Response {
     use submitted_at <- decode.field(12, decode.string)
     use reviewed_at <- decode.field(13, decode.string)
     decode.success(#(
-      id, user_id, email, display_name, category_code, status,
-      business_name, business_type, tax_number, phone, admin_notes,
-      created_at, submitted_at, reviewed_at,
+      id,
+      user_id,
+      email,
+      display_name,
+      category_code,
+      status,
+      business_name,
+      business_type,
+      tax_number,
+      phone,
+      admin_notes,
+      created_at,
+      submitted_at,
+      reviewed_at,
     ))
   }
 
@@ -529,9 +600,20 @@ pub fn admin_list_applications(req: Request, ctx: Context) -> Response {
           "applications",
           json.array(r.rows, fn(row) {
             let #(
-              id, user_id, email, display_name, cat, status,
-              bname, btype, taxno, phone, anotes,
-              created_at, submitted_at, reviewed_at,
+              id,
+              user_id,
+              email,
+              display_name,
+              cat,
+              status,
+              bname,
+              btype,
+              taxno,
+              phone,
+              anotes,
+              created_at,
+              submitted_at,
+              reviewed_at,
             ) = row
             let docs = fetch_docs(ctx.db, id)
             json.object([
@@ -576,9 +658,12 @@ pub fn admin_list_applications(req: Request, ctx: Context) -> Response {
 pub fn admin_approve(req: Request, ctx: Context, app_id: String) -> Response {
   use reviewer_id <- or_error(
     case permissions.session_user_from_request(req, ctx.db) {
-    Error(r) -> Error(r)
-    Ok(uid) -> permissions.require_permission(ctx.db, uid, "admin.users.read") |> result.map_error(fn(_) { json_err(403, "forbidden") }) |> result.map(fn(_) { uid })
-  },
+      Error(r) -> Error(r)
+      Ok(uid) ->
+        permissions.require_permission(ctx.db, uid, "admin.users.read")
+        |> result.map_error(fn(_) { json_err(403, "forbidden") })
+        |> result.map(fn(_) { uid })
+    },
   )
   // approve application
   case
@@ -673,9 +758,12 @@ pub fn admin_approve(req: Request, ctx: Context, app_id: String) -> Response {
 pub fn admin_reject(req: Request, ctx: Context, app_id: String) -> Response {
   use reviewer_id <- or_error(
     case permissions.session_user_from_request(req, ctx.db) {
-    Error(r) -> Error(r)
-    Ok(uid) -> permissions.require_permission(ctx.db, uid, "admin.users.read") |> result.map_error(fn(_) { json_err(403, "forbidden") }) |> result.map(fn(_) { uid })
-  },
+      Error(r) -> Error(r)
+      Ok(uid) ->
+        permissions.require_permission(ctx.db, uid, "admin.users.read")
+        |> result.map_error(fn(_) { json_err(403, "forbidden") })
+        |> result.map(fn(_) { uid })
+    },
   )
   use body <- or_error(
     read_body(req) |> result.map_error(fn(_) { json_err(400, "bad_body") }),
@@ -697,10 +785,12 @@ pub fn admin_reject(req: Request, ctx: Context, app_id: String) -> Response {
     )
     |> pog.parameter(pog.text(app_id))
     |> pog.parameter(pog.text(reviewer_id))
-    |> pog.parameter(pog.nullable(pog.text, case admin_notes {
-      "" -> None
-      n -> Some(n)
-    }))
+    |> pog.parameter(
+      pog.nullable(pog.text, case admin_notes {
+        "" -> None
+        n -> Some(n)
+      }),
+    )
     |> pog.returning({
       use a <- decode.field(0, decode.string)
       decode.success(a)
@@ -713,11 +803,10 @@ pub fn admin_reject(req: Request, ctx: Context, app_id: String) -> Response {
         Error(_) -> json_err(404, "not_found")
         Ok(_) -> {
           let note_trim = string.trim(admin_notes)
-          let admin_note =
-            case note_trim == "" {
-              True -> ""
-              False -> "\n\nYönetici notu: " <> note_trim
-            }
+          let admin_note = case note_trim == "" {
+            True -> ""
+            False -> "\n\nYönetici notu: " <> note_trim
+          }
           case
             pog.query(
               "select u.id::text, coalesce(u.email,''), coalesce(u.phone,''), coalesce(u.display_name,''), coalesce(a.business_name,''), a.category_code::text "
@@ -770,5 +859,3 @@ pub fn admin_reject(req: Request, ctx: Context, app_id: String) -> Response {
       }
   }
 }
-
-

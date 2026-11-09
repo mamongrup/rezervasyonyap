@@ -11,8 +11,8 @@ import gleam/option.{type Option, None, Some}
 import gleam/result
 import gleam/string
 import pog
-import travel/db/resilient_pog as db_exec
 import travel/db/decode_helpers as row_dec
+import travel/db/resilient_pog as db_exec
 import travel/identity/admin_gate
 import wisp.{type Request, type Response}
 
@@ -23,7 +23,11 @@ fn json_err(status: Int, msg: String) -> Response {
   wisp.json_response(body, status)
 }
 
-fn require_admin(req: Request, ctx: Context, next: fn() -> Response) -> Response {
+fn require_admin(
+  req: Request,
+  ctx: Context,
+  next: fn() -> Response,
+) -> Response {
   case admin_gate.require_admin_users_read(req, ctx) {
     Error(r) -> r
     Ok(_) -> next()
@@ -105,7 +109,6 @@ pub fn deactivate_cdn(req: Request, ctx: Context) -> Response {
   }
 }
 
-
 fn set_cdn_decoder() -> decode.Decoder(String) {
   decode.field("code", decode.string, fn(code) { decode.success(code) })
 }
@@ -140,7 +143,10 @@ pub fn get_cdn_all(req: Request, ctx: Context) -> Response {
         ret.rows
         |> list.map(fn(r) {
           let #(code, url, active, cfg) = r
-          let url_field = case url == "" { True -> json.null() False -> json.string(url) }
+          let url_field = case url == "" {
+            True -> json.null()
+            False -> json.string(url)
+          }
           json.object([
             #("code", json.string(code)),
             #("pull_zone_url", url_field),
@@ -166,7 +172,10 @@ pub fn update_cdn_config(req: Request, ctx: Context) -> Response {
         Ok(#(code_raw, url_raw, cfg_raw)) -> {
           let code = string.lowercase(string.trim(code_raw))
           let url = string.trim(url_raw)
-          let cfg = case string.trim(cfg_raw) { "" -> "{}" c -> c }
+          let cfg = case string.trim(cfg_raw) {
+            "" -> "{}"
+            c -> c
+          }
           case code == "bunny" || code == "cloudflare" {
             False -> json_err(400, "invalid_code")
             True ->
@@ -175,7 +184,10 @@ pub fn update_cdn_config(req: Request, ctx: Context) -> Response {
                   "update cdn_connections set pull_zone_url = $2, config_json = $3::jsonb where provider_code = $1 returning provider_code::text",
                 )
                 |> pog.parameter(pog.text(code))
-                |> pog.parameter(case url == "" { True -> pog.null() False -> pog.text(url) })
+                |> pog.parameter(case url == "" {
+                  True -> pog.null()
+                  False -> pog.text(url)
+                })
                 |> pog.parameter(pog.text(cfg))
                 |> pog.returning(row_dec.col0_string())
                 |> db_exec.execute(ctx.db)
@@ -186,7 +198,10 @@ pub fn update_cdn_config(req: Request, ctx: Context) -> Response {
                     [] -> json_err(404, "provider_not_found")
                     [_] -> {
                       let out =
-                        json.object([#("ok", json.bool(True)), #("code", json.string(code))])
+                        json.object([
+                          #("ok", json.bool(True)),
+                          #("code", json.string(code)),
+                        ])
                         |> json.to_string
                       wisp.json_response(out, 200)
                     }
@@ -219,7 +234,10 @@ pub fn update_cdn_url(req: Request, ctx: Context) -> Response {
                   "update cdn_connections set pull_zone_url = $2 where provider_code = $1 returning provider_code::text",
                 )
                 |> pog.parameter(pog.text(code))
-                |> pog.parameter(case url == "" { True -> pog.null() False -> pog.text(url) })
+                |> pog.parameter(case url == "" {
+                  True -> pog.null()
+                  False -> pog.text(url)
+                })
                 |> pog.returning(row_dec.col0_string())
                 |> db_exec.execute(ctx.db)
               {
@@ -229,7 +247,10 @@ pub fn update_cdn_url(req: Request, ctx: Context) -> Response {
                     [] -> json_err(404, "provider_not_found")
                     [_] -> {
                       let out =
-                        json.object([#("ok", json.bool(True)), #("code", json.string(code))])
+                        json.object([
+                          #("ok", json.bool(True)),
+                          #("code", json.string(code)),
+                        ])
                         |> json.to_string
                       wisp.json_response(out, 200)
                     }
@@ -259,9 +280,7 @@ pub fn set_cdn_active(req: Request, ctx: Context) -> Response {
               case
                 db_exec.transaction(ctx.db, fn(conn) {
                   case
-                    pog.query(
-                      "update cdn_connections set is_active = false",
-                    )
+                    pog.query("update cdn_connections set is_active = false")
                     |> pog.execute(conn)
                   {
                     Error(_) -> Error("clear_failed")
@@ -296,8 +315,7 @@ pub fn set_cdn_active(req: Request, ctx: Context) -> Response {
                 }
                 Error(pog.TransactionQueryError(_)) ->
                   json_err(500, "transaction_failed")
-                Error(pog.TransactionRolledBack(msg)) ->
-                  json_err(400, msg)
+                Error(pog.TransactionRolledBack(msg)) -> json_err(400, msg)
               }
           }
         }
@@ -327,7 +345,15 @@ fn register_file_decoder() -> decode.Decoder(
                   0 -> None
                   x -> Some(x)
                 }
-                decode.success(#(owner_type, owner_id, sk, mime, wopt, hopt, bsopt))
+                decode.success(#(
+                  owner_type,
+                  owner_id,
+                  sk,
+                  mime,
+                  wopt,
+                  hopt,
+                  bsopt,
+                ))
               })
             })
           })
@@ -347,7 +373,11 @@ pub fn register_file(req: Request, ctx: Context) -> Response {
       case json.parse(body, register_file_decoder()) {
         Error(_) -> json_err(400, "invalid_json")
         Ok(#(ot, oid, sk, mime, wopt, hopt, bsopt)) -> {
-          case string.trim(ot) == "" || string.trim(oid) == "" || string.trim(sk) == "" {
+          case
+            string.trim(ot) == ""
+            || string.trim(oid) == ""
+            || string.trim(sk) == ""
+          {
             True -> json_err(400, "owner_and_key_required")
             False -> {
               let wpar = case wopt {
@@ -381,7 +411,10 @@ pub fn register_file(req: Request, ctx: Context) -> Response {
                   case r.rows {
                     [id] -> {
                       let out =
-                        json.object([#("id", json.string(id)), #("status", json.string("registered"))])
+                        json.object([
+                          #("id", json.string(id)),
+                          #("status", json.string("registered")),
+                        ])
                         |> json.to_string
                       wisp.json_response(out, 201)
                     }
@@ -395,7 +428,9 @@ pub fn register_file(req: Request, ctx: Context) -> Response {
   }
 }
 
-fn patch_file_decoder() -> decode.Decoder(#(Option(String), Option(Int), Option(Int))) {
+fn patch_file_decoder() -> decode.Decoder(
+  #(Option(String), Option(Int), Option(Int)),
+) {
   decode.optional_field("avif_storage_key", "", decode.string, fn(avif) {
     decode.optional_field("width", 0, decode.int, fn(w) {
       decode.optional_field("height", 0, decode.int, fn(h) {
@@ -467,7 +502,18 @@ fn image_profile_row() -> decode.Decoder(
   use thumb <- decode.field(7, decode.int)
   use desc <- decode.field(8, decode.string)
   use order <- decode.field(9, decode.int)
-  decode.success(#(folder, w, h, fit, vivid, quality, effort, thumb, desc, order))
+  decode.success(#(
+    folder,
+    w,
+    h,
+    fit,
+    vivid,
+    quality,
+    effort,
+    thumb,
+    desc,
+    order,
+  ))
 }
 
 /// GET /api/v1/media/image-profiles — yükleme profilleri (admin).

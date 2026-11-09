@@ -15,7 +15,10 @@ fn settings_row() -> decode.Decoder(#(String, String)) {
   decode.success(#(url, secret))
 }
 
-fn load_webhook(conn: pog.Connection, org_id: String) -> Option(#(String, String)) {
+fn load_webhook(
+  conn: pog.Connection,
+  org_id: String,
+) -> Option(#(String, String)) {
   case
     pog.query(
       "select coalesce(webhook_url, ''), coalesce(webhook_secret, '') "
@@ -77,7 +80,15 @@ pub fn dispatch_reservation_created(
   listing_id: String,
   status: String,
 ) -> Nil {
-  post_event(ctx, org_id, "reservation.created", reservation_id, public_code, listing_id, status)
+  post_event(
+    ctx,
+    org_id,
+    "reservation.created",
+    reservation_id,
+    public_code,
+    listing_id,
+    status,
+  )
 }
 
 pub fn dispatch_reservation_cancelled(
@@ -87,5 +98,13 @@ pub fn dispatch_reservation_cancelled(
   public_code: String,
   listing_id: String,
 ) -> Nil {
-  post_event(ctx, org_id, "reservation.cancelled", reservation_id, public_code, listing_id, "cancelled")
+  post_event(
+    ctx,
+    org_id,
+    "reservation.cancelled",
+    reservation_id,
+    public_code,
+    listing_id,
+    "cancelled",
+  )
 }

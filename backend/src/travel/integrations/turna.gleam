@@ -18,10 +18,7 @@ pub type TurnaSession {
 }
 
 pub type TurnaHttpResult {
-  TurnaHttpResult(
-    body: String,
-    session: TurnaSession,
-  )
+  TurnaHttpResult(body: String, session: TurnaSession)
 }
 
 fn login_body(cfg: TurnaConfig) -> String {
@@ -132,7 +129,7 @@ fn raw_body_preview(raw: String) -> String {
 fn is_turna_access_denied(raw: String) -> Bool {
   let lower = string.lowercase(raw)
   string.contains(lower, "access denied")
-    || string.contains(lower, "<title>access denied</title>")
+  || string.contains(lower, "<title>access denied</title>")
 }
 
 fn error_message_from_raw(raw: String) -> String {
@@ -163,15 +160,14 @@ fn error_message_from_turna_json(raw: String) -> String {
     use v <- decode.field("ErrorCode", decode.int)
     decode.success(int.to_string(v))
   }
-  let text =
-    case json.parse(raw, msg_decoder) {
-      Ok(m) ->
-        case string.trim(m) {
-          "" -> ""
-          t -> t
-        }
-      Error(_) -> ""
-    }
+  let text = case json.parse(raw, msg_decoder) {
+    Ok(m) ->
+      case string.trim(m) {
+        "" -> ""
+        t -> t
+      }
+    Error(_) -> ""
+  }
   let text = case text {
     "" ->
       case json.parse(raw, err_decoder) {
@@ -288,8 +284,7 @@ fn post_turna(
   {
     Error(e) ->
       case parse_envelope(e) {
-        Ok(parsed) ->
-          Error(error_message_from_raw(parsed.body))
+        Ok(parsed) -> Error(error_message_from_raw(parsed.body))
         Error(_) ->
           case string.length(e) > 400 {
             True -> Error("turna_http_failed:" <> string.slice(e, 0, 400))
@@ -347,19 +342,33 @@ pub type FlightSearchParams {
 fn pax_rows(adults: Int, children: Int, infants: Int) -> List(json.Json) {
   let rows = []
   let rows = case adults > 0 {
-    True -> [json.object([#("Type", json.string("ADT")), #("Count", json.int(adults))]), ..rows]
+    True -> [
+      json.object([#("Type", json.string("ADT")), #("Count", json.int(adults))]),
+      ..rows
+    ]
     False -> rows
   }
   let rows = case children > 0 {
-    True -> [json.object([#("Type", json.string("CHD")), #("Count", json.int(children))]), ..rows]
+    True -> [
+      json.object([
+        #("Type", json.string("CHD")),
+        #("Count", json.int(children)),
+      ]),
+      ..rows
+    ]
     False -> rows
   }
   let rows = case infants > 0 {
-    True -> [json.object([#("Type", json.string("INF")), #("Count", json.int(infants))]), ..rows]
+    True -> [
+      json.object([#("Type", json.string("INF")), #("Count", json.int(infants))]),
+      ..rows
+    ]
     False -> rows
   }
   case rows {
-    [] -> [json.object([#("Type", json.string("ADT")), #("Count", json.int(1))])]
+    [] -> [
+      json.object([#("Type", json.string("ADT")), #("Count", json.int(1))]),
+    ]
     _ -> rows
   }
 }
@@ -372,7 +381,10 @@ fn search_form_object(p: FlightSearchParams) -> json.Json {
         [
           json.object([
             #("Origin", json.string(string.uppercase(string.trim(p.origin)))),
-            #("Destination", json.string(string.uppercase(string.trim(p.destination)))),
+            #(
+              "Destination",
+              json.string(string.uppercase(string.trim(p.destination))),
+            ),
             #("OriginIsCity", json.bool(p.origin_is_city)),
             #("DestinationIsCity", json.bool(p.destination_is_city)),
             #("DepartureDay", json.string(string.trim(p.departure_day))),
@@ -496,15 +508,14 @@ pub fn turna_message_from_raw(raw: String) -> String {
     use v <- decode.field("ErrorMessage", decode.string)
     decode.success(v)
   }
-  let primary =
-    case json.parse(raw, msg_decoder) {
-      Ok(m) ->
-        case string.trim(m) {
-          "" -> ""
-          t -> t
-        }
-      Error(_) -> ""
-    }
+  let primary = case json.parse(raw, msg_decoder) {
+    Ok(m) ->
+      case string.trim(m) {
+        "" -> ""
+        t -> t
+      }
+    Error(_) -> ""
+  }
   case primary {
     "" ->
       case json.parse(raw, err_decoder) {
@@ -539,13 +550,13 @@ fn merge_login_search_allocate(
   let search = string.trim(search_form_json)
   let allocate = string.trim(allocate_form_json)
   "{"
-    <> "\"LoginForm\":"
-    <> login
-    <> ",\"SearchForm\":"
-    <> search
-    <> ",\"AllocateForm\":"
-    <> allocate
-    <> "}"
+  <> "\"LoginForm\":"
+  <> login
+  <> ",\"SearchForm\":"
+  <> search
+  <> ",\"AllocateForm\":"
+  <> allocate
+  <> "}"
 }
 
 pub fn flight_allocate(
@@ -633,15 +644,12 @@ pub fn flight_fulfill_paid_booking(
   cfg: TurnaConfig,
   session: TurnaSession,
   reserve_form_json: String,
-) -> Result(
-  #(
-    TurnaHttpResult,
-    TurnaHttpResult,
-    TurnaHttpResult,
-  ),
-  String,
-) {
-  use reserve_result <- result.try(flight_reserve(cfg, session, reserve_form_json))
+) -> Result(#(TurnaHttpResult, TurnaHttpResult, TurnaHttpResult), String) {
+  use reserve_result <- result.try(flight_reserve(
+    cfg,
+    session,
+    reserve_form_json,
+  ))
   use pay_result <- result.try(flight_make_balance_payment(
     cfg,
     reserve_result.session,
@@ -709,7 +717,8 @@ pub fn extract_booking_refs(raw: String) -> #(String, String) {
           nested_string_field(raw, ["Result", "Booking", "SystemPnr"])
           |> fn(v2) {
             case v2 {
-              "" -> first_string_field(raw, ["SystemPnr", "SystemPNR", "BookingId"])
+              "" ->
+                first_string_field(raw, ["SystemPnr", "SystemPNR", "BookingId"])
               found -> found
             }
           }

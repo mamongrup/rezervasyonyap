@@ -16,8 +16,8 @@ import gleam/list
 import gleam/result
 import gleam/string
 import pog
-import travel/db/resilient_pog as db_exec
 import travel/db/decode_helpers as row_dec
+import travel/db/resilient_pog as db_exec
 import wisp.{type Request, type Response}
 
 fn json_err(status: Int, msg: String) -> Response {
@@ -64,7 +64,10 @@ fn calc_discount(
   }
 }
 
-fn cart_subtotal(conn: pog.Connection, cart_id: String) -> Result(Float, String) {
+fn cart_subtotal(
+  conn: pog.Connection,
+  cart_id: String,
+) -> Result(Float, String) {
   case
     pog.query(
       "select coalesce(sum(quantity * unit_price), 0)::text from cart_lines where cart_id = $1::uuid",
@@ -120,10 +123,7 @@ fn lookup_decoder() {
 
 const lookup_sql = "select id::text, discount_type, discount_value::text, coalesce(max_uses::text,''), used_count::text, coalesce(min_order_amount::text, '0'), coalesce(array_to_string(allowed_category_codes, ','), '') from coupons where upper(code) = $1 and (valid_from is null or valid_from <= now()) and (valid_to is null or valid_to >= now()) limit 1"
 
-fn cart_category_codes(
-  conn: pog.Connection,
-  cart_id: String,
-) -> List(String) {
+fn cart_category_codes(conn: pog.Connection, cart_id: String) -> List(String) {
   case
     pog.query(
       "select coalesce(string_agg(distinct pc.code, ','), '') from cart_lines cl join listings l on l.id = cl.listing_id join product_categories pc on pc.id = l.category_id where cl.cart_id = $1::uuid",
@@ -223,7 +223,8 @@ fn persist_apply(
           let cart_cats = cart_category_codes(ctx.db, cart_id)
           case allowed_categories_match(allowed_cats_csv, cart_cats) {
             False -> json_err(409, "coupon_category_not_allowed")
-            True -> persist_apply_inner(ctx, cart_id, coupon_id, code, dt, dv, sub)
+            True ->
+              persist_apply_inner(ctx, cart_id, coupon_id, code, dt, dv, sub)
           }
         }
       }

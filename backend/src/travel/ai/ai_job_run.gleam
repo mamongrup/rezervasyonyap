@@ -6,9 +6,9 @@ import gleam/float
 import gleam/json
 import gleam/string
 import pog
-import travel/db/resilient_pog as db_exec
 import travel/ai/ai_config
 import travel/ai/llm_chat
+import travel/db/resilient_pog as db_exec
 
 fn start_row() -> decode.Decoder(#(String, String)) {
   use ij <- decode.field(0, decode.string)

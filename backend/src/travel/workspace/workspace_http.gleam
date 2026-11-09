@@ -26,7 +26,10 @@ fn read_body_string(req: Request) -> Result(String, Nil) {
   bit_array.to_string(bits)
 }
 
-fn require_admin_users_read(req: Request, ctx: Context) -> Result(String, Response) {
+fn require_admin_users_read(
+  req: Request,
+  ctx: Context,
+) -> Result(String, Response) {
   case permissions.session_user_from_request(req, ctx.db) {
     Error(r) -> Error(r)
     Ok(uid) ->
@@ -37,11 +40,16 @@ fn require_admin_users_read(req: Request, ctx: Context) -> Result(String, Respon
   }
 }
 
-fn require_staff_reservations(req: Request, ctx: Context) -> Result(String, Response) {
+fn require_staff_reservations(
+  req: Request,
+  ctx: Context,
+) -> Result(String, Response) {
   case permissions.session_user_from_request(req, ctx.db) {
     Error(r) -> Error(r)
     Ok(uid) ->
-      case permissions.user_has_permission(ctx.db, uid, "staff.reservations.read") {
+      case
+        permissions.user_has_permission(ctx.db, uid, "staff.reservations.read")
+      {
         False -> Error(json_err(403, "forbidden"))
         True -> Ok(uid)
       }
@@ -255,7 +263,10 @@ pub fn admin_list_tasks(req: Request, ctx: Context) -> Response {
     Error(r) -> r
     Ok(_) ->
       case
-        pog.query(tasks_query_sql() <> " order by t.due_date nulls last, t.remind_at nulls last, t.created_at desc limit 500")
+        pog.query(
+          tasks_query_sql()
+          <> " order by t.due_date nulls last, t.remind_at nulls last, t.created_at desc limit 500",
+        )
         |> pog.returning(task_row_11())
         |> db_exec.execute(ctx.db)
       {
@@ -368,7 +379,11 @@ fn patch_task_decoder() -> decode.Decoder(
 }
 
 /// PATCH /api/v1/admin/workspace/tasks/:id
-pub fn admin_patch_task(req: Request, ctx: Context, task_id: String) -> Response {
+pub fn admin_patch_task(
+  req: Request,
+  ctx: Context,
+  task_id: String,
+) -> Response {
   use <- wisp.require_method(req, http.Patch)
   case require_admin_users_read(req, ctx) {
     Error(r) -> r
@@ -417,8 +432,7 @@ pub fn admin_patch_task(req: Request, ctx: Context, task_id: String) -> Response
                         Ok(ret) ->
                           case ret.count {
                             0 -> json_err(404, "not_found")
-                            _ ->
-                              wisp.json_response("{\"ok\":true}", 200)
+                            _ -> wisp.json_response("{\"ok\":true}", 200)
                           }
                       }
                   }
@@ -430,7 +444,11 @@ pub fn admin_patch_task(req: Request, ctx: Context, task_id: String) -> Response
 }
 
 /// DELETE /api/v1/admin/workspace/tasks/:id
-pub fn admin_delete_task(req: Request, ctx: Context, task_id: String) -> Response {
+pub fn admin_delete_task(
+  req: Request,
+  ctx: Context,
+  task_id: String,
+) -> Response {
   use <- wisp.require_method(req, http.Delete)
   case require_admin_users_read(req, ctx) {
     Error(r) -> r
@@ -459,7 +477,7 @@ pub fn staff_list_tasks(req: Request, ctx: Context) -> Response {
       case
         pog.query(
           tasks_query_sql()
-            <> " where t.status <> 'cancelled' and (t.assignee_user_id is null or t.assignee_user_id = $1::uuid) order by t.due_date nulls last, t.remind_at nulls last, t.created_at desc limit 200",
+          <> " where t.status <> 'cancelled' and (t.assignee_user_id is null or t.assignee_user_id = $1::uuid) order by t.due_date nulls last, t.remind_at nulls last, t.created_at desc limit 200",
         )
         |> pog.parameter(pog.text(uid))
         |> pog.returning(task_row_11())
@@ -482,7 +500,11 @@ fn staff_status_decoder() -> decode.Decoder(String) {
 }
 
 /// PATCH /api/v1/staff/workspace/tasks/:id — yalnızca status (open / done)
-pub fn staff_patch_task(req: Request, ctx: Context, task_id: String) -> Response {
+pub fn staff_patch_task(
+  req: Request,
+  ctx: Context,
+  task_id: String,
+) -> Response {
   use <- wisp.require_method(req, http.Patch)
   case require_staff_reservations(req, ctx) {
     Error(r) -> r
@@ -658,8 +680,7 @@ pub fn admin_list_announcements(req: Request, ctx: Context) -> Response {
     Ok(_) ->
       case
         pog.query(
-          announcements_base_sql()
-            <> " order by a.created_at desc limit 200",
+          announcements_base_sql() <> " order by a.created_at desc limit 200",
         )
         |> pog.returning(announcement_row())
         |> db_exec.execute(ctx.db)
@@ -684,9 +705,14 @@ fn create_announcement_decoder() -> decode.Decoder(
       decode.field("title", decode.string, fn(title) {
         decode.optional_field("body", "", decode.string, fn(b) {
           decode.optional_field("expires_at", "", decode.string, fn(ex) {
-            decode.optional_field("recipient_organization_ids", [], decode.list(decode.string), fn(
-              ids,
-            ) { decode.success(#(audience, target_all, title, b, ex, ids)) })
+            decode.optional_field(
+              "recipient_organization_ids",
+              [],
+              decode.list(decode.string),
+              fn(ids) {
+                decode.success(#(audience, target_all, title, b, ex, ids))
+              },
+            )
           })
         })
       })
@@ -740,7 +766,11 @@ pub fn admin_create_announcement(req: Request, ctx: Context) -> Response {
                       case target_all {
                         False ->
                           case recips {
-                            [] -> json_err(400, "recipients_required_when_not_target_all")
+                            [] ->
+                              json_err(
+                                400,
+                                "recipients_required_when_not_target_all",
+                              )
                             _ -> {
                               let exp_p = case string.trim(ex) == "" {
                                 True -> pog.null()
@@ -773,10 +803,13 @@ pub fn admin_create_announcement(req: Request, ctx: Context) -> Response {
                                           recips,
                                         )
                                       {
-                                        Error(_) -> json_err(500, "recipients_failed")
+                                        Error(_) ->
+                                          json_err(500, "recipients_failed")
                                         Ok(_) -> {
                                           let out =
-                                            json.object([#("id", json.string(aid))])
+                                            json.object([
+                                              #("id", json.string(aid)),
+                                            ])
                                             |> json.to_string
                                           wisp.json_response(out, 201)
                                         }
@@ -838,7 +871,7 @@ pub fn supplier_list_announcements(req: Request, ctx: Context) -> Response {
       case
         pog.query(
           announcements_base_sql()
-            <> " where a.audience = 'supplier' and (a.expires_at is null or a.expires_at > now()) and (a.target_all = true or exists (select 1 from portal_announcement_recipients r where r.announcement_id = a.id and r.organization_id = $1::uuid)) order by a.created_at desc limit 100",
+          <> " where a.audience = 'supplier' and (a.expires_at is null or a.expires_at > now()) and (a.target_all = true or exists (select 1 from portal_announcement_recipients r where r.announcement_id = a.id and r.organization_id = $1::uuid)) order by a.created_at desc limit 100",
         )
         |> pog.parameter(pog.text(oid))
         |> pog.returning(announcement_row())
@@ -865,7 +898,7 @@ pub fn agency_list_announcements(req: Request, ctx: Context) -> Response {
       case
         pog.query(
           announcements_base_sql()
-            <> " where a.audience = 'agency' and (a.expires_at is null or a.expires_at > now()) and (a.target_all = true or exists (select 1 from portal_announcement_recipients r where r.announcement_id = a.id and r.organization_id = $1::uuid)) order by a.created_at desc limit 100",
+          <> " where a.audience = 'agency' and (a.expires_at is null or a.expires_at > now()) and (a.target_all = true or exists (select 1 from portal_announcement_recipients r where r.announcement_id = a.id and r.organization_id = $1::uuid)) order by a.created_at desc limit 100",
         )
         |> pog.parameter(pog.text(oid))
         |> pog.returning(announcement_row())

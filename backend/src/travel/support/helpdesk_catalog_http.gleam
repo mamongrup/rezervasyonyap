@@ -244,7 +244,9 @@ pub fn list_kb_articles(req: Request, ctx: Context) -> Response {
   }
 }
 
-fn kb_detail_row() -> decode.Decoder(#(String, String, String, String, String, String)) {
+fn kb_detail_row() -> decode.Decoder(
+  #(String, String, String, String, String, String),
+) {
   use id <- decode.field(0, decode.string)
   use slug <- decode.field(1, decode.string)
   use lc <- decode.field(2, decode.string)

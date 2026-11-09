@@ -12,10 +12,11 @@ fn bearer_security() -> json.Json {
   )
 }
 
-fn path_get(path: String, summary: String, secured: Bool) -> #(
-  String,
-  json.Json,
-) {
+fn path_get(
+  path: String,
+  summary: String,
+  secured: Bool,
+) -> #(String, json.Json) {
   let fields = [
     #("summary", json.string(summary)),
     ..case secured {
@@ -57,11 +58,7 @@ fn path_delete(path: String, summary: String) -> #(String, json.Json) {
 }
 
 fn listing_subpath(suffix: String, summary: String) -> #(String, json.Json) {
-  path_get(
-    "/api/v1/agent/catalog/listings/{id}/" <> suffix,
-    summary,
-    True,
-  )
+  path_get("/api/v1/agent/catalog/listings/{id}/" <> suffix, summary, True)
 }
 
 /// GET /api/v1/agent/openapi.json
@@ -94,7 +91,12 @@ pub fn openapi(req: Request, _ctx: Context) -> Response {
                           #(
                             "enum",
                             json.array(
-                              ["hotel", "holiday_home", "yacht_charter", "activity"],
+                              [
+                                "hotel",
+                                "holiday_home",
+                                "yacht_charter",
+                                "activity",
+                              ],
                               of: json.string,
                             ),
                           ),
@@ -204,7 +206,9 @@ pub fn openapi(req: Request, _ctx: Context) -> Response {
                   #("scheme", json.string("bearer")),
                   #(
                     "description",
-                    json.string("Acente panelinden oluşturulan trk_live_ API anahtarı"),
+                    json.string(
+                      "Acente panelinden oluşturulan trk_live_ API anahtarı",
+                    ),
                   ),
                 ]),
               ),

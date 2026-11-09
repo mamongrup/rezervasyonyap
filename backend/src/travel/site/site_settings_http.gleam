@@ -11,8 +11,8 @@ import gleam/option.{type Option, None, Some}
 import gleam/result
 import gleam/string
 import pog
-import travel/db/resilient_pog as db_exec
 import travel/db/decode_helpers as row_dec
+import travel/db/resilient_pog as db_exec
 import travel/identity/permissions
 import wisp.{type Request, type Response}
 
@@ -29,7 +29,10 @@ fn read_body_string(req: Request) -> Result(String, Nil) {
 }
 
 /// Ham site_settings listesi / yazma / silme — `admin.users.read` (genel yönetim paneli).
-fn require_site_settings_admin(req: Request, ctx: Context) -> Result(Nil, Response) {
+fn require_site_settings_admin(
+  req: Request,
+  ctx: Context,
+) -> Result(Nil, Response) {
   case permissions.session_user_from_request(req, ctx.db) {
     Error(r) -> Error(r)
     Ok(uid) ->
@@ -70,62 +73,31 @@ pub fn list_settings(req: Request, ctx: Context) -> Response {
     Error(r) -> r
     Ok(_) -> {
       let qs = case request.get_query(req) {
-    Ok(q) -> q
-    Error(_) -> []
-  }
-  let scope =
-    list.key_find(qs, "scope")
-    |> result.unwrap("all")
-    |> string.lowercase
-    |> string.trim
-  let org_q =
-    list.key_find(qs, "organization_id")
-    |> result.unwrap("")
-    |> string.trim
-  let key_q =
-    list.key_find(qs, "key")
-    |> result.unwrap("")
-    |> string.trim
-  let key_filter = case key_q == "" {
-    True -> pog.null()
-    False -> pog.text(key_q)
-  }
-  case scope {
-    "platform" ->
-      case
-        pog.query(
-          "select id::text, coalesce(organization_id::text,''), key, value_json::text from site_settings where organization_id is null and ($1::text is null or key = $1) order by key asc, id desc limit 500",
-        )
-        |> pog.parameter(key_filter)
-        |> pog.returning(setting_row())
-        |> db_exec.execute(ctx.db)
-      {
-        Error(_) -> json_err(500, "settings_query_failed")
-        Ok(ret) -> settings_response(ret.rows)
+        Ok(q) -> q
+        Error(_) -> []
       }
-    "tenant" ->
-      case org_q == "" {
-        True -> json_err(400, "organization_id_required_for_tenant_scope")
-        False ->
+      let scope =
+        list.key_find(qs, "scope")
+        |> result.unwrap("all")
+        |> string.lowercase
+        |> string.trim
+      let org_q =
+        list.key_find(qs, "organization_id")
+        |> result.unwrap("")
+        |> string.trim
+      let key_q =
+        list.key_find(qs, "key")
+        |> result.unwrap("")
+        |> string.trim
+      let key_filter = case key_q == "" {
+        True -> pog.null()
+        False -> pog.text(key_q)
+      }
+      case scope {
+        "platform" ->
           case
             pog.query(
-              "select id::text, coalesce(organization_id::text,''), key, value_json::text from site_settings where organization_id = $1::uuid and ($2::text is null or key = $2) order by key asc, id desc limit 500",
-            )
-            |> pog.parameter(pog.text(org_q))
-            |> pog.parameter(key_filter)
-            |> pog.returning(setting_row())
-            |> db_exec.execute(ctx.db)
-          {
-            Error(_) -> json_err(500, "settings_query_failed")
-            Ok(ret) -> settings_response(ret.rows)
-          }
-      }
-    _ ->
-      case org_q == "" {
-        True ->
-          case
-            pog.query(
-              "select id::text, coalesce(organization_id::text,''), key, value_json::text from site_settings where ($1::text is null or key = $1) order by key asc, id desc limit 500",
+              "select id::text, coalesce(organization_id::text,''), key, value_json::text from site_settings where organization_id is null and ($1::text is null or key = $1) order by key asc, id desc limit 500",
             )
             |> pog.parameter(key_filter)
             |> pog.returning(setting_row())
@@ -134,26 +106,59 @@ pub fn list_settings(req: Request, ctx: Context) -> Response {
             Error(_) -> json_err(500, "settings_query_failed")
             Ok(ret) -> settings_response(ret.rows)
           }
-        False ->
-          case
-            pog.query(
-              "select id::text, coalesce(organization_id::text,''), key, value_json::text from site_settings where organization_id = $1::uuid and ($2::text is null or key = $2) order by key asc, id desc limit 500",
-            )
-            |> pog.parameter(pog.text(org_q))
-            |> pog.parameter(key_filter)
-            |> pog.returning(setting_row())
-            |> db_exec.execute(ctx.db)
-          {
-            Error(_) -> json_err(500, "settings_query_failed")
-            Ok(ret) -> settings_response(ret.rows)
+        "tenant" ->
+          case org_q == "" {
+            True -> json_err(400, "organization_id_required_for_tenant_scope")
+            False ->
+              case
+                pog.query(
+                  "select id::text, coalesce(organization_id::text,''), key, value_json::text from site_settings where organization_id = $1::uuid and ($2::text is null or key = $2) order by key asc, id desc limit 500",
+                )
+                |> pog.parameter(pog.text(org_q))
+                |> pog.parameter(key_filter)
+                |> pog.returning(setting_row())
+                |> db_exec.execute(ctx.db)
+              {
+                Error(_) -> json_err(500, "settings_query_failed")
+                Ok(ret) -> settings_response(ret.rows)
+              }
+          }
+        _ ->
+          case org_q == "" {
+            True ->
+              case
+                pog.query(
+                  "select id::text, coalesce(organization_id::text,''), key, value_json::text from site_settings where ($1::text is null or key = $1) order by key asc, id desc limit 500",
+                )
+                |> pog.parameter(key_filter)
+                |> pog.returning(setting_row())
+                |> db_exec.execute(ctx.db)
+              {
+                Error(_) -> json_err(500, "settings_query_failed")
+                Ok(ret) -> settings_response(ret.rows)
+              }
+            False ->
+              case
+                pog.query(
+                  "select id::text, coalesce(organization_id::text,''), key, value_json::text from site_settings where organization_id = $1::uuid and ($2::text is null or key = $2) order by key asc, id desc limit 500",
+                )
+                |> pog.parameter(pog.text(org_q))
+                |> pog.parameter(key_filter)
+                |> pog.returning(setting_row())
+                |> db_exec.execute(ctx.db)
+              {
+                Error(_) -> json_err(500, "settings_query_failed")
+                Ok(ret) -> settings_response(ret.rows)
+              }
           }
       }
-  }
     }
   }
 }
 
-fn settings_response(rows: List(#(String, String, String, String))) -> Response {
+fn settings_response(
+  rows: List(#(String, String, String, String)),
+) -> Response {
   let arr = list.map(rows, setting_json)
   let body =
     json.object([#("settings", json.array(from: arr, of: fn(x) { x }))])
@@ -208,7 +213,9 @@ pub fn upsert_setting(req: Request, ctx: Context) -> Response {
                     None ->
                       case
                         pog.query(
-                          "insert into site_settings (organization_id, key, value_json) values (null, $1, $2::jsonb) on conflict (key) where organization_id is null do update set value_json = " <> settings_update_sql() <> " returning id::text",
+                          "insert into site_settings (organization_id, key, value_json) values (null, $1, $2::jsonb) on conflict (key) where organization_id is null do update set value_json = "
+                          <> settings_update_sql()
+                          <> " returning id::text",
                         )
                         |> pog.parameter(pog.text(k))
                         |> pog.parameter(pog.text(cfg))
@@ -233,7 +240,9 @@ pub fn upsert_setting(req: Request, ctx: Context) -> Response {
                     Some(o) ->
                       case
                         pog.query(
-                          "insert into site_settings (organization_id, key, value_json) values ($1::uuid, $2, $3::jsonb) on conflict (organization_id, key) do update set value_json = " <> settings_update_sql() <> " returning id::text",
+                          "insert into site_settings (organization_id, key, value_json) values ($1::uuid, $2, $3::jsonb) on conflict (organization_id, key) do update set value_json = "
+                          <> settings_update_sql()
+                          <> " returning id::text",
                         )
                         |> pog.parameter(pog.text(o))
                         |> pog.parameter(pog.text(k))
@@ -264,9 +273,7 @@ pub fn upsert_setting(req: Request, ctx: Context) -> Response {
   }
 }
 
-fn delete_query_params(
-  qs: List(#(String, String)),
-) -> #(String, String) {
+fn delete_query_params(qs: List(#(String, String))) -> #(String, String) {
   let k =
     list.key_find(qs, "key")
     |> result.unwrap("")

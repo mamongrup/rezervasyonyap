@@ -108,7 +108,11 @@ pub fn get_or_create_token(
 
 /// POST /api/v1/catalog/listings/:lid/ical-export-token
 /// Mevcut token'ı yenisiyle değiştirir → eski URL anında geçersizleşir.
-pub fn rotate_token(req: Request, ctx: Context, listing_id: String) -> Response {
+pub fn rotate_token(
+  req: Request,
+  ctx: Context,
+  listing_id: String,
+) -> Response {
   use <- wisp.require_method(req, http.Post)
   case create_token(ctx, listing_id) {
     Error(e) -> json_err(500, e)

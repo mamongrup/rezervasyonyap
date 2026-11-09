@@ -85,15 +85,19 @@ pub fn answer_user_query(prompt: String) -> String {
 
   let user_bubble =
     "<div class=\"d-flex gap-2 align-items-start justify-content-end\">
-      <div class=\"bg-primary text-white rounded-3 p-2 shadow-sm small leading-relaxed\">"
-    <> prompt
-    <> "</div>
+      <div class=\"bg-primary text-white rounded-3 p-2 shadow-sm small leading-relaxed\">" <> prompt <> "</div>
     </div>"
 
   let is_kas = string.contains(low, "kaş") || string.contains(low, "kas")
   let is_bodrum = string.contains(low, "bodrum")
-  let is_tur = string.contains(low, "tur") || string.contains(low, "gulet") || string.contains(low, "tekne")
-  let is_fiyat = string.contains(low, "fiyat") || string.contains(low, "indirim") || string.contains(low, "kampanya")
+  let is_tur =
+    string.contains(low, "tur")
+    || string.contains(low, "gulet")
+    || string.contains(low, "tekne")
+  let is_fiyat =
+    string.contains(low, "fiyat")
+    || string.contains(low, "indirim")
+    || string.contains(low, "kampanya")
 
   let ai_response_text = case is_kas, is_bodrum, is_tur, is_fiyat {
     True, _, _, _ ->
@@ -112,14 +116,11 @@ pub fn answer_user_query(prompt: String) -> String {
       "Harika bir tatil seçeneği! Size en uygun otel, villa veya turu bulmak için destinasyon filtrelerimizi kullanabilir veya arama çubuğuna dilediğiniz bölgeyi yazabilirsiniz."
   }
 
-  let ai_bubble =
-    "<div class=\"d-flex gap-2 align-items-start\">
+  let ai_bubble = "<div class=\"d-flex gap-2 align-items-start\">
       <div class=\"avatar avatar-xs bg-primary text-white rounded-circle flex-shrink-0 d-flex align-items-center justify-content-center\" style=\"width: 28px; height: 28px;\">
         <i class=\"fa-solid fa-robot\" style=\"font-size: 12px;\"></i>
       </div>
-      <div class=\"bg-white rounded-3 p-2 shadow-sm text-dark small leading-relaxed\">"
-    <> ai_response_text
-    <> "</div>
+      <div class=\"bg-white rounded-3 p-2 shadow-sm text-dark small leading-relaxed\">" <> ai_response_text <> "</div>
     </div>"
 
   user_bubble <> "\n" <> ai_bubble

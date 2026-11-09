@@ -59,7 +59,9 @@ pub fn post_ping(req: Request, ctx: Context) -> Response {
   case permissions.session_user_from_request(req, ctx.db) {
     Error(r) -> r
     Ok(uid) ->
-      case permissions.user_has_permission(ctx.db, uid, "admin.integrations.write") {
+      case
+        permissions.user_has_permission(ctx.db, uid, "admin.integrations.write")
+      {
         False -> json_err(403, "forbidden")
         True -> {
           let cfg0 = turna_config.load(ctx.db)
@@ -78,15 +80,14 @@ pub fn post_ping(req: Request, ctx: Context) -> Response {
           case turna.login(cfg) {
             Error(e) -> json_err(502, e)
             Ok(result) -> {
-              let preview =
-                case string.length(result.session_id) > 8 {
-                  True -> string.slice(result.session_id, 0, 8) <> "…"
-                  False ->
-                    case result.session_id {
-                      "" -> "ok"
-                      s -> s
-                    }
-                }
+              let preview = case string.length(result.session_id) > 8 {
+                True -> string.slice(result.session_id, 0, 8) <> "…"
+                False ->
+                  case result.session_id {
+                    "" -> "ok"
+                    s -> s
+                  }
+              }
               let out =
                 json.object([
                   #("ok", json.bool(True)),

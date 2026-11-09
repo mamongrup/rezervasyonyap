@@ -21,7 +21,8 @@ fn ping_label(label: String, conn: pog.Connection) -> Nil {
       case ret.rows {
         [1] -> Nil
         _ -> {
-          let _ = io.println("[db.health] " <> label <> " ping unexpected result")
+          let _ =
+            io.println("[db.health] " <> label <> " ping unexpected result")
           Nil
         }
       }
@@ -29,9 +30,9 @@ fn ping_label(label: String, conn: pog.Connection) -> Nil {
       let _ =
         io.println(
           "[db.health] "
-            <> label
-            <> " ping failed: "
-            <> pog_errors.query_error_to_string(e),
+          <> label
+          <> " ping failed: "
+          <> pog_errors.query_error_to_string(e),
         )
       Nil
     }
@@ -54,7 +55,6 @@ pub fn start(
   reserve: pog.Connection,
   interval_ms: Int,
 ) -> Nil {
-  let _ =
-    process.spawn(fn() { health_loop(primary, reserve, interval_ms) })
+  let _ = process.spawn(fn() { health_loop(primary, reserve, interval_ms) })
   Nil
 }

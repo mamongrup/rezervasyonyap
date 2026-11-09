@@ -2,9 +2,9 @@ import envoy
 import gleam/erlang/process
 import gleam/int
 import gleam/option.{type Option, None, Some}
+import gleam/result
 import gleam/string
 import pog
-import gleam/result
 
 pub type InvoiceNotifyConfig {
   InvoiceNotifyConfig(
@@ -65,45 +65,44 @@ pub fn load() -> AppConfig {
     Error(_) -> default_database(primary_name, pool_size, idle_ms, "travel_api")
   }
 
-  let database_reserve =
-    case envoy.get("DATABASE_URL") {
-      Ok(raw_url) -> {
-        let url = string.trim(raw_url)
-        case url {
-          "" ->
-            default_database(
-              reserve_name,
-              reserve_size,
-              idle_ms,
-              "travel_api_reserve",
-            )
-          _ ->
-            case pog.url_config(reserve_name, url) {
-              Ok(cfg) ->
-                finish_pool_config(
-                  cfg,
-                  reserve_size,
-                  idle_ms,
-                  "travel_api_reserve",
-                )
-              Error(_) ->
-                default_database(
-                  reserve_name,
-                  reserve_size,
-                  idle_ms,
-                  "travel_api_reserve",
-                )
-            }
-        }
+  let database_reserve = case envoy.get("DATABASE_URL") {
+    Ok(raw_url) -> {
+      let url = string.trim(raw_url)
+      case url {
+        "" ->
+          default_database(
+            reserve_name,
+            reserve_size,
+            idle_ms,
+            "travel_api_reserve",
+          )
+        _ ->
+          case pog.url_config(reserve_name, url) {
+            Ok(cfg) ->
+              finish_pool_config(
+                cfg,
+                reserve_size,
+                idle_ms,
+                "travel_api_reserve",
+              )
+            Error(_) ->
+              default_database(
+                reserve_name,
+                reserve_size,
+                idle_ms,
+                "travel_api_reserve",
+              )
+          }
       }
-      Error(_) ->
-        default_database(
-          reserve_name,
-          reserve_size,
-          idle_ms,
-          "travel_api_reserve",
-        )
     }
+    Error(_) ->
+      default_database(
+        reserve_name,
+        reserve_size,
+        idle_ms,
+        "travel_api_reserve",
+      )
+  }
 
   let invoice_notify = load_invoice_notify()
 
@@ -132,11 +131,20 @@ fn env_pos_int(name: String, fallback: Int) -> Int {
   }
 }
 
-fn env_bounded_int(name: String, fallback: Int, minimum: Int, maximum: Int) -> Int {
+fn env_bounded_int(
+  name: String,
+  fallback: Int,
+  minimum: Int,
+  maximum: Int,
+) -> Int {
   let value = env_pos_int(name, fallback)
   case value < minimum {
     True -> minimum
-    False -> case value > maximum { True -> maximum  False -> value }
+    False ->
+      case value > maximum {
+        True -> maximum
+        False -> value
+      }
   }
 }
 
@@ -211,10 +219,11 @@ fn default_database(
   }
   let ssl_config = case ssl_mode == "verify-ca" || ssl_mode == "verify-full" {
     True -> pog.SslVerified
-    False -> case ssl_mode == "require" || ssl_mode == "prefer" {
-      True -> pog.SslUnverified
-      False -> pog.SslDisabled
-    }
+    False ->
+      case ssl_mode == "require" || ssl_mode == "prefer" {
+        True -> pog.SslUnverified
+        False -> pog.SslDisabled
+      }
   }
   pog.default_config(pool_name)
   |> pog.host(host)

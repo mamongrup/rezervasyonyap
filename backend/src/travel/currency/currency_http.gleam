@@ -8,9 +8,9 @@ import gleam/json
 import gleam/list
 import gleam/string
 import pog
-import travel/db/resilient_pog as db_exec
 import travel/currency/tcmb
 import travel/db/decode_helpers as row_dec
+import travel/db/resilient_pog as db_exec
 import travel/identity/permissions
 import travel/net/http_client
 import wisp.{type Request, type Response}
@@ -105,7 +105,9 @@ pub fn list_latest_rates(req: Request, ctx: Context) -> Response {
   }
 }
 
-fn create_currency_decoder() -> decode.Decoder(#(String, String, String, Int, Bool)) {
+fn create_currency_decoder() -> decode.Decoder(
+  #(String, String, String, Int, Bool),
+) {
   decode.field("code", decode.string, fn(code_raw) {
     decode.field("name", decode.string, fn(name_raw) {
       decode.optional_field("symbol", "", decode.string, fn(sym) {
@@ -199,7 +201,11 @@ fn patch_currency_active_decoder() -> decode.Decoder(Bool) {
 }
 
 /// PATCH /api/v1/currency/currencies/:code — `{ "is_active": true|false }` (yönetici).
-pub fn patch_currency_active(req: Request, ctx: Context, code_raw: String) -> Response {
+pub fn patch_currency_active(
+  req: Request,
+  ctx: Context,
+  code_raw: String,
+) -> Response {
   use <- wisp.require_method(req, http.Patch)
   case permissions.session_user_from_request(req, ctx.db) {
     Error(r) -> r
@@ -261,7 +267,9 @@ pub fn patch_currency_active(req: Request, ctx: Context, code_raw: String) -> Re
 }
 
 fn reorder_codes_decoder() -> decode.Decoder(List(String)) {
-  decode.field("codes", decode.list(decode.string), fn(codes) { decode.success(codes) })
+  decode.field("codes", decode.list(decode.string), fn(codes) {
+    decode.success(codes)
+  })
 }
 
 fn apply_currency_order_loop(

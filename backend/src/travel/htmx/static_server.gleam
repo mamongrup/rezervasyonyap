@@ -42,7 +42,8 @@ fn guess_content_type(path: String) -> String {
   let is_css = string.ends_with(lower, ".css")
   let is_js = string.ends_with(lower, ".js")
   let is_svg = string.ends_with(lower, ".svg")
-  let is_jpg = string.ends_with(lower, ".jpg") || string.ends_with(lower, ".jpeg")
+  let is_jpg =
+    string.ends_with(lower, ".jpg") || string.ends_with(lower, ".jpeg")
   let is_png = string.ends_with(lower, ".png")
   let is_webp = string.ends_with(lower, ".webp")
   let is_woff2 = string.ends_with(lower, ".woff2")

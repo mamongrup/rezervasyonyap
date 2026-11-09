@@ -14,8 +14,8 @@ import gleam/list
 import gleam/result
 import gleam/string
 import pog
-import travel/db/resilient_pog as db_exec
 import travel/db/decode_helpers as row_dec
+import travel/db/resilient_pog as db_exec
 import travel/identity/permissions
 import wisp.{type Request, type Response}
 
@@ -65,25 +65,33 @@ pub fn get_status(req: Request, ctx: Context) -> Response {
             use error_text <- decode.field(5, decode.string)
             use started_at <- decode.field(6, decode.string)
             use finished_at <- decode.field(7, decode.string)
-            decode.success(#(id, status, progress, total, log_tail, error_text, started_at, finished_at))
+            decode.success(#(
+              id,
+              status,
+              progress,
+              total,
+              log_tail,
+              error_text,
+              started_at,
+              finished_at,
+            ))
           }
-          let _ =
-            case
-              pog.query(
-                "update provider_sync_jobs
+          let _ = case
+            pog.query(
+              "update provider_sync_jobs
                  set status = 'error',
                      error_text = coalesce(nullif(error_text,''), 'Takılı iş: 2 saatten uzun süredir yanıt yok'),
                      finished_at = now()
                  where provider = $1
                    and status in ('pending','running')
                    and started_at < now() - interval '2 hours'",
-              )
-              |> pog.parameter(pog.text(provider))
-              |> db_exec.execute(ctx.db)
-            {
-              Error(_) -> Nil
-              Ok(_) -> Nil
-            }
+            )
+            |> pog.parameter(pog.text(provider))
+            |> db_exec.execute(ctx.db)
+          {
+            Error(_) -> Nil
+            Ok(_) -> Nil
+          }
           case
             pog.query(
               "select id::text, status, progress, total, log_tail,
@@ -106,7 +114,19 @@ pub fn get_status(req: Request, ctx: Context) -> Response {
                     json.object([#("job", json.null())]) |> json.to_string,
                     200,
                   )
-                [#(id, status, progress, total, log_tail, error_text, started_at, finished_at), ..] -> {
+                [
+                  #(
+                    id,
+                    status,
+                    progress,
+                    total,
+                    log_tail,
+                    error_text,
+                    started_at,
+                    finished_at,
+                  ),
+                  ..
+                ] -> {
                   let job =
                     json.object([
                       #("id", json.string(id)),
@@ -115,21 +135,15 @@ pub fn get_status(req: Request, ctx: Context) -> Response {
                       #("progress", json.int(progress)),
                       #("total", json.int(total)),
                       #("log_tail", json.string(log_tail)),
-                      #(
-                        "error_text",
-                        case error_text == "" {
-                          True -> json.null()
-                          False -> json.string(error_text)
-                        },
-                      ),
+                      #("error_text", case error_text == "" {
+                        True -> json.null()
+                        False -> json.string(error_text)
+                      }),
                       #("started_at", json.string(started_at)),
-                      #(
-                        "finished_at",
-                        case finished_at == "" {
-                          True -> json.null()
-                          False -> json.string(finished_at)
-                        },
-                      ),
+                      #("finished_at", case finished_at == "" {
+                        True -> json.null()
+                        False -> json.string(finished_at)
+                      }),
                     ])
                   wisp.json_response(
                     json.object([#("job", job)]) |> json.to_string,
@@ -238,15 +252,12 @@ pub fn update_progress(req: Request, ctx: Context) -> Response {
                 "done" | "error" -> ", finished_at = now()"
                 _ -> ""
               }
-              let q =
-                "update provider_sync_jobs set
+              let q = "update provider_sync_jobs set
                    status = $2,
                    progress = case when $3 > 0 then $3 else progress end,
                    total = case when $4 > 0 then $4 else total end,
                    log_tail = case when $5 != '' then right(log_tail || E'\\n' || $5, 2000) else log_tail end,
-                   error_text = case when $6 != '' then $6 else error_text end"
-                <> set_finished
-                <> " where id = $1::uuid"
+                   error_text = case when $6 != '' then $6 else error_text end" <> set_finished <> " where id = $1::uuid"
               case
                 pog.query(q)
                 |> pog.parameter(pog.text(trimmed_id))

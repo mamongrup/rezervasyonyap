@@ -65,12 +65,7 @@ pub fn sync_feed(ctx: Context, feed_id: String) -> Result(SyncReport, String) {
           Error(e)
         }
         Ok(day_count) -> {
-          record_success(
-            ctx,
-            feed_id,
-            list.length(buffered),
-            hash,
-          )
+          record_success(ctx, feed_id, list.length(buffered), hash)
           Ok(SyncReport(
             event_count: list.length(buffered),
             day_count: day_count,
@@ -301,7 +296,13 @@ fn insert_events(
               case block_checkout_am(ctx, listing_id, ev.ends_on) {
                 Error(e) -> Error(e)
                 Ok(_) ->
-                  insert_events(ctx, feed_id, listing_id, rest, acc_days + day_count)
+                  insert_events(
+                    ctx,
+                    feed_id,
+                    listing_id,
+                    rest,
+                    acc_days + day_count,
+                  )
               }
           }
       }

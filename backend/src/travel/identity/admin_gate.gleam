@@ -6,7 +6,10 @@ import travel/identity/permissions
 import wisp.{type Request, type Response}
 
 /// `admin.users.read` veya `roles.code = 'admin'` (izin matrisinde eksik olsa bile).
-pub fn require_admin_users_read(req: Request, ctx: Context) -> Result(String, Response) {
+pub fn require_admin_users_read(
+  req: Request,
+  ctx: Context,
+) -> Result(String, Response) {
   case permissions.session_user_from_request(req, ctx.db) {
     Error(r) -> Error(r)
     Ok(uid) ->

@@ -20,7 +20,9 @@ fn meta_provider_is_yolcu360(meta: String) -> Bool {
 }
 
 fn yolcu360_booking_done(meta: String) -> Bool {
-  case json.parse(meta, decode.at(["yolcu360_booking", "status"], decode.string)) {
+  case
+    json.parse(meta, decode.at(["yolcu360_booking", "status"], decode.string))
+  {
     Ok(s) -> string.lowercase(string.trim(s)) == "completed"
     Error(_) -> False
   }
@@ -60,14 +62,18 @@ fn primary_guest(checkout_meta: String) -> #(String, String, String) {
 }
 
 fn invoice_email(checkout_meta: String) -> String {
-  case json.parse(checkout_meta, decode.at(["invoice", "email"], decode.string)) {
+  case
+    json.parse(checkout_meta, decode.at(["invoice", "email"], decode.string))
+  {
     Ok(s) -> string.trim(s)
     Error(_) -> ""
   }
 }
 
 fn invoice_phone(checkout_meta: String) -> String {
-  case json.parse(checkout_meta, decode.at(["invoice", "phone"], decode.string)) {
+  case
+    json.parse(checkout_meta, decode.at(["invoice", "phone"], decode.string))
+  {
     Ok(s) -> string.trim(s)
     Error(_) -> ""
   }
@@ -81,7 +87,9 @@ fn car_search_id(meta: String) -> String {
 }
 
 fn car_product_code(meta: String) -> String {
-  case json.parse(meta, decode.at(["car", "yolcu360ProductCode"], decode.string)) {
+  case
+    json.parse(meta, decode.at(["car", "yolcu360ProductCode"], decode.string))
+  {
     Ok(s) -> string.trim(s)
     Error(_) -> ""
   }
@@ -185,7 +193,11 @@ fn yolcu360_booking_patch(
   |> json.to_string
 }
 
-fn persist_patch(conn: pog.Connection, line_item_id: String, patch_json: String) -> Nil {
+fn persist_patch(
+  conn: pog.Connection,
+  line_item_id: String,
+  patch_json: String,
+) -> Nil {
   let _ =
     pog.query(
       "update reservation_line_items set meta_json = coalesce(meta_json, '{}'::jsonb) || $2::jsonb where id = $1::uuid",
@@ -235,11 +247,11 @@ pub fn fulfill_after_payment(
       case
         pog.query(
           "select rli.id::text, rli.meta_json::text, r.price_breakdown_json::text, "
-            <> "coalesce(r.public_code, ''), coalesce(r.guest_email, ''), coalesce(r.guest_phone, '') "
-            <> "from reservation_line_items rli "
-            <> "inner join reservations r on r.id = rli.reservation_id "
-            <> "where rli.reservation_id = $1::uuid "
-            <> "order by rli.line_no limit 1",
+          <> "coalesce(r.public_code, ''), coalesce(r.guest_email, ''), coalesce(r.guest_phone, '') "
+          <> "from reservation_line_items rli "
+          <> "inner join reservations r on r.id = rli.reservation_id "
+          <> "where rli.reservation_id = $1::uuid "
+          <> "order by rli.line_no limit 1",
         )
         |> pog.parameter(pog.text(reservation_id))
         |> pog.returning({
@@ -258,7 +270,9 @@ pub fn fulfill_after_payment(
           case ret.rows {
             [] -> Nil
             [#(line_id, meta, breakdown, public_code, guest_email, guest_phone)] -> {
-              case yolcu360_booking_done(meta) || !meta_provider_is_yolcu360(meta) {
+              case
+                yolcu360_booking_done(meta) || !meta_provider_is_yolcu360(meta)
+              {
                 True -> Nil
                 False -> {
                   let search_id = car_search_id(meta)
@@ -282,23 +296,28 @@ pub fn fulfill_after_payment(
                         reservation_id,
                         "yolcu360_booking_failed",
                         json.object([
-                          #("error", json.string("yolcu360_search_or_code_missing")),
+                          #(
+                            "error",
+                            json.string("yolcu360_search_or_code_missing"),
+                          ),
                         ])
-                        |> json.to_string,
+                          |> json.to_string,
                       )
                       Nil
                     }
                     False -> {
-                      let checkout_meta = checkout_meta_from_breakdown(breakdown)
+                      let checkout_meta =
+                        checkout_meta_from_breakdown(breakdown)
                       let #(first, last, tc) = primary_guest(checkout_meta)
                       let email = case invoice_email(checkout_meta) {
                         "" -> guest_email
                         e -> e
                       }
-                      let phone = normalize_phone_e164(case invoice_phone(checkout_meta) {
-                        "" -> guest_phone
-                        p -> p
-                      })
+                      let phone =
+                        normalize_phone_e164(case invoice_phone(checkout_meta) {
+                          "" -> guest_phone
+                          p -> p
+                        })
                       let order_body =
                         build_order_body(
                           search_id,
@@ -315,26 +334,23 @@ pub fn fulfill_after_payment(
                           persist_patch(
                             conn,
                             line_id,
-                            yolcu360_booking_patch(
-                              "failed",
-                              "",
-                              "",
-                              "",
-                              "",
-                              e,
-                            ),
+                            yolcu360_booking_patch("failed", "", "", "", "", e),
                           )
                           insert_event(
                             conn,
                             reservation_id,
                             "yolcu360_booking_failed",
-                            json.object([#("error", json.string(e))]) |> json.to_string,
+                            json.object([#("error", json.string(e))])
+                              |> json.to_string,
                           )
                           Nil
                         }
                         Ok(order_res) -> {
                           case
-                            yolcu360.pay_order_with_limit(cfg, order_res.order_id)
+                            yolcu360.pay_order_with_limit(
+                              cfg,
+                              order_res.order_id,
+                            )
                           {
                             Error(e) -> {
                               persist_patch(
@@ -357,18 +373,20 @@ pub fn fulfill_after_payment(
                                   #("order_id", json.string(order_res.order_id)),
                                   #("error", json.string(e)),
                                 ])
-                                |> json.to_string,
+                                  |> json.to_string,
                               )
                               Nil
                             }
                             Ok(pay_res) -> {
-                              let detail_raw =
-                                case yolcu360.get_order(cfg, order_res.order_id) {
-                                  Ok(raw) -> raw
-                                  Error(_) -> order_res.raw_response
-                                }
+                              let detail_raw = case
+                                yolcu360.get_order(cfg, order_res.order_id)
+                              {
+                                Ok(raw) -> raw
+                                Error(_) -> order_res.raw_response
+                              }
                               let vendor_ref = vendor_reservation_id(detail_raw)
-                              let product_status = car_product_status(detail_raw)
+                              let product_status =
+                                car_product_status(detail_raw)
                               let completed =
                                 product_status == "reserved"
                                 || vendor_ref != ""
@@ -402,10 +420,13 @@ pub fn fulfill_after_payment(
                                 },
                                 json.object([
                                   #("order_id", json.string(order_res.order_id)),
-                                  #("vendor_reservation_id", json.string(vendor_ref)),
+                                  #(
+                                    "vendor_reservation_id",
+                                    json.string(vendor_ref),
+                                  ),
                                   #("car_status", json.string(product_status)),
                                 ])
-                                |> json.to_string,
+                                  |> json.to_string,
                               )
                               Nil
                             }

@@ -66,7 +66,9 @@ pub fn post_ping(req: Request, ctx: Context) -> Response {
   case permissions.session_user_from_request(req, ctx.db) {
     Error(r) -> r
     Ok(uid) ->
-      case permissions.user_has_permission(ctx.db, uid, "admin.integrations.write") {
+      case
+        permissions.user_has_permission(ctx.db, uid, "admin.integrations.write")
+      {
         False -> json_err(403, "forbidden")
         True -> {
           let cfg0 = travelrobot_config.load(ctx.db)
@@ -85,11 +87,10 @@ pub fn post_ping(req: Request, ctx: Context) -> Response {
           case travelrobot.create_token(cfg) {
             Error(e) -> json_err(502, e)
             Ok(token) -> {
-              let preview =
-                case string.length(token.token_code) > 8 {
-                  True -> string.slice(token.token_code, 0, 8) <> "…"
-                  False -> token.token_code
-                }
+              let preview = case string.length(token.token_code) > 8 {
+                True -> string.slice(token.token_code, 0, 8) <> "…"
+                False -> token.token_code
+              }
               let out =
                 json.object([
                   #("ok", json.bool(True)),

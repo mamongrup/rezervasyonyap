@@ -74,7 +74,9 @@ pub fn post_ping(req: Request, ctx: Context) -> Response {
   case permissions.session_user_from_request(req, ctx.db) {
     Error(r) -> r
     Ok(uid) ->
-      case permissions.user_has_permission(ctx.db, uid, "admin.integrations.write") {
+      case
+        permissions.user_has_permission(ctx.db, uid, "admin.integrations.write")
+      {
         False -> json_err(403, "forbidden")
         True -> {
           let cfg0 = yolcu360_config.load(ctx.db)
@@ -100,7 +102,10 @@ pub fn post_ping(req: Request, ctx: Context) -> Response {
               let out =
                 json.object([
                   #("ok", json.bool(True)),
-                  #("access_token_preview", json.string(token_preview(auth.access_token))),
+                  #(
+                    "access_token_preview",
+                    json.string(token_preview(auth.access_token)),
+                  ),
                   #("base_url", json.string(cfg.base_url)),
                   #("enabled", json.bool(cfg.enabled)),
                   #("locations_preview", json.string(loc_preview)),
@@ -152,7 +157,13 @@ pub fn get_cars_public(req: Request, ctx: Context) -> Response {
             False -> dropoff
           }
           case
-            yolcu360.search_cars(cfg, pickup, effective_dropoff, checkin, checkout)
+            yolcu360.search_cars(
+              cfg,
+              pickup,
+              effective_dropoff,
+              checkin,
+              checkout,
+            )
           {
             Error(e) -> json_err(502, e)
             Ok(cars) -> wisp.json_response(cars.raw_response, 200)
@@ -163,15 +174,17 @@ pub fn get_cars_public(req: Request, ctx: Context) -> Response {
   }
 }
 
-fn find_yolcu360_checkout_listing_id(db: pog.Connection) -> option.Option(String) {
+fn find_yolcu360_checkout_listing_id(
+  db: pog.Connection,
+) -> option.Option(String) {
   case
     pog.query(
       "select l.id::text from listings l "
-        <> "join product_categories pc on pc.id = l.category_id "
-        <> "where pc.code = 'car_rental' and l.status = 'published' "
-        <> "order by case when coalesce(l.external_provider_code, '') = 'yolcu360' then 0 else 1 end, "
-        <> "l.created_at desc "
-        <> "limit 1",
+      <> "join product_categories pc on pc.id = l.category_id "
+      <> "where pc.code = 'car_rental' and l.status = 'published' "
+      <> "order by case when coalesce(l.external_provider_code, '') = 'yolcu360' then 0 else 1 end, "
+      <> "l.created_at desc "
+      <> "limit 1",
     )
     |> pog.returning({
       use a <- decode.field(0, decode.string)
@@ -235,7 +248,9 @@ pub fn get_locations(req: Request, ctx: Context) -> Response {
   case permissions.session_user_from_request(req, ctx.db) {
     Error(r) -> r
     Ok(uid) ->
-      case permissions.user_has_permission(ctx.db, uid, "admin.integrations.read") {
+      case
+        permissions.user_has_permission(ctx.db, uid, "admin.integrations.read")
+      {
         False -> json_err(403, "forbidden")
         True -> {
           let qs = case request.get_query(req) {

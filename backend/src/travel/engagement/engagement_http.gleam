@@ -11,8 +11,8 @@ import gleam/option.{type Option, None, Some}
 import gleam/result
 import gleam/string
 import pog
-import travel/db/resilient_pog as db_exec
 import travel/db/decode_helpers as row_dec
+import travel/db/resilient_pog as db_exec
 import wisp.{type Request, type Response}
 
 fn json_err(status: Int, msg: String) -> Response {
@@ -143,7 +143,9 @@ pub fn list_favorites(req: Request, ctx: Context) -> Response {
 }
 
 fn listing_id_decoder() -> decode.Decoder(String) {
-  decode.field("listing_id", decode.string, fn(s) { decode.success(string.trim(s)) })
+  decode.field("listing_id", decode.string, fn(s) {
+    decode.success(string.trim(s))
+  })
 }
 
 /// POST /api/v1/engagement/favorites  { "listing_id": "uuid" }
@@ -177,7 +179,11 @@ pub fn add_favorite(req: Request, ctx: Context) -> Response {
 }
 
 /// DELETE /api/v1/engagement/favorites/:listing_id
-pub fn remove_favorite(req: Request, ctx: Context, listing_id: String) -> Response {
+pub fn remove_favorite(
+  req: Request,
+  ctx: Context,
+  listing_id: String,
+) -> Response {
   use <- wisp.require_method(req, http.Delete)
   case user_id_for_token(ctx, bearer_token(req)) {
     None -> json_err(401, "missing_or_invalid_session")
@@ -320,7 +326,8 @@ pub fn add_recently_viewed(req: Request, ctx: Context) -> Response {
                         |> pog.parameter(pog.text(lid))
                         |> db_exec.execute(ctx.db)
                       {
-                        Error(_) -> json_err(500, "recently_viewed_insert_failed")
+                        Error(_) ->
+                          json_err(500, "recently_viewed_insert_failed")
                         Ok(_) -> wisp.json_response("{\"ok\":true}", 201)
                       }
                   }
@@ -350,7 +357,10 @@ fn set_summary_json(row: #(String, String, String)) -> json.Json {
   ])
 }
 
-fn get_set_owner(ctx: Context, set_id: String) -> Result(#(String, String), Nil) {
+fn get_set_owner(
+  ctx: Context,
+  set_id: String,
+) -> Result(#(String, String), Nil) {
   case
     pog.query(
       "select coalesce(user_id::text,''), coalesce(session_key,'') from comparison_sets where id = $1::uuid limit 1",
@@ -459,7 +469,9 @@ pub fn create_comparison_set(req: Request, ctx: Context) -> Response {
                 Ok(r) ->
                   case r.rows {
                     [id] -> {
-                      let out = json.object([#("id", json.string(id))]) |> json.to_string
+                      let out =
+                        json.object([#("id", json.string(id))])
+                        |> json.to_string
                       wisp.json_response(out, 201)
                     }
                     _ -> json_err(500, "unexpected")
@@ -486,7 +498,9 @@ pub fn create_comparison_set(req: Request, ctx: Context) -> Response {
                     Ok(r) ->
                       case r.rows {
                         [id] -> {
-                          let out = json.object([#("id", json.string(id))]) |> json.to_string
+                          let out =
+                            json.object([#("id", json.string(id))])
+                            |> json.to_string
                           wisp.json_response(out, 201)
                         }
                         _ -> json_err(500, "unexpected")
@@ -501,7 +515,11 @@ pub fn create_comparison_set(req: Request, ctx: Context) -> Response {
 }
 
 /// DELETE /api/v1/engagement/comparison-sets/:set_id
-pub fn delete_comparison_set(req: Request, ctx: Context, set_id: String) -> Response {
+pub fn delete_comparison_set(
+  req: Request,
+  ctx: Context,
+  set_id: String,
+) -> Response {
   use <- wisp.require_method(req, http.Delete)
   let tok = bearer_token(req)
   let authed = user_id_for_token(ctx, tok)
@@ -536,7 +554,11 @@ fn cmp_item_detail_row() -> decode.Decoder(#(String, String, String)) {
 }
 
 /// GET /api/v1/engagement/comparison-sets/:set_id/items
-pub fn list_comparison_items(req: Request, ctx: Context, set_id: String) -> Response {
+pub fn list_comparison_items(
+  req: Request,
+  ctx: Context,
+  set_id: String,
+) -> Response {
   use <- wisp.require_method(req, http.Get)
   let tok = bearer_token(req)
   let authed = user_id_for_token(ctx, tok)
@@ -577,7 +599,11 @@ pub fn list_comparison_items(req: Request, ctx: Context, set_id: String) -> Resp
 }
 
 /// POST /api/v1/engagement/comparison-sets/:set_id/items  { "listing_id" }
-pub fn add_comparison_item(req: Request, ctx: Context, set_id: String) -> Response {
+pub fn add_comparison_item(
+  req: Request,
+  ctx: Context,
+  set_id: String,
+) -> Response {
   use <- wisp.require_method(req, http.Post)
   let tok = bearer_token(req)
   let authed = user_id_for_token(ctx, tok)

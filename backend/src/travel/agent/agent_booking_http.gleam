@@ -1,11 +1,6 @@
 //// Partner API — rezervasyon oluşturma ve sorgu (otel, tatil evi, yat, aktivite).
 
 import backend/context.{type Context}
-import travel/agent/agent_auth
-import travel/agent/agent_catalog_http
-import travel/agent/agent_webhook
-import travel/booking/booking_http
-import travel/messaging/notification_runtime
 import gleam/bit_array
 import gleam/dynamic/decode
 import gleam/http
@@ -14,7 +9,12 @@ import gleam/option.{None, Some}
 import gleam/result
 import gleam/string
 import pog
+import travel/agent/agent_auth
+import travel/agent/agent_catalog_http
+import travel/agent/agent_webhook
+import travel/booking/booking_http
 import travel/db/resilient_pog as db_exec
+import travel/messaging/notification_runtime
 import wisp.{type Request, type Response}
 
 fn read_body_string(req: Request) -> Result(String, Nil) {
@@ -47,43 +47,71 @@ fn booking_create_decoder() -> decode.Decoder(
             decode.field("currency_code", decode.string, fn(currency_code) {
               decode.field("guest_email", decode.string, fn(guest_email) {
                 decode.field("guest_name", decode.string, fn(guest_name) {
-                  decode.optional_field("guest_phone", "", decode.string, fn(phone_raw) {
-                    decode.optional_field("hold_minutes", 15, decode.int, fn(hold_minutes) {
-                      decode.optional_field("payment_type", "full", decode.string, fn(pt_raw) {
-                        decode.optional_field("installments", 1, decode.int, fn(inst_raw) {
-                          decode.field("contract_accepted", decode.bool, fn(contract_accepted) {
-                            let phone = case string.trim(phone_raw) {
-                              "" -> ""
-                              p -> p
-                            }
-                            let payment_type = case string.trim(pt_raw) {
-                              "partial" -> "partial"
-                              _ -> "full"
-                            }
-                            let installments = case inst_raw < 1 || inst_raw > 12 {
-                              True -> 1
-                              False -> inst_raw
-                            }
-                            decode.success(#(
-                              listing_id,
-                              quantity,
-                              starts_on,
-                              ends_on,
-                              unit_price,
-                              currency_code,
-                              guest_email,
-                              guest_name,
-                              phone,
-                              hold_minutes,
-                              payment_type,
-                              installments,
-                              contract_accepted,
-                            ))
-                          })
-                        })
-                      })
-                    })
-                  })
+                  decode.optional_field(
+                    "guest_phone",
+                    "",
+                    decode.string,
+                    fn(phone_raw) {
+                      decode.optional_field(
+                        "hold_minutes",
+                        15,
+                        decode.int,
+                        fn(hold_minutes) {
+                          decode.optional_field(
+                            "payment_type",
+                            "full",
+                            decode.string,
+                            fn(pt_raw) {
+                              decode.optional_field(
+                                "installments",
+                                1,
+                                decode.int,
+                                fn(inst_raw) {
+                                  decode.field(
+                                    "contract_accepted",
+                                    decode.bool,
+                                    fn(contract_accepted) {
+                                      let phone = case string.trim(phone_raw) {
+                                        "" -> ""
+                                        p -> p
+                                      }
+                                      let payment_type = case
+                                        string.trim(pt_raw)
+                                      {
+                                        "partial" -> "partial"
+                                        _ -> "full"
+                                      }
+                                      let installments = case
+                                        inst_raw < 1 || inst_raw > 12
+                                      {
+                                        True -> 1
+                                        False -> inst_raw
+                                      }
+                                      decode.success(#(
+                                        listing_id,
+                                        quantity,
+                                        starts_on,
+                                        ends_on,
+                                        unit_price,
+                                        currency_code,
+                                        guest_email,
+                                        guest_name,
+                                        phone,
+                                        hold_minutes,
+                                        payment_type,
+                                        installments,
+                                        contract_accepted,
+                                      ))
+                                    },
+                                  )
+                                },
+                              )
+                            },
+                          )
+                        },
+                      )
+                    },
+                  )
                 })
               })
             })
@@ -127,24 +155,33 @@ pub fn create_booking(req: Request, ctx: Context) -> Response {
                     True -> agent_auth.json_err(400, "invalid_quantity")
                     False ->
                       case contract_accepted {
-                        False -> agent_auth.json_err(400, "contract_not_accepted")
+                        False ->
+                          agent_auth.json_err(400, "contract_not_accepted")
                         True ->
-                          case agent_catalog_http.assert_agent_listing_access(
-                            ctx.db,
-                            listing_id,
-                            oid,
-                          ) {
+                          case
+                            agent_catalog_http.assert_agent_listing_access(
+                              ctx.db,
+                              listing_id,
+                              oid,
+                            )
+                          {
                             Error(r) -> r
                             Ok(_cat) -> {
-                              let cur = string.uppercase(string.trim(currency_code))
+                              let cur =
+                                string.uppercase(string.trim(currency_code))
                               case cur == "" {
-                                True -> agent_auth.json_err(400, "currency_required")
+                                True ->
+                                  agent_auth.json_err(400, "currency_required")
                                 False -> {
-                                  let phone = case string.trim(guest_phone_raw) {
+                                  let phone = case
+                                    string.trim(guest_phone_raw)
+                                  {
                                     "" -> None
                                     p -> Some(p)
                                   }
-                                  let hm = case hold_minutes < 5 || hold_minutes > 120 {
+                                  let hm = case
+                                    hold_minutes < 5 || hold_minutes > 120
+                                  {
                                     True -> 15
                                     False -> hold_minutes
                                   }
@@ -186,10 +223,22 @@ pub fn create_booking(req: Request, ctx: Context) -> Response {
                                           #("reservation_id", json.string(rid)),
                                           #("public_code", json.string(pcode)),
                                           #("status", json.string("held")),
-                                          #("payment_amount", json.string(pay_kurus)),
-                                          #("currency_code", json.string(currency)),
-                                          #("payment_type", json.string(payment_type)),
-                                          #("agency_organization_id", json.string(oid)),
+                                          #(
+                                            "payment_amount",
+                                            json.string(pay_kurus),
+                                          ),
+                                          #(
+                                            "currency_code",
+                                            json.string(currency),
+                                          ),
+                                          #(
+                                            "payment_type",
+                                            json.string(payment_type),
+                                          ),
+                                          #(
+                                            "agency_organization_id",
+                                            json.string(oid),
+                                          ),
                                         ])
                                         |> json.to_string
                                       wisp.json_response(out, 201)
@@ -206,7 +255,8 @@ pub fn create_booking(req: Request, ctx: Context) -> Response {
                                           agent_auth.json_err(403, msg)
                                         "agency_documents_not_approved" ->
                                           agent_auth.json_err(403, msg)
-                                        "cart_empty" -> agent_auth.json_err(400, msg)
+                                        "cart_empty" ->
+                                          agent_auth.json_err(400, msg)
                                         "contract_not_accepted" ->
                                           agent_auth.json_err(400, msg)
                                         _ -> agent_auth.json_err(400, msg)
@@ -225,17 +275,7 @@ pub fn create_booking(req: Request, ctx: Context) -> Response {
 }
 
 fn reservation_row() -> decode.Decoder(
-  #(
-    String,
-    String,
-    String,
-    String,
-    String,
-    String,
-    String,
-    String,
-    String,
-  ),
+  #(String, String, String, String, String, String, String, String, String),
 ) {
   use rid <- decode.field(0, decode.string)
   use pcode <- decode.field(1, decode.string)
@@ -324,7 +364,13 @@ pub fn cancel_booking(req: Request, ctx: Context, code: String) -> Response {
           case booking_http.agent_cancel_reservation(ctx.db, oid, code) {
             Ok(#(rid, pcode, lid)) -> {
               let _ =
-                agent_webhook.dispatch_reservation_cancelled(ctx, oid, rid, pcode, lid)
+                agent_webhook.dispatch_reservation_cancelled(
+                  ctx,
+                  oid,
+                  rid,
+                  pcode,
+                  lid,
+                )
               let body =
                 json.object([
                   #("public_code", json.string(pcode)),

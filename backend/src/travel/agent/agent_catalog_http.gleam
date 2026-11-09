@@ -1,10 +1,6 @@
 //// Partner API — otel, tatil evi, yat, aktivite katalog uçları.
 
 import backend/context.{type Context}
-import travel/agent/agent_auth
-import travel/catalog/catalog_http
-import travel/catalog/collections_http
-import travel/media/listing_images_http
 import gleam/dynamic/decode
 import gleam/http
 import gleam/http/request
@@ -13,7 +9,11 @@ import gleam/list
 import gleam/result
 import gleam/string
 import pog
+import travel/agent/agent_auth
+import travel/catalog/catalog_http
+import travel/catalog/collections_http
 import travel/db/resilient_pog as db_exec
+import travel/media/listing_images_http
 import wisp.{type Request, type Response}
 
 /// Yayında ilan + acente kategori grant kontrolü; kategori kodu döner.
@@ -155,7 +155,16 @@ pub fn get_listing(req: Request, ctx: Context, listing_id: String) -> Response {
             use prepay <- decode.field(9, decode.string)
             use instant <- decode.field(10, decode.bool)
             decode.success(#(
-              id, slug, cur, title, desc, loc, rating, min_stay, deposit, prepay,
+              id,
+              slug,
+              cur,
+              title,
+              desc,
+              loc,
+              rating,
+              min_stay,
+              deposit,
+              prepay,
               instant,
             ))
           })
@@ -164,19 +173,21 @@ pub fn get_listing(req: Request, ctx: Context, listing_id: String) -> Response {
           Error(_) -> agent_auth.json_err(500, "listing_detail_failed")
           Ok(ret) ->
             case ret.rows {
-              [#(
-                id,
-                slug,
-                cur,
-                title,
-                desc,
-                loc,
-                rating,
-                min_stay,
-                deposit,
-                prepay,
-                instant,
-              )] -> {
+              [
+                #(
+                  id,
+                  slug,
+                  cur,
+                  title,
+                  desc,
+                  loc,
+                  rating,
+                  min_stay,
+                  deposit,
+                  prepay,
+                  instant,
+                ),
+              ] -> {
                 let body =
                   json.object([
                     #("id", json.string(id)),
@@ -212,27 +223,41 @@ pub fn availability_calendar(
   with_listings_read(req, ctx, fn(oid, _scopes) {
     case assert_agent_listing_access(ctx.db, listing_id, oid) {
       Error(r) -> r
-      Ok(_cat) -> catalog_http.list_public_listing_availability_calendar(req, ctx, listing_id)
+      Ok(_cat) ->
+        catalog_http.list_public_listing_availability_calendar(
+          req,
+          ctx,
+          listing_id,
+        )
     }
   })
 }
 
 /// GET /api/v1/agent/catalog/listings/:id/activity-sessions?date=
-pub fn activity_sessions(req: Request, ctx: Context, listing_id: String) -> Response {
+pub fn activity_sessions(
+  req: Request,
+  ctx: Context,
+  listing_id: String,
+) -> Response {
   with_listings_read(req, ctx, fn(oid, _scopes) {
     case assert_agent_listing_access(ctx.db, listing_id, oid) {
       Error(r) -> r
       Ok(cat) ->
         case cat == "activity" {
           False -> agent_auth.json_err(400, "not_an_activity_listing")
-          True -> catalog_http.list_public_activity_sessions(req, ctx, listing_id)
+          True ->
+            catalog_http.list_public_activity_sessions(req, ctx, listing_id)
         }
     }
   })
 }
 
 /// POST /api/v1/agent/catalog/listings/:id/activity-quote
-pub fn activity_quote(req: Request, ctx: Context, listing_id: String) -> Response {
+pub fn activity_quote(
+  req: Request,
+  ctx: Context,
+  listing_id: String,
+) -> Response {
   use <- wisp.require_method(req, http.Post)
   case agent_auth.auth_trk_key(req, ctx) {
     Error(r) -> r
@@ -267,7 +292,11 @@ fn with_listing_proxy(
 }
 
 /// GET /api/v1/agent/catalog/listings/:id/images
-pub fn listing_images(req: Request, ctx: Context, listing_id: String) -> Response {
+pub fn listing_images(
+  req: Request,
+  ctx: Context,
+  listing_id: String,
+) -> Response {
   with_listing_proxy(req, ctx, listing_id, fn() {
     listing_images_http.list_public_images(req, ctx, listing_id)
   })
@@ -295,7 +324,11 @@ pub fn price_lines(req: Request, ctx: Context, listing_id: String) -> Response {
 }
 
 /// GET /api/v1/agent/catalog/listings/:id/accommodation-rules
-pub fn accommodation_rules(req: Request, ctx: Context, listing_id: String) -> Response {
+pub fn accommodation_rules(
+  req: Request,
+  ctx: Context,
+  listing_id: String,
+) -> Response {
   with_listing_proxy(req, ctx, listing_id, fn() {
     catalog_http.get_public_listing_accommodation_rules(req, ctx, listing_id)
   })

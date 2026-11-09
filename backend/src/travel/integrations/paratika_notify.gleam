@@ -6,11 +6,11 @@ import gleam/list
 import gleam/result
 import gleam/string
 import pog
-import travel/db/resilient_pog as db_exec
 import travel/ai/commerce_ops_enqueue
 import travel/booking/supplier_notification
-import travel/integrations/booking_fulfillment
 import travel/db/decode_helpers as row_dec
+import travel/db/resilient_pog as db_exec
+import travel/integrations/booking_fulfillment
 import travel/integrations/paratika.{build_sd_sha512}
 
 fn key_find_ci(pairs: List(#(String, String)), want: String) -> String {
@@ -85,9 +85,7 @@ pub fn apply_paratika_notification(
                           }
                           let raw_json =
                             json.object(
-                              list.map(pairs, fn(p) {
-                                #(p.0, json.string(p.1))
-                              }),
+                              list.map(pairs, fn(p) { #(p.0, json.string(p.1)) }),
                             )
                             |> json.to_string
                           capture_paratika(
@@ -98,8 +96,7 @@ pub fn apply_paratika_notification(
                             raw_json,
                           )
                         }
-                        False ->
-                          fail_paratika(conn, merchant_payment_id, pairs)
+                        False -> fail_paratika(conn, merchant_payment_id, pairs)
                       }
                   }
                 }
@@ -117,7 +114,9 @@ fn get_paratika_provider_id(conn: pog.Connection) -> Result(Int, String) {
     decode.success(n)
   }
   case
-    pog.query("select id from payment_providers where code = 'paratika' limit 1")
+    pog.query(
+      "select id from payment_providers where code = 'paratika' limit 1",
+    )
     |> pog.returning(row)
     |> pog.execute(conn)
   {
@@ -179,8 +178,13 @@ fn capture_paratika(
             Error(_) -> Error("event_insert_failed")
             Ok(_) -> {
               booking_fulfillment.fulfill_after_payment(conn, reservation_id)
-              let _ = supplier_notification.notify_new_reservation(conn, reservation_id)
-              let _ = supplier_notification.notify_platform_ops(conn, reservation_id)
+              let _ =
+                supplier_notification.notify_new_reservation(
+                  conn,
+                  reservation_id,
+                )
+              let _ =
+                supplier_notification.notify_platform_ops(conn, reservation_id)
               let _ =
                 commerce_ops_enqueue.enqueue_commerce_ops_jobs(
                   conn,

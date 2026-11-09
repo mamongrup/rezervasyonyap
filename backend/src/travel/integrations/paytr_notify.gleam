@@ -6,11 +6,11 @@ import gleam/list
 import gleam/result
 import gleam/string
 import pog
-import travel/db/resilient_pog as db_exec
 import travel/ai/commerce_ops_enqueue
 import travel/booking/supplier_notification
-import travel/integrations/booking_fulfillment
 import travel/db/decode_helpers as row_dec
+import travel/db/resilient_pog as db_exec
+import travel/integrations/booking_fulfillment
 
 fn map_currency(code: String) -> String {
   case string.uppercase(string.trim(code)) {
@@ -56,7 +56,8 @@ pub fn apply_paytr_notification(
                 currency,
                 raw_json,
               )
-            False -> fail_payment(conn, merchant_oid, total_amount, currency, raw_json)
+            False ->
+              fail_payment(conn, merchant_oid, total_amount, currency, raw_json)
           }
         _ -> Error("unexpected_rows")
       }
@@ -129,8 +130,10 @@ fn capture_payment(
         Ok(_) -> {
           booking_fulfillment.fulfill_after_payment(conn, reservation_id)
           // Ödeme geldikten sonra ilan sahibine SMS / e-posta / WhatsApp (checkout'ta değil).
-          let _ = supplier_notification.notify_new_reservation(conn, reservation_id)
-          let _ = supplier_notification.notify_platform_ops(conn, reservation_id)
+          let _ =
+            supplier_notification.notify_new_reservation(conn, reservation_id)
+          let _ =
+            supplier_notification.notify_platform_ops(conn, reservation_id)
           let _ =
             commerce_ops_enqueue.enqueue_commerce_ops_jobs(
               conn,

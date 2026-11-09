@@ -2,10 +2,10 @@ import backend/config.{type AppConfig}
 import backend/context.{type Context, Context}
 import envoy
 import gleam/dynamic/decode
-import gleam/int
 import gleam/http
 import gleam/http/request
 import gleam/http/response
+import gleam/int
 import gleam/json
 import gleam/list
 import gleam/otp/actor
@@ -44,9 +44,9 @@ import travel/currency/currency_http
 import travel/db/pool_health
 import travel/db/resilient_pog as db_exec
 import travel/engagement/engagement_http
-import travel/htmx/htmx_router
 import travel/engagement/listing_reports_http
 import travel/engagement/social_proof_http
+import travel/htmx/htmx_router
 import travel/htmx/static_server
 import travel/i18n/i18n_http
 import travel/i18n/localized_routes_http
@@ -116,11 +116,13 @@ pub fn handle_request(req: Request, ctx: Context) -> Response {
   }
   // Global rate limit — /api/* ve /ical/* için IP bazlı
   let path = wisp.path_segments(req)
-  let is_rate_limited_path = rate_limit_enabled && case path {
-    ["api", ..] -> True
-    ["ical", ..] -> True
-    _ -> False
-  }
+  let is_rate_limited_path =
+    rate_limit_enabled
+    && case path {
+      ["api", ..] -> True
+      ["ical", ..] -> True
+      _ -> False
+    }
   let resp = case is_rate_limited_path {
     True -> {
       let ip = global_rate_limit.resolve_ip(req)
@@ -131,10 +133,13 @@ pub fn handle_request(req: Request, ctx: Context) -> Response {
           case global_rate_limit.check(ctx, ip) {
             global_rate_limit.Blocked(secs) -> {
               let body =
-                json.object([#("error", json.string("rate_limit_exceeded")), #("retry_after", json.int(secs))])
+                json.object([
+                  #("error", json.string("rate_limit_exceeded")),
+                  #("retry_after", json.int(secs)),
+                ])
                 |> json.to_string
               wisp.json_response(body, 429)
-                |> response.set_header("retry-after", int.to_string(secs))
+              |> response.set_header("retry-after", int.to_string(secs))
             }
             global_rate_limit.Allowed -> {
               let _ = global_rate_limit.record(ctx, ip)

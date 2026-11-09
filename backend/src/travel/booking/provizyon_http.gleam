@@ -1,4 +1,4 @@
-﻿//// Provizyon (Escrow) Yönetimi — Tedarikçi onayı, eskalasyon, transfer takibi.
+//// Provizyon (Escrow) Yönetimi — Tedarikçi onayı, eskalasyon, transfer takibi.
 ////
 //// Endpoint gruplaması:
 ////   Tedarikçi (token tabanlı, auth gerektirmez):
@@ -17,11 +17,6 @@
 ////     POST /api/v1/admin/provizyon/:id/transfer   — transfer kaydı
 
 import backend/context.{type Context}
-import travel/ai/ops_agent_enqueue
-import travel/booking/commission_accrual_sync as commission_accrual_sync
-import travel/booking/supplier_notification
-import travel/identity/admin_gate
-import travel/identity/permissions
 import gleam/bit_array
 import gleam/dynamic/decode
 import gleam/http
@@ -32,8 +27,13 @@ import gleam/option.{None, Some}
 import gleam/result
 import gleam/string
 import pog
-import travel/db/resilient_pog as db_exec
+import travel/ai/ops_agent_enqueue
+import travel/booking/commission_accrual_sync
+import travel/booking/supplier_notification
 import travel/db/decode_helpers as row_dec
+import travel/db/resilient_pog as db_exec
+import travel/identity/admin_gate
+import travel/identity/permissions
 import wisp.{type Request, type Response}
 
 fn json_err(status: Int, msg: String) -> Response {
@@ -133,7 +133,26 @@ fn provizyon_sql_columns() -> String {
   <> "to_char(r.created_at, 'YYYY-MM-DD\"T\"HH24:MI:SS.MS\"Z\"')"
 }
 
-fn row_to_json(row: #(String, String, String, String, String, String, String, String, String, String, String, String, String, String, String, String)) -> json.Json {
+fn row_to_json(
+  row: #(
+    String,
+    String,
+    String,
+    String,
+    String,
+    String,
+    String,
+    String,
+    String,
+    String,
+    String,
+    String,
+    String,
+    String,
+    String,
+    String,
+  ),
+) -> json.Json {
   let #(
     id,
     public_code,
@@ -175,11 +194,7 @@ fn row_to_json(row: #(String, String, String, String, String, String, String, St
 // ─── TEDARİKÇİ — Token tabanlı ────────────────────────────────────────────────
 
 /// GET /api/v1/provizyon/:token — Tedarikçi rezervasyonu görüntüler
-pub fn get_by_token(
-  req: Request,
-  ctx: Context,
-  token: String,
-) -> Response {
+pub fn get_by_token(req: Request, ctx: Context, token: String) -> Response {
   use <- wisp.require_method(req, http.Get)
   let sql =
     "select "
@@ -215,11 +230,7 @@ fn decode_cancel_body() -> decode.Decoder(String) {
 }
 
 /// POST /api/v1/provizyon/:token/confirm — Tedarikçi onaylar
-pub fn supplier_confirm(
-  req: Request,
-  ctx: Context,
-  token: String,
-) -> Response {
+pub fn supplier_confirm(req: Request, ctx: Context, token: String) -> Response {
   use <- wisp.require_method(req, http.Post)
   case
     db_exec.transaction(ctx.db, fn(conn) {
@@ -274,11 +285,7 @@ pub fn supplier_confirm(
 }
 
 /// POST /api/v1/provizyon/:token/cancel — Tedarikçi reddeder
-pub fn supplier_cancel(
-  req: Request,
-  ctx: Context,
-  token: String,
-) -> Response {
+pub fn supplier_cancel(req: Request, ctx: Context, token: String) -> Response {
   use <- wisp.require_method(req, http.Post)
   let note = case read_body_string(req) {
     Error(_) -> ""
@@ -333,20 +340,34 @@ pub fn supplier_cancel(
   {
     Ok(#(rid, pcode)) -> {
       // Müşteriye iptal bildirimi gönder
-      let _ = supplier_notification.notify_reservation_cancelled_by_supplier(
-        ctx.db, rid, note,
-      )
-      // Operasyon ajanı (sohbet dışı): otomatik özet / alternatif ilan önerisi
       let _ =
-        case ops_agent_enqueue.enqueue_ops_agent_job(ctx, rid, "supplier_cancelled", True) {
-          Ok(_) -> Nil
-          Error(_) -> Nil
-        }
+        supplier_notification.notify_reservation_cancelled_by_supplier(
+          ctx.db,
+          rid,
+          note,
+        )
+      // Operasyon ajanı (sohbet dışı): otomatik özet / alternatif ilan önerisi
+      let _ = case
+        ops_agent_enqueue.enqueue_ops_agent_job(
+          ctx,
+          rid,
+          "supplier_cancelled",
+          True,
+        )
+      {
+        Ok(_) -> Nil
+        Error(_) -> Nil
+      }
       let body =
         json.object([
           #("ok", json.bool(True)),
           #("public_code", json.string(pcode)),
-          #("message", json.string("Rezervasyon reddedildi, müşteri temsilcisi bilgilendirildi.")),
+          #(
+            "message",
+            json.string(
+              "Rezervasyon reddedildi, müşteri temsilcisi bilgilendirildi.",
+            ),
+          ),
         ])
         |> json.to_string
       wisp.json_response(body, 200)
@@ -409,8 +430,8 @@ pub fn admin_list(req: Request, ctx: Context) -> Response {
     Error(_) -> ""
   }
   let allowed_statuses = [
-    "held", "pending_confirm", "supplier_notified", "confirmed",
-    "cancelled", "completed", "failed", "refunded",
+    "held", "pending_confirm", "supplier_notified", "confirmed", "cancelled",
+    "completed", "failed", "refunded",
   ]
   case status_filter != "" && !list.contains(allowed_statuses, status_filter) {
     True -> json_err(400, "invalid_status_filter")
@@ -435,7 +456,10 @@ fn admin_list_query(ctx: Context, status_filter: String) -> Response {
       |> pog.returning(provizyon_row())
       |> db_exec.execute(ctx.db)
     False ->
-      pog.query(base <> " where r.payment_status = $1 order by r.created_at desc limit 200")
+      pog.query(
+        base
+        <> " where r.payment_status = $1 order by r.created_at desc limit 200",
+      )
       |> pog.parameter(pog.text(status_filter))
       |> pog.returning(provizyon_row())
       |> db_exec.execute(ctx.db)
@@ -496,23 +520,26 @@ pub fn admin_check_deadlines(req: Request, ctx: Context) -> Response {
                 |> pog.parameter(pog.text(rid))
                 |> pog.execute(conn)
               // Tedarikçiye son uyarı gönder
-              let _ = supplier_notification.notify_supplier_deadline_warning(ctx.db, rid)
+              let _ =
+                supplier_notification.notify_supplier_deadline_warning(
+                  ctx.db,
+                  rid,
+                )
               Ok(pcode)
             })
           {
             Ok(pc) -> {
-              let _ =
-                case
-                  ops_agent_enqueue.enqueue_ops_agent_job(
-                    ctx,
-                    rid,
-                    "supplier_no_confirm_deadline",
-                    True,
-                  )
-                {
-                  Ok(_) -> Nil
-                  Error(_) -> Nil
-                }
+              let _ = case
+                ops_agent_enqueue.enqueue_ops_agent_job(
+                  ctx,
+                  rid,
+                  "supplier_no_confirm_deadline",
+                  True,
+                )
+              {
+                Ok(_) -> Nil
+                Error(_) -> Nil
+              }
               Ok(pc)
             }
             Error(_) -> Error(Nil)
@@ -588,8 +615,16 @@ pub fn admin_list_escalations(req: Request, ctx: Context) -> Response {
     Ok(ret) -> {
       let arr =
         list.map(ret.rows, fn(row) {
-          let #(id, res_id, public_code, reason, status, assigned_to, listing_title, escalated_at) =
-            row
+          let #(
+            id,
+            res_id,
+            public_code,
+            reason,
+            status,
+            assigned_to,
+            listing_title,
+            escalated_at,
+          ) = row
           json.object([
             #("id", json.string(id)),
             #("reservation_id", json.string(res_id)),
@@ -764,7 +799,14 @@ pub fn admin_complete_transfer(
   let ref = case read_body_string(req) {
     Error(_) -> ""
     Ok(body) ->
-      case json.parse(body, decode.optional_field("reference", "", decode.string, fn(r) { decode.success(r) })) {
+      case
+        json.parse(
+          body,
+          decode.optional_field("reference", "", decode.string, fn(r) {
+            decode.success(r)
+          }),
+        )
+      {
         Ok(r) -> string.trim(r)
         Error(_) -> ""
       }

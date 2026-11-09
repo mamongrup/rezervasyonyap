@@ -27,15 +27,16 @@ fn token_request_url(cfg: WtatilConfig) -> String {
 }
 
 fn token_from_raw(raw: String) -> Result(#(String, String), Nil) {
-  let nested = decode.field(
-    "data",
-    decode.field("token", decode.string, fn(token) {
-      decode.field("expireDate", decode.string, fn(exp) {
-        decode.success(#(token, exp))
-      })
-    }),
-    fn(pair) { decode.success(pair) },
-  )
+  let nested =
+    decode.field(
+      "data",
+      decode.field("token", decode.string, fn(token) {
+        decode.field("expireDate", decode.string, fn(exp) {
+          decode.success(#(token, exp))
+        })
+      }),
+      fn(pair) { decode.success(pair) },
+    )
   case json.parse(raw, nested) {
     Ok(#(t, exp)) ->
       case string.trim(t) {
@@ -58,7 +59,9 @@ fn error_message_from_raw(raw: String) -> String {
 }
 
 fn response_status_bad(raw: String) -> Bool {
-  case json.parse(raw, decode.field("responseStatus", decode.int, decode.success)) {
+  case
+    json.parse(raw, decode.field("responseStatus", decode.int, decode.success))
+  {
     Ok(2) | Ok(3) -> True
     _ -> False
   }
@@ -78,7 +81,11 @@ pub fn fetch_token(cfg: WtatilConfig) -> Result(TokenResult, String) {
               case token_from_raw(raw) {
                 Error(Nil) -> Error("wtatil_token_missing")
                 Ok(#(token, exp)) ->
-                  Ok(TokenResult(token: token, expire_date: exp, raw_response: raw))
+                  Ok(TokenResult(
+                    token: token,
+                    expire_date: exp,
+                    raw_response: raw,
+                  ))
               }
           }
         }

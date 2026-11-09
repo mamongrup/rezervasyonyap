@@ -1,7 +1,6 @@
 //// Sınırsız dil — locale ve çeviri anahtarları (030_i18n).
 
 import backend/context.{type Context}
-import travel/identity/permissions as permissions
 import gleam/bit_array
 import gleam/dict.{type Dict}
 import gleam/dynamic/decode
@@ -12,8 +11,9 @@ import gleam/list
 import gleam/result
 import gleam/string
 import pog
-import travel/db/resilient_pog as db_exec
 import travel/db/decode_helpers as row_dec
+import travel/db/resilient_pog as db_exec
+import travel/identity/permissions
 import wisp.{type Request, type Response}
 
 fn json_err(status: Int, msg: String) -> Response {
@@ -28,7 +28,10 @@ fn read_body_string(req: Request) -> Result(String, Nil) {
   bit_array.to_string(bits)
 }
 
-fn require_admin_users_read(req: Request, ctx: Context) -> Result(String, Response) {
+fn require_admin_users_read(
+  req: Request,
+  ctx: Context,
+) -> Result(String, Response) {
   case permissions.session_user_from_request(req, ctx.db) {
     Error(r) -> Error(r)
     Ok(uid) ->
@@ -195,10 +198,7 @@ pub fn get_bundle(req: Request, ctx: Context) -> Response {
           let body =
             json.object([
               #("locale", json.string(locale)),
-              #(
-                "namespaces",
-                json.object(namespaces),
-              ),
+              #("namespaces", json.object(namespaces)),
             ])
             |> json.to_string
           wisp.json_response(body, 200)
@@ -274,15 +274,13 @@ pub fn upsert_translation(req: Request, ctx: Context) -> Response {
                                     |> pog.returning(row_dec.col0_string())
                                     |> db_exec.execute(ctx.db)
                                   {
-                                    Error(_) -> json_err(500, "translation_value_failed")
+                                    Error(_) ->
+                                      json_err(500, "translation_value_failed")
                                     Ok(_) -> {
                                       let out =
                                         json.object([
                                           #("ok", json.bool(True)),
-                                          #(
-                                            "namespace",
-                                            json.string(namespace),
-                                          ),
+                                          #("namespace", json.string(namespace)),
                                           #("key", json.string(key_trim)),
                                           #("locale", json.string(locale)),
                                         ])
@@ -307,7 +305,9 @@ pub fn upsert_translation(req: Request, ctx: Context) -> Response {
 }
 
 fn create_namespace_decoder() -> decode.Decoder(String) {
-  decode.field("code", decode.string, fn(code) { decode.success(string.trim(code)) })
+  decode.field("code", decode.string, fn(code) {
+    decode.success(string.trim(code))
+  })
 }
 
 /// POST /api/v1/i18n/namespaces — yeni çeviri ad alanı (yönetici).

@@ -36,7 +36,13 @@ fn post_resend(
       #("subject", json.string(subject)),
       #("text", json.string(text_body)),
     ])
-  case http_client.post_json("https://api.resend.com/emails", json.to_string(payload), auth) {
+  case
+    http_client.post_json(
+      "https://api.resend.com/emails",
+      json.to_string(payload),
+      auth,
+    )
+  {
     Ok(_) -> Nil
     Error(e) -> log_err("Resend API failed: ", e)
   }
@@ -86,7 +92,13 @@ pub fn agency_invoice_created(
     None -> Nil
   }
   let subj =
-    string.concat(["Acente faturası: ", invoice_number, " (", currency_code, ")"])
+    string.concat([
+      "Acente faturası: ",
+      invoice_number,
+      " (",
+      currency_code,
+      ")",
+    ])
   let txt =
     string.concat([
       "Acente komisyon faturası oluşturuldu.\n",
@@ -145,7 +157,13 @@ pub fn supplier_invoice_created(
     None -> Nil
   }
   let subj =
-    string.concat(["Tedarikçi faturası: ", invoice_number, " (", currency_code, ")"])
+    string.concat([
+      "Tedarikçi faturası: ",
+      invoice_number,
+      " (",
+      currency_code,
+      ")",
+    ])
   let txt =
     string.concat([
       "Tedarikçi komisyon faturası oluşturuldu.\n",
