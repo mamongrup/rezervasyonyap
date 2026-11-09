@@ -32,3 +32,16 @@ pub fn callback_hash_is_deterministic_test() {
     )
   one |> should.equal(two)
 }
+
+pub fn callback_hash_uses_standard_padded_base64_test() {
+  // Param's callback contract uses SHA1 and Convert.ToBase64String:
+  // https://dev.param.com.tr/tr/api/on-provizyon
+  parampos.callback_hash(
+    "0C13D406-873B-403B-9C09-A5766840D98C",
+    "tx",
+    "md",
+    "1",
+    "order",
+  )
+  |> should.equal("jEq9EOYtoCj7tePEYyIeU7mvLsw=")
+}

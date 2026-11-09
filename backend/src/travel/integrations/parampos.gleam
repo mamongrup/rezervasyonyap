@@ -108,7 +108,7 @@ fn int_parse(v: String) -> Int {
 pub fn sha2b64(value: String) -> String {
   // Param'ın SHA2B64 adıyla yayımladığı servis, resmî TP_WMD_UCD test
   // vektöründe SHA-1 + Base64 üretir (RVn2aKnW...). Uyumluluk için aynısı.
-  crypto.hash(crypto.Sha1, <<value:utf8>>) |> bit_array.base64_encode(False)
+  crypto.hash(crypto.Sha1, <<value:utf8>>) |> bit_array.base64_encode(True)
 }
 
 pub fn callback_hash(
@@ -120,7 +120,7 @@ pub fn callback_hash(
 ) -> String {
   let data =
     transaction_guid <> md <> md_status <> order_id <> string.lowercase(guid)
-  crypto.hash(crypto.Sha1, <<data:utf8>>) |> bit_array.base64_encode(False)
+  crypto.hash(crypto.Sha1, <<data:utf8>>) |> bit_array.base64_encode(True)
 }
 
 pub fn start(c: Config, i: StartInput) -> Result(StartResult, String) {
